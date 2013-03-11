@@ -2,7 +2,7 @@
 """
 Created on Mar 11, 2013
 
-Entry point
+Entry point.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
