@@ -22,8 +22,14 @@ class PrimitiveFilter(GeneralFilter):
         super().__init__()
 
 
-class FilterExists(Exception):
-    """Exception, raised when filter exists in the container.
+class ErrExists(Exception):
+    """Exception, raised when something already exists in the set.
+    """
+    pass
+
+
+class ErrNotExists(Exception):
+    """Exception, raised when something does not exist in the set.
     """
     pass
 
@@ -33,14 +39,12 @@ class ContainerFilter(GeneralFilter):
     
     Attributes:
         filters: set of filters in the container.
+        links: dictionary of sets of filters
     """
     def __init__(self):
         super().__init__()
         self.filters = set()
-    
-    def check_exists(self, f):
-        if f in self.filters:
-            raise FilterExists
+        self.links = {}
     
     def add(self, f):
         """Adds filter to the container.
@@ -52,11 +56,34 @@ class ContainerFilter(GeneralFilter):
             f.
         
         Raises:
-            FilterExists.
+            ErrExists.
         """
-        self.check_exists(f)
+        if f in self.filters:
+            raise ErrExists
         self.filters.add(f)
         return f
+
+    def link(self, src, dst):
+        """Links to filters
+        
+        Args:
+            src: source filter
+            dst: destination filter
+        
+        Returns:
+            dst.
+        
+        Raises:
+            ErrNotExists
+            ErrExists
+        """
+        if (src not in self.filters) or (dst not in self.filters):
+            raise ErrNotExists
+        if src not in self.links:
+            self.links[src] = set()
+        if dst in self.links[src]:
+            raise ErrExists;
+        self.links[src].add(dst)
 
 
 class All2AllFilter(PrimitiveFilter):
