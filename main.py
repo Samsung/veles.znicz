@@ -10,7 +10,12 @@ import filters
 
 
 def main():
-    f = filters.All2AllFilter()
+    f = filters.ContainerFilter()
+    aa = f.add(filters.All2AllFilter()) 
+    try:
+        f.add(aa)
+    except filters.FilterExists:
+        print("Filter already exists")
     print(f.__doc__)
     print("End of job")
 
