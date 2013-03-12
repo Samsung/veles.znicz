@@ -5,21 +5,21 @@ Filters in data stream neural network model.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-from numpy import *
+import numpy
 
 
 class GeneralFilter(object):
     """General filter in data stream neural network model.
     """
     def __init__(self):
-        super().__init__()
+        super(GeneralFilter, self).__init__()
 
 
 class PrimitiveFilter(GeneralFilter):
     """Filter that cannot contain other filters.
     """
     def __init__(self):
-        super().__init__()
+        super(PrimitiveFilter, self).__init__()
 
 
 class ErrExists(Exception):
@@ -36,43 +36,43 @@ class ErrNotExists(Exception):
 
 class ContainerFilter(GeneralFilter):
     """Filter that contains other filters.
-    
+
     Attributes:
         filters: set of filters in the container.
         links: dictionary of sets of filters
     """
     def __init__(self):
-        super().__init__()
+        super(ContainerFilter, self).__init__()
         self.filters = set()
         self.links = {}
-    
-    def add(self, f):
+
+    def add(self, flt):
         """Adds filter to the container.
-        
+
         Args:
             f: filter to add.
-        
+
         Returns:
             f.
-        
+
         Raises:
             ErrExists.
         """
-        if f in self.filters:
+        if flt in self.filters:
             raise ErrExists
-        self.filters.add(f)
-        return f
+        self.filters.add(flt)
+        return flt
 
     def link(self, src, dst):
         """Links to filters
-        
+
         Args:
             src: source filter
             dst: destination filter
-        
+
         Returns:
             dst.
-        
+
         Raises:
             ErrNotExists
             ErrExists
@@ -82,16 +82,16 @@ class ContainerFilter(GeneralFilter):
         if src not in self.links:
             self.links[src] = set()
         if dst in self.links[src]:
-            raise ErrExists;
+            raise ErrExists
         self.links[src].add(dst)
 
 
 class All2AllFilter(PrimitiveFilter):
     """Classical MLP layer to layer connection.
-    
+
     Attributes:
         weights: matrix of weights.
     """
     def __init__(self):
-        super().__init__()
-        self.weights = empty((1), dtype=float32)
+        super(All2AllFilter, self).__init__()
+        self.weights = numpy.empty((1), dtype=numpy.float32)

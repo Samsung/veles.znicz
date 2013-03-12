@@ -14,10 +14,10 @@ def main():
     logging.debug("Entered")
     f = filters.ContainerFilter()
     aa = f.add(filters.All2AllFilter())
-    bb = f.add(filters.All2AllFilter()) 
+    bb = f.add(filters.All2AllFilter())
     f.link(aa, bb)
     try:
-        f.link(aa, bb) # Exception
+        f.link(aa, bb)  # Exception
     except filters.ErrExists:
         print("Exception: link already exists")
     print(f.__doc__)
