@@ -6,12 +6,12 @@ Entry point.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import layer
+import filters
 
 
 def main():
-    l = layer.Layer()
-    print(l.__doc__)
+    f = filters.All2AllFilter()
+    print(f.__doc__)
     print("End of job")
 
 
