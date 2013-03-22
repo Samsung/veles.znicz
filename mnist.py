@@ -6,10 +6,11 @@ File for MNIST dataset.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
-import data_batch
 import struct
 import error
 import pickle
+import numpy
+import data_batch
 
 
 class MNISTLoader(filters.GeneralFilter):
@@ -18,7 +19,7 @@ class MNISTLoader(filters.GeneralFilter):
     def load_original(self):
         """Loads data from original MNIST files
         """
-        print("One time slow reading and preprocessing of original MNIST data...")
+        print("One time relatively slow load from original MNIST files...")
         
         # Reading labels:
         fin = open("MNIST/train-labels.idx1-ubyte", "rb")
@@ -50,45 +51,35 @@ class MNISTLoader(filters.GeneralFilter):
 
         n_rows, n_cols = struct.unpack(">2i", fin.read(8))
         if n_rows != 28 or n_cols != 28:
-            raise error.ErrBadFormat("Wrong images size in train-images")
+            raise error.ErrBadFormat("Wrong images size in train-images, should be 28*28")
 
-        data = fin.read(n_images * n_rows * n_cols)  # 0 - white, 255 - black
-        if len(data) != n_images * n_rows * n_cols:
+        # 0 - white, 255 - black
+        pixels = numpy.fromfile(fin, numpy.ubyte, n_images * n_rows * n_cols);
+        if pixels.shape[0] != n_images * n_rows * n_cols:
             raise error.ErrBadFormat("EOF reached while reading images from train-images")
 
         fin.close()
 
-        # Transforming images into float arrays 32*32 (place in the center and normalize):
-        self.output = data_batch.DataBatch2D(n_images, 32, 32, labels)
-        
-        # This works really slow (mostly due to the data type conversion between python and numpy)
-        offs = 0
-        for i_image in range(0, n_images - 1):
-            min_vle = 1.0e30
-            max_vle = -1.0e30
-            for i_row in range(1, n_rows):
-                for i_col in range(1, n_cols):
-                    vle = (1.0 / 255.0) * data[offs]
-                    if vle < min_vle:
-                        min_vle = vle
-                    if vle > max_vle:
-                        max_vle = vle
-                    self.output.data[i_image, i_row, i_col] = vle
-                    offs += 1
-            if min_vle != 0.0 or max_vle != 1.0:
-                for i_row in range(1, n_rows):
-                    for i_col in range(1, n_cols):
-                        vle = self.output.data[i_image, i_row, i_col]
-                        self.output.data[i_image, i_row, i_col] = (vle - min_vle) / (max_vle - min_vle)
+        # Transforming images into float arrays and normalizing to [-1, 1]:
+        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
+        print("Original range: [%.1f, %.1f]" % (images.min(), images.max()))
+        for image in images:
+            vle_min = image.min()
+            vle_max = image.max()
+            image += -vle_min
+            image *= 2.0 / (vle_max - vle_min)
+            image += -1.0
+        print("Range after normalization: [%.1f, %.1f]" % (images.min(), images.max()))
+        self.output = data_batch.DataBatch(images, labels)
         print("Done")
-        
-        print("Saving data to cache for later fast load...")
+
+        print("Saving to cache for later faster load...")
         fout = open("MNIST/train.pickle", "wb")
         pickle.dump(self.output, fout)
         fout.close()
         print("Done")
-        
-        
+
+
     def input_changed(self, src):
         """GeneralFilter method.
         

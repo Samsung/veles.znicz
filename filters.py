@@ -5,62 +5,97 @@ Filters in data stream neural network model.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import os
+import sys
+import pickle
+import error
 import numpy
+
+
+class OutputData(object):
+    """Output data
+    
+    Attributes:
+        mtime: timestamp of the last modification (some integer)
+    """
+    def __init__(self):
+        super(OutputData, self).__init__()
+        self.mtime = 0
 
 
 class GeneralFilter(object):
     """General filter in data stream neural network model.
+
+    Attributes:
+        output: OutputData of the filter.
+        parent: parent filter for output_changed() notification.
+        random_state: state of the numpy random
     """
-    def __init__(self):
+    def __init__(self, parent = None):
         super(GeneralFilter, self).__init__()
+        self.output = OutputData()
+        self.parent = parent
+        self.random_state = ()
 
+    def snapshot(self, file, wait_for_completion = 1, save_random_state = 1):
+        """Makes snapshot to the file.
+        """
+        pid = os.fork()
+        if pid:
+            if wait_for_completion:
+                os.waitpid(pid, 0)
+            return
+        if save_random_state:
+            self.random_state = numpy.random.get_state()
+        pickle.dump(self, file)
+        sys.exit()
 
-class PrimitiveFilter(GeneralFilter):
-    """Filter that cannot contain other filters.
-    """
-    def __init__(self):
-        super(PrimitiveFilter, self).__init__()
+    def restore(self):
+        """Initialize an object after restoring from snapshot
+        """
+        if self.random_state:
+            numpy.random.set_state(self.random_state)
 
+    def input_changed(self, src):
+        """Callback, fired when output data of the src, connected to current filter, changes.
+        """
+        pass
 
-class ErrExists(Exception):
-    """Exception, raised when something already exists in the set.
-    """
-    pass
-
-
-class ErrNotExists(Exception):
-    """Exception, raised when something does not exist in the set.
-    """
-    pass
+    def output_changed(self, src):
+        """Callback, fired on parent when output data of the src changes.
+        
+        input_changed() should be called on all filters, connected to src.
+        """
+        pass
 
 
 class ContainerFilter(GeneralFilter):
     """Filter that contains other filters.
 
     Attributes:
-        filters: set of filters in the container.
-        links: dictionary of sets of filters
+        filters: dictionary of filters in the container.
+        links: dictionary of links between filters.
     """
     def __init__(self):
         super(ContainerFilter, self).__init__()
-        self.filters = set()
+        self.filters = {}
         self.links = {}
 
     def add(self, flt):
         """Adds filter to the container.
 
         Args:
-            f: filter to add.
+            flt: filter to add.
 
         Returns:
-            f.
+            flt.
 
         Raises:
             ErrExists.
         """
         if flt in self.filters:
-            raise ErrExists
-        self.filters.add(flt)
+            raise error.ErrExists()
+        self.filters[flt] = 1
         return flt
 
     def link(self, src, dst):
@@ -78,20 +113,20 @@ class ContainerFilter(GeneralFilter):
             ErrExists
         """
         if (src not in self.filters) or (dst not in self.filters):
-            raise ErrNotExists
+            raise error.ErrNotExists()
         if src not in self.links:
-            self.links[src] = set()
+            self.links[src] = {}
         if dst in self.links[src]:
-            raise ErrExists
-        self.links[src].add(dst)
+            raise error.ErrExists()
+        self.links[src][dst] = 1
+        return dst
 
-
-class All2AllFilter(PrimitiveFilter):
-    """Classical MLP layer to layer connection.
-
-    Attributes:
-        weights: matrix of weights.
-    """
-    def __init__(self):
-        super(All2AllFilter, self).__init__()
-        self.weights = numpy.empty((1), dtype=numpy.float32)
+    def output_changed(self, src):
+        """GeneralFilter method.
+        """
+        if src not in self.filters:
+            raise error.ErrNotExists()
+        if src not in self.links:
+            return
+        for dst in self.links[src].keys():
+            dst.input_changed(src)
