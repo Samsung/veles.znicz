@@ -43,9 +43,8 @@ class All2All(filters.GeneralFilter):
             self.bias *= 2.0 * self.weights_amplitude
             self.bias -= self.weights_amplitude
 
-        """TODO(a.kazantsev): where to put OpenCL handle?
-        creating it every time is slow
-        """
+        #TODO(a.kazantsev): Check src.output for OpenCL objects and use them if it has any.
+        
 
         #TODO(a.kazantsev): notify parent on completion (OpenCL event)
         #if self.parent:

@@ -7,8 +7,10 @@
 	One of matrices is transposed, so we should perform row x row multiplication.
 	We are calculating values for block of matrix C for each workgroup.
 	
+	Example:
 	[16][1024] * [2048][1024] = [16][2048]
 	size_t WorkSize[2] = {2048, 16}
+	size_t LocalSize[2] = {BLOCK_SIZE, BLOCK_SIZE}
 */
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void FEED_LAYER(__global float *A, __global float *B, __global float *C, __global float *bias_weights)
