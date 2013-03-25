@@ -42,12 +42,14 @@ class OpenCL(filters.SmartPickling):
     Attributes:
         devices: dictionary of Device objects where key is device "GUID".
         free_devices: devices marked as free and sorted in rating order.
+        events_: dictionary of the queued events.
     """
     def __init__(self, unpickling = 0):
         super(OpenCL, self).__init__(unpickling)
         # reinit all anyway
         self.devices = {}
         self.free_devices = []
+        self.events_ = {}
         self._restore()
 
     def get_free_device(self):
@@ -234,3 +236,25 @@ class OpenCL(filters.SmartPickling):
         cl.enqueue_nd_range_kernel(queue, krn, global_size, local_size)
 
         cl.enqueue_copy(queue, self.c, c_buf)
+
+    def add_event(self, event):
+        """Adds event to the queue
+        """
+        self.events_[event] = 1
+
+    def check_for_event(self):
+        """Gets event from the queue that is ready
+        """
+        if not self.events_:
+            return None
+        for event in self.events_.keys():
+            stt = event.command_execution_status
+            if stt <= 0:
+                del(self.events_[event])
+                if stt < 0:
+                    raise error.ErrOpenCL(event)
+                return event
+        return None
+
+    def handle_event(self, event):
+        return event.callback(*event.callback_args)

@@ -89,6 +89,11 @@ class All2All(filters.GeneralFilter):
             return self.feed_from_batch(src)
         return 
 
+    def feed_from_batch_ready(self):
+        """When OpenCL event ready.
+        """
+        print("TODO(a.kazantsev): implement All2All::feed_from_batch_ready().")
+
 
 class All2AllTanh(All2All):
     """All2All layer to layer with scaled tanh() activation
@@ -97,6 +102,7 @@ class All2AllTanh(All2All):
                  output_layer_size = 0, weights_amplitude = 0.05, rand = numpy.random.rand):
         super(All2AllTanh, self).__init__(unpickling, parent, output_layer_size, weights_amplitude, rand)
         self.krn_ = None
+        self.queue_ = None
         if unpickling:
             return
 
@@ -127,12 +133,17 @@ class All2AllTanh(All2All):
             self.krn_.set_arg(2, self.output.data_)
             self.krn_.set_arg(3, self.bias_)
 
-        queue = cl.CommandQueue(dev.context_)
+        if not self.queue_:
+            self.queue_ = cl.CommandQueue(dev.context_)
+
         global_size = [self.output_layer_size, self.output.data.shape[0]]
         local_size = [self.BLOCK_SIZE, self.BLOCK_SIZE]
-        cl.enqueue_nd_range_kernel(queue, self.krn_, global_size, local_size)
+        event = cl.enqueue_nd_range_kernel(self.queue_, self.krn_, global_size, local_size)
+        event.callback = self.feed_from_batch_ready
+        event.callback_args = ()
 
-        #TODO(a.kazantsev): make it async.
-        print("enqueue_copy()...")
-        cl.enqueue_copy(queue, self.output.data, self.output.data_)
-        print("Done")
+        #print("enqueue_copy()...")
+        #event = cl.enqueue_copy(queue, self.output.data, self.output.data_, is_blocking=False)
+        #print("Done")
+        
+        self.parent.cl.add_event(event)

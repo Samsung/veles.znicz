@@ -24,6 +24,8 @@ class PickleTest(filters.SmartPickling):
         global g_pt
         g_pt += 1
         super(PickleTest, self).__init__(unpickling)
+        if unpickling:
+            return
         self.a = a
         self.b = b
         self.c = c
@@ -35,6 +37,7 @@ def main():
     if g_pt != 1:
         raise Exception("Pickle test failed.")
     pt.d = "D"
+    pt.h_ = "HH"
     fout = open("cache/test", "wb")
     pickle.dump(pt, fout)
     fout.close()
@@ -46,6 +49,11 @@ def main():
         raise Exception("Pickle test failed.")
     if pt.d != "D" or pt.c != "CC" or pt.b != "B" or pt.a != "AA":
         raise Exception("Pickle test failed.")
+    try:
+        print("SHOULD_NOT_SEE(Unpickling attribute): " + pt.h_)
+        raise Exception("Pickle test failed.")
+    except AttributeError:
+        pass
     del(pt)
 
     # Main program
@@ -66,6 +74,16 @@ def main():
 
     # Start the process:
     m.input_changed(None)
+
+    # Event queue
+    #FIXME(a.kazantsev): only active wait available in case of multiple events,
+    # we may spawn thread for each event, but that will be overkill (driver can use active wait anyway).
+    while True:
+        event = c.cl.check_for_event()
+        if not event:
+            continue
+        c.cl.handle_event(event)
+        break
 
     print()
     print("Snapshotting...")
