@@ -244,9 +244,12 @@ class OpenCL(filters.SmartPickling):
 
     def check_for_event(self):
         """Gets event from the queue that is ready
+        
+        Raises:
+            ErrNotExists.
         """
         if not self.events_:
-            return None
+            raise error.ErrNotExists
         for event in self.events_.keys():
             stt = event.command_execution_status
             if stt <= 0:

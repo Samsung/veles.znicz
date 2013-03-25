@@ -14,6 +14,7 @@ import all2all
 import numpy
 import opencl
 import pickle
+import error
 
 
 g_pt = 0
@@ -76,14 +77,16 @@ def main():
     m.input_changed(None)
 
     # Event queue
-    #FIXME(a.kazantsev): only active wait available in case of multiple events,
+    #FIXME(a.kazantsev): only active wait available in case of multiple OpenCL events,
     # we may spawn thread for each event, but that will be overkill (driver can use active wait anyway).
     while True:
-        event = c.cl.check_for_event()
+        try:
+            event = c.cl.check_for_event()
+        except error.ErrNotExists:
+            break
         if not event:
             continue
         c.cl.handle_event(event)
-        break
 
     print()
     print("Snapshotting...")
