@@ -107,7 +107,8 @@ class All2AllTanh(All2All):
 
         dev = self.output.device
         if not self.krn_:
-            defines = ("#define BLOCK_SIZE %d\n"
+            defines = ("#define FEED_LAYER feed_layer_tanh\n"
+                       "#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
                        (self.BLOCK_SIZE, self.weights.size // self.output_layer_size, self.output_layer_size)
@@ -120,7 +121,7 @@ class All2AllTanh(All2All):
 
             prg = cl.Program(dev.context_, s).build()
 
-            self.krn_ = cl.Kernel(prg, "FEED_LAYER")
+            self.krn_ = cl.Kernel(prg, "feed_layer_tanh")
             self.krn_.set_arg(0, src.output.data_)
             self.krn_.set_arg(1, self.weights_)
             self.krn_.set_arg(2, self.output.data_)
