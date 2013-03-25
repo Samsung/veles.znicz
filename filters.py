@@ -12,29 +12,66 @@ import error
 import numpy
 
 
-class OutputData(object):
+class SmartPickling(object):
+    """Will not pickle attributes ending with _
+    """
+    def __init__(self, unpickling = 0):
+        """Constructor will have one additional argument.
+        """
+        pass
+
+    def __getstate__(self):
+        """What to pickle.
+        """
+        state = {}
+        for k, v in self.__dict__.items():
+            if k[len(k) - 1] != "_":
+                state[k] = v
+        return state
+
+    def __getnewargs__(self):
+        """How to call __init__() after unpickling.
+        """
+        return (1,)
+
+    def __new__(cls, *args, **kwargs):
+        """Had to rewrite 'cause python does not call __init__() when unserializing.
+        """
+        obj = super(SmartPickling, cls).__new__(cls, *args, **kwargs)
+        if args and args[0] and obj:
+            obj.__init__(*args, **kwargs)
+        return obj
+
+
+class OutputData(SmartPickling):
     """Output data
     
     Attributes:
-        mtime: timestamp of the last modification (some integer)
+        mtime: timestamp of the last modification
     """
-    def __init__(self):
-        super(OutputData, self).__init__()
-        self.mtime = 0
+    def __init__(self, unpickling = 0):
+        super(OutputData, self).__init__(unpickling)
+        if unpickling:
+            return
+        self.mtime = 0.0
 
 
-class GeneralFilter(object):
+class GeneralFilter(SmartPickling):
     """General filter in data stream neural network model.
 
     Attributes:
-        output: OutputData of the filter.
         parent: parent filter for output_changed() notification.
-        random_state: state of the numpy random
+        output: OutputData of the filter.
+        random_state: state of the numpy random.
     """
-    def __init__(self, parent = None):
-        super(GeneralFilter, self).__init__()
-        self.output = OutputData()
+    def __init__(self, unpickling = 0, parent = None):
+        super(GeneralFilter, self).__init__(unpickling)
+        if unpickling:
+            if self.random_state:
+                numpy.random.set_state(self.random_state)
+            return
         self.parent = parent
+        self.output = None
         self.random_state = ()
 
     def snapshot(self, file, wait_for_completion = 1, save_random_state = 1):
@@ -49,12 +86,6 @@ class GeneralFilter(object):
             self.random_state = numpy.random.get_state()
         pickle.dump(self, file)
         sys.exit()
-
-    def restore(self):
-        """Initialize an object after restoring from snapshot
-        """
-        if self.random_state:
-            numpy.random.set_state(self.random_state)
 
     def input_changed(self, src):
         """Callback, fired when output data of the src, connected to current filter, changes.
@@ -76,8 +107,10 @@ class ContainerFilter(GeneralFilter):
         filters: dictionary of filters in the container.
         links: dictionary of links between filters.
     """
-    def __init__(self):
-        super(ContainerFilter, self).__init__()
+    def __init__(self, unpickling = 0):
+        super(ContainerFilter, self).__init__(unpickling)
+        if unpickling:
+            return
         self.filters = {}
         self.links = {}
 

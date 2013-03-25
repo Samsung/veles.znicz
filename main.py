@@ -21,11 +21,11 @@ def main():
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
 
     c = filters.ContainerFilter()
-    c.cl = opencl.OpenCL() 
-    m = mnist.MNISTLoader(c)
+    c.cl = opencl.OpenCL()
+    m = mnist.MNISTLoader(parent=c)
     c.add(m)
 
-    aa = all2all.All2All(c, 1024)
+    aa = all2all.All2AllTanh(parent=c, output_layer_size=1024)
     c.add(aa)
     c.link(m, aa)
 
@@ -36,7 +36,7 @@ def main():
 
     print()
     print("Snapshotting...")
-    fout = open("snapshot.pickle", "wb")
+    fout = open("cache/snapshot.pickle", "wb")
     c.snapshot(fout)
     fout.close()
     print("Done")

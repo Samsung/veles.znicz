@@ -11,6 +11,7 @@ import error
 import pickle
 import numpy
 import data_batch
+import time
 
 
 class MNISTLoader(filters.GeneralFilter):
@@ -70,11 +71,11 @@ class MNISTLoader(filters.GeneralFilter):
             image *= 2.0 / (vle_max - vle_min)
             image += -1.0
         print("Range after normalization: [%.1f, %.1f]" % (images.min(), images.max()))
-        self.output = data_batch.DataBatch(images, labels)
+        self.output = data_batch.DataBatch(data=images, labels=labels)
         print("Done")
 
         print("Saving to cache for later faster load...")
-        fout = open("MNIST/train.pickle", "wb")
+        fout = open("cache/MNIST-train.pickle", "wb")
         pickle.dump(self.output, fout)
         fout.close()
         print("Done")
@@ -86,11 +87,11 @@ class MNISTLoader(filters.GeneralFilter):
         Here we will load MNIST data.
         """
         try:
-            fin = open("MNIST/train.pickle", "rb")
+            fin = open("cache/MNIST-train.pickle", "rb")
             self.output = pickle.load(fin)
             fin.close()
         except IOError:
             self.load_original()
-        self.output.mtime += 1
+        self.output.mtime = time.time()
         if self.parent:
             self.parent.output_changed(self)
