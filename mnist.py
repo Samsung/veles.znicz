@@ -11,7 +11,6 @@ import error
 import pickle
 import numpy
 import data_batch
-import time
 
 
 class MNISTLoader(filters.GeneralFilter):
@@ -92,6 +91,6 @@ class MNISTLoader(filters.GeneralFilter):
             fin.close()
         except IOError:
             self.load_original()
-        self.output.mtime = time.time()
+        self.output.update_mtime() 
         if self.parent:
             self.parent.output_changed(self)

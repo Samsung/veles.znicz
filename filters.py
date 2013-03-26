@@ -10,6 +10,7 @@ import sys
 import pickle
 import error
 import numpy
+import time
 
 
 class SmartPickling(object):
@@ -54,6 +55,16 @@ class OutputData(SmartPickling):
         if unpickling:
             return
         self.mtime = 0.0
+
+    def update_mtime(self):
+        mtime = time.time()
+        if mtime <= self.mtime:
+            dt = 0.000001
+            mtime = self.mtime + dt
+            while mtime <= self.mtime:
+                mtime += dt
+                dt += dt
+        self.mtime = mtime
 
 
 class GeneralFilter(SmartPickling):

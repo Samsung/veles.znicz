@@ -7,7 +7,6 @@ import filters
 import numpy
 import pyopencl as cl
 import data_batch
-import time
 
 
 class All2All(filters.GeneralFilter):
@@ -92,7 +91,11 @@ class All2All(filters.GeneralFilter):
     def feed_from_batch_ready(self):
         """When OpenCL event ready.
         """
-        print("TODO(a.kazantsev): implement All2All::feed_from_batch_ready().")
+        self.output.update_mtime()
+        print("Processed %d samples with %d weights within %.2f seconds: %s" % \
+              (self.output.data.shape[0], self.weights.size, self.output.mtime - self.mtime, self.__class__.__name__))
+        if self.parent:
+            self.parent.output_changed(self)
 
 
 class All2AllTanh(All2All):
@@ -102,7 +105,6 @@ class All2AllTanh(All2All):
                  output_layer_size = 0, weights_amplitude = 0.05, rand = numpy.random.rand):
         super(All2AllTanh, self).__init__(unpickling, parent, output_layer_size, weights_amplitude, rand)
         self.krn_ = None
-        self.queue_ = None
         if unpickling:
             return
 
@@ -113,8 +115,7 @@ class All2AllTanh(All2All):
 
         dev = self.output.device
         if not self.krn_:
-            defines = ("#define FEED_LAYER feed_layer_tanh\n"
-                       "#define BLOCK_SIZE %d\n"
+            defines = ("#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
                        (self.BLOCK_SIZE, self.weights.size // self.output_layer_size, self.output_layer_size)
@@ -127,18 +128,18 @@ class All2AllTanh(All2All):
 
             prg = cl.Program(dev.context_, s).build()
 
-            self.krn_ = cl.Kernel(prg, "feed_layer_tanh")
+            self.krn_ = cl.Kernel(prg, "FEED_LAYER")
             self.krn_.set_arg(0, src.output.data_)
             self.krn_.set_arg(1, self.weights_)
             self.krn_.set_arg(2, self.output.data_)
             self.krn_.set_arg(3, self.bias_)
 
-        if not self.queue_:
-            self.queue_ = cl.CommandQueue(dev.context_)
+        if not dev.queue_:
+            dev.queue_ = cl.CommandQueue(dev.context_)
 
         global_size = [self.output_layer_size, self.output.data.shape[0]]
         local_size = [self.BLOCK_SIZE, self.BLOCK_SIZE]
-        event = cl.enqueue_nd_range_kernel(self.queue_, self.krn_, global_size, local_size)
+        event = cl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
         event.callback = self.feed_from_batch_ready
         event.callback_args = ()
 

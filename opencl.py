@@ -23,10 +23,12 @@ class Device(filters.SmartPickling):
         min_dt: minimum time of rating test pass of all tests.
         memsize: "available" size of the memory on the device.
         context_: OpenCL context handle.
+        queue_: OpenCL device queue.
     """
     def __init__(self, unpickling = 0, guid = ""):
         super(Device, self).__init__()
         self.context_ = None
+        self.queue_ = None
         if unpickling:
             return
         self.guid = guid

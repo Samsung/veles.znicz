@@ -71,6 +71,14 @@ def main():
     c.add(aa)
     c.link(m, aa)
 
+    aa2 = all2all.All2AllTanh(parent=c, output_layer_size=256)
+    c.add(aa2)
+    c.link(aa, aa2)
+
+    aa3 = all2all.All2AllTanh(parent=c, output_layer_size=64)
+    c.add(aa3)
+    c.link(aa2, aa3)
+
     #TODO(a.kazantsev): add other filters
 
     # Start the process:
