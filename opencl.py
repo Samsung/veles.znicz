@@ -22,6 +22,7 @@ class Device(filters.SmartPickling):
         dt: time of rating test pass.
         min_dt: minimum time of rating test pass of all tests.
         memsize: "available" size of the memory on the device.
+        BLOCK_SIZE: best block size for matrix multiplication for device.
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
     """
@@ -36,6 +37,7 @@ class Device(filters.SmartPickling):
         self.dt = 604800
         self.min_dt = 86400
         self.memsize = 0
+        self.BLOCK_SIZE = 16
 
 
 class OpenCL(filters.SmartPickling):
@@ -159,16 +161,20 @@ class OpenCL(filters.SmartPickling):
         for guid, device in self.devices.items():
             if device.rating:
                 continue
-            print("Test(%s)..." % (guid))
-            t1 = time.time()
-            self._do_test(device.context_)
-            t2 = time.time()
-            dt = t2 - t1
-            device.dt = dt
-            if dt < min_dt:
-                min_dt = dt
-            self.c -= self.cc
-            print("Done in %.2f seconds, MSE = %.6f" % (dt, numpy.linalg.norm(self.c) / self.c.size))
+            device.dt = 86400
+            for BLOCK_SIZE in (32, 16, 8, 4):
+                print("Testing %s with BLOCK_SIZE = %d" % (guid, BLOCK_SIZE))
+                t1 = time.time()
+                self._do_test(device.context_, BLOCK_SIZE)
+                t2 = time.time()
+                dt = t2 - t1
+                if dt < device.dt:
+                    device.dt = dt
+                    device.BLOCK_SIZE = BLOCK_SIZE
+                if dt < min_dt:
+                    min_dt = dt
+                self.c -= self.cc
+                print("Done in %.2f seconds, MSE = %.6f" % (dt, numpy.linalg.norm(self.c) / self.c.size))
         print("\nRating(numpy): %.2f" % (min_dt / dt_numpy))
         for guid, device in self.devices.items():
             rating = min_dt / device.dt
@@ -204,14 +210,18 @@ class OpenCL(filters.SmartPickling):
         numpy.random.set_state(self.rnd_state)
         del(self.rnd_state)
 
-    def _do_test(self, context):
+    def _do_test(self, context, BLOCK_SIZE):
         """Do test for specific context
         """
         queue = cl.CommandQueue(context)
 
-        defines = ("#define BLOCK_SIZE 16\n"
-        "#define AB_WIDTH 4096\n"
-        "#define B_HEIGHT 8192\n\n")
+        AB_WIDTH = 4096
+        B_HEIGHT = 8192
+        A_HEIGHT = 2048
+
+        defines = ("#define BLOCK_SIZE %d\n"
+        "#define AB_WIDTH %d\n"
+        "#define B_HEIGHT %d\n\n" % (BLOCK_SIZE, AB_WIDTH, B_HEIGHT))
         fin = open("cl/feed_tanh.cl", "r")
         src = defines + fin.read()
         fin.close()
@@ -233,8 +243,8 @@ class OpenCL(filters.SmartPickling):
         krn.set_arg(2, c_buf)
         krn.set_arg(3, bias_buf)
 
-        global_size = [8192, 2048]
-        local_size = [16, 16]
+        global_size = [B_HEIGHT, A_HEIGHT]
+        local_size = [BLOCK_SIZE, BLOCK_SIZE]
         cl.enqueue_nd_range_kernel(queue, krn, global_size, local_size)
 
         cl.enqueue_copy(queue, self.c, c_buf)

@@ -79,6 +79,10 @@ def main():
     c.add(aa3)
     c.link(aa2, aa3)
 
+    sm = all2all.All2AllSoftmax(parent=c, output_layer_size=16)  #TODO(a.kazantsev): should be 10, fix class.
+    c.add(sm)
+    c.link(aa3, sm)
+
     #TODO(a.kazantsev): add other filters
 
     # Start the process:
