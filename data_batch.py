@@ -1,7 +1,7 @@
 """
 Created on Mar 21, 2013
 
-Output formats for data batches.
+Output formats and some filters for data batches.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -14,8 +14,8 @@ class DataBatch(filters.OutputData):
     Attributes:
         data: numpy array where distinct elements of the batch reside in the first dimension.
         labels: labels for the elements in the batch.
-        device: opencl.Device() object
-        data_: opencl buffer
+        device: opencl.Device() object.
+        data_: opencl buffer.
     """
     def __init__(self, unpickling = 0, data = None, labels = None):
         super(DataBatch, self).__init__(unpickling)

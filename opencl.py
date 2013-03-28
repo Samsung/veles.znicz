@@ -13,6 +13,22 @@ import error
 import filters
 
 
+CL_MAP_READ = 1
+CL_MAP_WRITE = 2
+CL_MAP_WRITE_INVALIDATE_REGION = 4
+
+
+def aligned_zeros(shape, boundary=4096, dtype=numpy.float32, order="C"):
+    N = numpy.prod(shape)
+    d = numpy.dtype(dtype)
+    tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
+    address = tmp.__array_interface__["data"][0]
+    offset = (boundary - address % boundary) % boundary
+    return tmp[offset:offset + N * d.itemsize]\
+        .view(dtype=d)\
+        .reshape(shape, order=order) 
+
+
 class Device(filters.SmartPickling):
     """OpenCL device helper class.
     
@@ -162,19 +178,24 @@ class OpenCL(filters.SmartPickling):
             if device.rating:
                 continue
             device.dt = 86400
-            for BLOCK_SIZE in (32, 16, 8, 4):
-                print("Testing %s with BLOCK_SIZE = %d" % (guid, BLOCK_SIZE))
-                t1 = time.time()
-                self._do_test(device.context_, BLOCK_SIZE)
-                t2 = time.time()
-                dt = t2 - t1
-                if dt < device.dt:
-                    device.dt = dt
-                    device.BLOCK_SIZE = BLOCK_SIZE
-                if dt < min_dt:
-                    min_dt = dt
-                self.c -= self.cc
-                print("Done in %.2f seconds, MSE = %.6f" % (dt, numpy.linalg.norm(self.c) / self.c.size))
+            for BLOCK_SIZE in (64, 32, 16, 8):
+                try:
+                    print("Testing %s with BLOCK_SIZE = %d" % (guid, BLOCK_SIZE))
+                    t1 = time.time()
+                    self._do_test(device.context_, BLOCK_SIZE)
+                    t2 = time.time()
+                    dt = t2 - t1
+                    if dt < device.dt:
+                        device.dt = dt
+                        device.BLOCK_SIZE = BLOCK_SIZE
+                    if dt < min_dt:
+                        min_dt = dt
+                    self.c -= self.cc
+                    numpy.abs(self.c, self.c)
+                    print("Done in %.2f seconds, MSE = %.6f, max_diff = %.6f" % \
+                          (dt, numpy.linalg.norm(self.c) / self.c.size, self.c.max()))
+                except cl.LogicError:
+                    print("BLOCK_SIZE = %d is not supported" % (BLOCK_SIZE))
         print("\nRating(numpy): %.2f" % (min_dt / dt_numpy))
         for guid, device in self.devices.items():
             rating = min_dt / device.dt
@@ -193,35 +214,47 @@ class OpenCL(filters.SmartPickling):
         return 1
 
     def _prepare_tests(self):
+        self.AB_WIDTH = 4096
+        self.B_HEIGHT = 8192
+        self.A_HEIGHT = 2048
         self.rnd_state = numpy.random.get_state()
-        self.a = numpy.random.rand(2048 * 4096).astype(numpy.float32).reshape([2048, 4096])
+        
+        self.a = aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
+        self.a[:] = numpy.random.rand(self.a.size)
         self.a -= 0.5
-        self.b = numpy.random.rand(4096 * 8192).astype(numpy.float32).reshape([8192, 4096]) # transposed
+        self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
+        
+        self.b = aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
+        self.b[:] = numpy.random.rand(self.b.size)
         self.b -= 0.5
-        self.bias = numpy.random.rand(8192).astype(numpy.float32)
+        self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
+        
+        self.bias = aligned_zeros([self.B_HEIGHT])
+        self.bias[:] = numpy.random.rand(self.bias.size)
         self.bias -= 0.5
-        self.c = numpy.empty([2048 * 8192], dtype=numpy.float32).reshape([2048, 8192]) # result
+        
+        self.c = aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
 
     def _cleanup_after_tests(self):
+        del(self.cc)
         del(self.c)
         del(self.bias)
         del(self.b)
         del(self.a)
         numpy.random.set_state(self.rnd_state)
         del(self.rnd_state)
+        del(self.A_HEIGHT)
+        del(self.B_HEIGHT)
+        del(self.AB_WIDTH)
 
     def _do_test(self, context, BLOCK_SIZE):
         """Do test for specific context
         """
         queue = cl.CommandQueue(context)
 
-        AB_WIDTH = 4096
-        B_HEIGHT = 8192
-        A_HEIGHT = 2048
-
         defines = ("#define BLOCK_SIZE %d\n"
         "#define AB_WIDTH %d\n"
-        "#define B_HEIGHT %d\n\n" % (BLOCK_SIZE, AB_WIDTH, B_HEIGHT))
+        "#define B_HEIGHT %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH, self.B_HEIGHT))
         fin = open("cl/feed_tanh.cl", "r")
         src = defines + fin.read()
         fin.close()
@@ -230,10 +263,11 @@ class OpenCL(filters.SmartPickling):
         fout.close()
 
         mf = cl.mem_flags
-        a_buf = cl.Buffer(context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.a)
-        b_buf = cl.Buffer(context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.b)
-        c_buf = cl.Buffer(context, mf.WRITE_ONLY | mf.COPY_HOST_PTR, hostbuf=self.c)
-        bias_buf = cl.Buffer(context, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.bias)
+        a_buf = cl.Buffer(context, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.a)
+        b_buf = cl.Buffer(context, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.b)
+        self.c[:] = 0
+        c_buf = cl.Buffer(context, mf.WRITE_ONLY | mf.USE_HOST_PTR, hostbuf=self.c)
+        bias_buf = cl.Buffer(context, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
 
         prg = cl.Program(context, src).build()
 
@@ -243,11 +277,14 @@ class OpenCL(filters.SmartPickling):
         krn.set_arg(2, c_buf)
         krn.set_arg(3, bias_buf)
 
-        global_size = [B_HEIGHT, A_HEIGHT]
+        global_size = [self.B_HEIGHT, self.A_HEIGHT]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
         cl.enqueue_nd_range_kernel(queue, krn, global_size, local_size)
 
-        cl.enqueue_copy(queue, self.c, c_buf)
+        arr, event = cl.enqueue_map_buffer(queue=queue, buf=c_buf, flags=CL_MAP_READ, offset=0, \
+            shape=self.c.shape, dtype=self.c.dtype, order="C", wait_for=None, is_blocking=True)
+        del(event)
+        arr.base.release(queue=queue, wait_for=None)
 
     def add_event(self, event):
         """Adds event to the queue

@@ -11,15 +11,17 @@ import filters
 import sys
 import mnist
 import all2all
+import data_batch
 import numpy
 import opencl
 import pickle
 import error
+import os
 
 
 g_pt = 0
 class PickleTest(filters.SmartPickling):
-    """
+    """Pickle test.
     """
     def __init__(self, unpickling = 0, a = "A", b = "B", c = "C"):
         global g_pt
@@ -39,11 +41,15 @@ def main():
         raise Exception("Pickle test failed.")
     pt.d = "D"
     pt.h_ = "HH"
-    fout = open("cache/test", "wb")
+    try:
+        os.mkdir("cache")
+    except OSError:
+        pass
+    fout = open("cache/test.pickle", "wb")
     pickle.dump(pt, fout)
     fout.close()
     del(pt)
-    fin = open("cache/test", "rb")
+    fin = open("cache/test.pickle", "rb")
     pt = pickle.load(fin)
     fin.close()
     if g_pt != 2:
@@ -79,9 +85,9 @@ def main():
     c.add(aa3)
     c.link(aa2, aa3)
 
-    sm = all2all.All2AllSoftmax(parent=c, output_layer_size=16)  #TODO(a.kazantsev): should be 10, fix class.
-    c.add(sm)
-    c.link(aa3, sm)
+    out = all2all.All2AllSoftmax(parent=c, output_layer_size=16)
+    c.add(out)
+    c.link(aa3, out)
 
     #TODO(a.kazantsev): add other filters
 

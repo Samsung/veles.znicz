@@ -3,12 +3,15 @@ Created on Mar 20, 2013
 
 All2All filters.
 
+TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them.
+
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
 import numpy
 import pyopencl as cl
 import data_batch
+import opencl
 
 
 class All2All(filters.GeneralFilter):
@@ -45,51 +48,51 @@ class All2All(filters.GeneralFilter):
     def feed_from_batch(self, src):
         """Forward propagation from batch. 
         """
-        n_weights = src.output.data.size // src.output.data.shape[0] * self.output_layer_size
-        if not self.weights or self.weights.size != n_weights:
-            self.weights = self.rand(n_weights).astype(numpy.float32)
-            self.weights *= 2.0 * self.weights_amplitude
-            self.weights -= self.weights_amplitude
-            self.weights_ = None
-        if not self.bias or self.bias.size != self.output_layer_size:
-            self.bias = self.rand(self.output_layer_size).astype(numpy.float32)
-            self.bias *= 2.0 * self.weights_amplitude
-            self.bias -= self.weights_amplitude
-            self.bias_ = None
-
         if not self.output.device:
             if src.output.device:
                 self.output.device = src.output.device
             else:
                 self.output.device = self.parent.cl.get_free_device()
+        dev = self.output.device
+        
+        n_weights = src.output.data.size // src.output.data.shape[0] * self.output_layer_size
+        if not self.weights or self.weights.size != n_weights:
+            self.weights = opencl.aligned_zeros([n_weights])
+            self.weights[:] = self.rand(self.weights.size)
+            self.weights *= 2.0 * self.weights_amplitude
+            self.weights -= self.weights_amplitude
+            self.weights_ = None
+        if not self.bias or self.bias.size != self.output_layer_size:
+            self.bias = opencl.aligned_zeros([self.output_layer_size])
+            self.bias[:] = self.rand(self.bias.size)
+            self.bias *= 2.0 * self.weights_amplitude
+            self.bias -= self.weights_amplitude
+            self.bias_ = None
 
         self.output.labels = src.output.labels
 
         output_size = src.output.data.shape[0] * self.output_layer_size
         if not self.output.data or self.output.data.size != output_size:
-            self.output.data = numpy.zeros([src.output.data.shape[0], self.output_layer_size], dtype=numpy.float32)
-
-        dev = self.output.device
+            self.output.data = opencl.aligned_zeros([src.output.data.shape[0], self.output_layer_size])
 
         mf = cl.mem_flags
         if not src.output.data_:
-            src.output.data_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=src.output.data)
+            src.output.data_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=src.output.data)
         if not self.output.data_:
-            self.output.data_ = cl.Buffer(dev.context_, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.output.data)
+            self.output.data_ = cl.Buffer(dev.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.output.data)
         if not self.weights_:
-            self.weights_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.weights)
+            self.weights_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.weights)
         if not self.bias_:
-            self.bias_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.bias)
+            self.bias_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
 
     def input_changed(self, src):
-        """GeneralFilter method
+        """GeneralFilter method.
         """
         if self.mtime >= src.output.mtime:
             return
         self.mtime = src.output.mtime
         if src.output.__class__.__name__ == "DataBatch":
             return self.feed_from_batch(src)
-        return 
 
     def feed_from_batch_ready(self):
         """When OpenCL event ready.
@@ -139,29 +142,34 @@ class All2AllTanh(All2All):
         event.callback = self.feed_from_batch_ready
         event.callback_args = ()
 
-        #print("enqueue_copy()...")
-        #event = cl.enqueue_copy(queue, self.output.data, self.output.data_, is_blocking=False)
-        #print("Done")
-        
         self.parent.cl.add_event(event)
 
 
 class All2AllSoftmax(All2All):
-    """All2All layer to layer with scaled tanh() activation.
+    """All2All layer to layer with softmax activation.
+    
+    Currently, we will calculate softmax partially on cpu.
     """
+    def feed_from_batch_ready(self, arr, queue_):
+        arr.base.release(queue=queue_, wait_for=None)
+        batch = self.output.data
+        for sample in batch:
+            rsum = 1.0 / sample.sum()
+            sample *= rsum
+        super(All2AllSoftmax, self).feed_from_batch_ready()
+
     def feed_from_batch(self, src):
-        """Forward propagation from batch. 
+        """Forward propagation from batch.
         """
         super(All2AllSoftmax, self).feed_from_batch(src)
 
-        #TODO(a.kazantsev): implement softmax.
         dev = self.output.device
         if not self.krn_:
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
                        (dev.BLOCK_SIZE, self.weights.size // self.output_layer_size, self.output_layer_size)
-            fin = open("cl/feed_tanh.cl", "r")
+            fin = open("cl/feed_exp.cl", "r")
             s = defines + fin.read()
             fin.close()
             fout = open("cache/test.cl", "w")
@@ -181,12 +189,13 @@ class All2AllSoftmax(All2All):
 
         global_size = [self.output_layer_size, self.output.data.shape[0]]
         local_size = [dev.BLOCK_SIZE, dev.BLOCK_SIZE]
-        event = cl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
-        event.callback = self.feed_from_batch_ready
-        event.callback_args = ()
+        cl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
 
-        #print("enqueue_copy()...")
-        #event = cl.enqueue_copy(queue, self.output.data, self.output.data_, is_blocking=False)
-        #print("Done")
-        
+        arr, event = cl.enqueue_map_buffer(queue=dev.queue_, buf=self.output.data_, \
+                flags=opencl.CL_MAP_READ, offset=0, shape=self.output.data.shape, \
+                dtype=self.output.data.dtype, order="C", wait_for=None, is_blocking=False)
+
+        event.callback = self.feed_from_batch_ready
+        event.callback_args = (arr, dev.queue_)
+
         self.parent.cl.add_event(event)
