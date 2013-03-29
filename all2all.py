@@ -3,7 +3,7 @@ Created on Mar 20, 2013
 
 All2All filters.
 
-TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them.
+TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them, or maybe rewrite kernel?
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -23,7 +23,6 @@ class All2All(filters.GeneralFilter):
         rand: numpy-style random generator function.
         weights: weights.
         bias: bias weights.
-        mtime: modification time of an input.
         BLOCK_SIZE: block size for matrix multiplication.
         weights_: opencl buffer for weights.
         bias_: opencl buffer for bias.
@@ -43,7 +42,6 @@ class All2All(filters.GeneralFilter):
         self.rand = rand
         self.weights = None
         self.bias = None
-        self.mtime = 0.0
 
     def feed_from_batch(self, src):
         """Forward propagation from batch. 
@@ -101,7 +99,7 @@ class All2All(filters.GeneralFilter):
         print("Processed %d samples with %d weights within %.2f seconds: %s" % \
               (self.output.data.shape[0], self.weights.size, self.output.mtime - self.mtime, self.__class__.__name__))
         if self.parent:
-            self.parent.output_changed(self)
+            self.parent.child_changed(self)
 
 
 class All2AllTanh(All2All):

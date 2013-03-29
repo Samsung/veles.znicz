@@ -44,19 +44,18 @@ class SmartPickling(object):
         return obj
 
 
-class OutputData(SmartPickling):
-    """Output data
-    
-    Attributes:
-        mtime: timestamp of the last modification
+class State(SmartPickling):
+    """State of the filter.
     """
     def __init__(self, unpickling = 0):
-        super(OutputData, self).__init__(unpickling)
+        super(State, self).__init__(unpickling)
         if unpickling:
             return
         self.mtime = 0.0
 
     def update_mtime(self):
+        """Update mtime that it will become greater than already and trying set it with system time first.
+        """
         mtime = time.time()
         if mtime <= self.mtime:
             dt = 0.000001
@@ -67,12 +66,11 @@ class OutputData(SmartPickling):
         self.mtime = mtime
 
 
-class GeneralFilter(SmartPickling):
+class GeneralFilter(State):
     """General filter in data stream neural network model.
 
     Attributes:
         parent: parent filter for output_changed() notification.
-        output: OutputData of the filter.
         random_state: state of the numpy random.
     """
     def __init__(self, unpickling = 0, parent = None):
@@ -82,7 +80,6 @@ class GeneralFilter(SmartPickling):
                 numpy.random.set_state(self.random_state)
             return
         self.parent = parent
-        self.output = None
         self.random_state = ()
 
     def snapshot(self, file, wait_for_completion = 1, save_random_state = 1):
@@ -99,14 +96,14 @@ class GeneralFilter(SmartPickling):
         sys.exit()
 
     def input_changed(self, src):
-        """Callback, fired when output data of the src, connected to current filter, changes.
+        """Callback, fired when state of the src, connected to current filter, changes.
         """
         pass
 
-    def output_changed(self, src):
-        """Callback, fired on parent when output data of the src changes.
-        
-        input_changed() should be called on all filters, connected to src.
+    def child_changed(self, src):
+        """Callback, fired on parent when state of the src changes.
+
+        input_state_changed() should be called by parent on all filters, connected to src.
         """
         pass
 
@@ -143,18 +140,18 @@ class ContainerFilter(GeneralFilter):
         return flt
 
     def link(self, src, dst):
-        """Links to filters
+        """Links to filters.
 
         Args:
-            src: source filter
-            dst: destination filter
+            src: source filter.
+            dst: destination filter.
 
         Returns:
             dst.
 
         Raises:
-            ErrNotExists
-            ErrExists
+            ErrNotExists.
+            ErrExists.
         """
         if (src not in self.filters) or (dst not in self.filters):
             raise error.ErrNotExists()
@@ -165,7 +162,7 @@ class ContainerFilter(GeneralFilter):
         self.links[src][dst] = 1
         return dst
 
-    def output_changed(self, src):
+    def child_changed(self, src):
         """GeneralFilter method.
         """
         if src not in self.filters:

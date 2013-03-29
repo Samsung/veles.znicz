@@ -16,11 +16,17 @@ import data_batch
 class MNISTLoader(filters.GeneralFilter):
     """Loads MNIST data
     """
+    def __init__(self, unpickling = 0, parent = None):
+        super(MNISTLoader, self).__init__(unpickling, parent)
+        if unpickling:
+            return
+        self.output = None
+
     def load_original(self):
         """Loads data from original MNIST files
         """
         print("One time relatively slow load from original MNIST files...")
-        
+
         # Reading labels:
         fin = open("MNIST/train-labels.idx1-ubyte", "rb")
 
@@ -79,7 +85,6 @@ class MNISTLoader(filters.GeneralFilter):
         fout.close()
         print("Done")
 
-
     def input_changed(self, src):
         """GeneralFilter method.
         
@@ -93,4 +98,4 @@ class MNISTLoader(filters.GeneralFilter):
             self.load_original()
         self.output.update_mtime() 
         if self.parent:
-            self.parent.output_changed(self)
+            self.parent.child_changed(self)

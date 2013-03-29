@@ -8,7 +8,7 @@ Output formats and some filters for data batches.
 import filters
 
 
-class DataBatch(filters.OutputData):
+class DataBatch(filters.State):
     """Base data batch class.
     
     Attributes:
