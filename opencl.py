@@ -194,7 +194,7 @@ class OpenCL(filters.SmartPickling):
                     numpy.abs(self.c, self.c)
                     print("Done in %.2f seconds, MSE = %.6f, max_diff = %.6f" % \
                           (dt, numpy.linalg.norm(self.c) / self.c.size, self.c.max()))
-                except cl.LogicError:
+                except (cl.LogicError, cl.RuntimeError):
                     print("BLOCK_SIZE = %d is not supported" % (BLOCK_SIZE))
         print("\nRating(numpy): %.2f" % (min_dt / dt_numpy))
         for guid, device in self.devices.items():

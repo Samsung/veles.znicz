@@ -38,7 +38,7 @@ class SmartPickling(object):
     def __new__(cls, *args, **kwargs):
         """Had to rewrite 'cause python does not call __init__() when unserializing.
         """
-        obj = super(SmartPickling, cls).__new__(cls, *args, **kwargs)
+        obj = super(SmartPickling, cls).__new__(cls)
         if args and args[0] and obj:
             obj.__init__(*args, **kwargs)
         return obj
