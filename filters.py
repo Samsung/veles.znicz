@@ -50,14 +50,12 @@ class State(SmartPickling):
 
     Attributes:
         mtime: time of the last modification.
-        data: any data.
     """
     def __init__(self, unpickling = 0):
         super(State, self).__init__(unpickling)
         if unpickling:
             return
         self.mtime = 0.0
-        self.data = None
 
     def update_mtime(self):
         """Update mtime that it will become greater than already and trying set it with system time first.

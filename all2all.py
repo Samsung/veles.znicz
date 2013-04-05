@@ -10,37 +10,45 @@ TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them
 import filters
 import numpy
 import pyopencl as cl
-import data_batch
 import opencl
 
 
 class All2All(filters.GeneralFilter):
     """All2All layer to layer.
 
+    State:
+        input:
+            batch: numpy array with first axis as a batch.
+        output:
+            batch: numpy array with first axis as a batch.
+        weights:
+            v: numpy array with weights.
+        bias:
+            v: numpy array with bias.
+
     Attributes:
-        output_layer_size: size of the output layer.
+        output_shape: shape of the output layer.
         weights_amplitude: amplitude of the default random distribution of weights.
         rand: numpy-style random generator function.
-        weights: weights.
-        bias: bias weights.
         BLOCK_SIZE: block size for matrix multiplication.
         weights_: opencl buffer for weights.
         bias_: opencl buffer for bias.
         krn_: opencl kernel handle.
     """
-    def __init__(self, unpickling = 0, output_layer_size = 0, weights_amplitude = 0.05, rand = numpy.random.rand):
+    def __init__(self, unpickling = 0, output_shape = [], weights_amplitude = 0.05, rand = numpy.random.rand):
         super(All2All, self).__init__(unpickling)
         self.weights_ = None
         self.bias_ = None
         self.krn_ = None
         if unpickling:
             return
-        self.output = data_batch.DataBatch()
-        self.output_layer_size = output_layer_size
+        self.input = filters.State()
+        self.output = filters.State()
+        self.weights = filters.State()
+        self.bias = filters.State()
+        self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
-        self.weights = None
-        self.bias = None
 
     def feed_from_batch(self, src):
         """Forward propagation from batch.

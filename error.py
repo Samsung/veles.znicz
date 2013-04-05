@@ -27,14 +27,3 @@ class ErrBadFormat(Exception):
     """Exception, raised when bad format or data occured somethere.
     """
     pass
-
-
-class ErrOpenCL(Exception):
-    """Exception, raised when OpenCL event returns a error
-    
-    Attributes:
-        event: pyopencl Event() object.
-    """
-    def __init__(self, event):
-        super(ErrOpenCL, self).__init__()
-        self.event = event

@@ -10,15 +10,17 @@ import struct
 import error
 import pickle
 import numpy
-import data_batch
 
 
 class MNISTLoader(filters.GeneralFilter):
-    """Loads MNIST data
+    """Loads MNIST data.
 
-    Attributes:
-        output: State object holding MNIST training set as DataBatch object.
-        labels: State object holding MNIST training set labels as Labels object.
+    State:
+        output: contains MNIST training set images.
+            batch: numpy array with first axis as a batch.
+        labels: contains MNIST training set labels.
+            n_classes: number of classes.
+            v: numpy array sized as a batch with one label per image in range [0, n_classes).
     """
     def __init__(self, unpickling = 0):
         super(MNISTLoader, self).__init__(unpickling)
@@ -28,7 +30,7 @@ class MNISTLoader(filters.GeneralFilter):
         self.labels = filters.State()
 
     def load_original(self):
-        """Loads data from original MNIST files
+        """Loads data from original MNIST files.
         """
         print("One time relatively slow load from original MNIST files...")
 
@@ -43,13 +45,12 @@ class MNISTLoader(filters.GeneralFilter):
         if n_labels != 60000:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        self.labels.data = data_batch.Labels()
-        self.labels.data.data = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
-        if self.labels.data.data.size != n_labels:
+        self.labels.v = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
+        if self.labels.v.size != n_labels:
             raise error.ErrBadFormat("EOF reached while reading labels from train-labels")
-        if self.labels.data.data.min() != 0 or self.labels.data.data.max() != 9:
+        if self.labels.v.min() != 0 or self.labels.v.max() != 9:
             raise error.ErrBadFormat("Wrong labels range in train-labels.")
-        self.labels.data.n_classes = 10
+        self.labels.n_classes = 10
 
         fin.close()
 
@@ -85,12 +86,12 @@ class MNISTLoader(filters.GeneralFilter):
             image *= 2.0 / (vle_max - vle_min)
             image += -1.0
         print("Range after normalization: [%.1f, %.1f]" % (images.min(), images.max()))
-        self.output.data = data_batch.DataBatch(data=images)
+        self.output.batch = images
         print("Done")
 
         print("Saving to cache for later faster load...")
         fout = open("cache/MNIST-train.pickle", "wb")
-        pickle.dump(self.output.data, fout)
+        pickle.dump((self.output.batch, self.labels.v, self.labels.n_classes), fout)
         fout.close()
         print("Done")
 
@@ -101,7 +102,7 @@ class MNISTLoader(filters.GeneralFilter):
         """
         try:
             fin = open("cache/MNIST-train.pickle", "rb")
-            self.output.data = pickle.load(fin)
+            self.output.batch, self.labels.v, self.labels.n_classes = pickle.load(fin)
             fin.close()
         except IOError:
             self.load_original()

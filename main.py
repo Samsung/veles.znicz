@@ -78,28 +78,32 @@ def main():
     m = mnist.MNISTLoader()
     nn.set_rule(m, [nn])
 
-    aa = all2all.All2AllTanh(output_layer_size=1024)
+    aa = all2all.All2AllTanh(output_shape=[1024])
     nn.set_rule(aa, [m])
+    aa.input = m.output
 
-    aa2 = all2all.All2AllTanh(output_layer_size=256)
+    aa2 = all2all.All2AllTanh(output_shape=[256])
     nn.set_rule(aa2, [aa])
+    aa2.input = aa.output
 
-    aa3 = all2all.All2AllTanh(output_layer_size=64)
+    aa3 = all2all.All2AllTanh(output_shape=[64])
     nn.set_rule(aa3, [aa2])
+    aa3.input = aa2.output
 
-    out = all2all.All2AllSoftmax(output_layer_size=16)
+    out = all2all.All2AllSoftmax(output_shape=[16])
     nn.set_rule(out, [aa3])
+    out.input = aa3.output
 
     ev = evaluator.BatchEvaluator()
     nn.set_rule(ev, [out])
-
-    # Setup shared data (data flow) 
-    
+    ev.input = out.output
+    ev.labels = m.labels
 
     #TODO(a.kazantsev): add other filters
 
     # Start the process:
     nn.run()
+    print(m.labels.n_classes)
 
     # Run notifications until job is done
     try:
@@ -108,25 +112,10 @@ def main():
     except error.ErrNotExists:
         pass
 
-    print("End of job")
-    sys.exit()
-
-    # OpenCL event queue
-    #FIXME(a.kazantsev): only active wait available in case of multiple OpenCL events
-    # (there is clSetEventCallback() but pyopencl doesn't support it).
-    while True:
-        try:
-            event = c.cl.check_for_event()
-        except error.ErrNotExists:
-            break
-        if not event:
-            continue
-        c.cl.handle_event(event)
-
     print()
     print("Snapshotting...")
     fout = open("cache/snapshot.pickle", "wb")
-    c.snapshot(fout)
+    nn.snapshot(fout)
     fout.close()
     print("Done")
 

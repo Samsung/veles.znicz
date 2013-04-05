@@ -19,6 +19,8 @@ CL_MAP_WRITE_INVALIDATE_REGION = 4
 
 
 def aligned_zeros(shape, boundary=4096, dtype=numpy.float32, order="C"):
+    """Allocates PAGE-aligned array required for clEnqueueMapBuffer().
+    """
     N = numpy.prod(shape)
     d = numpy.dtype(dtype)
     tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
@@ -41,11 +43,17 @@ class Device(filters.SmartPickling):
         BLOCK_SIZE: best block size for matrix multiplication for device.
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
+        events_: dictionary of the events per object.
+        buffers_: dictionary of buffers per object.
+        kernels_: dictionary of kernels per object.
     """
     def __init__(self, unpickling = 0, guid = ""):
         super(Device, self).__init__()
         self.context_ = None
         self.queue_ = None
+        self.events_ = {}
+        self.buffers_ = {}
+        self.kernels_ = {}
         if unpickling:
             return
         self.guid = guid
@@ -62,14 +70,12 @@ class OpenCL(filters.SmartPickling):
     Attributes:
         devices: dictionary of Device objects where key is device "GUID".
         free_devices: devices marked as free and sorted in rating order.
-        events_: dictionary of the queued events.
     """
     def __init__(self, unpickling = 0):
         super(OpenCL, self).__init__(unpickling)
         # reinit all anyway
         self.devices = {}
         self.free_devices = []
-        self.events_ = {}
         self._restore()
 
     def get_free_device(self):
@@ -285,28 +291,3 @@ class OpenCL(filters.SmartPickling):
             shape=self.c.shape, dtype=self.c.dtype, order="C", wait_for=None, is_blocking=True)
         del(event)
         arr.base.release(queue=queue, wait_for=None)
-
-    def add_event(self, event):
-        """Adds event to the queue
-        """
-        self.events_[event] = 1
-
-    def check_for_event(self):
-        """Gets event from the queue that is ready
-        
-        Raises:
-            ErrNotExists.
-        """
-        if not self.events_:
-            raise error.ErrNotExists
-        for event in self.events_.keys():
-            stt = event.command_execution_status
-            if stt <= 0:
-                del(self.events_[event])
-                if stt < 0:
-                    raise error.ErrOpenCL(event)
-                return event
-        return None
-
-    def handle_event(self, event):
-        return event.callback(*event.callback_args)
