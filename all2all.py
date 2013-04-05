@@ -3,7 +3,7 @@ Created on Mar 20, 2013
 
 All2All filters.
 
-TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them, or maybe rewrite kernel?
+TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -16,7 +16,7 @@ import opencl
 
 class All2All(filters.GeneralFilter):
     """All2All layer to layer.
-    
+
     Attributes:
         output_layer_size: size of the output layer.
         weights_amplitude: amplitude of the default random distribution of weights.
@@ -28,9 +28,8 @@ class All2All(filters.GeneralFilter):
         bias_: opencl buffer for bias.
         krn_: opencl kernel handle.
     """
-    def __init__(self, unpickling = 0, parent = None, \
-                 output_layer_size = 0, weights_amplitude = 0.05, rand = numpy.random.rand):
-        super(All2All, self).__init__(unpickling, parent)
+    def __init__(self, unpickling = 0, output_layer_size = 0, weights_amplitude = 0.05, rand = numpy.random.rand):
+        super(All2All, self).__init__(unpickling)
         self.weights_ = None
         self.bias_ = None
         self.krn_ = None
@@ -44,7 +43,7 @@ class All2All(filters.GeneralFilter):
         self.bias = None
 
     def feed_from_batch(self, src):
-        """Forward propagation from batch. 
+        """Forward propagation from batch.
         """
         if not self.output.device:
             if src.output.device:

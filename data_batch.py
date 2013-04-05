@@ -8,6 +8,21 @@ Output formats and some filters for data batches.
 import filters
 
 
+class Labels(filters.State):
+    """Labels for data batch.
+    
+    Attributes:
+        data: array of labels numbered from 0 to n_classes - 1.
+        n_classes: number of classes for data batch.
+    """
+    def __init__(self, unpickling = 0, data = None, n_classes = 0):
+        super(Labels, self).__init__(unpickling)
+        if unpickling:
+            return
+        self.data = data
+        self.n_classes = n_classes
+
+
 class DataBatch(filters.State):
     """Base data batch class.
     
@@ -17,11 +32,10 @@ class DataBatch(filters.State):
         device: opencl.Device() object.
         data_: opencl buffer.
     """
-    def __init__(self, unpickling = 0, data = None, labels = None):
+    def __init__(self, unpickling = 0, data = None):
         super(DataBatch, self).__init__(unpickling)
         self.data_ = None
         if unpickling:
             return
         self.data = data
-        self.labels = labels
         self.device = None

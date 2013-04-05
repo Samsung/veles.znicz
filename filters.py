@@ -11,6 +11,7 @@ import pickle
 import error
 import numpy
 import time
+import threading
 
 
 class SmartPickling(object):
@@ -46,12 +47,17 @@ class SmartPickling(object):
 
 class State(SmartPickling):
     """State of the filter.
+
+    Attributes:
+        mtime: time of the last modification.
+        data: any data.
     """
     def __init__(self, unpickling = 0):
         super(State, self).__init__(unpickling)
         if unpickling:
             return
         self.mtime = 0.0
+        self.data = None
 
     def update_mtime(self):
         """Update mtime that it will become greater than already and trying set it with system time first.
@@ -70,16 +76,14 @@ class GeneralFilter(State):
     """General filter in data stream neural network model.
 
     Attributes:
-        parent: parent filter for output_changed() notification.
         random_state: state of the numpy random.
     """
-    def __init__(self, unpickling = 0, parent = None):
+    def __init__(self, unpickling = 0):
         super(GeneralFilter, self).__init__(unpickling)
         if unpickling:
             if self.random_state:
                 numpy.random.set_state(self.random_state)
             return
-        self.parent = parent
         self.random_state = ()
 
     def snapshot(self, file, wait_for_completion = 1, save_random_state = 1):
@@ -95,79 +99,119 @@ class GeneralFilter(State):
         pickle.dump(self, file)
         sys.exit()
 
-    def input_changed(self, src):
-        """Callback, fired when state of the src, connected to current filter, changes.
+    def run(self, endofjob_callback = None):
+        """Do the job.
+        
+        Parameters:
+            endofjob_callback: function that should be called when the job will be done.
         """
-        pass
-
-    def child_changed(self, src):
-        """Callback, fired on parent when state of the src changes.
-
-        input_state_changed() should be called by parent on all filters, connected to src.
-        """
-        pass
+        if endofjob_callback:
+            endofjob_callback(self)
 
 
-class ContainerFilter(GeneralFilter):
-    """Filter that contains other filters.
+def all_values(stt):
+    return all(stt.values())
 
+
+def any_value(stt):
+    return any(stt.values())
+
+
+def always(stt):
+    return 1
+
+
+def never(stt):
+    return 0
+
+
+class Notifications(GeneralFilter):
+    """Network of the notifications between filters.
+    
     Attributes:
-        filters: dictionary of filters in the container.
-        links: dictionary of links between filters.
+        _sem: semaphore.
+        executing: dictionary of the currently executing filters.
+        executed: list of filters that has already executed.
+        src_to: what depends on src.
+        dst_from: on what dst depends.
+        gates: dictionary of gate functions by dst.
     """
     def __init__(self, unpickling = 0):
-        super(ContainerFilter, self).__init__(unpickling)
+        super(Notifications, self).__init__(unpickling)
         if unpickling:
+            self.sem_ = threading.Semaphore(len(self.executed))
             return
-        self.filters = {}
-        self.links = {}
+        self.sem_ = threading.Semaphore(0)
+        self.executing = {}
+        self.executed = []
+        self.src_to = {}
+        self.dst_from = {}
+        self.gates = {}
 
-    def add(self, flt):
-        """Adds filter to the container.
+    def set_rule(self, dst_filter, src_filters, gate_function = always):
+        """Sets filter activation rule.
 
-        Args:
-            flt: filter to add.
-
-        Returns:
-            flt.
-
-        Raises:
-            ErrExists.
+        Parameters:
+            dst_filter: filter on which to set rule.
+            src_filters: list of filters it depends on.
+            gate_function: function to be called on activation of any of the src_filters
+                gate_function(stt), where:
+                    stt is the dictionary: filter => state
+                        state in {0, 1}, 1 means activated
+                it's return value lies in {0, 1, 2}:
+                    0 - gate closed,
+                    1 - gate open and we should reset src_filters_state,
+                    2 - gate open and we should not reset src_filters_state.
         """
-        if flt in self.filters:
-            raise error.ErrExists()
-        self.filters[flt] = 1
-        return flt
+        if dst_filter in self.dst_from:
+            for src in self.dst_from[dst_filter]:
+                del(self.src_to[src][dst_filter])
+        src_filters_state = {}
+        for src in src_filters:
+            src_filters_state[src] = 0
+            if src not in self.src_to:
+                self.src_to[src] = {}
+            self.src_to[src][dst_filter] = 1
+        self.dst_from[dst_filter] = src_filters_state
+        self.gates[dst_filter] = gate_function
 
-    def link(self, src, dst):
-        """Links to filters.
+    def notify(self, src_filter):
+        """Processes activation of the specified filter.
+        """
+        if src_filter not in self.src_to:
+            return
+        for dst in self.src_to[src_filter]:
+            self.dst_from[dst][src_filter] = 1
+            gate = self.gates[dst]
+            state = gate(self.dst_from[dst])
+            if state:
+                if state == 1:
+                    for src in self.dst_from[dst].keys():
+                        self.dst_from[dst][src] = 0
+                self.executing[dst] = 1
+                dst.run(self.endofjob_callback)
 
-        Args:
-            src: source filter.
-            dst: destination filter.
+    def run(self, endofjob_callback = None):
+        """Runs self.
+        """
+        self.notify(self)
 
-        Returns:
-            dst.
+    def endofjob_callback(self, src_filter):
+        """Called when the src_filter ends its execution.
+        """
+        self.executed.append(src_filter)
+        del(self.executing[src_filter])
+        self.sem_.release()
+
+    def notify_next(self):
+        """Wait for the next filter to do its job.
 
         Raises:
             ErrNotExists.
-            ErrExists.
         """
-        if (src not in self.filters) or (dst not in self.filters):
+        if self.executing:
+            self.sem_.acquire()
+        if not self.executed:
             raise error.ErrNotExists()
-        if src not in self.links:
-            self.links[src] = {}
-        if dst in self.links[src]:
-            raise error.ErrExists()
-        self.links[src][dst] = 1
-        return dst
-
-    def child_changed(self, src):
-        """GeneralFilter method.
-        """
-        if src not in self.filters:
-            raise error.ErrNotExists()
-        if src not in self.links:
-            return
-        for dst in self.links[src].keys():
-            dst.input_changed(src)
+        src = self.executed.pop(0)  # FIFO
+        self.notify(src)

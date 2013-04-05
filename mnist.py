@@ -15,12 +15,17 @@ import data_batch
 
 class MNISTLoader(filters.GeneralFilter):
     """Loads MNIST data
+
+    Attributes:
+        output: State object holding MNIST training set as DataBatch object.
+        labels: State object holding MNIST training set labels as Labels object.
     """
-    def __init__(self, unpickling = 0, parent = None):
-        super(MNISTLoader, self).__init__(unpickling, parent)
+    def __init__(self, unpickling = 0):
+        super(MNISTLoader, self).__init__(unpickling)
         if unpickling:
             return
-        self.output = None
+        self.output = filters.State()
+        self.labels = filters.State()
 
     def load_original(self):
         """Loads data from original MNIST files
@@ -38,9 +43,13 @@ class MNISTLoader(filters.GeneralFilter):
         if n_labels != 60000:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        labels = fin.read(n_labels)
-        if len(labels) != n_labels:
+        self.labels.data = data_batch.Labels()
+        self.labels.data.data = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
+        if self.labels.data.data.size != n_labels:
             raise error.ErrBadFormat("EOF reached while reading labels from train-labels")
+        if self.labels.data.data.min() != 0 or self.labels.data.data.max() != 9:
+            raise error.ErrBadFormat("Wrong labels range in train-labels.")
+        self.labels.data.n_classes = 10
 
         fin.close()
 
@@ -76,26 +85,26 @@ class MNISTLoader(filters.GeneralFilter):
             image *= 2.0 / (vle_max - vle_min)
             image += -1.0
         print("Range after normalization: [%.1f, %.1f]" % (images.min(), images.max()))
-        self.output = data_batch.DataBatch(data=images, labels=labels)
+        self.output.data = data_batch.DataBatch(data=images)
         print("Done")
 
         print("Saving to cache for later faster load...")
         fout = open("cache/MNIST-train.pickle", "wb")
-        pickle.dump(self.output, fout)
+        pickle.dump(self.output.data, fout)
         fout.close()
         print("Done")
 
-    def input_changed(self, src):
+    def run(self, endofjob_callback = None):
         """GeneralFilter method.
         
         Here we will load MNIST data.
         """
         try:
             fin = open("cache/MNIST-train.pickle", "rb")
-            self.output = pickle.load(fin)
+            self.output.data = pickle.load(fin)
             fin.close()
         except IOError:
             self.load_original()
         self.output.update_mtime() 
-        if self.parent:
-            self.parent.child_changed(self)
+        if endofjob_callback:
+            endofjob_callback(self)

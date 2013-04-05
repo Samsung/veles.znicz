@@ -11,12 +11,12 @@ import filters
 import sys
 import mnist
 import all2all
-import data_batch
 import numpy
 import opencl
 import pickle
 import error
 import os
+import evaluator
 
 
 g_pt = 0
@@ -34,7 +34,7 @@ class PickleTest(filters.SmartPickling):
         self.c = c
 
 
-def main():
+def do_pickle_test():
     # Test for correct behavior of filters.SmartPickling
     pt = PickleTest(a = "AA", c = "CC")
     if g_pt != 1:
@@ -61,42 +61,59 @@ def main():
         raise Exception("Pickle test failed.")
     except AttributeError:
         pass
-    del(pt)
+
+
+def main():
+    do_pickle_test()
 
     # Main program
     logging.debug("Entered")
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
 
-    c = filters.ContainerFilter()
-    c.cl = opencl.OpenCL()
-    m = mnist.MNISTLoader(parent=c)
-    c.add(m)
+    # Setup notification flow
+    nn = filters.Notifications()
 
-    aa = all2all.All2AllTanh(parent=c, output_layer_size=1024)
-    c.add(aa)
-    c.link(m, aa)
+    nn.cl = opencl.OpenCL()
+    m = mnist.MNISTLoader()
+    nn.set_rule(m, [nn])
 
-    aa2 = all2all.All2AllTanh(parent=c, output_layer_size=256)
-    c.add(aa2)
-    c.link(aa, aa2)
+    aa = all2all.All2AllTanh(output_layer_size=1024)
+    nn.set_rule(aa, [m])
 
-    aa3 = all2all.All2AllTanh(parent=c, output_layer_size=64)
-    c.add(aa3)
-    c.link(aa2, aa3)
+    aa2 = all2all.All2AllTanh(output_layer_size=256)
+    nn.set_rule(aa2, [aa])
 
-    out = all2all.All2AllSoftmax(parent=c, output_layer_size=16)
-    c.add(out)
-    c.link(aa3, out)
+    aa3 = all2all.All2AllTanh(output_layer_size=64)
+    nn.set_rule(aa3, [aa2])
+
+    out = all2all.All2AllSoftmax(output_layer_size=16)
+    nn.set_rule(out, [aa3])
+
+    ev = evaluator.BatchEvaluator()
+    nn.set_rule(ev, [out])
+
+    # Setup shared data (data flow) 
+    
 
     #TODO(a.kazantsev): add other filters
 
     # Start the process:
-    m.input_changed(None)
+    nn.run()
 
-    # Event queue
-    #FIXME(a.kazantsev): only active wait available in case of multiple OpenCL events,
-    # we may spawn thread for each event, but that will be overkill (driver can use active wait anyway).
+    # Run notifications until job is done
+    try:
+        while True:
+            nn.notify_next()
+    except error.ErrNotExists:
+        pass
+
+    print("End of job")
+    sys.exit()
+
+    # OpenCL event queue
+    #FIXME(a.kazantsev): only active wait available in case of multiple OpenCL events
+    # (there is clSetEventCallback() but pyopencl doesn't support it).
     while True:
         try:
             event = c.cl.check_for_event()
