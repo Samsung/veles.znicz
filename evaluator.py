@@ -6,11 +6,11 @@ Created on Apr 1, 2013
 import filters
 
 
-class BatchEvaluator(filters.GeneralFilter):
+class BatchEvaluator(filters.OpenCLFilter):
     """Evaluator for nn softmax output from the batch labels.
     """
-    def __init__(self, unpickling = 0):
-        super(BatchEvaluator, self).__init__(unpickling)
+    def __init__(self, device=None, unpickling = 0):
+        super(BatchEvaluator, self).__init__(unpickling=unpickling, device=device)
 
     def feed_from_batch(self, src):
         """Evaluate src softmax output from the batch labels.

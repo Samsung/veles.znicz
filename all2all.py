@@ -9,11 +9,11 @@ TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them
 """
 import filters
 import numpy
-import pyopencl as cl
+import pyopencl
 import opencl
 
 
-class All2All(filters.GeneralFilter):
+class All2All(filters.OpenCLFilter):
     """All2All layer to layer.
 
     State:
@@ -30,16 +30,10 @@ class All2All(filters.GeneralFilter):
         output_shape: shape of the output layer.
         weights_amplitude: amplitude of the default random distribution of weights.
         rand: numpy-style random generator function.
-        BLOCK_SIZE: block size for matrix multiplication.
-        weights_: opencl buffer for weights.
-        bias_: opencl buffer for bias.
-        krn_: opencl kernel handle.
     """
-    def __init__(self, unpickling = 0, output_shape = [], weights_amplitude = 0.05, rand = numpy.random.rand):
-        super(All2All, self).__init__(unpickling)
-        self.weights_ = None
-        self.bias_ = None
-        self.krn_ = None
+    def __init__(self, output_shape = None, device=None, weights_amplitude = 0.05, rand = numpy.random.rand, \
+                 unpickling = 0):
+        super(All2All, self).__init__(unpickling=unpickling, device=device)
         if unpickling:
             return
         self.input = filters.State()
@@ -50,7 +44,7 @@ class All2All(filters.GeneralFilter):
         self.weights_amplitude = weights_amplitude
         self.rand = rand
 
-    def feed_from_batch(self, src):
+    def feed_from_batch(self, endofjob_callback):
         """Forward propagation from batch.
         """
         if not self.output.device:
@@ -80,15 +74,15 @@ class All2All(filters.GeneralFilter):
         if not self.output.data or self.output.data.size != output_size:
             self.output.data = opencl.aligned_zeros([src.output.data.shape[0], self.output_layer_size])
 
-        mf = cl.mem_flags
+        mf = pyopencl.mem_flags
         if not src.output.data_:
-            src.output.data_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=src.output.data)
+            src.output.data_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=src.output.data)
         if not self.output.data_:
-            self.output.data_ = cl.Buffer(dev.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.output.data)
+            self.output.data_ = pyopencl.Buffer(dev.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.output.data)
         if not self.weights_:
-            self.weights_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.weights)
+            self.weights_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.weights)
         if not self.bias_:
-            self.bias_ = cl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
+            self.bias_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
 
     def input_changed(self, src):
         """GeneralFilter method.
@@ -107,6 +101,12 @@ class All2All(filters.GeneralFilter):
               (self.output.data.shape[0], self.weights.size, self.output.mtime - self.mtime, self.__class__.__name__))
         if self.parent:
             self.parent.child_changed(self)
+
+    def run(self, endofjob_callback = None):
+        """GeneralFilter method.
+        """
+        #self.feed_from_batch(endofjob_callback)
+        super(All2All, self).run(endofjob_callback)
 
 
 class All2AllTanh(All2All):
@@ -130,20 +130,20 @@ class All2AllTanh(All2All):
             fout.write(s)
             fout.close()
 
-            prg = cl.Program(dev.context_, s).build()
+            prg = pyopencl.Program(dev.context_, s).build()
 
-            self.krn_ = cl.Kernel(prg, "FEED_LAYER")
+            self.krn_ = pyopencl.Kernel(prg, "FEED_LAYER")
             self.krn_.set_arg(0, src.output.data_)
             self.krn_.set_arg(1, self.weights_)
             self.krn_.set_arg(2, self.output.data_)
             self.krn_.set_arg(3, self.bias_)
 
         if not dev.queue_:
-            dev.queue_ = cl.CommandQueue(dev.context_)
+            dev.queue_ = pyopencl.CommandQueue(dev.context_)
 
         global_size = [self.output_layer_size, self.output.data.shape[0]]
         local_size = [dev.BLOCK_SIZE, dev.BLOCK_SIZE]
-        event = cl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
+        event = pyopencl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
         event.callback = self.feed_from_batch_ready
         event.callback_args = ()
 

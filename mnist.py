@@ -23,7 +23,7 @@ class MNISTLoader(filters.GeneralFilter):
             v: numpy array sized as a batch with one label per image in range [0, n_classes).
     """
     def __init__(self, unpickling = 0):
-        super(MNISTLoader, self).__init__(unpickling)
+        super(MNISTLoader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.output = filters.State()

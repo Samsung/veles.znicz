@@ -9,16 +9,19 @@ import os
 import sys
 import pickle
 import error
-import numpy
 import time
 import threading
+import numpy
 
 
 class SmartPickling(object):
-    """Will not pickle attributes ending with _
+    """Will not pickle attributes ending with _ and will call constructor upon unpickling.
     """
     def __init__(self, unpickling = 0):
-        """Constructor will have one additional argument.
+        """Constructor.
+        
+        Parameters:
+            unpickling: if 1, object is being created via unpickling.
         """
         pass
 
@@ -31,18 +34,11 @@ class SmartPickling(object):
                 state[k] = v
         return state
 
-    def __getnewargs__(self):
-        """How to call __init__() after unpickling.
+    def __setstate__(self, state):
+        """What to unpickle.
         """
-        return (1,)
-
-    def __new__(cls, *args, **kwargs):
-        """Had to rewrite 'cause python does not call __init__() when unserializing.
-        """
-        obj = super(SmartPickling, cls).__new__(cls)
-        if args and args[0] and obj:
-            obj.__init__(*args, **kwargs)
-        return obj
+        self.__dict__.update(state)
+        self.__init__(unpickling=1)
 
 
 class State(SmartPickling):
@@ -52,7 +48,7 @@ class State(SmartPickling):
         mtime: time of the last modification.
     """
     def __init__(self, unpickling = 0):
-        super(State, self).__init__(unpickling)
+        super(State, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.mtime = 0.0
@@ -72,19 +68,19 @@ class State(SmartPickling):
 
 class GeneralFilter(State):
     """General filter in data stream neural network model.
-
+    
     Attributes:
-        random_state: state of the numpy random.
+        random_state: numpy random state.
     """
     def __init__(self, unpickling = 0):
-        super(GeneralFilter, self).__init__(unpickling)
+        super(GeneralFilter, self).__init__(unpickling=unpickling)
         if unpickling:
             if self.random_state:
                 numpy.random.set_state(self.random_state)
             return
         self.random_state = ()
 
-    def snapshot(self, file, wait_for_completion = 1, save_random_state = 1):
+    def snapshot(self, file, wait_for_completion = 1):
         """Makes snapshot to the file.
         """
         pid = os.fork()
@@ -92,9 +88,9 @@ class GeneralFilter(State):
             if wait_for_completion:
                 os.waitpid(pid, 0)
             return
-        if save_random_state:
-            self.random_state = numpy.random.get_state()
+        self.random_state = numpy.random.get_state()
         pickle.dump(self, file)
+        file.flush()
         sys.exit()
 
     def run(self, endofjob_callback = None):
@@ -127,7 +123,7 @@ class Notifications(GeneralFilter):
     """Network of the notifications between filters.
     
     Attributes:
-        _sem: semaphore.
+        sem_: semaphore.
         executing: dictionary of the currently executing filters.
         executed: list of filters that has already executed.
         src_to: what depends on src.
@@ -135,8 +131,9 @@ class Notifications(GeneralFilter):
         gates: dictionary of gate functions by dst.
     """
     def __init__(self, unpickling = 0):
-        super(Notifications, self).__init__(unpickling)
+        super(Notifications, self).__init__(unpickling=unpickling)
         if unpickling:
+            self.executing = {}
             self.sem_ = threading.Semaphore(len(self.executed))
             return
         self.sem_ = threading.Semaphore(0)
@@ -213,3 +210,14 @@ class Notifications(GeneralFilter):
             raise error.ErrNotExists()
         src = self.executed.pop(0)  # FIFO
         self.notify(src)
+
+
+class OpenCLFilter(GeneralFilter):
+    """Filter that operates using OpenCL.
+    
+    Attributes:
+        device: Device object.
+    """
+    def __init__(self, device = None, unpickling = 0):
+        super(OpenCLFilter, self).__init__(unpickling = unpickling)
+        self.device = device
