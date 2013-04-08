@@ -70,7 +70,7 @@ class MNISTLoader(filters.GeneralFilter):
             raise error.ErrBadFormat("Wrong images size in train-images, should be 28*28")
 
         # 0 - white, 255 - black
-        pixels = numpy.fromfile(fin, numpy.ubyte, n_images * n_rows * n_cols);
+        pixels = numpy.fromfile(fin, dtype=numpy.ubyte, count=n_images * n_rows * n_cols);
         if pixels.shape[0] != n_images * n_rows * n_cols:
             raise error.ErrBadFormat("EOF reached while reading images from train-images")
 

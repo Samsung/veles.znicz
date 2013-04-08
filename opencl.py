@@ -115,17 +115,21 @@ class DeviceList(filters.SmartPickling):
         
         # Update previous devices with the new ones
         # (all existing references to the old Device objects will be automatically updated with initialized device)
+        n_new = len(self.devices)
         for i in range(0, len(prev_devices)):
-            idx = i % len(self.devices)
-            new_dev = self.devices[idx]
+            if i >= n_new:
+                self.devices.append(self.devices[i % n_new])
+            new_dev = self.devices[i]
             prev_dev = prev_devices[i]
             print()
             print("In previous session we were using device (guid: rating):")
             print("%s: %.2f" % (prev_dev.guid, prev_dev.rating))
             print("it is not available, so we will use device (guid: rating) instead:")
             print("%s: %.2f" % (new_dev.guid, new_dev.rating))
+            guid = prev_dev.guid
             prev_dev.__dict__.update(new_dev.__dict__)
-            self.devices[idx] = prev_dev
+            prev_dev.guid = guid
+            self.devices[i] = prev_dev
 
     def _get_device_guid(self, device):
         return (device.get_info(cl.device_info.VENDOR).strip()+"/"+
@@ -166,9 +170,7 @@ class DeviceList(filters.SmartPickling):
 
         self._prepare_tests()
 
-        for device in self.devices:
-            min_dt = device.min_dt
-            break
+        min_dt = self.devices[0].min_dt
         print("Test(numpy double precision)...")
         t1 = time.time()
         self._do_cpu_test()
