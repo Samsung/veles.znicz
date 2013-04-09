@@ -105,9 +105,10 @@ class UseCase1(filters.GeneralFilter):
 
         #TODO(a.kazantsev): add other filters
 
-    def run(self, endofjob_callback = None):
+    def run(self, resume = False):
         # Start the process:
-        self.nn.run()
+        if True or not resume:  # run from the first filter anyway
+            self.nn.run()
 
         # Run notifications until job is done
         try:
@@ -131,7 +132,6 @@ def main():
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
 
     uc = None
-    args.resume = 1
     if args.resume:
         try:
             print("Resuming from snapshot...")
@@ -144,7 +144,7 @@ def main():
     if not uc:
         uc = UseCase1()
     print("Launching...")
-    uc.run()
+    uc.run(args.resume)
 
     print()
     print("Snapshotting...")

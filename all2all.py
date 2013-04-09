@@ -52,19 +52,19 @@ class All2All(filters.OpenCLFilter):
 
         n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
-            self.weights.v = opencl.aligned_zeros([n_weights])
+            self.weights.v = filters.aligned_zeros([n_weights])
             self.weights.v[:] = self.rand(self.weights.v.size)
             self.weights.v *= 2.0 * self.weights_amplitude
             self.weights.v -= self.weights_amplitude
         if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
-            self.bias.v = opencl.aligned_zeros([numpy.prod(self.output_shape)])
+            self.bias.v = filters.aligned_zeros([numpy.prod(self.output_shape)])
             self.bias.v[:] = self.rand(self.bias.v.size)
             self.bias.v *= 2.0 * self.weights_amplitude
             self.bias.v -= self.weights_amplitude
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.output.batch == None or self.output.batch.size != output_size:
-            self.output.batch = opencl.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
+            self.output.batch = filters.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
 
         mf = pyopencl.mem_flags
         if self.input.batch_ == None:

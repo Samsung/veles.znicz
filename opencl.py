@@ -17,19 +17,6 @@ CL_MAP_WRITE = 2
 CL_MAP_WRITE_INVALIDATE_REGION = 4
 
 
-def aligned_zeros(shape, boundary=4096, dtype=numpy.float32, order="C"):
-    """Allocates PAGE-aligned array required for clEnqueueMapBuffer().
-    """
-    N = numpy.prod(shape)
-    d = numpy.dtype(dtype)
-    tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
-    address = tmp.__array_interface__["data"][0]
-    offset = (boundary - address % boundary) % boundary
-    return tmp[offset:offset + N * d.itemsize]\
-        .view(dtype=d)\
-        .reshape(shape, order=order) 
-
-
 class Device(filters.SmartPickling):
     """OpenCL device helper class.
 
@@ -250,21 +237,21 @@ class DeviceList(filters.SmartPickling):
         self.A_HEIGHT = 2048
         self.rnd_state = numpy.random.get_state()
         
-        self.a = aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
+        self.a = filters.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
         self.a[:] = numpy.random.rand(self.a.size)
         self.a -= 0.5
         self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
         
-        self.b = aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
+        self.b = filters.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
         self.b[:] = numpy.random.rand(self.b.size)
         self.b -= 0.5
         self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
         
-        self.bias = aligned_zeros([self.B_HEIGHT])
+        self.bias = filters.aligned_zeros([self.B_HEIGHT])
         self.bias[:] = numpy.random.rand(self.bias.size)
         self.bias -= 0.5
         
-        self.c = aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
+        self.c = filters.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
 
     def _cleanup_after_tests(self):
         del(self.cc)

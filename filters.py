@@ -15,6 +15,38 @@ import _thread
 import threading
 
 
+def realign(arr, boundary = 4096):
+    """Reallocates array to become PAGE-aligned as required for clEnqueueMapBuffer().
+    """
+    if arr == None:
+        return None
+    address = arr.__array_interface__["data"][0]
+    if address % boundary == 0:
+        return arr
+    N = numpy.prod(arr.shape)
+    d = arr.dtype
+    tmp = numpy.empty(N * d.itemsize + boundary, dtype=numpy.uint8)
+    address = tmp.__array_interface__["data"][0]
+    offset = (boundary - address % boundary) % boundary
+    newarr = tmp[offset:offset + N * d.itemsize]\
+        .view(dtype=d)\
+        .reshape(arr.shape, order="C")
+    newarr[:] = arr[:]
+    return newarr
+
+def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
+    """Allocates PAGE-aligned array required for clEnqueueMapBuffer().
+    """
+    N = numpy.prod(shape)
+    d = numpy.dtype(dtype)
+    tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
+    address = tmp.__array_interface__["data"][0]
+    offset = (boundary - address % boundary) % boundary
+    return tmp[offset:offset + N * d.itemsize]\
+        .view(dtype=d)\
+        .reshape(shape, order="C")
+
+
 class SmartPickling(object):
     """Will save attributes ending with _ as None when pickling and will call constructor upon unpickling.
     """
@@ -313,6 +345,7 @@ class Batch(State):
         super(Batch, self).__init__(unpickling=unpickling)
         self.batch_ = None
         if unpickling:
+            self.batch = realign(self.batch)
             return
         self.batch = None
 
@@ -328,6 +361,7 @@ class Vector(State):
         super(Vector, self).__init__(unpickling=unpickling)
         self.v_ = None
         if unpickling:
+            self.v = realign(self.v)
             return
         self.v = None
 
