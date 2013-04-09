@@ -55,13 +55,8 @@ def do_pickle_test():
     fin.close()
     if g_pt != 2:
         raise Exception("Pickle test failed.")
-    if pt.d != "D" or pt.c != "CC" or pt.b != "B" or pt.a != "AA":
+    if pt.d != "D" or pt.c != "CC" or pt.b != "B" or pt.a != "AA" or pt.h_:
         raise Exception("Pickle test failed.")
-    try:
-        print("SHOULD_NOT_SEE(Unpickling attribute): " + pt.h_)
-        raise Exception("Pickle test failed.")
-    except AttributeError:
-        pass
 
 
 class UseCase1(filters.GeneralFilter):
@@ -77,7 +72,7 @@ class UseCase1(filters.GeneralFilter):
             return
 
         self.device_list = opencl.DeviceList()
-        dev = self.device_list.devices[0]
+        dev = self.device_list.get_device()
 
         # Setup notification flow
         nn = filters.Notifications()
@@ -136,6 +131,7 @@ def main():
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
 
     uc = None
+    args.resume = 1
     if args.resume:
         try:
             print("Resuming from snapshot...")

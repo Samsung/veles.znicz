@@ -17,17 +17,14 @@ class MNISTLoader(filters.GeneralFilter):
 
     State:
         output: contains MNIST training set images.
-            batch: numpy array with first axis as a batch.
         labels: contains MNIST training set labels.
-            n_classes: number of classes.
-            v: numpy array sized as a batch with one label per image in range [0, n_classes).
     """
     def __init__(self, unpickling = 0):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
-        self.output = filters.State()
-        self.labels = filters.State()
+        self.output = filters.Batch()
+        self.labels = filters.Labels()
 
     def load_original(self):
         """Loads data from original MNIST files.
@@ -95,7 +92,7 @@ class MNISTLoader(filters.GeneralFilter):
         fout.close()
         print("Done")
 
-    def run(self, endofjob_callback = None):
+    def run(self):
         """GeneralFilter method.
         
         Here we will load MNIST data.
@@ -107,5 +104,4 @@ class MNISTLoader(filters.GeneralFilter):
         except IOError:
             self.load_original()
         self.output.update_mtime() 
-        if endofjob_callback:
-            endofjob_callback(self)
+        return filters.Event(1)

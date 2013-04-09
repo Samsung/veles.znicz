@@ -11,6 +11,7 @@ import filters
 import numpy
 import pyopencl
 import opencl
+import error
 
 
 class All2All(filters.OpenCLFilter):
@@ -36,118 +37,92 @@ class All2All(filters.OpenCLFilter):
         super(All2All, self).__init__(unpickling=unpickling, device=device)
         if unpickling:
             return
-        self.input = filters.State()
-        self.output = filters.State()
-        self.weights = filters.State()
-        self.bias = filters.State()
+        self.input = filters.Batch()
+        self.output = filters.Batch()
+        self.weights = filters.Vector()
+        self.bias = filters.Vector()
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
 
-    def feed_from_batch(self, endofjob_callback):
+    def run(self):
         """Forward propagation from batch.
         """
-        if not self.output.device:
-            if src.output.device:
-                self.output.device = src.output.device
-            else:
-                self.output.device = self.parent.cl.get_free_device()
-        dev = self.output.device
-        
-        n_weights = src.output.data.size // src.output.data.shape[0] * self.output_layer_size
-        if not self.weights or self.weights.size != n_weights:
-            self.weights = opencl.aligned_zeros([n_weights])
-            self.weights[:] = self.rand(self.weights.size)
-            self.weights *= 2.0 * self.weights_amplitude
-            self.weights -= self.weights_amplitude
-            self.weights_ = None
-        if not self.bias or self.bias.size != self.output_layer_size:
-            self.bias = opencl.aligned_zeros([self.output_layer_size])
-            self.bias[:] = self.rand(self.bias.size)
-            self.bias *= 2.0 * self.weights_amplitude
-            self.bias -= self.weights_amplitude
-            self.bias_ = None
+        self.update_mtime()
 
-        self.output.labels = src.output.labels
+        n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
+        if self.weights.v == None or self.weights.v.size != n_weights:
+            self.weights.v = opencl.aligned_zeros([n_weights])
+            self.weights.v[:] = self.rand(self.weights.v.size)
+            self.weights.v *= 2.0 * self.weights_amplitude
+            self.weights.v -= self.weights_amplitude
+        if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
+            self.bias.v = opencl.aligned_zeros([numpy.prod(self.output_shape)])
+            self.bias.v[:] = self.rand(self.bias.v.size)
+            self.bias.v *= 2.0 * self.weights_amplitude
+            self.bias.v -= self.weights_amplitude
 
-        output_size = src.output.data.shape[0] * self.output_layer_size
-        if not self.output.data or self.output.data.size != output_size:
-            self.output.data = opencl.aligned_zeros([src.output.data.shape[0], self.output_layer_size])
+        output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
+        if self.output.batch == None or self.output.batch.size != output_size:
+            self.output.batch = opencl.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
 
         mf = pyopencl.mem_flags
-        if not src.output.data_:
-            src.output.data_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=src.output.data)
-        if not self.output.data_:
-            self.output.data_ = pyopencl.Buffer(dev.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.output.data)
-        if not self.weights_:
-            self.weights_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.weights)
-        if not self.bias_:
-            self.bias_ = pyopencl.Buffer(dev.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
+        if self.input.batch_ == None:
+            self.input.batch_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
+                                                hostbuf=self.input.batch)
+        if self.output.batch_ == None:
+            self.output.batch_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
+                                                 hostbuf=self.output.batch)
+        if self.weights.v_ == None:
+            self.weights.v_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
+                                              hostbuf=self.weights.v)
+        if self.bias.v_ == None:
+            self.bias.v_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
+                                           hostbuf=self.bias.v)
 
-    def input_changed(self, src):
-        """GeneralFilter method.
-        """
-        if self.mtime >= src.output.mtime:
-            return
-        self.mtime = src.output.mtime
-        if src.output.__class__.__name__ == "DataBatch":
-            return self.feed_from_batch(src)
-
-    def feed_from_batch_ready(self):
-        """When OpenCL event ready.
+    def post_run(self):
+        """Show some statistics.
         """
         self.output.update_mtime()
         print("Processed %d samples with %d weights within %.2f seconds: %s" % \
-              (self.output.data.shape[0], self.weights.size, self.output.mtime - self.mtime, self.__class__.__name__))
-        if self.parent:
-            self.parent.child_changed(self)
-
-    def run(self, endofjob_callback = None):
-        """GeneralFilter method.
-        """
-        #self.feed_from_batch(endofjob_callback)
-        super(All2All, self).run(endofjob_callback)
+              (self.output.batch.shape[0], self.weights.v.size, \
+               self.output.mtime - self.mtime, self.__class__.__name__))
 
 
 class All2AllTanh(All2All):
     """All2All layer to layer with scaled tanh() activation.
     """
-    def feed_from_batch(self, src):
+    def run(self):
         """Forward propagation from batch. 
         """
-        super(All2AllTanh, self).feed_from_batch(src)
+        super(All2AllTanh, self).run()
 
-        dev = self.output.device
-        if not self.krn_:
+        output_size = int(numpy.prod(self.output_shape))
+
+        if not self.__dict__.get("krn_"):
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
-                       (dev.BLOCK_SIZE, self.weights.size // self.output_layer_size, self.output_layer_size)
+                       (self.device.info.BLOCK_SIZE, self.weights.v.size // output_size, output_size)
             fin = open("cl/feed_tanh.cl", "r")
             s = defines + fin.read()
             fin.close()
-            fout = open("cache/test.cl", "w")
+            fout = open("cache/feed_tanh.cl", "w")
             fout.write(s)
             fout.close()
 
-            prg = pyopencl.Program(dev.context_, s).build()
+            prg = pyopencl.Program(self.device.context_, s).build()
 
             self.krn_ = pyopencl.Kernel(prg, "FEED_LAYER")
-            self.krn_.set_arg(0, src.output.data_)
-            self.krn_.set_arg(1, self.weights_)
-            self.krn_.set_arg(2, self.output.data_)
-            self.krn_.set_arg(3, self.bias_)
+            self.krn_.set_arg(0, self.input.batch_)
+            self.krn_.set_arg(1, self.weights.v_)
+            self.krn_.set_arg(2, self.output.batch_)
+            self.krn_.set_arg(3, self.bias.v_)
 
-        if not dev.queue_:
-            dev.queue_ = pyopencl.CommandQueue(dev.context_)
-
-        global_size = [self.output_layer_size, self.output.data.shape[0]]
-        local_size = [dev.BLOCK_SIZE, dev.BLOCK_SIZE]
-        event = pyopencl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
-        event.callback = self.feed_from_batch_ready
-        event.callback_args = ()
-
-        self.parent.cl.add_event(event)
+        global_size = [output_size, self.output.batch.shape[0]]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
+        return filters.OpenCLEvent(event)
 
 
 class All2AllSoftmax(All2All):
@@ -155,52 +130,46 @@ class All2AllSoftmax(All2All):
     
     Currently, we will calculate softmax partially on cpu.
     """
-    def feed_from_batch_ready(self, arr, queue_):
-        arr.base.release(queue=queue_, wait_for=None)
-        batch = self.output.data
+    def post_run(self):
+        batch = self.output.batch
         for sample in batch:
             rsum = 1.0 / sample.sum()
             sample *= rsum
-        super(All2AllSoftmax, self).feed_from_batch_ready()
+        super(All2AllSoftmax, self).post_run()
 
-    def feed_from_batch(self, src):
-        """Forward propagation from batch.
+    def run(self):
+        """Forward propagation from batch. 
         """
-        super(All2AllSoftmax, self).feed_from_batch(src)
+        super(All2AllSoftmax, self).run()
 
-        dev = self.output.device
-        if not self.krn_:
+        output_size = int(numpy.prod(self.output_shape))
+
+        if not self.__dict__.get("krn_"):
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
-                       (dev.BLOCK_SIZE, self.weights.size // self.output_layer_size, self.output_layer_size)
+                       (self.device.info.BLOCK_SIZE, self.weights.v.size // output_size, output_size)
             fin = open("cl/feed_exp.cl", "r")
             s = defines + fin.read()
             fin.close()
-            fout = open("cache/test.cl", "w")
+            fout = open("cache/feed_exp.cl", "w")
             fout.write(s)
             fout.close()
 
-            prg = cl.Program(dev.context_, s).build()
+            prg = pyopencl.Program(self.device.context_, s).build()
 
-            self.krn_ = cl.Kernel(prg, "FEED_LAYER")
-            self.krn_.set_arg(0, src.output.data_)
-            self.krn_.set_arg(1, self.weights_)
-            self.krn_.set_arg(2, self.output.data_)
-            self.krn_.set_arg(3, self.bias_)
+            self.krn_ = pyopencl.Kernel(prg, "FEED_LAYER")
+            self.krn_.set_arg(0, self.input.batch_)
+            self.krn_.set_arg(1, self.weights.v_)
+            self.krn_.set_arg(2, self.output.batch_)
+            self.krn_.set_arg(3, self.bias.v_)
 
-        if not dev.queue_:
-            dev.queue_ = cl.CommandQueue(dev.context_)
+        global_size = [output_size, self.output.batch.shape[0]]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
 
-        global_size = [self.output_layer_size, self.output.data.shape[0]]
-        local_size = [dev.BLOCK_SIZE, dev.BLOCK_SIZE]
-        cl.enqueue_nd_range_kernel(dev.queue_, self.krn_, global_size, local_size)
+        arr, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=self.output.batch_, \
+                flags=opencl.CL_MAP_READ, offset=0, shape=self.output.batch.shape, \
+                dtype=self.output.batch.dtype, order="C", wait_for=[ev], is_blocking=False)
 
-        arr, event = cl.enqueue_map_buffer(queue=dev.queue_, buf=self.output.data_, \
-                flags=opencl.CL_MAP_READ, offset=0, shape=self.output.data.shape, \
-                dtype=self.output.data.dtype, order="C", wait_for=None, is_blocking=False)
-
-        event.callback = self.feed_from_batch_ready
-        event.callback_args = (arr, dev.queue_)
-
-        self.parent.cl.add_event(event)
+        return filters.OpenCLEvent(event, arr)

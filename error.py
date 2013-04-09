@@ -27,3 +27,9 @@ class ErrBadFormat(Exception):
     """Exception, raised when bad format or data occured somethere.
     """
     pass
+
+
+class ErrOpenCL(Exception):
+    """Exception, raised when OpenCL error occured.
+    """
+    pass

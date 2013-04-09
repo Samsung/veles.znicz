@@ -32,28 +32,39 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32, order="C"):
 
 class Device(filters.SmartPickling):
     """OpenCL device helper class.
-    
+
     Attributes:
-        guid: "GUID" of the device.
-        rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest, 0 - unrated).
-        dt: time of rating test pass.
-        min_dt: minimum time of rating test pass of all tests.
-        memsize: "available" size of the memory on the device.
-        BLOCK_SIZE: best block size for matrix multiplication for the device.
+        info: DeviceInfo object.
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
     """
-    def __init__(self, guid = "", unpickling = 0):
+    def __init__(self, info = None, unpickling = 0):
         super(Device, self).__init__(unpickling=unpickling)
         self.context_ = None
         self.queue_ = None
         if unpickling:
             return
+        self.info = info
+        self.memsize = 0
+
+
+class DeviceInfo(object):
+    """Info about device.
+
+    Attributes:
+        guid: "GUID" of the device.
+        memsize: "available" size of the memory on the device.
+        rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest, 0 - unrated).
+        dt: time of rating test pass.
+        min_dt: minimum time of rating test pass of all tests.
+        BLOCK_SIZE: best block size for matrix multiplication for the device.
+    """
+    def __init__(self, guid = ""):
         self.guid = guid
+        self.memsize = 0
         self.rating = 0
         self.dt = 604800
         self.min_dt = 86400
-        self.memsize = 0
         self.BLOCK_SIZE = 16
 
 
@@ -61,75 +72,85 @@ class DeviceList(filters.SmartPickling):
     """Contains list of devices sorted by rating.
 
     Attributes:
-        devices: list of Device objects sorted by rating within a single platform with the most performance.
+        device_infos: dictionary of device infos by guid.
+        devices_available: list of devices available at the time of run sorted by ratings.
+        devices_in_use: list of device objects currently in use.
+        last_index: index of the last device returned by get_device() in the devices_available list.
     """
     def __init__(self, unpickling = 0):
         super(DeviceList, self).__init__(unpickling=unpickling)
-        if not unpickling:
-            self.devices = []
-            try:
-                fin = open("cache/opencl.pickle", "rb")
-                self.devices = pickle.load(fin)
-                fin.close()
-            except IOError:
-                self.devices = []
-        guids = {}
-        for device in self.devices:
-            guids[device.guid] = device
+        self.device_infos = {}
+        try:
+            fin = open("cache/device_infos.pickle", "rb")
+            self.device_infos = pickle.load(fin)
+            fin.close()
+        except IOError:
+            pass
+
+        self.devices_available = []
         platforms = cl.get_platforms()
         for platform in platforms:
             devices = platform.get_devices()
             context = cl.Context(devices)
             for device in devices:
                 guid = self._get_device_guid(device)
-                if guid not in guids:
-                    dev = Device(guid=guid)
-                    self.devices.append(dev)
-                    guids[guid] = dev
-                guids[guid].memsize = self._get_memsize(device)
-                guids[guid].context_ = context
-                guids[guid].queue_ = cl.CommandQueue(context)
-        prev_devices = []
-        n = len(self.devices)
-        for i in range(n - 1, 0, -1):
-            if not self.devices[i].context_:
-                prev_devices.insert(0, self.devices.pop(i))
+                if guid not in self.device_infos.keys():
+                    info = DeviceInfo(guid=guid)
+                    self.device_infos[guid] = info
+                info = self.device_infos[guid]
+                info.memsize = self._get_memsize(device)
+                dev = Device(info=info)
+                dev.context_ = context
+                dev.queue_ = cl.CommandQueue(context)
+                self.devices_available.append(dev)
 
         if self._do_tests():
-            print("Saving test results to opencl.pickle...")
-            fout = open("cache/opencl.pickle", "wb")
-            pickle.dump(self.devices, fout)
+            print("Saving test results to cache/device_infos.pickle...")
+            fout = open("cache/device_infos.pickle", "wb")
+            pickle.dump(self.device_infos, fout)
             fout.close()
             print("Done")
 
-        self.devices.sort(key=lambda device: device.rating)
+        self.devices_available.sort(key=lambda device: device.info.rating)
         # leave only one context
-        context = self.devices[0].context_
-        n = len(self.devices)
-        for i in range(n - 1, 1, -1):
-            if self.devices[i].context_ != context:
-                self.devices.pop(i)
+        context = self.devices_available[0].context_
+        n = len(self.devices_available)
+        for i in range(n - 1, 0, -1):
+            if self.devices_available[i].context_ != context:
+                self.devices_available.pop(i)
         print("Selected single context with the following devices (guid: raiting):")
-        for device in self.devices:
-            print("%s: %.2f" % (device.guid, device.rating))
-        
-        # Update previous devices with the new ones
-        # (all existing references to the old Device objects will be automatically updated with initialized device)
-        n_new = len(self.devices)
-        for i in range(0, len(prev_devices)):
-            if i >= n_new:
-                self.devices.append(self.devices[i % n_new])
-            new_dev = self.devices[i]
-            prev_dev = prev_devices[i]
-            print()
-            print("In previous session we were using device (guid: rating):")
-            print("%s: %.2f" % (prev_dev.guid, prev_dev.rating))
-            print("it is not available, so we will use device (guid: rating) instead:")
-            print("%s: %.2f" % (new_dev.guid, new_dev.rating))
-            guid = prev_dev.guid
-            prev_dev.__dict__.update(new_dev.__dict__)
-            prev_dev.guid = guid
-            self.devices[i] = prev_dev
+        for device in self.devices_available:
+            print("%s: %.2f" % (device.info.guid, device.info.rating))
+
+        if not unpickling:
+            self.devices_in_use = []
+        self.last_index = 0
+        for self.last_index in range(0, len(self.devices_in_use)):
+            self.devices_in_use[self.last_index].__dict__.\
+            update(self.devices_available[self.last_index % len(self.devices_available)].__dict__)
+
+    def get_device(self):
+        """Gets device from the available list.
+        """
+        self.last_index += 1
+        dev = Device()
+        dev.__dict__.update(self.devices_available[self.last_index % len(self.devices_available)].__dict__)
+        self.devices_in_use.append(dev)
+        return dev
+
+    def return_device(self, dev):
+        """Returns device to the available list.
+        """
+        idx = 0
+        for i in range(0, len(self.devices_available)):
+            if self.devices_available[i].context_ == dev.context_:
+                idx = i
+                break
+        else:
+            return
+        self.devices_available.insert((self.last_index - 1) % len(self.devices_available), \
+                                      self.devices_available.pop(idx))
+        self.devices_in_use.remove(dev)
 
     def _get_device_guid(self, device):
         return (device.get_info(cl.device_info.VENDOR).strip()+"/"+
@@ -162,15 +183,18 @@ class DeviceList(filters.SmartPickling):
     def _do_tests(self):
         """Measure relative device performance.
         """
-        for device in self.devices:
-            if not device.rating:
+        for device in self.devices_available:
+            if not device.info.rating:
                 break
         else:
             return 0
 
         self._prepare_tests()
 
-        min_dt = self.devices[0].min_dt
+        min_dt = 86400
+        for info in self.device_infos.values():
+            min_dt = info.min_dt
+            break
         print("Test(numpy double precision)...")
         t1 = time.time()
         self._do_cpu_test()
@@ -180,20 +204,20 @@ class DeviceList(filters.SmartPickling):
         if dt < min_dt:
             min_dt = dt
         print("Done in %.2f seconds" % (dt))
-        for device in self.devices:
-            if device.rating:
+        for device in self.devices_available:
+            if device.info.rating:
                 continue
-            device.dt = 86400
+            device.info.dt = 86400
             for BLOCK_SIZE in (64, 32, 16, 8):
                 try:
-                    print("Testing %s with BLOCK_SIZE = %d" % (device.guid, BLOCK_SIZE))
+                    print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
                     t1 = time.time()
                     self._do_test(device, BLOCK_SIZE)
                     t2 = time.time()
                     dt = t2 - t1
-                    if dt < device.dt:
-                        device.dt = dt
-                        device.BLOCK_SIZE = BLOCK_SIZE
+                    if dt < device.info.dt:
+                        device.info.dt = dt
+                        device.info.BLOCK_SIZE = BLOCK_SIZE
                     if dt < min_dt:
                         min_dt = dt
                     c = self.cc.copy()
@@ -204,17 +228,17 @@ class DeviceList(filters.SmartPickling):
                 except (cl.LogicError, cl.RuntimeError):
                     print("BLOCK_SIZE = %d is not supported" % (BLOCK_SIZE))
         print("\nRating(numpy double precision): %.2f" % (min_dt / dt_numpy))
-        for device in self.devices:
-            rating = min_dt / device.dt
-            if device.rating != rating:
-                if device.rating:
-                    print("UPD Rating(%s): %.2f" % (device.guid, rating))
+        for info in self.device_infos.values():
+            rating = min_dt / info.dt
+            if info.rating != rating:
+                if info.rating:
+                    print("UPD Rating(%s): %.2f" % (info.guid, rating))
                 else:
-                    print("NEW Rating(%s): %.2f" % (device.guid, rating))
+                    print("NEW Rating(%s): %.2f" % (info.guid, rating))
             else:
-                print("Rating(%s): %.2f" % (device.guid, rating))
-            device.rating = rating
-            device.min_dt = min_dt
+                print("Rating(%s): %.2f" % (info.guid, rating))
+            info.rating = rating
+            info.min_dt = min_dt
 
         self._cleanup_after_tests()
         print()
