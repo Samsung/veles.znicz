@@ -5,14 +5,9 @@ Filters in data stream neural network model.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import os
-import sys
-import pickle
-import error
 import time
 import numpy
 import _thread
-import threading
 
 
 def realign(arr, boundary = 4096):
@@ -76,20 +71,20 @@ class SmartPickling(object):
         self.__init__(unpickling=1)
 
 
-class State(SmartPickling):
-    """State of the filter.
+class Connector(SmartPickling):
+    """Connects filter attributes (data flow).
 
     Attributes:
         mtime: time of the last modification.
     """
     def __init__(self, unpickling = 0):
-        super(State, self).__init__(unpickling=unpickling)
+        super(Connector, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.mtime = 0.0
 
-    def update_mtime(self):
-        """Update mtime that it will become greater than already and trying set it with system time first.
+    def update(self):
+        """Marks data as updated (updates mtime).
         """
         mtime = time.time()
         if mtime <= self.mtime:
@@ -101,229 +96,126 @@ class State(SmartPickling):
         self.mtime = mtime
 
 
-class Event(SmartPickling):
-    """Event object.
+class Filter(SmartPickling):
+    """General filter in data stream model.
 
     Attributes:
-        active: active event or not.
-        lock_: lock.
-        sem_: semaphore to raise on set.
-        ready_queue: list where to append self on set.
-        owner: owner of the event.
-    """
-    def __init__(self, active = 0, unpickling = 0):
-        super(Event, self).__init__(unpickling=unpickling)
-        self.lock_ = _thread.allocate_lock()
-        self.active = active
-        self.sem_ = None
-        self.ready_queue = None
-        self.owner = None
-
-    def set(self):
-        """Sets the event to active.
-        """
-        self.lock_.acquire()
-        self.active = 1
-        if self.sem_:
-            self.ready_queue.append(self)
-            self.sem_.release()
-        self.lock_.release()
-
-    def attach(self, sem, ready_queue, owner):
-        """Attaches object to the event queue.
-        """
-        self.lock_.acquire()
-        self.sem_ = sem
-        self.ready_queue = ready_queue
-        self.owner = owner
-        if self.active and self.sem_:
-            self.ready_queue.append(self)
-            self.sem_.release()
-        self.lock_.release()
-
-    def post_check(self):
-        """Called once after event is ready, should raise Exception if there is a error.
-        """
-        pass
-
-
-class OpenCLEvent(Event):
-    """OpenCL event object.
-    
-    Attributes:
-        ev_: pyopencl.Event.
-        arr_: first argument returned in case of pyopencl.enqueue_map_buffer().
-    """
-    def __init__(self, ev, arr = None, unpickling = 0):
-        super(OpenCLEvent, self).__init__(unpickling=unpickling)
-        self.ev_ = ev
-        self.arr_ = arr
-
-    def attach(self, sem, ready_queue, owner):
-        super(OpenCLEvent, self).attach(sem, ready_queue, owner)
-        _thread.start_new_thread(self.run, ())
-
-    def run(self):
-        self.ev_.wait()
-        self.set()
-
-    def post_check(self):
-        if self.arr_ != None:
-            self.arr_.base.release(queue=self.owner.device.queue_, wait_for=None)
-        if self.ev_.command_execution_status < 0:
-            raise error.ErrOpenCL(self)
-
-
-class GeneralFilter(State):
-    """General filter in data stream neural network model.
-    
-    Attributes:
-        random_state: numpy random state.
+        links_from: dictionary of filters it depends on.
+        links_to: dictionary of dependent filters.
+        enabled: enabled filter or not.
+        gate_lock_: lock.
+        run_lock_: lock.
     """
     def __init__(self, unpickling = 0):
-        super(GeneralFilter, self).__init__(unpickling=unpickling)
+        super(Filter, self).__init__(unpickling=unpickling)
+        self.gate_lock_ = _thread.allocate_lock()
+        self.run_lock_ = _thread.allocate_lock()
         if unpickling:
-            if self.random_state:
-                numpy.random.set_state(self.random_state)
             return
-        self.random_state = ()
+        self.links_from = {}
+        self.links_to = {}
+        self.enabled = 1
 
-    def snapshot(self, file, wait_for_completion = 1):
-        """Makes snapshot to the file.
+    def link_from(self, src):
+        """Adds notification link.
         """
-        pid = os.fork()
-        if pid:
-            if wait_for_completion:
-                os.waitpid(pid, 0)
-            return
-        self.random_state = numpy.random.get_state()
-        pickle.dump(self, file)
-        file.flush()
-        sys.exit()
+        self.links_from[src] = 0
+        src.links_to[self] = 0
 
-    def run(self):
-        """Start the job.
-        
+    def _initialize_dst(self, dst):
+        """Initializes dst.
+        """
+        if not dst.gate(self):
+            return
+        self.run_lock_.acquire()
+        if dst.initialize():
+            self.run_lock_.release()
+            return
+        self.run_lock_.release()
+        dst.initialize_dependent()
+
+    def _run_dst(self, dst):
+        """Runs dst.
+        """
+        if not dst.gate(self):
+            return
+        self.run_lock_.acquire()
+        if dst.run():
+            self.run_lock_.release()
+            return
+        self.run_lock_.release()
+        dst.run_dependent()
+
+    def initialize_dependent(self):
+        """Invokes initialize() on dependent filters.
+        """
+        for dst in self.links_to.keys():
+            if dst.enabled:
+                #_thread.start_new_thread(self._initialize_dst, (dst, ))
+                self._initialize_dst(dst)  # there is no need to invoke it on different thread
+
+    def run_dependent(self):
+        """Invokes run() on dependent filters.
+        """
+        for dst in self.links_to.keys():
+            if dst.enabled:
+                _thread.start_new_thread(self._run_dst, (dst, ))
+
+    def initialize(self):
+        """Allocate buffers here.
+
         Returns:
-            Event.
+            None: all ok, dependent filters will be initialized.
+            non-zero: error possibly occured, dependent filters will not be initialized.
         """
         pass
-
-    def post_run(self):
-        """Called once just after the end of job started in run().
-        """
-        pass
-
-
-def all_values(stt):
-    return all(stt.values())
-
-
-def any_value(stt):
-    return any(stt.values())
-
-
-def always(stt):
-    return 1
-
-
-def never(stt):
-    return 0
-
-
-class Notifications(GeneralFilter):
-    """Network of the notifications between filters.
-    
-    Attributes:
-        src_to: what depends on src.
-        dst_from: on what dst depends.
-        gates: dictionary of gate functions by dst.
-        sem_: semaphore.
-        ready_queue: queue of set events.
-        pending_events: dictionary of pending events.
-    """
-    def __init__(self, unpickling = 0):
-        super(Notifications, self).__init__(unpickling=unpickling)
-        self.pending_events = {}
-        if unpickling:
-            self.sem_ = threading.Semaphore(len(self.ready_queue))
-            return
-        self.ready_queue = []
-        self.sem_ = threading.Semaphore(0)
-        self.src_to = {}
-        self.dst_from = {}
-        self.gates = {}
-
-    def set_rule(self, dst_filter, src_filters, gate_function = always):
-        """Sets filter activation rule.
-
-        Parameters:
-            dst_filter: filter on which to set rule.
-            src_filters: list of filters it depends on.
-            gate_function: function to be called on activation of any of the src_filters
-                gate_function(stt), where:
-                    stt is the dictionary: filter => state
-                        state in {0, 1}, 1 means activated
-                it's return value lies in {0, 1, 2}:
-                    0 - gate closed,
-                    1 - gate open and we should reset src_filters_state,
-                    2 - gate open and we should not reset src_filters_state.
-        """
-        if dst_filter in self.dst_from:
-            for src in self.dst_from[dst_filter]:
-                del(self.src_to[src][dst_filter])
-        src_filters_state = {}
-        for src in src_filters:
-            src_filters_state[src] = 0
-            if src not in self.src_to:
-                self.src_to[src] = {}
-            self.src_to[src][dst_filter] = 1
-        self.dst_from[dst_filter] = src_filters_state
-        self.gates[dst_filter] = gate_function
-
-    def notify(self, src_filter):
-        """Processes activation of the specified filter.
-        """
-        if src_filter not in self.src_to:
-            return
-        for dst in self.src_to[src_filter]:
-            self.dst_from[dst][src_filter] = 1
-            gate = self.gates[dst]
-            state = gate(self.dst_from[dst])
-            if state:
-                if state == 1:
-                    for src in self.dst_from[dst].keys():
-                        self.dst_from[dst][src] = 0
-                ev = dst.run()
-                if ev:
-                    ev.attach(self.sem_, self.ready_queue, dst)
-                    self.pending_events[ev] = 1
 
     def run(self):
-        """Runs self.
+        """Do the job here.
+
+        Returns:
+            None: all ok, dependent filters will be run.
+            non-zero: error possibly occured, dependent filters will not be run.
         """
-        self.notify(self)
-        return None
+        pass
 
-    def notify_next(self):
-        """Wait for the next filter to do its job.
+    def gate(self, src):
+        """Called before run() or initialize().
 
-        Raises:
-            ErrNotExists, ErrOpenCL.
+        Returns:
+            non-zero: gate is open, will invoke run() or initialize().
+            zero: gate is closed, will not invoke further.
         """
-        if not self.pending_events:
-            raise error.ErrNotExists
-        self.sem_.acquire()
-        ev = self.ready_queue.pop(0)
-        del(self.pending_events[ev])
-        ev.post_check()
-        ev.owner.post_run()
-        self.notify(ev.owner)
+        self.gate_lock_.acquire()
+        if not len(self.links_from):
+            self.gate_lock_.release()
+            return 1
+        if src in self.links_from:
+            self.links_from[src] = 1
+        if not all(self.links_from.values()):
+            self.gate_lock_.release()
+            return 0
+        for src in self.links_from:  # reset activation flags
+            self.links_from[src] = 0
+        self.gate_lock_.release()
+        return 1
+
+    def unlink(self):
+        """Unlinks self from other filters.
+        """
+        self.gate_lock_.acquire()
+        for src in self.links_from:
+            del(src.links_to[self])
+        for dst in self.links_to:
+            del(dst.links_from[self])
+        self.links_from.clear()
+        self.links_to.clear()
+        self.gate_lock_.release()
 
 
-class OpenCLFilter(GeneralFilter):
+class OpenCLFilter(Filter):
     """Filter that operates using OpenCL.
-    
+
     Attributes:
         device: Device object.
     """
@@ -334,7 +226,7 @@ class OpenCLFilter(GeneralFilter):
         self.device = device
 
 
-class Batch(State):
+class Batch(Connector):
     """Batch.
 
     Attributes:
@@ -350,7 +242,7 @@ class Batch(State):
         self.batch = None
 
 
-class Vector(State):
+class Vector(Connector):
     """Vector.
     
     Attributes:
@@ -366,7 +258,7 @@ class Vector(State):
         self.v = None
 
 
-class Labels(State):
+class Labels(Connector):
     """Labels for batch.
 
     Attributes:

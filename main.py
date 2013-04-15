@@ -14,10 +14,10 @@ import all2all
 import numpy
 import opencl
 import pickle
-import error
 import os
 import evaluator
 import argparse
+import threading
 
 
 g_pt = 0
@@ -59,15 +59,53 @@ def do_pickle_test():
         raise Exception("Pickle test failed.")
 
 
-class UseCase1(filters.GeneralFilter):
+def fork_snapshot(obj, file, wait_for_completion = 1):
+    """Makes snapshot of obj to the file.
+    """
+    pid = os.fork()
+    if pid:
+        if wait_for_completion:
+            os.waitpid(pid, 0)
+        return
+    pickle.dump(obj, file)
+    file.flush()
+    sys.exit()
+
+
+class EndPoint(filters.Filter):
+    """On initialize() and run() releases its semaphore.
+    
+    Attributes:
+        sem_: semaphore.
+    """
+    def __init__(self, unpickling = 0):
+        super(EndPoint, self).__init__(unpickling=unpickling)
+        self.sem_ = threading.Semaphore(0)
+
+    def initialize(self):
+        self.sem_.release()
+
+    def run(self):
+        self.sem_.release()
+
+    def wait(self):
+        """Waits on semaphore.
+        """
+        self.sem_.acquire()
+
+
+class UseCase1(filters.SmartPickling):
     """Use case 1.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
-        nn: notification network.
+        start_point: Filter.
+        end_point: EndPoint.
+        sem_: semaphore.
     """
     def __init__(self, unpickling = 0):
         super(UseCase1, self).__init__(unpickling=unpickling)
+        self.sem_ = threading.Semaphore(0)
         if unpickling:
             return
 
@@ -75,47 +113,47 @@ class UseCase1(filters.GeneralFilter):
         dev = self.device_list.get_device()
 
         # Setup notification flow
-        nn = filters.Notifications()
-
         m = mnist.MNISTLoader()
-        nn.set_rule(m, [nn])
 
         aa = all2all.All2AllTanh(output_shape=[1024], device=dev)
-        nn.set_rule(aa, [m])
         aa.input = m.output
+        aa.link_from(m)
 
         aa2 = all2all.All2AllTanh(output_shape=[256], device=dev)
-        nn.set_rule(aa2, [aa])
         aa2.input = aa.output
+        aa2.link_from(aa)
 
         aa3 = all2all.All2AllTanh(output_shape=[64], device=dev)
-        nn.set_rule(aa3, [aa2])
         aa3.input = aa2.output
+        aa3.link_from(aa2)
 
         out = all2all.All2AllSoftmax(output_shape=[16], device=dev)
-        nn.set_rule(out, [aa3])
         out.input = aa3.output
+        out.link_from(aa3)
 
         ev = evaluator.BatchEvaluator(device=dev)
-        nn.set_rule(ev, [out])
         ev.input = out.output
         ev.labels = m.labels
-
-        self.nn = nn
+        ev.link_from(out)
+        ev.link_from(m)
 
         #TODO(a.kazantsev): add other filters
 
+        self.start_point = filters.Filter()
+        m.link_from(self.start_point)
+        self.end_point = EndPoint()
+        self.end_point.link_from(ev)
+
     def run(self, resume = False):
         # Start the process:
-        if True or not resume:  # run from the first filter anyway
-            self.nn.run()
-
-        # Run notifications until job is done
-        try:
-            while True:
-                self.nn.notify_next()
-        except error.ErrNotExists:
-            pass
+        print()
+        print("Initializing...")
+        self.start_point.initialize_dependent()
+        self.end_point.wait()
+        print()
+        print("Running...")
+        self.start_point.run_dependent()
+        self.end_point.wait()
 
 
 def main():
@@ -136,7 +174,8 @@ def main():
         try:
             print("Resuming from snapshot...")
             fin = open("cache/snapshot.pickle", "rb")
-            uc = pickle.load(fin)
+            (uc, random_state) = pickle.load(fin)
+            numpy.random.set_state(random_state)
             fin.close()
         except IOError:
             print("Could not resume from cache/snapshot.pickle")
@@ -149,7 +188,7 @@ def main():
     print()
     print("Snapshotting...")
     fout = open("cache/snapshot.pickle", "wb")
-    uc.snapshot(fout)
+    fork_snapshot((uc, numpy.random.get_state()), fout)
     fout.close()
     print("Done")
 

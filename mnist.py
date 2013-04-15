@@ -12,7 +12,7 @@ import pickle
 import numpy
 
 
-class MNISTLoader(filters.GeneralFilter):
+class MNISTLoader(filters.Filter):
     """Loads MNIST data.
 
     State:
@@ -92,10 +92,8 @@ class MNISTLoader(filters.GeneralFilter):
         fout.close()
         print("Done")
 
-    def run(self):
-        """GeneralFilter method.
-        
-        Here we will load MNIST data.
+    def initialize(self):
+        """Here we will load MNIST data.
         """
         try:
             fin = open("cache/MNIST-train.pickle", "rb")
@@ -103,5 +101,9 @@ class MNISTLoader(filters.GeneralFilter):
             fin.close()
         except IOError:
             self.load_original()
-        self.output.update_mtime() 
-        return filters.Event(1)
+        self.output.update()
+
+    def run(self):
+        """Just update an output.
+        """
+        self.output.update()
