@@ -4,6 +4,7 @@ Created on Apr 1, 2013
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
+import formats
 import numpy
 
 
@@ -18,11 +19,20 @@ class BatchEvaluator(filters.OpenCLFilter):
         super(BatchEvaluator, self).__init__(unpickling=unpickling, device=device)
         if unpickling:
             return
-        self.input = filters.Batch()
-        self.labels = filters.Labels()
+        self.input = formats.Batch(device)
+        self.labels = formats.Labels()
 
     def run(self):
-        print("(min, max, sum, average) = (%.6f, %.6f, %.6f, %.6f)" % \
-              (self.input.batch.min(), self.input.batch.max(), self.input.batch.sum(), \
-               numpy.average(self.input.batch)))
-        print("TODO(a.kazantsev): implement " + self.__class__.__name__ + "::run()")
+        a = self.input.batch
+        print("(min, max, sum, avg) = (%.6f, %.6f, %.6f, %.6f)" % (a.min(), a.max(), a.sum(), numpy.average(a)))
+        n_ok = 0
+        i = 0
+        for sample in self.input.batch:
+            i_max = numpy.argmax(sample)
+            if i_max == self.labels.v[i]:
+                n_ok += 1
+            i += 1
+        print("(n_ok, n_total): (%d, %d)" % (n_ok, i))
+        if n_ok == i:
+            print("Perfect")
+            return 1

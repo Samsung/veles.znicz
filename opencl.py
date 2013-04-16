@@ -10,6 +10,7 @@ import time
 import numpy
 import pickle
 import filters
+import os
 
 
 CL_MAP_READ = 1
@@ -24,11 +25,13 @@ class Device(filters.SmartPickling):
         info: DeviceInfo object.
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
+        pid: process id.
     """
     def __init__(self, info = None, unpickling = 0):
         super(Device, self).__init__(unpickling=unpickling)
         self.context_ = None
         self.queue_ = None
+        self.pid = os.getpid()
         if unpickling:
             return
         self.info = info

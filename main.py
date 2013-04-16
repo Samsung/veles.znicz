@@ -18,6 +18,7 @@ import os
 import evaluator
 import argparse
 import threading
+import gd
 
 
 g_pt = 0
@@ -61,6 +62,8 @@ def do_pickle_test():
 
 def fork_snapshot(obj, file, wait_for_completion = 1):
     """Makes snapshot of obj to the file.
+
+    Wont work with OpenCL buffer mapping during pickle.
     """
     pid = os.fork()
     if pid:
@@ -103,14 +106,16 @@ class UseCase1(filters.SmartPickling):
         end_point: EndPoint.
         sem_: semaphore.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, cpu, unpickling = 0):
         super(UseCase1, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         if unpickling:
             return
 
-        self.device_list = opencl.DeviceList()
-        dev = self.device_list.get_device()
+        dev = None
+        if not cpu:
+            self.device_list = opencl.DeviceList()
+            dev = self.device_list.get_device()
 
         # Setup notification flow
         m = mnist.MNISTLoader()
@@ -137,12 +142,17 @@ class UseCase1(filters.SmartPickling):
         ev.link_from(out)
         ev.link_from(m)
 
+        gdsm = gd.GDSM(device=dev)
+        gdsm.weights = out.weights
+        gdsm.this_errs = out.output
+        gdsm.link_from(ev)
+
         #TODO(a.kazantsev): add other filters
 
         self.start_point = filters.Filter()
         m.link_from(self.start_point)
         self.end_point = EndPoint()
-        self.end_point.link_from(ev)
+        self.end_point.link_from(gdsm)
 
     def run(self, resume = False):
         # Start the process:
@@ -165,6 +175,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", action="store_true", help="resume from snapshot", \
                         default=False, dest="resume")
+    parser.add_argument("-cpu", action="store_true", help="use numpy only", \
+                        default=False, dest="cpu")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
@@ -181,14 +193,15 @@ def main():
             print("Could not resume from cache/snapshot.pickle")
             uc = None
     if not uc:
-        uc = UseCase1()
+        uc = UseCase1(args.cpu)
     print("Launching...")
     uc.run(args.resume)
 
     print()
     print("Snapshotting...")
     fout = open("cache/snapshot.pickle", "wb")
-    fork_snapshot((uc, numpy.random.get_state()), fout)
+    #fork_snapshot((uc, numpy.random.get_state()), fout)
+    pickle.dump((uc, numpy.random.get_state()), fout)
     fout.close()
     print("Done")
 

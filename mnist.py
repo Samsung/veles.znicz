@@ -6,6 +6,7 @@ File for MNIST dataset.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
+import formats
 import struct
 import error
 import pickle
@@ -23,8 +24,8 @@ class MNISTLoader(filters.Filter):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
-        self.output = filters.Batch()
-        self.labels = filters.Labels()
+        self.output = formats.Batch()
+        self.labels = formats.Labels()
 
     def load_original(self):
         """Loads data from original MNIST files.

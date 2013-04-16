@@ -8,6 +8,7 @@ TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
+import formats
 import numpy
 import pyopencl
 import opencl
@@ -34,10 +35,10 @@ class All2All(filters.OpenCLFilter):
         self.krn_ = None
         if unpickling:
             return
-        self.input = filters.Batch()
-        self.output = filters.Batch()
-        self.weights = filters.Vector()
-        self.bias = filters.Vector()
+        self.input = formats.Batch(device)
+        self.output = formats.Batch(device)
+        self.weights = formats.Vector(device)
+        self.bias = formats.Vector(device)
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
@@ -49,15 +50,24 @@ class All2All(filters.OpenCLFilter):
             self.weights.v[:] = self.rand(self.weights.v.size)
             self.weights.v *= 2.0 * self.weights_amplitude
             self.weights.v -= self.weights_amplitude
+            # Reshape weights as a transposed matrix:
+            self.weights.v = self.weights.v.reshape([numpy.prod(self.output_shape), \
+                                                     self.input.batch.size // self.input.batch.shape[0]])
+            self.weights.v_ = None
         if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
             self.bias.v = filters.aligned_zeros([numpy.prod(self.output_shape)])
             self.bias.v[:] = self.rand(self.bias.v.size)
             self.bias.v *= 2.0 * self.weights_amplitude
             self.bias.v -= self.weights_amplitude
+            self.bias.v_ = None
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.output.batch == None or self.output.batch.size != output_size:
             self.output.batch = filters.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
+            self.output.batch_ = None
+
+        if not self.device:
+            return
 
         mf = pyopencl.mem_flags
         if self.input.batch_ == None:
@@ -109,9 +119,22 @@ class All2AllTanh(All2All):
     def initialize(self):
         self._initialize("feed_tanh.cl")
 
+    def cpu_run(self):
+        a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
+        b = self.weights.v.transpose()
+        numpy.dot(a, b, self.output.batch)
+        self.output.batch[:] += self.bias.v
+        self.output.batch *= 0.6666
+        numpy.tanh(self.output.batch, self.output.batch)
+        self.output.batch *= 1.7159
+        self.output.update()
+        self.print_times()
+
     def run(self):
         """Forward propagation from batch. 
         """
+        if not self.device:
+            return self.cpu_run()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -129,9 +152,23 @@ class All2AllSoftmax(All2All):
     def initialize(self):
         self._initialize("feed_exp.cl")
 
+    def cpu_run(self):
+        a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
+        b = self.weights.v.transpose()
+        numpy.dot(a, b, self.output.batch)
+        self.output.batch[:] += self.bias.v
+        numpy.exp(self.output.batch, self.output.batch)
+        for sample in self.output.batch:
+            rsum = 1.0 / sample.sum()
+            sample *= rsum
+        self.output.update()
+        self.print_times()
+
     def run(self):
         """Forward propagation from batch. 
         """
+        if not self.device:
+            return self.cpu_run()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
