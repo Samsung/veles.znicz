@@ -43,10 +43,10 @@ class MNISTLoader(filters.Filter):
         if n_labels != 60000:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        self.labels.v = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
-        if self.labels.v.size != n_labels:
+        self.labels.batch = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
+        if self.labels.batch.size != n_labels:
             raise error.ErrBadFormat("EOF reached while reading labels from train-labels")
-        if self.labels.v.min() != 0 or self.labels.v.max() != 9:
+        if self.labels.batch.min() != 0 or self.labels.batch.max() != 9:
             raise error.ErrBadFormat("Wrong labels range in train-labels.")
         self.labels.n_classes = 10
 
@@ -89,7 +89,7 @@ class MNISTLoader(filters.Filter):
 
         print("Saving to cache for later faster load...")
         fout = open("cache/MNIST-train.pickle", "wb")
-        pickle.dump((self.output.batch, self.labels.v, self.labels.n_classes), fout)
+        pickle.dump((self.output.batch, self.labels.batch, self.labels.n_classes), fout)
         fout.close()
         print("Done")
 
@@ -98,7 +98,7 @@ class MNISTLoader(filters.Filter):
         """
         try:
             fin = open("cache/MNIST-train.pickle", "rb")
-            self.output.batch, self.labels.v, self.labels.n_classes = pickle.load(fin)
+            self.output.batch, self.labels.batch, self.labels.n_classes = pickle.load(fin)
             fin.close()
         except IOError:
             self.load_original()

@@ -28,6 +28,16 @@ class Batch(filters.Connector):
         self.device = device
         self.batch = None
 
+    def initialize(self, device = None):
+        if self.batch_:
+            return
+        if device:
+            self.device = device
+        if not self.device:
+            return
+        mf = pyopencl.mem_flags
+        self.batch_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.batch)
+
     def read_buffer(self):
         arr, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=self.batch_, \
                 flags=opencl.CL_MAP_READ, offset=0, shape=self.batch.shape, \
@@ -60,6 +70,16 @@ class Vector(filters.Connector):
         self.device = device
         self.v = None
 
+    def initialize(self, device = None):
+        if self.v_:
+            return
+        if device:
+            self.device = device
+        if not self.device:
+            return
+        mf = pyopencl.mem_flags
+        self.v_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.v)
+
     def read_buffer(self):
         arr, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=self.v_, \
                 flags=opencl.CL_MAP_READ, offset=0, shape=self.v.shape, \
@@ -75,16 +95,14 @@ class Vector(filters.Connector):
         return super(Vector, self).__getstate__()
 
 
-class Labels(filters.Connector):
+class Labels(Batch):
     """Labels for batch.
 
     Attributes:
         n_classes: number of classes.
-        v: numpy array sized as a batch with one label per image in range [0, n_classes).
     """
-    def __init__(self, unpickling = 0):
-        super(Labels, self).__init__(unpickling=unpickling)
+    def __init__(self, device = None, unpickling = 0):
+        super(Labels, self).__init__(device=device, unpickling=unpickling)
         if unpickling:
             return
         self.n_classes = 0
-        self.v = None

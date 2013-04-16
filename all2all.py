@@ -35,7 +35,7 @@ class All2All(filters.OpenCLFilter):
         self.krn_ = None
         if unpickling:
             return
-        self.input = formats.Batch(device)
+        self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
         self.bias = formats.Vector(device)
@@ -69,19 +69,10 @@ class All2All(filters.OpenCLFilter):
         if not self.device:
             return
 
-        mf = pyopencl.mem_flags
-        if self.input.batch_ == None:
-            self.input.batch_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
-                                                hostbuf=self.input.batch)
-        if self.output.batch_ == None:
-            self.output.batch_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
-                                                 hostbuf=self.output.batch)
-        if self.weights.v_ == None:
-            self.weights.v_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
-                                              hostbuf=self.weights.v)
-        if self.bias.v_ == None:
-            self.bias.v_ = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, \
-                                           hostbuf=self.bias.v)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
+        self.weights.initialize(self.device)
+        self.bias.initialize(self.device)
 
         output_size = int(numpy.prod(self.output_shape))
 

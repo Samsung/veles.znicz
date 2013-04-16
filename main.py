@@ -144,7 +144,10 @@ class UseCase1(filters.SmartPickling):
 
         gdsm = gd.GDSM(device=dev)
         gdsm.weights = out.weights
-        gdsm.this_errs = out.output
+        gdsm.bias = out.bias
+        gdsm.h = out.input
+        gdsm.y = out.output
+        gdsm.labels = ev.labels
         gdsm.link_from(ev)
 
         #TODO(a.kazantsev): add other filters
