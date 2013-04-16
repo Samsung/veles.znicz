@@ -33,8 +33,9 @@ class TXTLoader(filters.Filter):
         self.labels.n_classes=3
         self.output.batch=filters.realign(numpy.loadtxt("wine/wine.csv", numpy.float32).reshape([178,13]))
         self.labels.batch=filters.realign(numpy.loadtxt("wine/wine_y_labels.csv", numpy.float32).reshape([178,1]))
-           
-        
+        out =filters.aligned_zeros([178])
+        for i=1 in 10
+            print(i)
         
         print("Done")
     def initialize(self):
