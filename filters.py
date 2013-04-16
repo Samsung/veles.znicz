@@ -103,6 +103,7 @@ class Filter(SmartPickling):
         links_from: dictionary of filters it depends on.
         links_to: dictionary of dependent filters.
         enabled: enabled filter or not.
+        initialized: initialized filter or not.
         gate_lock_: lock.
         run_lock_: lock.
     """
@@ -110,6 +111,7 @@ class Filter(SmartPickling):
         super(Filter, self).__init__(unpickling=unpickling)
         self.gate_lock_ = _thread.allocate_lock()
         self.run_lock_ = _thread.allocate_lock()
+        self.initialized = 0
         if unpickling:
             return
         self.links_from = {}
@@ -131,6 +133,7 @@ class Filter(SmartPickling):
         if dst.initialize():
             self.run_lock_.release()
             return
+        dst.initialized = 1
         self.run_lock_.release()
         dst.initialize_dependent()
 
@@ -140,6 +143,11 @@ class Filter(SmartPickling):
         if not dst.gate(self):
             return
         self.run_lock_.acquire()
+        if not dst.initialized:  # initialize filter runtime if it is not initialized
+            if dst.initialize():
+                self.run_lock_.release()
+                return
+            dst.initialized = 1
         if dst.run():
             self.run_lock_.release()
             return
@@ -150,7 +158,7 @@ class Filter(SmartPickling):
         """Invokes initialize() on dependent filters.
         """
         for dst in self.links_to.keys():
-            if dst.enabled:
+            if dst.enabled and not dst.initialized:
                 #_thread.start_new_thread(self._initialize_dst, (dst, ))
                 self._initialize_dst(dst)  # there is no need to invoke it on different thread
 

@@ -12,6 +12,7 @@ import formats
 import numpy
 import pyopencl
 import opencl
+import time
 
 
 class All2All(filters.OpenCLFilter):
@@ -96,12 +97,11 @@ class All2All(filters.OpenCLFilter):
             self.krn_.set_arg(2, self.output.batch_)
             self.krn_.set_arg(3, self.bias.v_)
 
-    def print_times(self):
+    def print_times(self, t_start):
         """Show some statistics.
         """
         print("Processed %d samples with %d weights within %.2f sec: %s" % \
-              (self.output.batch.shape[0], self.weights.v.size, \
-               self.output.mtime - self.input.mtime, self.__class__.__name__))
+              (self.output.batch.shape[0], self.weights.v.size, time.time() - t_start, self.__class__.__name__))
 
 
 class All2AllTanh(All2All):
@@ -113,6 +113,7 @@ class All2AllTanh(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
+        t1 = time.time()
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
@@ -121,18 +122,19 @@ class All2AllTanh(All2All):
         numpy.tanh(self.output.batch, self.output.batch)
         self.output.batch *= 1.7159
         self.output.update()
-        self.print_times()
+        self.print_times(t1)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
+        t1 = time.time()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
         self.output.update()
-        self.print_times()
+        self.print_times(t1)
 
 
 class All2AllSoftmax(All2All):
@@ -146,6 +148,7 @@ class All2AllSoftmax(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only. 
         """
+        t1 = time.time()
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
@@ -155,11 +158,12 @@ class All2AllSoftmax(All2All):
             rsum = 1.0 / sample.sum()
             sample *= rsum
         self.output.update()
-        self.print_times()
+        self.print_times(t1)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU. 
         """
+        t1 = time.time()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -177,4 +181,4 @@ class All2AllSoftmax(All2All):
             sample *= rsum
 
         self.output.update()
-        self.print_times()
+        self.print_times(t1)

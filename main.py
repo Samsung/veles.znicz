@@ -80,21 +80,42 @@ class EndPoint(filters.Filter):
     
     Attributes:
         sem_: semaphore.
+        status: has completed attribute.
     """
     def __init__(self, unpickling = 0):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
+        if unpickling:
+            return
+        self.status = None
 
     def initialize(self):
         self.sem_.release()
 
     def run(self):
+        if not self.status.completed:
+            return
         self.sem_.release()
+        return 1
 
     def wait(self):
         """Waits on semaphore.
         """
         self.sem_.acquire()
+
+
+class Repeater(filters.Filter):
+    """Propagates notification if any of the inputs are active.
+    """
+    def __init__(self, unpickling = 0):
+        super(Repeater, self).__init__(unpickling=unpickling)
+        if unpickling:
+            return
+
+    def gate(self, src):
+        """Gate is always open.
+        """
+        return 1
 
 
 class UseCase1(filters.SmartPickling):
@@ -118,29 +139,34 @@ class UseCase1(filters.SmartPickling):
             dev = self.device_list.get_device()
 
         # Setup notification flow
+        self.start_point = filters.Filter()
+
         m = mnist.MNISTLoader()
+        m.link_from(self.start_point)
 
-        aa = all2all.All2AllTanh(output_shape=[1024], device=dev)
-        aa.input = m.output
-        aa.link_from(m)
+        rpt = Repeater()
+        rpt.link_from(m)
 
-        aa2 = all2all.All2AllTanh(output_shape=[256], device=dev)
-        aa2.input = aa.output
-        aa2.link_from(aa)
+        aa1 = all2all.All2AllTanh(output_shape=[64], device=dev)
+        aa1.input = m.output
+        aa1.link_from(rpt)
 
-        aa3 = all2all.All2AllTanh(output_shape=[64], device=dev)
-        aa3.input = aa2.output
-        aa3.link_from(aa2)
+        aa2 = all2all.All2AllTanh(output_shape=[32], device=dev)
+        aa2.input = aa1.output
+        aa2.link_from(aa1)
 
         out = all2all.All2AllSoftmax(output_shape=[16], device=dev)
-        out.input = aa3.output
-        out.link_from(aa3)
+        out.input = aa2.output
+        out.link_from(aa2)
 
         ev = evaluator.BatchEvaluator(device=dev)
         ev.y = out.output
         ev.labels = m.labels
         ev.link_from(out)
-        ev.link_from(m)
+
+        self.end_point = EndPoint()
+        self.end_point.status = ev.status
+        self.end_point.link_from(ev)
 
         gdsm = gd.GDSM(device=dev)
         gdsm.weights = out.weights
@@ -148,14 +174,27 @@ class UseCase1(filters.SmartPickling):
         gdsm.h = out.input
         gdsm.y = out.output
         gdsm.err_y = ev.err_y
-        gdsm.link_from(ev)
+        gdsm.link_from(self.end_point)
 
-        #TODO(a.kazantsev): add other filters
+        gd2 = gd.GDTanh(device=dev)
+        gd2.weights = aa2.weights
+        gd2.bias = aa2.bias
+        gd2.h = aa2.input
+        gd2.y = aa2.output
+        gd2.err_y = gdsm.err_h
+        gd2.link_from(gdsm)
 
-        self.start_point = filters.Filter()
-        m.link_from(self.start_point)
-        self.end_point = EndPoint()
-        self.end_point.link_from(gdsm)
+        gd1 = gd.GDTanh(device=dev)
+        gd1.weights = aa1.weights
+        gd1.bias = aa1.bias
+        gd1.h = aa1.input
+        gd1.y = aa1.output
+        gd1.err_y = gd2.err_h
+        gd1.link_from(gd2)
+
+        rpt.link_from(gd1)
+
+        #TODO(a.kazantsev): ensure that scheme is working as desired
 
     def run(self, resume = False):
         # Start the process:
