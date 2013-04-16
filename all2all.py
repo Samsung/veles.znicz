@@ -111,6 +111,8 @@ class All2AllTanh(All2All):
         self._initialize("feed_tanh.cl")
 
     def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
@@ -121,11 +123,9 @@ class All2AllTanh(All2All):
         self.output.update()
         self.print_times()
 
-    def run(self):
-        """Forward propagation from batch. 
+    def gpu_run(self):
+        """Forward propagation from batch on GPU.
         """
-        if not self.device:
-            return self.cpu_run()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -144,6 +144,8 @@ class All2AllSoftmax(All2All):
         self._initialize("feed_exp.cl")
 
     def cpu_run(self):
+        """Forward propagation from batch on CPU only. 
+        """
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
@@ -155,11 +157,9 @@ class All2AllSoftmax(All2All):
         self.output.update()
         self.print_times()
 
-    def run(self):
-        """Forward propagation from batch. 
+    def gpu_run(self):
+        """Forward propagation from batch on GPU. 
         """
-        if not self.device:
-            return self.cpu_run()
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]

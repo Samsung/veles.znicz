@@ -9,6 +9,7 @@ import filters
 import formats
 import pyopencl
 import numpy
+import time
 
 
 class GDSM(filters.OpenCLFilter):
@@ -22,11 +23,10 @@ class GDSM(filters.OpenCLFilter):
         labels: labels for y.
         err_y: dEds for y.
         err_h: dEds for h.
-        weights_alpha: initial gradient descent speed.
-        weights_lambda: coefficient for weights regularisation term ( lambda/2 * sum(weights^2) ).
-        weights_alphas: own gradient speed for each weight.
+        global_alpha: gradient descent speed (positive).
+        global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
     """
-    def __init__(self, device = None, weights_alpha = 0.001, weights_lambda = 0.001, unpickling = 0):
+    def __init__(self, device = None, global_alpha = 0.1, global_lambda = 0.01, unpickling = 0):
         super(GDSM, self).__init__(device=device, unpickling=unpickling)
         if unpickling:
             return
@@ -37,9 +37,8 @@ class GDSM(filters.OpenCLFilter):
         self.labels = None  # formats.Labels()
         self.err_y = formats.Batch(device)
         self.err_h = formats.Batch(device)
-        self.weights_alpha = weights_alpha
-        self.weights_lambda = weights_lambda
-        self.weights_alphas = formats.Vector(device)
+        self.global_alpha = global_alpha
+        self.global_lambda = global_lambda
 
     def initialize(self):
         if self.err_h.batch == None or self.err_h.batch.size != self.h.batch.size:
@@ -50,30 +49,44 @@ class GDSM(filters.OpenCLFilter):
             self.err_y.batch = filters.aligned_zeros(self.y.batch.shape)
             self.err_y.batch_ = None
 
-        if self.weights_alphas.v == None or self.weights_alphas.v.size != self.weights.v.size:
-            self.weights_alphas.v = filters.aligned_zeros(self.weights.v.shape)
-            self.weights_alphas.v[:] = self.weights_alpha
-            self.weights_alphas.v_ = None
-
         if not self.device:
             return
 
         self.err_h.initialize(self.device)
         self.err_y.initialize(self.device)
-        self.weights_alphas.initialize(self.device)
 
     def cpu_run(self):
-        n = self.y.batch.shape[0]
+        """Do gradient descent in case of softmax activation.
+        """
+        t1 = time.time()
+
+        batch_size = self.y.batch.shape[0]
+        r_batch_size = 1.0 / batch_size
         labels = self.labels.batch
-        for i in range(0, n):  # loop by batch
+        weights = self.weights.v.transpose()
+        for i in range(0, batch_size):  # loop by batch
             err_y = self.err_y.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
             y = self.y.batch[i]
+            y = y.reshape(y.size)  # make it plain
             err_y[:] = -y[:]
             err_y[labels[i]] = 1.0 - y[labels[i]]
 
             err_h = self.err_h.batch[i]
-            #TODO(a.kazantsev): continue here.
+            err_h = err_h.reshape(err_h.size)  # make it plain
+            numpy.dot(weights, err_y, err_h)
 
-    def run(self):
-        return self.cpu_run()
+        # Weights update
+        bias = self.bias.v
+        for i in range(0, batch_size):  # loop by batch
+            err_y = self.err_y.batch[i]
+            err_y = err_y.reshape(err_y.size)  # make it plain
+            h = self.h.batch[i]
+            h = h.reshape(h.size)  # make it plain
+            weights += numpy.outer(h, err_y) * (self.global_alpha * r_batch_size)
+            bias += err_y * (self.global_alpha * r_batch_size)
+        weights *= 1.0 + self.global_lambda  # regularization (will not regularize bias)
+
+        t2 = time.time()
+        print("Backpropagation: (sec, min, max, avg) = (%.2f, %.6f, %.6f, %.6f)" % \
+              (t2 - t1, weights.min(), weights.max(), numpy.average(weights))) 

@@ -224,3 +224,18 @@ class OpenCLFilter(Filter):
         if unpickling:
             return
         self.device = device
+
+    def cpu_run(self):
+        """Run on CPU only.
+        """
+        pass
+
+    def gpu_run(self):
+        """Run on GPU.
+        """
+        return self.cpu_run()
+
+    def run(self):
+        if not self.device:
+            return self.cpu_run()
+        return self.gpu_run()
