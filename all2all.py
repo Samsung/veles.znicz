@@ -99,7 +99,7 @@ class All2All(filters.OpenCLFilter):
     def print_times(self):
         """Show some statistics.
         """
-        print("Processed %d samples with %d weights within %.2f seconds: %s" % \
+        print("Processed %d samples with %d weights within %.2f sec: %s" % \
               (self.output.batch.shape[0], self.weights.v.size, \
                self.output.mtime - self.input.mtime, self.__class__.__name__))
 

@@ -137,7 +137,7 @@ class UseCase1(filters.SmartPickling):
         out.link_from(aa3)
 
         ev = evaluator.BatchEvaluator(device=dev)
-        ev.input = out.output
+        ev.y = out.output
         ev.labels = m.labels
         ev.link_from(out)
         ev.link_from(m)
@@ -147,7 +147,7 @@ class UseCase1(filters.SmartPickling):
         gdsm.bias = out.bias
         gdsm.h = out.input
         gdsm.y = out.output
-        gdsm.labels = ev.labels
+        gdsm.err_y = ev.err_y
         gdsm.link_from(ev)
 
         #TODO(a.kazantsev): add other filters

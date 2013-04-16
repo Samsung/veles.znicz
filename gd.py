@@ -21,8 +21,8 @@ class GDSM(filters.OpenCLFilter):
         y: outputs of the current layer.
         h: outputs of the hidden layer.
         labels: labels for y.
-        err_y: dEds for y.
-        err_h: dEds for h.
+        err_y: backpropagation errors for y.
+        err_h: backpropagation errors for h (will compute them).
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
     """
@@ -34,8 +34,7 @@ class GDSM(filters.OpenCLFilter):
         self.bias = None  # formats.Vector(device)
         self.y = None  # formats.Batch(device)
         self.h = None  # formats.Batch(device)
-        self.labels = None  # formats.Labels()
-        self.err_y = formats.Batch(device)
+        self.err_y = None  # formats.Batch(device)
         self.err_h = formats.Batch(device)
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
@@ -45,15 +44,10 @@ class GDSM(filters.OpenCLFilter):
             self.err_h.batch = filters.aligned_zeros(self.h.batch.shape)
             self.err_h.batch_ = None
 
-        if self.err_y.batch == None or self.err_y.batch.size != self.y.batch.size:
-            self.err_y.batch = filters.aligned_zeros(self.y.batch.shape)
-            self.err_y.batch_ = None
-
         if not self.device:
             return
 
         self.err_h.initialize(self.device)
-        self.err_y.initialize(self.device)
 
     def cpu_run(self):
         """Do gradient descent in case of softmax activation.
@@ -62,16 +56,10 @@ class GDSM(filters.OpenCLFilter):
 
         batch_size = self.y.batch.shape[0]
         r_batch_size = 1.0 / batch_size
-        labels = self.labels.batch
         weights = self.weights.v.transpose()
         for i in range(0, batch_size):  # loop by batch
             err_y = self.err_y.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
-            y = self.y.batch[i]
-            y = y.reshape(y.size)  # make it plain
-            err_y[:] = -y[:]
-            err_y[labels[i]] = 1.0 - y[labels[i]]
-
             err_h = self.err_h.batch[i]
             err_h = err_h.reshape(err_h.size)  # make it plain
             numpy.dot(weights, err_y, err_h)
@@ -88,5 +76,10 @@ class GDSM(filters.OpenCLFilter):
         weights *= 1.0 + self.global_lambda  # regularization (will not regularize bias)
 
         t2 = time.time()
-        print("Backpropagation: (sec, min, max, avg) = (%.2f, %.6f, %.6f, %.6f)" % \
+        print("Backprop within %.2f sec: (min, max, avg) = (%.6f, %.6f, %.6f)" % \
               (t2 - t1, weights.min(), weights.max(), numpy.average(weights))) 
+
+        self.weights.update()
+        self.bias.update()
+        self.err_h.update()
+    
