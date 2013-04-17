@@ -24,7 +24,7 @@ class GD(filters.OpenCLFilter):
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
     """
-    def __init__(self, device = None, global_alpha = 0.1, global_lambda = 0.0, unpickling = 0):
+    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.0, unpickling = 0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         if unpickling:
             return
@@ -54,14 +54,14 @@ class GD(filters.OpenCLFilter):
         batch_size = self.y.batch.shape[0]
         r_batch_size = 1.0 / batch_size
         weights = self.weights.v.transpose()
+        weights *= 1.0 + ((-self.global_alpha) * self.global_lambda)  # regularization (will not regularize bias)
         for i in range(0, batch_size):  # loop by batch
             err_y = self.err_y.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
             h = self.h.batch[i]
             h = h.reshape(h.size)  # make it plain
-            weights += numpy.outer(h, err_y) * (self.global_alpha * r_batch_size)
-            bias += err_y * (self.global_alpha * r_batch_size)
-        weights *= 1.0 + self.global_lambda  # regularization (will not regularize bias)
+            weights += numpy.outer(h, err_y) * ((-self.global_alpha) * r_batch_size)
+            bias += err_y * ((-self.global_alpha) * r_batch_size)
         self.weights.update()
         self.bias.update()
 
@@ -79,7 +79,7 @@ class GDSM(GD):
         """Do gradient descent in case of softmax activation.
         """
         t1 = time.time()
-        # Backpropagate error
+        # Backpropagate error (will compute err_h)
         self.y.sync()
         self.err_y.sync()
         self.weights.sync()
@@ -107,7 +107,7 @@ class GDTanh(GD):
         """Do gradient descent in case of softmax activation.
         """
         t1 = time.time()
-        # Backpropagate error
+        # Backpropagate error (will compute err_h)
         self.y.sync()
         self.err_y.sync()
         self.weights.sync()

@@ -60,8 +60,8 @@ class BatchEvaluator(filters.OpenCLFilter):
             err_y = err_y.reshape(err_y.size)  # make it plain
             y = self.y.batch[i]
             y = y.reshape(y.size)  # make it plain
-            err_y[:] = -y[:]
-            err_y[labels[i]] = 1.0 - y[labels[i]]
+            err_y[:] = y[:]
+            err_y[labels[i]] = y[labels[i]] - 1.0
         t2 = time.time()
         err_y = self.err_y.batch
         print("Computed softmax errs within %.2f sec: (min, max, avg) = (%.3f, %.3f, %.3f)" % \

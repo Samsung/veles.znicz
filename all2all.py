@@ -146,7 +146,7 @@ class All2AllSoftmax(All2All):
     Currently, we will calculate softmax partially on cpu.
     """
     def initialize(self):
-        self._initialize("feed_exp.cl")
+        self._initialize("feed_linear.cl")
 
     def cpu_apply_exp(self):
         if __debug__:

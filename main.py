@@ -96,7 +96,7 @@ class EndPoint(filters.Filter):
             return
         self.status = None
         self.n_passes = 0
-        self.max_passes = 300
+        self.max_passes = 10000
         self.snapshot_frequency = 100
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
@@ -272,7 +272,7 @@ class UseCase2(filters.SmartPickling):
         rpt = Repeater()
         rpt.link_from(t)
 
-        aa1 = all2all.All2AllTanh(output_shape=[10], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[5], device=dev)
         aa1.input = t.output2
         aa1.link_from(rpt)
 
@@ -410,7 +410,7 @@ def main():
     parser.add_argument("-r", action="store_true", help="resume from snapshot", \
                         default=False, dest="resume")
     parser.add_argument("-cpu", action="store_true", help="use numpy only", \
-                        default=True, dest="cpu")
+                        default=False, dest="cpu")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
@@ -427,7 +427,8 @@ def main():
             print("Could not resume from cache/snapshot.pickle")
             uc = None
     if not uc:
-        uc = UseCase2(args.cpu)
+        #uc = UseCase1(args.cpu)
+        uc = UseCase2(True)
     print("Launching...")
     uc.run(args.resume)
 
