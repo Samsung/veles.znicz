@@ -13,7 +13,6 @@ import numpy
 import pyopencl
 import opencl
 import time
-import error
 
 
 class All2All(filters.OpenCLFilter):
@@ -101,8 +100,11 @@ class All2All(filters.OpenCLFilter):
     def print_times(self, t_start):
         """Show some statistics.
         """
-        print("Processed %d samples with %d weights within %.2f sec: %s" % \
-              (self.output.batch.shape[0], self.weights.v.size, time.time() - t_start, self.__class__.__name__))
+        y = self.output.batch
+        self.output.sync()
+        print("%s: %d samples with %d weights within %.2f sec: y: (min, max, sum, avg) = (%.4f, %.4f, %.4f, %.4f)" % \
+              (self.__class__.__name__, y.shape[0], self.weights.v.size, time.time() - t_start, \
+               y.min(), y.max(), y.sum(), numpy.average(y)))
 
 
 class All2AllTanh(All2All):
@@ -146,6 +148,20 @@ class All2AllSoftmax(All2All):
     def initialize(self):
         self._initialize("feed_exp.cl")
 
+    def cpu_apply_exp(self):
+        if __debug__:
+            s = []
+            a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
+            for i in range(a.size - 1, a.size - 11, -1):
+                s.append("%.2f" % (a[i], ))
+            print("Softmax Wx+b: ", ", ".join(s), ", %.2f" % (a[0], ))
+        for sample in self.output.batch:
+            m = sample.max()
+            sample -= m
+            numpy.exp(sample, sample)
+            smm = sample.sum()
+            sample /= smm
+
     def cpu_run(self):
         """Forward propagation from batch on CPU only. 
         """
@@ -156,12 +172,9 @@ class All2AllSoftmax(All2All):
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
         self.output.batch[:] += self.bias.v
-        numpy.exp(self.output.batch, self.output.batch)
-        for sample in self.output.batch:
-            smm = sample.sum()
-            assert smm > 0.0000001, "sum of exponents in softmax output is close to zero"
-            rsum = 1.0 / smm
-            sample *= rsum
+
+        self.cpu_apply_exp()
+
         self.output.update()
         self.print_times(t1)
 
@@ -183,11 +196,7 @@ class All2AllSoftmax(All2All):
         event.wait()
         arr.base.release(queue=self.device.queue_)
 
-        for sample in self.output.batch:
-            smm = sample.sum()
-            assert smm > 0.0000001, "sum of exponents in softmax output is close to zero"
-            rsum = 1.0 / smm
-            sample *= rsum
+        self.cpu_apply_exp()
 
         self.output.update(formats.GPU)
         self.print_times(t1)

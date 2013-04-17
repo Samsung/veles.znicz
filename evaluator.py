@@ -40,8 +40,6 @@ class BatchEvaluator(filters.OpenCLFilter):
 
     def cpu_run(self):
         self.y.sync()
-        a = self.y.batch
-        print("(min, max, sum, avg) = (%.6f, %.6f, %.6f, %.6f)" % (a.min(), a.max(), a.sum(), numpy.average(a)))
         n_ok = 0
         batch_size = self.y.batch.shape[0]
         for i in range(0, batch_size):
