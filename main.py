@@ -19,7 +19,7 @@ import evaluator
 import argparse
 import threading
 import gd
-
+import text
 
 g_pt = 0
 class PickleTest(filters.SmartPickling):
@@ -118,17 +118,18 @@ class Repeater(filters.Filter):
         return 1
 
 
-class UseCase1(filters.SmartPickling):
-    """Use case 1.
+class UseCase2(filters.SmartPickling):
+    """Use case 2.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
         sem_: semaphore.
+        t: t.
     """
-    def __init__(self, cpu, unpickling = 0):
-        super(UseCase1, self).__init__(unpickling=unpickling)
+    def __init__(self, cpu = True, unpickling = 0):
+        super(UseCase2, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         if unpickling:
             return
@@ -141,27 +142,28 @@ class UseCase1(filters.SmartPickling):
         # Setup notification flow
         self.start_point = filters.Filter()
 
-        m = mnist.MNISTLoader()
-        m.link_from(self.start_point)
+        #m = mnist.MNISTLoader()
+        t =text.TXTLoader()
+        self.t = t
+        #sys.exit()
+        print("1")
+        t.link_from(self.start_point)
+        print("2")
 
         rpt = Repeater()
-        rpt.link_from(m)
+        rpt.link_from(t)
 
-        aa1 = all2all.All2AllTanh(output_shape=[64], device=dev)
-        aa1.input = m.output
+        aa1 = all2all.All2AllTanh(output_shape=[10], device=dev)
+        aa1.input = t.output2
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[32], device=dev)
-        aa2.input = aa1.output
-        aa2.link_from(aa1)
-
-        out = all2all.All2AllSoftmax(output_shape=[16], device=dev)
-        out.input = aa2.output
-        out.link_from(aa2)
+        out = all2all.All2AllSoftmax(output_shape=[3], device=dev)
+        out.input = aa1.output
+        out.link_from(aa1)
 
         ev = evaluator.BatchEvaluator(device=dev)
         ev.y = out.output
-        ev.labels = m.labels
+        ev.labels = t.labels
         ev.link_from(out)
 
         self.end_point = EndPoint()
@@ -176,23 +178,16 @@ class UseCase1(filters.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
-        gd2 = gd.GDTanh(device=dev)
-        gd2.weights = aa2.weights
-        gd2.bias = aa2.bias
-        gd2.h = aa2.input
-        gd2.y = aa2.output
-        gd2.err_y = gdsm.err_h
-        gd2.link_from(gdsm)
-
         gd1 = gd.GDTanh(device=dev)
         gd1.weights = aa1.weights
         gd1.bias = aa1.bias
         gd1.h = aa1.input
         gd1.y = aa1.output
-        gd1.err_y = gd2.err_h
-        gd1.link_from(gd2)
+        gd1.err_y = gdsm.err_h
+        gd1.link_from(gdsm)
 
         rpt.link_from(gd1)
+        print("3")
 
         #TODO(a.kazantsev): ensure that scheme is working as desired
 
@@ -202,6 +197,9 @@ class UseCase1(filters.SmartPickling):
         print("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
+        #for l in self.t.labels.batch:
+        #    print(l)
+        #sys.exit()
         print()
         print("Running...")
         self.start_point.run_dependent()
@@ -218,7 +216,7 @@ def main():
     parser.add_argument("-r", action="store_true", help="resume from snapshot", \
                         default=False, dest="resume")
     parser.add_argument("-cpu", action="store_true", help="use numpy only", \
-                        default=False, dest="cpu")
+                        default=True, dest="cpu")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
@@ -227,7 +225,7 @@ def main():
     if args.resume:
         try:
             print("Resuming from snapshot...")
-            fin = open("cache/snapshot.pickle", "rb")
+            fin = open("cache/uc2.pickle", "rb")
             (uc, random_state) = pickle.load(fin)
             numpy.random.set_state(random_state)
             fin.close()
@@ -235,13 +233,13 @@ def main():
             print("Could not resume from cache/snapshot.pickle")
             uc = None
     if not uc:
-        uc = UseCase1(args.cpu)
+        uc = UseCase2(args.cpu)
     print("Launching...")
     uc.run(args.resume)
 
     print()
     print("Snapshotting...")
-    fout = open("cache/snapshot.pickle", "wb")
+    fout = open("cache/uc2.pickle", "wb")
     #fork_snapshot((uc, numpy.random.get_state()), fout)
     pickle.dump((uc, numpy.random.get_state()), fout)
     fout.close()
