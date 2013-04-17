@@ -39,6 +39,7 @@ class BatchEvaluator(filters.OpenCLFilter):
         self.err_y.initialize(self.device)
 
     def cpu_run(self):
+        self.y.sync()
         a = self.y.batch
         print("(min, max, sum, avg) = (%.6f, %.6f, %.6f, %.6f)" % (a.min(), a.max(), a.sum(), numpy.average(a)))
         n_ok = 0

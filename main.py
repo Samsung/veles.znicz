@@ -81,18 +81,39 @@ class EndPoint(filters.Filter):
     Attributes:
         sem_: semaphore.
         status: has completed attribute.
+        n_passes: number of passes.
+        n_passes_: number of passes in this session.
+        max_passes: maximum number of passes per session before stop.
+        snapshot_frequency: frequency of snapshots in number of passes.
+        snapshot_object: object to snapshot.
+        snapshot_filename: filename with optional %d as snapshot number.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, snapshot_object = None, unpickling = 0):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
+        self.n_passes_ = 0
         if unpickling:
             return
         self.status = None
+        self.n_passes = 0
+        self.max_passes = 1000
+        self.snapshot_frequency = 100
+        self.snapshot_filename = "cache/snapshot.%d.pickle"
+        self.snapshot_object = snapshot_object
 
     def initialize(self):
         self.sem_.release()
 
     def run(self):
+        self.n_passes_ += 1
+        self.n_passes += 1
+        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_, self.n_passes))
+        if self.n_passes % self.snapshot_frequency == 0:
+            fnme = self.snapshot_filename % (self.n_passes, )
+            print("Snapshotting to %s" % (fnme, ))
+            fout = open(fnme, "wb")
+            pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
+            fout.close()
         if not self.status.completed:
             return
         self.sem_.release()
@@ -166,7 +187,7 @@ class UseCase2(filters.SmartPickling):
         ev.labels = t.labels
         ev.link_from(out)
 
-        self.end_point = EndPoint()
+        self.end_point = EndPoint(self)
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
 

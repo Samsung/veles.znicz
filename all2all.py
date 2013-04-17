@@ -13,6 +13,7 @@ import numpy
 import pyopencl
 import opencl
 import time
+import error
 
 
 class All2All(filters.OpenCLFilter):
@@ -133,7 +134,7 @@ class All2AllTanh(All2All):
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
-        self.output.update()
+        self.output.update(formats.GPU)
         self.print_times(t1)
 
 
@@ -149,13 +150,17 @@ class All2AllSoftmax(All2All):
         """Forward propagation from batch on CPU only. 
         """
         t1 = time.time()
+        self.input.sync()
+        self.weights.sync()
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
         self.output.batch[:] += self.bias.v
         numpy.exp(self.output.batch, self.output.batch)
         for sample in self.output.batch:
-            rsum = 1.0 / sample.sum()
+            smm = sample.sum()
+            assert smm > 0.0000001, "sum of exponents in softmax output is close to zero"
+            rsum = 1.0 / smm
             sample *= rsum
         self.output.update()
         self.print_times(t1)
@@ -164,6 +169,8 @@ class All2AllSoftmax(All2All):
         """Forward propagation from batch on GPU. 
         """
         t1 = time.time()
+        self.input.sync(formats.GPU)
+        self.weights.sync(formats.GPU)
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -177,8 +184,10 @@ class All2AllSoftmax(All2All):
         arr.base.release(queue=self.device.queue_)
 
         for sample in self.output.batch:
-            rsum = 1.0 / sample.sum()
+            smm = sample.sum()
+            assert smm > 0.0000001, "sum of exponents in softmax output is close to zero"
+            rsum = 1.0 / smm
             sample *= rsum
 
-        self.output.update()
+        self.output.update(formats.GPU)
         self.print_times(t1)

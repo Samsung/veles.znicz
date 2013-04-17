@@ -24,7 +24,7 @@ class ErrNotImplemented(Exception):
 
 
 class ErrBadFormat(Exception):
-    """Exception, raised when bad format or data occured somethere.
+    """Exception, raised when bad format of data occured somethere.
     """
     pass
 
