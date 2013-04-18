@@ -150,11 +150,9 @@ class UseCase1(filters.SmartPickling):
         device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
-        sem_: semaphore.
     """
-    def __init__(self, cpu, unpickling = 0):
+    def __init__(self, cpu = False, unpickling = 0):
         super(UseCase1, self).__init__(unpickling=unpickling)
-        self.sem_ = threading.Semaphore(0)
         if unpickling:
             return
 
@@ -219,8 +217,6 @@ class UseCase1(filters.SmartPickling):
 
         rpt.link_from(gd1)
 
-        #TODO(a.kazantsev): ensure that scheme is working as desired
-
     def run(self, resume = False):
         # Start the process:
         print()
@@ -244,12 +240,10 @@ class UseCase2(filters.SmartPickling):
         device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
-        sem_: semaphore.
         t: t.
     """
     def __init__(self, cpu = True, unpickling = 0):
         super(UseCase2, self).__init__(unpickling=unpickling)
-        self.sem_ = threading.Semaphore(0)
         if unpickling:
             return
 
@@ -308,8 +302,6 @@ class UseCase2(filters.SmartPickling):
         gdsm.link_from(self.end_point)
 
         print("3")
-
-        #TODO(a.kazantsev): ensure that scheme is working as desired
 
     def do_log(self, out, gdsm, gd1):
         return
