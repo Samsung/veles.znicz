@@ -419,8 +419,8 @@ def main():
             print("Could not resume from cache/snapshot.pickle")
             uc = None
     if not uc:
-        #uc = UseCase1(args.cpu)
-        uc = UseCase2(True)
+        uc = UseCase1(args.cpu)
+        #uc = UseCase2(True)
     print("Launching...")
     uc.run(args.resume)
 

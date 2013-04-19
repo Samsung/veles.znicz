@@ -24,7 +24,7 @@ class GD(filters.OpenCLFilter):
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
     """
-    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.01, unpickling = 0):
+    def __init__(self, device = None, global_alpha = 0.1, global_lambda = 0.01, unpickling = 0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         if unpickling:
             return

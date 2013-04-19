@@ -116,7 +116,7 @@ class Filter(SmartPickling):
             return
         self.links_from = {}
         self.links_to = {}
-        self.enabled = 1
+        self.enabled = 1  #TODO(a.kazantsev): think about its purpose.
 
     def link_from(self, src):
         """Adds notification link.
@@ -143,7 +143,9 @@ class Filter(SmartPickling):
         if not dst.gate(self):
             return
         self.run_lock_.acquire()
-        if not dst.initialized:  # initialize filter runtime if it is not initialized
+        # Initialize filter runtime if it is not initialized
+        #TODO(a.kazantsev): or maybe raise an exception?
+        if not dst.initialized:
             if dst.initialize():
                 self.run_lock_.release()
                 return
