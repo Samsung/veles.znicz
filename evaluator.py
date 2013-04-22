@@ -19,7 +19,7 @@ class BatchEvaluator(filters.OpenCLFilter):
         status: status of the evaluation (status.completed = True when learning ended).
         threshold: threshold for skipping trained well enough samples.
     """
-    def __init__(self, threshold = 0.5, device = None, unpickling = 0):
+    def __init__(self, threshold = 1.0, device = None, unpickling = 0):
         super(BatchEvaluator, self).__init__(unpickling=unpickling, device=device)
         if unpickling:
             return

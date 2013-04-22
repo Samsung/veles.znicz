@@ -102,6 +102,7 @@ class All2All(filters.OpenCLFilter):
         """
         y = self.output.batch
         self.output.sync()
+        self.weights.sync()
         print("%s: %d samples with %d weights within %.2f sec: y: (min, max, sum, avg) = (%.4f, %.4f, %.4f, %.4f)" % \
               (self.__class__.__name__, y.shape[0], self.weights.v.size, time.time() - t_start, \
                y.min(), y.max(), y.sum(), numpy.average(y)))
@@ -117,6 +118,9 @@ class All2AllTanh(All2All):
         """Forward propagation from batch on CPU only.
         """
         t1 = time.time()
+        self.input.sync()
+        self.weights.sync()
+        self.bias.sync()
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
@@ -131,6 +135,9 @@ class All2AllTanh(All2All):
         """Forward propagation from batch on GPU.
         """
         t1 = time.time()
+        self.input.sync(formats.GPU)
+        self.weights.sync(formats.GPU)
+        self.bias.sync(formats.GPU)
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -149,6 +156,7 @@ class All2AllSoftmax(All2All):
         self._initialize("feed_linear.cl")
 
     def cpu_apply_exp(self):
+        self.output.sync()
         if __debug__:
             s = []
             a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
@@ -161,6 +169,7 @@ class All2AllSoftmax(All2All):
             numpy.exp(sample, sample)
             smm = sample.sum()
             sample /= smm
+        self.output.update()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only. 
@@ -168,14 +177,13 @@ class All2AllSoftmax(All2All):
         t1 = time.time()
         self.input.sync()
         self.weights.sync()
+        self.bias.sync()
         a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
         self.output.batch[:] += self.bias.v
-
-        self.cpu_apply_exp()
-
         self.output.update()
+        self.cpu_apply_exp()
         self.print_times(t1)
 
     def gpu_run(self):
@@ -184,19 +192,12 @@ class All2AllSoftmax(All2All):
         t1 = time.time()
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
+        self.bias.sync(formats.GPU)
         output_size = int(numpy.prod(self.output_shape))
         global_size = [output_size, self.output.batch.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
-        ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
-
-        arr, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=self.output.batch_, \
-                flags=opencl.CL_MAP_READ, offset=0, shape=self.output.batch.shape, \
-                dtype=self.output.batch.dtype, order="C", wait_for=[ev], is_blocking=False)
-
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
-        arr.base.release(queue=self.device.queue_)
-
-        self.cpu_apply_exp()
-
         self.output.update(formats.GPU)
+        self.cpu_apply_exp()
         self.print_times(t1)

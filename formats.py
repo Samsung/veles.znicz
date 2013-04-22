@@ -21,6 +21,7 @@ class OpenCLConnector(filters.Connector):
     Attributes:
         device: OpenCL device.
         what_changed: what buffer has changed?
+        arr_: first argument returned by pyopencl.enqueue_map_buffer()
     """
     def __init__(self, device = None, unpickling = 0):
         super(OpenCLConnector, self).__init__(unpickling=unpickling)
@@ -28,6 +29,7 @@ class OpenCLConnector(filters.Connector):
             return
         self.device = device
         self.what_changed = 0
+        self.arr_ = None
 
     def gpu_2_cpu(self):
         """Copies buffer from GPU to CPU.
@@ -71,11 +73,19 @@ class OpenCLConnector(filters.Connector):
         """
         pass
 
-    def _map_wait_unmap(self, buf, buf_, OP):
-        arr, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=buf_, flags=OP, \
+    def _map(self, buf, buf_, OP = opencl.CL_MAP_WRITE):
+        self.arr_, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=buf_, flags=OP, \
             offset=0, shape=buf.shape, dtype=buf.dtype, order="C", wait_for=None, is_blocking=False)
         event.wait()
-        arr.base.release(queue=self.device.queue_)
+        self.what_changed = 0
+
+    def _unmap(self):
+        self.arr_.base.release(queue=self.device.queue_)
+        self.arr_ = None
+        self.what_changed = 0
+
+    def _write(self, buf, buf_):
+        pyopencl.enqueue_copy(self.device.queue_, buf_, buf)
         self.what_changed = 0
 
     def _buffer(self, buf):
@@ -108,10 +118,13 @@ class Batch(OpenCLConnector):
         self.batch_ = self._buffer(self.batch)
 
     def gpu_2_cpu(self):
-        self._map_wait_unmap(self.batch, self.batch_, opencl.CL_MAP_READ)
+        self._map(self.batch, self.batch_)
 
     def cpu_2_gpu(self):
-        self._map_wait_unmap(self.batch, self.batch_, opencl.CL_MAP_WRITE_INVALIDATE_REGION)
+        if self.arr_ != None:
+            self._unmap()
+        else:
+            self._write(self.batch, self.batch_)
 
 
 class Vector(OpenCLConnector):
@@ -139,10 +152,13 @@ class Vector(OpenCLConnector):
         self.v_ = self._buffer(self.v)
 
     def gpu_2_cpu(self):
-        self._map_wait_unmap(self.v, self.v_, opencl.CL_MAP_READ)
+        self._map(self.v, self.v_)
 
     def cpu_2_gpu(self):
-        self._map_wait_unmap(self.v, self.v_, opencl.CL_MAP_WRITE_INVALIDATE_REGION)
+        if self.arr_ != None:
+            self._unmap()
+        else:
+            self._write(self.v, self.v_)
 
 
 class Labels(Batch):

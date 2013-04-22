@@ -97,7 +97,7 @@ class EndPoint(filters.Filter):
         self.status = None
         self.n_passes = 0
         self.max_passes = 10000
-        self.snapshot_frequency = 100
+        self.snapshot_frequency = 10
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
         self.flog_ = flog
@@ -150,6 +150,10 @@ class UseCase1(filters.SmartPickling):
         device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
+        sm: softmax.
+        gdsm: gdsm.
+        gd2: gd2.
+        gd1: gd1.
     """
     def __init__(self, cpu = False, unpickling = 0):
         super(UseCase1, self).__init__(unpickling=unpickling)
@@ -217,8 +221,20 @@ class UseCase1(filters.SmartPickling):
 
         rpt.link_from(gd1)
 
-    def run(self, resume = False):
+        self.sm = out
+        self.gdsm = gdsm
+        self.gd2 = gd2
+        self.gd1 = gd1
+
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0):
         # Start the process:
+        self.sm.threshold = threshold
+        self.gdsm.global_alpha = global_alpha
+        self.gdsm.global_lambda = global_lambda
+        self.gd2.global_alpha = global_alpha
+        self.gd2.global_lambda = global_lambda
+        self.gd1.global_alpha = global_alpha
+        self.gd1.global_lambda = global_lambda
         print()
         print("Initializing...")
         self.start_point.initialize_dependent()
@@ -301,6 +317,10 @@ class UseCase2(filters.SmartPickling):
         self.end_point.link_from(ev)
         gdsm.link_from(self.end_point)
 
+        self.sm = out
+        self.gdsm = gdsm
+        self.gd1 = gd1
+
         print("3")
 
     def do_log(self, out, gdsm, gd1):
@@ -377,8 +397,13 @@ class UseCase2(filters.SmartPickling):
         flog.write("\n")
         flog.close()
 
-    def run(self, resume = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0):
         # Start the process:
+        self.sm.threshold = threshold
+        self.gdsm.global_alpha = global_alpha
+        self.gdsm.global_lambda = global_lambda
+        self.gd1.global_alpha = global_alpha
+        self.gd1.global_lambda = global_lambda
         print()
         print("Initializing...")
         self.start_point.initialize_dependent()
@@ -403,6 +428,12 @@ def main():
                         default=False, dest="resume")
     parser.add_argument("-cpu", action="store_true", help="use numpy only", \
                         default=False, dest="cpu")
+    parser.add_argument("-global_alpha", type=float, help="global gradient descent speed", \
+                        default=0.9, dest="global_alpha")
+    parser.add_argument("-global_lambda", type=float, help="global weights regularisation constant", \
+                        default=0.0, dest="global_lambda")
+    parser.add_argument("-threshold", type=float, help="softmax threshold", \
+                        default=1.0, dest="threshold")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
@@ -422,7 +453,8 @@ def main():
         uc = UseCase1(args.cpu)
         #uc = UseCase2(True)
     print("Launching...")
-    uc.run(args.resume)
+    uc.run(args.resume, global_alpha=args.global_alpha, global_lambda=args.global_lambda, \
+           threshold=args.threshold)
 
     print()
     print("Snapshotting...")

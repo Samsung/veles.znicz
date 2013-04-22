@@ -207,7 +207,7 @@ class DeviceList(filters.SmartPickling):
                     dt = t2 - t1
                     if dt < device.info.dt:
                         device.info.dt = dt
-                        device.info.BLOCK_SIZE = BLOCK_SIZE
+                        device.info.BLOCK_SIZE = 16  #FIXME(a.kazantsev): should be BLOCK_SIZE
                     if dt < min_dt:
                         min_dt = dt
                     c = self.cc.copy()

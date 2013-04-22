@@ -9,6 +9,7 @@ import filters
 import formats
 import numpy
 import time
+import pyopencl
 
 
 class GD(filters.OpenCLFilter):
@@ -23,9 +24,11 @@ class GD(filters.OpenCLFilter):
         err_h: backpropagation errors for h (will compute its).
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
+        krn_: OpenCL kernel.
     """
-    def __init__(self, device = None, global_alpha = 0.1, global_lambda = 0.01, unpickling = 0):
+    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.00, unpickling = 0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
+        self.krn_ = None
         if unpickling:
             return
         self.weights = None  # formats.Vector(device)
@@ -45,10 +48,17 @@ class GD(filters.OpenCLFilter):
         if not self.device:
             return
 
+        self.weights.initialize(self.device)
+        self.bias.initialize(self.device)
+        self.y.initialize(self.device)
+        self.h.initialize(self.device)
+        self.err_y.initialize(self.device)
         self.err_h.initialize(self.device)
 
     def cpu_weights_update(self):
         self.h.sync()
+        self.err_y.sync()
+        self.weights.sync()
         self.bias.sync()
         bias = self.bias.v
         batch_size = self.y.batch.shape[0]
@@ -123,6 +133,52 @@ class GDTanh(GD):
             err_h = err_h.reshape(err_h.size)  # make it plain
             numpy.dot(weights, err_y, err_h)
         self.err_y.update()
+        self.err_h.update()
         # Update weights
         self.cpu_weights_update()
         self.print_times(t1)
+
+    def gpu_run(self):
+        """Do gradient descent in case of softmax activation.
+        """
+        t1 = time.time()
+        # Backpropagate error (will compute err_h)
+        self.y.sync()
+        self.err_y.sync()
+        self.err_y.batch *= self.y.batch * self.y.batch * (-0.508262) + 1.143819
+        self.err_y.update()
+        self.err_y.sync(formats.GPU)
+        self.weights.sync(formats.GPU)
+        global_size = [self.err_h.batch.size // self.err_h.batch.shape[0], self.err_h.batch.shape[0]]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
+        event.wait()
+        self.err_h.update(formats.GPU)
+        # Update weights
+        self.cpu_weights_update()
+        self.print_times(t1)
+
+    def initialize(self):
+        rv = super(GDTanh, self).initialize()
+        if rv or not self.device:
+            return rv
+
+        if self.krn_ == None:
+            output_size = self.err_h.batch.size // self.err_h.batch.shape[0]
+            defines = ("#define BLOCK_SIZE %d\n"
+                       "#define AB_COMMON %d\n"
+                       "#define B_WIDTH %d\n\n") % \
+                       (self.device.info.BLOCK_SIZE, self.weights.v.size // output_size, output_size)
+            fin = open("cl/gd_tanh.cl", "r")
+            s = defines + fin.read()
+            fin.close()
+            fout = open("cache/gd_tanh.cl", "w")
+            fout.write(s)
+            fout.close()
+
+            prg = pyopencl.Program(self.device.context_, s).build()
+
+            self.krn_ = pyopencl.Kernel(prg, "mx_mul")
+            self.krn_.set_arg(0, self.err_y.batch_)
+            self.krn_.set_arg(1, self.weights.v_)
+            self.krn_.set_arg(2, self.err_h.batch_)
