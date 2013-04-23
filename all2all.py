@@ -12,8 +12,8 @@ import formats
 import numpy
 import pyopencl
 import time
-#import matplotlib.pyplot as pp
-#import matplotlib.cm as cm
+import matplotlib.pyplot as pp
+import matplotlib.cm as cm
 
 
 class All2All(filters.OpenCLFilter):
@@ -131,6 +131,12 @@ class All2All(filters.OpenCLFilter):
     def print_times(self, t_start):
         """Show some statistics.
         """
+        if not __debug__:
+            print("%s within %.2f sec: %d_%d" % \
+                  (self.__class__.__name__, time.time() - t_start, \
+                   self.input.batch.size // self.input.batch.shape[0], \
+                   self.output.batch.size // self.output.batch.shape[0]))
+            return
         y = self.output.batch
         self.output.sync()
         self.weights.sync()

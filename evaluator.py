@@ -65,6 +65,7 @@ class BatchEvaluator(filters.OpenCLFilter):
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
+        self.err_y.update()
         print("(n_ok, n_total): (%d, %d)" % (n_ok, batch_size))
         if n_ok == batch_size:
             print("Perfect")
@@ -72,9 +73,10 @@ class BatchEvaluator(filters.OpenCLFilter):
             self.status.update()
             return
 
-        t2 = time.time()
+        dt = time.time() - t1
+        if not __debug__:
+            print("Computed softmax errs within %.2f sec" % (dt, ))
+            return
         err_y = self.err_y.batch
         print("Computed softmax errs within %.2f sec: (min, max, avg) = (%.3f, %.3f, %.3f)" % \
-              (t2 - t1, err_y.min(), err_y.max(), numpy.average(err_y)))
-    
-        self.err_y.update()
+              (dt, err_y.min(), err_y.max(), numpy.average(err_y)))
