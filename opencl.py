@@ -81,6 +81,7 @@ class DeviceList(filters.SmartPickling):
         platforms = cl.get_platforms()
         for platform in platforms:
             devices = platform.get_devices()
+            print(devices)
             context = cl.Context(devices)
             for device in devices:
                 guid = self._get_device_guid(device)

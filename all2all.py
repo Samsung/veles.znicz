@@ -11,8 +11,9 @@ import filters
 import formats
 import numpy
 import pyopencl
-import opencl
 import time
+#import matplotlib.pyplot as pp
+#import matplotlib.cm as cm
 
 
 class All2All(filters.OpenCLFilter):
@@ -43,6 +44,35 @@ class All2All(filters.OpenCLFilter):
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
+
+    def show_weights(self):
+        pp.rcParams.update({'font.size': 7})
+        output_size = self.output.batch.size // self.output.batch.shape[0]
+        n_cols = numpy.floor(numpy.sqrt(output_size))
+        n_rows = numpy.ceil(output_size / n_cols)
+        weights = self.weights.v
+        input_shape = self.input.batch.shape[1:]
+        print("Input shape is: %s" % (str(input_shape), ))
+        for i in range(0, output_size):
+            pp.subplot(n_rows, n_cols, i + 1)
+            im = weights[i].reshape(input_shape)
+            if len(im.shape) == 2:
+                pp.imshow(im, interpolation="lanczos", cmap=cm.gray)
+            else:
+                im = im.reshape(im.size)
+                pp.plot(im)
+        width = 1024
+        fnme = "cache/feed_%d_%d.png" % (numpy.prod(input_shape), output_size)
+        pp.savefig(fnme, dpi=width//8)
+        print("Weights picture saved to %s" % (fnme, ))
+        pp.clf()
+        pp.cla()
+        pp.imshow(weights, interpolation="lanczos", cmap=cm.gray)
+        fnme = "cache/weights_%d_%d.png" % (numpy.prod(input_shape), output_size)
+        pp.savefig(fnme, dpi=width//8)
+        print("Weights picture as matrix saved to %s" % (fnme, ))
+        pp.clf()
+        pp.cla()
 
     def _initialize(self, cl_src):
         n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
@@ -107,6 +137,7 @@ class All2All(filters.OpenCLFilter):
         print("%s: %d samples with %d weights within %.2f sec: y: (min, max, sum, avg) = (%.4f, %.4f, %.4f, %.4f)" % \
               (self.__class__.__name__, y.shape[0], self.weights.v.size, time.time() - t_start, \
                y.min(), y.max(), y.sum(), numpy.average(y)))
+        #self.show_weights()
 
 
 class All2AllTanh(All2All):

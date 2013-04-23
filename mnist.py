@@ -17,30 +17,32 @@ class MNISTLoader(filters.Filter):
     """Loads MNIST data.
 
     State:
-        output: contains MNIST training set images.
-        labels: contains MNIST training set labels.
+        output: contains MNIST images.
+        labels: contains MNIST labels.
+        test_only: loads test-only data.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, test_only = False, unpickling = 0):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.output = formats.Batch()
         self.labels = formats.Labels()
+        self.test_only = test_only
 
-    def load_original(self):
+    def load_original(self, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
         print("One time relatively slow load from original MNIST files...")
 
         # Reading labels:
-        fin = open("MNIST/train-labels.idx1-ubyte", "rb")
+        fin = open(labels_fnme, "rb")
 
         header, = struct.unpack(">i", fin.read(4))
         if header != 2049:
             raise error.ErrBadFormat("Wrong header in train-labels")
 
         n_labels, = struct.unpack(">i", fin.read(4))
-        if n_labels != 60000:
+        if n_labels != labels_count:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
         self.labels.batch = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
@@ -53,7 +55,7 @@ class MNISTLoader(filters.Filter):
         fin.close()
 
         # Reading images:
-        fin = open("MNIST/train-images.idx3-ubyte", "rb")
+        fin = open(images_fnme, "rb")
 
         header, = struct.unpack(">i", fin.read(4))
         if header != 2051:
@@ -87,21 +89,30 @@ class MNISTLoader(filters.Filter):
         self.output.batch = images
         print("Done")
 
-        print("Saving to cache for later faster load...")
-        fout = open("cache/MNIST-train.pickle", "wb")
-        pickle.dump((self.output.batch, self.labels.batch, self.labels.n_classes), fout)
-        fout.close()
-        print("Done")
-
     def initialize(self):
         """Here we will load MNIST data.
         """
+        if self.test_only:
+            cache_fnme = "cache/MNIST-test.pickle"
+            labels_count = 10000
+            labels_fnme = "MNIST/t10k-labels.idx1-ubyte"
+            images_fnme = "MNIST/t10k-images.idx3-ubyte"
+        else:
+            cache_fnme = "cache/MNIST-train.pickle"
+            labels_count = 60000
+            labels_fnme = "MNIST/train-labels.idx1-ubyte"
+            images_fnme = "MNIST/train-images.idx3-ubyte"
         try:
-            fin = open("cache/MNIST-train.pickle", "rb")
+            fin = open(cache_fnme, "rb")
             self.output.batch, self.labels.batch, self.labels.n_classes = pickle.load(fin)
             fin.close()
         except IOError:
-            self.load_original()
+            self.load_original(labels_count, labels_fnme, images_fnme)
+            print("Saving to cache for later faster load...")
+            fout = open(cache_fnme, "wb")
+            pickle.dump((self.output.batch, self.labels.batch, self.labels.n_classes), fout)
+            fout.close()
+        print("Done")
         self.output.update()
 
     def run(self):
