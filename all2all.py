@@ -85,7 +85,8 @@ class All2All(filters.OpenCLFilter):
             fin = open("cl/"+cl_src, "r")
             s = defines + fin.read()
             fin.close()
-            fout = open("cache/"+cl_src, "w")
+            fout = open("cache/feed_%d_%d.cl" % (self.input.batch.size // self.input.batch.shape[0], \
+                                                 self.output.batch.size // self.output.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
