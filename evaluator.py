@@ -45,6 +45,7 @@ class BatchEvaluator(filters.OpenCLFilter):
 
         self.y.sync()
         n_ok = 0
+        n_skip = 0
         batch_size = self.y.batch.shape[0]
         labels = self.labels.batch
         for i in range(0, batch_size):  # loop by batch
@@ -61,6 +62,7 @@ class BatchEvaluator(filters.OpenCLFilter):
                 if y[i_max] >= self.threshold:
                     err_y[:] = 0  # already trained good enough, skip it
                     skip = True
+                    n_skip += 1
             if not skip:
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
@@ -75,8 +77,8 @@ class BatchEvaluator(filters.OpenCLFilter):
 
         dt = time.time() - t1
         if not __debug__:
-            print("Computed softmax errs within %.2f sec" % (dt, ))
+            print("Computed softmax errs within %.2f sec, skipped %.2f%%" % (dt, n_skip / batch_size * 100.0))
             return
         err_y = self.err_y.batch
-        print("Computed softmax errs within %.2f sec: (min, max, avg) = (%.3f, %.3f, %.3f)" % \
-              (dt, err_y.min(), err_y.max(), numpy.average(err_y)))
+        print("Computed softmax errs within %.2f sec, skipped %.2f%%: (min, max, avg) = (%.3f, %.3f, %.3f)" % \
+              (dt, n_skip / batch_size * 100.0, err_y.min(), err_y.max(), numpy.average(err_y)))

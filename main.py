@@ -96,8 +96,8 @@ class EndPoint(filters.Filter):
             return
         self.status = None
         self.n_passes = 0
-        self.max_passes = 10000
-        self.snapshot_frequency = 10
+        self.max_passes = 50000
+        self.snapshot_frequency = 50
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
         self.flog_ = flog
@@ -153,6 +153,7 @@ class UseCase1(filters.SmartPickling):
         aa1: aa1.
         aa2: aa2.
         sm: softmax.
+        ev: evaluator.
         gdsm: gdsm.
         gd2: gd2.
         gd1: gd1.
@@ -226,13 +227,14 @@ class UseCase1(filters.SmartPickling):
         self.aa1 = aa1
         self.aa2 = aa2
         self.sm = sm
+        self.ev = ev
         self.gdsm = gdsm
         self.gd2 = gd2
         self.gd1 = gd1
 
     def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0):
         # Start the process:
-        self.sm.threshold = threshold
+        self.ev.threshold = threshold
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
         self.gd2.global_alpha = global_alpha

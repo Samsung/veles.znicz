@@ -38,6 +38,7 @@ class GD(filters.OpenCLFilter):
         self.krn_weights_ = None
         self.krn_err_y_ = None
         self.krn_bias_ = None
+        self.cl_sources = ["cl/gd.cl"]
         if unpickling:
             return
         self.weights = None  # formats.Vector(device)
@@ -48,7 +49,6 @@ class GD(filters.OpenCLFilter):
         self.err_h = formats.Batch(device)
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
-        self.cl_sources = ["cl/gd.cl"]
 
     def initialize(self):
         if self.err_h.batch == None or self.err_h.batch.size != self.h.batch.size:
