@@ -69,6 +69,12 @@ void err_h_update(__global float *A, __global float *B, __global float *C)
 	
 	(column * column) here
 	
+	A - err_y (error on output layer)
+	B - h (input layer values)
+	W - weights
+	k_ = (-global_alpha / batch_size)
+	r_ = 1.0 + (-global_alpha * global_lambda)
+	
 	Example:
 	[60000][16] * [60000][32] = [32][16]
 	size_t WorkSize[2] = {32, 16}

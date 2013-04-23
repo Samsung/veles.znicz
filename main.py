@@ -150,6 +150,8 @@ class UseCase1(filters.SmartPickling):
         device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
+        aa1: aa1.
+        aa2: aa2.
         sm: softmax.
         gdsm: gdsm.
         gd2: gd2.
@@ -174,32 +176,32 @@ class UseCase1(filters.SmartPickling):
         rpt = Repeater()
         rpt.link_from(m)
 
-        aa1 = all2all.All2AllTanh(output_shape=[64], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[80], device=dev)
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[32], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[48], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
-        out = all2all.All2AllSoftmax(output_shape=[16], device=dev)
-        out.input = aa2.output
-        out.link_from(aa2)
+        sm = all2all.All2AllSoftmax(output_shape=[16], device=dev)
+        sm.input = aa2.output
+        sm.link_from(aa2)
 
         ev = evaluator.BatchEvaluator(device=dev)
-        ev.y = out.output
+        ev.y = sm.output
         ev.labels = m.labels
-        ev.link_from(out)
+        ev.link_from(sm)
 
         self.end_point = EndPoint(self)
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
 
         gdsm = gd.GDSM(device=dev)
-        gdsm.weights = out.weights
-        gdsm.bias = out.bias
-        gdsm.h = out.input
-        gdsm.y = out.output
+        gdsm.weights = sm.weights
+        gdsm.bias = sm.bias
+        gdsm.h = sm.input
+        gdsm.y = sm.output
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
@@ -221,7 +223,9 @@ class UseCase1(filters.SmartPickling):
 
         rpt.link_from(gd1)
 
-        self.sm = out
+        self.aa1 = aa1
+        self.aa2 = aa2
+        self.sm = sm
         self.gdsm = gdsm
         self.gd2 = gd2
         self.gd1 = gd1
