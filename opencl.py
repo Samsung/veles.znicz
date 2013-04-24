@@ -103,7 +103,7 @@ class DeviceList(filters.SmartPickling):
             fout.close()
             print("Done")
 
-        self.devices_available.sort(key=lambda device: device.info.rating)
+        self.devices_available.sort(key=lambda device: -device.info.rating)
         # leave only one context
         context = self.devices_available[0].context_
         n = len(self.devices_available)
