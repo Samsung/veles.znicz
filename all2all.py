@@ -12,8 +12,8 @@ import formats
 import numpy
 import pyopencl
 import time
-import matplotlib.pyplot as pp
-import matplotlib.cm as cm
+#import matplotlib.pyplot as pp
+#import matplotlib.cm as cm
 
 
 class All2All(filters.OpenCLFilter):

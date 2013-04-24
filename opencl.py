@@ -165,12 +165,14 @@ class DeviceList(filters.SmartPickling):
         bias = numpy.empty(self.bias.shape, dtype=numpy.float64)
         bias[:] = self.bias[:]
         c = numpy.empty(self.c.shape, dtype=numpy.float64)
+        t1 = time.time()
         numpy.dot(a, b, c)
         c[:] += bias
         c *= 0.6666
         numpy.tanh(c, c)
         c *= 1.7159
         self.cc = c
+        return t1
 
     def _do_tests(self):
         """Measure relative device performance.
@@ -188,10 +190,8 @@ class DeviceList(filters.SmartPickling):
             min_dt = info.min_dt
             break
         print("Test(numpy double precision)...")
-        t1 = time.time()
-        self._do_cpu_test()
-        t2 = time.time()
-        dt = t2 - t1
+        t1 = self._do_cpu_test()
+        dt = time.time() - t1
         dt_numpy = dt
         if dt < min_dt:
             min_dt = dt
@@ -203,10 +203,8 @@ class DeviceList(filters.SmartPickling):
             for BLOCK_SIZE in (64, 32, 16, 8):
                 try:
                     print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
-                    t1 = time.time()
-                    self._do_test(device, BLOCK_SIZE)
-                    t2 = time.time()
-                    dt = t2 - t1
+                    t1 = self._do_test(device, BLOCK_SIZE)
+                    dt = time.time() - t1
                     if dt < device.info.dt:
                         device.info.dt = dt
                         device.info.BLOCK_SIZE = 16  #FIXME(a.kazantsev): should be BLOCK_SIZE
@@ -298,11 +296,13 @@ class DeviceList(filters.SmartPickling):
         krn.set_arg(2, c_buf)
         krn.set_arg(3, bias_buf)
 
+        t1 = time.time()
         global_size = [self.B_HEIGHT, self.A_HEIGHT]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
         cl.enqueue_nd_range_kernel(device.queue_, krn, global_size, local_size)
 
         arr, event = cl.enqueue_map_buffer(queue=device.queue_, buf=c_buf, flags=CL_MAP_READ, offset=0, \
-            shape=self.c.shape, dtype=self.c.dtype, order="C", wait_for=None, is_blocking=True)
-        del(event)
+            shape=self.c.shape, dtype=self.c.dtype, order="C", wait_for=None, is_blocking=False)
+        event.wait()
         arr.base.release(queue=device.queue_, wait_for=None)
+        return t1
