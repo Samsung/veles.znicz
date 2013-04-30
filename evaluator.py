@@ -98,7 +98,7 @@ class BatchEvaluator(filters.OpenCLFilter):
         self.status.n_ok = n_ok
         self.status.completed = False
         print("(n_ok, n_total): (%d, %d)" % (n_ok, batch_size))
-        if not self.first_run and (self.threshold == 1.0 or n_skip == batch_size) and n_ok == batch_size:
+        if not self.first_run and (True or self.threshold == 1.0 or n_skip == batch_size) and n_ok == batch_size:
             print("Perfect")
             self.status.completed = True
             self.status.update()
