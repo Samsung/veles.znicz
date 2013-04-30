@@ -96,7 +96,7 @@ class EndPoint(filters.Filter):
             return
         self.status = None
         self.n_passes = 0
-        self.max_passes = 50000
+        self.max_passes = 500000
         self.snapshot_frequency = 50
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
@@ -116,6 +116,18 @@ class EndPoint(filters.Filter):
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
+        if self.n_passes > 100 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
+            self.max_ok = self.status.n_ok
+            print("Snapshotting to snapshot.best")
+            fout = open("snapshot.best.tmp", "wb")
+            pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
+            fout.close()
+            try:
+                os.unlink("snapshot.best.old")
+                os.rename("snapshot.best", "snapshot.best.old")
+            except OSError:
+                pass
+            os.rename("snapshot.best.tmp", "snapshot.best")
         if self.flog_:
             self.flog_(*self.flog_args_)
         if self.n_passes_ < self.max_passes and not self.status.completed:
@@ -232,7 +244,7 @@ class UseCase1(filters.SmartPickling):
         self.gd2 = gd2
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, test_only = False):
         # Start the process:
         self.ev.threshold = threshold
         self.gdsm.global_alpha = global_alpha
@@ -241,6 +253,7 @@ class UseCase1(filters.SmartPickling):
         self.gd2.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
         self.gd1.global_lambda = global_lambda
+        self.ev.origin = self.aa1.input
         print()
         print("Initializing...")
         self.start_point.initialize_dependent()
@@ -403,7 +416,7 @@ class UseCase2(filters.SmartPickling):
         flog.write("\n")
         flog.close()
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, test_only = False):
         # Start the process:
         self.sm.threshold = threshold
         self.gdsm.global_alpha = global_alpha
@@ -430,8 +443,8 @@ def main():
     logging.debug("Entered")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-r", action="store_true", help="resume from snapshot", \
-                        default=False, dest="resume")
+    parser.add_argument("-r", type=str, help="resume from snapshot", \
+                        default="", dest="resume")
     parser.add_argument("-cpu", action="store_true", help="use numpy only", \
                         default=False, dest="cpu")
     parser.add_argument("-global_alpha", type=float, help="global gradient descent speed", \
@@ -440,6 +453,8 @@ def main():
                         default=0.0, dest="global_lambda")
     parser.add_argument("-threshold", type=float, help="softmax threshold", \
                         default=1.0, dest="threshold")
+    parser.add_argument("-t", action="store_true", help="test only", \
+                        default=False, dest="test_only")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
@@ -448,19 +463,19 @@ def main():
     if args.resume:
         try:
             print("Resuming from snapshot...")
-            fin = open("cache/snapshot.pickle", "rb")
+            fin = open(args.resume, "rb")
             (uc, random_state) = pickle.load(fin)
             numpy.random.set_state(random_state)
             fin.close()
         except IOError:
-            print("Could not resume from cache/snapshot.pickle")
+            print("Could not resume from %s" % (args.resume, ))
             uc = None
     if not uc:
-        uc = UseCase1(args.cpu)
-        #uc = UseCase2(True)
+        #uc = UseCase1(args.cpu)
+        uc = UseCase2(args.cpu)
     print("Launching...")
     uc.run(args.resume, global_alpha=args.global_alpha, global_lambda=args.global_lambda, \
-           threshold=args.threshold)
+           threshold=args.threshold, test_only=args.test_only)
 
     print()
     print("Snapshotting...")
@@ -471,7 +486,6 @@ def main():
     print("Done")
 
     logging.debug("Finished")
-    sys.exit()
 
 
 if __name__ == '__main__':

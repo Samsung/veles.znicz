@@ -3,8 +3,6 @@ Created on Mar 20, 2013
 
 All2All filters.
 
-TODO(a.kazantsev): implement analigned matrix sizes in filters by expanding them.
-
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
@@ -46,6 +44,7 @@ class All2All(filters.OpenCLFilter):
         self.rand = rand
 
     def show_weights(self):
+        return #TODO(a.kazantsev): do properly.
         pp.rcParams.update({'font.size': 7})
         output_size = self.output.batch.size // self.output.batch.shape[0]
         n_cols = numpy.floor(numpy.sqrt(output_size))
@@ -97,21 +96,20 @@ class All2All(filters.OpenCLFilter):
             self.output.batch = filters.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
             self.output.batch_ = None
 
-        if not self.device:
-            return
-
         self.input.initialize(self.device)
         self.output.initialize(self.device)
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
 
-        output_size = int(numpy.prod(self.output_shape))
+        if not self.device:
+            return
 
         if self.krn_ == None:
+            output_size = self.output.aligned_.size // self.output.aligned_.shape[0]
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
-                       (self.device.info.BLOCK_SIZE, self.weights.v.size // output_size, output_size)
+                       (self.device.info.BLOCK_SIZE, self.weights.aligned_.size // output_size, output_size)
             fin = open("cl/"+cl_src, "r")
             s = defines + fin.read()
             fin.close()
@@ -143,7 +141,7 @@ class All2All(filters.OpenCLFilter):
         print("%s: %d samples with %d weights within %.2f sec: y: (min, max, sum, avg) = (%.4f, %.4f, %.4f, %.4f)" % \
               (self.__class__.__name__, y.shape[0], self.weights.v.size, time.time() - t_start, \
                y.min(), y.max(), y.sum(), numpy.average(y)))
-        #self.show_weights()
+        self.show_weights()
 
 
 class All2AllTanh(All2All):
@@ -176,8 +174,8 @@ class All2AllTanh(All2All):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(numpy.prod(self.output_shape))
-        global_size = [output_size, self.output.batch.shape[0]]
+        output_size = int(self.output.aligned_.size // self.output.aligned_.shape[0])
+        global_size = [output_size, self.output.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
@@ -231,8 +229,8 @@ class All2AllSoftmax(All2All):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(numpy.prod(self.output_shape))
-        global_size = [output_size, self.output.batch.shape[0]]
+        output_size = int(self.output.aligned_.size // self.output.aligned_.shape[0])
+        global_size = [output_size, self.output.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()

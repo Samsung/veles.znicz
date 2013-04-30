@@ -23,6 +23,7 @@ class MNISTLoader(filters.Filter):
     """
     def __init__(self, test_only = False, unpickling = 0):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
+        #self.test_only = False
         if unpickling:
             return
         self.output = formats.Batch()

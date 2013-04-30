@@ -31,7 +31,7 @@ class GD(filters.OpenCLFilter):
         krn_bias_: OpenCL kernel for bias update.
         cl_sources: OpenCL source files.
     """
-    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.00, unpickling = 0):
+    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.0000001, unpickling = 0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         self.prg_ = None
         self.krn_err_h_ = None
@@ -55,9 +55,6 @@ class GD(filters.OpenCLFilter):
             self.err_h.batch = filters.aligned_zeros(self.h.batch.shape)
             self.err_h.batch_ = None
 
-        if not self.device:
-            return
-
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
         self.y.initialize(self.device)
@@ -65,14 +62,17 @@ class GD(filters.OpenCLFilter):
         self.err_y.initialize(self.device)
         self.err_h.initialize(self.device)
 
+        if not self.device:
+            return
+
         if self.prg_ == None:
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
                        "#define Y %d\n\n") % \
-                       (self.device.info.BLOCK_SIZE, self.err_h.batch.shape[0], \
-                        self.err_h.batch.size // self.err_h.batch.shape[0], \
-                        self.err_y.batch.size // self.err_y.batch.shape[0])
+                       (self.device.info.BLOCK_SIZE, self.err_h.aligned_.shape[0], \
+                        self.err_h.aligned_.size // self.err_h.aligned_.shape[0], \
+                        self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
             for src in self.cl_sources:
                 fin = open(src, "r")
@@ -132,13 +132,13 @@ class GD(filters.OpenCLFilter):
         kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda) 
         self.krn_weights_.set_arg(3, kr[0])
         self.krn_weights_.set_arg(4, kr[1])
-        global_size = [self.h.batch.size // self.h.batch.shape[0], \
-                       self.err_y.batch.size // self.err_y.batch.shape[0]]
+        global_size = [self.h.aligned_.size // self.h.aligned_.shape[0], \
+                       self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_weights_, global_size, local_size)
         
         self.krn_bias_.set_arg(2, kr[0])
-        global_size = [self.err_y.batch.size // self.err_y.batch.shape[0], self.device.info.BLOCK_SIZE]
+        global_size = [self.err_y.aligned_.size // self.err_y.aligned_.shape[0], self.device.info.BLOCK_SIZE]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_bias_, global_size, local_size)
         
@@ -165,7 +165,7 @@ class GD(filters.OpenCLFilter):
         """Backpropagate error (will compute err_h).
         """
         self.weights.sync(formats.GPU)
-        global_size = [self.err_h.batch.size // self.err_h.batch.shape[0], self.err_h.batch.shape[0]]
+        global_size = [self.err_h.aligned_.size // self.err_h.aligned_.shape[0], self.err_h.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_err_h_, global_size, local_size)
         event.wait()
@@ -196,7 +196,7 @@ class GD(filters.OpenCLFilter):
             return
         self.y.sync(formats.GPU)
         self.err_y.sync(formats.GPU)
-        global_size = [self.err_y.batch.size // self.err_y.batch.shape[0], self.err_y.batch.shape[0]]
+        global_size = [self.err_y.aligned_.size // self.err_y.aligned_.shape[0], self.err_y.aligned_.shape[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_err_y_, global_size, None)
         event.wait()
         self.err_y.update(formats.GPU)

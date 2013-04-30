@@ -7,6 +7,8 @@ import filters
 import formats
 import numpy
 import time
+#import matplotlib.pyplot as pp
+#import matplotlib.cm as cm
 
 
 class BatchEvaluator(filters.OpenCLFilter):
@@ -19,8 +21,10 @@ class BatchEvaluator(filters.OpenCLFilter):
         status: status of the evaluation (status.completed = True when learning ended).
         threshold: threshold for skipping trained well enough samples.
     """
-    def __init__(self, threshold = 1.0, device = None, unpickling = 0):
+    def __init__(self, threshold = 0.25, device = None, unpickling = 0):
         super(BatchEvaluator, self).__init__(unpickling=unpickling, device=device)
+        self.save_failed = False
+        self.first_run = True
         if unpickling:
             return
         self.labels = None  # formats.Labels()
@@ -28,15 +32,13 @@ class BatchEvaluator(filters.OpenCLFilter):
         self.err_y = formats.Batch()
         self.status = filters.Connector()
         self.status.completed = False
+        self.status.n_ok = 0
         self.threshold = threshold
 
     def initialize(self):
         if self.err_y.batch == None or self.err_y.batch.size != self.y.batch.size:
             self.err_y.batch = filters.aligned_zeros(self.y.batch.shape)
             self.err_y.batch_ = None
-
-        if not self.device:
-            return
 
         self.err_y.initialize(self.device)
 
@@ -63,17 +65,45 @@ class BatchEvaluator(filters.OpenCLFilter):
                     err_y[:] = 0  # already trained good enough, skip it
                     skip = True
                     n_skip += 1
+                if self.save_failed and (i % 50) == 0:
+                    idx = numpy.argsort(y)
+                    pp.imshow(self.origin.batch[i], interpolation="lanczos", cmap=cm.gray)
+                    width = 256
+                    fnme = "ok/%d_as_%d(%d)_%d(%d)_%d(%d).%d.png" % (labels[i], i_max, y[i_max] * 100, \
+                                                                     idx[y.size - 2], y[idx[y.size - 2]] * 100, \
+                                                                     idx[y.size - 3], y[idx[y.size - 3]] * 100, \
+                                                                     i)
+                    pp.savefig(fnme, dpi=width//8)
+                    print("Image saved to %s" % (fnme, ))
+                    pp.clf()
+                    pp.cla()
+            elif self.save_failed:
+                idx = numpy.argsort(y)
+                pp.imshow(self.origin.batch[i], interpolation="lanczos", cmap=cm.gray)
+                width = 256
+                fnme = "failed/%d_as_%d(%d)_%d(%d)_%d(%d).%d.png" % (labels[i], i_max, y[i_max] * 100, \
+                                                                     idx[y.size - 2], y[idx[y.size - 2]] * 100, \
+                                                                     idx[y.size - 3], y[idx[y.size - 3]] * 100, \
+                                                                     i)
+                pp.savefig(fnme, dpi=width//8)
+                print("Image saved to %s" % (fnme, ))
+                pp.clf()
+                pp.cla()
+
             if not skip:
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
         self.err_y.update()
+        self.status.n_ok = n_ok
+        self.status.completed = False
         print("(n_ok, n_total): (%d, %d)" % (n_ok, batch_size))
-        if n_ok == batch_size:
+        if not self.first_run and (self.threshold == 1.0 or n_skip == batch_size) and n_ok == batch_size:
             print("Perfect")
             self.status.completed = True
             self.status.update()
             return
+        self.first_run = False
 
         dt = time.time() - t1
         if not __debug__:

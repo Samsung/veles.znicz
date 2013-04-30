@@ -3,6 +3,8 @@ Created on Apr 15, 2013
 
 Data formats for connectors.
 
+TODO(a.kazantsev): merge Batch and Vector to one class.
+
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
@@ -21,7 +23,8 @@ class OpenCLConnector(filters.Connector):
     Attributes:
         device: OpenCL device.
         what_changed: what buffer has changed?
-        arr_: first argument returned by pyopencl.enqueue_map_buffer()
+        arr_: first argument returned by pyopencl.enqueue_map_buffer().
+        aligned_: numpy array aligned to device.info.BLOCK_SIZE.
     """
     def __init__(self, device = None, unpickling = 0):
         super(OpenCLConnector, self).__init__(unpickling=unpickling)
@@ -30,8 +33,9 @@ class OpenCLConnector(filters.Connector):
         self.device = device
         self.what_changed = 0
         self.arr_ = None
+        self.aligned_ = None
 
-    def gpu_2_cpu(self):
+    def gpu_2_cpu(self, read_only = False):
         """Copies buffer from GPU to CPU.
         """
         self.what_changed = 0
@@ -45,7 +49,7 @@ class OpenCLConnector(filters.Connector):
         """Get data from OpenCL device before pickling.
         """
         if self.device and (self.what_changed & GPU) and self.device.pid == os.getpid():
-            self.gpu_2_cpu()
+            self.gpu_2_cpu(True)
         return super(OpenCLConnector, self).__getstate__()
 
     def update(self, what_changed = CPU):
@@ -73,9 +77,10 @@ class OpenCLConnector(filters.Connector):
         """
         pass
 
-    def _map(self, buf, buf_, OP = opencl.CL_MAP_WRITE):
+    def _map(self, buf_, OP = opencl.CL_MAP_WRITE):
         self.arr_, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=buf_, flags=OP, \
-            offset=0, shape=buf.shape, dtype=buf.dtype, order="C", wait_for=None, is_blocking=False)
+            offset=0, shape=self.aligned_.shape, dtype=self.aligned_.dtype, order="C", \
+            wait_for=None, is_blocking=False)
         event.wait()
         self.what_changed = 0
 
@@ -84,13 +89,13 @@ class OpenCLConnector(filters.Connector):
         self.arr_ = None
         self.what_changed = 0
 
-    def _write(self, buf, buf_):
-        pyopencl.enqueue_copy(self.device.queue_, buf_, buf)
+    def _write(self, buf_):
+        pyopencl.enqueue_copy(self.device.queue_, buf_, self.aligned_)
         self.what_changed = 0
 
-    def _buffer(self, buf):
+    def _buffer(self):
         mf = pyopencl.mem_flags
-        return pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=buf)
+        return pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.aligned_)
 
 
 class Batch(OpenCLConnector):
@@ -98,13 +103,12 @@ class Batch(OpenCLConnector):
 
     Attributes:
         batch: numpy array with first dimension as batch.
-        batch_: OpenCL buffer mapped to batch.
+        batch_: OpenCL buffer mapped to aligned_.
     """
     def __init__(self, device = None, unpickling = 0):
         super(Batch, self).__init__(device=device, unpickling=unpickling)
         self.batch_ = None
         if unpickling:
-            self.batch = filters.realign(self.batch)
             return
         self.batch = None
 
@@ -115,16 +119,37 @@ class Batch(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        self.batch_ = self._buffer(self.batch)
+        BLOCK_SIZE = self.device.info.BLOCK_SIZE
+        dim1 = self.batch.shape[0]
+        dim2 = self.batch.size // self.batch.shape[0]
+        if (dim2 > 1) and  ((dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE)):
+            b = self.batch.reshape([dim1, dim2])
+            d1 = dim1
+            if d1 % BLOCK_SIZE:
+                d1 += BLOCK_SIZE - d1 % BLOCK_SIZE
+            d2 = dim2
+            if d2 % BLOCK_SIZE:
+                d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
+            self.aligned_ = filters.aligned_zeros([d1, d2])
+            self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
+            self.batch = self.aligned_[0:dim1, 0:dim2].view().reshape(self.batch.shape)
+        else:
+            self.aligned_ = filters.realign(self.batch)
+            self.batch = self.aligned_
+        self.batch_ = self._buffer()
 
-    def gpu_2_cpu(self):
-        self._map(self.batch, self.batch_)
+    def gpu_2_cpu(self, read_only = False):
+        if read_only:
+            self._map(self.batch_, opencl.CL_MAP_READ)
+            self._unmap()
+        else:
+            self._map(self.batch_)
 
     def cpu_2_gpu(self):
         if self.arr_ != None:
             self._unmap()
         else:
-            self._write(self.batch, self.batch_)
+            self._write(self.batch_)
 
 
 class Vector(OpenCLConnector):
@@ -132,13 +157,12 @@ class Vector(OpenCLConnector):
 
     Attributes:
         v: numpy array as a vector.
-        v_: OpenCL buffer mapped to vector.
+        v_: OpenCL buffer mapped to aligned_.
     """
     def __init__(self, device = None, unpickling = 0):
         super(Vector, self).__init__(device=device, unpickling=unpickling)
         self.v_ = None
         if unpickling:
-            self.v = filters.realign(self.v)
             return
         self.v = None
 
@@ -149,16 +173,37 @@ class Vector(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        self.v_ = self._buffer(self.v)
+        BLOCK_SIZE = self.device.info.BLOCK_SIZE
+        dim1 = self.v.shape[0]
+        dim2 = self.v.size // self.v.shape[0]
+        if (dim2 > 1) and ((dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE)):
+            b = self.v.reshape([dim1, dim2])
+            d1 = dim1
+            if d1 % BLOCK_SIZE:
+                d1 += BLOCK_SIZE - d1 % BLOCK_SIZE
+            d2 = dim2
+            if d2 % BLOCK_SIZE:
+                d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
+            self.aligned_ = filters.aligned_zeros([d1, d2])
+            self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
+            self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
+        else:
+            self.aligned_ = filters.realign(self.v)
+            self.v = self.aligned_
+        self.v_ = self._buffer()
 
-    def gpu_2_cpu(self):
-        self._map(self.v, self.v_)
+    def gpu_2_cpu(self, read_only = False):
+        if read_only:
+            self._map(self.v_, opencl.CL_MAP_READ)
+            self._unmap()
+        else:
+            self._map(self.v_)
 
     def cpu_2_gpu(self):
         if self.arr_ != None:
             self._unmap()
         else:
-            self._write(self.v, self.v_)
+            self._write(self.v_)
 
 
 class Labels(Batch):

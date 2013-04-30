@@ -103,16 +103,16 @@ class DeviceList(filters.SmartPickling):
             fout.close()
             print("Done")
 
-        self.devices_available.sort(key=lambda device: -device.info.rating)
+        self.devices_available.sort(key=lambda device: device.info.rating)
         # leave only one context
         context = self.devices_available[0].context_
         n = len(self.devices_available)
         for i in range(n - 1, 0, -1):
             if self.devices_available[i].context_ != context:
                 self.devices_available.pop(i)
-        print("Selected single context with the following devices (guid: raiting):")
+        print("Selected single context with the following devices (guid: raiting, BLOCK_SIZE):")
         for device in self.devices_available:
-            print("%s: %.2f" % (device.info.guid, device.info.rating))
+            print("%s: %.4f, %d" % (device.info.guid, device.info.rating, device.info.BLOCK_SIZE))
 
         if not unpickling:
             self.devices_in_use = []
@@ -171,8 +171,9 @@ class DeviceList(filters.SmartPickling):
         c *= 0.6666
         numpy.tanh(c, c)
         c *= 1.7159
+        dt = time.time() - t1
         self.cc = c
-        return t1
+        return dt
 
     def _do_tests(self):
         """Measure relative device performance.
@@ -183,61 +184,75 @@ class DeviceList(filters.SmartPickling):
         else:
             return 0
 
-        self._prepare_tests()
-
         min_dt = 86400
+        dt_numpy = 86400
         for info in self.device_infos.values():
             min_dt = info.min_dt
             break
-        print("Test(numpy double precision)...")
-        t1 = self._do_cpu_test()
-        dt = time.time() - t1
-        dt_numpy = dt
-        if dt < min_dt:
-            min_dt = dt
-        print("Done in %.2f seconds" % (dt))
+
         for device in self.devices_available:
             if device.info.rating:
                 continue
             device.info.dt = 86400
-            for BLOCK_SIZE in (64, 32, 16, 8):
+            for BLOCK_SIZE in range(32, 3, -1):
                 try:
                     print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
-                    t1 = self._do_test(device, BLOCK_SIZE)
-                    dt = time.time() - t1
+                    self._prepare_tests(BLOCK_SIZE)
+                    if BLOCK_SIZE == 32:
+                        print("Numpy double precision...")
+                        dt = self._do_cpu_test()
+                        print("Done in %.2f seconds" % (dt))
+                        if dt < dt_numpy:
+                            dt_numpy = dt
+                        if dt < min_dt:
+                            min_dt = dt
+                    dt = self._do_test(device, BLOCK_SIZE, 7)
                     if dt < device.info.dt:
                         device.info.dt = dt
-                        device.info.BLOCK_SIZE = 16  #FIXME(a.kazantsev): should be BLOCK_SIZE
+                        device.info.BLOCK_SIZE = BLOCK_SIZE
                     if dt < min_dt:
                         min_dt = dt
-                    c = self.cc.copy()
-                    c -= self.c
-                    numpy.abs(c, c)
-                    print("Done in %.2f seconds, MSE = %.6f, max_diff = %.6f" % \
-                          (dt, numpy.linalg.norm(c) / c.size, c.max()))
+                    if BLOCK_SIZE == 32:
+                        c = self.cc.copy()
+                        c -= self.c
+                        numpy.abs(c, c)
+                        print("Avg is %.2f seconds, MSE = %.6f, max_diff = %.6f" % \
+                              (dt, numpy.linalg.norm(c) / c.size, c.max()))
+                    else:
+                        print("Avg is %.2f seconds" % (dt, ))
+                    self._cleanup_after_tests()
                 except (cl.LogicError, cl.RuntimeError):
-                    print("BLOCK_SIZE = %d is not supported" % (BLOCK_SIZE))
-        print("\nRating(numpy double precision): %.2f" % (min_dt / dt_numpy))
+                    print("Program compilation or run failed for BLOCK_SIZE = %d" % (BLOCK_SIZE))
+                    self._cleanup_after_tests()
+                    raise
+        print("\nRating(numpy double precision): %.4f" % (min_dt / dt_numpy))
         for info in self.device_infos.values():
             rating = min_dt / info.dt
             if info.rating != rating:
                 if info.rating:
-                    print("UPD Rating(%s): %.2f" % (info.guid, rating))
+                    print("UPD Rating(%s): %.4f" % (info.guid, rating))
                 else:
-                    print("NEW Rating(%s): %.2f" % (info.guid, rating))
+                    print("NEW Rating(%s): %.4f" % (info.guid, rating))
             else:
-                print("Rating(%s): %.2f" % (info.guid, rating))
+                print("Rating(%s): %.4f" % (info.guid, rating))
             info.rating = rating
             info.min_dt = min_dt
-
-        self._cleanup_after_tests()
         print()
         return 1
 
-    def _prepare_tests(self):
-        self.AB_WIDTH = 4096
-        self.B_HEIGHT = 8192
-        self.A_HEIGHT = 2048
+    def _prepare_tests(self, BLOCK_SIZE):
+        self.AB_WIDTH = 128 * 1024
+        self.B_HEIGHT = 256
+        self.A_HEIGHT = 512
+        if self.AB_WIDTH % BLOCK_SIZE:
+            self.AB_WIDTH += BLOCK_SIZE - self.AB_WIDTH % BLOCK_SIZE
+        if self.B_HEIGHT % BLOCK_SIZE:
+            self.B_HEIGHT += BLOCK_SIZE - self.B_HEIGHT % BLOCK_SIZE
+        if self.A_HEIGHT % BLOCK_SIZE:
+            self.A_HEIGHT += BLOCK_SIZE - self.A_HEIGHT % BLOCK_SIZE
+        print("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (self.AB_WIDTH, self.A_HEIGHT, \
+                                                                 self.B_HEIGHT, self.AB_WIDTH, \
+                                                                 self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = numpy.random.get_state()
         
         self.a = filters.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
@@ -257,7 +272,8 @@ class DeviceList(filters.SmartPickling):
         self.c = filters.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
 
     def _cleanup_after_tests(self):
-        del(self.cc)
+        if "cc" in self.__dict__:
+            del(self.cc)
         del(self.c)
         del(self.bias)
         del(self.b)
@@ -268,7 +284,7 @@ class DeviceList(filters.SmartPickling):
         del(self.B_HEIGHT)
         del(self.AB_WIDTH)
 
-    def _do_test(self, device, BLOCK_SIZE):
+    def _do_test(self, device, BLOCK_SIZE, iters):
         """Do test for specific context
         """
         defines = ("#define BLOCK_SIZE %d\n"
@@ -296,13 +312,20 @@ class DeviceList(filters.SmartPickling):
         krn.set_arg(2, c_buf)
         krn.set_arg(3, bias_buf)
 
-        t1 = time.time()
         global_size = [self.B_HEIGHT, self.A_HEIGHT]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
-        cl.enqueue_nd_range_kernel(device.queue_, krn, global_size, local_size)
-
+        t1 = time.time()
+        # Will skip the first iteration
+        for i in range(0, iters + 1):
+            if i == 1:
+                t1 = time.time()
+            event = cl.enqueue_nd_range_kernel(device.queue_, krn, global_size, local_size)
+            event.wait()
+        dt = time.time() - t1
+        # Get results back
         arr, event = cl.enqueue_map_buffer(queue=device.queue_, buf=c_buf, flags=CL_MAP_READ, offset=0, \
-            shape=self.c.shape, dtype=self.c.dtype, order="C", wait_for=None, is_blocking=False)
+                                           shape=self.c.shape, dtype=self.c.dtype, order="C", \
+                                           wait_for=None, is_blocking=False)
         event.wait()
         arr.base.release(queue=device.queue_, wait_for=None)
-        return t1
+        return dt / iters
