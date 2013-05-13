@@ -1,8 +1,8 @@
 //Should be defined externally:
-//#define BLOCK_SIZE 16
-//#define BATCH 60000
-//#define H 32
-//#define Y 16
+//#define BLOCK_SIZE 1
+//#define BATCH 178
+//#define H 13
+//#define Y 5
 
 #define B_WIDTH H
 #define AB_COMMON Y
@@ -14,8 +14,8 @@
 	We are calculating values for block of matrix C for each workgroup.
 	
 	Example:
-	[60000][16] * [16][32] = [60000][32]
-	size_t WorkSize[2] = {32, 60000}
+	[178][5] * [5][13] = [178][13]
+	size_t WorkSize[2] = {13, 178}
 	size_t LocalSize[2] = {BLOCK_SIZE, BLOCK_SIZE}
 */
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))

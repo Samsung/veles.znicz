@@ -164,6 +164,7 @@ class GD(filters.OpenCLFilter):
     def gpu_err_h_update(self):
         """Backpropagate error (will compute err_h).
         """
+        self.err_y.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         global_size = [self.err_h.aligned_.size // self.err_h.aligned_.shape[0], self.err_h.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]

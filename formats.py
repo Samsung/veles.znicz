@@ -7,7 +7,6 @@ Data formats for connectors.
 """
 import filters
 import pyopencl
-import opencl
 import os
 
 
@@ -75,16 +74,18 @@ class OpenCLConnector(filters.Connector):
         pass
 
     def _write(self, buf_):
-        pyopencl.enqueue_copy(self.device.queue_, buf_, self.aligned_)
+        ev = pyopencl.enqueue_copy(self.device.queue_, buf_, self.aligned_, wait_for=None, is_blocking=False)
+        ev.wait()
         self.what_changed = 0
 
     def _read(self, buf_):
-        pyopencl.enqueue_copy(self.device.queue_, self.aligned_, buf_)
+        ev = pyopencl.enqueue_copy(self.device.queue_, self.aligned_, buf_, wait_for=None, is_blocking=False)
+        ev.wait()
         self.what_changed = 0
 
     def _buffer(self):
         mf = pyopencl.mem_flags
-        return pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.aligned_)
+        return pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.ALLOC_HOST_PTR, size=self.aligned_.nbytes)
 
 
 class Batch(OpenCLConnector):
@@ -111,7 +112,7 @@ class Batch(OpenCLConnector):
         BLOCK_SIZE = self.device.info.BLOCK_SIZE
         dim1 = self.batch.shape[0]
         dim2 = self.batch.size // self.batch.shape[0]
-        if (dim2 > 1) and  ((dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE)):
+        if (dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE):
             b = self.batch.reshape([dim1, dim2])
             d1 = dim1
             if d1 % BLOCK_SIZE:
@@ -122,6 +123,7 @@ class Batch(OpenCLConnector):
             self.aligned_ = filters.aligned_zeros([d1, d2])
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.batch = self.aligned_[0:dim1, 0:dim2].view().reshape(self.batch.shape)
+            assert self.aligned_.__array_interface__["data"][0] == self.batch.__array_interface__["data"][0]
         else:
             self.aligned_ = filters.realign(self.batch)
             self.batch = self.aligned_
@@ -158,17 +160,18 @@ class Vector(OpenCLConnector):
         BLOCK_SIZE = self.device.info.BLOCK_SIZE
         dim1 = self.v.shape[0]
         dim2 = self.v.size // self.v.shape[0]
-        if (dim2 > 1) and ((dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE)):
+        if (dim1 % BLOCK_SIZE) or ((dim2 > 1) and (dim2 % BLOCK_SIZE)):
             b = self.v.reshape([dim1, dim2])
             d1 = dim1
             if d1 % BLOCK_SIZE:
                 d1 += BLOCK_SIZE - d1 % BLOCK_SIZE
             d2 = dim2
-            if d2 % BLOCK_SIZE:
+            if (d2 > 1) and (d2 % BLOCK_SIZE):
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
             self.aligned_ = filters.aligned_zeros([d1, d2])
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
+            assert self.aligned_.__array_interface__["data"][0] == self.v.__array_interface__["data"][0]
         else:
             self.aligned_ = filters.realign(self.v)
             self.v = self.aligned_

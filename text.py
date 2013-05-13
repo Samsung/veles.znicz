@@ -6,7 +6,7 @@ Created on Apr 16, 2013
 
 import filters
 import formats
-import pickle
+#import pickle
 import numpy
 
 
@@ -46,13 +46,12 @@ class TXTLoader(filters.Filter):
              
         """ 
         print("One time relatively slow load from original Wine Dataset...")
-        
 
-        self.labels.batch=filters.aligned_zeros([178])
-        self.labels.n_classes=3
-        self.output.batch=filters.realign(numpy.loadtxt("wine/wine.csv", numpy.float32).reshape([178,13]))
-        self.labels.batch=numpy.loadtxt("wine/wine_y_labels.csv", numpy.int)
-        self.labels.batch-=1
+        self.labels.batch = filters.aligned_zeros([178])
+        self.labels.n_classes = 3
+        self.output.batch = filters.realign(numpy.loadtxt("wine/wine.csv", numpy.float32).reshape([178,13]))
+        self.labels.batch = numpy.loadtxt("wine/wine_y_labels.csv", numpy.int)
+        self.labels.batch -= 1
         self.normalize_use_all_dataset()
         print("Done")
 
@@ -65,28 +64,29 @@ class TXTLoader(filters.Filter):
     def normalize_x_use_all_dataset(self):
         """ normalization  input data.
         """    
-        #self.outmean =filters.aligned_zeros([13])
+        #self.outmean = filters.aligned_zeros([13])
         print("normalize_x_use_all_dataset start")
-        
-        self.outmean= numpy.mean(self.output.batch, axis=0)
-        
-        self.outstd= numpy.std(self.output.batch, axis=0)
-        
-        self.output2.batch =filters.realign(filters.aligned_zeros([178*13]).reshape([178,13]))
-        self.output2.batch[:]=self.output.batch[:]
-        
+
+        self.outmean = numpy.mean(self.output.batch, axis=0)
+
+        self.outstd = numpy.std(self.output.batch, axis=0)
+
+        self.output2.batch = filters.realign(filters.aligned_zeros([178*13]).reshape([178,13]))
+        self.output2.batch[:] = self.output.batch[:]
+
         for i in range(0,13):
-            self.output2.batch[:,i]=((self.output.batch[:,i]-self.outmean[i]))/self.outstd[i]
-        
+            self.output2.batch[:,i] = ((self.output.batch[:,i] - self.outmean[i])) / self.outstd[i]
+
         #self.outmin =filters.aligned_zeros([13])
         self.outmin= numpy.min(self.output2.batch, axis=0)
-        
+
         #self.outmax =filters.aligned_zeros([13])
         self.outmax= numpy.max(self.output2.batch, axis=0)
-        
+
         for i in range(0,13):
-            self.output2.batch[:,i]=((((self.output2.batch[:,i]-self.outmin[i]))/(self.outmax[i]-self.outmin[i]))-0.5)*2
-        
+            self.output2.batch[:,i] = ((((self.output2.batch[:,i] - self.outmin[i])) / \
+                                        (self.outmax[i] - self.outmin[i])) - 0.5) * 2
+
         print(self.output2.batch.size)
         print("normalize_x_use_all_dataset ok")
         
@@ -122,3 +122,4 @@ class TXTLoader(filters.Filter):
         """Just update an output.
         """
         self.output.update()
+        self.output2.update()

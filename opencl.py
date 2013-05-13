@@ -112,6 +112,7 @@ class DeviceList(filters.SmartPickling):
                 self.devices_available.pop(i)
         print("Selected single context with the following devices (guid: raiting, BLOCK_SIZE):")
         for device in self.devices_available:
+            device.info.BLOCK_SIZE = 1  #TODO(a.kazantsev): this line is for debugging purposes, remove it.
             print("%s: %.4f, %d" % (device.info.guid, device.info.rating, device.info.BLOCK_SIZE))
 
         if not unpickling:

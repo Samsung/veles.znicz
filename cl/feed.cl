@@ -89,5 +89,11 @@ void FEED_LAYER(__global float *A, __global float *B, __global float *C, __globa
  C[get_global_id(1) * B_HEIGHT + get_global_id(0)
    /* same as:
 		by * B_HEIGHT * BLOCK_SIZE + bx * BLOCK_SIZE + ty * B_HEIGHT + tx
-   */] = 1.7159f * tanh(0.6666f * (sum[0] + AS[0][tx]));
+   */] =
+ 	#ifdef ACTIVATION_LINEAR
+ 		sum[0] + AS[0][tx];
+ 	#endif
+ 	#ifdef ACTIVATION_TANH
+ 		1.7159f * tanh(0.6666f * (sum[0] + AS[0][tx]));
+ 	#endif
 }

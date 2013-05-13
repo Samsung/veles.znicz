@@ -73,7 +73,7 @@ class All2All(filters.OpenCLFilter):
         pp.clf()
         pp.cla()
 
-    def _initialize(self, cl_src):
+    def _initialize(self, s_activation):
         n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.v = filters.aligned_zeros([n_weights])
@@ -84,12 +84,14 @@ class All2All(filters.OpenCLFilter):
             self.weights.v = self.weights.v.reshape([numpy.prod(self.output_shape), \
                                                      self.input.batch.size // self.input.batch.shape[0]])
             self.weights.v_ = None
+            self.weights.update()
         if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
             self.bias.v = filters.aligned_zeros([numpy.prod(self.output_shape)])
             self.bias.v[:] = self.rand(self.bias.v.size)
             self.bias.v *= 2.0 * self.weights_amplitude
             self.bias.v -= self.weights_amplitude
             self.bias.v_ = None
+            self.bias.update()
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.output.batch == None or self.output.batch.size != output_size:
@@ -106,11 +108,13 @@ class All2All(filters.OpenCLFilter):
 
         if self.krn_ == None:
             output_size = self.output.aligned_.size // self.output.aligned_.shape[0]
-            defines = ("#define BLOCK_SIZE %d\n"
+            defines = ("#define %s\n"
+                       "#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
                        "#define B_HEIGHT %d\n\n") % \
-                       (self.device.info.BLOCK_SIZE, self.weights.aligned_.size // output_size, output_size)
-            fin = open("cl/"+cl_src, "r")
+                       (s_activation, self.device.info.BLOCK_SIZE, \
+                        self.weights.aligned_.size // output_size, output_size)
+            fin = open("cl/feed.cl", "r")
             s = defines + fin.read()
             fin.close()
             fout = open("cache/feed_%d_%d.cl" % (self.input.batch.size // self.input.batch.shape[0], \
@@ -148,7 +152,7 @@ class All2AllTanh(All2All):
     """All2All layer to layer with scaled tanh() activation.
     """
     def initialize(self):
-        self._initialize("feed_tanh.cl")
+        self._initialize("ACTIVATION_TANH")
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -189,7 +193,7 @@ class All2AllSoftmax(All2All):
     Currently, we will calculate softmax partially on cpu.
     """
     def initialize(self):
-        self._initialize("feed_linear.cl")
+        self._initialize("ACTIVATION_LINEAR")
 
     def cpu_apply_exp(self):
         self.output.sync()
