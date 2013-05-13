@@ -3,8 +3,6 @@ Created on Apr 15, 2013
 
 Data formats for connectors.
 
-TODO(a.kazantsev): merge Batch and Vector to one class.
-
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import filters
@@ -35,7 +33,7 @@ class OpenCLConnector(filters.Connector):
         self.arr_ = None
         self.aligned_ = None
 
-    def gpu_2_cpu(self, read_only = False):
+    def gpu_2_cpu(self):
         """Copies buffer from GPU to CPU.
         """
         self.what_changed = 0
@@ -49,15 +47,14 @@ class OpenCLConnector(filters.Connector):
         """Get data from OpenCL device before pickling.
         """
         if self.device and (self.what_changed & GPU) and self.device.pid == os.getpid():
-            self.gpu_2_cpu(True)
+            self.gpu_2_cpu()
         return super(OpenCLConnector, self).__getstate__()
 
     def update(self, what_changed = CPU):
         """Updates data ready status.
 
         Parameters:
-            cpu: cpu buffer changed.
-            gpu: gpu buffer changed.
+            what_changed: what buffer has changed (CPU or GPU).
         """
         self.what_changed = what_changed
         super(OpenCLConnector, self).update()
@@ -77,20 +74,12 @@ class OpenCLConnector(filters.Connector):
         """
         pass
 
-    def _map(self, buf_, OP = opencl.CL_MAP_WRITE):
-        self.arr_, event = pyopencl.enqueue_map_buffer(queue=self.device.queue_, buf=buf_, flags=OP, \
-            offset=0, shape=self.aligned_.shape, dtype=self.aligned_.dtype, order="C", \
-            wait_for=None, is_blocking=False)
-        event.wait()
-        self.what_changed = 0
-
-    def _unmap(self):
-        self.arr_.base.release(queue=self.device.queue_)
-        self.arr_ = None
-        self.what_changed = 0
-
     def _write(self, buf_):
         pyopencl.enqueue_copy(self.device.queue_, buf_, self.aligned_)
+        self.what_changed = 0
+
+    def _read(self, buf_):
+        pyopencl.enqueue_copy(self.device.queue_, self.aligned_, buf_)
         self.what_changed = 0
 
     def _buffer(self):
@@ -138,18 +127,11 @@ class Batch(OpenCLConnector):
             self.batch = self.aligned_
         self.batch_ = self._buffer()
 
-    def gpu_2_cpu(self, read_only = False):
-        if read_only:
-            self._map(self.batch_, opencl.CL_MAP_READ)
-            self._unmap()
-        else:
-            self._map(self.batch_)
+    def gpu_2_cpu(self):
+        self._read(self.batch_)
 
     def cpu_2_gpu(self):
-        if self.arr_ != None:
-            self._unmap()
-        else:
-            self._write(self.batch_)
+        self._write(self.batch_)
 
 
 class Vector(OpenCLConnector):
@@ -192,18 +174,11 @@ class Vector(OpenCLConnector):
             self.v = self.aligned_
         self.v_ = self._buffer()
 
-    def gpu_2_cpu(self, read_only = False):
-        if read_only:
-            self._map(self.v_, opencl.CL_MAP_READ)
-            self._unmap()
-        else:
-            self._map(self.v_)
+    def gpu_2_cpu(self):
+        self._read(self.v_)
 
     def cpu_2_gpu(self):
-        if self.arr_ != None:
-            self._unmap()
-        else:
-            self._write(self.v_)
+        self._write(self.v_)
 
 
 class Labels(Batch):
