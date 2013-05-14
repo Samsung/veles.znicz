@@ -198,8 +198,6 @@ class DeviceList(filters.SmartPickling):
             device.info.dt = 86400
             for BLOCK_SIZE in range(32, 3, -1):
                 try:
-                    print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
-                    self._prepare_tests(BLOCK_SIZE)
                     if BLOCK_SIZE == 32:
                         print("Numpy double precision...")
                         dt = self._do_cpu_test()
@@ -208,6 +206,8 @@ class DeviceList(filters.SmartPickling):
                             dt_numpy = dt
                         if dt < min_dt:
                             min_dt = dt
+                    print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
+                    self._prepare_tests(BLOCK_SIZE)
                     dt = self._do_test(device, BLOCK_SIZE, 7)
                     if dt < device.info.dt:
                         device.info.dt = dt
