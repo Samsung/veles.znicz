@@ -29,7 +29,7 @@
 #if (AB_WIDTH > 256) && (AB_WIDTH <= 512)
 #define N_SUM 32
 #endif
-#if (AB_WIDTH > 512) && (AB_WIDTH <= 1024)
+#if AB_WIDTH > 512
 #define N_SUM 64
 #endif
 #if AB_WIDTH > 1024

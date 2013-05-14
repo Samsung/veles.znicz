@@ -26,6 +26,7 @@ class Device(filters.SmartPickling):
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
         pid: process id.
+        prefer_mmap: use map/unmap instead of read/write.
     """
     def __init__(self, info = None, unpickling = 0):
         super(Device, self).__init__(unpickling=unpickling)
@@ -36,6 +37,7 @@ class Device(filters.SmartPickling):
             return
         self.info = info
         self.memsize = 0
+        self.prefer_mmap = False
 
 
 class DeviceInfo(object):
@@ -112,7 +114,6 @@ class DeviceList(filters.SmartPickling):
                 self.devices_available.pop(i)
         print("Selected single context with the following devices (guid: raiting, BLOCK_SIZE):")
         for device in self.devices_available:
-            device.info.BLOCK_SIZE = 1  #TODO(a.kazantsev): this line is for debugging purposes, remove it.
             print("%s: %.4f, %d" % (device.info.guid, device.info.rating, device.info.BLOCK_SIZE))
 
         if not unpickling:
@@ -288,10 +289,11 @@ class DeviceList(filters.SmartPickling):
     def _do_test(self, device, BLOCK_SIZE, iters):
         """Do test for specific context
         """
-        defines = ("#define BLOCK_SIZE %d\n"
+        defines = ("#define ACTIVATION_TANH\n"
+        "#define BLOCK_SIZE %d\n"
         "#define AB_WIDTH %d\n"
         "#define B_HEIGHT %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH, self.B_HEIGHT))
-        fin = open("cl/feed_tanh.cl", "r")
+        fin = open("cl/feed.cl", "r")
         src = defines + fin.read()
         fin.close()
         fout = open("cache/test.cl", "w")
