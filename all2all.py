@@ -200,7 +200,17 @@ class All2AllSoftmax(All2All):
     
     Attributes:
         krn_sm_: kernel for softmax activation calculation.
+        
     """
+    def __init__(self, output_shape = None, device=None, weights_amplitude = 0.05, rand = numpy.random.rand, \
+                 unpickling = 0):
+        super(All2AllSoftmax, self).__init__(output_shape=output_shape, device=device, \
+                                             weights_amplitude=weights_amplitude, rand=rand, \
+                                             unpickling=unpickling)
+        self.krn_sm_ = None
+        if unpickling:
+            return
+
     def initialize(self):
         self.cl_sources["cl/sm.cl"] = 1
         retval = super(All2AllSoftmax, self).initialize()
@@ -227,7 +237,7 @@ class All2AllSoftmax(All2All):
 
     def gpu_apply_exp(self):
         self.output.sync(formats.GPU)
-        global_size = [self.output.aligned_.shape[0], self.device.info.BLOCK_SIZE]
+        global_size = [self.device.info.BLOCK_SIZE, self.output.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_sm_, global_size, local_size)
         event.wait()

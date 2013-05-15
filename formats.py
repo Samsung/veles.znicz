@@ -137,7 +137,7 @@ class Batch(OpenCLConnector):
             d2 = dim2
             if d2 % BLOCK_SIZE:
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = filters.aligned_zeros([d1, d2])
+            self.aligned_ = filters.aligned_zeros([d1, d2], dtype=self.batch.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.batch = self.aligned_[0:dim1, 0:dim2].view().reshape(self.batch.shape)
             assert self.aligned_.__array_interface__["data"][0] == self.batch.__array_interface__["data"][0]
@@ -195,7 +195,7 @@ class Vector(OpenCLConnector):
             d2 = dim2
             if (d2 > 1) and (d2 % BLOCK_SIZE):
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = filters.aligned_zeros([d1, d2])
+            self.aligned_ = filters.aligned_zeros([d1, d2], dtype=self.v.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
             assert self.aligned_.__array_interface__["data"][0] == self.v.__array_interface__["data"][0]

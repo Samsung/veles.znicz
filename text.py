@@ -6,7 +6,6 @@ Created on Apr 16, 2013
 
 import filters
 import formats
-#import pickle
 import numpy
 
 
@@ -45,7 +44,7 @@ class TXTLoader(filters.Filter):
              
              
         """ 
-        print("One time relatively slow load from original Wine Dataset...")
+        print("Load from original Wine Dataset...")
 
         self.labels.batch = filters.aligned_zeros([178])
         self.labels.n_classes = 3
@@ -78,10 +77,10 @@ class TXTLoader(filters.Filter):
             self.output2.batch[:,i] = ((self.output.batch[:,i] - self.outmean[i])) / self.outstd[i]
 
         #self.outmin =filters.aligned_zeros([13])
-        self.outmin= numpy.min(self.output2.batch, axis=0)
+        self.outmin = numpy.min(self.output2.batch, axis=0)
 
         #self.outmax =filters.aligned_zeros([13])
-        self.outmax= numpy.max(self.output2.batch, axis=0)
+        self.outmax = numpy.max(self.output2.batch, axis=0)
 
         for i in range(0,13):
             self.output2.batch[:,i] = ((((self.output2.batch[:,i] - self.outmin[i])) / \
@@ -108,12 +107,6 @@ class TXTLoader(filters.Filter):
     def initialize(self):
         """Here we will load Wine data.
         """
-        
-        #try:
-        #    fin = open("cache/Wine-train.pickle", "rb")
-        #    self.output.batch,self.output2.batch, self.labels.batch, self.labels.n_classes = pickle.load(fin)
-        #    fin.close()
-        #except IOError:
         self.load_original()
         self.output2.update()
         print(self.output2.batch.size)
@@ -121,5 +114,4 @@ class TXTLoader(filters.Filter):
     def run(self):
         """Just update an output.
         """
-        self.output.update()
         self.output2.update()

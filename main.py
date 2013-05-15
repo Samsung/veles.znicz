@@ -92,11 +92,11 @@ class EndPoint(filters.Filter):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         self.n_passes_ = 0
+        self.max_passes = 50000
         if unpickling:
             return
         self.status = None
         self.n_passes = 0
-        self.max_passes = 400
         self.snapshot_frequency = 500
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
@@ -193,11 +193,11 @@ class UseCase1(filters.SmartPickling):
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[48], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[40], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
-        sm = all2all.All2AllSoftmax(output_shape=[16], device=dev)
+        sm = all2all.All2AllSoftmax(output_shape=[10], device=dev)
         sm.input = aa2.output
         sm.link_from(aa2)
 

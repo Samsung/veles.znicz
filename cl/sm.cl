@@ -8,6 +8,10 @@
 	Example:
 		y = [178][3].
 		178 - batch size.
+		
+		if BLOCK_SIZE = 24:
+			global_size = [24, 192]
+			local_size = [24, 24]
 */
 #define Y B_HEIGHT
 #define Y_REAL B_HEIGHT_REAL
@@ -17,13 +21,14 @@ __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void apply_exp(__global float *y)
 {
  __local float AS[BLOCK_SIZE][BLOCK_SIZE];
+ __local float MS[BLOCK_SIZE], SUMS[BLOCK_SIZE];
  
- int bx = get_group_id(0); // from 0 to BATCH / BLOCK_SIZE - 1
+ int by = get_group_id(1); // from 0 to BATCH / BLOCK_SIZE - 1
  
  int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
  int ty = get_local_id(1); // from 0 to BLOCK_SIZE - 1
  
- int start_offs = (bx * BLOCK_SIZE + ty) * Y + tx;
+ int start_offs = (by * BLOCK_SIZE + ty) * Y + tx;
  
  float m = -1.0e30f;
  int offs = start_offs;
@@ -45,11 +50,11 @@ void apply_exp(__global float *y)
   for(int k = 1; k < MIN(BLOCK_SIZE, Y_REAL); k++)
    m = max(m, AS[ty][k]);
   
-  AS[ty][0] = m;
+  MS[ty] = m;
  }
  // ensure max computed
  barrier(CLK_LOCAL_MEM_FENCE);
- m = AS[ty][0];
+ m = MS[ty];
  
  float sum = 0.0f;
  offs = start_offs;
@@ -71,11 +76,11 @@ void apply_exp(__global float *y)
   for(int k = 1; k < MIN(BLOCK_SIZE, Y_REAL); k++)
    sum += AS[ty][k];
   
-  AS[ty][0] = sum;
+  SUMS[ty] = sum;
  }
  // ensure sum computed
  barrier(CLK_LOCAL_MEM_FENCE);
- sum = AS[ty][0];
+ sum = SUMS[ty];
  
  offs = start_offs;
  for(int i = 0; i < Y_REAL / BLOCK_SIZE; i++, offs += BLOCK_SIZE)
