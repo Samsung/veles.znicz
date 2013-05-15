@@ -228,9 +228,13 @@ class OpenCLFilter(Filter):
 
     Attributes:
         device: Device object.
+        prg_: OpenCL program.
+        cl_sources: OpenCL source files.
     """
     def __init__(self, device = None, unpickling = 0):
         super(OpenCLFilter, self).__init__(unpickling = unpickling)
+        self.prg_ = None
+        self.cl_sources = {}
         if unpickling:
             return
         self.device = device

@@ -24,21 +24,18 @@ class GD(filters.OpenCLFilter):
         err_h: backpropagation errors for h (will compute its).
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
-        prg_: OpenCL program.
         krn_err_h_: OpenCL kernel for matrix multiplication.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
-        cl_sources: OpenCL source files.
     """
     def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.0000001, unpickling = 0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
-        self.prg_ = None
+        self.cl_sources["cl/gd.cl"] = 1
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
         self.krn_bias_ = None
-        self.cl_sources = ["cl/gd.cl"]
         if unpickling:
             return
         self.weights = None  # formats.Vector(device)
@@ -74,7 +71,7 @@ class GD(filters.OpenCLFilter):
                         self.err_h.aligned_.size // self.err_h.aligned_.shape[0], \
                         self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
-            for src in self.cl_sources:
+            for src in self.cl_sources.keys():
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
@@ -245,7 +242,7 @@ class GDTanh(GD):
         self.err_y.update()
 
     def initialize(self):
-        self.cl_sources.append("cl/gd_tanh.cl")
+        self.cl_sources["cl/gd_tanh.cl"] = 1
         retval = super(GDTanh, self).initialize()
         if retval or not self.device:
             return retval

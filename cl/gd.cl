@@ -1,3 +1,5 @@
+//TODO(a.kazantsev): optimize for sum precision like in feed.cl
+
 //Should be defined externally:
 //#define BLOCK_SIZE 1
 //#define BATCH 178

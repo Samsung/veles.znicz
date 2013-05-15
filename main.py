@@ -96,8 +96,8 @@ class EndPoint(filters.Filter):
             return
         self.status = None
         self.n_passes = 0
-        self.max_passes = 500000
-        self.snapshot_frequency = 50
+        self.max_passes = 400
+        self.snapshot_frequency = 500
         self.snapshot_filename = "cache/snapshot.%d.pickle"
         self.snapshot_object = snapshot_object
         self.flog_ = flog
@@ -116,7 +116,7 @@ class EndPoint(filters.Filter):
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
-        if self.n_passes > 100 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
+        if self.n_passes >= 500 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
             print("Snapshotting to snapshot.best")
             fout = open("snapshot.best.tmp", "wb")

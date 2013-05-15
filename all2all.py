@@ -28,10 +28,12 @@ class All2All(filters.OpenCLFilter):
         weights_amplitude: amplitude of the default random distribution of weights.
         rand: numpy-style random generator function.
         krn_: OpenCL kernel.
+        s_activation: activation define for OpenCL source.
     """
     def __init__(self, output_shape = None, device=None, weights_amplitude = 0.05, rand = numpy.random.rand, \
                  unpickling = 0):
         super(All2All, self).__init__(unpickling=unpickling, device=device)
+        self.cl_sources["cl/feed.cl"] = 1
         self.krn_ = None
         if unpickling:
             return
@@ -42,6 +44,7 @@ class All2All(filters.OpenCLFilter):
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
+        self.s_activation = "ACTIVATION_LINEAR"
 
     def show_weights(self):
         return #TODO(a.kazantsev): do properly.
@@ -73,7 +76,7 @@ class All2All(filters.OpenCLFilter):
         pp.clf()
         pp.cla()
 
-    def _initialize(self, s_activation):
+    def initialize(self):
         n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.v = filters.aligned_zeros([n_weights])
@@ -111,20 +114,24 @@ class All2All(filters.OpenCLFilter):
             defines = ("#define %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define AB_WIDTH %d\n"
-                       "#define B_HEIGHT %d\n\n") % \
-                       (s_activation, self.device.info.BLOCK_SIZE, \
-                        self.weights.aligned_.size // output_size, output_size)
-            fin = open("cl/feed.cl", "r")
-            s = defines + fin.read()
-            fin.close()
+                       "#define B_HEIGHT %d\n"
+                       "#define B_HEIGHT_REAL %d\n\n") % \
+                       (self.s_activation, self.device.info.BLOCK_SIZE, \
+                        self.weights.aligned_.size // output_size, output_size, \
+                        self.output.batch.size // self.output.batch.shape[0])
+            s = defines
+            for src in self.cl_sources.keys():
+                fin = open(src, "r")
+                s += fin.read()
+                fin.close()
             fout = open("cache/feed_%d_%d.cl" % (self.input.batch.size // self.input.batch.shape[0], \
                                                  self.output.batch.size // self.output.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
-            prg = pyopencl.Program(self.device.context_, s).build()
+            self.prg_ = pyopencl.Program(self.device.context_, s).build()
 
-            self.krn_ = pyopencl.Kernel(prg, "FEED_LAYER")
+            self.krn_ = pyopencl.Kernel(self.prg_, "FEED_LAYER")
             self.krn_.set_arg(0, self.input.batch_)
             self.krn_.set_arg(1, self.weights.v_)
             self.krn_.set_arg(2, self.output.batch_)
@@ -152,7 +159,8 @@ class All2AllTanh(All2All):
     """All2All layer to layer with scaled tanh() activation.
     """
     def initialize(self):
-        self._initialize("ACTIVATION_TANH")
+        self.s_activation = "ACTIVATION_TANH"
+        return super(All2AllTanh, self).initialize()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -190,10 +198,16 @@ class All2AllTanh(All2All):
 class All2AllSoftmax(All2All):
     """All2All layer to layer with softmax activation.
     
-    Currently, we will calculate softmax partially on cpu.
+    Attributes:
+        krn_sm_: kernel for softmax activation calculation.
     """
     def initialize(self):
-        self._initialize("ACTIVATION_LINEAR")
+        self.cl_sources["cl/sm.cl"] = 1
+        retval = super(All2AllSoftmax, self).initialize()
+        if retval or not self.device:
+            return retval
+        self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
+        self.krn_sm_.set_arg(0, self.output.batch_)
 
     def cpu_apply_exp(self):
         self.output.sync()
@@ -210,6 +224,14 @@ class All2AllSoftmax(All2All):
             smm = sample.sum()
             sample /= smm
         self.output.update()
+
+    def gpu_apply_exp(self):
+        self.output.sync(formats.GPU)
+        global_size = [self.output.aligned_.shape[0], self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_sm_, global_size, local_size)
+        event.wait()
+        self.output.update(formats.GPU)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only. 
@@ -239,5 +261,5 @@ class All2AllSoftmax(All2All):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
         self.output.update(formats.GPU)
-        self.cpu_apply_exp()
+        self.gpu_apply_exp()
         self.print_times(t1)
