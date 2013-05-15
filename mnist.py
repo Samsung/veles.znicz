@@ -115,8 +115,10 @@ class MNISTLoader(filters.Filter):
             fout.close()
         print("Done")
         self.output.update()
+        self.labels.update()
 
     def run(self):
         """Just update an output.
         """
         self.output.update()
+        self.labels.update()
