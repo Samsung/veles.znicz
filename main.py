@@ -21,6 +21,7 @@ import threading
 import gd
 import text
 
+
 g_pt = 0
 class PickleTest(filters.SmartPickling):
     """Pickle test.

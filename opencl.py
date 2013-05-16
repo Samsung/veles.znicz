@@ -291,13 +291,18 @@ class DeviceList(filters.SmartPickling):
         """
         defines = ("#define ACTIVATION_TANH\n"
         "#define BLOCK_SIZE %d\n"
-        "#define AB_WIDTH %d\n"
-        "#define B_HEIGHT %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH, self.B_HEIGHT))
-        fin = open("cl/feed.cl", "r")
-        src = defines + fin.read()
+        "#define H %d\n"
+        "#define Y %d\n"
+        "#define BATCH %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
+        fin = open("cl/mx.cl", "r")
+        s_mx_mul = fin.read()
         fin.close()
+        fin = open("cl/feed.cl", "r")
+        s = defines + fin.read()
+        fin.close()
+        s = s.replace("MX_MUL", s_mx_mul)
         fout = open("cache/test.cl", "w")
-        fout.write(src)
+        fout.write(s)
         fout.close()
 
         mf = cl.mem_flags
@@ -307,7 +312,7 @@ class DeviceList(filters.SmartPickling):
         c_buf = cl.Buffer(device.context_, mf.WRITE_ONLY | mf.USE_HOST_PTR, hostbuf=self.c)
         bias_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
 
-        prg = cl.Program(device.context_, src).build()
+        prg = cl.Program(device.context_, s).build()
 
         krn = cl.Kernel(prg, "FEED_LAYER")
         krn.set_arg(0, a_buf)

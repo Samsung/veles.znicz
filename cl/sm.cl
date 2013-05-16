@@ -1,3 +1,11 @@
+//Should be defined externally:
+//#define BLOCK_SIZE 24
+//#define BATCH 192
+//#define H 24
+//#define Y 24
+//#define Y_REAL 5
+
+
 /*
 	For each sample from batch of y:
 	1. Find m = max().
@@ -13,8 +21,6 @@
 			global_size = [24, 192]
 			local_size = [24, 24]
 */
-#define Y B_HEIGHT
-#define Y_REAL B_HEIGHT_REAL
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 //TODO(a.kazantsev): add #if for the case when Y <= BLOCK_SIZE (which usually is)
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
@@ -90,5 +96,3 @@ void apply_exp(__global float *y)
  if(tx < Y_REAL % BLOCK_SIZE)
   y[offs] = exp(y[offs] - m) / sum;
 }
-#undef Y
-#undef Y_REAL

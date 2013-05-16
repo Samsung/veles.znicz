@@ -113,17 +113,23 @@ class All2All(filters.OpenCLFilter):
             output_size = self.output.aligned_.size // self.output.aligned_.shape[0]
             defines = ("#define %s\n"
                        "#define BLOCK_SIZE %d\n"
-                       "#define AB_WIDTH %d\n"
-                       "#define B_HEIGHT %d\n"
-                       "#define B_HEIGHT_REAL %d\n\n") % \
+                       "#define H %d\n"
+                       "#define Y %d\n"
+                       "#define Y_REAL %d\n"
+                       "#define BATCH %d\n\n" % \
                        (self.s_activation, self.device.info.BLOCK_SIZE, \
                         self.weights.aligned_.size // output_size, output_size, \
-                        self.output.batch.size // self.output.batch.shape[0])
+                        self.output.batch.size // self.output.batch.shape[0], \
+                        self.output.aligned_.shape[0]))
             s = defines
             for src in self.cl_sources.keys():
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
+            fin = open("cl/mx.cl", "r")
+            s_mx_mul = fin.read()
+            fin.close()
+            s = s.replace("MX_MUL", s_mx_mul)
             fout = open("cache/feed_%d_%d.cl" % (self.input.batch.size // self.input.batch.shape[0], \
                                                  self.output.batch.size // self.output.batch.shape[0]), "w")
             fout.write(s)

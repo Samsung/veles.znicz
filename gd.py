@@ -75,6 +75,10 @@ class GD(filters.OpenCLFilter):
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
+            fin = open("cl/mx.cl", "r")
+            s_mx_mul = fin.read()
+            fin.close()
+            s = s.replace("MX_MUL", s_mx_mul)
             fout = open("cache/gd_%d_%d.cl" % (self.h.batch.size // self.h.batch.shape[0], \
                                                self.y.batch.size // self.y.batch.shape[0]), "w")
             fout.write(s)
