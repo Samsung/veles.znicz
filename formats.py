@@ -102,6 +102,7 @@ class OpenCLConnector(filters.Connector):
             buf = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.aligned_)
         else:
             buf = pyopencl.Buffer(self.device.context_, mf.READ_WRITE | mf.ALLOC_HOST_PTR, size=self.aligned_.nbytes)
+            self.what_changed = CPU
         return buf
 
 

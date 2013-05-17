@@ -87,14 +87,12 @@ class All2All(filters.OpenCLFilter):
             self.weights.v = self.weights.v.reshape([numpy.prod(self.output_shape), \
                                                      self.input.batch.size // self.input.batch.shape[0]])
             self.weights.v_ = None
-        self.weights.update()
         if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
             self.bias.v = filters.aligned_zeros([numpy.prod(self.output_shape)])
             self.bias.v[:] = self.rand(self.bias.v.size)
             self.bias.v *= 2.0 * self.weights_amplitude
             self.bias.v -= self.weights_amplitude
             self.bias.v_ = None
-        self.bias.update()
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.output.batch == None or self.output.batch.size != output_size:
