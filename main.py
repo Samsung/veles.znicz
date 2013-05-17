@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.3
 """
 Created on Mar 11, 2013
 
@@ -93,7 +93,7 @@ class EndPoint(filters.Filter):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         self.n_passes_ = 0
-        self.max_passes = 50000
+        self.max_passes = 500000
         if unpickling:
             return
         self.status = None
@@ -190,11 +190,11 @@ class UseCase1(filters.SmartPickling):
         rpt = Repeater()
         rpt.link_from(m)
 
-        aa1 = all2all.All2AllTanh(output_shape=[80], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[300], device=dev)
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[40], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[100], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
