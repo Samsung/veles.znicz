@@ -3,7 +3,7 @@ Created on Apr 1, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import filters
+import units
 import formats
 import numpy
 import time
@@ -11,7 +11,7 @@ import time
 #import matplotlib.cm as cm
 
 
-class BatchEvaluator(filters.OpenCLFilter):
+class BatchEvaluator(units.OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Attributes:
@@ -30,14 +30,14 @@ class BatchEvaluator(filters.OpenCLFilter):
         self.labels = None  # formats.Labels()
         self.y = None  # formats.Batch(device)
         self.err_y = formats.Batch()
-        self.status = filters.Connector()
+        self.status = units.Connector()
         self.status.completed = False
         self.status.n_ok = 0
         self.threshold = threshold
 
     def initialize(self):
         if self.err_y.batch == None or self.err_y.batch.size != self.y.batch.size:
-            self.err_y.batch = filters.aligned_zeros(self.y.batch.shape)
+            self.err_y.batch = numpy.zeros(self.y.batch.shape, dtype=numpy.float32)
             self.err_y.batch_ = None
 
         self.err_y.initialize(self.device)

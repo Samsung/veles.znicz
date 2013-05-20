@@ -4,12 +4,12 @@ Created on Apr 16, 2013
 @author: Seresov Denis <d.seresov@samsung.com>
 '''
 
-import filters
+import units
 import formats
 import numpy
 
 
-class TXTLoader(filters.Filter):
+class TXTLoader(units.Unit):
     """Loads Wine data.
 
     State:
@@ -46,9 +46,9 @@ class TXTLoader(filters.Filter):
         """ 
         print("Load from original Wine Dataset...")
 
-        self.labels.batch = filters.aligned_zeros([178])
+        self.labels.batch = numpy.zeros([178], dtype=numpy.float32)
         self.labels.n_classes = 3
-        self.output.batch = filters.realign(numpy.loadtxt("wine/wine.csv", numpy.float32).reshape([178,13]))
+        self.output.batch = numpy.loadtxt("wine/wine.csv", numpy.float32).reshape([178,13])
         self.labels.batch = numpy.loadtxt("wine/wine_y_labels.csv", numpy.int)
         self.labels.batch -= 1
         self.normalize_use_all_dataset()
@@ -63,23 +63,23 @@ class TXTLoader(filters.Filter):
     def normalize_x_use_all_dataset(self):
         """ normalization  input data.
         """    
-        #self.outmean = filters.aligned_zeros([13])
+        #self.outmean = numpy.zeros([13], dtype=numpy.float32)
         print("normalize_x_use_all_dataset start")
 
         self.outmean = numpy.mean(self.output.batch, axis=0)
 
         self.outstd = numpy.std(self.output.batch, axis=0)
 
-        self.output2.batch = filters.realign(filters.aligned_zeros([178*13]).reshape([178,13]))
+        self.output2.batch = numpy.zeros([178*13], dtype=numpy.float32).reshape([178,13])
         self.output2.batch[:] = self.output.batch[:]
 
         for i in range(0,13):
             self.output2.batch[:,i] = ((self.output.batch[:,i] - self.outmean[i])) / self.outstd[i]
 
-        #self.outmin =filters.aligned_zeros([13])
+        #self.outmin = numpy.zeros([13], dtype=numpy.float32)
         self.outmin = numpy.min(self.output2.batch, axis=0)
 
-        #self.outmax =filters.aligned_zeros([13])
+        #self.outmax = numpy.zeros([13], dtype=numpy.float32)
         self.outmax = numpy.max(self.output2.batch, axis=0)
 
         for i in range(0,13):

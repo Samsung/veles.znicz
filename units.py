@@ -1,7 +1,7 @@
 """
 Created on Mar 12, 2013
 
-Filters in data stream neural network model.
+Units in data stream neural network model.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -72,7 +72,7 @@ class SmartPickling(object):
 
 
 class Connector(SmartPickling):
-    """Connects filter attributes (data flow).
+    """Connects unit attributes (data flow).
 
     Attributes:
         mtime: time of the last modification.
@@ -96,19 +96,19 @@ class Connector(SmartPickling):
         self.mtime = mtime
 
 
-class Filter(SmartPickling):
-    """General filter in data stream model.
+class Unit(SmartPickling):
+    """General unit in data stream model.
 
     Attributes:
-        links_from: dictionary of filters it depends on.
-        links_to: dictionary of dependent filters.
-        enabled: enabled filter or not.
-        initialized: initialized filter or not.
+        links_from: dictionary of units it depends on.
+        links_to: dictionary of dependent units.
+        enabled: enabled unit or not.
+        initialized: initialized unit or not.
         gate_lock_: lock.
         run_lock_: lock.
     """
     def __init__(self, unpickling = 0):
-        super(Filter, self).__init__(unpickling=unpickling)
+        super(Unit, self).__init__(unpickling=unpickling)
         self.gate_lock_ = _thread.allocate_lock()
         self.run_lock_ = _thread.allocate_lock()
         self.initialized = 0
@@ -143,7 +143,7 @@ class Filter(SmartPickling):
         if not dst.gate(self):
             return
         self.run_lock_.acquire()
-        # Initialize filter runtime if it is not initialized
+        # Initialize unit runtime if it is not initialized
         #TODO(a.kazantsev): or maybe raise an exception?
         if not dst.initialized:
             if dst.initialize():
@@ -157,7 +157,7 @@ class Filter(SmartPickling):
         dst.run_dependent()
 
     def initialize_dependent(self):
-        """Invokes initialize() on dependent filters.
+        """Invokes initialize() on dependent units.
         """
         for dst in self.links_to.keys():
             if dst.enabled and not dst.initialized:
@@ -165,7 +165,7 @@ class Filter(SmartPickling):
                 self._initialize_dst(dst)  # there is no need to invoke it on different thread
 
     def run_dependent(self):
-        """Invokes run() on dependent filters.
+        """Invokes run() on dependent units.
         """
         for dst in self.links_to.keys():
             if dst.enabled:
@@ -175,8 +175,8 @@ class Filter(SmartPickling):
         """Allocate buffers here.
 
         Returns:
-            None: all ok, dependent filters will be initialized.
-            non-zero: error possibly occured, dependent filters will not be initialized.
+            None: all ok, dependent units will be initialized.
+            non-zero: error possibly occured, dependent units will not be initialized.
         """
         pass
 
@@ -184,8 +184,8 @@ class Filter(SmartPickling):
         """Do the job here.
 
         Returns:
-            None: all ok, dependent filters will be run.
-            non-zero: error possibly occured, dependent filters will not be run.
+            None: all ok, dependent units will be run.
+            non-zero: error possibly occured, dependent units will not be run.
         """
         pass
 
@@ -211,7 +211,7 @@ class Filter(SmartPickling):
         return 1
 
     def unlink(self):
-        """Unlinks self from other filters.
+        """Unlinks self from other units.
         """
         self.gate_lock_.acquire()
         for src in self.links_from:
@@ -223,8 +223,8 @@ class Filter(SmartPickling):
         self.gate_lock_.release()
 
 
-class OpenCLFilter(Filter):
-    """Filter that operates using OpenCL.
+class OpenCLUnit(Unit):
+    """Unit that operates using OpenCL.
 
     Attributes:
         device: Device object.
@@ -232,7 +232,7 @@ class OpenCLFilter(Filter):
         cl_sources: OpenCL source files.
     """
     def __init__(self, device = None, unpickling = 0):
-        super(OpenCLFilter, self).__init__(unpickling = unpickling)
+        super(OpenCLUnit, self).__init__(unpickling = unpickling)
         self.prg_ = None
         self.cl_sources = {}
         if unpickling:

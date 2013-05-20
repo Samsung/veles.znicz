@@ -1,18 +1,18 @@
 """
 Created on Apr 15, 2013
 
-Gradient Descent Filters.
+Gradient Descent Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import filters
+import units
 import formats
 import numpy
 import time
 import pyopencl
 
 
-class GD(filters.OpenCLFilter):
+class GD(units.OpenCLUnit):
     """Gradient Descent.
 
     Attributes:
@@ -49,7 +49,7 @@ class GD(filters.OpenCLFilter):
 
     def initialize(self):
         if self.err_h.batch == None or self.err_h.batch.size != self.h.batch.size:
-            self.err_h.batch = filters.aligned_zeros(self.h.batch.shape)
+            self.err_h.batch = numpy.zeros(self.h.batch.shape, dtype=numpy.float32)
             self.err_h.batch_ = None
 
         self.weights.initialize(self.device)

@@ -9,7 +9,7 @@ import pyopencl as cl
 import time
 import numpy
 import pickle
-import filters
+import units
 import os
 
 
@@ -18,7 +18,7 @@ CL_MAP_WRITE = 2
 CL_MAP_WRITE_INVALIDATE_REGION = 4
 
 
-class Device(filters.SmartPickling):
+class Device(units.SmartPickling):
     """OpenCL device helper class.
 
     Attributes:
@@ -60,7 +60,7 @@ class DeviceInfo(object):
         self.BLOCK_SIZE = 16
 
 
-class DeviceList(filters.SmartPickling):
+class DeviceList(units.SmartPickling):
     """Contains list of devices sorted by rating.
 
     Attributes:
@@ -257,21 +257,21 @@ class DeviceList(filters.SmartPickling):
                                                                  self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = numpy.random.get_state()
         
-        self.a = filters.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
+        self.a = units.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
         self.a[:] = numpy.random.rand(self.a.size)
         self.a -= 0.5
         self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
         
-        self.b = filters.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
+        self.b = units.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
         self.b[:] = numpy.random.rand(self.b.size)
         self.b -= 0.5
         self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
         
-        self.bias = filters.aligned_zeros([self.B_HEIGHT])
+        self.bias = units.aligned_zeros([self.B_HEIGHT])
         self.bias[:] = numpy.random.rand(self.bias.size)
         self.bias -= 0.5
         
-        self.c = filters.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
+        self.c = units.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
 
     def _cleanup_after_tests(self):
         if "cc" in self.__dict__:

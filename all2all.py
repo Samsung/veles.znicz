@@ -1,11 +1,11 @@
 """
 Created on Mar 20, 2013
 
-All2All filters.
+All2All units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import filters
+import units
 import formats
 import numpy
 import pyopencl
@@ -14,7 +14,7 @@ import time
 #import matplotlib.cm as cm
 
 
-class All2All(filters.OpenCLFilter):
+class All2All(units.OpenCLUnit):
     """All2All layer to layer.
 
     State:
@@ -79,7 +79,7 @@ class All2All(filters.OpenCLFilter):
     def initialize(self):
         n_weights = self.input.batch.size // self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
-            self.weights.v = filters.aligned_zeros([n_weights])
+            self.weights.v = numpy.zeros([n_weights], dtype=numpy.float32)
             self.weights.v[:] = self.rand(self.weights.v.size)
             self.weights.v *= 2.0 * self.weights_amplitude
             self.weights.v -= self.weights_amplitude
@@ -88,7 +88,7 @@ class All2All(filters.OpenCLFilter):
                                                      self.input.batch.size // self.input.batch.shape[0]])
             self.weights.v_ = None
         if self.bias.v == None or self.bias.v.size != numpy.prod(self.output_shape):
-            self.bias.v = filters.aligned_zeros([numpy.prod(self.output_shape)])
+            self.bias.v = numpy.zeros([numpy.prod(self.output_shape)], dtype=numpy.float32)
             self.bias.v[:] = self.rand(self.bias.v.size)
             self.bias.v *= 2.0 * self.weights_amplitude
             self.bias.v -= self.weights_amplitude
@@ -96,7 +96,8 @@ class All2All(filters.OpenCLFilter):
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
         if self.output.batch == None or self.output.batch.size != output_size:
-            self.output.batch = filters.aligned_zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)])
+            self.output.batch = numpy.zeros([self.input.batch.shape[0], numpy.prod(self.output_shape)], \
+                                            dtype=numpy.float32)
             self.output.batch_ = None
 
         self.input.initialize(self.device)

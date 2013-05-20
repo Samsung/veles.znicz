@@ -5,7 +5,7 @@ File for MNIST dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import filters
+import units
 import formats
 import struct
 import error
@@ -13,7 +13,7 @@ import pickle
 import numpy
 
 
-class MNISTLoader(filters.Filter):
+class MNISTLoader(units.Unit):
     """Loads MNIST data.
 
     State:

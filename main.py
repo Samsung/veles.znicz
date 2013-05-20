@@ -7,7 +7,7 @@ Entry point.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import logging
-import filters
+import units
 import sys
 import mnist
 import all2all
@@ -23,7 +23,7 @@ import text
 
 
 g_pt = 0
-class PickleTest(filters.SmartPickling):
+class PickleTest(units.SmartPickling):
     """Pickle test.
     """
     def __init__(self, unpickling = 0, a = "A", b = "B", c = "C"):
@@ -38,7 +38,7 @@ class PickleTest(filters.SmartPickling):
 
 
 def do_pickle_test():
-    # Test for correct behavior of filters.SmartPickling
+    # Test for correct behavior of units.SmartPickling
     pt = PickleTest(a = "AA", c = "CC")
     if g_pt != 1:
         raise Exception("Pickle test failed.")
@@ -76,7 +76,7 @@ def fork_snapshot(obj, file, wait_for_completion = 1):
     sys.exit()
 
 
-class EndPoint(filters.Filter):
+class EndPoint(units.Unit):
     """On initialize() and run() releases its semaphore.
     
     Attributes:
@@ -119,16 +119,16 @@ class EndPoint(filters.Filter):
             fout.close()
         if self.n_passes >= 500 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
-            print("Snapshotting to snapshot.best")
-            fout = open("snapshot.best.tmp", "wb")
+            print("Snapshotting to /tmp/snapshot.best")
+            fout = open("/tmp/snapshot.best.tmp", "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
             try:
-                os.unlink("snapshot.best.old")
-                os.rename("snapshot.best", "snapshot.best.old")
+                os.unlink("/tmp/snapshot.best.old")
+                os.rename("/tmp/snapshot.best", "/tmp/snapshot.best.old")
             except OSError:
                 pass
-            os.rename("snapshot.best.tmp", "snapshot.best")
+            os.rename("/tmp/snapshot.best.tmp", "/tmp/snapshot.best")
         if self.flog_:
             self.flog_(*self.flog_args_)
         if self.n_passes_ < self.max_passes and not self.status.completed:
@@ -142,7 +142,7 @@ class EndPoint(filters.Filter):
         self.sem_.acquire()
 
 
-class Repeater(filters.Filter):
+class Repeater(units.Unit):
     """Propagates notification if any of the inputs are active.
     """
     def __init__(self, unpickling = 0):
@@ -156,12 +156,12 @@ class Repeater(filters.Filter):
         return 1
 
 
-class UseCase1(filters.SmartPickling):
+class UseCase1(units.SmartPickling):
     """Use case 1.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
-        start_point: Filter.
+        start_point: Unit.
         end_point: EndPoint.
         aa1: aa1.
         aa2: aa2.
@@ -182,7 +182,7 @@ class UseCase1(filters.SmartPickling):
             dev = self.device_list.get_device()
 
         # Setup notification flow
-        self.start_point = filters.Filter()
+        self.start_point = units.Unit()
 
         m = mnist.MNISTLoader()
         m.link_from(self.start_point)
@@ -190,17 +190,21 @@ class UseCase1(filters.SmartPickling):
         rpt = Repeater()
         rpt.link_from(m)
 
-        aa1 = all2all.All2AllTanh(output_shape=[300], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[72], device=dev)
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[100], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[48], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
+        aa3 = all2all.All2AllTanh(output_shape=[24], device=dev)
+        aa3.input = aa2.output
+        aa3.link_from(aa2)
+
         sm = all2all.All2AllSoftmax(output_shape=[10], device=dev)
-        sm.input = aa2.output
-        sm.link_from(aa2)
+        sm.input = aa3.output
+        sm.link_from(aa3)
 
         ev = evaluator.BatchEvaluator(device=dev)
         ev.y = sm.output
@@ -219,13 +223,21 @@ class UseCase1(filters.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
+        gd3 = gd.GDTanh(device=dev)
+        gd3.weights = aa3.weights
+        gd3.bias = aa3.bias
+        gd3.h = aa3.input
+        gd3.y = aa3.output
+        gd3.err_y = gdsm.err_h
+        gd3.link_from(gdsm)
+
         gd2 = gd.GDTanh(device=dev)
         gd2.weights = aa2.weights
         gd2.bias = aa2.bias
         gd2.h = aa2.input
         gd2.y = aa2.output
-        gd2.err_y = gdsm.err_h
-        gd2.link_from(gdsm)
+        gd2.err_y = gd3.err_h
+        gd2.link_from(gd3)
 
         gd1 = gd.GDTanh(device=dev)
         gd1.weights = aa1.weights
@@ -239,9 +251,11 @@ class UseCase1(filters.SmartPickling):
 
         self.aa1 = aa1
         self.aa2 = aa2
+        self.aa3 = aa3
         self.sm = sm
         self.ev = ev
         self.gdsm = gdsm
+        self.gd3 = gd3
         self.gd2 = gd2
         self.gd1 = gd1
 
@@ -250,6 +264,8 @@ class UseCase1(filters.SmartPickling):
         self.ev.threshold = threshold
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
+        self.gd3.global_alpha = global_alpha
+        self.gd3.global_lambda = global_lambda
         self.gd2.global_alpha = global_alpha
         self.gd2.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
@@ -269,12 +285,12 @@ def strf(x):
     return "%.4f" % (x, )
 
 
-class UseCase2(filters.SmartPickling):
+class UseCase2(units.SmartPickling):
     """Use case 2.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
-        start_point: Filter.
+        start_point: Unit.
         end_point: EndPoint.
         t: t.
     """
@@ -289,7 +305,7 @@ class UseCase2(filters.SmartPickling):
             dev = self.device_list.get_device()
 
         # Setup notification flow
-        self.start_point = filters.Filter()
+        self.start_point = units.Unit()
 
         #m = mnist.MNISTLoader()
         t = text.TXTLoader()

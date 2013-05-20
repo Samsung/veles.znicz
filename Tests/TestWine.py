@@ -4,7 +4,7 @@ Created on May 17, 2013
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import unittest
-import filters
+import units
 import opencl
 import text
 import threading
@@ -16,7 +16,7 @@ import evaluator
 import gd
 
 
-class EndPoint(filters.Filter):
+class EndPoint(units.Unit):
     """On initialize() and run() releases its semaphore.
     
     Attributes:
@@ -78,7 +78,7 @@ class EndPoint(filters.Filter):
         self.sem_.acquire()
 
 
-class Repeater(filters.Filter):
+class Repeater(units.Unit):
     """Propagates notification if any of the inputs are active.
     """
     def __init__(self, unpickling = 0):
@@ -92,12 +92,12 @@ class Repeater(filters.Filter):
         return 1
 
 
-class UseCase2(filters.SmartPickling):
+class UseCase2(units.SmartPickling):
     """Use case 2.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
-        start_point: Filter.
+        start_point: Unit.
         end_point: EndPoint.
         t: t.
     """
@@ -112,7 +112,7 @@ class UseCase2(filters.SmartPickling):
             dev = self.device_list.get_device()
 
         # Setup notification flow
-        self.start_point = filters.Filter()
+        self.start_point = units.Unit()
 
         #m = mnist.MNISTLoader()
         t = text.TXTLoader()

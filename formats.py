@@ -5,7 +5,7 @@ Data formats for connectors.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import filters
+import units
 import pyopencl
 import opencl
 import os
@@ -15,7 +15,7 @@ CPU = 1
 GPU = 2
 
 
-class OpenCLConnector(filters.Connector):
+class OpenCLConnector(units.Connector):
     """Connector that uses OpenCL.
 
     Attributes:
@@ -138,12 +138,12 @@ class Batch(OpenCLConnector):
             d2 = dim2
             if d2 % BLOCK_SIZE:
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = filters.aligned_zeros([d1, d2], dtype=self.batch.dtype)
+            self.aligned_ = units.aligned_zeros([d1, d2], dtype=self.batch.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.batch = self.aligned_[0:dim1, 0:dim2].view().reshape(self.batch.shape)
             assert self.aligned_.__array_interface__["data"][0] == self.batch.__array_interface__["data"][0]
         else:
-            self.aligned_ = filters.realign(self.batch)
+            self.aligned_ = units.realign(self.batch)
             self.batch = self.aligned_
         self.batch_ = self._buffer()
 
@@ -196,12 +196,12 @@ class Vector(OpenCLConnector):
             d2 = dim2
             if (d2 > 1) and (d2 % BLOCK_SIZE):
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = filters.aligned_zeros([d1, d2], dtype=self.v.dtype)
+            self.aligned_ = units.aligned_zeros([d1, d2], dtype=self.v.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
             assert self.aligned_.__array_interface__["data"][0] == self.v.__array_interface__["data"][0]
         else:
-            self.aligned_ = filters.realign(self.v)
+            self.aligned_ = units.realign(self.v)
             self.v = self.aligned_
         self.v_ = self._buffer()
 
