@@ -25,6 +25,19 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+mypath=$(pwd)
+
+if [ ! -e "simd/autogen.sh" ]; then
+	user=$(git remote -v | grep -oE '//[^@]+' -m1 | cut -c3-)
+    sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" .gitmodules
+    cd ..
+    git submodule update --init	
+else
+	cd ..
+    git submodule update
+fi
+cd "$mypath"
+
 isubuntu="$(uname -v|grep Ubuntu)"
 
 check_prog() {
@@ -86,6 +99,12 @@ if [ $W -ne 0 ]; then
 else
 	rm -f config.cache-env.tmp
 fi
+
+# autogen.sh in submodules
+# note the order: first root autogen.sh, then children
+cd ..
+git submodule foreach ./autogen.sh
+cd "$mypath"
 
 if [ -n "$1" ]; then
 	path=$(pwd)
