@@ -10,7 +10,7 @@ import numpy
 import _thread
 
 
-def realign(arr, boundary = 4096):
+def realign(arr, boundary=4096):
     """Reallocates array to become PAGE-aligned as required for clEnqueueMapBuffer().
     """
     if arr == None:
@@ -45,7 +45,7 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
 class SmartPickling(object):
     """Will save attributes ending with _ as None when pickling and will call constructor upon unpickling.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         """Constructor.
         
         Parameters:
@@ -77,7 +77,7 @@ class Connector(SmartPickling):
     Attributes:
         mtime: time of the last modification.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         super(Connector, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -107,7 +107,7 @@ class Unit(SmartPickling):
         gate_lock_: lock.
         run_lock_: lock.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         super(Unit, self).__init__(unpickling=unpickling)
         self.gate_lock_ = _thread.allocate_lock()
         self.run_lock_ = _thread.allocate_lock()
@@ -116,7 +116,7 @@ class Unit(SmartPickling):
             return
         self.links_from = {}
         self.links_to = {}
-        self.enabled = 1  #TODO(a.kazantsev): think about its purpose.
+        self.enabled = 1  # TODO(a.kazantsev): think about its purpose.
 
     def link_from(self, src):
         """Adds notification link.
@@ -144,7 +144,7 @@ class Unit(SmartPickling):
             return
         self.run_lock_.acquire()
         # Initialize unit runtime if it is not initialized
-        #TODO(a.kazantsev): or maybe raise an exception?
+        # TODO(a.kazantsev): or maybe raise an exception?
         if not dst.initialized:
             if dst.initialize():
                 self.run_lock_.release()
@@ -161,7 +161,7 @@ class Unit(SmartPickling):
         """
         for dst in self.links_to.keys():
             if dst.enabled and not dst.initialized:
-                #_thread.start_new_thread(self._initialize_dst, (dst, ))
+                # _thread.start_new_thread(self._initialize_dst, (dst, ))
                 self._initialize_dst(dst)  # there is no need to invoke it on different thread
 
     def run_dependent(self):
@@ -169,7 +169,7 @@ class Unit(SmartPickling):
         """
         for dst in self.links_to.keys():
             if dst.enabled:
-                _thread.start_new_thread(self._run_dst, (dst, ))
+                _thread.start_new_thread(self._run_dst, (dst,))
 
     def initialize(self):
         """Allocate buffers here.
@@ -241,8 +241,8 @@ class OpenCLUnit(Unit):
         prg_: OpenCL program.
         cl_sources: OpenCL source files.
     """
-    def __init__(self, device = None, unpickling = 0):
-        super(OpenCLUnit, self).__init__(unpickling = unpickling)
+    def __init__(self, device=None, unpickling=0):
+        super(OpenCLUnit, self).__init__(unpickling=unpickling)
         self.prg_ = None
         if unpickling:
             return
