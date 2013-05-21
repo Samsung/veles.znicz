@@ -227,7 +227,9 @@ class Unit(SmartPickling):
         """
         self.gate_lock_.acquire()
         if self in src.links_to:
-            del(src.links_to[self])
+            del src.links_to[self]
+        if src in self.links_from:
+            del self.links_from[src]
         self.gate_lock_.release()
 
 
