@@ -151,7 +151,7 @@ class UseCase1(units.SmartPickling):
         sm.input = aa3.output
         sm.link_from(aa3)
 
-        ev = evaluator.BatchEvaluator(device=dev)
+        ev = evaluator.EvaluatorSoftmax(device=dev)
         ev.y = sm.output
         ev.labels = m.labels
         ev.link_from(sm)
@@ -271,7 +271,7 @@ class UseCase2(units.SmartPickling):
         out.input = aa1.output
         out.link_from(aa1)
 
-        ev = evaluator.BatchEvaluator(device=dev)
+        ev = evaluator.EvaluatorSoftmax(device=dev)
         ev.y = out.output
         ev.labels = t.labels
         ev.link_from(out)

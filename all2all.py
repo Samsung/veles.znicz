@@ -15,7 +15,7 @@ import time
 
 
 class All2All(units.OpenCLUnit):
-    """All2All layer to layer.
+    """All2All with linear activation f(x) = x.
 
     State:
         input: input as Batch.
@@ -33,10 +33,10 @@ class All2All(units.OpenCLUnit):
     def __init__(self, output_shape = None, device=None, weights_amplitude = 0.05, rand = numpy.random.rand, \
                  unpickling = 0):
         super(All2All, self).__init__(unpickling=unpickling, device=device)
-        self.cl_sources["cl/feed.cl"] = 1
         self.krn_ = None
         if unpickling:
             return
+        self.cl_sources["cl/feed.cl"] = 1
         self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
@@ -159,35 +159,9 @@ class All2All(units.OpenCLUnit):
                y.min(), y.max(), y.sum(), numpy.average(y)))
         self.show_weights()
 
-
-class All2AllTanh(All2All):
-    """All2All layer to layer with scaled tanh() activation.
-    """
-    def initialize(self):
-        self.s_activation = "ACTIVATION_TANH"
-        return super(All2AllTanh, self).initialize()
-
-    def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        t1 = time.time()
-        self.input.sync()
-        self.weights.sync()
-        self.bias.sync()
-        a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
-        b = self.weights.v.transpose()
-        numpy.dot(a, b, self.output.batch)
-        self.output.batch[:] += self.bias.v
-        self.output.batch *= 0.6666
-        numpy.tanh(self.output.batch, self.output.batch)
-        self.output.batch *= 1.7159
-        self.output.update()
-        self.print_times(t1)
-
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
-        t1 = time.time()
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
@@ -197,15 +171,52 @@ class All2AllTanh(All2All):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
         event.wait()
         self.output.update(formats.GPU)
+
+    def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
+        self.input.sync()
+        self.weights.sync()
+        self.bias.sync()
+        a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
+        b = self.weights.v.transpose()
+        numpy.dot(a, b, self.output.batch)
+        self.output.batch[:] += self.bias.v
+        self.output.update()
+
+    def run(self):
+        t1 = time.time()
+        retval = super(All2All, self).run()
+        if retval:
+            return retval
         self.print_times(t1)
 
 
+class All2AllTanh(All2All):
+    """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
+    """
+    def initialize(self):
+        self.s_activation = "ACTIVATION_TANH"
+        return super(All2AllTanh, self).initialize()
+
+    def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
+        retval = super(All2AllTanh, self).cpu_run()
+        if retval:
+            return retval
+        self.output.sync()
+        self.output.batch *= 0.6666
+        numpy.tanh(self.output.batch, self.output.batch)
+        self.output.batch *= 1.7159
+        self.output.update()
+
+
 class All2AllSoftmax(All2All):
-    """All2All layer to layer with softmax activation.
-    
+    """All2All with linear activation and softmax normalization.
+
     Attributes:
         krn_sm_: kernel for softmax activation calculation.
-        
     """
     def __init__(self, output_shape = None, device=None, weights_amplitude = 0.05, rand = numpy.random.rand, \
                  unpickling = 0):
@@ -251,30 +262,15 @@ class All2AllSoftmax(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only. 
         """
-        t1 = time.time()
-        self.input.sync()
-        self.weights.sync()
-        self.bias.sync()
-        a = self.input.batch.reshape([self.input.batch.shape[0], self.input.batch.size // self.input.batch.shape[0]])
-        b = self.weights.v.transpose()
-        numpy.dot(a, b, self.output.batch)
-        self.output.batch[:] += self.bias.v
-        self.output.update()
+        retval = super(All2AllSoftmax, self).cpu_run()
+        if retval:
+            return retval
         self.cpu_apply_exp()
-        self.print_times(t1)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU. 
         """
-        t1 = time.time()
-        self.input.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
-        self.bias.sync(formats.GPU)
-        output_size = int(self.output.aligned_.size // self.output.aligned_.shape[0])
-        global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_, global_size, local_size)
-        event.wait()
-        self.output.update(formats.GPU)
+        retval = super(All2AllSoftmax, self).gpu_run()
+        if retval:
+            return retval
         self.gpu_apply_exp()
-        self.print_times(t1)

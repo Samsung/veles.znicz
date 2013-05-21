@@ -11,7 +11,7 @@ import time
 #import matplotlib.cm as cm
 
 
-class BatchEvaluator(units.OpenCLUnit):
+class EvaluatorSoftmax(units.OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Attributes:
@@ -22,7 +22,7 @@ class BatchEvaluator(units.OpenCLUnit):
         threshold: threshold for skipping trained well enough samples.
     """
     def __init__(self, threshold = 0.25, device = None, unpickling = 0):
-        super(BatchEvaluator, self).__init__(unpickling=unpickling, device=device)
+        super(EvaluatorSoftmax, self).__init__(unpickling=unpickling, device=device)
         self.save_failed = False
         self.first_run = True
         if unpickling:
