@@ -244,10 +244,10 @@ class OpenCLUnit(Unit):
     def __init__(self, device = None, unpickling = 0):
         super(OpenCLUnit, self).__init__(unpickling = unpickling)
         self.prg_ = None
-        self.cl_sources = {}
         if unpickling:
             return
         self.device = device
+        self.cl_sources = {}
 
     def cpu_run(self):
         """Run on CPU only.

@@ -166,9 +166,10 @@ class UseCase2(units.SmartPickling):
 
         print("3")
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, test_only = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
         # Start the process:
-        self.sm.threshold = threshold
+        self.sm.threshold_high = threshold_high
+        self.sm.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha

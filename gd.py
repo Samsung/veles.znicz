@@ -175,9 +175,9 @@ class GD(units.OpenCLUnit):
 
     def print_times(self, t_start):
         if not __debug__:
-            print("Backprop within %.2f sec: %d_%d" % \
-                  (time.time() - t_start, self.h.batch.size // self.h.batch.shape[0], \
-                   self.y.batch.size // self.y.batch.shape[0]))
+            #print("Backprop within %.2f sec: %d_%d" % \
+            #      (time.time() - t_start, self.h.batch.size // self.h.batch.shape[0], \
+            #       self.y.batch.size // self.y.batch.shape[0]))
             return
         self.weights.sync()
         self.bias.sync()

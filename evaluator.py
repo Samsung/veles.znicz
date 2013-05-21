@@ -19,9 +19,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         y: output of the network as Batch.
         err_y: backpropagation errors based on labels.
         status: status of the evaluation (status.completed = True when learning ended).
-        threshold: threshold for skipping trained well enough samples.
+        threshold_high: when output becomes greater than this value, assume gradient as 0.
+        threshold_low: when gradient was assumed as 0 and output becomes less than this value, calculate gradient as usual.
+        skipped: array of bytes with non-zero value if the sample was skipped due to assumed zero-gradient.
     """
-    def __init__(self, threshold = 0.25, device = None, unpickling = 0):
+    def __init__(self, threshold_high = 0.33, threshold_low = 0.25, device = None, unpickling = 0):
         super(EvaluatorSoftmax, self).__init__(unpickling=unpickling, device=device)
         self.save_failed = False
         self.first_run = True
@@ -33,12 +35,16 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.status = units.Connector()
         self.status.completed = False
         self.status.n_ok = 0
-        self.threshold = threshold
+        self.threshold_high = threshold_high
+        self.threshold_low = threshold_low
+        self.skipped = None
 
     def initialize(self):
         if self.err_y.batch == None or self.err_y.batch.size != self.y.batch.size:
             self.err_y.batch = numpy.zeros(self.y.batch.shape, dtype=numpy.float32)
             self.err_y.batch_ = None
+
+        self.skipped = numpy.zeros([self.y.batch.shape[0]], dtype=numpy.byte)
 
         self.err_y.initialize(self.device)
 
@@ -61,8 +67,9 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             if i_max == labels[i]:
                 n_ok += 1
                 # check for threshold
-                if y[i_max] >= self.threshold:
+                if (y[i_max] >= self.threshold_high) or ((y[i_max] >= self.threshold_low) and (self.skipped[i])):
                     err_y[:] = 0  # already trained good enough, skip it
+                    self.skipped[i] = 1
                     skip = True
                     n_skip += 1
                 if self.save_failed and (i % 50) == 0:
@@ -94,6 +101,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
+                self.skipped[i] = 0
         self.err_y.update()
         self.status.n_ok = n_ok
         self.status.completed = False

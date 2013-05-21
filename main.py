@@ -135,21 +135,25 @@ class UseCase1(units.SmartPickling):
         rpt = Repeater()
         rpt.link_from(m)
 
-        aa1 = all2all.All2AllTanh(output_shape=[72], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[160], device=dev)
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[48], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[80], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
-        aa3 = all2all.All2AllTanh(output_shape=[24], device=dev)
+        aa3 = all2all.All2AllTanh(output_shape=[40], device=dev)
         aa3.input = aa2.output
         aa3.link_from(aa2)
+        
+        aa4 = all2all.All2AllTanh(output_shape=[20], device=dev)
+        aa4.input = aa3.output
+        aa4.link_from(aa3)
 
         sm = all2all.All2AllSoftmax(output_shape=[10], device=dev)
-        sm.input = aa3.output
-        sm.link_from(aa3)
+        sm.input = aa4.output
+        sm.link_from(aa4)
 
         ev = evaluator.EvaluatorSoftmax(device=dev)
         ev.y = sm.output
@@ -168,13 +172,21 @@ class UseCase1(units.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
+        gd4 = gd.GDTanh(device=dev)
+        gd4.weights = aa4.weights
+        gd4.bias = aa4.bias
+        gd4.h = aa4.input
+        gd4.y = aa4.output
+        gd4.err_y = gdsm.err_h
+        gd4.link_from(gdsm)
+
         gd3 = gd.GDTanh(device=dev)
         gd3.weights = aa3.weights
         gd3.bias = aa3.bias
         gd3.h = aa3.input
         gd3.y = aa3.output
-        gd3.err_y = gdsm.err_h
-        gd3.link_from(gdsm)
+        gd3.err_y = gd4.err_h
+        gd3.link_from(gd4)
 
         gd2 = gd.GDTanh(device=dev)
         gd2.weights = aa2.weights
@@ -194,21 +206,28 @@ class UseCase1(units.SmartPickling):
 
         rpt.link_from(gd1)
 
+        self.m = m
         self.aa1 = aa1
         self.aa2 = aa2
         self.aa3 = aa3
+        self.aa4 = aa4
         self.sm = sm
         self.ev = ev
         self.gdsm = gdsm
+        self.gd4 = gd4
         self.gd3 = gd3
         self.gd2 = gd2
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, test_only = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
         # Start the process:
-        self.ev.threshold = threshold
+        self.m.test_only = test_only
+        self.ev.threshold_high = threshold_high
+        self.ev.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
+        self.gd4.global_alpha = global_alpha
+        self.gd4.global_lambda = global_lambda
         self.gd3.global_alpha = global_alpha
         self.gd3.global_lambda = global_lambda
         self.gd2.global_alpha = global_alpha
@@ -216,6 +235,8 @@ class UseCase1(units.SmartPickling):
         self.gd1.global_alpha = global_alpha
         self.gd1.global_lambda = global_lambda
         self.ev.origin = self.aa1.input
+        if test_only:
+            self.end_point.max_passes = 1
         print()
         print("Initializing...")
         self.start_point.initialize_dependent()
@@ -378,9 +399,10 @@ class UseCase2(units.SmartPickling):
         flog.write("\n")
         flog.close()
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, test_only = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
         # Start the process:
-        self.sm.threshold = threshold
+        self.sm.threshold_high = threshold_high
+        self.sm.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
@@ -411,8 +433,10 @@ def main():
                         default=0.9, dest="global_alpha")
     parser.add_argument("-global_lambda", type=float, help="global weights regularisation constant", \
                         default=0.0, dest="global_lambda")
-    parser.add_argument("-threshold", type=float, help="softmax threshold", \
-                        default=1.0, dest="threshold")
+    parser.add_argument("-threshold_high", type=float, help="softmax threshold high bound", \
+                        default=1.0, dest="threshold_high")
+    parser.add_argument("-threshold_low", type=float, help="softmax threshold low bound", \
+                        default=1.0, dest="threshold_low")
     parser.add_argument("-t", action="store_true", help="test only", \
                         default=False, dest="test_only")
     args = parser.parse_args()
@@ -440,15 +464,15 @@ def main():
         uc = UseCase2(args.cpu)
     print("Launching...")
     uc.run(args.resume, global_alpha=args.global_alpha, global_lambda=args.global_lambda, \
-           threshold=args.threshold, test_only=args.test_only)
+           threshold_high=args.threshold_high, threshold_low=args.threshold_low, test_only=args.test_only)
 
     print()
-    print("Snapshotting...")
-    fout = open("cache/snapshot.pickle", "wb")
-    #fork_snapshot((uc, numpy.random.get_state()), fout)
-    pickle.dump((uc, numpy.random.get_state()), fout)
-    fout.close()
-    print("Done")
+    if not args.test_only:
+        print("Snapshotting...")
+        fout = open("cache/snapshot.pickle", "wb")
+        pickle.dump((uc, numpy.random.get_state()), fout)
+        fout.close()
+        print("Done")
 
     logging.debug("Finished")
 

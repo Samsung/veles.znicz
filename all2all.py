@@ -146,10 +146,10 @@ class All2All(units.OpenCLUnit):
         """Show some statistics.
         """
         if not __debug__:
-            print("%s within %.2f sec: %d_%d" % \
-                  (self.__class__.__name__, time.time() - t_start, \
-                   self.input.batch.size // self.input.batch.shape[0], \
-                   self.output.batch.size // self.output.batch.shape[0]))
+            #print("%s within %.2f sec: %d_%d" % \
+            #      (self.__class__.__name__, time.time() - t_start, \
+            #       self.input.batch.size // self.input.batch.shape[0], \
+            #       self.output.batch.size // self.output.batch.shape[0]))
             return
         y = self.output.batch
         self.output.sync()
