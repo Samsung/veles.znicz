@@ -8,7 +8,6 @@ Entry point.
 """
 import logging
 import units
-import sys
 import mnist
 import all2all
 import numpy
@@ -20,60 +19,6 @@ import argparse
 import threading
 import gd
 import text
-
-
-g_pt = 0
-class PickleTest(units.SmartPickling):
-    """Pickle test.
-    """
-    def __init__(self, unpickling = 0, a = "A", b = "B", c = "C"):
-        global g_pt
-        g_pt += 1
-        super(PickleTest, self).__init__(unpickling)
-        if unpickling:
-            return
-        self.a = a
-        self.b = b
-        self.c = c
-
-
-def do_pickle_test():
-    # Test for correct behavior of units.SmartPickling
-    pt = PickleTest(a = "AA", c = "CC")
-    if g_pt != 1:
-        raise Exception("Pickle test failed.")
-    pt.d = "D"
-    pt.h_ = "HH"
-    try:
-        os.mkdir("cache")
-    except OSError:
-        pass
-    fout = open("cache/test.pickle", "wb")
-    pickle.dump(pt, fout)
-    fout.close()
-    del(pt)
-    fin = open("cache/test.pickle", "rb")
-    pt = pickle.load(fin)
-    fin.close()
-    if g_pt != 2:
-        raise Exception("Pickle test failed.")
-    if pt.d != "D" or pt.c != "CC" or pt.b != "B" or pt.a != "AA" or pt.h_:
-        raise Exception("Pickle test failed.")
-
-
-def fork_snapshot(obj, file, wait_for_completion = 1):
-    """Makes snapshot of obj to the file.
-
-    Wont work with OpenCL buffer mapping during pickle.
-    """
-    pid = os.fork()
-    if pid:
-        if wait_for_completion:
-            os.waitpid(pid, 0)
-        return
-    pickle.dump(obj, file)
-    file.flush()
-    sys.exit()
 
 
 class EndPoint(units.Unit):
@@ -454,8 +399,6 @@ class UseCase2(units.SmartPickling):
 
 
 def main():
-    do_pickle_test()
-
     # Main program
     logging.debug("Entered")
 
@@ -475,6 +418,11 @@ def main():
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+
+    try:
+        os.mkdir("cache")
+    except OSError:
+        pass
 
     uc = None
     if args.resume:
