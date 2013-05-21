@@ -222,6 +222,14 @@ class Unit(SmartPickling):
         self.links_to.clear()
         self.gate_lock_.release()
 
+    def unlink_from(self, src):
+        """Unlinks self from src.
+        """
+        self.gate_lock_.acquire()
+        if self in src.links_to:
+            del(src.links_to[self])
+        self.gate_lock_.release()
+
 
 class OpenCLUnit(Unit):
     """Unit that operates using OpenCL.
