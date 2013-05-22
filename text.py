@@ -15,6 +15,7 @@ class TXTLoader(units.Unit):
     State:
         output: contains Wine training set data
         labels: contains wine training set labels.
+        a: target mse.
     """
     def __init__(self, unpickling = 0):
         super(TXTLoader, self).__init__(unpickling=unpickling)

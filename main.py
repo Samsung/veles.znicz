@@ -102,7 +102,7 @@ class Repeater(units.Unit):
 
 
 class UseCase1(units.SmartPickling):
-    """Use case 1.
+    """MNIST with softmax.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
@@ -135,25 +135,17 @@ class UseCase1(units.SmartPickling):
         rpt = Repeater()
         rpt.link_from(m)
 
-        aa1 = all2all.All2AllTanh(output_shape=[160], device=dev)
+        aa1 = all2all.All2AllTanh(output_shape=[120], device=dev)
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[80], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[96], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
-        aa3 = all2all.All2AllTanh(output_shape=[40], device=dev)
-        aa3.input = aa2.output
-        aa3.link_from(aa2)
-        
-        aa4 = all2all.All2AllTanh(output_shape=[20], device=dev)
-        aa4.input = aa3.output
-        aa4.link_from(aa3)
-
         sm = all2all.All2AllSoftmax(output_shape=[10], device=dev)
-        sm.input = aa4.output
-        sm.link_from(aa4)
+        sm.input = aa2.output
+        sm.link_from(aa2)
 
         ev = evaluator.EvaluatorSoftmax(device=dev)
         ev.y = sm.output
@@ -172,29 +164,13 @@ class UseCase1(units.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
-        gd4 = gd.GDTanh(device=dev)
-        gd4.weights = aa4.weights
-        gd4.bias = aa4.bias
-        gd4.h = aa4.input
-        gd4.y = aa4.output
-        gd4.err_y = gdsm.err_h
-        gd4.link_from(gdsm)
-
-        gd3 = gd.GDTanh(device=dev)
-        gd3.weights = aa3.weights
-        gd3.bias = aa3.bias
-        gd3.h = aa3.input
-        gd3.y = aa3.output
-        gd3.err_y = gd4.err_h
-        gd3.link_from(gd4)
-
         gd2 = gd.GDTanh(device=dev)
         gd2.weights = aa2.weights
         gd2.bias = aa2.bias
         gd2.h = aa2.input
         gd2.y = aa2.output
-        gd2.err_y = gd3.err_h
-        gd2.link_from(gd3)
+        gd2.err_y = gdsm.err_h
+        gd2.link_from(gdsm)
 
         gd1 = gd.GDTanh(device=dev)
         gd1.weights = aa1.weights
@@ -209,27 +185,19 @@ class UseCase1(units.SmartPickling):
         self.m = m
         self.aa1 = aa1
         self.aa2 = aa2
-        self.aa3 = aa3
-        self.aa4 = aa4
         self.sm = sm
         self.ev = ev
         self.gdsm = gdsm
-        self.gd4 = gd4
-        self.gd3 = gd3
         self.gd2 = gd2
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
         # Start the process:
         self.m.test_only = test_only
-        self.ev.threshold_high = threshold_high
+        self.ev.threshold = threshold
         self.ev.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
-        self.gd4.global_alpha = global_alpha
-        self.gd4.global_lambda = global_lambda
-        self.gd3.global_alpha = global_alpha
-        self.gd3.global_lambda = global_lambda
         self.gd2.global_alpha = global_alpha
         self.gd2.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
@@ -252,7 +220,7 @@ def strf(x):
 
 
 class UseCase2(units.SmartPickling):
-    """Use case 2.
+    """Wine with Softmax.
 
     Attributes:
         device_list: list of an OpenCL devices as DeviceList object.
@@ -314,7 +282,7 @@ class UseCase2(units.SmartPickling):
 
         rpt.link_from(gd1)
 
-        self.end_point = EndPoint(self, self.do_log, (out, gdsm, gd1))
+        self.end_point = EndPoint(self)
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
         gdsm.link_from(self.end_point)
@@ -323,85 +291,9 @@ class UseCase2(units.SmartPickling):
         self.gdsm = gdsm
         self.gd1 = gd1
 
-        print("3")
-
-    def do_log(self, out, gdsm, gd1):
-        return
-        flog = open("logs/out.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
-        flog.write("\nSoftMax layer input:\n")
-        for sample in out.input.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nSoftMax layer output:\n")
-        for sample in out.output.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nSoftMax layer weights:\n")
-        for sample in out.weights.v:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nSoftMax layer bias:\n")
-        flog.write(" ".join(strf(x) for x in out.bias.v))
-        flog.write("\n(min, max)(input, output, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
-                   (out.input.batch.min(), out.input.batch.max(), \
-                    out.output.batch.min(), out.output.batch.max(), \
-                    out.weights.v.min(), out.weights.v.max(), \
-                    out.bias.v.min(), out.bias.v.max()))
-        flog.write("\n")
-        flog.close()
-
-        flog = open("logs/gdsm.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
-        flog.write("\nGD SoftMax err_y:\n")
-        for sample in gdsm.err_y.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD SoftMax err_h:\n")
-        for sample in gdsm.err_h.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD SoftMax weights:\n")
-        for sample in gdsm.weights.v:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD SoftMax bias:\n")
-        flog.write(" ".join(strf(x) for x in gdsm.bias.v))
-        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
-                   (gdsm.err_y.batch.min(), gdsm.err_y.batch.max(), \
-                    gdsm.err_h.batch.min(), gdsm.err_h.batch.max(), \
-                    gdsm.weights.v.min(), gdsm.weights.v.max(), \
-                    gdsm.bias.v.min(), gdsm.bias.v.max()))
-        flog.write("\n")
-        flog.close()
-
-        flog = open("logs/gd1.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
-        flog.write("\nGD1 err_y:\n")
-        for sample in gd1.err_y.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD1 err_h:\n")
-        for sample in gd1.err_h.batch:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD1 weights:\n")
-        for sample in gd1.weights.v:
-            flog.write(" ".join(strf(x) for x in sample))
-            flog.write("\n")
-        flog.write("\nGD1 bias:\n")
-        flog.write(" ".join(strf(x) for x in gd1.bias.v))
-        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
-                   (gd1.err_y.batch.min(), gd1.err_y.batch.max(), \
-                    gd1.err_h.batch.min(), gd1.err_h.batch.max(), \
-                    gd1.weights.v.min(), gd1.weights.v.max(), \
-                    gd1.bias.v.min(), gd1.bias.v.max()))
-        flog.write("\n")
-        flog.close()
-
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
         # Start the process:
-        self.sm.threshold_high = threshold_high
+        self.sm.threshold = threshold
         self.sm.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
@@ -411,9 +303,96 @@ class UseCase2(units.SmartPickling):
         print("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        #for l in self.t.labels.batch:
-        #    print(l)
+        print()
+        print("Running...")
+        self.start_point.run_dependent()
+        self.end_point.wait()
+
+
+class UseCase3(units.SmartPickling):
+    """Wine with MSE.
+
+    Attributes:
+        device_list: list of an OpenCL devices as DeviceList object.
+        start_point: Unit.
+        end_point: EndPoint.
+        t: t.
+    """
+    def __init__(self, cpu = True, unpickling = 0):
+        super(UseCase3, self).__init__(unpickling=unpickling)
+        if unpickling:
+            return
+
+        dev = None
+        if not cpu:
+            self.device_list = opencl.DeviceList()
+            dev = self.device_list.get_device()
+
+        # Setup notification flow
+        self.start_point = units.Unit()
+
+        #m = mnist.MNISTLoader()
+        t = text.TXTLoader()
+        self.t = t
         #sys.exit()
+        print("1")
+        t.link_from(self.start_point)
+        print("2")
+
+        rpt = Repeater()
+        rpt.link_from(t)
+
+        aa1 = all2all.All2AllTanh(output_shape=[5], device=dev)
+        aa1.input = t.output2
+        aa1.link_from(rpt)
+
+        out = all2all.All2AllTanh(output_shape=[3], device=dev)
+        out.input = aa1.output
+        out.link_from(aa1)
+
+        ev = evaluator.EvaluatorMSE(device=dev)
+        ev.y = out.output
+        ev.labels = t.labels
+        ev.link_from(out)
+
+        gd0 = gd.GDTanh(device=dev)
+        gd0.weights = out.weights
+        gd0.bias = out.bias
+        gd0.h = out.input
+        gd0.y = out.output
+        gd0.err_y = ev.err_y
+
+        gd1 = gd.GDTanh(device=dev)
+        gd1.weights = aa1.weights
+        gd1.bias = aa1.bias
+        gd1.h = aa1.input
+        gd1.y = aa1.output
+        gd1.err_y = gd0.err_h
+        gd1.link_from(gd0)
+
+        rpt.link_from(gd1)
+
+        self.end_point = EndPoint(self)
+        self.end_point.status = ev.status
+        self.end_point.link_from(ev)
+        gd0.link_from(self.end_point)
+
+        self.sm = out
+        self.gd0 = gd0
+        self.gd1 = gd1
+
+    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
+        # Start the process:
+        self.sm.threshold = threshold
+        self.sm.threshold_low = threshold_low
+        self.gd0.global_alpha = global_alpha
+        self.gd0.global_lambda = global_lambda
+        self.gd1.global_alpha = global_alpha
+        self.gd1.global_lambda = global_lambda
+        print()
+        print("Initializing...")
+        self.start_point.initialize_dependent()
+        self.end_point.wait()
         print()
         print("Running...")
         self.start_point.run_dependent()
@@ -433,15 +412,18 @@ def main():
                         default=0.9, dest="global_alpha")
     parser.add_argument("-global_lambda", type=float, help="global weights regularisation constant", \
                         default=0.0, dest="global_lambda")
-    parser.add_argument("-threshold_high", type=float, help="softmax threshold high bound", \
-                        default=1.0, dest="threshold_high")
+    parser.add_argument("-threshold", type=float, help="softmax or per-point mse threshold", \
+                        default=1.0, dest="threshold")
     parser.add_argument("-threshold_low", type=float, help="softmax threshold low bound", \
-                        default=1.0, dest="threshold_low")
+                        default=None, dest="threshold_low")
     parser.add_argument("-t", action="store_true", help="test only", \
                         default=False, dest="test_only")
     args = parser.parse_args()
 
     numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+    #state = numpy.random.get_state()
+    #numpy.random.seed(numpy.fromfile("/dev/urandom", numpy.integer, 1024))
+    #numpy.random.set_state(state)
 
     try:
         os.mkdir("cache")
@@ -462,9 +444,10 @@ def main():
     if not uc:
         #uc = UseCase1(args.cpu)
         uc = UseCase2(args.cpu)
+        #uc = UseCase3(args.cpu)
     print("Launching...")
     uc.run(args.resume, global_alpha=args.global_alpha, global_lambda=args.global_lambda, \
-           threshold_high=args.threshold_high, threshold_low=args.threshold_low, test_only=args.test_only)
+           threshold=args.threshold, threshold_low=args.threshold_low, test_only=args.test_only)
 
     print()
     if not args.test_only:
