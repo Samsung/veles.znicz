@@ -19,6 +19,7 @@ import argparse
 import threading
 import gd
 import text
+import rnd
 
 
 class EndPoint(units.Unit):
@@ -429,7 +430,7 @@ def main():
                         default=False, dest="test_only")
     args = parser.parse_args()
 
-    numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+    rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
     #state = numpy.random.get_state()
     #numpy.random.seed(numpy.fromfile("/dev/urandom", numpy.integer, 1024))
     #numpy.random.set_state(state)

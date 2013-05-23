@@ -14,6 +14,7 @@ import os
 import all2all
 import evaluator
 import gd
+import rnd
 
 
 class EndPoint(units.Unit):
@@ -195,7 +196,7 @@ class TestWine(unittest.TestCase):
     """
     def test_cpu(self):
         this_dir = os.getcwd()
-        numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+        rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
         os.chdir("..")
         uc = UseCase2(cpu=True)
         uc.run()
@@ -206,7 +207,7 @@ class TestWine(unittest.TestCase):
 
     def test_gpu(self):
         this_dir = os.getcwd()
-        numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+        rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
         os.chdir("..")
         uc = UseCase2(cpu=False)
         uc.run()

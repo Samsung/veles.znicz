@@ -10,6 +10,7 @@ import formats
 import numpy
 import pyopencl
 import time
+import rnd
 import matplotlib.pyplot as pp
 import matplotlib.cm as cm
 
@@ -25,14 +26,13 @@ class All2All(units.OpenCLUnit):
 
     Attributes:
         output_shape: shape of the output layer.
-        weights_amplitude: amplitude of the default random
-                           distribution of weights.
-        rand: numpy-style random generator function.
+        weights_amplitude: amplitude of the random distribution of weights.
+        rand: rnd.Rand() object.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=numpy.random.rand, unpickling=0):
+                 rand=rnd.default, unpickling=0):
         super(All2All, self).__init__(unpickling=unpickling, device=device)
         self.krn_ = None
         if unpickling:
@@ -83,9 +83,8 @@ class All2All(units.OpenCLUnit):
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.v = numpy.zeros([n_weights], dtype=numpy.float32)
-            self.weights.v[:] = self.rand(self.weights.v.size)
-            self.weights.v *= 2.0 * self.weights_amplitude
-            self.weights.v -= self.weights_amplitude
+            self.rand.fill(self.weights.v, -self.weights_amplitude,
+                           self.weights_amplitude)
             # Reshape weights as a transposed matrix:
             self.weights.v = self.weights.v.\
                 reshape([numpy.prod(self.output_shape),
@@ -95,9 +94,8 @@ class All2All(units.OpenCLUnit):
            self.bias.v.size != numpy.prod(self.output_shape):
             self.bias.v = numpy.zeros([numpy.prod(self.output_shape)],
                                       dtype=numpy.float32)
-            self.bias.v[:] = self.rand(self.bias.v.size)
-            self.bias.v *= 2.0 * self.weights_amplitude
-            self.bias.v -= self.weights_amplitude
+            self.rand.fill(self.bias.v, -self.weights_amplitude,
+                           self.weights_amplitude)
             self.bias.v_ = None
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
@@ -236,7 +234,7 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=numpy.random.rand, unpickling=0):
+                 rand=rnd.default, unpickling=0):
         super(All2AllSoftmax, self).__init__(output_shape=output_shape,
             device=device, weights_amplitude=weights_amplitude, rand=rand,
             unpickling=unpickling)
