@@ -5,6 +5,8 @@ Classes for custom exceptions
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 class ErrNotExists(Exception):
     """Exception, raised when something does not exist.
     """

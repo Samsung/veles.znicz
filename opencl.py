@@ -28,7 +28,7 @@ class Device(units.SmartPickling):
         pid: process id.
         prefer_mmap: use map/unmap instead of read/write.
     """
-    def __init__(self, info = None, unpickling = 0):
+    def __init__(self, info=None, unpickling=0):
         super(Device, self).__init__(unpickling=unpickling)
         self.context_ = None
         self.queue_ = None
@@ -46,12 +46,13 @@ class DeviceInfo(object):
     Attributes:
         guid: "GUID" of the device.
         memsize: "available" size of the memory on the device.
-        rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest, 0 - unrated).
+        rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest,
+                0 - unrated).
         dt: time of rating test pass.
         min_dt: minimum time of rating test pass of all tests.
         BLOCK_SIZE: best block size for matrix multiplication for the device.
     """
-    def __init__(self, guid = ""):
+    def __init__(self, guid=""):
         self.guid = guid
         self.memsize = 0
         self.rating = 0
@@ -65,11 +66,13 @@ class DeviceList(units.SmartPickling):
 
     Attributes:
         device_infos: dictionary of device infos by guid.
-        devices_available: list of devices available at the time of run sorted by ratings.
+        devices_available: list of devices available at the time of run
+                           sorted by ratings.
         devices_in_use: list of device objects currently in use.
-        last_index: index of the last device returned by get_device() in the devices_available list.
+        last_index: index of the last device returned by get_device()
+                    in the devices_available list.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         super(DeviceList, self).__init__(unpickling=unpickling)
         self.device_infos = {}
         try:
@@ -112,23 +115,27 @@ class DeviceList(units.SmartPickling):
         for i in range(n - 1, 0, -1):
             if self.devices_available[i].context_ != context:
                 self.devices_available.pop(i)
-        print("Selected single context with the following devices (guid: raiting, BLOCK_SIZE):")
+        print("Selected single context with the following devices "
+              "(guid: raiting, BLOCK_SIZE):")
         for device in self.devices_available:
-            print("%s: %.4f, %d" % (device.info.guid, device.info.rating, device.info.BLOCK_SIZE))
+            print("%s: %.4f, %d" % (device.info.guid, device.info.rating,
+                                    device.info.BLOCK_SIZE))
 
         if not unpickling:
             self.devices_in_use = []
         self.last_index = 0
         for self.last_index in range(0, len(self.devices_in_use)):
             self.devices_in_use[self.last_index].__dict__.\
-            update(self.devices_available[self.last_index % len(self.devices_available)].__dict__)
+            update(self.devices_available[self.last_index %
+                   len(self.devices_available)].__dict__)
 
     def get_device(self):
         """Gets device from the available list.
         """
         self.last_index += 1
         dev = Device()
-        dev.__dict__.update(self.devices_available[self.last_index % len(self.devices_available)].__dict__)
+        dev.__dict__.update(self.devices_available[self.last_index %
+                            len(self.devices_available)].__dict__)
         self.devices_in_use.append(dev)
         return dev
 
@@ -142,18 +149,20 @@ class DeviceList(units.SmartPickling):
                 break
         else:
             return
-        self.devices_available.insert((self.last_index - 1) % len(self.devices_available), \
+        self.devices_available.insert((self.last_index - 1) %
+                                      len(self.devices_available),
                                       self.devices_available.pop(idx))
         self.devices_in_use.remove(dev)
 
     def _get_device_guid(self, device):
-        return (device.get_info(cl.device_info.VENDOR).strip()+"/"+
-                device.get_info(cl.device_info.NAME).strip()+"/"+
-                str(device.get_info(cl.device_info.VENDOR_ID)))
+        return ("%s/%s/%s" % (device.get_info(cl.device_info.VENDOR).strip(),
+                device.get_info(cl.device_info.NAME).strip(),
+                str(device.get_info(cl.device_info.VENDOR_ID))))
 
     def _get_memsize(self, device):
-        # MAX_MEM_ALLOC_SIZE usually incorrectly returns only 25% of  the device RAM
-        # We will return slightly less amount than the total device RAM
+        # MAX_MEM_ALLOC_SIZE usually incorrectly returns only 25%
+        # of the device RAM, we will return slightly less amount
+        # than the total device RAM.
         return device.get_info(cl.device_info.GLOBAL_MEM_SIZE) * 9 // 10
 
     def _do_cpu_test(self):
@@ -207,7 +216,8 @@ class DeviceList(units.SmartPickling):
                             dt_numpy = dt
                         if dt < min_dt:
                             min_dt = dt
-                    print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid, BLOCK_SIZE))
+                    print("Testing %s with BLOCK_SIZE = %d" % (device.info.guid,
+                                                               BLOCK_SIZE))
                     dt = self._do_test(device, BLOCK_SIZE, 7)
                     if dt < device.info.dt:
                         device.info.dt = dt
@@ -218,13 +228,15 @@ class DeviceList(units.SmartPickling):
                         c = self.cc.copy()
                         c -= self.c
                         numpy.abs(c, c)
-                        print("Avg is %.2f seconds, MSE = %.6f, max_diff = %.6f" % \
+                        print("Avg is %.2f seconds, MSE = %.6f, "
+                              "max_diff = %.6f" %
                               (dt, numpy.linalg.norm(c) / c.size, c.max()))
                     else:
                         print("Avg is %.2f seconds" % (dt, ))
                     self._cleanup_after_tests()
                 except (cl.LogicError, cl.RuntimeError):
-                    print("Program compilation or run failed for BLOCK_SIZE = %d" % (BLOCK_SIZE))
+                    print("Program compilation or run failed for "
+                          "BLOCK_SIZE = %d" % (BLOCK_SIZE))
                     self._cleanup_after_tests()
                     raise
         print("\nRating(numpy double precision): %.4f" % (min_dt / dt_numpy))
@@ -252,25 +264,25 @@ class DeviceList(units.SmartPickling):
             self.B_HEIGHT += BLOCK_SIZE - self.B_HEIGHT % BLOCK_SIZE
         if self.A_HEIGHT % BLOCK_SIZE:
             self.A_HEIGHT += BLOCK_SIZE - self.A_HEIGHT % BLOCK_SIZE
-        print("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (self.AB_WIDTH, self.A_HEIGHT, \
-                                                                 self.B_HEIGHT, self.AB_WIDTH, \
-                                                                 self.A_HEIGHT, self.B_HEIGHT))
+        print("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (self.AB_WIDTH,
+              self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
+              self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = numpy.random.get_state()
-        
+
         self.a = units.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH])
         self.a[:] = numpy.random.rand(self.a.size)
         self.a -= 0.5
         self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
-        
+
         self.b = units.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH])
         self.b[:] = numpy.random.rand(self.b.size)
         self.b -= 0.5
         self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
-        
+
         self.bias = units.aligned_zeros([self.B_HEIGHT])
         self.bias[:] = numpy.random.rand(self.bias.size)
         self.bias -= 0.5
-        
+
         self.c = units.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT])
 
     def _cleanup_after_tests(self):
@@ -293,7 +305,8 @@ class DeviceList(units.SmartPickling):
         "#define BLOCK_SIZE %d\n"
         "#define H %d\n"
         "#define Y %d\n"
-        "#define BATCH %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
+        "#define BATCH %d\n\n" % (BLOCK_SIZE, self.AB_WIDTH,
+                                  self.B_HEIGHT, self.A_HEIGHT))
         fin = open("cl/mx.cl", "r")
         s_mx_mul = fin.read()
         fin.close()
@@ -306,11 +319,15 @@ class DeviceList(units.SmartPickling):
         fout.close()
 
         mf = cl.mem_flags
-        a_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.a)
-        b_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.b)
+        a_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
+                          hostbuf=self.a)
+        b_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
+                          hostbuf=self.b)
         self.c[:] = 0
-        c_buf = cl.Buffer(device.context_, mf.WRITE_ONLY | mf.USE_HOST_PTR, hostbuf=self.c)
-        bias_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR, hostbuf=self.bias)
+        c_buf = cl.Buffer(device.context_, mf.WRITE_ONLY | mf.USE_HOST_PTR,
+                          hostbuf=self.c)
+        bias_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
+                             hostbuf=self.bias)
 
         prg = cl.Program(device.context_, s).build()
 
@@ -327,13 +344,14 @@ class DeviceList(units.SmartPickling):
         for i in range(0, iters + 1):
             if i == 1:
                 t1 = time.time()
-            event = cl.enqueue_nd_range_kernel(device.queue_, krn, global_size, local_size)
+            event = cl.enqueue_nd_range_kernel(device.queue_, krn, global_size,
+                                               local_size)
             event.wait()
         dt = time.time() - t1
         # Get results back
-        arr, event = cl.enqueue_map_buffer(queue=device.queue_, buf=c_buf, flags=CL_MAP_READ, offset=0, \
-                                           shape=self.c.shape, dtype=self.c.dtype, order="C", \
-                                           wait_for=None, is_blocking=False)
+        arr, event = cl.enqueue_map_buffer(queue=device.queue_, buf=c_buf,
+            flags=CL_MAP_READ, offset=0, shape=self.c.shape,
+            dtype=self.c.dtype, order="C", wait_for=None, is_blocking=False)
         event.wait()
         arr.base.release(queue=device.queue_, wait_for=None)
         return dt / iters

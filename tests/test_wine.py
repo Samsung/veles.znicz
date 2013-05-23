@@ -18,7 +18,7 @@ import gd
 
 class EndPoint(units.Unit):
     """On initialize() and run() releases its semaphore.
-    
+
     Attributes:
         sem_: semaphore.
         status: has completed attribute.
@@ -29,7 +29,7 @@ class EndPoint(units.Unit):
         snapshot_object: object to snapshot.
         snapshot_filename: filename with optional %d as snapshot number.
     """
-    def __init__(self, snapshot_object = None, unpickling = 0):
+    def __init__(self, snapshot_object=None, unpickling=0):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         self.n_passes_ = 0
@@ -48,14 +48,16 @@ class EndPoint(units.Unit):
     def run(self):
         self.n_passes_ += 1
         self.n_passes += 1
-        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_, self.n_passes))
+        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_,
+                                                           self.n_passes))
         if self.n_passes % self.snapshot_frequency == 0:
             fnme = self.snapshot_filename % (self.n_passes, )
             print("Snapshotting to %s" % (fnme, ))
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
-        if self.n_passes >= 500 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
+        if self.n_passes >= 500 and \
+           self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
             print("Snapshotting to snapshot.best")
             fout = open("snapshot.best.tmp", "wb")
@@ -81,7 +83,7 @@ class EndPoint(units.Unit):
 class Repeater(units.Unit):
     """Propagates notification if any of the inputs are active.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         super(Repeater, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -101,7 +103,7 @@ class UseCase2(units.SmartPickling):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self, cpu = True, unpickling = 0):
+    def __init__(self, cpu=True, unpickling=0):
         super(UseCase2, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -166,9 +168,10 @@ class UseCase2(units.SmartPickling):
 
         print("3")
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold_high = 1.0, threshold_low = 1.0, test_only = False):
+    def run(self, resume=False, global_alpha=0.9, global_lambda=0.0,
+            threshold=1.0, threshold_low=1.0, test_only=False):
         # Start the process:
-        self.sm.threshold_high = threshold_high
+        self.sm.threshold = threshold
         self.sm.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
@@ -190,15 +193,27 @@ class UseCase2(units.SmartPickling):
 class TestWine(unittest.TestCase):
     """Will test the convergence on the Wine dataset.
     """
-    def test(self):
+    def test_cpu(self):
         this_dir = os.getcwd()
         numpy.random.seed(numpy.fromfile("seed", numpy.integer))
         os.chdir("..")
-        uc = UseCase2()
+        uc = UseCase2(cpu=True)
         uc.run()
         os.chdir(this_dir)
-        self.assertEqual(uc.end_point.n_passes, 119, \
-            "Wine should converge in 119 passes on the supplied seed, but %d passed" % (uc.end_point.n_passes, ))
+        self.assertEqual(uc.end_point.n_passes, 119,
+            "Wine should converge in 119 passes on the supplied seed, "
+            "but %d passed" % (uc.end_point.n_passes, ))
+
+    def test_gpu(self):
+        this_dir = os.getcwd()
+        numpy.random.seed(numpy.fromfile("seed", numpy.integer))
+        os.chdir("..")
+        uc = UseCase2(cpu=False)
+        uc.run()
+        os.chdir(this_dir)
+        self.assertEqual(uc.end_point.n_passes, 119,
+            "Wine should converge in 119 passes on the supplied seed, "
+            "but %d passed" % (uc.end_point.n_passes, ))
 
 
 if __name__ == "__main__":

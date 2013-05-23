@@ -23,13 +23,15 @@ class GD(units.OpenCLUnit):
         err_y: backpropagation errors for y.
         err_h: backpropagation errors for h (will compute its).
         global_alpha: gradient descent speed (positive).
-        global_lambda: coefficient (positive or zero) for weights regularization term (lambda/2 * sum(weights^2)).
+        global_lambda: coefficient (positive or zero) for weights
+                       regularization term (lambda/2 * sum(weights^2)).
         krn_err_h_: OpenCL kernel for matrix multiplication.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
     """
-    def __init__(self, device = None, global_alpha = 0.9, global_lambda = 0.0000001, unpickling = 0):
+    def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
+                 unpickling=0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         self.cl_sources["cl/gd.cl"] = 1
         self.krn_err_h_ = None
@@ -48,8 +50,10 @@ class GD(units.OpenCLUnit):
         self.global_lambda = global_lambda
 
     def initialize(self):
-        if self.err_h.batch == None or self.err_h.batch.size != self.h.batch.size:
-            self.err_h.batch = numpy.zeros(self.h.batch.shape, dtype=numpy.float32)
+        if self.err_h.batch == None or \
+           self.err_h.batch.size != self.h.batch.size:
+            self.err_h.batch = numpy.zeros(self.h.batch.shape,
+                                           dtype=numpy.float32)
             self.err_h.batch_ = None
 
         self.weights.initialize(self.device)
@@ -66,10 +70,10 @@ class GD(units.OpenCLUnit):
             defines = ("#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % \
-                       (self.device.info.BLOCK_SIZE, self.err_h.aligned_.shape[0], \
-                        self.err_h.aligned_.size // self.err_h.aligned_.shape[0], \
-                        self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
+                       "#define Y %d\n\n") % (self.device.info.BLOCK_SIZE,
+                    self.err_h.aligned_.shape[0],
+                    self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
+                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
             for src in self.cl_sources.keys():
                 fin = open(src, "r")
@@ -79,8 +83,10 @@ class GD(units.OpenCLUnit):
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("cache/gd_%d_%d.cl" % (self.h.batch.size // self.h.batch.shape[0], \
-                                               self.y.batch.size // self.y.batch.shape[0]), "w")
+            fout = open("cache/gd_%d_%d.cl" % (self.h.batch.size //
+                                               self.h.batch.shape[0],
+                                               self.y.batch.size //
+                                               self.y.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
@@ -110,13 +116,17 @@ class GD(units.OpenCLUnit):
         batch_size = self.y.batch.shape[0]
         r_batch_size = 1.0 / batch_size
         weights = self.weights.v.transpose()
-        weights *= 1.0 + ((-self.global_alpha) * self.global_lambda)  # regularization (will not regularize bias)
+
+        # regularization (will not regularize bias)
+        weights *= 1.0 + ((-self.global_alpha) * self.global_lambda)
+
         for i in range(0, batch_size):  # loop by batch
             err_y = self.err_y.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
             h = self.h.batch[i]
             h = h.reshape(h.size)  # make it plain
-            weights += numpy.outer(h, err_y) * ((-self.global_alpha) * r_batch_size)
+            weights += numpy.outer(h, err_y) * ((-self.global_alpha) *
+                                                r_batch_size)
             bias += err_y * ((-self.global_alpha) * r_batch_size)
         self.weights.update()
         self.bias.update()
@@ -130,19 +140,24 @@ class GD(units.OpenCLUnit):
         batch_size = self.y.batch.shape[0]
         kr = numpy.empty([2], numpy.float32)
         kr[0] = (-self.global_alpha) / batch_size
-        kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda) 
+        kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda)
         self.krn_weights_.set_arg(3, kr[0])
         self.krn_weights_.set_arg(4, kr[1])
-        global_size = [self.h.aligned_.size // self.h.aligned_.shape[0], \
-                       self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
+        global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
+                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
-        ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_weights_, global_size, local_size)
-        
+        ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                    self.krn_weights_, global_size, local_size)
+
         self.krn_bias_.set_arg(2, kr[0])
-        global_size = [self.err_y.aligned_.size // self.err_y.aligned_.shape[0], self.device.info.BLOCK_SIZE]
+        global_size = [self.err_y.aligned_.size //
+                       self.err_y.aligned_.shape[0],
+                       self.device.info.BLOCK_SIZE]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
-        ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_bias_, global_size, local_size)
-        
+        ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                                               self.krn_bias_, global_size,
+                                               local_size)
+
         ev1.wait()
         ev2.wait()
 
@@ -155,10 +170,12 @@ class GD(units.OpenCLUnit):
         self.weights.sync()
         self.err_y.sync()
         weights = self.weights.v
-        err_y = self.err_y.batch.reshape([self.err_y.batch.shape[0], \
-                                          self.err_y.batch.size // self.err_y.batch.shape[0]])
-        err_h = self.err_h.batch.reshape([self.err_h.batch.shape[0], \
-                                          self.err_h.batch.size // self.err_h.batch.shape[0]])
+        err_y = self.err_y.batch.reshape([self.err_y.batch.shape[0],
+                                          self.err_y.batch.size //
+                                          self.err_y.batch.shape[0]])
+        err_h = self.err_h.batch.reshape([self.err_h.batch.shape[0],
+                                          self.err_h.batch.size //
+                                          self.err_h.batch.shape[0]])
         numpy.dot(err_y, weights, err_h)
         self.err_h.update()
 
@@ -167,24 +184,30 @@ class GD(units.OpenCLUnit):
         """
         self.err_y.sync(formats.GPU)
         self.weights.sync(formats.GPU)
-        global_size = [self.err_h.aligned_.size // self.err_h.aligned_.shape[0], self.err_h.aligned_.shape[0]]
+        global_size = [self.err_h.aligned_.size //
+                       self.err_h.aligned_.shape[0],
+                       self.err_h.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_err_h_, global_size, local_size)
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                                                 self.krn_err_h_, global_size,
+                                                 local_size)
         event.wait()
         self.err_h.update(formats.GPU)
 
     def print_times(self, t_start):
         if not __debug__:
-            #print("Backprop within %.2f sec: %d_%d" % \
-            #      (time.time() - t_start, self.h.batch.size // self.h.batch.shape[0], \
+            #print("Backprop within %.2f sec: %d_%d" %
+            #      (time.time() - t_start, self.h.batch.size //
+            #       self.h.batch.shape[0],
             #       self.y.batch.size // self.y.batch.shape[0]))
             return
         self.weights.sync()
         self.bias.sync()
         weights = self.weights.v
         bias = self.bias.v
-        print("Backprop within %.2f sec: (W, b) = (%.6f, %.6f), (%.6f, %.6f)" % \
-              (time.time() - t_start, weights.min(), weights.max(), bias.min(), bias.max()))
+        print("Backprop within %.2f sec: (W, b) = (%.6f, %.6f), (%.6f, %.6f)" %
+              (time.time() - t_start, weights.min(), weights.max(),
+               bias.min(), bias.max()))
 
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
@@ -198,8 +221,12 @@ class GD(units.OpenCLUnit):
             return
         self.y.sync(formats.GPU)
         self.err_y.sync(formats.GPU)
-        global_size = [self.err_y.aligned_.size // self.err_y.aligned_.shape[0], self.err_y.aligned_.shape[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_err_y_, global_size, None)
+        global_size = [self.err_y.aligned_.size //
+                       self.err_y.aligned_.shape[0],
+                       self.err_y.aligned_.shape[0]]
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                                                 self.krn_err_y_, global_size,
+                                                 None)
         event.wait()
         self.err_y.update(formats.GPU)
 
@@ -233,7 +260,8 @@ class GDSM(GD):
 class GDTanh(GD):
     """Gradient Descent for f(): y = 1.7159 * tanh(0.6666 * (W * x + b)).
 
-    f'(y) = (a * tanh(b * y))' = a * (1 - b^2 * y^2) * b = a * b - a * b^3 * y^2
+    f'(y) = (a * tanh(b * y))' = a * (1 - b^2 * y^2) * b
+          = a * b - a * b^3 * y^2
           = 1.143819 - 0.508262 * y^2
     """
     def cpu_err_y_update(self):

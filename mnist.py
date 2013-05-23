@@ -21,7 +21,7 @@ class MNISTLoader(units.Unit):
         labels: contains MNIST labels.
         test_only: loads test-only data.
     """
-    def __init__(self, test_only = False, unpickling = 0):
+    def __init__(self, test_only=False, unpickling=0):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
         #self.test_only = False
         if unpickling:
@@ -46,9 +46,11 @@ class MNISTLoader(units.Unit):
         if n_labels != labels_count:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        self.labels.batch = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
+        self.labels.batch = numpy.fromfile(fin, dtype=numpy.byte,
+                                           count=n_labels)
         if self.labels.batch.size != n_labels:
-            raise error.ErrBadFormat("EOF reached while reading labels from train-labels")
+            raise error.ErrBadFormat("EOF reached while reading labels from "
+                                     "train-labels")
         if self.labels.batch.min() != 0 or self.labels.batch.max() != 9:
             raise error.ErrBadFormat("Wrong labels range in train-labels.")
         self.labels.n_classes = 10
@@ -68,12 +70,15 @@ class MNISTLoader(units.Unit):
 
         n_rows, n_cols = struct.unpack(">2i", fin.read(8))
         if n_rows != 28 or n_cols != 28:
-            raise error.ErrBadFormat("Wrong images size in train-images, should be 28*28")
+            raise error.ErrBadFormat("Wrong images size in train-images, "
+                                     "should be 28*28")
 
         # 0 - white, 255 - black
-        pixels = numpy.fromfile(fin, dtype=numpy.ubyte, count=n_images * n_rows * n_cols);
+        pixels = numpy.fromfile(fin, dtype=numpy.ubyte,
+                                count=n_images * n_rows * n_cols)
         if pixels.shape[0] != n_images * n_rows * n_cols:
-            raise error.ErrBadFormat("EOF reached while reading images from train-images")
+            raise error.ErrBadFormat("EOF reached while reading images "
+                                     "from train-images")
 
         fin.close()
 
@@ -86,7 +91,8 @@ class MNISTLoader(units.Unit):
             image += -vle_min
             image *= 2.0 / (vle_max - vle_min)
             image += -1.0
-        print("Range after normalization: [%.1f, %.1f]" % (images.min(), images.max()))
+        print("Range after normalization: [%.1f, %.1f]" % (images.min(),
+                                                           images.max()))
         self.output.batch = images
         print("Done")
 
@@ -105,13 +111,15 @@ class MNISTLoader(units.Unit):
             images_fnme = "MNIST/train-images.idx3-ubyte"
         try:
             fin = open(cache_fnme, "rb")
-            self.output.batch, self.labels.batch, self.labels.n_classes = pickle.load(fin)
+            self.output.batch, self.labels.batch, self.labels.n_classes = \
+                pickle.load(fin)
             fin.close()
         except IOError:
             self.load_original(labels_count, labels_fnme, images_fnme)
             print("Saving to cache for later faster load...")
             fout = open(cache_fnme, "wb")
-            pickle.dump((self.output.batch, self.labels.batch, self.labels.n_classes), fout)
+            pickle.dump((self.output.batch, self.labels.batch,
+                         self.labels.n_classes), fout)
             fout.close()
         print("Done")
         self.output.update()

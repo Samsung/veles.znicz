@@ -10,10 +10,12 @@ import pickle
 
 
 g_pt = 0
+
+
 class PickleTest(units.SmartPickling):
     """Pickle test.
     """
-    def __init__(self, unpickling = 0, a = "A", b = "B", c = "C"):
+    def __init__(self, unpickling=0, a="A", b="B", c="C"):
         global g_pt
         g_pt += 1
         super(PickleTest, self).__init__(unpickling)
@@ -27,7 +29,7 @@ class PickleTest(units.SmartPickling):
 class TestPickle(unittest.TestCase):
     def test(self):
         # Test for correct behavior of units.SmartPickling
-        pt = PickleTest(a = "AA", c = "CC")
+        pt = PickleTest(a="AA", c="CC")
         self.assertEqual(g_pt, 1, "Pickle test failed.")
         pt.d = "D"
         pt.h_ = "HH"
@@ -42,7 +44,9 @@ class TestPickle(unittest.TestCase):
         fin = open("cache/test.pickle", "rb")
         pt = pickle.load(fin)
         fin.close()
-        self.assertListEqual([g_pt, pt.d, pt.c, pt.b, pt.a, pt.h_], [2, "D", "CC", "B", "AA", None], "Pickle test failed.")
+        self.assertListEqual([g_pt, pt.d, pt.c, pt.b, pt.a, pt.h_],
+                             [2, "D", "CC", "B", "AA", None],
+                             "Pickle test failed.")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ import text
 
 class EndPoint(units.Unit):
     """On initialize() and run() releases its semaphore.
-    
+
     Attributes:
         sem_: semaphore.
         status: has completed attribute.
@@ -34,7 +34,8 @@ class EndPoint(units.Unit):
         snapshot_object: object to snapshot.
         snapshot_filename: filename with optional %d as snapshot number.
     """
-    def __init__(self, snapshot_object = None, flog = None, flog_args = None, unpickling = 0):
+    def __init__(self, snapshot_object=None, flog=None, flog_args=None,
+                 unpickling=0):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         self.n_passes_ = 0
@@ -55,14 +56,16 @@ class EndPoint(units.Unit):
     def run(self):
         self.n_passes_ += 1
         self.n_passes += 1
-        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_, self.n_passes))
+        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_,
+                                                           self.n_passes))
         if self.n_passes % self.snapshot_frequency == 0:
             fnme = self.snapshot_filename % (self.n_passes, )
             print("Snapshotting to %s" % (fnme, ))
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
-        if self.n_passes >= 500 and self.__dict__.get("max_ok", 0) < self.status.n_ok:
+        if self.n_passes >= 500 and \
+           self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
             print("Snapshotting to /tmp/snapshot.best")
             fout = open("/tmp/snapshot.best.tmp", "wb")
@@ -90,7 +93,7 @@ class EndPoint(units.Unit):
 class Repeater(units.Unit):
     """Propagates notification if any of the inputs are active.
     """
-    def __init__(self, unpickling = 0):
+    def __init__(self, unpickling=0):
         super(Repeater, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -116,7 +119,7 @@ class UseCase1(units.SmartPickling):
         gd2: gd2.
         gd1: gd1.
     """
-    def __init__(self, cpu = False, unpickling = 0):
+    def __init__(self, cpu=False, unpickling=0):
         super(UseCase1, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -191,7 +194,8 @@ class UseCase1(units.SmartPickling):
         self.gd2 = gd2
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
+    def run(self, resume=False, global_alpha=0.9, global_lambda=0.0,
+            threshold=1.0, threshold_low=None, test_only=False):
         # Start the process:
         self.m.test_only = test_only
         self.ev.threshold = threshold
@@ -228,7 +232,7 @@ class UseCase2(units.SmartPickling):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self, cpu = True, unpickling = 0):
+    def __init__(self, cpu=True, unpickling=0):
         super(UseCase2, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -291,7 +295,8 @@ class UseCase2(units.SmartPickling):
         self.gdsm = gdsm
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
+    def run(self, resume=False, global_alpha=0.9, global_lambda=0.0,
+            threshold=1.0, threshold_low=None, test_only=False):
         # Start the process:
         self.sm.threshold = threshold
         self.sm.threshold_low = threshold_low
@@ -318,7 +323,7 @@ class UseCase3(units.SmartPickling):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self, cpu = True, unpickling = 0):
+    def __init__(self, cpu=True, unpickling=0):
         super(UseCase3, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -381,7 +386,8 @@ class UseCase3(units.SmartPickling):
         self.gd0 = gd0
         self.gd1 = gd1
 
-    def run(self, resume = False, global_alpha = 0.9, global_lambda = 0.0, threshold = 1.0, threshold_low = None, test_only = False):
+    def run(self, resume=False, global_alpha=0.9, global_lambda=0.0,
+            threshold=1.0, threshold_low=None, test_only=False):
         # Start the process:
         self.sm.threshold = threshold
         self.sm.threshold_low = threshold_low
@@ -404,19 +410,22 @@ def main():
     logging.debug("Entered")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-r", type=str, help="resume from snapshot", \
+    parser.add_argument("-r", type=str, help="resume from snapshot",
                         default="", dest="resume")
-    parser.add_argument("-cpu", action="store_true", help="use numpy only", \
+    parser.add_argument("-cpu", action="store_true", help="use numpy only",
                         default=False, dest="cpu")
-    parser.add_argument("-global_alpha", type=float, help="global gradient descent speed", \
+    parser.add_argument("-global_alpha", type=float,
+                        help="global gradient descent speed",
                         default=0.9, dest="global_alpha")
-    parser.add_argument("-global_lambda", type=float, help="global weights regularisation constant", \
+    parser.add_argument("-global_lambda", type=float,
+                        help="global weights regularisation constant",
                         default=0.0, dest="global_lambda")
-    parser.add_argument("-threshold", type=float, help="softmax or per-point mse threshold", \
+    parser.add_argument("-threshold", type=float, help="softmax threshold",
                         default=1.0, dest="threshold")
-    parser.add_argument("-threshold_low", type=float, help="softmax threshold low bound", \
+    parser.add_argument("-threshold_low", type=float,
+                        help="softmax threshold low bound",
                         default=None, dest="threshold_low")
-    parser.add_argument("-t", action="store_true", help="test only", \
+    parser.add_argument("-t", action="store_true", help="test only",
                         default=False, dest="test_only")
     args = parser.parse_args()
 
@@ -425,10 +434,7 @@ def main():
     #numpy.random.seed(numpy.fromfile("/dev/urandom", numpy.integer, 1024))
     #numpy.random.set_state(state)
 
-    try:
-        os.mkdir("cache")
-    except OSError:
-        pass
+    os.chdir("..")
 
     uc = None
     if args.resume:
@@ -446,8 +452,9 @@ def main():
         uc = UseCase2(args.cpu)
         #uc = UseCase3(args.cpu)
     print("Launching...")
-    uc.run(args.resume, global_alpha=args.global_alpha, global_lambda=args.global_lambda, \
-           threshold=args.threshold, threshold_low=args.threshold_low, test_only=args.test_only)
+    uc.run(args.resume, global_alpha=args.global_alpha,
+           global_lambda=args.global_lambda, threshold=args.threshold,
+           threshold_low=args.threshold_low, test_only=args.test_only)
 
     print()
     if not args.test_only:
