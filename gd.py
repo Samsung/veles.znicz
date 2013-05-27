@@ -281,3 +281,115 @@ class GDTanh(GD):
         self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
         self.krn_err_y_.set_arg(0, self.err_y.batch_)
         self.krn_err_y_.set_arg(1, self.y.batch_)
+
+
+class GDA(GD):
+    """GD with individual alphas for each weight.
+
+    Attributes:
+        alpha_inc: step for alpha increase.
+        alpha_dec: step for alpha decrease.
+        weights_alphas: alphas for weights.
+        bias_alphas: alphas for bias.
+        krn_weights_a_: kernel for weights and alphas update.
+        krn_bias_a_: kernel for bias and alphas update.
+    """
+    def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
+                 alpha_inc=1.05, alpha_dec=0.7, unpickling=0):
+        super(GDA, self).__init__(device=device, global_alpha=global_alpha,
+            global_lambda=global_lambda, unpickling=unpickling)
+        self.krn_weights_a_ = None
+        self.krn_bias_a_ = None
+        if unpickling:
+            return
+        self.alpha_inc = alpha_inc
+        self.alpha_dec = alpha_dec
+        self.weights_alphas = formats.Vector()
+        self.bias_alphas = formats.Vector()
+
+    def initialize(self):
+        self.cl_sources["cl/gda.cl"] = 1
+        retval = super(GDA, self).initialize()
+        if retval:
+            return retval
+        if self.weights_alphas.v == None or \
+           self.weights_alphas.v.size != self.weights.v.size:
+            self.weights_alphas.v = numpy.zeros_like(self.weights.v)
+            self.weights_alphas.v[:] = self.global_alpha
+            self.weights_alphas.v_ = None
+        if self.bias_alphas.v == None or \
+           self.bias_alphas.v.size != self.bias.v.size:
+            self.bias_alphas.v = numpy.zeros_like(self.bias.v)
+            self.bias_alphas.v[:] = self.global_alpha
+            self.bias_alphas.v_ = None
+        self.weights_alphas.initialize(self.device)
+        self.bias_alphas.initialize(self.device)
+        if not self.device:
+            return
+        self.krn_weights_a_ = pyopencl.Kernel(self.prg_, "weights_update_a")
+        self.krn_weights_a_.set_arg(0, self.err_y.batch_)
+        self.krn_weights_a_.set_arg(1, self.h.batch_)
+        self.krn_weights_a_.set_arg(2, self.weights.v_)
+        self.krn_weights_a_.set_arg(7, self.weights_alphas.v_)
+
+        self.krn_bias_a_ = pyopencl.Kernel(self.prg_, "bias_update_a")
+        self.krn_bias_a_.set_arg(0, self.bias.v_)
+        self.krn_bias_a_.set_arg(1, self.err_y.batch_)
+        self.krn_bias_a_.set_arg(5, self.bias_alphas.v_)
+
+    def gpu_weights_update(self):
+        self.h.sync(formats.GPU)
+        self.err_y.sync(formats.GPU)
+        self.weights.sync(formats.GPU)
+        self.bias.sync(formats.GPU)
+        self.weights_alphas.sync(formats.GPU)
+        self.bias_alphas.sync(formats.GPU)
+
+        batch_size = self.y.batch.shape[0]
+        kr = numpy.empty([4], numpy.float32)
+        kr[0] = 1.0 / batch_size
+        kr[1] = self.global_lambda
+        kr[2] = self.alpha_inc
+        kr[3] = self.alpha_dec
+        self.krn_weights_a_.set_arg(3, kr[0])
+        self.krn_weights_a_.set_arg(4, kr[1])
+        self.krn_weights_a_.set_arg(5, kr[2])
+        self.krn_weights_a_.set_arg(6, kr[3])
+        global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
+                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                    self.krn_weights_a_, global_size, local_size)
+
+        self.krn_bias_a_.set_arg(2, kr[0])
+        self.krn_bias_a_.set_arg(3, kr[2])
+        self.krn_bias_a_.set_arg(4, kr[3])
+        global_size = [self.err_y.aligned_.size //
+                       self.err_y.aligned_.shape[0],
+                       self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                                               self.krn_bias_a_, global_size,
+                                               local_size)
+
+        ev1.wait()
+        ev2.wait()
+
+        self.weights.update(formats.GPU)
+        self.bias.update(formats.GPU)
+        self.weights_alphas.update(formats.GPU)
+        self.bias_alphas.update(formats.GPU)
+
+
+class GDASM(GDA):
+    """Gradient Descent for softmax.
+
+    It is the same as GD inside.
+    """
+    pass
+
+
+class GDATanh(GDA, GDTanh):
+    """GDTanh with individual alphas for each weight.
+    """
+    pass

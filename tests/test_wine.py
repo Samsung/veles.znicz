@@ -96,13 +96,7 @@ class Repeater(units.Unit):
 
 
 class UseCase2(units.SmartPickling):
-    """Use case 2.
-
-    Attributes:
-        device_list: list of an OpenCL devices as DeviceList object.
-        start_point: Unit.
-        end_point: EndPoint.
-        t: t.
+    """Wine dataset.
     """
     def __init__(self, cpu=True, unpickling=0):
         super(UseCase2, self).__init__(unpickling=unpickling)
@@ -117,13 +111,8 @@ class UseCase2(units.SmartPickling):
         # Setup notification flow
         self.start_point = units.Unit()
 
-        #m = mnist.MNISTLoader()
         t = text.TXTLoader()
-        self.t = t
-        #sys.exit()
-        print("1")
         t.link_from(self.start_point)
-        print("2")
 
         rpt = Repeater()
         rpt.link_from(t)
@@ -132,20 +121,20 @@ class UseCase2(units.SmartPickling):
         aa1.input = t.output2
         aa1.link_from(rpt)
 
-        out = all2all.All2AllSoftmax(output_shape=[3], device=dev)
-        out.input = aa1.output
-        out.link_from(aa1)
+        sm = all2all.All2AllSoftmax(output_shape=[3], device=dev)
+        sm.input = aa1.output
+        sm.link_from(aa1)
 
         ev = evaluator.EvaluatorSoftmax(device=dev)
-        ev.y = out.output
+        ev.y = sm.output
         ev.labels = t.labels
-        ev.link_from(out)
+        ev.link_from(sm)
 
         gdsm = gd.GDSM(device=dev)
-        gdsm.weights = out.weights
-        gdsm.bias = out.bias
-        gdsm.h = out.input
-        gdsm.y = out.output
+        gdsm.weights = sm.weights
+        gdsm.bias = sm.bias
+        gdsm.h = sm.input
+        gdsm.y = sm.output
         gdsm.err_y = ev.err_y
 
         gd1 = gd.GDTanh(device=dev)
@@ -163,15 +152,42 @@ class UseCase2(units.SmartPickling):
         self.end_point.link_from(ev)
         gdsm.link_from(self.end_point)
 
-        self.sm = out
+        self.t = t
+        self.rpt = rpt
+        self.aa1 = aa1
+        self.sm = sm
+        self.ev = ev
         self.gdsm = gdsm
         self.gd1 = gd1
 
-        print("3")
-
     def run(self, resume=False, global_alpha=0.9, global_lambda=0.0,
-            threshold=1.0, threshold_low=1.0, test_only=False):
+            threshold=1.0, threshold_low=1.0, test_only=False, alphas=False):
         # Start the process:
+        if alphas:
+            self.gdsm.unlink()
+            self.gd1.unlink()
+            sm = self.sm
+            ev = self.ev
+            aa1 = self.aa1
+            gdsm = gd.GDASM(alpha_inc=1.05, alpha_dec=0.9,
+                            device=self.gdsm.device)
+            gdsm.weights = sm.weights
+            gdsm.bias = sm.bias
+            gdsm.h = sm.input
+            gdsm.y = sm.output
+            gdsm.err_y = ev.err_y
+            gdsm.link_from(self.end_point)
+            gd1 = gd.GDATanh(alpha_inc=1.05, alpha_dec=0.9,
+                             device=self.gd1.device)
+            gd1.weights = aa1.weights
+            gd1.bias = aa1.bias
+            gd1.h = aa1.input
+            gd1.y = aa1.output
+            gd1.err_y = gdsm.err_h
+            gd1.link_from(gdsm)
+            self.rpt.link_from(gd1)
+            self.gdsm = gdsm
+            self.gd1 = gd1
         self.sm.threshold = threshold
         self.sm.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
@@ -214,6 +230,17 @@ class TestWine(unittest.TestCase):
         os.chdir(this_dir)
         self.assertEqual(uc.end_point.n_passes, 119,
             "Wine should converge in 119 passes on the supplied seed, "
+            "but %d passed" % (uc.end_point.n_passes, ))
+
+    def test_gpu_a(self):
+        this_dir = os.getcwd()
+        rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
+        os.chdir("..")
+        uc = UseCase2(cpu=False)
+        uc.run(alphas=True)
+        os.chdir(this_dir)
+        self.assertEqual(uc.end_point.n_passes, 77,
+            "Wine should converge in 77 passes on the supplied seed, "
             "but %d passed" % (uc.end_point.n_passes, ))
 
 
