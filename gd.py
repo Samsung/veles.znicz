@@ -205,9 +205,28 @@ class GD(units.OpenCLUnit):
         self.bias.sync()
         weights = self.weights.v
         bias = self.bias.v
-        print("Backprop within %.2f sec: (W, b) = (%.6f, %.6f), (%.6f, %.6f)" %
-              (time.time() - t_start, weights.min(), weights.max(),
-               bias.min(), bias.max()))
+        if "weights_alphas" in self.__dict__:
+            self.weights_alphas.sync()
+            self.bias_alphas.sync()
+            wa = self.weights_alphas.v
+            ba = self.bias_alphas.v
+            print("BP %d_%d in %.2f sec: (W, b, Wa, ba) = "
+                  "(%.3f - %.6f, %.3f - %.6f, %.3f - %.6f, %.3f - %.6f)" %
+                  (self.h.batch.size // self.h.batch.shape[0],
+                   self.y.batch.size // self.y.batch.shape[0],
+                   time.time() - t_start,
+                   numpy.fabs(weights).min(), numpy.fabs(weights).max(),
+                   numpy.fabs(bias).min(), numpy.fabs(bias).max(),
+                   numpy.fabs(wa).min(), numpy.fabs(wa).max(),
+                   numpy.fabs(ba).min(), numpy.fabs(ba).max()))
+        else:
+            print("BP  %d_%d in %.2f sec: (W, b) = "
+                  "(%.3f - %.6f, %.3f - %.6f)" %
+                  (self.h.batch.size // self.h.batch.shape[0],
+                   self.y.batch.size // self.y.batch.shape[0],
+                   time.time() - t_start,
+                   numpy.fabs(weights).min(), numpy.fabs(weights).max(),
+                   numpy.fabs(bias).min(), numpy.fabs(bias).max()))
 
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
@@ -289,13 +308,17 @@ class GDA(GD):
     Attributes:
         alpha_inc: step for alpha increase.
         alpha_dec: step for alpha decrease.
+        alpha_max: maximum value for alpha.
+        alpha_min: minimum value for alpha.
         weights_alphas: alphas for weights.
         bias_alphas: alphas for bias.
         krn_weights_a_: kernel for weights and alphas update.
         krn_bias_a_: kernel for bias and alphas update.
     """
     def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
-                 alpha_inc=1.05, alpha_dec=0.7, unpickling=0):
+                 alpha_inc=1.05, alpha_dec=0.7,
+                 alpha_max=7.0, alpha_min=0.000001,
+                 unpickling=0):
         super(GDA, self).__init__(device=device, global_alpha=global_alpha,
             global_lambda=global_lambda, unpickling=unpickling)
         self.krn_weights_a_ = None
@@ -304,6 +327,8 @@ class GDA(GD):
             return
         self.alpha_inc = alpha_inc
         self.alpha_dec = alpha_dec
+        self.alpha_max = alpha_max
+        self.alpha_min = alpha_min
         self.weights_alphas = formats.Vector()
         self.bias_alphas = formats.Vector()
 
@@ -330,12 +355,12 @@ class GDA(GD):
         self.krn_weights_a_.set_arg(0, self.err_y.batch_)
         self.krn_weights_a_.set_arg(1, self.h.batch_)
         self.krn_weights_a_.set_arg(2, self.weights.v_)
-        self.krn_weights_a_.set_arg(7, self.weights_alphas.v_)
+        self.krn_weights_a_.set_arg(9, self.weights_alphas.v_)
 
         self.krn_bias_a_ = pyopencl.Kernel(self.prg_, "bias_update_a")
         self.krn_bias_a_.set_arg(0, self.bias.v_)
         self.krn_bias_a_.set_arg(1, self.err_y.batch_)
-        self.krn_bias_a_.set_arg(5, self.bias_alphas.v_)
+        self.krn_bias_a_.set_arg(7, self.bias_alphas.v_)
 
     def gpu_weights_update(self):
         self.h.sync(formats.GPU)
@@ -346,15 +371,19 @@ class GDA(GD):
         self.bias_alphas.sync(formats.GPU)
 
         batch_size = self.y.batch.shape[0]
-        kr = numpy.empty([4], numpy.float32)
+        kr = numpy.empty([6], numpy.float32)
         kr[0] = 1.0 / batch_size
         kr[1] = self.global_lambda
         kr[2] = self.alpha_inc
         kr[3] = self.alpha_dec
+        kr[4] = self.alpha_max
+        kr[5] = self.alpha_min
         self.krn_weights_a_.set_arg(3, kr[0])
         self.krn_weights_a_.set_arg(4, kr[1])
         self.krn_weights_a_.set_arg(5, kr[2])
         self.krn_weights_a_.set_arg(6, kr[3])
+        self.krn_weights_a_.set_arg(7, kr[4])
+        self.krn_weights_a_.set_arg(8, kr[5])
         global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
@@ -364,6 +393,8 @@ class GDA(GD):
         self.krn_bias_a_.set_arg(2, kr[0])
         self.krn_bias_a_.set_arg(3, kr[2])
         self.krn_bias_a_.set_arg(4, kr[3])
+        self.krn_bias_a_.set_arg(5, kr[4])
+        self.krn_bias_a_.set_arg(6, kr[5])
         global_size = [self.err_y.aligned_.size //
                        self.err_y.aligned_.shape[0],
                        self.device.info.BLOCK_SIZE]

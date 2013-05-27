@@ -7,6 +7,7 @@ __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void weights_update_a(__global float *err_y, __global float *h, __global float *weights,
                       const float r_batch_size, const float global_lambda,
                       const float alpha_inc, const float alpha_dec,
+                      const float alpha_max, const float alpha_min,
                       __global float *alphas)
 {
  #define A_WIDTH Y
@@ -33,16 +34,16 @@ void weights_update_a(__global float *err_y, __global float *h, __global float *
  #undef B
  #undef C
  
- float gd = sum[0] * r_batch_size;
  float alpha = alphas[idx];
  float alpha_plus = fabs(alpha);
+ float gd = (weights[idx] * global_lambda + sum[0] * r_batch_size) * alpha_plus;
  
  float aa[3] = {alpha_dec, 1.0f, alpha_inc};
  int offs = (int)(sign(gd) * sign(alpha)) + 1;
- alpha *= aa[offs];
+ alpha = clamp(alpha_plus * aa[offs], alpha_min, alpha_max);
  alphas[idx] = copysign(alpha, gd);
  
- weights[idx] = weights[idx] * (1.0f - global_lambda * alpha_plus) - gd * alpha_plus;
+ weights[idx] -= gd;
 }
 
 
@@ -55,6 +56,7 @@ __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void bias_update_a(__global float *bias, __global float *err_y,
 				   const float r_batch_size,
 				   const float alpha_inc, const float alpha_dec,
+				   const float alpha_max, const float alpha_min,
 				   __global float *alphas)
 {
  __local float AS[BLOCK_SIZE][BLOCK_SIZE];
@@ -86,15 +88,15 @@ void bias_update_a(__global float *bias, __global float *err_y,
   
   int idx = get_global_id(0);
   
-  float gd = sum * r_batch_size;
   float alpha = alphas[idx];
   float alpha_plus = fabs(alpha);
+  float gd = sum * r_batch_size * alpha_plus;
   
   float aa[3] = {alpha_dec, 1.0f, alpha_inc};
   int offs = (int)(sign(gd) * sign(alpha)) + 1;
-  alpha *= aa[offs];
+  alpha = clamp(alpha_plus * aa[offs], alpha_min, alpha_max);
   alphas[idx] = copysign(alpha, gd);
   
-  bias[idx] -= gd * alpha_plus;
+  bias[idx] -= gd;
  }
 }

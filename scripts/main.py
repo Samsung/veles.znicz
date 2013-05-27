@@ -160,7 +160,7 @@ class UseCase1(units.SmartPickling):
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
 
-        gdsm = gd.GDSM(device=dev)
+        gdsm = gd.GDASM(device=dev)
         gdsm.weights = sm.weights
         gdsm.bias = sm.bias
         gdsm.h = sm.input
@@ -168,7 +168,7 @@ class UseCase1(units.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
-        gd2 = gd.GDTanh(device=dev)
+        gd2 = gd.GDATanh(device=dev)
         gd2.weights = aa2.weights
         gd2.bias = aa2.bias
         gd2.h = aa2.input
@@ -176,7 +176,7 @@ class UseCase1(units.SmartPickling):
         gd2.err_y = gdsm.err_h
         gd2.link_from(gdsm)
 
-        gd1 = gd.GDTanh(device=dev)
+        gd1 = gd.GDATanh(device=dev)
         gd1.weights = aa1.weights
         gd1.bias = aa1.bias
         gd1.h = aa1.input
@@ -218,10 +218,6 @@ class UseCase1(units.SmartPickling):
         print("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
-
-
-def strf(x):
-    return "%.4f" % (x, )
 
 
 class UseCase2(units.SmartPickling):
@@ -449,8 +445,8 @@ def main():
             print("Could not resume from %s" % (args.resume, ))
             uc = None
     if not uc:
-        #uc = UseCase1(args.cpu)
-        uc = UseCase2(args.cpu)
+        uc = UseCase1(args.cpu)
+        #uc = UseCase2(args.cpu)
         #uc = UseCase3(args.cpu)
     print("Launching...")
     uc.run(args.resume, global_alpha=args.global_alpha,
