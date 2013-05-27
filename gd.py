@@ -210,8 +210,8 @@ class GD(units.OpenCLUnit):
             self.bias_alphas.sync()
             wa = self.weights_alphas.v
             ba = self.bias_alphas.v
-            print("BP %d_%d in %.2f sec: (W, b, Wa, ba) = "
-                  "(%.3f - %.6f, %.3f - %.6f, %.3f - %.6f, %.3f - %.6f)" %
+            print("BP %d_%d in %.2f sec: (W; b; Wa; ba) = "
+                  "(%.6f, %.3f; %.6f, %.3f; %.6f, %.3f; %.6f - %.3f)" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
@@ -220,8 +220,8 @@ class GD(units.OpenCLUnit):
                    numpy.fabs(wa).min(), numpy.fabs(wa).max(),
                    numpy.fabs(ba).min(), numpy.fabs(ba).max()))
         else:
-            print("BP  %d_%d in %.2f sec: (W, b) = "
-                  "(%.3f - %.6f, %.3f - %.6f)" %
+            print("BP  %d_%d in %.2f sec: (W; b) = "
+                  "(%.6f, %.3f; %.6f, %.3f)" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
