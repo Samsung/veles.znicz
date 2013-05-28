@@ -42,6 +42,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.status = units.Connector()
         self.status.completed = False
         self.status.n_ok = 0
+        self.status.num_errors = 0
         self.threshold = threshold
         self.threshold_low = threshold_low
         self.skipped = None
@@ -125,6 +126,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.err_y.update()
         self.status.n_ok = n_ok
         self.status.completed = False
+        self.status.num_errors = batch_size - n_ok  # Number of errors
+        self.status.update()
         print("(n_ok, n_total): (%d, %d)" % (n_ok, batch_size))
         if not self.first_run and (True or self.threshold == 1.0 or \
                                    n_skip == batch_size) and \
@@ -176,6 +179,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.status = units.Connector()
         self.status.completed = False
         self.status.n_ok = 0
+        self.status.num_errors = 0
         self.mse_stop = mse_stop
 
     def initialize(self):
@@ -232,6 +236,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.err_y.update()
         self.status.n_ok = n_ok
         self.status.completed = False
+        self.status.num_errors = batch_size - n_ok  # Number of errors
+        self.status.update()
         print("(n_ok, n_total, max_mse, maxdiff): (%d, %d, %.6f, %.6f)" %
               (n_ok, batch_size, max_mse, maxdiff))
         if not self.first_run and (True or self.threshold == 1.0 or \

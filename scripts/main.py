@@ -20,6 +20,7 @@ import threading
 import gd
 import text
 import rnd
+import plotters
 
 
 class EndPoint(units.Unit):
@@ -124,6 +125,7 @@ class UseCase1(units.SmartPickling):
         super(UseCase1, self).__init__(unpickling=unpickling)
         if unpickling:
             return
+        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -155,6 +157,11 @@ class UseCase1(units.SmartPickling):
         ev.y = sm.output
         ev.labels = m.labels
         ev.link_from(sm)
+
+        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt.input = ev.status
+        plt.input_field = 'num_errors'
+        plt.link_from(ev)
 
         self.end_point = EndPoint(self)
         self.end_point.status = ev.status
@@ -233,6 +240,7 @@ class UseCase2(units.SmartPickling):
         super(UseCase2, self).__init__(unpickling=unpickling)
         if unpickling:
             return
+        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -265,6 +273,11 @@ class UseCase2(units.SmartPickling):
         ev.y = out.output
         ev.labels = t.labels
         ev.link_from(out)
+
+        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt.input = ev.status
+        plt.input_field = 'num_errors'
+        plt.link_from(ev)
 
         gdsm = gd.GDSM(device=dev)
         gdsm.weights = out.weights
@@ -324,6 +337,7 @@ class UseCase3(units.SmartPickling):
         super(UseCase3, self).__init__(unpickling=unpickling)
         if unpickling:
             return
+        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -356,6 +370,11 @@ class UseCase3(units.SmartPickling):
         ev.y = out.output
         ev.labels = t.labels
         ev.link_from(out)
+
+        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt.input = ev.status
+        plt.input_field = 'num_errors'
+        plt.link_from(ev)
 
         gd0 = gd.GDTanh(device=dev)
         gd0.weights = out.weights
@@ -405,6 +424,10 @@ class UseCase3(units.SmartPickling):
 def main():
     # Main program
     logging.debug("Entered")
+
+    #  Initializing graphics
+    graphics = plotters.Graphics()
+    graphics.initialize()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", type=str, help="resume from snapshot",
@@ -461,6 +484,7 @@ def main():
         fout.close()
         print("Done")
 
+    graphics.wait_finish()
     logging.debug("Finished")
 
 
