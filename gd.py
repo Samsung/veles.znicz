@@ -210,22 +210,35 @@ class GD(units.OpenCLUnit):
             self.bias_alphas.sync()
             wa = self.weights_alphas.v
             ba = self.bias_alphas.v
-            print("BP %d_%d in %.2f sec:\t"
-                  "WMax=%.6f\tBMax=%.6f\tWAlphaAvg=%.6f\tBAlphaAvg=%.6f" %
+            print("BP %d_%d in %.2f sec (min, avg, max):\t"
+                  "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f\t"
+                  "WAlpha=%.6f,%.4f,%.2f\tBAlpha=%.6f,%.4f,%.2f" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
+                   numpy.fabs(weights).min(),
+                   numpy.average(numpy.fabs(weights)),
                    numpy.fabs(weights).max(),
+                   numpy.fabs(bias).min(),
+                   numpy.average(numpy.fabs(bias)),
                    numpy.fabs(bias).max(),
+                   numpy.fabs(wa).min(),
                    numpy.average(numpy.fabs(wa)),
-                   numpy.average(numpy.fabs(ba))))
+                   numpy.fabs(wa).max(),
+                   numpy.fabs(ba).min(),
+                   numpy.average(numpy.fabs(ba)),
+                   numpy.fabs(ba).max()))
         else:
-            print("BP  %d_%d in %.2f sec:\t"
-                  "WMax=%.6f\tBMax=%.6f" %
+            print("BP %d_%d in %.2f sec (min, avg, max):\t"
+                  "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
+                   numpy.fabs(weights).min(),
+                   numpy.average(numpy.fabs(weights)),
                    numpy.fabs(weights).max(),
+                   numpy.fabs(bias).min(),
+                   numpy.average(numpy.fabs(bias)),
                    numpy.fabs(bias).max()))
 
     def cpu_err_y_update(self):

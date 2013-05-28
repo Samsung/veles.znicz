@@ -81,8 +81,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             if i_max == labels[i]:
                 n_ok += 1
                 # check for threshold
-                if (y[i_max] >= threshold) or \
-                   ((y[i_max] >= threshold_low) and (self.skipped[i])):
+                if (y[i_max] > threshold) or \
+                   ((y[i_max] > threshold_low) and (self.skipped[i])):
                     err_y[:] = 0  # already trained good enough, skip it
                     self.skipped[i] = 1
                     skip = True

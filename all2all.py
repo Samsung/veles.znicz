@@ -163,11 +163,14 @@ class All2All(units.OpenCLUnit):
         y = self.output.batch
         self.output.sync()
         self.weights.sync()
-        print("%s: %d samples with %d weights in %.2f sec:\t"
-              "ymin=%.4f\tymax=%.4f\tysum=%.2f\tyavg=%.4f" %
+        print("%s: %d samples with %d weights in %.2f sec (min,avg,max,sum):\t"
+              "y=%.6f,%.4f,%.2f,%.2f" %
               (self.__class__.__name__.replace("All2All", ""), y.shape[0],
                self.weights.v.size, time.time() - t_start,
-               y.min(), y.max(), y.sum(), numpy.average(y)))
+               numpy.fabs(y).min(),
+               numpy.average(numpy.fabs(y)),
+               numpy.fabs(y).max(),
+               y.sum()))
         self.show_weights()
 
     def gpu_run(self):
