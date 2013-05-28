@@ -22,7 +22,7 @@ def main():
     parser.add_argument("-r", type=str, help="resume from snapshot", \
                         default="", dest="resume")
     parser.add_argument("-c", type=str, help="config-file experiments for veles ", \
-                        default="/home/dseresov/Projects/Znicz/wine/veles_tasks3.py", dest="config_veles")
+                        default="wine/veles_tasks3.py", dest="config_veles")
     # в конфиг файлы вставить параметры 
         #parser.add_argument("-cpu", action="store_true", help="use numpy only", \
         #                    default=False, dest="cpu")
