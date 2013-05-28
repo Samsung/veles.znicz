@@ -37,7 +37,9 @@ def main():
         #parser.add_argument("-t", action="store_true", help="test only", \
         #                    default=False, dest="test_only")
     args = parser.parse_args()
-    
+
+    os.chdir("..")
+
     #project. Seresov maj 5, 2013
     #
     #numpy.random.seed ()    # random generic  - это в  эксперимент

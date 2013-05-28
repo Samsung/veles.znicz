@@ -5,18 +5,18 @@ t0={"S0":0,
         'model0':{
             'number':1,
             'type_model':'NS',
-            'data_model':'/home/dseresov/Projects/Znicz/wine/model_WF_wine.py'
+            'data_model':'wine/model_WF_wine.py'
         }
     },
     'use_random':1,    
     'random':{
                'type_seed':0,
-               'seed':'/home/dseresov/Projects/Znicz/seed',  
+               'seed':'scripts/seed',  
                'type':1,
               
               },
     'data_set':{
-        'data':'/home/dseresov/Projects/Znicz/wine/config_data2.py',        
+        'data':'wine/config_data2.py',        
         'merge_dataset':1,
         'type1':1,
         'var1':{ 
@@ -45,4 +45,3 @@ t0={"S0":0,
                    'threshold_low':1.0
 	}
 }
-

@@ -24,7 +24,7 @@ no testing for test data set. (-"-)
 '''
 import units
 import opencl
-import text
+import loader
 import all2all
 import evaluator
 import gd
@@ -45,15 +45,19 @@ class model_WF_wine(units.SmartPickling):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self,data_set={},param ={},cpu = True, unpickling = 0):
+    def __init__(self,data_set=None,param =None,cpu = True, unpickling = 0):
         super(model_WF_wine, self).__init__(unpickling=unpickling)
         if unpickling:
             return
+        if data_set == None:
+            data_set = {}
         self.data_set =data_set
+        if param == None:
+            param = {}
         self.param=param
-        
+
         #rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
-        numpy.random.seed(numpy.fromfile("seed", numpy.integer))# сделать считывание из конфига 
+        numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))# сделать считывание из конфига 
         dev = None
         if not cpu:
             self.device_list = opencl.DeviceList()
@@ -66,7 +70,7 @@ class model_WF_wine(units.SmartPickling):
         # print(self.config_data_seta)
         # print(self.config_datasa)
         #print(self.data_set)
-        t = text.TXTLoader(self.data_set,self.param)
+        t = loader.TXTLoader(self.data_set,self.param)
         self.t = t
         #sys.exit()
         print("1")

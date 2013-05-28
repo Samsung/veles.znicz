@@ -9,11 +9,11 @@ config_data2={
                 'number':1,            
                 'type_data':0,  # данные х и у в одном файле. 0 в разных                         #
                 'type_input':1,   # данные х формат 1 ( таблица) 2- звук файлы.. 3 - спарс матрица  4 изображения#
-                'file_input':'/home/dseresov/Projects/Znicz/wine/wine.csv',         # адрес файла с данными #
+                'file_input':'wine/wine.csv',         # адрес файла с данными #
                 'size':178,                  # размер выборки        #
                 'count_parametrs':13,                      # количество параметров #
                 'type_output':1,    # данные y формат 0- вектор(label) 1-таблица 2-директория..3-спарс матрица #
-                'file_output':'/home/dseresov/Projects/Znicz/wine/wine_y_labels.csv',  # адрес файла c y#
+                'file_output':'wine/wine_y_labels.csv',  # адрес файла c y#
                 'count_output':3,  # количество классов   #
                 'const_class_y ': 0,
                 'use_clone':0,     # клонировать будем?            #        

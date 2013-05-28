@@ -4,7 +4,7 @@ veles= {
     'tasks':{
         'task0':{
                'NUMBER':0,
-               'param_file':'/home/dseresov/Projects/Znicz/wine/t0.py',
+               'param_file':'wine/t0.py',
                'edit_param1':1,
                'start':[]                                   
           }          
