@@ -153,7 +153,7 @@ class EvaluatorMSE(units.OpenCLUnit):
     TODO(a.kazantsev): make it proper.
 
     Attributes:
-        a: actual function values for a batch.
+        y_original: actual function values for a batch.
         labels: Labels as in softmax (may be defined instead of "a",
                 in such case "a" will be created in initialize()).
         y: output of the network as Batch.
@@ -169,7 +169,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.first_run = True
         if unpickling:
             return
-        self.a = None  # formats.Batch(device)
+        self.y_original = None  # formats.Batch(device)
         self.labels = None  # formats.Labels()
         self.y = None  # formats.Batch(device)
         self.err_y = formats.Batch()
@@ -186,19 +186,20 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.err_y.batch_ = None
         self.err_y.initialize(self.device)
 
-        if self.a == None and self.labels != None:
-            self.a = formats.Batch()
-            self.a.batch = numpy.zeros(self.y.batch.shape,
-                                       dtype=config.dtypes[config.dtype])
+        if self.y_original == None and self.labels != None:
+            self.y_original = formats.Batch()
+            self.y_original.batch = numpy.zeros(self.y.batch.shape,
+                dtype=config.dtypes[config.dtype])
             batch_size = self.y.batch.shape[0]
-            a = self.a.batch
-            a = a.reshape([batch_size, a.size // batch_size])
+            y_original = self.y_original.batch
+            y_original = y_original.reshape([batch_size,
+                                             y_original.size // batch_size])
             labels = self.labels.batch
             for i in range(0, batch_size):
-                sample = a[i]
+                sample = y_original[i]
                 sample[:] = -1.6
                 sample[labels[i]] = 1.6
-        self.a.initialize(self.device)
+        self.y_original.initialize(self.device)
 
     def cpu_run(self):
         t1 = time.time()
@@ -209,12 +210,13 @@ class EvaluatorMSE(units.OpenCLUnit):
         batch_size = self.y.batch.shape[0]
         y = self.y.batch
         y = y.reshape([batch_size, y.size // batch_size])
-        a = self.a.batch
-        a = a.reshape([batch_size, a.size // batch_size])
+        y_original = self.y_original.batch
+        y_original = y_original.reshape([batch_size,
+                                         y_original.size // batch_size])
         err_y = self.err_y.batch
         err_y = err_y.reshape([batch_size, err_y.size // batch_size])
 
-        numpy.subtract(y, a, err_y)
+        numpy.subtract(y, y_original, err_y)
 
         max_mse = 0
         maxdiff = numpy.max(numpy.abs(err_y))
