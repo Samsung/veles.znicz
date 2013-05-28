@@ -210,23 +210,23 @@ class GD(units.OpenCLUnit):
             self.bias_alphas.sync()
             wa = self.weights_alphas.v
             ba = self.bias_alphas.v
-            print("BP %d_%d in %.2f sec: (W; b; Wa; ba) = "
-                  "(%.6f, %.3f; %.6f, %.3f; %.6f, %.3f; %.6f - %.3f)" %
+            print("BP %d_%d in %.2f sec:\t"
+                  "WMax=%.6f\tBMax=%.6f\tWAlphaAvg=%.6f\tBAlphaAvg=%.6f" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
-                   numpy.fabs(weights).min(), numpy.fabs(weights).max(),
-                   numpy.fabs(bias).min(), numpy.fabs(bias).max(),
-                   numpy.fabs(wa).min(), numpy.fabs(wa).max(),
-                   numpy.fabs(ba).min(), numpy.fabs(ba).max()))
+                   numpy.fabs(weights).max(),
+                   numpy.fabs(bias).max(),
+                   numpy.average(numpy.fabs(wa)),
+                   numpy.average(numpy.fabs(ba))))
         else:
-            print("BP  %d_%d in %.2f sec: (W; b) = "
-                  "(%.6f, %.3f; %.6f, %.3f)" %
+            print("BP  %d_%d in %.2f sec:\t"
+                  "WMax=%.6f\tBMax=%.6f" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
                    time.time() - t_start,
-                   numpy.fabs(weights).min(), numpy.fabs(weights).max(),
-                   numpy.fabs(bias).min(), numpy.fabs(bias).max()))
+                   numpy.fabs(weights).max(),
+                   numpy.fabs(bias).max()))
 
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
@@ -316,8 +316,8 @@ class GDA(GD):
         krn_bias_a_: kernel for bias and alphas update.
     """
     def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
-                 alpha_inc=1.05, alpha_dec=0.7,
-                 alpha_max=7.0, alpha_min=0.000001,
+                 alpha_inc=1.05, alpha_dec=0.9,
+                 alpha_max=100.0, alpha_min=0.0000001,
                  unpickling=0):
         super(GDA, self).__init__(device=device, global_alpha=global_alpha,
             global_lambda=global_lambda, unpickling=unpickling)

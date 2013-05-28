@@ -140,8 +140,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                   (dt, n_skip / batch_size * 100.0))
             return
         err_y = self.err_y.batch
-        print("Computed softmax errs within %.2f sec, skipped %.2f%%: "
-              "(min, max, avg) = (%.3f, %.3f, %.3f)" %
+        print("Computed softmax errs within %.2f sec, skipped %.2f%%:\t"
+              "min=%.4f\tmax=%.4f\tavg=%.4f" %
               (dt, n_skip / batch_size * 100.0, err_y.min(), err_y.max(),
                numpy.average(err_y)))
 

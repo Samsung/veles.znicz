@@ -65,7 +65,7 @@ class EndPoint(units.Unit):
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
-        if self.n_passes >= 500 and \
+        if self.n_passes_ >= 500 and \
            self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
             print("Snapshotting to /tmp/snapshot.best")

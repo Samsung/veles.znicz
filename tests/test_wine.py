@@ -34,7 +34,7 @@ class EndPoint(units.Unit):
         super(EndPoint, self).__init__(unpickling=unpickling)
         self.sem_ = threading.Semaphore(0)
         self.n_passes_ = 0
-        self.max_passes = 250
+        self.max_passes = 499
         if unpickling:
             return
         self.status = None
@@ -169,16 +169,14 @@ class UseCase2(units.SmartPickling):
             sm = self.sm
             ev = self.ev
             aa1 = self.aa1
-            gdsm = gd.GDASM(alpha_inc=1.05, alpha_dec=0.9,
-                            device=self.gdsm.device)
+            gdsm = gd.GDASM(device=self.gdsm.device)
             gdsm.weights = sm.weights
             gdsm.bias = sm.bias
             gdsm.h = sm.input
             gdsm.y = sm.output
             gdsm.err_y = ev.err_y
             gdsm.link_from(self.end_point)
-            gd1 = gd.GDATanh(alpha_inc=1.05, alpha_dec=0.9,
-                             device=self.gd1.device)
+            gd1 = gd.GDATanh(device=self.gd1.device)
             gd1.weights = aa1.weights
             gd1.bias = aa1.bias
             gd1.h = aa1.input
@@ -239,8 +237,8 @@ class TestWine(unittest.TestCase):
         uc = UseCase2(cpu=False)
         uc.run(alphas=True)
         os.chdir(this_dir)
-        self.assertEqual(uc.end_point.n_passes, 77,
-            "Wine should converge in 77 passes on the supplied seed, "
+        self.assertEqual(uc.end_point.n_passes, 72,
+            "Wine should converge in 72 passes on the supplied seed, "
             "but %d passed" % (uc.end_point.n_passes, ))
 
 

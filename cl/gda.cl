@@ -34,16 +34,17 @@ void weights_update_a(__global float *err_y, __global float *h, __global float *
  #undef B
  #undef C
  
- float alpha = alphas[idx];
- float alpha_plus = fabs(alpha);
- float gd = (weights[idx] * global_lambda + sum[0] * r_batch_size) * alpha_plus;
+ float alpha = alphas[idx]; // load old alpha
+ float gd = weights[idx] * global_lambda + sum[0] * r_batch_size; // current gradient
  
- float aa[3] = {alpha_dec, 1.0f, alpha_inc};
+ // decrease immediatly, increase for the next step
+ float aa_pre[3] = {alpha_dec, 1.0f, 1.0f};
  int offs = (int)(sign(gd) * sign(alpha)) + 1;
- alpha = clamp(alpha_plus * aa[offs], alpha_min, alpha_max);
- alphas[idx] = copysign(alpha, gd);
+ alpha = max(fabs(alpha) * aa_pre[offs], alpha_min);
+ float aa_post[3] = {1.0f, 1.0f, alpha_inc};
+ alphas[idx] = copysign(min(alpha * aa_post[offs], alpha_max), gd); // store new alpha
  
- weights[idx] -= gd;
+ weights[idx] -= gd * alpha; // apply new alpha to current gradient
 }
 
 
@@ -88,15 +89,16 @@ void bias_update_a(__global float *bias, __global float *err_y,
   
   int idx = get_global_id(0);
   
-  float alpha = alphas[idx];
-  float alpha_plus = fabs(alpha);
-  float gd = sum * r_batch_size * alpha_plus;
+  float alpha = alphas[idx]; // load old alpha
+  float gd = sum * r_batch_size; // current gradient
   
-  float aa[3] = {alpha_dec, 1.0f, alpha_inc};
+  // decrease immediatly, increase for the next step
+  float aa_pre[3] = {alpha_dec, 1.0f, 1.0f};
   int offs = (int)(sign(gd) * sign(alpha)) + 1;
-  alpha = clamp(alpha_plus * aa[offs], alpha_min, alpha_max);
-  alphas[idx] = copysign(alpha, gd);
+  alpha = max(fabs(alpha) * aa_pre[offs], alpha_min);
+  float aa_post[3] = {1.0f, 1.0f, alpha_inc};
+  alphas[idx] = copysign(min(alpha * aa_post[offs], alpha_max), gd); // store new alpha
   
-  bias[idx] -= gd;
+  bias[idx] -= gd * alpha; // apply new alpha to current gradient
  }
 }
