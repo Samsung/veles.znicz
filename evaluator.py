@@ -286,52 +286,53 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
         self.threshold = threshold
         self.threshold_low = threshold_low
         self.skipped = None
-        
-        
-        self.params=None
+
+        self.params = None
         self.TrainIndex = None
         self.ValidIndex = None
-        self.TestIndex  = None  
+        self.TestIndex = None
         self.err_y_o = formats.Batch()
         self.err_y_v = formats.Batch()
-        self.err_y_t = formats.Batch()    
-        self.L=units.Connector()
-        self.L.value = 0  
+        self.err_y_t = formats.Batch()
+        self.L = units.Connector()
+        self.L.value = 0
         #self.Index=None
-        
 
     def initialize(self):
-        if self.err_y.batch == None or   self.err_y.batch.size != self.y.batch.size:
-            self.err_y.batch = numpy.zeros(self.y.batch.shape,dtype=numpy.float32)
+        if self.err_y.batch == None or \
+           self.err_y.batch.size != self.y.batch.size:
+            self.err_y.batch = numpy.zeros(self.y.batch.shape,
+                                           dtype=config.dtypes[config.dtype])
             self.err_y.batch_ = None
         self.skipped = numpy.zeros([self.y.batch.shape[0]], dtype=numpy.byte)
-        _t=self.params['data_set']
-        #_tt=_t['var1']
-        #print(_t)
-        
-        self._ff =_t['type1'] 
-        if self._ff in [1,2]: self.use_valid=1;
-        else: self.use_valid=0;
-        if self._ff in [2,3]: self.use_test=1;
-        else: self.use_test=0;
-        
+        _t = self.params['data_set']
+
+        self._ff = _t['type1']
+        if self._ff in [1, 2]:
+            self.use_valid = 1
+        else:
+            self.use_valid = 0
+        if self._ff in [2, 3]:
+            self.use_test = 1
+        else:
+            self.use_test = 0
 
         self.err_y.initialize(self.device)
-        
-        
-        
-        
-        if self.use_valid==1:
-            self.err_y_v.batch = numpy.zeros(self.y.batch.shape,dtype=numpy.float32)
-            self.count_valid=(numpy.sum(self.ValidIndex.batch))
-        if self.use_test==1:
-            self.err_y_t.batch = numpy.zeros(self.y.batch.shape,dtype=numpy.float32)
-            self.count_test=(numpy.sum(self.TestIndex.batch))
-            
-        self.err_y_o.batch = numpy.zeros(self.y.batch.shape,dtype=numpy.float32)
-        self.count_train=(numpy.sum(self.TrainIndex.batch))
-        self.L.value =self.count_train
-        
+
+        if self.use_valid == 1:
+            self.err_y_v.batch = numpy.zeros(self.y.batch.shape,
+                                             dtype=config.dtypes[config.dtype])
+            self.count_valid = numpy.sum(self.ValidIndex.batch)
+        if self.use_test == 1:
+            self.err_y_t.batch = numpy.zeros(self.y.batch.shape,
+                                             dtype=config.dtypes[config.dtype])
+            self.count_test = numpy.sum(self.TestIndex.batch)
+
+        self.err_y_o.batch = numpy.zeros(self.y.batch.shape,
+                                         dtype=config.dtypes[config.dtype])
+        self.count_train = numpy.sum(self.TrainIndex.batch)
+        self.L.value = self.count_train
+
     def cpu_run(self):
         t1 = time.time()
 
@@ -351,128 +352,140 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
         TrainIndex = self.TrainIndex
         TestIndex = self.TestIndex
         ValidIndex = self.ValidIndex
-        
-        
-        
 
-        print(" self.count_train =",self.count_train, " ",self.use_valid , " ",self.use_test)
+        print(" self.count_train = ", self.count_train,
+              " ", self.use_valid, " ", self.use_test)
         for i in range(0, batch_size):  # loop by batch
             y = self.y.batch[i]
             y = y.reshape(y.size)  # make it plain
             err_y = self.err_y.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
-            if TrainIndex.batch[i]==1:
-                
-    
+            if TrainIndex.batch[i] == 1:
                 skip = False
                 i_max = numpy.argmax(y)
-                
+
                 if i_max == labels[i]:
                     n_ok += 1
                     # check for threshold
-                    if (y[i_max] >= threshold) or ((y[i_max] >= threshold_low) and (self.skipped[i])):
+                    if (y[i_max] >= threshold) or \
+                       ((y[i_max] >= threshold_low) and (self.skipped[i])):
                         err_y[:] = 0  # already trained good enough, skip it
                         self.skipped[i] = 1
                         skip = True
                         n_skip += 1
-    
+
                 if not skip:
                     # Compute softmax output error gradient
                     err_y[:] = y[:]
                     err_y[labels[i]] = y[labels[i]] - 1.0
                     self.skipped[i] = 0
             else:
-                err_y[:]=0
-        
+                err_y[:] = 0
+
         self.err_y.update()
         #print(self.err_y.batch)
-               
-        if self.use_valid==1:
+
+        if self.use_valid == 1:
             for i in range(0, batch_size):  # loop by batch
                 y = self.y.batch[i]
                 y = y.reshape(y.size)  # make it plain
                 err_y = self.err_y_v.batch[i]
                 err_y = err_y.reshape(err_y.size)  # make it plain
-                if ValidIndex.batch[i]==1:                   
+                if ValidIndex.batch[i] == 1:
                     i_max = numpy.argmax(y)
                     if i_max == labels[i]:
-                        n_ok_v += 1                  
+                        n_ok_v += 1
                     # Compute softmax output error gradient
                     err_y[:] = y[:]
                     err_y[labels[i]] = y[labels[i]] - 1.0
-                    
                 else:
-                    err_y[:]=0
+                    err_y[:] = 0
 
-        if self.use_test==1:
+        if self.use_test == 1:
             for i in range(0, batch_size):  # loop by batch
                 y = self.y.batch[i]
                 y = y.reshape(y.size)  # make it plain
                 err_y = self.err_y_t.batch[i]
                 err_y = err_y.reshape(err_y.size)  # make it plain
-                if TestIndex.batch[i]==1:                   
+                if TestIndex.batch[i] == 1:
                     i_max = numpy.argmax(y)
                     if i_max == labels[i]:
-                        n_ok_t += 1                  
+                        n_ok_t += 1
                     # Compute softmax output error gradient
                     err_y[:] = y[:]
                     err_y[labels[i]] = y[labels[i]] - 1.0
-                    
                 else:
-                    err_y[:]=0
+                    err_y[:] = 0
         for i in range(0, batch_size):  # loop by batch
             y = self.y.batch[i]
             y = y.reshape(y.size)  # make it plain
             err_y = self.err_y_o.batch[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
-            if TrainIndex.batch[i]==1:                   
-                i_max = numpy.argmax(y)                  
+            if TrainIndex.batch[i] == 1:
+                i_max = numpy.argmax(y)
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
-                
             else:
-                err_y[:]=0
-        
-        err_y = self.err_y_o.batch
-        print("Computed softmax for train errs (min, max, avg, mean, std) = (%.3f, %.3f, %.3f , %.3f , %.3f)" %\
-                (err_y.min(), err_y.max(), numpy.average(err_y), numpy.mean(err_y), numpy.std(err_y)))            
-        if self.use_valid==1:
-            err_y = self.err_y_v.batch
-            print("Computed softmax for valid errs (min, max, avg, mean, std) = (%.3f, %.3f, %.3f , %.3f , %.3f)" %\
-                (err_y.min(), err_y.max(), numpy.average(err_y), numpy.mean(err_y), numpy.std(err_y)))
-        if self.use_test==1:
-            err_y = self.err_y_t.batch
-            print("Computed softmax for test errs (min, max, avg, mean, std) = (%.3f, %.3f, %.3f , %.3f , %.3f)" %\
-                (err_y.min(), err_y.max(), numpy.average(err_y), numpy.mean(err_y), numpy.std(err_y)))
-      
-            
+                err_y[:] = 0
 
+        err_y = self.err_y_o.batch
+        print("Computed softmax for train errs (min, max, avg, mean, std) = "
+              "(%.3f, %.3f, %.3f , %.3f , %.3f)" % \
+              (err_y.min(), err_y.max(), numpy.average(err_y),
+               numpy.mean(err_y), numpy.std(err_y)))
+        if self.use_valid == 1:
+            err_y = self.err_y_v.batch
+            print("Computed softmax for valid errs (min, max, avg, mean, std)"
+                  " = (%.3f, %.3f, %.3f , %.3f , %.3f)" % \
+                  (err_y.min(), err_y.max(), numpy.average(err_y),
+                   numpy.mean(err_y), numpy.std(err_y)))
+        if self.use_test == 1:
+            err_y = self.err_y_t.batch
+            print("Computed softmax for test errs (min, max, avg, mean, std)"
+                  " = (%.3f, %.3f, %.3f , %.3f , %.3f)" % \
+                  (err_y.min(), err_y.max(), numpy.average(err_y),
+                   numpy.mean(err_y), numpy.std(err_y)))
 
         self.status.n_ok = n_ok
         self.status.completed = False
-        
-        """
-        vivod na ekran resultatov
-        """
-        if self.use_valid==0 and self.use_test==0:
-            print("RESULT: (%d:%d | %d)" % (n_ok,self.count_train, batch_size))            
-        if self.use_valid==1 and self.use_test==0:            
+
+        if self.use_valid == 0 and self.use_test == 0:
+            print("RESULT: (%d:%d | %d)" % \
+                  (n_ok, self.count_train, batch_size))
+        if self.use_valid == 1 and self.use_test == 0:
             self.count_valid
-            print("RESULT: (%d:%d | %d:%d | %d)" % (n_ok,self.count_train, n_ok_v,self.count_valid,batch_size))
-        if self.use_test==1 and self.use_valid==0:
-            print("RESULT: (%d:%d | %d:%d | %d)" % (n_ok,self.count_train, n_ok_t,self.count_test, batch_size))
-            
-        if self.use_test==1 and self.use_valid==1:
-            print("RESULT: (%d:%d | %d:%d | %d :%d | %d)" % (n_ok,self.count_train, n_ok_v,self.count_valid, n_ok_t,self.count_test,batch_size))
-            
-        if not self.first_run and (True or self.threshold == 1.0 or n_skip == self.count_train) and    n_ok == self.count_train:
-            print("Perfect");   self.status.completed = True;   self.status.update();      return
+            print("RESULT: (%d:%d | %d:%d | %d)" % \
+                  (n_ok, self.count_train, n_ok_v, self.count_valid,
+                   batch_size))
+        if self.use_test == 1 and self.use_valid == 0:
+            print("RESULT: (%d:%d | %d:%d | %d)" % \
+                  (n_ok, self.count_train, n_ok_t, self.count_test,
+                   batch_size))
+
+        if self.use_test == 1 and self.use_valid == 1:
+            print("RESULT: (%d:%d | %d:%d | %d :%d | %d)" % \
+                  (n_ok, self.count_train, n_ok_v, self.count_valid,
+                   n_ok_t, self.count_test, batch_size))
+
+        if not self.first_run and \
+           (True or self.threshold == 1.0 or n_skip == self.count_train) and \
+           n_ok == self.count_train:
+            print("Perfect")
+            self.status.completed = True
+            self.status.update()
+            return
         self.first_run = False
-    
+
         dt = time.time() - t1
-        if not __debug__:    print("Computed softmax errs within %.2f sec, skipped %.2f%%" %   (dt, n_skip / batch_size * 100.0)); return
-        
+        if not __debug__:
+            print("Computed softmax errs within %.2f sec, skipped %.2f%%" % \
+                  (dt, n_skip / batch_size * 100.0))
+            return
+
         err_y = self.err_y.batch
-        print("Computed softmax errs within %.2f sec, skipped %.2f%%: (min, max, avg, mean, std) = (%.3f, %.3f, %.3f , %.3f , %.3f)" %\
-                (dt, n_skip / batch_size * 100.0, err_y.min(), err_y.max(), numpy.average(err_y), numpy.mean(err_y), numpy.std(err_y)))
+        print("Computed softmax errs within %.2f sec, skipped %.2f%%: "
+              "(min, max, avg, mean, std) = "
+              "(%.3f, %.3f, %.3f , %.3f , %.3f)" % \
+              (dt, n_skip / batch_size * 100.0, err_y.min(), err_y.max(),
+               numpy.average(err_y), numpy.mean(err_y), numpy.std(err_y)))
