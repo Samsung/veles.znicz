@@ -7,6 +7,7 @@ Created on Apr 16, 2013
 import units
 import formats
 import numpy
+import config
 
 
 class TXTLoader(units.Unit):
@@ -43,10 +44,11 @@ class TXTLoader(units.Unit):
         """
         print("Load from original Wine Dataset...")
 
-        self.labels.batch = numpy.zeros([178], dtype=numpy.float32)
+        self.labels.batch = numpy.zeros([178],
+                                        dtype=config.dtypes[config.dtype])
         self.labels.n_classes = 3
-        self.output.batch = numpy.loadtxt("wine/wine.csv", numpy.float32).\
-                            reshape([178, 13])
+        self.output.batch = numpy.loadtxt("wine/wine.csv",
+            config.dtypes[config.dtype]).reshape([178, 13])
         self.labels.batch = numpy.loadtxt("wine/wine_y_labels.csv", numpy.int)
         self.labels.batch -= 1
         self.normalize_use_all_dataset()
@@ -59,25 +61,25 @@ class TXTLoader(units.Unit):
     def normalize_x_use_all_dataset(self):
         """ normalization  input data.
         """
-        #self.outmean = numpy.zeros([13], dtype=numpy.float32)
+        #self.outmean = numpy.zeros([13], dtype=config.dtypes[config.dtype])
         print("normalize_x_use_all_dataset start")
 
         self.outmean = numpy.mean(self.output.batch, axis=0)
 
         self.outstd = numpy.std(self.output.batch, axis=0)
 
-        self.output2.batch = numpy.zeros([178 * 13], dtype=numpy.float32).\
-                             reshape([178, 13])
+        self.output2.batch = numpy.zeros([178 * 13],
+            dtype=config.dtypes[config.dtype]).reshape([178, 13])
         self.output2.batch[:] = self.output.batch[:]
 
         for i in range(0, 13):
             self.output2.batch[:, i] = ((self.output.batch[:, i] -
                                          self.outmean[i])) / self.outstd[i]
 
-        #self.outmin = numpy.zeros([13], dtype=numpy.float32)
+        #self.outmin = numpy.zeros([13], dtype=config.dtypes[config.dtype])
         self.outmin = numpy.min(self.output2.batch, axis=0)
 
-        #self.outmax = numpy.zeros([13], dtype=numpy.float32)
+        #self.outmax = numpy.zeros([13], dtype=config.dtypes[config.dtype])
         self.outmax = numpy.max(self.output2.batch, axis=0)
 
         for i in range(0, 13):

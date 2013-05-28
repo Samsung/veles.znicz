@@ -7,6 +7,7 @@ import units
 import formats
 import numpy
 import time
+import config
 import matplotlib.pyplot as pp
 import matplotlib.cm as cm
 
@@ -49,7 +50,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if self.err_y.batch == None or \
            self.err_y.batch.size != self.y.batch.size:
             self.err_y.batch = numpy.zeros(self.y.batch.shape,
-                                           dtype=numpy.float32)
+                                           dtype=config.dtypes[config.dtype])
             self.err_y.batch_ = None
 
         self.skipped = numpy.zeros([self.y.batch.shape[0]], dtype=numpy.byte)
@@ -181,13 +182,14 @@ class EvaluatorMSE(units.OpenCLUnit):
         if self.err_y.batch == None or \
            self.err_y.batch.size != self.y.batch.size:
             self.err_y.batch = numpy.zeros(self.y.batch.shape,
-                                           dtype=numpy.float32)
+                                           dtype=config.dtypes[config.dtype])
             self.err_y.batch_ = None
         self.err_y.initialize(self.device)
 
         if self.a == None and self.labels != None:
             self.a = formats.Batch()
-            self.a.batch = numpy.zeros(self.y.batch.shape, dtype=numpy.float32)
+            self.a.batch = numpy.zeros(self.y.batch.shape,
+                                       dtype=config.dtypes[config.dtype])
             batch_size = self.y.batch.shape[0]
             a = self.a.batch
             a = a.reshape([batch_size, a.size // batch_size])

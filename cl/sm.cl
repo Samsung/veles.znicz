@@ -1,4 +1,5 @@
-//Should be defined externally:
+//Should be declared externally:
+//#define dtype float
 //#define BLOCK_SIZE 24
 //#define BATCH 192
 //#define H 24
@@ -24,10 +25,10 @@
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 //TODO(a.kazantsev): add #if for the case when Y <= BLOCK_SIZE (which usually is)
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void apply_exp(__global float *y)
+void apply_exp(__global dtype *y)
 {
- __local float AS[BLOCK_SIZE][BLOCK_SIZE];
- __local float MS[BLOCK_SIZE], SUMS[BLOCK_SIZE];
+ __local dtype AS[BLOCK_SIZE][BLOCK_SIZE];
+ __local dtype MS[BLOCK_SIZE], SUMS[BLOCK_SIZE];
  
  int by = get_group_id(1); // from 0 to BATCH / BLOCK_SIZE - 1
  
@@ -36,7 +37,7 @@ void apply_exp(__global float *y)
  
  int start_offs = (by * BLOCK_SIZE + ty) * Y + tx;
  
- float m = -1.0e30f;
+ dtype m = -1.0e30f;
  int offs = start_offs;
  for(int i = 0; i < Y_REAL / BLOCK_SIZE; i++, offs += BLOCK_SIZE)
  {
@@ -62,7 +63,7 @@ void apply_exp(__global float *y)
  barrier(CLK_LOCAL_MEM_FENCE);
  m = MS[ty];
  
- float sum = 0.0f;
+ dtype sum = 0.0f;
  offs = start_offs;
  for(int i = 0; i < Y_REAL / BLOCK_SIZE; i++, offs += BLOCK_SIZE)
  {

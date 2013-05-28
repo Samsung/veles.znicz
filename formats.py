@@ -9,6 +9,7 @@ import units
 import pyopencl
 import opencl
 import os
+import config
 
 
 CPU = 1
@@ -133,7 +134,9 @@ class Batch(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        BLOCK_SIZE = self.device.info.BLOCK_SIZE
+        if config.dtypes[config.dtype] != self.batch.dtype:
+            self.batch = self.batch.astype(config.dtype)
+        BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.dtype]
         dim1 = self.batch.shape[0]
         dim2 = self.batch.size // self.batch.shape[0]
         if (dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE):
@@ -194,7 +197,9 @@ class Vector(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        BLOCK_SIZE = self.device.info.BLOCK_SIZE
+        if config.dtypes[config.dtype] != self.v.dtype:
+            self.v = self.v.astype(config.dtype)
+        BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.dtype]
         dim1 = self.v.shape[0]
         dim2 = self.v.size // self.v.shape[0]
         if (dim1 % BLOCK_SIZE) or ((dim2 > 1) and (dim2 % BLOCK_SIZE)):

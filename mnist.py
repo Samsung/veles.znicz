@@ -11,6 +11,7 @@ import struct
 import error
 import pickle
 import numpy
+import config
 
 
 class MNISTLoader(units.Unit):
@@ -83,7 +84,8 @@ class MNISTLoader(units.Unit):
         fin.close()
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
+        images = pixels.astype(config.dtypes[config.dtype]).\
+            reshape(n_images, n_rows, n_cols)
         print("Original range: [%.1f, %.1f]" % (images.min(), images.max()))
         for image in images:
             vle_min = image.min()

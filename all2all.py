@@ -11,6 +11,7 @@ import numpy
 import pyopencl
 import time
 import rnd
+import config
 import matplotlib.pyplot as pp
 import matplotlib.cm as cm
 
@@ -82,7 +83,8 @@ class All2All(units.OpenCLUnit):
         n_weights = self.input.batch.size // self.input.batch.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
-            self.weights.v = numpy.zeros([n_weights], dtype=numpy.float32)
+            self.weights.v = numpy.zeros([n_weights],
+                                         dtype=config.dtypes[config.dtype])
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
             # Reshape weights as a transposed matrix:
@@ -93,7 +95,7 @@ class All2All(units.OpenCLUnit):
         if self.bias.v == None or \
            self.bias.v.size != numpy.prod(self.output_shape):
             self.bias.v = numpy.zeros([numpy.prod(self.output_shape)],
-                                      dtype=numpy.float32)
+                                      dtype=config.dtypes[config.dtype])
             self.rand.fill(self.bias.v, -self.weights_amplitude,
                            self.weights_amplitude)
             self.bias.v_ = None
@@ -102,7 +104,7 @@ class All2All(units.OpenCLUnit):
         if self.output.batch == None or self.output.batch.size != output_size:
             self.output.batch = numpy.zeros([self.input.batch.shape[0],
                                              numpy.prod(self.output_shape)],
-                                            dtype=numpy.float32)
+                                            dtype=config.dtypes[config.dtype])
             self.output.batch_ = None
 
         self.input.initialize(self.device)
@@ -116,13 +118,15 @@ class All2All(units.OpenCLUnit):
         if self.krn_ == None:
             output_size = self.output.aligned_.size // \
                           self.output.aligned_.shape[0]
-            defines = ("#define %s\n"
+            defines = ("#define dtype %s\n"
+                       "#define %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define H %d\n"
                        "#define Y %d\n"
                        "#define Y_REAL %d\n"
                        "#define BATCH %d\n\n" %
-                       (self.s_activation, self.device.info.BLOCK_SIZE,
+                       (config.dtype, self.s_activation,
+                        self.device.info.BLOCK_SIZE[config.dtype],
                         self.weights.aligned_.size // output_size, output_size,
                         self.output.batch.size // self.output.batch.shape[0],
                         self.output.aligned_.shape[0]))
@@ -182,7 +186,8 @@ class All2All(units.OpenCLUnit):
         output_size = int(self.output.aligned_.size // \
                           self.output.aligned_.shape[0])
         global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         event.wait()
@@ -271,9 +276,10 @@ class All2AllSoftmax(All2All):
 
     def gpu_apply_exp(self):
         self.output.sync(formats.GPU)
-        global_size = [self.device.info.BLOCK_SIZE,
+        global_size = [self.device.info.BLOCK_SIZE[config.dtype],
                        self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_sm_,
                                                  global_size, local_size)

@@ -237,8 +237,8 @@ class TestWine(unittest.TestCase):
         uc = UseCase2(cpu=False)
         uc.run(alphas=True)
         os.chdir(this_dir)
-        self.assertEqual(uc.end_point.n_passes, 72,
-            "Wine should converge in 72 passes on the supplied seed, "
+        self.assertEqual(uc.end_point.n_passes, 294,
+            "Wine should converge in 294 passes on the supplied seed, "
             "but %d passed" % (uc.end_point.n_passes, ))
 
 

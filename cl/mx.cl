@@ -9,7 +9,8 @@
 	Kernel should be defined as:
 	__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 
-	Sizes should be defined externally (values are given for example):
+	Sizes should be declared externally (values are given for example):
+	#define dtype float
 	#define BLOCK_SIZE 16
 	#define A_WIDTH 512
 	#define B_WIDTH 256
@@ -49,17 +50,14 @@
 #if (BLOCKS > 32) && (BLOCKS <= 64)
 #define N_SUM 32
 #endif
-#if (BLOCKS > 64) && (BLOCKS <= 128)
+#if BLOCKS > 64
 #define N_SUM 64
-#endif
-#if BLOCKS > 128
-#define N_SUM 128
 #endif
 #endif
 
 // The source for matrix multiplication comes here:
- __local float AS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of A
- __local float BS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of B
+ __local dtype AS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of A
+ __local dtype BS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of B
  
  // Block index in matrix C, where the values will be put
  int bx = get_group_id(0); // from 0 to B_WIDTH / BLOCK_SIZE - 1
@@ -85,7 +83,7 @@
  int b_offs = bx * AB_COMMON * BLOCK_SIZE + ty * AB_COMMON + tx;
 #endif
 
- float sum[N_SUM];
+ dtype sum[N_SUM];
  for(int i_sum = 0; i_sum < N_SUM; i_sum++)
  {
   sum[i_sum] = 0.0f;

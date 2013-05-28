@@ -10,6 +10,7 @@ import formats
 import numpy
 import time
 import pyopencl
+import config
 
 
 class GD(units.OpenCLUnit):
@@ -53,7 +54,7 @@ class GD(units.OpenCLUnit):
         if self.err_h.batch == None or \
            self.err_h.batch.size != self.h.batch.size:
             self.err_h.batch = numpy.zeros(self.h.batch.shape,
-                                           dtype=numpy.float32)
+                                           dtype=config.dtypes[config.dtype])
             self.err_h.batch_ = None
 
         self.weights.initialize(self.device)
@@ -67,10 +68,12 @@ class GD(units.OpenCLUnit):
             return
 
         if self.prg_ == None:
-            defines = ("#define BLOCK_SIZE %d\n"
+            defines = ("#define dtype %s\n"
+                       "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % (self.device.info.BLOCK_SIZE,
+                       "#define Y %d\n\n") % (config.dtype,
+                    self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_h.aligned_.shape[0],
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
@@ -138,22 +141,24 @@ class GD(units.OpenCLUnit):
         self.bias.sync(formats.GPU)
 
         batch_size = self.y.batch.shape[0]
-        kr = numpy.empty([2], numpy.float32)
+        kr = numpy.empty([2], config.dtypes[config.dtype])
         kr[0] = (-self.global_alpha) / batch_size
         kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda)
         self.krn_weights_.set_arg(3, kr[0])
         self.krn_weights_.set_arg(4, kr[1])
         global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(2, kr[0])
         global_size = [self.err_y.aligned_.size //
                        self.err_y.aligned_.shape[0],
-                       self.device.info.BLOCK_SIZE]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+                       self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_, global_size,
                                                local_size)
@@ -187,7 +192,8 @@ class GD(units.OpenCLUnit):
         global_size = [self.err_h.aligned_.size //
                        self.err_h.aligned_.shape[0],
                        self.err_h.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_err_h_, global_size,
                                                  local_size)
@@ -329,8 +335,8 @@ class GDA(GD):
         krn_bias_a_: kernel for bias and alphas update.
     """
     def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
-                 alpha_inc=1.05, alpha_dec=0.9,
-                 alpha_max=100.0, alpha_min=0.0000001,
+                 alpha_inc=1.05, alpha_dec=0.7,
+                 alpha_max=0.9, alpha_min=0.000001,
                  unpickling=0):
         super(GDA, self).__init__(device=device, global_alpha=global_alpha,
             global_lambda=global_lambda, unpickling=unpickling)
@@ -384,7 +390,7 @@ class GDA(GD):
         self.bias_alphas.sync(formats.GPU)
 
         batch_size = self.y.batch.shape[0]
-        kr = numpy.empty([6], numpy.float32)
+        kr = numpy.empty([6], config.dtypes[config.dtype])
         kr[0] = 1.0 / batch_size
         kr[1] = self.global_lambda
         kr[2] = self.alpha_inc
@@ -399,7 +405,8 @@ class GDA(GD):
         self.krn_weights_a_.set_arg(8, kr[5])
         global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_weights_a_, global_size, local_size)
 
@@ -410,8 +417,9 @@ class GDA(GD):
         self.krn_bias_a_.set_arg(6, kr[5])
         global_size = [self.err_y.aligned_.size //
                        self.err_y.aligned_.shape[0],
-                       self.device.info.BLOCK_SIZE]
-        local_size = [self.device.info.BLOCK_SIZE, self.device.info.BLOCK_SIZE]
+                       self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
+                      self.device.info.BLOCK_SIZE[config.dtype]]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_a_, global_size,
                                                local_size)

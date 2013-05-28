@@ -1,4 +1,5 @@
-//Should be defined externally:
+//Should be declared externally:
+//#define dtype float
 //#define BLOCK_SIZE 16
 //#define BATCH 178
 //#define H 13
@@ -11,7 +12,7 @@
 	y = f(h * weights + bias)
 */
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void FEED_LAYER(__global float *h, __global float *weights, __global float *y, __global float *bias)
+void FEED_LAYER(__global dtype *h, __global dtype *weights, __global dtype *y, __global dtype *bias)
 {
  #define A_WIDTH BATCH
  #define B_WIDTH Y
