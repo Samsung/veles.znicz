@@ -158,7 +158,7 @@ class UseCase1(units.SmartPickling):
         ev.link_from(sm)
 
         plt = plotters.SimplePlotter(device=dev,
-                                     axes_label="num errors")
+                                     figure_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)
@@ -274,7 +274,7 @@ class UseCase2(units.SmartPickling):
         ev.link_from(out)
 
         plt = plotters.SimplePlotter(device=dev,
-                                     axes_label="num errors")
+                                     figure_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)
@@ -371,7 +371,7 @@ class UseCase3(units.SmartPickling):
         ev.link_from(out)
 
         plt = plotters.SimplePlotter(device=dev,
-                                     axes_label="num errors")
+                                     figure_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)

@@ -11,7 +11,7 @@ import tkinter
 import _thread
 import queue
 
-matplotlib.pyplot.ioff()
+matplotlib.pyplot.ion()
 
 
 class Graphics:
@@ -25,9 +25,7 @@ class Graphics:
         root: TKinter graphics root.
         event_queue: Queue of all pending changes created by other threads.
         run_lock: Lock to determine whether graphics window is running
-        figure: Figure containing canvas and axes
-        canvas : Canvas for drawing plots
-        axes: Axes of plot
+        registered_plotters: List of registered plotters
         is_initialized: whether this class was already initialized.
     """
 
@@ -35,8 +33,6 @@ class Graphics:
     root = None
     event_queue = None
     run_lock = None
-    figure = None
-    canvas = None
     registered_plotters = None
     is_initialized = False
 
@@ -50,6 +46,7 @@ class Graphics:
             self.is_initialized = True
             self.event_queue = queue.Queue()
             self.initialize_lock = _thread.allocate_lock()
+            self.registered_plotters = {}
             _thread.start_new_thread(self.run, ())
 
     def run(self):
@@ -59,16 +56,7 @@ class Graphics:
         self.run_lock = _thread.allocate_lock()
         self.run_lock.acquire()
         self.root = tkinter.Tk()
-        self.root.wm_title("Znicz")
-
-        # Creating figures for plotting
-        self.figure = matplotlib.figure.Figure(figsize=(5, 4), dpi=100)
-        self.registered_plotters = {}
-        self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(
-            self.figure, self.root)
-        self.canvas.get_tk_widget().pack(side=tkinter.TOP,
-                                         fill=tkinter.BOTH,
-                                         expand=1)
+        self.root.withdraw()
         self.root.after(100, self.update)
         tkinter.mainloop()  # Wait for user to close the window
         self.run_lock.release()
@@ -78,35 +66,19 @@ class Graphics:
            Event should be an instance of ScheduledEvent
         """
         if event["event_type"] == "register_plot":
-            axes_label = event["axes_label"]
+            figure_label = event["figure_label"]
             plotter_id = event["plotter_id"]
-            cur_axes = None
-            existing_axes = {}
-            for plotter in self.registered_plotters.values():
-                existing_axes[plotter["axes_label"]] = plotter["axes"]
-            if not axes_label in existing_axes:
-                #  First, reposition existing axes
-                for axes in existing_axes.values():
-                    relative_position = axes.get_geometry()[2];
-                    axes.change_geometry(1, len(existing_axes) + 1,
-                                         relative_position)
-
-                #  And then add a new one
-                existing_axes[axes_label] = self.figure.add_subplot(1,
-                    len(existing_axes) + 1, len(existing_axes) + 1)
-                existing_axes[axes_label].set_title(axes_label)
-
-            cur_axes = existing_axes[axes_label]
             self.registered_plotters[plotter_id] = {
-                "axes_label": axes_label,
-                "axes": cur_axes,
+                "figure_label": figure_label,
                 "plot_style": event["plot_style"],
                 }
         elif event["event_type"] == "update_plot":
             plotter = self.registered_plotters[event["plotter_id"]]
-            axes = plotter["axes"]
+            figure_label = plotter["figure_label"]
+            figure = matplotlib.pyplot.figure(figure_label)
+            axes = figure.add_subplot(111)  # Main axes
             axes.plot(event["new_values"], plotter["plot_style"])
-            self.canvas.show()
+            figure.show()
 
     def update(self):
         """Processes all events scheduled for plotting
@@ -123,6 +95,7 @@ class Graphics:
         """Waits for user to close the window.
         """
         print("Waiting for user to close the window...")
+        self.root.destroy()
         self.run_lock.acquire()
         self.run_lock.release()
         print("Done")
@@ -135,13 +108,13 @@ class SimplePlotter(units.OpenCLUnit):
         values: history of all parameter values given to plotter.
         input: connector to take values from
         input_field: name of field in input we want to plot
-        axes_label: label of axes used for drawing. If two ploters share
-                    the same axes_label, their plots will appear together.
+        figure_label: label of figure used for drawing. If two ploters share
+                      the same figure_label, their plots will appear together.
         plot_style: Style of lines used for plotting. See
                     http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot
                     for reference.
     """
-    def __init__(self, axes_label,
+    def __init__(self, figure_label,
                 plot_style="k-",
                 device=None,
                 unpickling=0):
@@ -150,11 +123,11 @@ class SimplePlotter(units.OpenCLUnit):
         self.values = list()
         self.input = None  # Connector
         self.input_field = None
-        self.axes_label = axes_label
+        self.figure_label = figure_label
         self.plot_style = plot_style
         register_event = {"event_type": "register_plot",
                           "plotter_id": id(self),
-                          "axes_label": self.axes_label,
+                          "figure_label": self.figure_label,
                           "plot_style": self.plot_style
                           }
         Graphics().event_queue.put(register_event, block=True)

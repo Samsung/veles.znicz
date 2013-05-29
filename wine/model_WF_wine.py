@@ -102,26 +102,26 @@ class model_WF_wine(units.SmartPickling):
         ev.link_from(out)
 
         plt_ok_train = plotters.SimplePlotter(device=dev,
-                                              axes_label="train")
+                                              figure_label="train")
         plt_ok_train.input = ev.status
         plt_ok_train.input_field = 'n_ok'
         plt_ok_train.link_from(ev)
 
         plt_total_train = plotters.SimplePlotter(device=dev,
-                                                 axes_label="train",
+                                                 figure_label="train",
                                                  plot_style="blue")
         plt_total_train.input = ev.status
         plt_total_train.input_field = 'count_train'
         plt_total_train.link_from(ev)
 
         plt_ok_valid = plotters.SimplePlotter(device=dev,
-                                              axes_label="validation")
+                                              figure_label="validation")
         plt_ok_valid.input = ev.status
         plt_ok_valid.input_field = 'n_ok_v'
         plt_ok_valid.link_from(ev)
 
         plt_total_valid = plotters.SimplePlotter(device=dev,
-                                                 axes_label="validation",
+                                                 figure_label="validation",
                                                  plot_style="blue")
         plt_total_valid.input = ev.status
         plt_total_valid.input_field = 'count_valid'
