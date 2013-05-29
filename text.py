@@ -50,7 +50,6 @@ class TXTLoader(units.Unit):
         self.output.batch = numpy.loadtxt("wine/wine.csv",
             config.dtypes[config.dtype]).reshape([178, 13])
         self.labels.batch = numpy.loadtxt("wine/wine_y_labels.csv", numpy.int)
-        self.labels.batch -= 1
         self.normalize_use_all_dataset()
         print("Done")
 
