@@ -4,6 +4,7 @@
 //#define BATCH 178
 //#define H 13
 //#define Y 5
+#pragma OPENCL EXTENSION cl_khr_fp64: enable
 
 /*
 	Feeds the layer with linear or scaled tanh() activation f(): y = 1.7159 * tanh(0.6666 * (W * x + b))
