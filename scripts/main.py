@@ -125,7 +125,6 @@ class UseCase1(units.SmartPickling):
         super(UseCase1, self).__init__(unpickling=unpickling)
         if unpickling:
             return
-        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -158,7 +157,8 @@ class UseCase1(units.SmartPickling):
         ev.labels = m.labels
         ev.link_from(sm)
 
-        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt = plotters.SimplePlotter(device=dev,
+                                     axes_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)
@@ -240,7 +240,6 @@ class UseCase2(units.SmartPickling):
         super(UseCase2, self).__init__(unpickling=unpickling)
         if unpickling:
             return
-        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -274,7 +273,8 @@ class UseCase2(units.SmartPickling):
         ev.labels = t.labels
         ev.link_from(out)
 
-        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt = plotters.SimplePlotter(device=dev,
+                                     axes_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)
@@ -337,7 +337,6 @@ class UseCase3(units.SmartPickling):
         super(UseCase3, self).__init__(unpickling=unpickling)
         if unpickling:
             return
-        graphics = plotters.Graphics()
 
         dev = None
         if not cpu:
@@ -371,7 +370,8 @@ class UseCase3(units.SmartPickling):
         ev.labels = t.labels
         ev.link_from(out)
 
-        plt = plotters.SimplePlotter(device=dev, graphics=graphics)
+        plt = plotters.SimplePlotter(device=dev,
+                                     axes_label="num errors")
         plt.input = ev.status
         plt.input_field = 'num_errors'
         plt.link_from(ev)
@@ -424,10 +424,6 @@ class UseCase3(units.SmartPickling):
 def main():
     # Main program
     logging.debug("Entered")
-
-    #  Initializing graphics
-    graphics = plotters.Graphics()
-    graphics.initialize()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", type=str, help="resume from snapshot",
@@ -484,7 +480,7 @@ def main():
         fout.close()
         print("Done")
 
-    graphics.wait_finish()
+    plotters.Graphics().wait_finish()
     logging.debug("Finished")
 
 

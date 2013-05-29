@@ -13,10 +13,11 @@ import pickle
 import os
 import argparse
 import veles_demo2
+import plotters
 
 def main():
     logging.debug("Entered")
-    
+
     parser = argparse.ArgumentParser()
     # восстановить по snapshot
     parser.add_argument("-r", type=str, help="resume from snapshot", \
@@ -89,6 +90,7 @@ def main():
     print("Done main")
 
     logging.debug("Finished")
+    plotters.Graphics().wait_finish()
 
 
 if __name__ == '__main__':

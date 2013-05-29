@@ -456,6 +456,13 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
                    numpy.mean(err_y), numpy.std(err_y)))
 
         self.status.n_ok = n_ok
+        self.status.count_train = self.count_train
+        if self.use_valid == 1:
+            self.status.n_ok_v = n_ok_v
+            self.status.count_valid = self.count_valid
+        if self.use_test == 1:
+            self.status.n_ok_t = n_ok_t
+            self.status.count_test = self.count_test
         self.status.completed = False
 
         if self.use_valid == 0 and self.use_test == 0:
