@@ -66,7 +66,7 @@ class EndPoint(units.Unit):
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
-        if self.n_passes_ >= 500 and \
+        if self.n_passes_ >= 1000 and \
            self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
             print("Snapshotting to /tmp/snapshot.best")
@@ -144,13 +144,33 @@ class UseCase1(units.SmartPickling):
         aa1.input = m.output
         aa1.link_from(rpt)
 
-        aa2 = all2all.All2AllTanh(output_shape=[96], device=dev)
+        aa2 = all2all.All2AllTanh(output_shape=[120], device=dev)
         aa2.input = aa1.output
         aa2.link_from(aa1)
 
+        aa3 = all2all.All2AllTanh(output_shape=[120], device=dev)
+        aa3.input = aa2.output
+        aa3.link_from(aa2)
+
+        aa4 = all2all.All2AllTanh(output_shape=[120], device=dev)
+        aa4.input = aa3.output
+        aa4.link_from(aa3)
+
+        aa5 = all2all.All2AllTanh(output_shape=[120], device=dev)
+        aa5.input = aa4.output
+        aa5.link_from(aa4)
+
+        aa6 = all2all.All2AllTanh(output_shape=[120], device=dev)
+        aa6.input = aa5.output
+        aa6.link_from(aa5)
+
+        aa7 = all2all.All2AllTanh(output_shape=[120], device=dev)
+        aa7.input = aa6.output
+        aa7.link_from(aa6)
+
         sm = all2all.All2AllSoftmax(output_shape=[10], device=dev)
-        sm.input = aa2.output
-        sm.link_from(aa2)
+        sm.input = aa7.output
+        sm.link_from(aa7)
 
         ev = evaluator.EvaluatorSoftmax(device=dev)
         ev.y = sm.output
@@ -175,13 +195,53 @@ class UseCase1(units.SmartPickling):
         gdsm.err_y = ev.err_y
         gdsm.link_from(self.end_point)
 
+        gd7 = gd.GDATanh(device=dev)
+        gd7.weights = aa7.weights
+        gd7.bias = aa7.bias
+        gd7.h = aa7.input
+        gd7.y = aa7.output
+        gd7.err_y = gdsm.err_h
+        gd7.link_from(gdsm)
+
+        gd6 = gd.GDATanh(device=dev)
+        gd6.weights = aa6.weights
+        gd6.bias = aa6.bias
+        gd6.h = aa6.input
+        gd6.y = aa6.output
+        gd6.err_y = gd7.err_h
+        gd6.link_from(gd7)
+
+        gd5 = gd.GDATanh(device=dev)
+        gd5.weights = aa5.weights
+        gd5.bias = aa5.bias
+        gd5.h = aa5.input
+        gd5.y = aa5.output
+        gd5.err_y = gd6.err_h
+        gd5.link_from(gd6)
+
+        gd4 = gd.GDATanh(device=dev)
+        gd4.weights = aa4.weights
+        gd4.bias = aa4.bias
+        gd4.h = aa4.input
+        gd4.y = aa4.output
+        gd4.err_y = gd5.err_h
+        gd4.link_from(gd5)
+
+        gd3 = gd.GDATanh(device=dev)
+        gd3.weights = aa3.weights
+        gd3.bias = aa3.bias
+        gd3.h = aa3.input
+        gd3.y = aa3.output
+        gd3.err_y = gd4.err_h
+        gd3.link_from(gd4)
+
         gd2 = gd.GDATanh(device=dev)
         gd2.weights = aa2.weights
         gd2.bias = aa2.bias
         gd2.h = aa2.input
         gd2.y = aa2.output
-        gd2.err_y = gdsm.err_h
-        gd2.link_from(gdsm)
+        gd2.err_y = gd3.err_h
+        gd2.link_from(gd3)
 
         gd1 = gd.GDATanh(device=dev)
         gd1.weights = aa1.weights
@@ -196,9 +256,19 @@ class UseCase1(units.SmartPickling):
         self.m = m
         self.aa1 = aa1
         self.aa2 = aa2
+        self.aa3 = aa3
+        self.aa4 = aa4
+        self.aa5 = aa5
+        self.aa6 = aa6
+        self.aa7 = aa7
         self.sm = sm
         self.ev = ev
         self.gdsm = gdsm
+        self.gd7 = gd7
+        self.gd6 = gd6
+        self.gd5 = gd5
+        self.gd4 = gd4
+        self.gd3 = gd3
         self.gd2 = gd2
         self.gd1 = gd1
 
@@ -210,6 +280,16 @@ class UseCase1(units.SmartPickling):
         self.ev.threshold_low = threshold_low
         self.gdsm.global_alpha = global_alpha
         self.gdsm.global_lambda = global_lambda
+        self.gd7.global_alpha = global_alpha
+        self.gd7.global_lambda = global_lambda
+        self.gd6.global_alpha = global_alpha
+        self.gd6.global_lambda = global_lambda
+        self.gd5.global_alpha = global_alpha
+        self.gd5.global_lambda = global_lambda
+        self.gd4.global_alpha = global_alpha
+        self.gd4.global_lambda = global_lambda
+        self.gd3.global_alpha = global_alpha
+        self.gd3.global_lambda = global_lambda
         self.gd2.global_alpha = global_alpha
         self.gd2.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha

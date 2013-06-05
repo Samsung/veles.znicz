@@ -243,8 +243,8 @@ class Labels(Batch):
     Attributes:
         n_classes: number of classes.
     """
-    def __init__(self, device=None, unpickling=0):
+    def __init__(self, n_classes=0, device=None, unpickling=0):
         super(Labels, self).__init__(device=device, unpickling=unpickling)
         if unpickling:
             return
-        self.n_classes = 0
+        self.n_classes = n_classes

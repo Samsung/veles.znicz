@@ -114,12 +114,20 @@ class SimplePlotter(units.OpenCLUnit):
                     http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot
                     for reference.
     """
-    def __init__(self, figure_label,
+    def __init__(self, figure_label="num errors",
                 plot_style="k-",
                 device=None,
                 unpickling=0):
         super(SimplePlotter, self).__init__(unpickling=unpickling,
                                             device=device)
+        if unpickling:
+            register_event = {"event_type": "register_plot",
+                          "plotter_id": id(self),
+                          "figure_label": self.figure_label,
+                          "plot_style": self.plot_style
+                          }
+            Graphics().event_queue.put(register_event, block=True)
+            return
         self.values = list()
         self.input = None  # Connector
         self.input_field = None
@@ -131,8 +139,6 @@ class SimplePlotter(units.OpenCLUnit):
                           "plot_style": self.plot_style
                           }
         Graphics().event_queue.put(register_event, block=True)
-        if unpickling:
-            return
 
     def cpu_run(self):
         value = self.input.__dict__[self.input_field]

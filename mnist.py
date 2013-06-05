@@ -9,7 +9,6 @@ import units
 import formats
 import struct
 import error
-import pickle
 import numpy
 import config
 
@@ -20,18 +19,18 @@ class MNISTLoader(units.Unit):
     State:
         output: contains MNIST images.
         labels: contains MNIST labels.
-        test_only: loads test-only data.
+        from_set: contains info for each sample: 0-train, 1-validation, 2-test.
     """
-    def __init__(self, test_only=False, unpickling=0):
+    def __init__(self, unpickling=0):
         super(MNISTLoader, self).__init__(unpickling=unpickling)
         #self.test_only = False
         if unpickling:
             return
         self.output = formats.Batch()
-        self.labels = formats.Labels()
-        self.test_only = test_only
+        self.labels = formats.Labels(10)
+        self.from_set = formats.Labels(3)
 
-    def load_original(self, labels_count, labels_fnme, images_fnme):
+    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
         print("One time relatively slow load from original MNIST files...")
@@ -47,14 +46,13 @@ class MNISTLoader(units.Unit):
         if n_labels != labels_count:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        self.labels.batch = numpy.fromfile(fin, dtype=numpy.byte,
-                                           count=n_labels)
-        if self.labels.batch.size != n_labels:
+        arr = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
+        if arr.size != n_labels:
             raise error.ErrBadFormat("EOF reached while reading labels from "
                                      "train-labels")
+        self.labels.batch[offs:offs + labels_count] = arr[:]
         if self.labels.batch.min() != 0 or self.labels.batch.max() != 9:
             raise error.ErrBadFormat("Wrong labels range in train-labels.")
-        self.labels.n_classes = 10
 
         fin.close()
 
@@ -95,40 +93,34 @@ class MNISTLoader(units.Unit):
             image += -1.0
         print("Range after normalization: [%.1f, %.1f]" % (images.min(),
                                                            images.max()))
-        self.output.batch = images
+        self.output.batch[offs:offs + n_images] = images[:]
         print("Done")
 
     def initialize(self):
         """Here we will load MNIST data.
         """
-        if self.test_only:
-            cache_fnme = "cache/MNIST-test.pickle"
-            labels_count = 10000
-            labels_fnme = "MNIST/t10k-labels.idx1-ubyte"
-            images_fnme = "MNIST/t10k-images.idx3-ubyte"
-        else:
-            cache_fnme = "cache/MNIST-train.pickle"
-            labels_count = 60000
-            labels_fnme = "MNIST/train-labels.idx1-ubyte"
-            images_fnme = "MNIST/train-images.idx3-ubyte"
-        try:
-            fin = open(cache_fnme, "rb")
-            self.output.batch, self.labels.batch, self.labels.n_classes = \
-                pickle.load(fin)
-            fin.close()
-        except IOError:
-            self.load_original(labels_count, labels_fnme, images_fnme)
-            print("Saving to cache for later faster load...")
-            fout = open(cache_fnme, "wb")
-            pickle.dump((self.output.batch, self.labels.batch,
-                         self.labels.n_classes), fout)
-            fout.close()
-        print("Done")
+        if not self.labels.batch or self.labels.batch.size < 70000:
+            self.labels.batch = numpy.zeros([70000], dtype=numpy.int8)
+        if not self.from_set.batch or self.from_set.batch.size < 70000:
+            self.from_set.batch = numpy.zeros([70000], dtype=numpy.int8)
+        if not self.output.batch or self.output.batch.shape[0] < 70000:
+            self.output.batch = numpy.zeros([70000, 28, 28],
+                                            dtype=config.dtypes[config.dtype])
+
+        self.load_original(0, 60000, "MNIST/train-labels.idx1-ubyte",
+                           "MNIST/train-images.idx3-ubyte")
+        self.from_set.batch[0:60000] = 0
+        self.load_original(60000, 10000, "MNIST/t10k-labels.idx1-ubyte",
+                           "MNIST/t10k-images.idx3-ubyte")
+        self.from_set.batch[60000:70000] = 2
+
         self.output.update()
         self.labels.update()
+        self.from_set.update()
 
     def run(self):
         """Just update an output.
         """
         self.output.update()
         self.labels.update()
+        self.from_set.update()
