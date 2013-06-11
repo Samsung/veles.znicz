@@ -8,8 +8,6 @@ import formats
 import numpy
 import time
 import config
-import matplotlib.pyplot as pp
-import matplotlib.cm as cm
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -19,30 +17,26 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         labels: labels for Batch.
         y: output of the network as Batch.
         err_y: backpropagation errors based on labels.
-        status: status of the evaluation
-                (status.completed = True when learning ended).
         threshold: when output becomes greater than this value,
                    assume gradient as 0.
         threshold_low: when gradient was assumed as 0 and output becomes less
                        than this value, calculate gradient as usual.
         skipped: array of bytes with non-zero value if the sample was skipped
                  due to assumed zero-gradient.
+        batch_size: number of elements in y to evaluate.
+        n_err: number of wrong recognized samples.
     """
-    def __init__(self, threshold=0.33, threshold_low=None, device=None,
+    def __init__(self, threshold=0.66, threshold_low=0.33, device=None,
                  unpickling=0):
         super(EvaluatorSoftmax, self).__init__(unpickling=unpickling,
                                                device=device)
-        self.save_failed = False
-        self.first_run = True
         if unpickling:
             return
         self.labels = None  # formats.Labels()
         self.y = None  # formats.Batch(device)
         self.err_y = formats.Batch()
-        self.status = units.Connector()
-        self.status.completed = False
-        self.status.n_ok = 0
-        self.status.num_errors = 0
+        self.batch_size = None  # [0]
+        self.n_err = [0]
         self.threshold = threshold
         self.threshold_low = threshold_low
         self.skipped = None
@@ -60,11 +54,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
     def cpu_run(self):
         t1 = time.time()
-
         self.y.sync()
         n_ok = 0
         n_skip = 0
-        batch_size = self.y.batch.shape[0]
+        batch_size = self.batch_size[0]
         labels = self.labels.batch
 
         threshold = self.threshold
@@ -89,65 +82,24 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                     self.skipped[i] = 1
                     skip = True
                     n_skip += 1
-                if self.save_failed and (i % 50) == 0:
-                    idx = numpy.argsort(y)
-                    pp.imshow(self.origin.batch[i], interpolation="lanczos",
-                              cmap=cm.gray)
-                    width = 256
-                    fnme = "ok/%d_as_%d(%d)_%d(%d)_%d(%d).%d.png" % (labels[i],
-                           i_max, y[i_max] * 100,
-                           idx[y.size - 2], y[idx[y.size - 2]] * 100,
-                           idx[y.size - 3], y[idx[y.size - 3]] * 100,
-                           i)
-                    pp.savefig(fnme, dpi=width // 8)
-                    print("Image saved to %s" % (fnme, ))
-                    pp.clf()
-                    pp.cla()
-            elif self.save_failed:
-                idx = numpy.argsort(y)
-                pp.imshow(self.origin.batch[i], interpolation="lanczos",
-                          cmap=cm.gray)
-                width = 256
-                fnme = "failed/%d_as_%d(%d)_%d(%d)_%d(%d).%d.png" % (labels[i],
-                       i_max, y[i_max] * 100,
-                       idx[y.size - 2], y[idx[y.size - 2]] * 100,
-                       idx[y.size - 3], y[idx[y.size - 3]] * 100,
-                       i)
-                pp.savefig(fnme, dpi=width // 8)
-                print("Image saved to %s" % (fnme, ))
-                pp.clf()
-                pp.cla()
 
             if not skip:
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
                 self.skipped[i] = 0
+            else:
+                err_y[:] = 0.0
+        # Set errors for excessive samples to zero
+        if batch_size < self.err_y.batch.shape[0]:
+            err_y = self.err_y.batch[batch_size:]
+            err_y = err_y.reshape(err_y.size)  # make it plain
+            err_y[:] = 0.0
         self.err_y.update()
-        self.status.n_ok = n_ok
-        self.status.completed = False
-        self.status.num_errors = batch_size - n_ok  # Number of errors
-        self.status.update()
-        print("(n_ok, n_total): (%d, %d)" % (n_ok, batch_size))
-        if not self.first_run and (True or self.threshold == 1.0 or \
-                                   n_skip == batch_size) and \
-           n_ok == batch_size:
-            print("Perfect")
-            self.status.completed = True
-            self.status.update()
-            return
-        self.first_run = False
-
-        dt = time.time() - t1
-        if not __debug__:
-            print("Computed softmax errs within %.2f sec, skipped %.2f%%" %
-                  (dt, n_skip / batch_size * 100.0))
-            return
-        err_y = self.err_y.batch
-        print("Computed softmax errs within %.2f sec, skipped %.2f%%:\t"
-              "min=%.4f\tmax=%.4f\tavg=%.4f" %
-              (dt, n_skip / batch_size * 100.0, err_y.min(), err_y.max(),
-               numpy.average(err_y)))
+        self.n_err[0] = batch_size - n_ok
+        if __debug__:
+            print("%s in %.2f sec" % (self.__class__.__name__,
+                                      time.time() - t1))
 
 
 class EvaluatorMSE(units.OpenCLUnit):

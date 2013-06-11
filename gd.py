@@ -30,8 +30,9 @@ class GD(units.OpenCLUnit):
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
+        batch_size: effective batch size (if None, get it from y).
     """
-    def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
+    def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
                  unpickling=0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         self.cl_sources["cl/gd.cl"] = 1
@@ -49,6 +50,7 @@ class GD(units.OpenCLUnit):
         self.err_h = formats.Batch(device)
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
+        self.batch_size = None  # [0]
 
     def initialize(self):
         if self.err_h.batch == None or \
@@ -68,12 +70,13 @@ class GD(units.OpenCLUnit):
             return
 
         if self.prg_ == None:
-            defines = ("#define dtype %s\n"
+            defines = ("%s\n"
+                       "#define dtype %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % (config.dtype,
-                    self.device.info.BLOCK_SIZE[config.dtype],
+                       "#define Y %d\n\n") % (config.pragmas[config.dtype],
+                    config.dtype, self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_h.aligned_.shape[0],
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
@@ -116,7 +119,8 @@ class GD(units.OpenCLUnit):
         self.bias.sync()
         bias = self.bias.v
         bias = bias.reshape(bias.size)  # make it plain
-        batch_size = self.y.batch.shape[0]
+        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+                                           else self.batch_size[0]
         r_batch_size = 1.0 / batch_size
         weights = self.weights.v.transpose()
 
@@ -140,7 +144,8 @@ class GD(units.OpenCLUnit):
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
 
-        batch_size = self.y.batch.shape[0]
+        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+                                           else self.batch_size[0]
         kr = numpy.empty([2], config.dtypes[config.dtype])
         kr[0] = (-self.global_alpha) / batch_size
         kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda)
@@ -334,7 +339,7 @@ class GDA(GD):
         krn_weights_a_: kernel for weights and alphas update.
         krn_bias_a_: kernel for bias and alphas update.
     """
-    def __init__(self, device=None, global_alpha=0.9, global_lambda=0.0,
+    def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
                  alpha_inc=1.05, alpha_dec=0.7,
                  alpha_max=0.9, alpha_min=0.000001,
                  unpickling=0):
@@ -389,7 +394,8 @@ class GDA(GD):
         self.weights_alphas.sync(formats.GPU)
         self.bias_alphas.sync(formats.GPU)
 
-        batch_size = self.y.batch.shape[0]
+        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+                                           else self.batch_size[0]
         kr = numpy.empty([6], config.dtypes[config.dtype])
         kr[0] = 1.0 / batch_size
         kr[1] = self.global_lambda

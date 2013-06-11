@@ -10,6 +10,7 @@ import pyopencl
 import opencl
 import os
 import config
+import error
 
 
 CPU = 1
@@ -174,6 +175,21 @@ class Batch(OpenCLConnector):
             self._unmap()
         else:
             self._write(self.batch_)
+
+    def set_batch_size(self, batch_size):
+        if batch_size == self.batch.shape[0]:
+            return
+        if self.aligned_ == None:
+            self.aligned_ = self.batch
+        if batch_size > self.aligned_.shape[0]:
+            raise error.ErrBadFormat("batch_size (%d) should not be greater "
+                                     "than aligned_.shape[0] (%d)" % \
+                                     (batch_size, self.aligned_.shape[0]))
+        dim2 = self.batch.size // self.batch.shape[0]
+        self.batch = self.aligned_[0:batch_size, 0:dim2].view().\
+                        reshape([batch_size].extend(self.batch.shape[1:]))
+        assert self.aligned_.__array_interface__["data"][0] == \
+               self.batch.__array_interface__["data"][0]
 
 
 class Vector(OpenCLConnector):

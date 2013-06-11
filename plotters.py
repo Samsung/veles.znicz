@@ -3,13 +3,12 @@ Created on May 17, 2013
 
 @author: Kumok Akim <a.kumok@samsung.com>
 """
-import matplotlib
 import matplotlib.pyplot
-import matplotlib.widgets
 import units
 import tkinter
 import _thread
 import queue
+
 
 matplotlib.pyplot.ion()
 
@@ -111,8 +110,8 @@ class SimplePlotter(units.OpenCLUnit):
         figure_label: label of figure used for drawing. If two ploters share
                       the same figure_label, their plots will appear together.
         plot_style: Style of lines used for plotting. See
-                    http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot
-                    for reference.
+            http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.plot
+            for reference.
     """
     def __init__(self, figure_label="num errors",
                 plot_style="k-",
@@ -141,7 +140,14 @@ class SimplePlotter(units.OpenCLUnit):
         Graphics().event_queue.put(register_event, block=True)
 
     def cpu_run(self):
-        value = self.input.__dict__[self.input_field]
+        if type(self.input_field) == dict:
+            value = self.input.__dict__[self.input_field]
+        elif type(self.input_field) == int:
+            if self.input_field < 0 or self.input_field >= len(self.input):
+                return
+            value = self.input[self.input_field]
+        else:
+            value = self.input
         self.values.append(value)
         update_event = {"event_type": "update_plot",
                         "plotter_id": id(self),

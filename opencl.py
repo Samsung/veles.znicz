@@ -125,10 +125,10 @@ class DeviceList(units.SmartPickling):
             if self.devices_available[i].context_ != context:
                 self.devices_available.pop(i)
         print("Selected single context with the following devices "
-              "(guid: rating, BLOCK_SIZE):")
+              "(guid: dtype, rating, BLOCK_SIZE):")
         for device in self.devices_available:
             for dtype in device.info.rating.keys():
-                print("%s: %.4f, %s" % (device.info.guid,
+                print("%s: %s, %.4f, %s" % (device.info.guid, dtype,
                     device.info.rating[dtype], device.info.BLOCK_SIZE[dtype]))
 
         if not unpickling:
