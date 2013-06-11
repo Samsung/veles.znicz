@@ -6,7 +6,7 @@ Created on May 17, 2013
 import matplotlib.pyplot
 import units
 import tkinter
-import _thread
+import threading
 import queue
 
 
@@ -44,15 +44,15 @@ class Graphics:
         if not self.is_initialized:
             self.is_initialized = True
             self.event_queue = queue.Queue()
-            self.initialize_lock = _thread.allocate_lock()
+            self.initialize_lock = threading.Lock()
             self.registered_plotters = {}
-            _thread.start_new_thread(self.run, ())
+            units.pool.request(self.run)
 
     def run(self):
         """Creates and runs main graphics window.
         Note that this function should be called only by __init__()
         """
-        self.run_lock = _thread.allocate_lock()
+        self.run_lock = threading.Lock()
         self.run_lock.acquire()
         self.root = tkinter.Tk()
         self.root.withdraw()
