@@ -29,7 +29,6 @@ import numpy
 import config
 import rnd
 import opencl
-import threading
 import plotters
 
 
@@ -311,7 +310,7 @@ class Decision(units.Unit):
         fail_iterations: number of consequent iterations with non-decreased
             validation error.
     """
-    def __init__(self, fail_iterations=500, unpickling=0):
+    def __init__(self, fail_iterations=50, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -331,8 +330,11 @@ class Decision(units.Unit):
         self.min_validation_err_epoch_number = -1
         self.workflow = None
         self.fnme = None
+        self.t1 = None
 
     def run(self):
+        if self.t1 == None:
+            self.t1 = time.time()
         self.complete[0] = 0
         self.epoch_ended[0] = 0
 
@@ -362,7 +364,7 @@ class Decision(units.Unit):
                 if self.epoch_min_err[1] < self.min_validation_err:
                     self.min_validation_err = self.epoch_min_err[1]
                     self.min_validation_err_epoch_number = self.epoch_number[0]
-                    if self.n_err_pt[1] < 5.0:
+                    if self.n_err_pt[1] < 2.5:
                         global this_dir
                         if self.fnme != None:
                             try:
@@ -382,10 +384,12 @@ class Decision(units.Unit):
                     self.complete[0] = 1
 
             # Print some statistics
-            print("Epoch %d Class %d Errors %d Threads %d" % \
+            t2 = time.time()
+            print("Epoch %d Class %d Errors %d in %.2f sec" % \
                   (self.epoch_number[0], self.minibatch_class[0],
                    self.n_err[self.minibatch_class[0]],
-                   threading.active_count()))
+                   t2 - self.t1))
+            self.t1 = t2
 
             # Training set processed
             if self.minibatch_class[0] == 2:
@@ -515,13 +519,48 @@ class Workflow(units.OpenCLUnit):
 import inline
 import pickle
 import time
+#import matplotlib.pyplot as pp
+#import matplotlib.cm as cm
 
 
 def main():
+    """
+    fin = open("mnist.1.86.2layer100neurons.pickle", "rb")
+    w = pickle.load(fin)
+    fin.close()
+
+    fout = open("w100.txt", "w")
+    weights = w.forward[0].weights.v
+    for row in weights:
+        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write("\n")
+    fout.close()
+    fout = open("b100.txt", "w")
+    bias = w.forward[0].bias.v
+    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write("\n")
+    fout.close()
+
+    fout = open("w10.txt", "w")
+    weights = w.forward[1].weights.v
+    for row in weights:
+        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write("\n")
+    fout.close()
+    fout = open("b10.txt", "w")
+    bias = w.forward[1].bias.v
+    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write("\n")
+    fout.close()
+
+    print("Done")
+    sys.exit(0)
+    """
+
     global this_dir
-    #rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
-    #                                numpy.int32, 1024))
-    rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 65536))
+    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+                                    numpy.int32, 1024))
+    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     unistd = inline.Inline()
     unistd.sources.append("#include <unistd.h>")
     unistd.function_descriptions = {"_exit": "iv"}
@@ -549,9 +588,13 @@ def main():
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
-    #print("Will now exit")
-    #unistd.execute("_exit", 0)
-    plotters.Graphics().wait_finish()
+
+    try:
+        plotters.Graphics().wait_finish()
+    except:
+        pass
+    print("Will now exit")
+    unistd.execute("_exit", 0)
 
 
 if __name__ == "__main__":

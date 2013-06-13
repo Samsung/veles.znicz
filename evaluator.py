@@ -8,6 +8,8 @@ import formats
 import numpy
 import time
 import config
+import inline
+import os
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -25,6 +27,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                  due to assumed zero-gradient.
         batch_size: number of elements in y to evaluate.
         n_err: number of wrong recognized samples.
+        c_: C-code.
     """
     def __init__(self, threshold=0.66, threshold_low=0.33, device=None,
                  unpickling=0):
@@ -40,6 +43,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.threshold = threshold
         self.threshold_low = threshold_low
         self.skipped = None
+        self.n_skipped = None
+        self.c_ = None
 
     def initialize(self):
         if self.err_y.batch == None or \
@@ -49,14 +54,29 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.err_y.batch_ = None
 
         self.skipped = numpy.zeros([self.y.batch.shape[0]], dtype=numpy.byte)
+        self.n_skipped = numpy.zeros([1], dtype=numpy.int32)
 
         self.err_y.initialize(self.device)
+
+        this_dir = os.path.dirname(__file__)
+        dt = config.inline_types[config.dtype]
+        i = self.labels.batch.itemsize
+        if i == 1:
+            it = "b"
+            itype = "unsigned char"
+        else:
+            it = "i"
+            itype = "int"
+        self.c_ = inline.Inline(["#define dtype %s\n#define itype %s\n" % \
+                                 (config.dtype, itype),
+                                 "%s/c/evaluator.c" % (this_dir, )],
+                                {"ev_softmax": "%s*ii%s*ii%s*%s%sb*i*i" %
+                                 (dt, dt, it, dt, dt)})
+        self.c_.compile()
 
     def cpu_run(self):
         t1 = time.time()
         self.y.sync()
-        n_ok = 0
-        n_skip = 0
         batch_size = self.batch_size[0]
         labels = self.labels.batch
 
@@ -65,6 +85,15 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if threshold_low == None:
             threshold_low = threshold
 
+        self.n_err[0] = self.c_.execute("ev_softmax", self.y.batch,
+            self.y.batch.size // self.y.batch.shape[0],
+            self.y.aligned_.size // self.y.aligned_.shape[0],
+            self.err_y.batch,
+            batch_size, self.err_y.batch.shape[0], labels, threshold,
+            threshold_low, self.skipped, self.n_skipped)
+        """
+        n_ok = 0
+        n_skip = 0
         for i in range(0, batch_size):  # loop by batch
             y = self.y.batch[i]
             y = y.reshape(y.size)  # make it plain
@@ -88,15 +117,14 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
                 self.skipped[i] = 0
-            else:
-                err_y[:] = 0.0
         # Set errors for excessive samples to zero
         if batch_size < self.err_y.batch.shape[0]:
             err_y = self.err_y.batch[batch_size:]
             err_y = err_y.reshape(err_y.size)  # make it plain
             err_y[:] = 0.0
-        self.err_y.update()
         self.n_err[0] = batch_size - n_ok
+        """
+        self.err_y.update()
         if __debug__:
             print("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
