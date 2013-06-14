@@ -328,6 +328,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_err = 1.0e30
         self.min_validation_err_epoch_number = -1
+        #self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -393,6 +394,22 @@ class Decision(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
+                #this_train_err = self.n_err[2]
+                #if self.prev_train_err:
+                #    k = this_train_err / self.prev_train_err
+                #else:
+                #    k = 1.0
+                #if k < 1.04:
+                #    ak = 1.05
+                #else:
+                #    ak = 0.7
+                #self.prev_train_err = this_train_err
+                #for gd in self.workflow.gd:
+                #    gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
+                #                          0.0001)
+                #print("new global_alpha: %.4f" % \
+                #      (self.workflow.gd[0].global_alpha, ))
+
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
                 # Reset n_err
@@ -428,10 +445,17 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
+            #if not i:
+            #    amp = 9.0 / 784
+            #else:
+            #    amp = 9.0 / 1.7159 / layers[i - 1]
+            amp = 0.05
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh([layers[i]], device=device)
+                aa = all2all.All2AllTanh([layers[i]], device=device,
+                                         weights_amplitude=amp)
             else:
-                aa = all2all.All2AllSoftmax([layers[i]], device=device)
+                aa = all2all.All2AllSoftmax([layers[i]], device=device,
+                                            weights_amplitude=amp)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
