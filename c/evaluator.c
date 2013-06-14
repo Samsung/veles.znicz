@@ -9,7 +9,7 @@
  */
 int ev_softmax(dtype *y, int y_size, int y_aligned_size, dtype *err_y, int batch_size, int full_size,
                itype *labels, dtype threshold, dtype threshold_low, unsigned char *skipped,
-               int *n_skipped)
+               int *n_skipped, int *confusion_matrix)
 {
  int n_ok = 0, n_skip = 0;
  int i, offs;
@@ -27,6 +27,8 @@ int ev_softmax(dtype *y, int y_size, int y_aligned_size, dtype *err_y, int batch
    }
   }
   int ireal = labels[i];
+  if(confusion_matrix)
+   confusion_matrix[im * y_size + ireal]++;
   if(im == ireal)
   {
    n_ok++;

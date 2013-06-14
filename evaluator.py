@@ -33,6 +33,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                  due to assumed zero-gradient.
         batch_size: number of elements in y to evaluate.
         n_err: number of wrong recognized samples.
+        confusion_matrix: confusion matrix for the output.
     """
     def __init__(self, threshold=0.66, threshold_low=0.33, device=None,
                  unpickling=0):
@@ -49,6 +50,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.threshold_low = threshold_low
         self.skipped = None
         self.n_skipped = None
+        self.confusion_matrix = formats.Vector()
 
     def initialize(self):
         if self.err_y.batch == None or \
@@ -58,7 +60,13 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.err_y.batch_ = None
 
         self.skipped = numpy.zeros([self.y.batch.shape[0]], dtype=numpy.byte)
-        self.n_skipped = numpy.zeros([1], dtype=numpy.int32)
+        self.n_skipped = numpy.zeros([3], dtype=numpy.int32)
+
+        out_size = self.y.batch.size // self.y.batch.shape[0]
+        if self.confusion_matrix.v == None or \
+           self.confusion_matrix.v.size != out_size * out_size:
+            self.confusion_matrix.v = numpy.zeros([out_size, out_size],
+                                                  dtype=numpy.int32)
 
         self.err_y.initialize(self.device)
 
@@ -79,7 +87,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             inline.Inline(["#define dtype %s\n#define itype %s\n" % \
                            (config.dtype, itype),
                           "%s/c/evaluator.c" % (this_dir, )],
-                          {"ev_softmax": "%s*ii%s*ii%s*%s%sb*i*i" %
+                          {"ev_softmax": "%s*ii%s*ii%s*%s%sb*i*i*i" %
                            (dt, dt, it, dt, dt)})
             c_ev_softmax.compile()
         lock_.release()
@@ -101,7 +109,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.y.aligned_.size // self.y.aligned_.shape[0],
             self.err_y.batch,
             batch_size, self.err_y.batch.shape[0], labels, threshold,
-            threshold_low, self.skipped, self.n_skipped)
+            threshold_low, self.skipped, self.n_skipped,
+            self.confusion_matrix.v)
         """
         n_ok = 0
         n_skip = 0
