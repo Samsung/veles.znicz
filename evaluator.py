@@ -10,6 +10,12 @@ import time
 import config
 import inline
 import os
+import threading
+
+
+# C-code
+lock_ = threading.Lock()
+c_ev_softmax = None
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -27,7 +33,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                  due to assumed zero-gradient.
         batch_size: number of elements in y to evaluate.
         n_err: number of wrong recognized samples.
-        c_: C-code.
     """
     def __init__(self, threshold=0.66, threshold_low=0.33, device=None,
                  unpickling=0):
@@ -44,7 +49,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.threshold_low = threshold_low
         self.skipped = None
         self.n_skipped = None
-        self.c_ = None
 
     def initialize(self):
         if self.err_y.batch == None or \
@@ -58,21 +62,27 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         self.err_y.initialize(self.device)
 
-        this_dir = os.path.dirname(__file__)
-        dt = config.inline_types[config.dtype]
-        i = self.labels.batch.itemsize
-        if i == 1:
-            it = "b"
-            itype = "unsigned char"
-        else:
-            it = "i"
-            itype = "int"
-        self.c_ = inline.Inline(["#define dtype %s\n#define itype %s\n" % \
-                                 (config.dtype, itype),
-                                 "%s/c/evaluator.c" % (this_dir, )],
-                                {"ev_softmax": "%s*ii%s*ii%s*%s%sb*i*i" %
-                                 (dt, dt, it, dt, dt)})
-        self.c_.compile()
+        global lock_
+        global c_ev_softmax
+        lock_.acquire()
+        if c_ev_softmax == None:
+            this_dir = os.path.dirname(__file__)
+            dt = config.inline_types[config.dtype]
+            i = self.labels.batch.itemsize
+            if i == 1:
+                it = "b"
+                itype = "unsigned char"
+            else:
+                it = "i"
+                itype = "int"
+            c_ev_softmax = \
+            inline.Inline(["#define dtype %s\n#define itype %s\n" % \
+                           (config.dtype, itype),
+                          "%s/c/evaluator.c" % (this_dir, )],
+                          {"ev_softmax": "%s*ii%s*ii%s*%s%sb*i*i" %
+                           (dt, dt, it, dt, dt)})
+            c_ev_softmax.compile()
+        lock_.release()
 
     def cpu_run(self):
         t1 = time.time()
@@ -85,7 +95,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if threshold_low == None:
             threshold_low = threshold
 
-        self.n_err[0] = self.c_.execute("ev_softmax", self.y.batch,
+        global c_ev_softmax
+        self.n_err[0] = c_ev_softmax.execute("ev_softmax", self.y.batch,
             self.y.batch.size // self.y.batch.shape[0],
             self.y.aligned_.size // self.y.aligned_.shape[0],
             self.err_y.batch,
