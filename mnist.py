@@ -30,6 +30,16 @@ import config
 import rnd
 import opencl
 import plotters
+import hog
+
+
+def normalize(a):
+    a -= a.min()
+    m = a.max()
+    if m:
+        a /= m
+        a *= 2.0
+        a -= 1.0
 
 
 class MNISTLoader(units.Unit):
@@ -37,6 +47,7 @@ class MNISTLoader(units.Unit):
 
     Attributes:
         rnd: rnd.Rand().
+        use_hog: use hog or not.
 
         minibatch_data: MNIST images scaled to [-1, 1].
         minibatch_indexes: global indexes of images in minibatch.
@@ -58,7 +69,7 @@ class MNISTLoader(units.Unit):
         original_labels: original MNIST labels as single batch.
     """
     def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=60,
-                 rnd=rnd.default, unpickling=0):
+                 rnd=rnd.default, use_hog=False, unpickling=0):
         """Constructor.
 
         Parameters:
@@ -71,6 +82,7 @@ class MNISTLoader(units.Unit):
         if unpickling:
             return
         self.rnd = [rnd]
+        self.use_hog = use_hog
 
         self.minibatch_data = formats.Batch()
         self.minibatch_indexes = formats.Labels(70000)
@@ -158,18 +170,22 @@ class MNISTLoader(units.Unit):
         fin.close()
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(config.dtypes[config.dtype]).\
-            reshape(n_images, n_rows, n_cols)
-        print("Original range: [%.1f, %.1f]" % (images.min(), images.max()))
-        for image in images:
-            vle_min = image.min()
-            vle_max = image.max()
-            image += -vle_min
-            image *= 2.0 / (vle_max - vle_min)
-            image += -1.0
-        print("Range after normalization: [%.1f, %.1f]" % (images.min(),
-                                                           images.max()))
-        self.original_data[offs:offs + n_images] = images[:]
+        if self.use_hog:
+            images = pixels.reshape(n_images, n_rows, n_cols)
+            for i in range(0, n_images):
+                h = hog.hog(images[i])
+                normalize(h)
+                self.original_data[offs + i] = h[:]
+        else:
+            images = pixels.astype(config.dtypes[config.dtype]).\
+                reshape(n_images, n_rows, n_cols)
+            print("Original range: [%.1f, %.1f]" % (images.min(),
+                                                    images.max()))
+            for image in images:
+                normalize(image)
+            print("Range after normalization: [%.1f, %.1f]" % (images.min(),
+                                                               images.max()))
+            self.original_data[offs:offs + n_images] = images[:]
         print("Done")
 
     def initialize(self):
@@ -178,8 +194,10 @@ class MNISTLoader(units.Unit):
         if not self.original_labels or self.original_labels.size < 70000:
             self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
         if not self.original_data or self.original_data.shape[0] < 70000:
-            self.original_data = numpy.zeros([70000, 28, 28],
-                                             dtype=config.dtypes[config.dtype])
+            self.original_data = \
+            numpy.zeros([70000, 28, 28], dtype=config.dtypes[config.dtype]) \
+            if not self.use_hog else \
+            numpy.zeros([70000, 81], dtype=config.dtypes[config.dtype])
         if not self.shuffled_indexes or self.shuffled_indexes.size < 70000:
             self.shuffled_indexes = numpy.arange(70000, dtype=numpy.int32)
 
@@ -191,9 +209,11 @@ class MNISTLoader(units.Unit):
                            "%s/MNIST/train-labels.idx1-ubyte" % (this_dir, ),
                            "%s/MNIST/train-images.idx3-ubyte" % (this_dir, ))
 
+        sh = [self.minibatch_maxsize[0]]
+        for i in self.original_data.shape[1:]:
+            sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
-            [self.minibatch_maxsize[0], 28, 28],
-            dtype=config.dtypes[config.dtype])
+            sh, dtype=config.dtypes[config.dtype])
         self.minibatch_labels.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(

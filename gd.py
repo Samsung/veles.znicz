@@ -71,12 +71,11 @@ class GD(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = ("%s\n"
-                       "#define dtype %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % (config.pragmas[config.dtype],
-                    config.dtype, self.device.info.BLOCK_SIZE[config.dtype],
+                       "#define Y %d\n\n") % (config.cl_defines[config.dtype],
+                    self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_h.aligned_.shape[0],
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])

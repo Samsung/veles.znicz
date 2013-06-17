@@ -119,15 +119,13 @@ class All2All(units.OpenCLUnit):
             output_size = self.output.aligned_.size // \
                           self.output.aligned_.shape[0]
             defines = ("%s\n"
-                       "#define dtype %s\n"
                        "#define %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define H %d\n"
                        "#define Y %d\n"
                        "#define Y_REAL %d\n"
                        "#define BATCH %d\n\n" %
-                       (config.pragmas[config.dtype],
-                        config.dtype, self.s_activation,
+                       (config.cl_defines[config.dtype], self.s_activation,
                         self.device.info.BLOCK_SIZE[config.dtype],
                         self.weights.aligned_.size // output_size, output_size,
                         self.output.batch.size // self.output.batch.shape[0],

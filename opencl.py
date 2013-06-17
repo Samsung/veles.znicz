@@ -117,7 +117,8 @@ class DeviceList(units.SmartPickling):
             print("Done")
 
         self.devices_available.sort(
-            key=lambda device: device.info.rating[config.dtype])
+            key=lambda device: device.info.rating[config.dtype],
+            reverse=True)
         # leave only one context
         context = self.devices_available[0].context_
         n = len(self.devices_available)
@@ -334,13 +335,13 @@ class DeviceList(units.SmartPickling):
     def _do_test(self, device, BLOCK_SIZE, dtype, iters):
         """Do test for specific context
         """
-        defines = ("#define dtype %s\n"
+        defines = ("%s\n"
         "#define ACTIVATION_TANH\n"
         "#define BLOCK_SIZE %d\n"
         "#define H %d\n"
         "#define Y %d\n"
-        "#define BATCH %d\n\n" % (dtype, BLOCK_SIZE, self.AB_WIDTH,
-                                  self.B_HEIGHT, self.A_HEIGHT))
+        "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
+                                  self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
         fin = open("cl/mx.cl", "r")
         s_mx_mul = fin.read()
         fin.close()
