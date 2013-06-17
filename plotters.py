@@ -140,14 +140,12 @@ class SimplePlotter(units.OpenCLUnit):
         Graphics().event_queue.put(register_event, block=True)
 
     def cpu_run(self):
-        if type(self.input_field) == dict:
-            value = self.input.__dict__[self.input_field]
-        elif type(self.input_field) == int:
+        if type(self.input_field) == int:
             if self.input_field < 0 or self.input_field >= len(self.input):
                 return
             value = self.input[self.input_field]
         else:
-            value = self.input
+            value = self.input.__dict__[self.input_field]
         self.values.append(value)
         update_event = {"event_type": "update_plot",
                         "plotter_id": id(self),
