@@ -31,6 +31,7 @@ import rnd
 import opencl
 import plotters
 import hog
+import scipy.ndimage
 
 
 def normalize(a):
@@ -173,7 +174,10 @@ class MNISTLoader(units.Unit):
         if self.use_hog:
             images = pixels.reshape(n_images, n_rows, n_cols)
             for i in range(0, n_images):
-                h = hog.hog(images[i])
+                if i and not i % 1000:
+                    print(i)
+                img = scipy.ndimage.zoom(images[i], 32 / 28, order=5)
+                h = hog.hog(img)
                 normalize(h)
                 self.original_data[offs + i] = h[:]
         else:
@@ -197,7 +201,7 @@ class MNISTLoader(units.Unit):
             self.original_data = \
             numpy.zeros([70000, 28, 28], dtype=config.dtypes[config.dtype]) \
             if not self.use_hog else \
-            numpy.zeros([70000, 81], dtype=config.dtypes[config.dtype])
+            numpy.zeros([70000, 324], dtype=config.dtypes[config.dtype])
         if not self.shuffled_indexes or self.shuffled_indexes.size < 70000:
             self.shuffled_indexes = numpy.arange(70000, dtype=numpy.int32)
 
