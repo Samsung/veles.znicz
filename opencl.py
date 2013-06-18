@@ -258,12 +258,12 @@ class DeviceList(units.SmartPickling):
                         else:
                             print("Avg is %.2f seconds" % (dt, ))
                         self._cleanup_after_tests()
-                    except (cl.LogicError, cl.RuntimeError):
+                    except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
                         print("Program compilation or run failed for "
                               "BLOCK_SIZE = %d and dtype = %s" % (BLOCK_SIZE,
                                                                   dtype))
                         self._cleanup_after_tests()
-                        raise
+                        #raise
 
         print("\nRating(numpy double precision): %.4f" % \
               (min_dt[config.dtype] / dt_numpy))
