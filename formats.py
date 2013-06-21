@@ -109,8 +109,7 @@ class OpenCLConnector(units.Connector):
                 mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=self.aligned_)
         else:
             buf = pyopencl.Buffer(self.device.context_,
-                mf.READ_WRITE | mf.ALLOC_HOST_PTR, size=self.aligned_.nbytes)
-            self.what_changed = CPU
+                mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.aligned_)
         return buf
 
 
@@ -135,12 +134,14 @@ class Batch(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        if config.dtypes[config.dtype] != self.batch.dtype:
+        if self.batch.dtype in config.dtypes.values() and \
+           config.dtypes[config.dtype] != self.batch.dtype:
             self.batch = self.batch.astype(config.dtype)
         BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.dtype]
         dim1 = self.batch.shape[0]
         dim2 = self.batch.size // self.batch.shape[0]
-        if (dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE):
+        if self.batch.dtype in config.dtypes.values() and \
+           ((dim1 % BLOCK_SIZE) or (dim2 % BLOCK_SIZE)):
             b = self.batch.reshape([dim1, dim2])
             d1 = dim1
             if d1 % BLOCK_SIZE:
@@ -156,7 +157,8 @@ class Batch(OpenCLConnector):
             assert self.aligned_.__array_interface__["data"][0] == \
                    self.batch.__array_interface__["data"][0]
         else:
-            self.aligned_ = units.realign(self.batch)
+            self.aligned_ = units.realign(self.batch,
+                                          self.device.info.memalign)
             self.batch = self.aligned_
         self.batch_ = self._buffer()
 
@@ -191,6 +193,15 @@ class Batch(OpenCLConnector):
         assert self.aligned_.__array_interface__["data"][0] == \
                self.batch.__array_interface__["data"][0]
 
+    def __len__(self):
+        return self.batch.size
+
+    def __getitem__(self, key):
+        return self.batch[key]
+
+    def __setitem__(self, key, value):
+        self.batch[key] = value
+
 
 class Vector(OpenCLConnector):
     """Vector.
@@ -213,12 +224,14 @@ class Vector(OpenCLConnector):
             self.device = device
         if not self.device:
             return
-        if config.dtypes[config.dtype] != self.v.dtype:
+        if self.v.dtype in config.dtypes.values() and \
+           config.dtypes[config.dtype] != self.v.dtype:
             self.v = self.v.astype(config.dtype)
         BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.dtype]
         dim1 = self.v.shape[0]
         dim2 = self.v.size // self.v.shape[0]
-        if (dim1 % BLOCK_SIZE) or ((dim2 > 1) and (dim2 % BLOCK_SIZE)):
+        if self.v.dtype in config.dtypes.values() and \
+           ((dim1 % BLOCK_SIZE) or ((dim2 > 1) and (dim2 % BLOCK_SIZE))):
             b = self.v.reshape([dim1, dim2])
             d1 = dim1
             if d1 % BLOCK_SIZE:
@@ -232,7 +245,7 @@ class Vector(OpenCLConnector):
             assert self.aligned_.__array_interface__["data"][0] == \
                    self.v.__array_interface__["data"][0]
         else:
-            self.aligned_ = units.realign(self.v)
+            self.aligned_ = units.realign(self.v, self.device.info.memalign)
             self.v = self.aligned_
         self.v_ = self._buffer()
 
@@ -251,6 +264,15 @@ class Vector(OpenCLConnector):
             self._unmap()
         else:
             self._write(self.v_)
+
+    def __len__(self):
+        return self.v.size
+
+    def __getitem__(self, key):
+        return self.v[key]
+
+    def __setitem__(self, key, value):
+        self.v[key] = value
 
 
 class Labels(Batch):

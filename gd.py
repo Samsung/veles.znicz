@@ -80,7 +80,9 @@ class GD(units.OpenCLUnit):
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
-            for src in self.cl_sources.keys():
+            for src, define in self.cl_sources.items():
+                if type(define) == type(""):
+                    s += define
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()

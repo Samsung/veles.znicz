@@ -46,6 +46,7 @@ class DeviceInfo(object):
     Attributes:
         guid: "GUID" of the device.
         memsize: "available" size of the memory on the device.
+        memalign: best alignment for device buffers.
         rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest,
                 0 - unrated).
         dt: time of rating test pass.
@@ -55,6 +56,7 @@ class DeviceInfo(object):
     def __init__(self, guid=""):
         self.guid = guid
         self.memsize = 0
+        self.memalign = 32
         self.rating = {}
         for dtype in config.dtypes.keys():
             self.rating[dtype] = 0.0
@@ -104,6 +106,8 @@ class DeviceList(units.SmartPickling):
                     self.device_infos[guid] = info
                 info = self.device_infos[guid]
                 info.memsize = self._get_memsize(device)
+                info.memalign = device.get_info(
+                    cl.device_info.MEM_BASE_ADDR_ALIGN)
                 dev = Device(info=info)
                 dev.context_ = context
                 dev.queue_ = cl.CommandQueue(context)
@@ -126,11 +130,12 @@ class DeviceList(units.SmartPickling):
             if self.devices_available[i].context_ != context:
                 self.devices_available.pop(i)
         print("Selected single context with the following devices "
-              "(guid: dtype, rating, BLOCK_SIZE):")
+              "(guid: dtype, rating, BLOCK_SIZE, memalign):")
         for device in self.devices_available:
             for dtype in device.info.rating.keys():
-                print("%s: %s, %.4f, %s" % (device.info.guid, dtype,
-                    device.info.rating[dtype], device.info.BLOCK_SIZE[dtype]))
+                print("%s: %s, %.4f, %s, %d" % (device.info.guid, dtype,
+                    device.info.rating[dtype], device.info.BLOCK_SIZE[dtype],
+                    device.info.memalign))
 
         if not unpickling:
             self.devices_in_use = []

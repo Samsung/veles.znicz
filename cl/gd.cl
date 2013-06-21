@@ -1,3 +1,9 @@
+/*
+ * Gradient descent.
+ * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
+ */
+
+
 //Should be declared externally:
 //#define dtype float
 //#define BLOCK_SIZE 16

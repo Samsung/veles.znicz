@@ -131,7 +131,9 @@ class All2All(units.OpenCLUnit):
                         self.output.batch.size // self.output.batch.shape[0],
                         self.output.aligned_.shape[0]))
             s = defines
-            for src in self.cl_sources.keys():
+            for src, define in self.cl_sources.items():
+                if type(define) == type(""):
+                    s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
@@ -240,6 +242,7 @@ class All2AllSoftmax(All2All):
 
     Attributes:
         krn_sm_: kernel for softmax activation calculation.
+        max_idx: indexes of element with maximum value for each sample.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
                  rand=rnd.default, unpickling=0):
@@ -249,14 +252,29 @@ class All2AllSoftmax(All2All):
         self.krn_sm_ = None
         if unpickling:
             return
+        self.max_idx = formats.Batch()
 
     def initialize(self):
-        self.cl_sources["cl/sm.cl"] = 1
+        itype = config.get_itype_from_size(numpy.prod(self.output_shape))
+        self.cl_sources["cl/sm.cl"] = "#define itype %s" % (itype, )
         retval = super(All2AllSoftmax, self).initialize()
-        if retval or not self.device:
+        if retval:
             return retval
+
+        if not self.max_idx.batch or \
+           self.max_idx.batch.size != self.output.batch.shape[0]:
+            self.max_idx.batch = numpy.zeros([self.output.batch.shape[0]],
+                dtype=config.itypes[itype])
+            self.max_idx.batch_ = None
+
+        self.max_idx.initialize(self.device)
+
+        if not self.device:
+            return
+
         self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
         self.krn_sm_.set_arg(0, self.output.batch_)
+        self.krn_sm_.set_arg(1, self.max_idx.batch_)
 
     def cpu_apply_exp(self):
         self.output.sync()
@@ -266,13 +284,17 @@ class All2AllSoftmax(All2All):
             for i in range(a.size - 1, a.size - 11, -1):
                 s.append("%.2f" % (a[i], ))
             print("Softmax Wx+b: ", ", ".join(s), ", %.2f" % (a[0], ))
-        for sample in self.output.batch:
-            m = sample.max()
+        for i in range(0, self.output.batch.shape[0]):
+            sample = self.output.batch[i]
+            im = sample.argmax()
+            self.max_idx[i] = im
+            m = sample[im]
             sample -= m
             numpy.exp(sample, sample)
             smm = sample.sum()
             sample /= smm
         self.output.update()
+        self.max_idx.update()
 
     def gpu_apply_exp(self):
         self.output.sync(formats.GPU)
@@ -285,6 +307,7 @@ class All2AllSoftmax(All2All):
                                                  global_size, local_size)
         event.wait()
         self.output.update(formats.GPU)
+        self.max_idx.update(formats.GPU)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

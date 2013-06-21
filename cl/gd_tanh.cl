@@ -1,4 +1,10 @@
 /*
+ * Updates backpropagated error by activation derivative.
+ * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
+ */
+
+
+/*
 	err_y *= y * y * (-0.508262) + 1.143819
 */
 __kernel //__attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))

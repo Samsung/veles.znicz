@@ -32,6 +32,8 @@ import plotters
 import glob
 #import wavelet
 import scipy.signal
+import pickle
+import time
 
 
 def borders(a):
@@ -342,7 +344,7 @@ class Decision(units.Unit):
             validation error.
         confusion_matrix: confusion matrix.
     """
-    def __init__(self, fail_iterations=250, unpickling=0):
+    def __init__(self, fail_iterations=100, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -353,7 +355,7 @@ class Decision(units.Unit):
         self.epoch_number = [0]
         self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
         self.n_err = [0, 0, 0]
-        self.minibatch_n_err = None  # [0]
+        self.minibatch_n_err = None  # formats.Vector()
         self.fail_iterations = [fail_iterations]
         self.epoch_ended = [0]
         self.n_err_pt = [100.0, 100.0, 100.0]
@@ -373,18 +375,18 @@ class Decision(units.Unit):
         self.epoch_ended[0] = 0
 
         minibatch_class = self.minibatch_class[0]
-        self.n_err[minibatch_class] += self.minibatch_n_err[0]
 
         if self.minibatch_last[0]:
+            self.minibatch_n_err.sync()
+            self.n_err[minibatch_class] += self.minibatch_n_err.v[0]
             self.epoch_min_err[minibatch_class] = \
                 min(self.n_err[minibatch_class],
                     self.epoch_min_err[minibatch_class])
-
-        # Compute errors in percents
-        for i in range(0, len(self.n_err_pt)):
-            if self.class_samples[i]:
-                self.n_err_pt[i] = self.n_err[i] / self.class_samples[i]
-                self.n_err_pt[i] *= 100.0
+            # Compute error in percents
+            if self.class_samples[minibatch_class]:
+                self.n_err_pt[minibatch_class] = (self.n_err[minibatch_class] /
+                    self.class_samples[minibatch_class])
+                self.n_err_pt[minibatch_class] *= 100.0
 
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
@@ -405,6 +407,7 @@ class Decision(units.Unit):
                                 os.unlink(self.fnme)
                             except FileNotFoundError:
                                 pass
+                        self.confusion_matrix.sync()
                         self.fnme = "%s/hands_%.2f_%.2f_%.2f.pickle" % \
                             (this_dir, self.n_err_pt[1],
                              self.confusion_matrix.v[0, 1] /
@@ -418,7 +421,6 @@ class Decision(units.Unit):
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
-                self.confusion_matrix.v[:] = 0
                 # Stop condition
                 if self.epoch_number[0] - \
                    self.min_validation_err_epoch_number > \
@@ -457,8 +459,12 @@ class Decision(units.Unit):
                 # Reset n_err
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
-                # Reset confusion matrix
-                self.confusion_matrix.v[:] = 0
+
+            # Reset confusion matrix and errors for a class
+            self.confusion_matrix.v[:] = 0
+            self.confusion_matrix.update()
+            self.minibatch_n_err.v[:] = 0
+            self.minibatch_n_err.update()
 
 
 class Workflow(units.OpenCLUnit):
@@ -514,13 +520,15 @@ class Workflow(units.OpenCLUnit):
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
         self.ev.labels = self.loader.minibatch_labels
+        self.ev.max_idx = self.forward[-1].max_idx
+        self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
         self.decision = Decision()
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err
+        self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.class_samples = self.loader.class_samples
         self.decision.confusion_matrix = self.ev.confusion_matrix
         self.decision.workflow = self
@@ -585,13 +593,6 @@ class Workflow(units.OpenCLUnit):
         self.end_point.wait()
 
 
-import inline
-import pickle
-import time
-#import matplotlib.pyplot as pp
-#import matplotlib.cm as cm
-
-
 def main():
     """
     fin = open("mnist.1.86.2layer100neurons.pickle", "rb")
@@ -630,17 +631,13 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    unistd = inline.Inline()
-    unistd.sources.append("#include <unistd.h>")
-    unistd.function_descriptions = {"_exit": "iv"}
-    unistd.compile()
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
         w = Workflow(layers=[30, 2], device=device)
         w.initialize()
     except KeyboardInterrupt:
-        unistd.execute("_exit", 0)
+        return
     try:
         w.run(threshold=1.0, threshold_low=1.0,
               global_alpha=0.05, global_lambda=0.0)
@@ -662,8 +659,7 @@ def main():
         plotters.Graphics().wait_finish()
     except:
         pass
-    print("Will now exit")
-    unistd.execute("_exit", 0)
+    print("End of job")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,10 @@
 /*
+ * Gradient descent with individual alphas.
+ * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
+ */
+
+
+/*
 	Weights update with individual alphas.
     
 	weights = weights * (1.0 - global_lambda * alphas) - err_y * h * r_batch_size * alphas

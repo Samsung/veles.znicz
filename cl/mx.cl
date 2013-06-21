@@ -1,4 +1,10 @@
 /*
+ * Matrix multiplication.
+ * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
+ */
+
+
+/*
 	Define for matrix multiplication.
 
 	Example of how to use:
