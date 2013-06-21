@@ -231,18 +231,17 @@ class MNISTLoader(units.Unit):
             self.shuffle_train()
 
     def shuffle_validation_train(self):
-        """Shuffles original train dataset
-            and allocates 10000 for validation,
+        """Shuffles validation and train dataset
             so the layout will be:
                 0:10000: test,
-                10000:20000: validation,
-                20000:70000: train.
+                10000:20000: randomized validation,
+                20000:70000: randomized train.
         """
         self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
                                                   self.nextclass_offs[2]])
 
     def shuffle_train(self):
-        """Shuffles used train dataset
+        """Shuffles train dataset
             so the layout will be:
                 0:10000: test,
                 10000:20000: validation,

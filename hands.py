@@ -87,16 +87,7 @@ class Loader(units.Unit):
                                    "../../Hands/Negative/Testing/*.raw"],
                  train_paths=["../../Hands/Positive/Training/*.raw",
                               "../../Hands/Negative/Training/*.raw"],
-                 classes=[0, 10000, 60000], minibatch_max_size=180,
-                 rnd=rnd.default, unpickling=0):
-        """Constructor.
-
-        Parameters:
-            classes: [test, validation, train],
-                ints - in samples,
-                floats - relative from (0 to 1).
-            minibatch_size: minibatch max size.
-        """
+                 minibatch_max_size=180, rnd=rnd.default, unpickling=0):
         super(Loader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -108,33 +99,18 @@ class Loader(units.Unit):
         self.rnd = [rnd]
 
         self.minibatch_data = formats.Batch()
-        self.minibatch_indexes = formats.Labels(70000)
-        self.minibatch_labels = formats.Labels(10)
+        self.minibatch_indexes = formats.Labels()
+        self.minibatch_labels = formats.Labels()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
 
-        self.total_samples = [70000]
-        self.class_samples = classes.copy()
-        if type(self.class_samples[2]) == float:
-            smm = 0
-            for i in range(0, len(self.class_samples) - 1):
-                self.class_samples[i] = int(
-                numpy.round(self.total_samples[0] * self.class_samples[i]))
-                smm += self.class_samples[i]
-            self.class_samples[-1] = self.total_samples[0] - smm
-        self.minibatch_offs = [self.total_samples[0]]
+        self.total_samples = [0]
+        self.class_samples = [0, 0, 0]
+        self.minibatch_offs = [0]
         self.minibatch_size = [0]
         self.minibatch_maxsize = [minibatch_max_size]
         self.nextclass_offs = [0, 0, 0]
-        offs = 0
-        for i in range(0, len(self.class_samples)):
-            offs += self.class_samples[i]
-            self.nextclass_offs[i] = offs
-        if self.nextclass_offs[-1] != self.total_samples[0]:
-            raise error.ErrBadFormat("Sum of class samples (%d) differs from "
-                "total number of samples (%d)" % (self.nextclass_offs[-1],
-                                                  self.total_samples))
 
         self.original_data = None
         self.original_labels = None
@@ -155,7 +131,7 @@ class Loader(units.Unit):
             self.width = int(numpy.sqrt(a.size))
         if self.width * self.width != a.size:
             raise error.ErrBadFormat("Found non square file %s" % (files[0], ))
-        aa = numpy.zeros([n_files, 324], #self.width, self.width],
+        aa = numpy.zeros([n_files, 324],  # self.width, self.width],
                          dtype=config.dtypes[config.dtype])
         a = a.reshape([self.width, self.width])
         b = hog.hog(a)
@@ -232,29 +208,18 @@ class Loader(units.Unit):
         self.minibatch_indexes.n_classes = self.total_samples[0]
         self.minibatch_labels.n_classes = len(self.validation_paths)
 
+        self.minibatch_offs[0] = self.total_samples[0]
+
         if self.class_samples[0]:
             self.shuffle_validation_train()
         else:
             self.shuffle_train()
 
     def shuffle_validation_train(self):
-        """Shuffles original train dataset
-            and allocates 10000 for validation,
-            so the layout will be:
-                0:10000: test,
-                10000:20000: validation,
-                20000:70000: train.
-        """
         self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
                                                   self.nextclass_offs[2]])
 
     def shuffle_train(self):
-        """Shuffles used train dataset
-            so the layout will be:
-                0:10000: test,
-                10000:20000: validation,
-                20000:70000: randomized train.
-        """
         self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:\
                                                   self.nextclass_offs[2]])
 

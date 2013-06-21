@@ -14,19 +14,38 @@ import pyopencl
 class EvaluatorSoftmax(units.OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
+    Should be assigned before initialize():
+        y
+        labels
+        batch_size
+        max_idx
+        max_samples_per_epoch
+
+    Updates after run():
+        err_y
+        n_err_skipped
+        confusion_matrix
+        skipped
+
+    Creates within initialize():
+        err_y
+        n_err_skipped
+        confusion_matrix
+        skipped
+
     Attributes:
         labels: labels for Batch.
         y: output of the network as Batch.
         err_y: backpropagation errors based on labels.
         threshold: when output becomes greater than this value,
-                   assume gradient as 0.
+            assume gradient as 0.
         threshold_low: when gradient was assumed as 0 and output becomes less
-                       than this value, calculate gradient as usual.
+            than this value, calculate gradient as usual.
         skipped: array of bytes with non-zero value if the sample was skipped
-                 due to assumed zero-gradient.
+            due to assumed zero-gradient.
         batch_size: number of elements in y to evaluate.
-        max_samples_per_epoch: maximum number of samples per epoch.
-        n_err: number of wrong recognized samples.
+        max_samples_per_epoch: maximum number of samples per epoch,
+            will choose n_err_skipped element type based on it.
         confusion_matrix: confusion matrix for the output.
         compute_confusion_matrix: compute confusion matrix or not.
         max_idx: indexes of element with maximum value for each sample.

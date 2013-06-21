@@ -16,6 +16,23 @@ import config
 class GD(units.OpenCLUnit):
     """Gradient Descent.
 
+    Should be assigned before initialize():
+        y
+        h
+        err_y
+        weights
+        bias
+        batch_size
+
+    Updates after run():
+        err_h
+        err_y
+        weights
+        bias
+
+    Creates within initialize():
+        err_h
+
     Attributes:
         weights: weights of the current layer.
         bias: bias of the current layer.
@@ -329,6 +346,16 @@ class GDTanh(GD):
 
 class GDA(GD):
     """GD with individual alphas for each weight.
+
+    Should be assigned before initialize():
+
+    Updates after run():
+        weights_alphas
+        bias_alphas
+
+    Creates within initialize():
+        weights_alphas
+        bias_alphas
 
     Attributes:
         alpha_inc: step for alpha increase.

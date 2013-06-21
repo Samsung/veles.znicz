@@ -19,13 +19,21 @@ import matplotlib.cm as cm
 class All2All(units.OpenCLUnit):
     """All2All with linear activation f(x) = x.
 
-    State:
+    Should be assigned before initialize():
+        input
+
+    Updates after run():
+        output
+
+    Creates within initialize():
+        weights
+        bias
+
+    Attributes:
         input: input as Batch.
         output: output as Batch.
         weights: weights as Vector.
         bias: bias as Vector.
-
-    Attributes:
         output_shape: shape of the output layer.
         weights_amplitude: amplitude of the random distribution of weights.
         rand: rnd.Rand() object.
@@ -239,6 +247,14 @@ class All2AllTanh(All2All):
 
 class All2AllSoftmax(All2All):
     """All2All with linear activation and softmax normalization.
+
+    Should be assigned before initialize():
+
+    Updates after run():
+        max_idx
+
+    Creates within initialize():
+        max_idx
 
     Attributes:
         krn_sm_: kernel for softmax activation calculation.
