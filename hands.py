@@ -321,6 +321,7 @@ class Decision(units.Unit):
         self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
         self.n_err = [0, 0, 0]
         self.minibatch_n_err = None  # formats.Vector()
+        self.minibatch_confusion_matrix = None  # formats.Vector()
         self.fail_iterations = [fail_iterations]
         self.epoch_ended = [0]
         self.n_err_pt = [100.0, 100.0, 100.0]
@@ -331,7 +332,15 @@ class Decision(units.Unit):
         self.workflow = None
         self.fnme = None
         self.t1 = None
-        self.confusion_matrix = None
+        self.confusion_matrixes = [None, None, None]
+
+    def initialize(self):
+        if (self.minibatch_confusion_matrix == None or
+            self.minibatch_confusion_matrix.v == None):
+            return
+        for i in range(0, len(self.confusion_matrixes)):
+            self.confusion_matrixes[i] = (
+                numpy.zeros_like(self.minibatch_confusion_matrix.v))
 
     def run(self):
         if self.t1 == None:
@@ -360,6 +369,12 @@ class Decision(units.Unit):
             self.gd_skip[0] = 0
 
         if self.minibatch_last[0]:
+            if (self.minibatch_confusion_matrix != None and
+                self.minibatch_confusion_matrix.v != None):
+                self.minibatch_confusion_matrix.sync()
+                self.confusion_matrixes[minibatch_class][:] = (
+                    self.minibatch_confusion_matrix.v[:])
+
             # Test and Validation sets processed
             if self.minibatch_class[0] == 1:
                 if self.epoch_min_err[1] < self.min_validation_err:
@@ -372,13 +387,12 @@ class Decision(units.Unit):
                                 os.unlink(self.fnme)
                             except FileNotFoundError:
                                 pass
-                        self.confusion_matrix.sync()
                         self.fnme = "%s/hands_%.2f_%.2f_%.2f.pickle" % \
                             (this_dir, self.n_err_pt[1],
-                             self.confusion_matrix.v[0, 1] /
+                             self.confusion_matrixes[1][0, 1] /
                              (self.class_samples[0] +
                               self.class_samples[1]) * 100,
-                             self.confusion_matrix.v[1, 0] /
+                             self.confusion_matrixes[1][1, 0] /
                              (self.class_samples[0] +
                               self.class_samples[1]) * 100)
                         print("                                        "
@@ -425,11 +439,13 @@ class Decision(units.Unit):
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
 
-            # Reset confusion matrix and errors for a class
-            self.confusion_matrix.v[:] = 0
-            self.confusion_matrix.update()
+            # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
             self.minibatch_n_err.update()
+            if (self.minibatch_confusion_matrix != None and
+                self.minibatch_confusion_matrix.v != None):
+                self.minibatch_confusion_matrix.v[:] = 0
+                self.minibatch_confusion_matrix.update()
 
 
 class Workflow(units.OpenCLUnit):
@@ -494,8 +510,8 @@ class Workflow(units.OpenCLUnit):
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err_skipped
+        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.class_samples = self.loader.class_samples
-        self.decision.confusion_matrix = self.ev.confusion_matrix
         self.decision.workflow = self
 
         # Add gradient descent units
@@ -528,7 +544,7 @@ class Workflow(units.OpenCLUnit):
 
         self.loader.gate_block = self.decision.complete
 
-        # Plotter here
+        # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
@@ -540,6 +556,16 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
+        # Confusion matrix plotter
+        self.plt_mx = []
+        for i in range(0, len(self.decision.confusion_matrixes)):
+            self.plt_mx.append(plotters.MatrixPlotter(device=device,
+                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
+            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].input_field = i
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = self.decision.epoch_ended
+            self.plt_mx[-1].gate_block_not = [1]
 
     def initialize(self):
         retval = self.start_point.initialize_dependent()

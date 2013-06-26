@@ -194,7 +194,7 @@ class Batch(OpenCLConnector):
                self.batch.__array_interface__["data"][0]
 
     def __len__(self):
-        return self.batch.size
+        return len(self.batch)
 
     def __getitem__(self, key):
         return self.batch[key]

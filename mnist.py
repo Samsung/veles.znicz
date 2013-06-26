@@ -71,7 +71,7 @@ class MNISTLoader(units.Unit):
         original_data: original MNIST images scaled to [-1, 1] as single batch.
         original_labels: original MNIST labels as single batch.
     """
-    def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=97,
+    def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=60,
                  rnd=rnd.default, use_hog=False, unpickling=0):
         """Constructor.
 
@@ -326,11 +326,15 @@ class Decision(units.Unit):
         epoch_min_err: minimum number of errors by class per epoch.
         n_err: current number of errors per class.
         minibatch_n_err: number of errors for minibatch.
+        minibatch_confusion_matrix: confusion matrix for minibatch.
+        minibatch_max_err_y_sum: max last layer backpropagated errors sum.
         n_err_pt: n_err in percents.
         class_samples: number of samples per class.
         epoch_ended: if an epoch has ended.
         fail_iterations: number of consequent iterations with non-decreased
             validation error.
+        confusion_mxs: confusion matrixes.
+        max_err_y_sums: max last layer backpropagated errors sums for each set.
     """
     def __init__(self, fail_iterations=50, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
@@ -345,6 +349,7 @@ class Decision(units.Unit):
         self.n_err = [0, 0, 0]
         self.minibatch_n_err = None  # formats.Vector()
         self.minibatch_confusion_matrix = None  # formats.Vector()
+        self.minibatch_max_err_y_sum = None  # formats.Vector()
         self.fail_iterations = [fail_iterations]
         self.epoch_ended = [0]
         self.n_err_pt = [100.0, 100.0, 100.0]
@@ -355,6 +360,20 @@ class Decision(units.Unit):
         self.workflow = None
         self.fnme = None
         self.t1 = None
+        self.confusion_matrixes = [None, None, None]
+        self.max_err_y_sums = [None, None, None]
+
+    def initialize(self):
+        if (self.minibatch_confusion_matrix != None and
+            self.minibatch_confusion_matrix.v != None):
+            for i in range(0, len(self.confusion_matrixes)):
+                self.confusion_matrixes[i] = (
+                    numpy.zeros_like(self.minibatch_confusion_matrix.v))
+        if (self.minibatch_max_err_y_sum != None and
+            self.minibatch_max_err_y_sum.v != None):
+            for i in range(0, len(self.max_err_y_sums)):
+                self.max_err_y_sums[i] = (
+                    numpy.zeros_like(self.minibatch_max_err_y_sum.v))
 
     def run(self):
         if self.t1 == None:
@@ -383,6 +402,17 @@ class Decision(units.Unit):
             self.gd_skip[0] = 0
 
         if self.minibatch_last[0]:
+            if (self.minibatch_confusion_matrix != None and
+                self.minibatch_confusion_matrix.v != None):
+                self.minibatch_confusion_matrix.sync()
+                self.confusion_matrixes[minibatch_class][:] = (
+                    self.minibatch_confusion_matrix.v[:])
+            if (self.minibatch_max_err_y_sum != None and
+                self.minibatch_max_err_y_sum.v != None):
+                self.minibatch_max_err_y_sum.sync()
+                self.max_err_y_sums[minibatch_class][:] = (
+                    self.minibatch_max_err_y_sum.v[:])
+
             # Test and Validation sets processed
             if self.minibatch_class[0] == 1:
                 if self.epoch_min_err[1] < self.min_validation_err:
@@ -442,8 +472,14 @@ class Decision(units.Unit):
             # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
             self.minibatch_n_err.update()
-            self.minibatch_confusion_matrix.v[:] = 0
-            self.minibatch_confusion_matrix.update()
+            if (self.minibatch_confusion_matrix != None and
+                self.minibatch_confusion_matrix.v != None):
+                self.minibatch_confusion_matrix.v[:] = 0
+                self.minibatch_confusion_matrix.update()
+            if (self.minibatch_max_err_y_sum != None and
+                self.minibatch_max_err_y_sum.v != None):
+                self.minibatch_max_err_y_sum.v[:] = 0
+                self.minibatch_max_err_y_sum.update()
 
 
 class Workflow(units.OpenCLUnit):
@@ -509,6 +545,7 @@ class Workflow(units.OpenCLUnit):
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
+        self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
@@ -542,7 +579,7 @@ class Workflow(units.OpenCLUnit):
 
         self.loader.gate_block = self.decision.complete
 
-        # Plotter here
+        # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
@@ -554,6 +591,27 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
+        # Confusion matrix plotter
+        self.plt_mx = []
+        for i in range(0, len(self.decision.confusion_matrixes)):
+            self.plt_mx.append(plotters.MatrixPlotter(device=device,
+                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
+            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].input_field = i
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = self.decision.epoch_ended
+            self.plt_mx[-1].gate_block_not = [1]
+        # err_y plotter
+        self.plt_err_y = []
+        for i in range(0, 3):
+            self.plt_err_y.append(plotters.SimplePlotter(device=device,
+                            figure_label="Last layer max gradient sum",
+                            plot_style=styles[i]))
+            self.plt_err_y[-1].input = self.decision.max_err_y_sums
+            self.plt_err_y[-1].input_field = i
+            self.plt_err_y[-1].link_from(self.decision)
+            self.plt_err_y[-1].gate_block = self.decision.epoch_ended
+            self.plt_err_y[-1].gate_block_not = [1]
 
     def initialize(self):
         retval = self.start_point.initialize_dependent()
@@ -642,7 +700,7 @@ def main():
         return
     try:
         w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.01, global_lambda=0.000)
+              global_alpha=0.1, global_lambda=0.000)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     print("Will snapshot after 15 seconds...")
@@ -657,10 +715,8 @@ def main():
     pickle.dump(w, fout)
     fout.close()
 
-    try:
-        plotters.Graphics().wait_finish()
-    except:
-        pass
+    plotters.Graphics().wait_finish()
+    units.pool.shutdown()
     print("End of job")
 
 
