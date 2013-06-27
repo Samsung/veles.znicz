@@ -140,11 +140,19 @@ class SimplePlotter(Plotter):
         self.figure_label = figure_label
         self.plot_style = plot_style
         self.input_offs = 0
+        self.last_plot_number = 0
 
     def redraw(self):
         figure_label = self.figure_label
         figure = matplotlib.pyplot.figure(figure_label)
         axes = figure.add_subplot(111)  # Main axes
+        if "plot_number" not in figure.__dict__.keys():
+            figure.plot_number = 0
+        if  figure.plot_number <= self.last_plot_number:
+            figure.clf()
+            axes.cla()
+            figure.plot_number = self.last_plot_number + 1
+        self.last_plot_number = figure.plot_number
         axes.plot(self.values, self.plot_style)
         figure.show()
 
@@ -195,11 +203,12 @@ class MatrixPlotter(Plotter):
 
         figure_label = self.figure_label
         figure = matplotlib.pyplot.figure(figure_label)
+        figure.clf()
         num_rows = len(value) + 2
         num_columns = len(value[0]) + 2
-        figure.clf()
 
         main_axes = matplotlib.pyplot.axes([0, 0, 1, 1])
+        main_axes.cla()
 
         # First cell color
         rc = matplotlib.patches.Rectangle(
@@ -401,8 +410,9 @@ class Weights2D(Plotter):
         i = 0
         for row in range(0, n_rows):
             for col in range(0, n_cols):
-                matplotlib.pyplot.subplot(n_rows, n_cols, i)
-                matplotlib.pyplot.imshow(value[i].reshape(sy, sx),
+                ax = figure.add_subplot(n_rows, n_cols, i)
+                ax.cla()
+                ax.imshow(value[i].reshape(sy, sx),
                     interpolation="none", cmap=cm.gray)
                 i += 1
                 if i >= value.shape[0]:
@@ -466,12 +476,12 @@ class Image2D(Plotter):
         sx = 160
         sy = 90
 
-        matplotlib.pyplot.subplot(2, 1, 0)
-        matplotlib.pyplot.imshow(value.reshape(sy, sx),
-                                 interpolation="none", cmap=cm.gray)
-        matplotlib.pyplot.subplot(2, 1, 1)
-        matplotlib.pyplot.imshow(value2.reshape(sy, sx),
-                                 interpolation="none", cmap=cm.gray)
+        ax = figure.add_subplot(2, 1, 0)
+        ax.cla()
+        ax.imshow(value.reshape(sy, sx), interpolation="none", cmap=cm.gray)
+        ax = figure.add_subplot(2, 1, 1)
+        ax.cla()
+        ax.imshow(value2.reshape(sy, sx), interpolation="none", cmap=cm.gray)
 
         figure.show()
 
