@@ -385,6 +385,7 @@ class Weights2D(Plotter):
         self.input = None  # Connector
         self.input_field = None
         self.figure_label = figure_label
+        self.get_shape_from = None  # formats.Batch(), formats.Vector, ndarray
 
     def redraw(self):
         if type(self.input_field) == int:
@@ -401,8 +402,18 @@ class Weights2D(Plotter):
         figure = matplotlib.pyplot.figure(figure_label)
         figure.clf()
 
-        sx = 160  # int(numpy.round(numpy.sqrt(value.shape[1])))
-        sy = 90  # int(value.shape[1] // sx)
+        if self.get_shape_from == None:
+            sx = int(numpy.round(numpy.sqrt(value.shape[1])))
+            sy = int(value.shape[1]) // sx
+        elif "batch" in self.get_shape_from.__dict__:
+            sx = self.get_shape_from.batch.shape[1]
+            sy = self.get_shape_from.batch.shape[2]
+        elif "v"  in self.get_shape_from.__dict__:
+            sx = self.get_shape_from.v.shape[0]
+            sy = self.get_shape_from.v.shape[1]
+        else:
+            sx = self.get_shape_from.shape[0]
+            sy = self.get_shape_from.shape[1]
 
         n_cols = int(numpy.round(numpy.sqrt(value.shape[0])))
         n_rows = int(numpy.ceil(value.shape[0] / n_cols))
@@ -432,12 +443,13 @@ class Weights2D(Plotter):
         Graphics().event_queue.put(self, block=True)
 
 
-class Image2D(Plotter):
-    """Plotter for drawing image as 2D.
+class Image2(Plotter):
+    """Plotter for drawing 2 images.
 
     Should be assigned before initialize():
         input
         input_field
+        input_field2
 
     Updates after run():
 
@@ -447,8 +459,8 @@ class Image2D(Plotter):
     def __init__(self, figure_label="Image",
                  device=None,
                  unpickling=0):
-        super(Image2D, self).__init__(unpickling=unpickling,
-                                            device=device)
+        super(Image2, self).__init__(unpickling=unpickling,
+                                     device=device)
         if unpickling:
             return
         self.value = None
@@ -473,15 +485,24 @@ class Image2D(Plotter):
         figure = matplotlib.pyplot.figure(figure_label)
         figure.clf()
 
-        sx = 160
-        sy = 90
+        if len(value.shape) == 2:
+            sy1 = value.shape[0]
+            sx1 = value.shape[1]
+        elif len(value2.shape) == 2:
+            sy2 = value2.shape[0]
+            sx2 = value2.shape[1]
+            sy1 = sy2
+            sx1 = sx2
+        if len(value2.shape) != 2:
+            sy2 = sy1
+            sx2 = sx1
 
         ax = figure.add_subplot(2, 1, 0)
         ax.cla()
-        ax.imshow(value.reshape(sy, sx), interpolation="none", cmap=cm.gray)
+        ax.imshow(value.reshape(sy1, sx1), interpolation="none", cmap=cm.gray)
         ax = figure.add_subplot(2, 1, 1)
         ax.cla()
-        ax.imshow(value2.reshape(sy, sx), interpolation="none", cmap=cm.gray)
+        ax.imshow(value2.reshape(sy2, sx2), interpolation="none", cmap=cm.gray)
 
         figure.show()
 

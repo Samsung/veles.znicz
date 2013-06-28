@@ -326,6 +326,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_constants_d_ = None
         self.krn_constants_i_ = None
         self.metrics = formats.Vector()
+        self.effective_batch_size = [0]
 
     def initialize(self):
         itype = config.get_itype_from_size((self.y.batch.size //
@@ -420,6 +421,10 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         self.err_y.update(formats.GPU)
         self.n_err_skipped.update(formats.GPU)
+        #self.n_err_skipped.sync()
+        #self.effective_batch_size[0] = (self.batch_size[0] -
+        #    self.n_err_skipped.v[1])
+        self.effective_batch_size[0] = self.batch_size[0]
         self.metrics.update(formats.GPU)
 
         if __debug__:

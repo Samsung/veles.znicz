@@ -183,21 +183,18 @@ void ev_mse(__global dtype /*IN*/ *y, __global dtype /*IN*/ *target,
    {
     vle = y[y_start + j];
     vle_target = target[y_start + j];
-    vle_diff = vle - vle_target;
-    vle_diffa = fabs(vle_diff);
-    if(vle_diffa < threshold_skip)
-    {
-     vle = 0;
-     n_skipped++;
-    }
-    else
-     vle = vle_diff;
-    err_y[y_start + j] = vle;
+    vle -= vle_target;
     sample_sse += vle * vle;
+    err_y[y_start + j] = vle;
    }
    dtype sample_mse = sqrt(sample_sse) / Y_REAL;
    if(sample_mse < threshold_ok)
     n_ok++;
+   if(sample_mse < threshold_skip)
+   {
+    for(int j = 0; j < Y_REAL; j++)
+     err_y[y_start + j] = 0;
+   }
    mse_sum += sample_mse;
    mse_max = max(mse_max, sample_mse);
    mse_min = min(mse_min, sample_mse);
