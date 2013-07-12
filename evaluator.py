@@ -151,7 +151,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 s += fin.read()
                 fin.close()
             fout = open("cache/ev_%d.cl" % (self.y.batch.size //
-                                            self.y.batch.shape[0], ), "w")
+                                            self.y.batch.shape[0],), "w")
             fout.write(s)
             fout.close()
 
@@ -168,7 +168,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_.set_arg(7, self.max_err_y_sum.v_)
 
     def gpu_run(self):
-        #return self.cpu_run()
+        # return self.cpu_run()
         t1 = time.time()
 
         threshold = self.threshold
@@ -205,9 +205,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.n_err_skipped.update(formats.GPU)
         self.max_err_y_sum.update(formats.GPU)
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
     def cpu_run(self):
         t1 = time.time()
@@ -267,9 +266,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.skipped.update()
         self.n_err_skipped.update()
         self.max_err_y_sum.update()
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
 
 class EvaluatorMSE(units.OpenCLUnit):
@@ -381,7 +379,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                 s += fin.read()
                 fin.close()
             fout = open("cache/ev_%d.cl" % (self.y.batch.size //
-                                            self.y.batch.shape[0], ), "w")
+                                            self.y.batch.shape[0],), "w")
             fout.write(s)
             fout.close()
 
@@ -395,7 +393,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(4, self.metrics.v_)
 
     def gpu_run(self):
-        #return self.cpu_run()
+        # return self.cpu_run()
         t1 = time.time()
 
         batch_size = self.batch_size[0]
@@ -421,15 +419,14 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         self.err_y.update(formats.GPU)
         self.n_err_skipped.update(formats.GPU)
-        #self.n_err_skipped.sync()
-        #self.effective_batch_size[0] = (self.batch_size[0] -
+        # self.n_err_skipped.sync()
+        # self.effective_batch_size[0] = (self.batch_size[0] -
         #    self.n_err_skipped.v[1])
         self.effective_batch_size[0] = self.batch_size[0]
         self.metrics.update(formats.GPU)
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
     def cpu_run(self):
         return self.gpu_run()
@@ -589,7 +586,7 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
         self.err_y_t = formats.Batch()
         self.L = units.Connector()
         self.L.value = 0
-        #self.Index=None
+        # self.Index=None
 
     def initialize(self):
         if self.err_y.batch == None or \
@@ -641,7 +638,7 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
         threshold_low = self.threshold_low
         if threshold_low == None:
             threshold_low = threshold
-        #Index = self.Index
+        # Index = self.Index
         TrainIndex = self.TrainIndex
         TestIndex = self.TestIndex
         ValidIndex = self.ValidIndex
@@ -676,7 +673,7 @@ class EvaluatorSoftmax2(units.OpenCLUnit):
                 err_y[:] = 0
 
         self.err_y.update()
-        #print(self.err_y.batch)
+        # print(self.err_y.batch)
 
         if self.use_valid == 1:
             for i in range(0, batch_size):  # loop by batch

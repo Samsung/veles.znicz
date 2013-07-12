@@ -6,6 +6,8 @@ File for Hands dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+import logging
 import sys
 import os
 
@@ -18,7 +20,7 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir, ))
+add_path("%s/../src" % (this_dir,))
 
 
 import units
@@ -30,7 +32,7 @@ import rnd
 import opencl
 import plotters
 import glob
-#import wavelet
+# import wavelet
 import scipy.signal
 import pickle
 import time
@@ -120,29 +122,29 @@ class Loader(units.Unit):
     def load_original(self, pathname):
         """Loads data from original Hands files.
         """
-        print("Loading from %s..." % (pathname, ))
+        self.log().debug("Loading from %s..." % (pathname,))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname, ))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
         a = numpy.fromfile(files[0], dtype=numpy.byte)
         if self.width == None:
             self.width = int(numpy.sqrt(a.size))
         if self.width * self.width != a.size:
-            raise error.ErrBadFormat("Found non square file %s" % (files[0], ))
+            raise error.ErrBadFormat("Found non square file %s" % (files[0],))
         aa = numpy.zeros([n_files, 324],  # self.width, self.width],
                          dtype=config.dtypes[config.dtype])
         a = a.reshape([self.width, self.width])
         b = hog.hog(a)
         aa[0][:] = b[:]
         normalize(aa[0])
-        #borders(aa[0])
-        #tmp = aa[0].copy()
-        #wavelet.transform(aa[0], tmp, 32, 32, 8, 10, 1)
-        #aa[0][0:32, 16:32] = 0.0
-        #aa[0][16:32, 0:16] = 0.0
-        #normalize(aa[0])
+        # borders(aa[0])
+        # tmp = aa[0].copy()
+        # wavelet.transform(aa[0], tmp, 32, 32, 8, 10, 1)
+        # aa[0][0:32, 16:32] = 0.0
+        # aa[0][16:32, 0:16] = 0.0
+        # normalize(aa[0])
         for i in range(1, n_files):
             a = numpy.fromfile(files[i], dtype=numpy.byte)
             if a.size != self.width * self.width:
@@ -152,11 +154,11 @@ class Loader(units.Unit):
             b = hog.hog(a)
             aa[i][:] = b[:]
             normalize(aa[i])
-            #borders(aa[i])
-            #wavelet.transform(aa[i], tmp, 32, 32, 8, 10, 1)
-            #aa[i][0:32, 16:32] = 0.0
-            #aa[i][16:32, 0:16] = 0.0
-            #normalize(aa[i])
+            # borders(aa[i])
+            # wavelet.transform(aa[i], tmp, 32, 32, 8, 10, 1)
+            # aa[i][0:32, 16:32] = 0.0
+            # aa[i][16:32, 0:16] = 0.0
+            # normalize(aa[i])
         return aa
 
     def initialize(self):
@@ -280,9 +282,8 @@ class Loader(units.Unit):
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
 
 import all2all
@@ -328,7 +329,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_err = 1.0e30
         self.min_validation_err_epoch_number = -1
-        #self.prev_train_err = 1.0e30
+        # self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -395,8 +396,7 @@ class Decision(units.Unit):
                              self.confusion_matrixes[1][1, 0] /
                              (self.class_samples[0] +
                               self.class_samples[1]) * 100)
-                        print("                                        "
-                              "Snapshotting to %s" % (self.fnme, ))
+                        self.log().info("Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -408,7 +408,7 @@ class Decision(units.Unit):
 
             # Print some statistics
             t2 = time.time()
-            print("Epoch %d Class %d Errors %d in %.2f sec" % \
+            self.log().info("Epoch %d Class %d Errors %d in %.2f sec" % \
                   (self.epoch_number[0], self.minibatch_class[0],
                    self.n_err[self.minibatch_class[0]],
                    t2 - self.t1))
@@ -430,7 +430,7 @@ class Decision(units.Unit):
                 for gd in self.workflow.gd:
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
                                           0.0001)
-                print("new global_alpha: %.4f" % \
+                self.log().debug("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha, ))
                 """
                 self.epoch_ended[0] = 1
@@ -476,9 +476,9 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            #if not i:
+            # if not i:
             #    amp = 9.0 / 784
-            #else:
+            # else:
             #    amp = 9.0 / 1.7159 / layers[i - 1]
             amp = 0.05
             if i < len(layers) - 1:
@@ -614,14 +614,14 @@ def main():
     fout.write("\n")
     fout.close()
 
-    print("Done")
+    self.log().debug("Done")
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir,),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
@@ -634,14 +634,14 @@ def main():
               global_alpha=0.05, global_lambda=0.0)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    print("Will snapshot after 15 seconds...")
+    logging.debug("Will snapshot after 15 seconds...")
     time.sleep(5)
-    print("Will snapshot after 10 seconds...")
+    logging.debug("Will snapshot after 10 seconds...")
     time.sleep(5)
-    print("Will snapshot after 5 seconds...")
+    logging.debug("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/hands.pickle" % (this_dir, )
-    print("Snapshotting to %s" % (fnme, ))
+    fnme = "%s/hands.pickle" % (this_dir,)
+    logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
@@ -650,7 +650,7 @@ def main():
         plotters.Graphics().wait_finish()
     except:
         pass
-    print("End of job")
+    logging.debug("End of job")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ CL_MAP_WRITE = 2
 CL_MAP_WRITE_INVALIDATE_REGION = 4
 
 
-class Device(units.SmartPickling):
+class Device(units.SmartPickler):
     """OpenCL device helper class.
 
     Attributes:
@@ -71,7 +71,7 @@ class DeviceInfo(object):
             self.BLOCK_SIZE[dtype] = 8
 
 
-class DeviceList(units.SmartPickling):
+class DeviceList(units.SmartPickler):
     """Contains list of devices sorted by rating.
 
     Attributes:

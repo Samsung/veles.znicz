@@ -6,6 +6,8 @@ File for MNIST dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+import logging
 import sys
 import os
 
@@ -18,7 +20,7 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir, ))
+add_path("%s/../src" % (this_dir,))
 
 
 import units
@@ -34,6 +36,7 @@ import hog
 import scipy.ndimage
 import pickle
 import time
+import thread_pool
 
 
 def normalize(a):
@@ -124,7 +127,7 @@ class MNISTLoader(units.Unit):
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
-        print("Loading from original MNIST files...")
+        self.log().info("Loading from original MNIST files...")
 
         # Reading labels:
         fin = open(labels_fnme, "rb")
@@ -177,7 +180,7 @@ class MNISTLoader(units.Unit):
             images = pixels.reshape(n_images, n_rows, n_cols)
             for i in range(0, n_images):
                 if i and not i % 1000:
-                    print(i)
+                    self.log().info(i)
                 img = scipy.ndimage.zoom(images[i], 32 / 28, order=5)
                 h = hog.hog(img)
                 normalize(h)
@@ -185,14 +188,14 @@ class MNISTLoader(units.Unit):
         else:
             images = pixels.astype(config.dtypes[config.dtype]).\
                 reshape(n_images, n_rows, n_cols)
-            print("Original range: [%.1f, %.1f]" % (images.min(),
+            self.log().info("Original range: [%.1f, %.1f]" % (images.min(),
                                                     images.max()))
             for image in images:
                 normalize(image)
-            print("Range after normalization: [%.1f, %.1f]" % (images.min(),
+            self.log().info("Range after normalization: [%.1f, %.1f]" % (images.min(),
                                                                images.max()))
             self.original_data[offs:offs + n_images] = images[:]
-        print("Done")
+        self.log().info("Done")
 
     def initialize(self):
         """Here we will load MNIST data.
@@ -209,11 +212,11 @@ class MNISTLoader(units.Unit):
 
         global this_dir
         self.load_original(0, 10000,
-                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir, ),
-                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir, ))
+                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir,),
+                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir,))
         self.load_original(10000, 60000,
-                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir, ),
-                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir, ))
+                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir,),
+                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir,))
 
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
@@ -304,9 +307,8 @@ class MNISTLoader(units.Unit):
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
 
 import all2all
@@ -356,7 +358,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_err = 1.0e30
         self.min_validation_err_epoch_number = -1
-        #self.prev_train_err = 1.0e30
+        # self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -427,7 +429,7 @@ class Decision(units.Unit):
                                 pass
                         self.fnme = "%s/mnist.%.2f.pickle" % \
                             (this_dir, self.n_err_pt[1])
-                        print("Snapshotting to %s" % (self.fnme, ))
+                        self.log().info("Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -439,7 +441,7 @@ class Decision(units.Unit):
 
             # Print some statistics
             t2 = time.time()
-            print("Epoch %d Class %d Errors %d in %.2f sec" % \
+            self.log().info("Epoch %d Class %d Errors %d in %.2f sec" % \
                   (self.epoch_number[0], self.minibatch_class[0],
                    self.n_err[self.minibatch_class[0]],
                    t2 - self.t1))
@@ -447,20 +449,20 @@ class Decision(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
-                #this_train_err = self.n_err[2]
-                #if self.prev_train_err:
+                # this_train_err = self.n_err[2]
+                # if self.prev_train_err:
                 #    k = this_train_err / self.prev_train_err
-                #else:
+                # else:
                 #    k = 1.0
-                #if k < 1.04:
+                # if k < 1.04:
                 #    ak = 1.05
-                #else:
+                # else:
                 #    ak = 0.7
-                #self.prev_train_err = this_train_err
-                #for gd in self.workflow.gd:
+                # self.prev_train_err = this_train_err
+                # for gd in self.workflow.gd:
                 #    gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
                 #                          0.0001)
-                #print("new global_alpha: %.4f" % \
+                # self.log().info("new global_alpha: %.4f" % \
                 #      (self.workflow.gd[0].global_alpha, ))
 
                 self.epoch_ended[0] = 1
@@ -510,9 +512,9 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            #if not i:
+            # if not i:
             #    amp = 9.0 / 784
-            #else:
+            # else:
             #    amp = 9.0 / 1.7159 / layers[i - 1]
             amp = 0.05
             if i < len(layers) - 1:
@@ -681,16 +683,16 @@ def main():
         im = numpy.argmax(c[i])
         if im == labels[i]:
             n_ok += 1
-    print("%d errors" % (10000 - n_ok, ))
+    self.log().info("%d errors" % (10000 - n_ok, ))
 
-    print("Done")
+    self.log().debug("Done")
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir,),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
@@ -703,21 +705,21 @@ def main():
               global_alpha=0.1, global_lambda=0.000)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    print("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot after 15 seconds...")
     time.sleep(5)
-    print("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot after 10 seconds...")
     time.sleep(5)
-    print("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist.pickle" % (this_dir, )
-    print("Snapshotting to %s" % (fnme, ))
+    fnme = "%s/mnist.pickle" % (this_dir,)
+    logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
 
     plotters.Graphics().wait_finish()
-    units.pool.shutdown()
-    print("End of job")
+    thread_pool.pool.shutdown()
+    logging.debug("End of job")
 
 
 if __name__ == "__main__":

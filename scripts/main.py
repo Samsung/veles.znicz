@@ -58,18 +58,18 @@ class EndPoint(units.Unit):
     def run(self):
         self.n_passes_ += 1
         self.n_passes += 1
-        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_,
+        self.log().info("Iterations (session, total): (%d, %d)\n" % (self.n_passes_,
                                                            self.n_passes))
         if self.n_passes % self.snapshot_frequency == 0:
-            fnme = self.snapshot_filename % (self.n_passes, )
-            print("Snapshotting to %s" % (fnme, ))
+            fnme = self.snapshot_filename % (self.n_passes,)
+            self.log().info("Snapshotting to %s" % (fnme,))
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
         if self.n_passes_ >= 1000 and \
            self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
-            print("Snapshotting to /tmp/snapshot.best")
+            self.log().info("Snapshotting to /tmp/snapshot.best")
             fout = open("/tmp/snapshot.best.tmp", "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
@@ -106,7 +106,7 @@ class Repeater(units.Unit):
         return 1
 
 
-class UseCase1(units.SmartPickling):
+class UseCase1(units.SmartPickler):
     """MNIST with softmax.
 
     Attributes:
@@ -297,17 +297,17 @@ class UseCase1(units.SmartPickling):
         self.ev.origin = self.aa1.input
         if test_only:
             self.end_point.max_passes = 1
-        print()
-        print("Initializing...")
+        self.log().info()
+        self.log().info("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        print()
-        print("Running...")
+        self.log().info()
+        self.log().info("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
 
 
-class UseCase2(units.SmartPickling):
+class UseCase2(units.SmartPickler):
     """Wine with Softmax.
 
     Attributes:
@@ -329,13 +329,13 @@ class UseCase2(units.SmartPickling):
         # Setup notification flow
         self.start_point = units.Unit()
 
-        #m = mnist.MNISTLoader()
+        # m = mnist.MNISTLoader()
         t = text.TXTLoader()
         self.t = t
-        #sys.exit()
-        print("1")
+        # sys.exit()
+        self.log().debug("1")
         t.link_from(self.start_point)
-        print("2")
+        self.log().debug("2")
 
         rpt = Repeater()
         rpt.link_from(t)
@@ -394,17 +394,17 @@ class UseCase2(units.SmartPickling):
         self.gdsm.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
         self.gd1.global_lambda = global_lambda
-        print()
-        print("Initializing...")
+        self.log().info()
+        self.log().info("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        print()
-        print("Running...")
+        self.log().info()
+        self.log().info("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
 
 
-class UseCase3(units.SmartPickling):
+class UseCase3(units.SmartPickler):
     """Wine with MSE.
 
     Attributes:
@@ -426,13 +426,13 @@ class UseCase3(units.SmartPickling):
         # Setup notification flow
         self.start_point = units.Unit()
 
-        #m = mnist.MNISTLoader()
+        # m = mnist.MNISTLoader()
         t = text.TXTLoader()
         self.t = t
-        #sys.exit()
-        print("1")
+        # sys.exit()
+        self.log().debug("1")
         t.link_from(self.start_point)
-        print("2")
+        self.log().debug("2")
 
         rpt = Repeater()
         rpt.link_from(t)
@@ -491,12 +491,12 @@ class UseCase3(units.SmartPickling):
         self.gd0.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
         self.gd1.global_lambda = global_lambda
-        print()
-        print("Initializing...")
+        self.log().info()
+        self.log().info("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        print()
-        print("Running...")
+        self.log().info()
+        self.log().info("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
 
@@ -526,39 +526,39 @@ def main():
     args = parser.parse_args()
 
     rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
-    #state = numpy.random.get_state()
-    #numpy.random.seed(numpy.fromfile("/dev/urandom", numpy.integer, 1024))
-    #numpy.random.set_state(state)
+    # state = numpy.random.get_state()
+    # numpy.random.seed(numpy.fromfile("/dev/urandom", numpy.integer, 1024))
+    # numpy.random.set_state(state)
 
     os.chdir("..")
 
     uc = None
     if args.resume:
         try:
-            print("Resuming from snapshot...")
+            logging.info("Resuming from snapshot...")
             fin = open(args.resume, "rb")
             (uc, random_state) = pickle.load(fin)
             numpy.random.set_state(random_state)
             fin.close()
         except IOError:
-            print("Could not resume from %s" % (args.resume, ))
+            logging.error("Could not resume from %s" % (args.resume,))
             uc = None
     if not uc:
         uc = UseCase1(args.cpu)
-        #uc = UseCase2(args.cpu)
-        #uc = UseCase3(args.cpu)
-    print("Launching...")
+        # uc = UseCase2(args.cpu)
+        # uc = UseCase3(args.cpu)
+    logging.info("Launching...")
     uc.run(args.resume, global_alpha=args.global_alpha,
            global_lambda=args.global_lambda, threshold=args.threshold,
            threshold_low=args.threshold_low, test_only=args.test_only)
 
-    print()
+    logging.info()
     if not args.test_only:
-        print("Snapshotting...")
+        logging.info("Snapshotting...")
         fout = open("cache/snapshot.pickle", "wb")
         pickle.dump((uc, numpy.random.get_state()), fout)
         fout.close()
-        print("Done")
+        logging.info("Done")
 
     plotters.Graphics().wait_finish()
     logging.debug("Finished")

@@ -64,7 +64,7 @@ class All2All(units.OpenCLUnit):
         n_rows = numpy.ceil(output_size / n_cols)
         weights = self.weights.v
         input_shape = self.input.batch.shape[1:]
-        print("Input shape is: %s" % (str(input_shape), ))
+        self.log().debug("Input shape is: %s" % (str(input_shape),))
         for i in range(0, output_size):
             pp.subplot(n_rows, n_cols, i + 1)
             im = weights[i].reshape(input_shape)
@@ -76,14 +76,14 @@ class All2All(units.OpenCLUnit):
         width = 1024
         fnme = "cache/feed_%d_%d.png" % (numpy.prod(input_shape), output_size)
         pp.savefig(fnme, dpi=width // 8)
-        print("Weights picture saved to %s" % (fnme, ))
+        self.log().info("Weights picture saved to %s" % (fnme,))
         pp.clf()
         pp.cla()
         pp.imshow(weights, interpolation="lanczos", cmap=cm.gray)
         fnme = "cache/weights_%d_%d.png" % (numpy.prod(input_shape),
                                             output_size)
         pp.savefig(fnme, dpi=width // 8)
-        print("Weights picture as matrix saved to %s" % (fnme, ))
+        self.log().info("Weights picture as matrix saved to %s" % (fnme,))
         pp.clf()
         pp.cla()
 
@@ -169,7 +169,7 @@ class All2All(units.OpenCLUnit):
         """Show some statistics.
         """
         if not __debug__:
-            #print("%s within %.2f sec: %d_%d" % \
+            # self.log().info("%s within %.2f sec: %d_%d" % \
             #      (self.__class__.__name__, time.time() - t_start, \
             #       self.input.batch.size // self.input.batch.shape[0], \
             #       self.output.batch.size // self.output.batch.shape[0]))
@@ -177,7 +177,7 @@ class All2All(units.OpenCLUnit):
         y = self.output.batch
         self.output.sync()
         self.weights.sync()
-        print("%s: %d samples with %d weights in %.2f sec (min,avg,max,sum):\t"
+        self.log().info("%s: %d samples with %d weights in %.2f sec (min,avg,max,sum):\t"
               "y=%.6f,%.4f,%.2f,%.2f" %
               (self.__class__.__name__.replace("All2All", ""), y.shape[0],
                self.weights.v.size, time.time() - t_start,
@@ -272,7 +272,7 @@ class All2AllSoftmax(All2All):
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
-        self.cl_sources["cl/sm.cl"] = "#define itype %s" % (itype, )
+        self.cl_sources["cl/sm.cl"] = "#define itype %s" % (itype,)
         retval = super(All2AllSoftmax, self).initialize()
         if retval:
             return retval
@@ -298,8 +298,8 @@ class All2AllSoftmax(All2All):
             s = []
             a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
             for i in range(a.size - 1, a.size - 11, -1):
-                s.append("%.2f" % (a[i], ))
-            print("Softmax Wx+b: ", ", ".join(s), ", %.2f" % (a[0], ))
+                s.append("%.2f" % (a[i],))
+            self.log().debug("Softmax Wx+b: ", ", ".join(s), ", %.2f" % (a[0],))
         for i in range(0, self.output.batch.shape[0]):
             sample = self.output.batch[i]
             im = sample.argmax()

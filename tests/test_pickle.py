@@ -12,7 +12,7 @@ import pickle
 g_pt = 0
 
 
-class PickleTest(units.SmartPickling):
+class PickleTest(units.SmartPickler):
     """Pickle test.
     """
     def __init__(self, unpickling=0, a="A", b="B", c="C"):
@@ -28,7 +28,7 @@ class PickleTest(units.SmartPickling):
 
 class TestPickle(unittest.TestCase):
     def test(self):
-        # Test for correct behavior of units.SmartPickling
+        # Test for correct behavior of units.SmartPickler
         pt = PickleTest(a="AA", c="CC")
         self.assertEqual(g_pt, 1, "Pickle test failed.")
         pt.d = "D"

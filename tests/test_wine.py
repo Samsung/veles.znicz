@@ -49,18 +49,18 @@ class EndPoint(units.Unit):
     def run(self):
         self.n_passes_ += 1
         self.n_passes += 1
-        print("Iterations (session, total): (%d, %d)\n" % (self.n_passes_,
-                                                           self.n_passes))
+        self.log().debug("Iterations (session, total): (%d, %d)\n" %
+                         (self.n_passes_, self.n_passes))
         if self.n_passes % self.snapshot_frequency == 0:
-            fnme = self.snapshot_filename % (self.n_passes, )
-            print("Snapshotting to %s" % (fnme, ))
+            fnme = self.snapshot_filename % (self.n_passes,)
+            self.log().debug("Snapshotting to %s" % (fnme,))
             fout = open(fnme, "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
         if self.n_passes >= 500 and \
            self.__dict__.get("max_ok", 0) < self.status.n_ok:
             self.max_ok = self.status.n_ok
-            print("Snapshotting to snapshot.best")
+            self.log().debug("Snapshotting to snapshot.best")
             fout = open("snapshot.best.tmp", "wb")
             pickle.dump((self.snapshot_object, numpy.random.get_state()), fout)
             fout.close()
@@ -95,7 +95,7 @@ class Repeater(units.Unit):
         return 1
 
 
-class UseCase2(units.SmartPickling):
+class UseCase2(units.SmartPickler):
     """Wine dataset.
     """
     def __init__(self, cpu=True, unpickling=0):
@@ -192,15 +192,15 @@ class UseCase2(units.SmartPickling):
         self.gdsm.global_lambda = global_lambda
         self.gd1.global_alpha = global_alpha
         self.gd1.global_lambda = global_lambda
-        print()
-        print("Initializing...")
+        self.log().debug()
+        self.log().debug("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        #for l in self.t.labels.batch:
-        #    print(l)
-        #sys.exit()
-        print()
-        print("Running...")
+        # for l in self.t.labels.batch:
+        #    self.log().debug(l)
+        # sys.exit()
+        self.log().debug()
+        self.log().debug("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
 
@@ -217,7 +217,7 @@ class TestWine(unittest.TestCase):
         os.chdir(this_dir)
         self.assertEqual(uc.end_point.n_passes, 119,
             "Wine should converge in 119 passes on the supplied seed, "
-            "but %d passed" % (uc.end_point.n_passes, ))
+            "but %d passed" % (uc.end_point.n_passes,))
 
     def test_gpu(self):
         this_dir = os.getcwd()
@@ -228,7 +228,7 @@ class TestWine(unittest.TestCase):
         os.chdir(this_dir)
         self.assertEqual(uc.end_point.n_passes, 119,
             "Wine should converge in 119 passes on the supplied seed, "
-            "but %d passed" % (uc.end_point.n_passes, ))
+            "but %d passed" % (uc.end_point.n_passes,))
 
     def test_gpu_a(self):
         this_dir = os.getcwd()
@@ -239,9 +239,9 @@ class TestWine(unittest.TestCase):
         os.chdir(this_dir)
         self.assertEqual(uc.end_point.n_passes, 294,
             "Wine should converge in 294 passes on the supplied seed, "
-            "but %d passed" % (uc.end_point.n_passes, ))
+            "but %d passed" % (uc.end_point.n_passes,))
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.test']
+    # import sys;sys.argv = ['', 'Test.test']
     unittest.main()

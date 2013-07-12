@@ -25,6 +25,7 @@ no testing for test data set. (-"-)
 import units
 import opencl
 import loader
+import logging
 import all2all
 import evaluator
 import gd
@@ -35,9 +36,9 @@ import numpy
 import plotters
 
 def strf(x):
-    return "%.4f" % (x, )
+    return "%.4f" % (x,)
 
-class model_WF_wine(units.SmartPickling):
+class model_WF_wine(units.SmartPickler):
     """UUseCaseTxt.
 
     Attributes:
@@ -46,19 +47,19 @@ class model_WF_wine(units.SmartPickling):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self,data_set=None,param =None,cpu = True, unpickling = 0):
+    def __init__(self, data_set=None, param=None, cpu=True, unpickling=0):
         super(model_WF_wine, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         if data_set == None:
             data_set = {}
-        self.data_set =data_set
+        self.data_set = data_set
         if param == None:
             param = {}
-        self.param=param
+        self.param = param
 
-        #rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
-        numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))# сделать считывание из конфига 
+        # rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
+        numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))  # сделать считывание из конфига
         dev = None
         if not cpu:
             self.device_list = opencl.DeviceList()
@@ -67,17 +68,17 @@ class model_WF_wine(units.SmartPickling):
         # Setup notification flow
         self.start_point = units.Unit()
 
-        
-        # print(self.config_data_seta)
-        # print(self.config_datasa)
-        #print(self.data_set)
-        t = loader.TXTLoader(self.data_set,self.param)
+
+        # self.log().debug(self.config_data_seta)
+        # self.log().debug(self.config_datasa)
+        # self.log().debug(self.data_set)
+        t = loader.TXTLoader(self.data_set, self.param)
         self.t = t
-        #sys.exit()
-        print("1")
-        print(t)
+        # sys.exit()
+        self.log().debug("1")
+        self.log().debug(t)
         t.link_from(self.start_point)
-        print("2")
+        self.log().debug("2")
 
         rpt = repeater.Repeater()
         rpt.link_from(t)
@@ -85,20 +86,20 @@ class model_WF_wine(units.SmartPickling):
         aa1 = all2all.All2AllTanh(output_shape=[70], device=dev)
         aa1.input = t.output2
         aa1.link_from(rpt)
-        
+
         out = all2all.All2AllSoftmax(output_shape=[3], device=dev)
         out.input = aa1.output
         out.link_from(aa1)
 
 
-        ev = evaluator.EvaluatorSoftmax2(device=dev )
+        ev = evaluator.EvaluatorSoftmax2(device=dev)
         ev.y = out.output
         ev.labels = t.labels
-        ev.params=t.params
+        ev.params = t.params
         ev.TrainIndex = t.TrainIndex
         ev.ValidIndex = t.ValidIndex
-        ev.TestIndex  = t.TestIndex
-        #ev.Index=t.Index
+        ev.TestIndex = t.TestIndex
+        # ev.Index=t.Index
         ev.link_from(out)
 
         plt_ok_train = plotters.SimplePlotter(device=dev,
@@ -139,7 +140,7 @@ class model_WF_wine(units.SmartPickling):
         ev.link_from(out)
         """
 
-        gdsm = gd.GDSM(device=dev )
+        gdsm = gd.GDSM(device=dev)
         gdsm.weights = out.weights
         gdsm.bias = out.bias
         gdsm.h = out.input
@@ -162,17 +163,17 @@ class model_WF_wine(units.SmartPickling):
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
         gdsm.link_from(self.end_point)
-        
-        self.ev = ev  
-        self.sm = out          #?
-        self.gdsm = gdsm       #?
-        self.gd1 = gd1         #?   
-        print("ok_init ")
-        
+
+        self.ev = ev
+        self.sm = out  # ?
+        self.gdsm = gdsm  # ?
+        self.gd1 = gd1  # ?
+        self.log().debug("ok_init ")
+
     def do_log(self, out, gdsm, gd1):
         return
         flog = open("logs/out.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
+        flog.write("Iteration %d" % (self.end_point.n_passes,))
         flog.write("\nSoftMax layer input:\n")
         for sample in out.input.batch:
             flog.write(" ".join(strf(x) for x in sample))
@@ -196,7 +197,7 @@ class model_WF_wine(units.SmartPickling):
         flog.close()
 
         flog = open("logs/gdsm.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
+        flog.write("Iteration %d" % (self.end_point.n_passes,))
         flog.write("\nGD SoftMax err_y:\n")
         for sample in gdsm.err_y.batch:
             flog.write(" ".join(strf(x) for x in sample))
@@ -218,10 +219,10 @@ class model_WF_wine(units.SmartPickling):
                     gdsm.bias.v.min(), gdsm.bias.v.max()))
         flog.write("\n")
         flog.close()
-       
-        
+
+
         flog = open("logs/gd1.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes, ))
+        flog.write("Iteration %d" % (self.end_point.n_passes,))
         flog.write("\nGD1 err_y:\n")
         for sample in gd1.err_y.batch:
             flog.write(" ".join(strf(x) for x in sample))
@@ -243,14 +244,14 @@ class model_WF_wine(units.SmartPickling):
                     gd1.bias.v.min(), gd1.bias.v.max()))
         flog.write("\n")
         flog.close()
-        
-          
-   
+
+
+
     def run(self):
-        
-        _t =self.param['train_param']   # считаю что структуру param с параметрами прочли или она сериализована
-        print(_t)
-        print(" WF WINE RUN START")        
+
+        _t = self.param['train_param']  # считаю что структуру param с параметрами прочли или она сериализована
+        logging.debug(_t)
+        logging.debug(" WF WINE RUN START")
         # Start the process:
         self.sm.threshold = _t['threshold']
         self.sm.threshold_low = _t['threshold_low']
@@ -260,14 +261,14 @@ class model_WF_wine(units.SmartPickling):
         self.gdsm.global_lambda = _t['global_lambda']
         self.gd1.global_alpha = _t['global_alpha']
         self.gd1.global_lambda = _t['global_lambda']
-        print()
-        print("Initializing...")
+        logging.info()
+        logging.info("Initializing...")
         self.start_point.initialize_dependent()
         self.end_point.wait()
-        #for l in self.t.labels.batch:
-        #    print(l)
-        #sys.exit()
-        print()
-        print("Running...")
+        # for l in self.t.labels.batch:
+        #    self.log().debug(l)
+        # sys.exit()
+        logging.info()
+        logging.info("Running...")
         self.start_point.run_dependent()
         self.end_point.wait()
