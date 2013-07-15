@@ -88,6 +88,9 @@ class All2All(units.OpenCLUnit):
         pp.cla()
 
     def initialize(self):
+        if self.weights_amplitude == None:
+            self.weights_amplitude = 9.0 / (self.input.batch.size //
+                                            self.input.batch.shape[0])
         n_weights = self.input.batch.size // self.input.batch.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
@@ -277,7 +280,7 @@ class All2AllSoftmax(All2All):
         if retval:
             return retval
 
-        if not self.max_idx.batch or \
+        if self.max_idx.batch == None or \
            self.max_idx.batch.size != self.output.batch.shape[0]:
             self.max_idx.batch = numpy.zeros([self.output.batch.shape[0]],
                 dtype=config.itypes[itype])

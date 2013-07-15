@@ -62,13 +62,14 @@ class OpenCLConnector(units.Connector):
         self.what_changed = what_changed
         super(OpenCLConnector, self).update()
 
-    def sync(self, what_will_use=CPU):
+    def sync(self, what_will_use=CPU, read_only=False):
         if not self.device:
             return
         if (what_will_use & CPU) and (self.what_changed & GPU):
-            self.gpu_2_cpu()
+            self.gpu_2_cpu(read_only)
             return
-        if (what_will_use & GPU) and (self.what_changed & CPU):
+        if ((what_will_use & GPU) and
+            ((self.what_changed & CPU) or (self.arr_ != None))):
             self.cpu_2_gpu()
             return
 

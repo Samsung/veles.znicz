@@ -11,6 +11,7 @@ import tkinter
 import queue
 import threading
 import numpy
+import formats
 
 
 matplotlib.pyplot.ion()
@@ -128,11 +129,14 @@ class SimplePlotter(Plotter):
     """
     def __init__(self, figure_label="num errorrs",
                  plot_style="k-",
+                 clear_plot=False,
                  device=None,
                  unpickling=0):
         super(SimplePlotter, self).__init__(unpickling=unpickling,
                                             device=device)
         if unpickling:
+            if "clear_plot" not in self.__dict__:
+                self.clear_plot = False
             return
         self.values = list()
         self.input = None   # Connector
@@ -140,19 +144,16 @@ class SimplePlotter(Plotter):
         self.figure_label = figure_label
         self.plot_style = plot_style
         self.input_offs = 0
-        self.last_plot_number = 0
+        self.clear_plot = clear_plot
 
     def redraw(self):
         figure_label = self.figure_label
         figure = matplotlib.pyplot.figure(figure_label)
-        axes = figure.add_subplot(111)  # Main axes
-        if "plot_number" not in figure.__dict__.keys():
-            figure.plot_number = 0
-        if  figure.plot_number <= self.last_plot_number:
+        if self.clear_plot:
             figure.clf()
+        axes = figure.add_subplot(111)  # Main axes
+        if self.clear_plot:
             axes.cla()
-            figure.plot_number = self.last_plot_number + 1
-        self.last_plot_number = figure.plot_number
         axes.plot(self.values, self.plot_style)
         figure.show()
 
@@ -207,7 +208,7 @@ class MatrixPlotter(Plotter):
         num_rows = len(value) + 2
         num_columns = len(value[0]) + 2
 
-        main_axes = matplotlib.pyplot.axes([0, 0, 1, 1])
+        main_axes = figure.add_axes([0, 0, 1, 1])
         main_axes.cla()
 
         # First cell color
@@ -385,7 +386,7 @@ class Weights2D(Plotter):
         self.input = None  # Connector
         self.input_field = None
         self.figure_label = figure_label
-        self.get_shape_from = None  # formats.Batch(), formats.Vector, ndarray
+        self.get_shape_from = None
 
     def redraw(self):
         if type(self.input_field) == int:
@@ -405,15 +406,20 @@ class Weights2D(Plotter):
         if self.get_shape_from == None:
             sx = int(numpy.round(numpy.sqrt(value.shape[1])))
             sy = int(value.shape[1]) // sx
+        elif type(self.get_shape_from) == list:
+            sx = self.get_shape_from[0][1]
+            sy = self.get_shape_from[0][0]
         elif "batch" in self.get_shape_from.__dict__:
-            sx = self.get_shape_from.batch.shape[1]
-            sy = self.get_shape_from.batch.shape[2]
+            sx = self.get_shape_from.batch.shape[2]
+            sy = self.get_shape_from.batch.shape[1]
         elif "v"  in self.get_shape_from.__dict__:
-            sx = self.get_shape_from.v.shape[0]
-            sy = self.get_shape_from.v.shape[1]
+            sx = self.get_shape_from.v.shape[1]
+            sy = self.get_shape_from.v.shape[0]
         else:
-            sx = self.get_shape_from.shape[0]
-            sy = self.get_shape_from.shape[1]
+            sx = self.get_shape_from.shape[1]
+            sy = self.get_shape_from.shape[0]
+
+        sz = sx * sy
 
         n_cols = int(numpy.round(numpy.sqrt(value.shape[0])))
         n_rows = int(numpy.ceil(value.shape[0] / n_cols))
@@ -423,7 +429,8 @@ class Weights2D(Plotter):
             for col in range(0, n_cols):
                 ax = figure.add_subplot(n_rows, n_cols, i)
                 ax.cla()
-                ax.imshow(value[i].reshape(sy, sx),
+                v = value[i].ravel()[:sz]
+                ax.imshow(v.reshape(sy, sx),
                     interpolation="none", cmap=cm.gray)
                 i += 1
                 if i >= value.shape[0]:
@@ -508,3 +515,198 @@ class Image2(Plotter):
 
     def cpu_run(self):
         Graphics().event_queue.put(self, block=True)
+
+
+class Image3(Plotter):
+    """Plotter for drawing 3 images.
+
+    Should be assigned before initialize():
+        input
+        input_field
+        input_field2
+        input_field3
+
+    Updates after run():
+
+    Creates within initialize():
+
+    """
+    def __init__(self, figure_label="Image",
+                 device=None,
+                 unpickling=0):
+        super(Image3, self).__init__(unpickling=unpickling,
+                                     device=device)
+        if unpickling:
+            return
+        self.value = None
+        self.input = None  # Connector
+        self.input_field = None
+        self.figure_label = figure_label
+
+    def redraw(self):
+        if type(self.input_field) == int:
+            if self.input_field < 0 or self.input_field >= len(self.input):
+                return
+            value = self.input[self.input_field]
+            value2 = self.input[self.input_field2]
+            value3 = self.input[self.input_field3]
+        else:
+            value = self.input.__dict__[self.input_field]
+            value2 = self.input.__dict__[self.input_field2]
+            value3 = self.input.__dict__[self.input_field3]
+
+        if type(value) != numpy.ndarray:
+            return
+
+        figure_label = self.figure_label
+        figure = matplotlib.pyplot.figure(figure_label)
+        figure.clf()
+
+        if len(value.shape) == 2:
+            sy1 = value.shape[0]
+            sx1 = value.shape[1]
+        elif len(value2.shape) == 2:
+            sy2 = value2.shape[0]
+            sx2 = value2.shape[1]
+            sy1 = sy2
+            sx1 = sx2
+        if len(value2.shape) != 2:
+            sy2 = sy1
+            sx2 = sx1
+
+        ax = figure.add_subplot(111)
+        ax.cla()
+        img = numpy.empty([sy1 * 3, sx1], dtype=value.dtype)
+        img[:sy1, :] = value.reshape(sy1, sx1)[:]
+        img[sy1:sy1 * 2, :] = value2.reshape(sy1, sx1)[:]
+        img[sy1 * 2:, :] = value3.reshape(sy1, sx1)[:]
+        ax.imshow(img, interpolation="none", cmap=cm.gray)
+        figure.show()
+
+    def cpu_run(self):
+        Graphics().event_queue.put(self, block=True)
+
+
+class Image1(Plotter):
+    """Plotter for drawing 1 image.
+
+    Should be assigned before initialize():
+        input
+
+    Updates after run():
+
+    Creates within initialize():
+
+    """
+    def __init__(self, figure_label="Image",
+                 device=None,
+                 unpickling=0):
+        super(Image1, self).__init__(unpickling=unpickling,
+                                     device=device)
+        if unpickling:
+            return
+        self.value = None
+        self.input = None  # formats.Batch
+        self.figure_label = figure_label
+
+    def initialize(self):
+        if type(self.input) != formats.Batch:
+            return
+        self.value = numpy.zeros_like(self.input.batch[0])
+
+    def redraw(self):
+        figure_label = self.figure_label
+        figure = matplotlib.pyplot.figure(figure_label)
+        figure.clf()
+
+        ax = figure.add_subplot(111)
+        ax.cla()
+        ax.imshow(self.value, interpolation="none", cmap=cm.gray)
+        figure.show()
+
+    def cpu_run(self):
+        if type(self.input) != formats.Batch:
+            return
+        self.input.sync(read_only=True)
+        numpy.copyto(self.value, self.input.batch[0])
+        Graphics().event_queue.put(self, block=True)
+
+
+class ResultPlotter(Plotter):
+    """Plotter for drawing result.
+
+    Should be assigned before initialize():
+        input
+
+    Updates after run():
+
+    Creates within initialize():
+
+    """
+    def __init__(self, figure_label="Result",
+                 device=None,
+                 unpickling=0):
+        super(ResultPlotter, self).__init__(unpickling=unpickling,
+            device=device)
+        if unpickling:
+            return
+        self.values = []
+        self.img = None
+        self.input = None  # formats.Batch
+        self.image = None  # formats.Batch
+        self.figure_label = figure_label
+        self.names = {0: "No channel",
+                      1: "CCTV 4",
+                      2: "CCTV Arabic",
+                      3: "CCTV Espanol",
+                      4: "CCTV Russian",
+                      5: "CCTV Documentary",
+                      6: "Duna",
+                      7: "Duna World",
+                      8: "FashionTV",
+                      9: "M1",
+                      10: "M2",
+                      11: "Newros",
+                      12: "Sterk"}
+        self.lock = threading.Lock()
+
+    def initialize(self):
+        if type(self.image) != formats.Batch:
+            return
+        self.img = numpy.zeros_like(self.image.batch[0])
+        self.lock.acquire()
+
+    def redraw(self):
+        figure_label = self.figure_label
+        figure = matplotlib.pyplot.figure(figure_label)
+        figure.clf()
+
+        ax = figure.add_subplot(3, 1, 1)
+        ax.cla()
+        ax.plot(self.values, "b-")
+
+        ax = figure.add_subplot(3, 1, 2)
+        ax.cla()
+        ax.axis('off')
+        ax.imshow(self.img, interpolation="none", cmap=cm.gray)
+
+        ax = figure.add_subplot(3, 1, 3)
+        ax.cla()
+        ax.axis('off')
+        ax.text(0.5, 0.5, self.names.get(self.values[-1], ""),
+                ha='center', va='center', fontsize=40)
+
+        figure.show()
+
+        self.lock.release()
+
+    def cpu_run(self):
+        if type(self.input) != formats.Batch:
+            return
+        self.input.sync(read_only=True)
+        self.values.append(self.input.batch[0])
+        if type(self.image) == formats.Batch:
+            self.image.sync(read_only=True)
+            numpy.copyto(self.img, self.image.batch[0])
+        Graphics().event_queue.put(self, block=True)
+        self.lock.acquire()

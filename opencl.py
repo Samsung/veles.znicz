@@ -37,7 +37,7 @@ class Device(units.SmartPickler):
         if unpickling:
             return
         self.info = info
-        self.prefer_mmap = False
+        self.prefer_mmap = True
 
 
 class DeviceInfo(object):
@@ -110,7 +110,9 @@ class DeviceList(units.SmartPickler):
                     cl.device_info.MEM_BASE_ADDR_ALIGN)
                 dev = Device(info=info)
                 dev.context_ = context
-                dev.queue_ = cl.CommandQueue(context)
+                dev.queue_ = cl.CommandQueue(context,
+                    properties=cl.command_queue_properties.\
+                        OUT_OF_ORDER_EXEC_MODE_ENABLE)
                 self.devices_available.append(dev)
 
         if self._do_tests():
