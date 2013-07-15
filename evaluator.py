@@ -82,8 +82,9 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         itype = config.get_itype_from_size((self.y.batch.size //
                                             self.y.batch.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
-        self.cl_sources["cl/ev.cl"] = ("#define itype %s\n#define itype2 %s" %
-            (itype, itype2))
+        global this_dir
+        self.cl_sources["%s/evaluator.cl" % (config.cl_dir, )] = (
+            "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.batch == None or
             self.err_y.batch.size != self.y.batch.size):
@@ -145,13 +146,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                     self.err_y.batch.size // self.err_y.batch.shape[0])
             s = defines
             for src, define in self.cl_sources.items():
-                if type(define) == type(""):
-                    s += "\n" + define + "\n"
+                s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fout = open("cache/ev_%d.cl" % (self.y.batch.size //
-                                            self.y.batch.shape[0],), "w")
+            fout = open("%s/ev_%d.cl" % (config.cache_dir,
+                self.y.batch.size // self.y.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
@@ -195,8 +195,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         local_size = [self.device.info.BLOCK_SIZE[config.dtype]]
         global_size = [local_size[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_,
-                                                 global_size, local_size)
+            self.krn_, global_size, local_size)
         event.wait()
 
         self.err_y.update(formats.GPU)
@@ -330,8 +329,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         itype = config.get_itype_from_size((self.y.batch.size //
                                             self.y.batch.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
-        self.cl_sources["cl/ev.cl"] = ("#define itype %s\n#define itype2 %s" %
-            (itype, itype2))
+        self.cl_sources["%s/evaluator.cl" % (config.cl_dir, )] = (
+            "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.batch == None or
             self.err_y.batch.size != self.y.batch.size):
@@ -373,13 +372,12 @@ class EvaluatorMSE(units.OpenCLUnit):
                     self.err_y.batch.size // self.err_y.batch.shape[0])
             s = defines
             for src, define in self.cl_sources.items():
-                if type(define) == type(""):
-                    s += "\n" + define + "\n"
+                s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fout = open("cache/ev_%d.cl" % (self.y.batch.size //
-                                            self.y.batch.shape[0],), "w")
+            fout = open("%s/ev_%d.cl" % (config.cache_dir,
+                self.y.batch.size // self.y.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 

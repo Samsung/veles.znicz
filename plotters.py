@@ -12,6 +12,7 @@ import queue
 import threading
 import numpy
 import formats
+import logging
 
 
 matplotlib.pyplot.ion()
@@ -83,11 +84,11 @@ class Graphics:
     def wait_finish(self):
         """Waits for user to close the window.
         """
-        print("Waiting for user to close the window...")
+        logging.info("Waiting for user to close the window...")
         self.root.destroy()
         self.run_lock.acquire()
         self.run_lock.release()
-        print("Done")
+        logging.info("Done")
 
 
 class Plotter(units.OpenCLUnit):

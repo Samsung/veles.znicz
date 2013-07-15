@@ -6,7 +6,6 @@ File for MNIST dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-
 import logging
 import sys
 import os
@@ -20,7 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir,))
+add_path("%s/../.." % (this_dir,))
+add_path("%s/../../../src" % (this_dir,))
 
 
 import units
@@ -48,7 +48,7 @@ def normalize(a):
         a -= 1.0
 
 
-class MNISTLoader(units.Unit):
+class Loader(units.Unit):
     """Loads MNIST data and provides mini-batch output interface.
 
     Attributes:
@@ -84,7 +84,7 @@ class MNISTLoader(units.Unit):
                 floats - relative from (0 to 1).
             minibatch_size: minibatch max size.
         """
-        super(MNISTLoader, self).__init__(unpickling=unpickling)
+        super(Loader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.rnd = [rnd]
@@ -192,8 +192,8 @@ class MNISTLoader(units.Unit):
                                                     images.max()))
             for image in images:
                 normalize(image)
-            self.log().info("Range after normalization: [%.1f, %.1f]" % (images.min(),
-                                                               images.max()))
+            self.log().info("Range after normalization: [%.1f, %.1f]" % (
+                                                images.min(), images.max()))
             self.original_data[offs:offs + n_images] = images[:]
         self.log().info("Done")
 
@@ -421,14 +421,13 @@ class Decision(units.Unit):
                     self.min_validation_err = self.epoch_min_err[1]
                     self.min_validation_err_epoch_number = self.epoch_number[0]
                     if self.n_err_pt[1] < 2.5:
-                        global this_dir
                         if self.fnme != None:
                             try:
                                 os.unlink(self.fnme)
                             except FileNotFoundError:
                                 pass
                         self.fnme = "%s/mnist.%.2f.pickle" % \
-                            (this_dir, self.n_err_pt[1])
+                            (config.snapshot_dir, self.n_err_pt[1])
                         self.log().info("Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
@@ -506,7 +505,7 @@ class Workflow(units.OpenCLUnit):
         self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
-        self.loader = MNISTLoader()
+        self.loader = Loader()
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -633,6 +632,10 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("mnist.pickle", "rb")
     w = pickle.load(fin)
@@ -690,7 +693,7 @@ def main():
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -711,16 +714,16 @@ def main():
     time.sleep(5)
     logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist.pickle" % (this_dir,)
+    fnme = "%s/mnist.pickle" % (config.snapshot_dir,)
     logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
 
     plotters.Graphics().wait_finish()
-    thread_pool.pool.shutdown()
     logging.debug("End of job")
 
 
 if __name__ == "__main__":
     main()
+    sys.exit()

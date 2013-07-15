@@ -12,6 +12,7 @@ import pickle
 import units
 import os
 import config
+import logging
 
 
 CL_MAP_READ = 1
@@ -86,7 +87,7 @@ class DeviceList(units.SmartPickler):
         super(DeviceList, self).__init__(unpickling=unpickling)
         self.device_infos = {}
         try:
-            fin = open("cache/device_infos.pickle", "rb")
+            fin = open("%s/device_infos.pickle" % (config.cache_dir,), "rb")
             self.device_infos = pickle.load(fin)
             fin.close()
         except IOError:
@@ -116,11 +117,12 @@ class DeviceList(units.SmartPickler):
                 self.devices_available.append(dev)
 
         if self._do_tests():
-            print("Saving test results to cache/device_infos.pickle...")
-            fout = open("cache/device_infos.pickle", "wb")
+            logging.info("Saving test results to %s/device_infos.pickle..." % (
+                                                        config.cache_dir,))
+            fout = open("%s/device_infos.pickle" % (config.cache_dir,), "wb")
             pickle.dump(self.device_infos, fout)
             fout.close()
-            print("Done")
+            logging.info("Done")
 
         self.devices_available.sort(
             key=lambda device: device.info.rating[config.dtype],
@@ -131,11 +133,11 @@ class DeviceList(units.SmartPickler):
         for i in range(n - 1, 0, -1):
             if self.devices_available[i].context_ != context:
                 self.devices_available.pop(i)
-        print("Selected single context with the following devices "
+        logging.info("Selected single context with the following devices "
               "(guid: dtype, rating, BLOCK_SIZE, memalign):")
         for device in self.devices_available:
             for dtype in device.info.rating.keys():
-                print("%s: %s, %.4f, %s, %d" % (device.info.guid, dtype,
+                logging.info("%s: %s, %.4f, %s, %d" % (device.info.guid, dtype,
                     device.info.rating[dtype], device.info.BLOCK_SIZE[dtype],
                     device.info.memalign))
 
@@ -238,15 +240,15 @@ class DeviceList(units.SmartPickler):
                 for dtype in config.dtypes.keys():
                     try:
                         self._prepare_tests(BLOCK_SIZE, dtype)
-                        if BLOCK_SIZE == 32:
-                            print("Numpy double precision...")
+                        if BLOCK_SIZE == 32 and dt_numpy == 86400:
+                            logging.info("Numpy double precision...")
                             dt = self._do_cpu_test()
-                            print("Done in %.2f seconds" % (dt))
+                            logging.info("Done in %.2f seconds" % (dt,))
                             if dt < dt_numpy:
                                 dt_numpy = dt
                         if dt_numpy < min_dt[dtype]:
                             min_dt[dtype] = dt_numpy
-                        print("Testing %s with BLOCK_SIZE = %d "
+                        logging.info("Testing %s with BLOCK_SIZE = %d "
                               "and dtype = %s" % \
                               (device.info.guid, BLOCK_SIZE, dtype))
                         dt = self._do_test(device, BLOCK_SIZE, dtype, 7)
@@ -259,36 +261,38 @@ class DeviceList(units.SmartPickler):
                             c = self.cc.copy()
                             c -= self.c
                             numpy.abs(c, c)
-                            print("Avg is %.2f seconds, MSE = %.6f, "
+                            logging.info("Avg is %.2f seconds, MSE = %.6f, "
                                   "max_diff = %.6f" %
                                   (dt, numpy.linalg.norm(c) / c.size, c.max()))
                         else:
-                            print("Avg is %.2f seconds" % (dt, ))
+                            logging.info("Avg is %.2f seconds" % (dt,))
                         self._cleanup_after_tests()
                     except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
-                        print("Program compilation or run failed for "
+                        logging.info("Program compilation or run failed for "
                               "BLOCK_SIZE = %d and dtype = %s" % (BLOCK_SIZE,
                                                                   dtype))
                         self._cleanup_after_tests()
                         #raise
 
-        print("\nRating(numpy double precision): %.4f" % \
+        logging.info("\nRating(numpy double precision): %.4f" % \
               (min_dt[config.dtype] / dt_numpy))
         for info in self.device_infos.values():
             for dtype in config.dtypes.keys():
-                print()
-                print(dtype)
+                logging.info("")
+                logging.info(dtype)
                 rating = min_dt[dtype] / info.dt[dtype]
                 if info.rating[dtype] != rating:
                     if info.rating[dtype]:
-                        print("UPD Rating(%s): %.4f" % (info.guid, rating))
+                        logging.info("UPD Rating(%s): %.4f" % (info.guid,
+                                                               rating))
                     else:
-                        print("NEW Rating(%s): %.4f" % (info.guid, rating))
+                        logging.info("NEW Rating(%s): %.4f" % (info.guid,
+                                                               rating))
                 else:
-                    print("Rating(%s): %.4f" % (info.guid, rating))
+                    logging.info("Rating(%s): %.4f" % (info.guid, rating))
                 info.rating[dtype] = rating
                 info.min_dt[dtype] = min_dt[dtype]
-        print()
+        logging.info("")
         return 1
 
     def _prepare_tests(self, BLOCK_SIZE, dtype):
@@ -301,9 +305,9 @@ class DeviceList(units.SmartPickler):
             self.B_HEIGHT += BLOCK_SIZE - self.B_HEIGHT % BLOCK_SIZE
         if self.A_HEIGHT % BLOCK_SIZE:
             self.A_HEIGHT += BLOCK_SIZE - self.A_HEIGHT % BLOCK_SIZE
-        print("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (self.AB_WIDTH,
-              self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
-              self.A_HEIGHT, self.B_HEIGHT))
+        logging.info("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (
+            self.AB_WIDTH, self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
+            self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = numpy.random.get_state()
 
         self.a = units.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
@@ -349,14 +353,14 @@ class DeviceList(units.SmartPickler):
         "#define Y %d\n"
         "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
                                   self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
-        fin = open("cl/mx.cl", "r")
+        fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
         s_mx_mul = fin.read()
         fin.close()
-        fin = open("cl/feed.cl", "r")
+        fin = open("%s/forward.cl" % (config.cl_dir,), "r")
         s = defines + fin.read()
         fin.close()
         s = s.replace("MX_MUL", s_mx_mul)
-        fout = open("cache/test.cl", "w")
+        fout = open("%s/test.cl" % (config.cache_dir,), "w")
         fout.write(s)
         fout.close()
 

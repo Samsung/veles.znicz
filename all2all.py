@@ -12,8 +12,6 @@ import pyopencl
 import time
 import rnd
 import config
-import matplotlib.pyplot as pp
-import matplotlib.cm as cm
 
 
 class All2All(units.OpenCLUnit):
@@ -46,7 +44,7 @@ class All2All(units.OpenCLUnit):
         self.krn_ = None
         if unpickling:
             return
-        self.cl_sources["cl/feed.cl"] = 1
+        self.cl_sources["%s/forward.cl" % (config.cl_dir, )] = ""
         self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
@@ -55,37 +53,6 @@ class All2All(units.OpenCLUnit):
         self.weights_amplitude = weights_amplitude
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
-
-    def show_weights(self):
-        return  # TODO(a.kazantsev): do properly.
-        pp.rcParams.update({'font.size': 7})
-        output_size = self.output.batch.size // self.output.batch.shape[0]
-        n_cols = numpy.floor(numpy.sqrt(output_size))
-        n_rows = numpy.ceil(output_size / n_cols)
-        weights = self.weights.v
-        input_shape = self.input.batch.shape[1:]
-        self.log().debug("Input shape is: %s" % (str(input_shape),))
-        for i in range(0, output_size):
-            pp.subplot(n_rows, n_cols, i + 1)
-            im = weights[i].reshape(input_shape)
-            if len(im.shape) == 2:
-                pp.imshow(im, interpolation="lanczos", cmap=cm.gray)
-            else:
-                im = im.reshape(im.size)
-                pp.plot(im)
-        width = 1024
-        fnme = "cache/feed_%d_%d.png" % (numpy.prod(input_shape), output_size)
-        pp.savefig(fnme, dpi=width // 8)
-        self.log().info("Weights picture saved to %s" % (fnme,))
-        pp.clf()
-        pp.cla()
-        pp.imshow(weights, interpolation="lanczos", cmap=cm.gray)
-        fnme = "cache/weights_%d_%d.png" % (numpy.prod(input_shape),
-                                            output_size)
-        pp.savefig(fnme, dpi=width // 8)
-        self.log().info("Weights picture as matrix saved to %s" % (fnme,))
-        pp.clf()
-        pp.cla()
 
     def initialize(self):
         if self.weights_amplitude == None:
@@ -143,20 +110,18 @@ class All2All(units.OpenCLUnit):
                         self.output.aligned_.shape[0]))
             s = defines
             for src, define in self.cl_sources.items():
-                if type(define) == type(""):
-                    s += "\n" + define + "\n"
+                s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fin = open("cl/mx.cl", "r")
+            global this_dir
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir, ), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("cache/feed_%d_%d.cl" % (self.input.batch.size // \
-                                                 self.input.batch.shape[0],
-                                                 self.output.batch.size // \
-                                                 self.output.batch.shape[0]),
-                        "w")
+            fout = open("%s/feed_%d_%d.cl" % (config.cache_dir,
+                self.input.batch.size // self.input.batch.shape[0],
+                self.output.batch.size // self.output.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
@@ -180,14 +145,12 @@ class All2All(units.OpenCLUnit):
         y = self.output.batch
         self.output.sync()
         self.weights.sync()
-        self.log().info("%s: %d samples with %d weights in %.2f sec (min,avg,max,sum):\t"
-              "y=%.6f,%.4f,%.2f,%.2f" %
-              (self.__class__.__name__.replace("All2All", ""), y.shape[0],
-               self.weights.v.size, time.time() - t_start,
-               numpy.fabs(y).min(),
-               numpy.average(numpy.fabs(y)),
-               numpy.fabs(y).max(),
-               y.sum()))
+        self.log().info("%s: %d samples with %d weights in %.2f sec "
+            "(min,avg,max,sum):\ty=%.6f,%.4f,%.2f,%.2f" %
+            (self.__class__.__name__.replace("All2All", ""), y.shape[0],
+             self.weights.v.size, time.time() - t_start,
+             numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
+             numpy.fabs(y).max(), y.sum()))
         self.show_weights()
 
     def gpu_run(self):
@@ -196,7 +159,7 @@ class All2All(units.OpenCLUnit):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(self.output.aligned_.size // \
+        output_size = int(self.output.aligned_.size //
                           self.output.aligned_.shape[0])
         global_size = [output_size, self.output.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE[config.dtype],
@@ -213,8 +176,7 @@ class All2All(units.OpenCLUnit):
         self.weights.sync()
         self.bias.sync()
         a = self.input.batch.reshape([self.input.batch.shape[0],
-                                      self.input.batch.size // \
-                                      self.input.batch.shape[0]])
+            self.input.batch.size // self.input.batch.shape[0]])
         b = self.weights.v.transpose()
         numpy.dot(a, b, self.output.batch)
         self.output.batch[:] += self.bias.v
@@ -275,7 +237,9 @@ class All2AllSoftmax(All2All):
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
-        self.cl_sources["cl/sm.cl"] = "#define itype %s" % (itype,)
+        global this_dir
+        self.cl_sources["%s/softmax.cl" % (config.cl_dir, )] = (
+            "#define itype %s" % (itype, ))
         retval = super(All2AllSoftmax, self).initialize()
         if retval:
             return retval
@@ -302,7 +266,8 @@ class All2AllSoftmax(All2All):
             a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
             for i in range(a.size - 1, a.size - 11, -1):
                 s.append("%.2f" % (a[i],))
-            self.log().debug("Softmax Wx+b: ", ", ".join(s), ", %.2f" % (a[0],))
+            self.log().debug("Softmax Wx+b: ", ", ".join(s),
+                             ", %.2f" % (a[0], ))
         for i in range(0, self.output.batch.shape[0]):
             sample = self.output.batch[i]
             im = sample.argmax()

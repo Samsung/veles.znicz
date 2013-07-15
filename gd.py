@@ -52,7 +52,7 @@ class GD(units.OpenCLUnit):
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
                  unpickling=0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
-        self.cl_sources["cl/gd.cl"] = 1
+        self.cl_sources["%s/gradient_descent.cl" % (config.cl_dir, )] = ""
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
@@ -98,19 +98,17 @@ class GD(units.OpenCLUnit):
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
             for src, define in self.cl_sources.items():
-                if type(define) == type(""):
-                    s += define
+                s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fin = open("cl/mx.cl", "r")
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir, ), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("cache/gd_%d_%d.cl" % (self.h.batch.size //
-                                               self.h.batch.shape[0],
-                                               self.y.batch.size //
-                                               self.y.batch.shape[0]), "w")
+            fout = open("%s/gd_%d_%d.cl" % (config.cache_dir,
+                self.h.batch.size // self.h.batch.shape[0],
+                self.y.batch.size // self.y.batch.shape[0]), "w")
             fout.write(s)
             fout.close()
 
@@ -218,8 +216,7 @@ class GD(units.OpenCLUnit):
         local_size = [self.device.info.BLOCK_SIZE[config.dtype],
                       self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_err_h_, global_size,
-                                                 local_size)
+            self.krn_err_h_, global_size, local_size)
         event.wait()
         self.err_h.update(formats.GPU)
 
@@ -239,7 +236,7 @@ class GD(units.OpenCLUnit):
             self.bias_alphas.sync()
             wa = self.weights_alphas.v
             ba = self.bias_alphas.v
-            print("BP %d_%d in %.2f sec (min, avg, max):\t"
+            self.log().debug("BP %d_%d in %.2f sec (min, avg, max):\t"
                   "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f\t"
                   "WAlpha=%.6f,%.4f,%.2f\tBAlpha=%.6f,%.4f,%.2f" %
                   (self.h.batch.size // self.h.batch.shape[0],
@@ -258,7 +255,7 @@ class GD(units.OpenCLUnit):
                    numpy.average(numpy.fabs(ba)),
                    numpy.fabs(ba).max()))
         else:
-            print("BP %d_%d in %.2f sec (min, avg, max):\t"
+            self.log().debug("BP %d_%d in %.2f sec (min, avg, max):\t"
                   "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f" %
                   (self.h.batch.size // self.h.batch.shape[0],
                    self.y.batch.size // self.y.batch.shape[0],
@@ -335,7 +332,7 @@ class GDTanh(GD):
         self.err_y.update()
 
     def initialize(self):
-        self.cl_sources["cl/gd_tanh.cl"] = 1
+        self.cl_sources["%s/gradient_descent_tanh.cl" % (config.cl_dir, )] = ""
         retval = super(GDTanh, self).initialize()
         if retval or not self.device:
             return retval
@@ -385,7 +382,8 @@ class GDA(GD):
         self.bias_alphas = formats.Vector()
 
     def initialize(self):
-        self.cl_sources["cl/gda.cl"] = 1
+        self.cl_sources["%s/gradient_descent_alpha.cl" % (
+                                            config.cl_dir, )] = ""
         retval = super(GDA, self).initialize()
         if retval:
             return retval
@@ -455,8 +453,7 @@ class GDA(GD):
         local_size = [self.device.info.BLOCK_SIZE[config.dtype],
                       self.device.info.BLOCK_SIZE[config.dtype]]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                               self.krn_bias_a_, global_size,
-                                               local_size)
+                    self.krn_bias_a_, global_size, local_size)
 
         ev1.wait()
         ev2.wait()

@@ -9,6 +9,7 @@ File for kanji recognition.
 import sys
 import os
 import struct
+import logging
 
 
 class BMPWriter(object):
@@ -31,7 +32,7 @@ class BMPWriter(object):
         """
         if len(a.shape) != 2:
             raise Exception("a should be 2-dimensional, got: %s" % (
-                str(a.shape), ))
+                str(a.shape),))
 
         fout = open(fnme, "wb")
 
@@ -60,7 +61,9 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir, ))
+add_path("%s/../src" % (this_dir,))
+add_path("%s/../.." % (this_dir,))
+add_path("%s/../../../src" % (this_dir,))
 
 
 import units
@@ -113,8 +116,9 @@ class Loader(units.Unit):
         width: width of the input image.
     """
     def __init__(self,
-                 train_paths=["/home/ajk/Projects/kanji/*.bmp"],
-                 target_dir="/home/ajk/Projects/kanji_target",
+                 train_paths=["%s/kanji/train/*.bmp" % (
+                    config.test_dataset_root,)],
+                 target_dir=("%s/kanji/target" % (config.test_dataset_root,)),
                  minibatch_max_size=100, rnd=rnd.default, unpickling=0):
         super(Loader, self).__init__(unpickling=unpickling)
         if unpickling:
@@ -165,19 +169,19 @@ class Loader(units.Unit):
         #a -= 1.0
         #if numpy.fabs(a.min() + 1.0) > 0.000001 or \
         #   numpy.fabs(a.max() - 1.0) > 0.000001:
-        #    print("Found an image with unexpected range:", a.min(), a.max(),
-        #          fnme)
+        #    self.log().info("Found an image with unexpected range:",
+        #        a.min(), a.max(), fnme)
         return a
 
     def load_original(self, pathname):
         """Loads data from original files.
         """
-        print("Loading from %s..." % (pathname, ))
+        self.log().info("Loading from %s..." % (pathname,))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname, ))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
 
         a = self.from_image(files[0])
         sh = [n_files]
@@ -211,7 +215,8 @@ class Loader(units.Unit):
             if lbl not in self.target_by_lbl:
                 b = self.from_image("%s/%s.bmp" % (self.target_dir, s[:5]))
                 self.target_by_lbl[lbl] = b
-        print("Labels are indexed from-to:", ll.min(), ll.max())
+        self.log().info("Labels are indexed from-to: %d %d" % (ll.min(),
+                                                               ll.max()))
         return (aa, ll)
 
     def initialize(self):
@@ -339,8 +344,7 @@ class Loader(units.Unit):
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
 
 
@@ -359,11 +363,9 @@ class ImageSaverAE(units.Unit):
         indexes: sample indexes.
         labels: sample labels.
     """
-    def __init__(self, out_dirs=[".", ".", "."], unpickling=0):
+    def __init__(self, out_dirs=["/tmp/img/test", "/tmp/img/validation",
+                                 "/tmp/img/train"], unpickling=0):
         super(ImageSaverAE, self).__init__(unpickling=unpickling)
-        self.out_dirs = ["/home/ajk/Projects/img/test",
-                         "/home/ajk/Projects/img/validation",
-                         "/home/ajk/Projects/img/train"]
         if unpickling:
             return
         self.out_dirs = out_dirs
@@ -377,6 +379,13 @@ class ImageSaverAE(units.Unit):
         self.this_save_time = [0]
         self.bmp = BMPWriter()
 
+    def initialize(self):
+        for dirnme in self.out_dirs:
+            try:
+                os.mkdir(dirnme)
+            except OSError:
+                pass
+
     def run(self):
         self.input.sync()
         self.output.sync()
@@ -386,7 +395,7 @@ class ImageSaverAE(units.Unit):
         dirnme = self.out_dirs[self.minibatch_class[0]]
         if self.this_save_time[0] > self.last_save_time:
             self.last_save_time = self.this_save_time[0]
-            files = glob.glob("%s/*.bmp" % (dirnme, ))
+            files = glob.glob("%s/*.bmp" % (dirnme,))
             for file in files:
                 try:
                     os.unlink(file)
@@ -568,8 +577,9 @@ class Decision(units.Unit):
                         except FileNotFoundError:
                             pass
                     self.fnme = "%s/kanji_%.6f.pickle" % \
-                        (this_dir, self.epoch_metrics[minibatch_class][0])
-                    print("Snapshotting to %s" % (self.fnme, ))
+                        (config.snapshot_dir,
+                         self.epoch_metrics[minibatch_class][0])
+                    self.log().info("Snapshotting to %s" % (self.fnme,))
                     fout = open(self.fnme, "wb")
                     pickle.dump(self.workflow, fout)
                     fout.close()
@@ -585,16 +595,17 @@ class Decision(units.Unit):
 
             # Print some statistics
             t2 = time.time()
-            print("Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
-                  "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
-                  (self.epoch_number[0], minibatch_class,
-                   self.epoch_metrics[minibatch_class][0],
-                   self.threshold_ok,
-                   self.n_err[minibatch_class],
-                   self.n_err_pt[minibatch_class],
-                   self.epoch_metrics[minibatch_class][1],
-                   self.epoch_metrics[minibatch_class][2],
-                   t2 - self.t1))
+            self.log().info(
+                "Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
+                "MaxMSE %.6f MinMSE %.2e in %.2f sec" %
+                (self.epoch_number[0], minibatch_class,
+                 self.epoch_metrics[minibatch_class][0],
+                 self.threshold_ok,
+                 self.n_err[minibatch_class],
+                 self.n_err_pt[minibatch_class],
+                 self.epoch_metrics[minibatch_class][1],
+                 self.epoch_metrics[minibatch_class][2],
+                 t2 - self.t1))
             self.t1 = t2
 
             # Training set processed
@@ -613,7 +624,7 @@ class Decision(units.Unit):
                 for gd in self.workflow.gd:
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
                                           0.00001)
-                print("new global_alpha: %.4f" % \
+                self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha, ))
                 """
                 self.epoch_ended[0] = 1
@@ -687,9 +698,7 @@ class Workflow(units.OpenCLUnit):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE(["/home/ajk/Projects/img/test",
-                                         "/home/ajk/Projects/img/validation",
-                                         "/home/ajk/Projects/img/train"])
+        self.image_saver = ImageSaverAE()
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -839,6 +848,10 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("mnist.pickle", "rb")
     w = pickle.load(fin)
@@ -889,20 +902,20 @@ def main():
         im = numpy.argmax(c[i])
         if im == labels[i]:
             n_ok += 1
-    print("%d errors" % (10000 - n_ok, ))
+    self.log().info("%d errors" % (10000 - n_ok, ))
 
-    print("Done")
+    self.log().info("Done")
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        fnme = "%s/kanji.pickle" % (this_dir, )
+        fnme = "%s/kanji.pickle" % (this_dir,)
         fin = None
         try:
             fin = open(fnme, "rb")
@@ -911,10 +924,11 @@ def main():
         if fin != None:
             w = pickle.load(fin)
             fin.close()
-            print("Weights and bias ranges per layer are:")
+            logging.info("Weights and bias ranges per layer are:")
             for forward in w.forward:
-                print(forward.weights.v.min(), forward.weights.v.max(),
-                      forward.bias.v.min(), forward.bias.v.max())
+                logging.info("%f %f %f %f" % (
+                    forward.weights.v.min(), forward.weights.v.max(),
+                    forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
         else:
             w = Workflow(layers=[999, 999, 32 * 32], device=device)
@@ -927,22 +941,22 @@ def main():
         w.run()
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    print("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot after 15 seconds...")
     time.sleep(5)
-    print("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot after 10 seconds...")
     time.sleep(5)
-    print("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/kanji.pickle" % (this_dir, )
-    print("Snapshotting to %s" % (fnme, ))
+    fnme = "%s/kanji.pickle" % (config.snapshot_dir,)
+    logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
 
     plotters.Graphics().wait_finish()
-    units.pool.shutdown()
-    print("End of job")
+    logging.info("End of job")
 
 
 if __name__ == "__main__":
     main()
+    sys.exit()

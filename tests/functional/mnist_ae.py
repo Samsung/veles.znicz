@@ -20,7 +20,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir, ))
+add_path("%s/../.." % (this_dir,))
+add_path("%s/../../../src" % (this_dir,))
 
 
 import units
@@ -34,6 +35,7 @@ import opencl
 import plotters
 import pickle
 import time
+import logging
 
 
 def normalize(a):
@@ -45,7 +47,7 @@ def normalize(a):
         a -= 1.0
 
 
-class MNISTLoader(units.Unit):
+class Loader(units.Unit):
     """Loads MNIST data and provides mini-batch output interface.
 
     Attributes:
@@ -80,7 +82,7 @@ class MNISTLoader(units.Unit):
                 floats - relative from (0 to 1).
             minibatch_size: minibatch max size.
         """
-        super(MNISTLoader, self).__init__(unpickling=unpickling)
+        super(Loader, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.rnd = [rnd]
@@ -122,7 +124,7 @@ class MNISTLoader(units.Unit):
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
-        print("Loading from original MNIST files...")
+        self.log().info("Loading from original MNIST files...")
 
         # Reading labels:
         fin = open(labels_fnme, "rb")
@@ -173,14 +175,14 @@ class MNISTLoader(units.Unit):
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(config.dtypes[config.dtype]).\
             reshape(n_images, n_rows, n_cols)
-        print("Original range: [%.1f, %.1f]" % (images.min(),
+        self.log().info("Original range: [%.1f, %.1f]" % (images.min(),
                                                 images.max()))
         for image in images:
             normalize(image)
-        print("Range after normalization: [%.1f, %.1f]" % (images.min(),
-                                                           images.max()))
+        self.log().info("Range after normalization: [%.1f, %.1f]" % (
+                                            images.min(), images.max()))
         self.original_data[offs:offs + n_images] = images[:]
-        print("Done")
+        self.log().info("Done")
 
     def initialize(self):
         """Here we will load MNIST data.
@@ -195,11 +197,11 @@ class MNISTLoader(units.Unit):
 
         global this_dir
         self.load_original(0, 10000,
-                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir, ),
-                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir, ))
+                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir,),
+                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir,))
         self.load_original(10000, 60000,
-                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir, ),
-                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir, ))
+                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir,),
+                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir,))
 
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
@@ -290,8 +292,7 @@ class MNISTLoader(units.Unit):
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
 
 
@@ -453,15 +454,14 @@ class Decision(units.Unit):
                     self.min_validation_mse = self.epoch_min_mse[1]
                     self.min_validation_mse_epoch_number = self.epoch_number[0]
                     if self.epoch_metrics[1][0] < self.threshold_ok:
-                        global this_dir
                         if self.fnme != None:
                             try:
                                 os.unlink(self.fnme)
                             except FileNotFoundError:
                                 pass
                         self.fnme = "%s/mnist_ae.%.4f.pickle" % \
-                            (this_dir, self.epoch_metrics[1][0])
-                        print("Snapshotting to %s" % (self.fnme, ))
+                            (config.snapshot_dir, self.epoch_metrics[1][0])
+                        self.log().info("Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -474,16 +474,17 @@ class Decision(units.Unit):
 
             # Print some statistics
             t2 = time.time()
-            print("Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
-                  "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
-                  (self.epoch_number[0], self.minibatch_class[0],
-                   self.epoch_metrics[self.minibatch_class[0]][0],
-                   self.threshold_ok,
-                   self.n_err[self.minibatch_class[0]],
-                   self.n_err_pt[self.minibatch_class[0]],
-                   self.epoch_metrics[self.minibatch_class[0]][1],
-                   self.epoch_metrics[self.minibatch_class[0]][2],
-                   t2 - self.t1))
+            self.log().info(
+                "Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
+                "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
+                (self.epoch_number[0], self.minibatch_class[0],
+                 self.epoch_metrics[self.minibatch_class[0]][0],
+                 self.threshold_ok,
+                 self.n_err[self.minibatch_class[0]],
+                 self.n_err_pt[self.minibatch_class[0]],
+                 self.epoch_metrics[self.minibatch_class[0]][1],
+                 self.epoch_metrics[self.minibatch_class[0]][2],
+                 t2 - self.t1))
             self.t1 = t2
 
             # Training set processed
@@ -502,7 +503,7 @@ class Decision(units.Unit):
                 for gd in self.workflow.gd:
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
                                           0.00001)
-                print("new global_alpha: %.4f" % \
+                self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha, ))
                 """
                 self.epoch_ended[0] = 1
@@ -546,7 +547,7 @@ class Workflow(units.OpenCLUnit):
         self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
-        self.loader = MNISTLoader()
+        self.loader = Loader()
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -704,6 +705,10 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("mnist_ae.pickle", "rb")
     w = pickle.load(fin)
@@ -713,7 +718,7 @@ def main():
     pickle.dump((w.forward[0].weights.v, w.forward[0].bias.v), fout)
     fout.close()
 
-    print("Done")
+    logging.info("Done")
     units.pool.shutdown()
     sys.exit(0)
 
@@ -762,15 +767,15 @@ def main():
         im = numpy.argmax(c[i])
         if im == labels[i]:
             n_ok += 1
-    print("%d errors" % (10000 - n_ok, ))
+    logging.info("%d errors" % (10000 - n_ok, ))
 
-    print("Done")
+    logging.info("Done")
     units.pool.shutdown()
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -786,22 +791,22 @@ def main():
               global_alpha=0.001, global_lambda=0.0001)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    print("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot after 15 seconds...")
     time.sleep(5)
-    print("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot after 10 seconds...")
     time.sleep(5)
-    print("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist_ae.pickle" % (this_dir, )
-    print("Snapshotting to %s" % (fnme, ))
+    fnme = "%s/mnist_ae.pickle" % (config.snapshot_dir,)
+    logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
 
     plotters.Graphics().wait_finish()
-    units.pool.shutdown()
-    print("End of job")
+    logging.info("End of job")
 
 
 if __name__ == "__main__":
     main()
+    sys.exit()
