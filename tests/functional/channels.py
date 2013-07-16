@@ -929,7 +929,7 @@ def main():
         cl = opencl.DeviceList()
         device = cl.get_device()
         try:
-            fin = open("channels.pickle", "rb")
+            fin = open("%s/channels.pickle" % (config.snapshot_dir,), "rb")
             w = pickle.load(fin)
             fin.close()
         except IOError:
@@ -938,7 +938,7 @@ def main():
               global_alpha=0.001, global_lambda=0.0,
               minibatch_maxsize=27,
               test_dir=None, validation_dir=None,
-              train_dir="/data/veles/channels/img",
+              train_dir=("%s/channels/img" % (config.test_dataset_root,)),
               device=device)
     except KeyboardInterrupt:
         return
