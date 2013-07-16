@@ -20,7 +20,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir,))
+add_path("%s/../.." % (this_dir,))
+add_path("%s/../../../src" % (this_dir,))
 
 
 import units
@@ -85,10 +86,14 @@ class Loader(units.Unit):
         width: width of the input image.
     """
     def __init__(self,
-                 validation_paths=["../../Hands/Positive/Testing/*.raw",
-                                   "../../Hands/Negative/Testing/*.raw"],
-                 train_paths=["../../Hands/Positive/Training/*.raw",
-                              "../../Hands/Negative/Training/*.raw"],
+                 validation_paths=["%s/Hands/Positive/Testing/*.raw" % (
+                                                config.test_dataset_root,),
+                                   "%s/Hands/Negative/Testing/*.raw" % (
+                                                config.test_dataset_root,)],
+                 train_paths=["%s/Hands/Positive/Training/*.raw" % (
+                                                config.test_dataset_root,),
+                              "%s/Hands/Negative/Training/*.raw" % (
+                                                config.test_dataset_root,)],
                  minibatch_max_size=180, rnd=rnd.default, unpickling=0):
         super(Loader, self).__init__(unpickling=unpickling)
         if unpickling:
@@ -389,7 +394,7 @@ class Decision(units.Unit):
                             except FileNotFoundError:
                                 pass
                         self.fnme = "%s/hands_%.2f_%.2f_%.2f.pickle" % \
-                            (this_dir, self.n_err_pt[1],
+                            (config.snapshot_dir, self.n_err_pt[1],
                              self.confusion_matrixes[1][0, 1] /
                              (self.class_samples[0] +
                               self.class_samples[1]) * 100,
@@ -548,9 +553,8 @@ class Workflow(units.OpenCLUnit):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(device=device,
-                            figure_label="num errors",
-                            plot_style=styles[i]))
+            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+                                                   plot_style=styles[i]))
             self.plt[-1].input = self.decision.n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
@@ -559,7 +563,7 @@ class Workflow(units.OpenCLUnit):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(device=device,
+            self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -585,6 +589,10 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """
     fin = open("mnist.1.86.2layer100neurons.pickle", "rb")
     w = pickle.load(fin)
@@ -617,9 +625,8 @@ def main():
     self.log().debug("Done")
     sys.exit(0)
     """
-
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -640,7 +647,7 @@ def main():
     time.sleep(5)
     logging.debug("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/hands.pickle" % (this_dir,)
+    fnme = "%s/hands.pickle" % (config.snapshot_dir,)
     logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
@@ -655,3 +662,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    sys.exit()

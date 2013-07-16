@@ -91,20 +91,26 @@ class Graphics:
         logging.info("Done")
 
 
-class Plotter(units.OpenCLUnit):
+class Plotter(units.Unit):
     """Base class for all plotters
-    """
 
+    Attributes:
+        lock_: lock.
+    """
     def __init__(self, device=None, unpickling=0):
-        super(Plotter, self).__init__(unpickling=unpickling,
-                                      device=device)
+        super(Plotter, self).__init__(unpickling=unpickling)
+        self.lock_ = threading.Lock()
+        self.lock_.acquire()
         if unpickling:
             return
 
     def redraw(self):
         """ Do the actual drawing here
         """
-        pass
+        self.lock_.release()
+
+    def run(self):
+        self.lock_.acquire()
 
 
 class SimplePlotter(Plotter):
@@ -131,16 +137,14 @@ class SimplePlotter(Plotter):
     def __init__(self, figure_label="num errorrs",
                  plot_style="k-",
                  clear_plot=False,
-                 device=None,
                  unpickling=0):
-        super(SimplePlotter, self).__init__(unpickling=unpickling,
-                                            device=device)
+        super(SimplePlotter, self).__init__(unpickling=unpickling)
         if unpickling:
             if "clear_plot" not in self.__dict__:
                 self.clear_plot = False
             return
         self.values = list()
-        self.input = None   # Connector
+        self.input = None  # Connector
         self.input_field = None
         self.figure_label = figure_label
         self.plot_style = plot_style
@@ -157,8 +161,9 @@ class SimplePlotter(Plotter):
             axes.cla()
         axes.plot(self.values, self.plot_style)
         figure.show()
+        super(SimplePlotter, self).redraw()
 
-    def cpu_run(self):
+    def run(self):
         if type(self.input_field) == int:
             if self.input_field < 0 or self.input_field >= len(self.input):
                 return
@@ -169,6 +174,7 @@ class SimplePlotter(Plotter):
             value = value[self.input_offs]
         self.values.append(value)
         Graphics().event_queue.put(self, block=True)
+        super(SimplePlotter, self).run()
 
 
 class MatrixPlotter(Plotter):
@@ -183,11 +189,8 @@ class MatrixPlotter(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Matrix",
-                 device=None,
-                 unpickling=0):
-        super(MatrixPlotter, self).__init__(unpickling=unpickling,
-                                            device=device)
+    def __init__(self, figure_label="Matrix", unpickling=0):
+        super(MatrixPlotter, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.value = None
@@ -287,7 +290,7 @@ class MatrixPlotter(Plotter):
         # Headers in first row
         row = 0
         for column in range(1, num_columns - 1):
-            matplotlib.pyplot.figtext(label=("C%d" % (column - 1, )),
+            matplotlib.pyplot.figtext(label=("C%d" % (column - 1,)),
                             s=(column - 1),
                             x=(column + 0.5) / num_columns,
                             y=(num_rows - row - 0.5) / num_rows,
@@ -296,7 +299,7 @@ class MatrixPlotter(Plotter):
         # Headers in first column
         column = 0
         for row in range(1, num_rows - 1):
-            matplotlib.pyplot.figtext(label=("R%d" % (row - 1, )),
+            matplotlib.pyplot.figtext(label=("R%d" % (row - 1,)),
                             s=(row - 1),
                             x=(column + 0.5) / num_columns,
                             y=(num_rows - row - 0.5) / num_rows,
@@ -327,7 +330,7 @@ class MatrixPlotter(Plotter):
                 #    horizontalalignment="left")
                 matplotlib.pyplot.figtext(
                     label=label,
-                    s=("%.2f%%" % (pt_total, )),
+                    s=("%.2f%%" % (pt_total,)),
                     x=(column + 0.5) / num_columns,
                     y=(num_rows - row - 0.66) / num_rows,
                     verticalalignment="center",
@@ -347,14 +350,15 @@ class MatrixPlotter(Plotter):
             horizontalalignment="center")
         matplotlib.pyplot.figtext(
             label=label,
-            s=("%.2f%%" % (pt_total, )),
+            s=("%.2f%%" % (pt_total,)),
             x=(column + 0.5) / num_columns,
             y=(num_rows - row - 0.66) / num_rows,
             verticalalignment="center",
             horizontalalignment="center")
         figure.show()
+        super(MatrixPlotter, self).redraw()
 
-    def cpu_run(self):
+    def run(self):
         if type(self.input_field) == int:
             if self.input_field < 0 or self.input_field >= len(self.input):
                 return
@@ -362,6 +366,7 @@ class MatrixPlotter(Plotter):
         else:
             self.value = self.input.__dict__[self.input_field]
         Graphics().event_queue.put(self, block=True)
+        super(MatrixPlotter, self).run()
 
 
 class Weights2D(Plotter):
@@ -376,11 +381,8 @@ class Weights2D(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Weights",
-                 device=None,
-                 unpickling=0):
-        super(Weights2D, self).__init__(unpickling=unpickling,
-                                            device=device)
+    def __init__(self, figure_label="Weights", unpickling=0):
+        super(Weights2D, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.value = None
@@ -432,7 +434,7 @@ class Weights2D(Plotter):
                 ax.cla()
                 v = value[i].ravel()[:sz]
                 ax.imshow(v.reshape(sy, sx),
-                    interpolation="none", cmap=cm.gray)
+                    interpolation="nearest", cmap=cm.gray)
                 i += 1
                 if i >= value.shape[0]:
                     break
@@ -441,7 +443,9 @@ class Weights2D(Plotter):
 
         figure.show()
 
-    def cpu_run(self):
+        super(Weights2D, self).redraw()
+
+    def run(self):
         if type(self.input_field) == int:
             if self.input_field < 0 or self.input_field >= len(self.input):
                 return
@@ -449,6 +453,7 @@ class Weights2D(Plotter):
         else:
             self.value = self.input.__dict__[self.input_field]
         Graphics().event_queue.put(self, block=True)
+        super(Weights2D, self).run()
 
 
 class Image2(Plotter):
@@ -464,11 +469,8 @@ class Image2(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Image",
-                 device=None,
-                 unpickling=0):
-        super(Image2, self).__init__(unpickling=unpickling,
-                                     device=device)
+    def __init__(self, figure_label="Image", unpickling=0):
+        super(Image2, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.value = None
@@ -507,15 +509,17 @@ class Image2(Plotter):
 
         ax = figure.add_subplot(2, 1, 0)
         ax.cla()
-        ax.imshow(value.reshape(sy1, sx1), interpolation="none", cmap=cm.gray)
+        ax.imshow(value.reshape(sy1, sx1), interpolation="nearest", cmap=cm.gray)
         ax = figure.add_subplot(2, 1, 1)
         ax.cla()
-        ax.imshow(value2.reshape(sy2, sx2), interpolation="none", cmap=cm.gray)
+        ax.imshow(value2.reshape(sy2, sx2), interpolation="nearest", cmap=cm.gray)
 
         figure.show()
+        super(Image2, self).redraw()
 
-    def cpu_run(self):
+    def run(self):
         Graphics().event_queue.put(self, block=True)
+        super(Image2, self).run()
 
 
 class Image3(Plotter):
@@ -532,11 +536,8 @@ class Image3(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Image",
-                 device=None,
-                 unpickling=0):
-        super(Image3, self).__init__(unpickling=unpickling,
-                                     device=device)
+    def __init__(self, figure_label="Image", unpickling=0):
+        super(Image3, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.value = None
@@ -559,33 +560,41 @@ class Image3(Plotter):
         if type(value) != numpy.ndarray:
             return
 
+        if len(value.shape) != 2:
+            sx = int(numpy.round(numpy.sqrt(value.size)))
+            sy = int(numpy.round(value.size / sx))
+            value = value.reshape(sy, sx)
+        if len(value2.shape) != 2:
+            sx = int(numpy.round(numpy.sqrt(value2.size)))
+            sy = int(numpy.round(value2.size / sx))
+            value2 = value2.reshape(sy, sx)
+        if len(value3.shape) != 2:
+            sx = int(numpy.round(numpy.sqrt(value3.size)))
+            sy = int(numpy.round(value3.size / sx))
+            value3 = value3.reshape(sy, sx)
+
         figure_label = self.figure_label
         figure = matplotlib.pyplot.figure(figure_label)
         figure.clf()
 
-        if len(value.shape) == 2:
-            sy1 = value.shape[0]
-            sx1 = value.shape[1]
-        elif len(value2.shape) == 2:
-            sy2 = value2.shape[0]
-            sx2 = value2.shape[1]
-            sy1 = sy2
-            sx1 = sx2
-        if len(value2.shape) != 2:
-            sy2 = sy1
-            sx2 = sx1
-
-        ax = figure.add_subplot(111)
+        ax = figure.add_subplot(3, 1, 1)
         ax.cla()
-        img = numpy.empty([sy1 * 3, sx1], dtype=value.dtype)
-        img[:sy1, :] = value.reshape(sy1, sx1)[:]
-        img[sy1:sy1 * 2, :] = value2.reshape(sy1, sx1)[:]
-        img[sy1 * 2:, :] = value3.reshape(sy1, sx1)[:]
-        ax.imshow(img, interpolation="none", cmap=cm.gray)
-        figure.show()
+        ax.imshow(value, interpolation="nearest", cmap=cm.gray)
 
-    def cpu_run(self):
+        ax = figure.add_subplot(3, 1, 2)
+        ax.cla()
+        ax.imshow(value2, interpolation="nearest", cmap=cm.gray)
+
+        ax = figure.add_subplot(3, 1, 3)
+        ax.cla()
+        ax.imshow(value3, interpolation="nearest", cmap=cm.gray)
+
+        figure.show()
+        super(Image3, self).redraw()
+
+    def run(self):
         Graphics().event_queue.put(self, block=True)
+        super(Image3, self).run()
 
 
 class Image1(Plotter):
@@ -599,11 +608,8 @@ class Image1(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Image",
-                 device=None,
-                 unpickling=0):
-        super(Image1, self).__init__(unpickling=unpickling,
-                                     device=device)
+    def __init__(self, figure_label="Image", unpickling=0):
+        super(Image1, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.value = None
@@ -622,15 +628,17 @@ class Image1(Plotter):
 
         ax = figure.add_subplot(111)
         ax.cla()
-        ax.imshow(self.value, interpolation="none", cmap=cm.gray)
+        ax.imshow(self.value, interpolation="nearest", cmap=cm.gray)
         figure.show()
+        super(Image1, self).redraw()
 
-    def cpu_run(self):
+    def run(self):
         if type(self.input) != formats.Batch:
             return
         self.input.sync(read_only=True)
         numpy.copyto(self.value, self.input.batch[0])
         Graphics().event_queue.put(self, block=True)
+        super(Image1, self).run()
 
 
 class ResultPlotter(Plotter):
@@ -644,11 +652,8 @@ class ResultPlotter(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Result",
-                 device=None,
-                 unpickling=0):
-        super(ResultPlotter, self).__init__(unpickling=unpickling,
-            device=device)
+    def __init__(self, figure_label="Result", unpickling=0):
+        super(ResultPlotter, self).__init__(unpickling=unpickling)
         if unpickling:
             return
         self.values = []
@@ -689,7 +694,7 @@ class ResultPlotter(Plotter):
         ax = figure.add_subplot(3, 1, 2)
         ax.cla()
         ax.axis('off')
-        ax.imshow(self.img, interpolation="none", cmap=cm.gray)
+        ax.imshow(self.img, interpolation="nearest", cmap=cm.gray)
 
         ax = figure.add_subplot(3, 1, 3)
         ax.cla()
@@ -698,10 +703,9 @@ class ResultPlotter(Plotter):
                 ha='center', va='center', fontsize=40)
 
         figure.show()
+        super(ResultPlotter, self).redraw()
 
-        self.lock.release()
-
-    def cpu_run(self):
+    def run(self):
         if type(self.input) != formats.Batch:
             return
         self.input.sync(read_only=True)
@@ -710,4 +714,4 @@ class ResultPlotter(Plotter):
             self.image.sync(read_only=True)
             numpy.copyto(self.img, self.image.batch[0])
         Graphics().event_queue.put(self, block=True)
-        self.lock.acquire()
+        super(ResultPlotter, self).run()

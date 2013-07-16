@@ -8,6 +8,7 @@ File for channels recognition.
 """
 import sys
 import os
+import logging
 
 
 def add_path(path):
@@ -18,7 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir, ))
+add_path("%s/../.." % (this_dir,))
+add_path("%s/../../../src" % (this_dir,))
 
 
 import units
@@ -60,7 +62,8 @@ def normalize_pointwise(a):
     IAdd[zs] = -1.0
     IAdd[zs] -= mins[zs]
 
-    print(IMul.min(), IMul.max(), IAdd.min(), IAdd.max())
+    logging.info("%f %f %f %f" % (IMul.min(), IMul.max(),
+                                  IAdd.min(), IAdd.max()))
 
     return (IMul, IAdd)
 
@@ -130,12 +133,12 @@ class Loader(units.Unit):
     def load_original(self, pathname):
         """Loads data from original files.
         """
-        print("Loading from %s..." % (pathname, ))
-        files = glob.glob("%s/*.png" % (pathname, ))
+        self.log().info("Loading from %s..." % (pathname,))
+        files = glob.glob("%s/*.png" % (pathname,))
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname, ))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
         a = scipy.ndimage.imread(files[0], True)
         normalize(a)
         aa = numpy.zeros([n_files, a.shape[0], a.shape[1]],
@@ -215,8 +218,10 @@ class Loader(units.Unit):
         self.original_data[:] *= self.IMul
         self.original_data[:] += self.IAdd
 
-        print(self.original_data.min(), self.original_data.max())
-        print(self.original_data.min(0).max(), self.original_data.max(0).min())
+        self.log().info("%f %f" % (self.original_data.min(),
+                                   self.original_data.max()))
+        self.log().info("%f %f" % (self.original_data.min(0).max(),
+                                   self.original_data.max(0).min()))
         """
 
         self.shuffled_indexes = numpy.arange(self.total_samples[0],
@@ -312,9 +317,8 @@ class Loader(units.Unit):
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
 
-        if __debug__:
-            print("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
+        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+                                             time.time() - t1))
 
 
 import all2all
@@ -361,7 +365,7 @@ class ImageSaver(units.Unit):
         dirnme = self.out_dirs[self.minibatch_class[0]]
         if self.snapshot_date[0] != self.last_snapshot_date:
             self.last_snapshot_date = self.snapshot_date[0]
-            files = glob.glob("%s/*.png" % (dirnme, ))
+            files = glob.glob("%s/*.png" % (dirnme,))
             for file in files:
                 try:
                     os.unlink(file)
@@ -490,8 +494,9 @@ class Decision(units.Unit):
                                 pass
                         self.fnme = "%s/channels_%.2f.pickle" % \
                             (this_dir, self.n_err_pt[minibatch_class])
-                        print("                                        "
-                              "Snapshotting to %s" % (self.fnme, ))
+                        self.log().info(
+                            "                                        "
+                            "Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -505,7 +510,7 @@ class Decision(units.Unit):
 
             # Print some statistics
             t2 = time.time()
-            print("Epoch %d Class %d Errors %d in %.2f sec" % \
+            self.log().info("Epoch %d Class %d Errors %d in %.2f sec" % \
                   (self.epoch_number[0], minibatch_class,
                    self.n_err[minibatch_class],
                    t2 - self.t1))
@@ -527,7 +532,7 @@ class Decision(units.Unit):
                 for gd in self.workflow.gd:
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
                                           0.0001)
-                print("new global_alpha: %.4f" % \
+                self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha, ))
                 """
                 self.epoch_ended[0] = 1
@@ -665,9 +670,8 @@ class Workflow(units.OpenCLUnit):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(device=device,
-                            figure_label="num errors",
-                            plot_style=styles[i]))
+            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+                                                   plot_style=styles[i]))
             self.plt[-1].input = self.decision.n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
@@ -687,7 +691,7 @@ class Workflow(units.OpenCLUnit):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(device=device,
+            self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -701,16 +705,16 @@ class Workflow(units.OpenCLUnit):
                    test_dir, validation_dir, train_dir,
                    device):
         if test_dir:
-            self.loader.test_paths = glob.glob("%s/*" % (test_dir, ))
+            self.loader.test_paths = glob.glob("%s/*" % (test_dir,))
         else:
             self.loader.test_paths = []
         if validation_dir:
             self.loader.validation_paths = \
-                glob.glob("%s/*" % (validation_dir, ))
+                glob.glob("%s/*" % (validation_dir,))
         else:
             self.loader.validation_paths = []
         if train_dir:
-            self.loader.train_paths = glob.glob("%s/*" % (train_dir, ))
+            self.loader.train_paths = glob.glob("%s/*" % (train_dir,))
         else:
             self.loader.train_paths = []
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
@@ -727,11 +731,11 @@ class Workflow(units.OpenCLUnit):
         # If channels.feed is found - do only forward propagation.
         try:
             #feed = open("/tmp/feed", "rb")
-            print("will open pipe")
+            self.log().info("will open pipe")
             f = os.open("/tmp/feed", os.O_RDONLY)
-            print("pipe opened")
+            self.log().info("pipe opened")
             feed = os.fdopen(f, "rb")
-            print("pipe linked to python descriptor")
+            self.log().info("pipe linked to python descriptor")
             self.switch_to_forward_workflow(feed)
         except FileNotFoundError:
             pass
@@ -881,6 +885,10 @@ class UYVYStreamLoader(units.Unit):
 
 
 def main():
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """
     fin = open("mnist.1.86.2layer100neurons.pickle", "rb")
     w = pickle.load(fin)
@@ -910,12 +918,11 @@ def main():
     fout.write("\n")
     fout.close()
 
-    print("Done")
+    logging.info("Done")
     sys.exit(0)
     """
-
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/scripts/seed" % (this_dir, ),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -940,14 +947,14 @@ def main():
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     """
-    print("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot after 15 seconds...")
     time.sleep(5)
-    print("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot after 10 seconds...")
     time.sleep(5)
-    print("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
     fnme = "%s/channels.pickle" % (this_dir, )
-    print("Snapshotting to %s" % (fnme, ))
+    logging.info("Snapshotting to %s" % (fnme, ))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
@@ -957,7 +964,7 @@ def main():
         plotters.Graphics().wait_finish()
     except:
         pass
-    print("End of job")
+    logging.info("End of job")
 
 
 if __name__ == "__main__":

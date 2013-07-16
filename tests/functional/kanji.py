@@ -153,6 +153,14 @@ class Loader(units.Unit):
 
         self.shuffled_indexes = None
 
+    def __getstate__(self):
+        state = super(Loader, self).__getstate__()
+        state["original_data"] = None
+        state["original_labels"] = None
+        state["original_target"] = None
+        state["shuffled_indexes"] = None
+        return state
+
     def from_image(self, fnme):
         #a = scipy.ndimage.imread(fnme)
         fin = open(fnme, "rb")
@@ -241,7 +249,11 @@ class Loader(units.Unit):
         self.class_samples[2] = self.total_samples[0] - self.class_samples[1]
         self.nextclass_offs[2] = self.total_samples[0]
 
-        self.original_target = numpy.zeros_like(self.original_data)
+        sh = [len(self.original_labels)]
+        for i in self.target_by_lbl[self.original_labels[0]].shape:
+            sh.append(i)
+        self.original_target = numpy.zeros(sh,
+                                    dtype=config.dtypes[config.dtype])
         for i in range(0, len(self.original_labels)):
             self.original_target[i][:] = \
                 self.target_by_lbl[self.original_labels[i]][:]
@@ -260,8 +272,11 @@ class Loader(units.Unit):
             sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
+        sht = [self.minibatch_maxsize[0]]
+        for i in self.original_target.shape[1:]:
+            sht.append(i)
         self.minibatch_target.batch = numpy.zeros(
-            sh, dtype=config.dtypes[config.dtype])
+            sht, dtype=config.dtypes[config.dtype])
         self.minibatch_labels.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(
@@ -502,6 +517,7 @@ class Decision(units.Unit):
         self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
+        self.fnmeWb = None
         self.t1 = None
         self.epoch_metrics = [None, None, None]
         self.just_snapshotted = [0]
@@ -576,12 +592,34 @@ class Decision(units.Unit):
                             os.unlink(self.fnme)
                         except FileNotFoundError:
                             pass
+                    if self.fnmeWb != None:
+                        try:
+                            os.unlink(self.fnmeWb)
+                        except FileNotFoundError:
+                            pass
                     self.fnme = "%s/kanji_%.6f.pickle" % \
                         (config.snapshot_dir,
                          self.epoch_metrics[minibatch_class][0])
                     self.log().info("Snapshotting to %s" % (self.fnme,))
                     fout = open(self.fnme, "wb")
                     pickle.dump(self.workflow, fout)
+                    fout.close()
+                    self.fnmeWb = "%s/kanji_%.6f_Wb.pickle" % \
+                        (config.snapshot_dir,
+                         self.epoch_metrics[minibatch_class][0])
+                    self.log().info("Exporting weights to %s" % (self.fnmeWb,))
+                    fout = open(self.fnme, "wb")
+                    weights = []
+                    bias = []
+                    for forward in self.workflow.forward:
+                        forward.weights.sync(read_only=True)
+                        forward.bias.sync(read_only=True)
+                        weights.append(forward.weights.v)
+                        bias.append(forward.bias.v)
+                        self.log().info("%f %f %f %f" % (
+                            forward.weights.v.min(), forward.weights.v.max(),
+                            forward.bias.v.min(), forward.bias.v.max()))
+                    pickle.dump((weights, bias), fout)
                     fout.close()
                     self.just_snapshotted[0] = 1
                     self.snapshot_time[0] = time.time()
@@ -698,6 +736,7 @@ class Workflow(units.OpenCLUnit):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
+        """
         self.image_saver = ImageSaverAE()
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
@@ -706,10 +745,11 @@ class Workflow(units.OpenCLUnit):
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class
         self.image_saver.minibatch_size = self.loader.minibatch_size
+        """
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorMSE(device=device, threshold_ok=0.005)
-        self.ev.link_from(self.image_saver)
+        self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
         self.ev.target = self.loader.minibatch_target
@@ -725,9 +765,9 @@ class Workflow(units.OpenCLUnit):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        self.image_saver.this_save_time = self.decision.snapshot_time
-        self.image_saver.gate_skip = self.decision.just_snapshotted
-        self.image_saver.gate_skip_not = [1]
+        #self.image_saver.this_save_time = self.decision.snapshot_time
+        #self.image_saver.gate_skip = self.decision.just_snapshotted
+        #self.image_saver.gate_skip_not = [1]
 
         # Add gradient descent units
         self.gd = list(None for i in range(0, len(self.forward)))
@@ -765,9 +805,8 @@ class Workflow(units.OpenCLUnit):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+                                                   plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
@@ -788,9 +827,8 @@ class Workflow(units.OpenCLUnit):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_max.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
@@ -803,9 +841,8 @@ class Workflow(units.OpenCLUnit):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_min.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
@@ -840,7 +877,15 @@ class Workflow(units.OpenCLUnit):
         if retval:
             return retval
 
-    def run(self):
+    def run(self, weights, bias):
+        if weights != None:
+            for i, forward in enumerate(self.forward):
+                forward.weights.v[:] = weights[i][:]
+                forward.weights.update()
+        if bias != None:
+            for i, forward in enumerate(self.forward):
+                forward.bias.v[:] = bias[i][:]
+                forward.bias.update()
         retval = self.start_point.run_dependent()
         if retval:
             return retval
@@ -911,7 +956,7 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
@@ -921,24 +966,31 @@ def main():
             fin = open(fnme, "rb")
         except IOError:
             pass
+        weights = None
+        bias = None
         if fin != None:
             w = pickle.load(fin)
             fin.close()
-            logging.info("Weights and bias ranges per layer are:")
-            for forward in w.forward:
-                logging.info("%f %f %f %f" % (
-                    forward.weights.v.min(), forward.weights.v.max(),
-                    forward.bias.v.min(), forward.bias.v.max()))
-            w.decision.just_snapshotted[0] = 1
-        else:
-            w = Workflow(layers=[999, 999, 32 * 32], device=device)
+            if type(w) == list:
+                weights = w[0]
+                bias = w[1]
+                fin = None
+            else:
+                logging.info("Weights and bias ranges per layer are:")
+                for forward in w.forward:
+                    logging.info("%f %f %f %f" % (
+                        forward.weights.v.min(), forward.weights.v.max(),
+                        forward.bias.v.min(), forward.bias.v.max()))
+                w.decision.just_snapshotted[0] = 1
+        if fin == None:
+            w = Workflow(layers=[1998, 1485, 24 * 24], device=device)
         w.initialize(threshold_ok=0.004, threshold_skip=0.0,
                      global_alpha=0.001, global_lambda=0.00005,
-                     minibatch_maxsize=99, device=device)
+                     minibatch_maxsize=594, device=device)
     except KeyboardInterrupt:
         return
     try:
-        w.run()
+        w.run(weights=weights, bias=bias)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")

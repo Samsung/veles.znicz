@@ -633,9 +633,8 @@ class Workflow(units.OpenCLUnit):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+                                                   plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
@@ -656,9 +655,8 @@ class Workflow(units.OpenCLUnit):
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(0, 3):
-            self.plt_max.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
@@ -669,9 +667,8 @@ class Workflow(units.OpenCLUnit):
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(0, 3):
-            self.plt_min.append(plotters.SimplePlotter(device=device,
-                            figure_label="mse",
-                            plot_style=styles[i]))
+            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2

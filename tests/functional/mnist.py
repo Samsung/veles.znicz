@@ -584,9 +584,8 @@ class Workflow(units.OpenCLUnit):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(device=device,
-                            figure_label="num errors",
-                            plot_style=styles[i]))
+            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+                                                   plot_style=styles[i]))
             self.plt[-1].input = self.decision.n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
@@ -595,7 +594,7 @@ class Workflow(units.OpenCLUnit):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(device=device,
+            self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -605,9 +604,9 @@ class Workflow(units.OpenCLUnit):
         # err_y plotter
         self.plt_err_y = []
         for i in range(0, 3):
-            self.plt_err_y.append(plotters.SimplePlotter(device=device,
-                            figure_label="Last layer max gradient sum",
-                            plot_style=styles[i]))
+            self.plt_err_y.append(plotters.SimplePlotter(
+                figure_label="Last layer max gradient sum",
+                plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
             self.plt_err_y[-1].input_field = i
             self.plt_err_y[-1].link_from(self.decision)
