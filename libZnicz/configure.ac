@@ -32,9 +32,6 @@ AC_ARG_WITH([built-in-simd],
     SIMD_LIBTOOL="\$(top_builddir)/simd/src/libSimd.la"
     SIMD_DIR=simd
     AC_CONFIG_SUBDIRS([simd])
-    AS_IF([test "x$with_built_in_fftf" == xyes], [
-    	AC_CONFIG_LINKS(["$top_builddir""simd/src/fftf":"$top_srcdir""fftf/inc/fftf"])
-    ])
     CPPFLAGS="$CPPFLAGS -I\$(top_srcdir)/simd/inc"    
 ], [
     # Check for installed SIMD
