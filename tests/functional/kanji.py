@@ -608,7 +608,7 @@ class Decision(units.Unit):
                         (config.snapshot_dir,
                          self.epoch_metrics[minibatch_class][0])
                     self.log().info("Exporting weights to %s" % (self.fnmeWb,))
-                    fout = open(self.fnme, "wb")
+                    fout = open(self.fnmeWb, "wb")
                     weights = []
                     bias = []
                     for forward in self.workflow.forward:
