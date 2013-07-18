@@ -16,24 +16,19 @@
 //#define Y_REAL 5 /* real last layer output size */
 
 
-/*
-    Evaluate softmax.
-
-    Parameters:
-        y: output of the last layer with applied softmax.
-        max_idx: index of maximum element for each sample in batch.
-        labels: labels for samples in batch.
-        err_y: output error for backpropagation.
-        skipped: was sample skipped on previous iteration?
-        n_err_skipped: [0] - n_err, [1] - n_skipped.
-        confusion_matrix: confusion matrix.
-        batch_size: size of the current batch.
-        threshold: threshold for computing of skipped.
-        threshold_low: threshold low boundary for computing of skipped.
-        max_err_y_sum: maximum backpropagated gradient.
-
-    We will launch single workgroup here.
-*/
+/// @brief Evaluate softmax.
+/// @param y output of the last layer with applied softmax.
+/// @param max_idx index of maximum element for each sample in batch.
+/// @param labels labels for samples in batch.
+/// @param err_y output error for backpropagation.
+/// @param skipped was sample skipped on previous iteration?
+/// @param n_err_skipped [0] - n_err, [1] - n_skipped.
+/// @param confusion_matrix confusion matrix (may be NULL).
+/// @param batch_size size of the current batch.
+/// @param threshold threshold for computing of skipped.
+/// @param threshold_low threshold low boundary for computing of skipped.
+/// @param max_err_y_sum maximum backpropagated gradient.
+/// @details We will launch a single workgroup here.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_sm(__global dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global itype /*IN*/ *labels,
            __global dtype /*OUT*/ *err_y,
@@ -126,24 +121,19 @@ void ev_sm(__global dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global it
 }
 
 
-/*
-    Evaluate MSE.
-
-    Parameters:
-        y: output of the last layer with applied softmax.
-        max_idx: index of maximum element for each sample in batch.
-        labels: labels for samples in batch.
-        err_y: output error for backpropagation.
-        n_err_skipped: [0] - n_err (pointwise), [1] - n_skipped (pointwise).
-        batch_size: size of the current batch.
-        threshold_skip: when difference between output and target becomes lower
-            than this value, assume gradient as 0.
-        threshold_ok: when mse between output and target becomes lower
-            than this value, icrement n_ok.
-        metrics: [0] - sum of sample's mse, [1] - max of sample's mse, [2] - min of sample's mse.
-
-    We will launch single workgroup here.
-*/
+/// @brief Evaluate MSE.
+/// @param y output of the last layer with applied softmax.
+/// @param max_idx index of maximum element for each sample in batch.
+/// @param labels labels for samples in batch.
+/// @param err_y output error for backpropagation.
+/// @param n_err_skipped [0] - n_err (pointwise), [1] - n_skipped (pointwise).
+/// @param batch_size size of the current batch
+/// @param threshold_skip when difference between output and target becomes lower
+///                       than this value, assume gradient as 0.
+/// @param threshold_ok when mse between output and target becomes lower
+///                       than this value, icrement n_ok.
+/// @param metrics [0] - sum of sample's mse, [1] - max of sample's mse, [2] - min of sample's mse.
+/// @details We will launch a single workgroup here.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_mse(__global dtype /*IN*/ *y, __global dtype /*IN*/ *target,
             __global dtype /*OUT*/ *err_y, __global itype2 /*IO*/ *n_err_skipped,
