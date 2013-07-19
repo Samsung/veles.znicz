@@ -133,12 +133,14 @@ void ev_sm(__global dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global it
 /// @param threshold_ok when mse between output and target becomes lower
 ///                       than this value, icrement n_ok.
 /// @param metrics [0] - sum of sample's mse, [1] - max of sample's mse, [2] - min of sample's mse.
+/// @param mse sample's mse (may be NULL).
 /// @details We will launch a single workgroup here.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_mse(__global dtype /*IN*/ *y, __global dtype /*IN*/ *target,
             __global dtype /*OUT*/ *err_y, __global itype2 /*IO*/ *n_err_skipped,
             __global dtype /*IO*/ *metrics, const itype2 batch_size,
-            const dtype threshold_skip, const dtype threshold_ok) {
+            const dtype threshold_skip, const dtype threshold_ok,
+            __global dtype /*OUT*/ *mse) {
   __local itype2 N_OK[BLOCK_SIZE], N_SKIP[BLOCK_SIZE];
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
@@ -159,6 +161,8 @@ void ev_mse(__global dtype /*IN*/ *y, __global dtype /*IN*/ *target,
         err_y[y_start + j] = vle;
       }
       dtype sample_mse = sqrt(sample_sse) / Y_REAL;
+      if (mse)
+        mse[i_sample] = sample_mse;
       if (sample_mse < threshold_ok)
         n_ok++;
       if (sample_mse < threshold_skip) {
