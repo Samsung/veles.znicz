@@ -35,7 +35,7 @@
 <flagvalue id="cflags-gprof" value="false"/>
 <flagvalue id="cflags-gcov" value="false"/>
 </flag>
-<option id="user" value="--enable-parallel-build --enable-debug --disable-doxygen"/>
+<option id="user" value="--disable-simd-fftf --with-built-in-simd --enable-parallel-build --enable-debug --disable-doxygen --with-veles-headers=../../../libVeles/inc --with-veles-build-root=../../../libVeles/build"/>
 <option id="autogen" value="autogen.sh"/>
 <option id="autogenOpts" value=""/>
 </configuration>

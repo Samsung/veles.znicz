@@ -29,7 +29,7 @@ m4_include([common.ac])
 # Check whether to use the built-in libSimd
 AC_ARG_WITH([built-in-simd],
     AS_HELP_STRING([--with-built-in-simd], [use statically linked embedded libSimd]), [
-    SIMD_LIBTOOL="\$(top_builddir)/simd/src/libSimd.la"
+    SIMD_LIBS="\$(top_builddir)/simd/src/libSimd.la"
     SIMD_DIR=simd
     AC_CONFIG_SUBDIRS([simd])
     CPPFLAGS="$CPPFLAGS -I\$(top_srcdir)/simd/inc"    
@@ -37,7 +37,33 @@ AC_ARG_WITH([built-in-simd],
     # Check for installed SIMD
     PKG_CHECK_MODULES([SIMD], [Simd >= 1.0])
 ])
-AC_SUBST([SIMD_LIBTOOL])
 AC_SUBST([SIMD_DIR])
+
+# Get libVeles headers
+AC_ARG_WITH([veles-headers],
+    AS_HELP_STRING([--with-veles-headers], [take Veles include files from this path]), [
+    AS_IF([test $(echo "$with_veles_headers" | cut -c1) != '/'], [
+    	VELES_CFLAGS="-I\$(abs_top_builddir)/$with_veles_headers" 
+    ], [
+    	VELES_CFLAGS="-I$with_veles_headers"
+    ]) 
+])
+
+# Get libVeles build root
+AC_ARG_WITH([veles-build-root],
+    AS_HELP_STRING([--with-veles-build-root], [link with Veles in this path]), [
+    AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/'], [
+    	VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la" 
+    ], [
+    	VELES_LIBS="$with_veles_build_root/src/libVeles.la"
+    ])     
+])
+
+AS_IF([test "x$with_veles_headers" == "xno" -a "x$with_veles_build_root" == "xno"], [
+	# Check for installed libVeles
+	PKG_CHECK_MODULES([VELES], [Veles >= 1.0])
+])
+
+CPPFLAGS="$CPPFLAGS $VELES_CFLAGS"
 
 AC_OUTPUT

@@ -31,9 +31,9 @@ lib_LTLIBRARIES = libZnicz.la
 # Build information for libZnicz.la
 
 # Source files
-libZnicz_la_SOURCES =
+libZnicz_la_SOURCES = all2all.cc
 
 # Used libraries
-libZnicz_la_LIBADD = $(SIMD_LIBTOOL) @SIMD_LIBS@
+libZnicz_la_LIBADD = @VELES_LIBS@ @SIMD_LIBS@
 
 PARALLEL_SUBDIRS =
