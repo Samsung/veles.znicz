@@ -240,7 +240,9 @@ class DeviceList(units.SmartPickler):
                 for dtype in config.dtypes.keys():
                     try:
                         self._prepare_tests(BLOCK_SIZE, dtype)
+                        b_numpy = False
                         if BLOCK_SIZE == 32 and dt_numpy == 86400:
+                            b_numpy = True
                             logging.info("Numpy double precision...")
                             dt = self._do_cpu_test()
                             logging.info("Done in %.2f seconds" % (dt,))
@@ -257,7 +259,7 @@ class DeviceList(units.SmartPickler):
                             device.info.BLOCK_SIZE[dtype] = BLOCK_SIZE
                         if dt < min_dt[dtype]:
                             min_dt[dtype] = dt
-                        if BLOCK_SIZE == 32:
+                        if b_numpy:
                             c = self.cc.copy()
                             c -= self.c
                             numpy.abs(c, c)

@@ -44,7 +44,7 @@ class All2All(units.OpenCLUnit):
         self.krn_ = None
         if unpickling:
             return
-        self.cl_sources["%s/forward.cl" % (config.cl_dir, )] = ""
+        self.cl_sources["%s/forward.cl" % (config.cl_dir,)] = ""
         self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
@@ -115,7 +115,7 @@ class All2All(units.OpenCLUnit):
                 s += fin.read()
                 fin.close()
             global this_dir
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir, ), "r")
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
@@ -151,7 +151,6 @@ class All2All(units.OpenCLUnit):
              self.weights.v.size, time.time() - t_start,
              numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
              numpy.fabs(y).max(), y.sum()))
-        self.show_weights()
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
@@ -238,8 +237,8 @@ class All2AllSoftmax(All2All):
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
         global this_dir
-        self.cl_sources["%s/softmax.cl" % (config.cl_dir, )] = (
-            "#define itype %s" % (itype, ))
+        self.cl_sources["%s/softmax.cl" % (config.cl_dir,)] = (
+            "#define itype %s" % (itype,))
         retval = super(All2AllSoftmax, self).initialize()
         if retval:
             return retval
@@ -267,7 +266,7 @@ class All2AllSoftmax(All2All):
             for i in range(a.size - 1, a.size - 11, -1):
                 s.append("%.2f" % (a[i],))
             self.log().debug("Softmax Wx+b: ", ", ".join(s),
-                             ", %.2f" % (a[0], ))
+                             ", %.2f" % (a[0],))
         for i in range(0, self.output.batch.shape[0]):
             sample = self.output.batch[i]
             im = sample.argmax()
