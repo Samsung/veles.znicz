@@ -11,6 +11,7 @@ import numpy
 import time
 import pyopencl
 import config
+import logging
 
 
 class GD(units.OpenCLUnit):
@@ -52,7 +53,7 @@ class GD(units.OpenCLUnit):
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
                  unpickling=0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
-        self.cl_sources["%s/gradient_descent.cl" % (config.cl_dir, )] = ""
+        self.cl_sources["%s/gradient_descent.cl" % (config.cl_dir,)] = ""
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
@@ -102,7 +103,7 @@ class GD(units.OpenCLUnit):
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir, ), "r")
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
@@ -221,11 +222,8 @@ class GD(units.OpenCLUnit):
         self.err_h.update(formats.GPU)
 
     def print_times(self, t_start):
-        if not __debug__:
-            # self.log().info("Backprop within %.2f sec: %d_%d" %
-            #      (time.time() - t_start, self.h.batch.size //
-            #       self.h.batch.shape[0],
-            #       self.y.batch.size // self.y.batch.shape[0]))
+        log = self.log()
+        if not log.isEnabledFor(logging.DEBUG):
             return
         self.weights.sync()
         self.bias.sync()
@@ -332,7 +330,7 @@ class GDTanh(GD):
         self.err_y.update()
 
     def initialize(self):
-        self.cl_sources["%s/gradient_descent_tanh.cl" % (config.cl_dir, )] = ""
+        self.cl_sources["%s/gradient_descent_tanh.cl" % (config.cl_dir,)] = ""
         retval = super(GDTanh, self).initialize()
         if retval or not self.device:
             return retval
@@ -383,7 +381,7 @@ class GDA(GD):
 
     def initialize(self):
         self.cl_sources["%s/gradient_descent_alpha.cl" % (
-                                            config.cl_dir, )] = ""
+                                            config.cl_dir,)] = ""
         retval = super(GDA, self).initialize()
         if retval:
             return retval

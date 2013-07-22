@@ -1,7 +1,7 @@
 """
-Created on Mar 20, 2013
+Created on Jul 22, 2013
 
-All2All units.
+RBM unit.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -15,8 +15,8 @@ import config
 import logging
 
 
-class All2All(units.OpenCLUnit):
-    """All2All with linear activation f(x) = x.
+class RBM(units.OpenCLUnit):
+    """RBM with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
 
     Should be assigned before initialize():
         input
@@ -36,16 +36,20 @@ class All2All(units.OpenCLUnit):
         output_shape: shape of the output layer.
         weights_amplitude: amplitude of the random distribution of weights.
         rand: rnd.Rand() object.
-        krn_: OpenCL kernel.
+        krn_: OpenCL kernel for forward propagation without random.
+        krn_apply_rand_: OpenCL kernel which applies random.
         s_activation: activation define for OpenCL source.
+        output_rand: vector of random values in the shape of output.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
                  rand=rnd.default, unpickling=0):
-        super(All2All, self).__init__(unpickling=unpickling, device=device)
+        super(RBM, self).__init__(unpickling=unpickling, device=device)
         self.krn_ = None
+        self.krn_apply_rand_ = None
         if unpickling:
             return
         self.cl_sources["%s/forward.cl" % (config.cl_dir,)] = ""
+        self.cl_sources["%s/rbm.cl" % (config.cl_dir,)] = ""
         self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
@@ -53,7 +57,10 @@ class All2All(units.OpenCLUnit):
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
-        self.s_activation = "ACTIVATION_LINEAR"
+        self.s_activation = "ACTIVATION_TANH"
+        self.output_rand = formats.Batch(device)
+        self.y_low_high = numpy.array([-1.0, 1.0],
+                                      dtype=config.dtypes[config.dtype])
 
     def initialize(self):
         if self.weights_amplitude == None:
@@ -80,16 +87,24 @@ class All2All(units.OpenCLUnit):
             self.bias.v_ = None
 
         output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
-        if self.output.batch == None or self.output.batch.size != output_size:
+        if (self.output.batch == None or
+            self.output.batch.size != output_size):
             self.output.batch = numpy.zeros([self.input.batch.shape[0],
-                                             numpy.prod(self.output_shape)],
-                                            dtype=config.dtypes[config.dtype])
+                                        numpy.prod(self.output_shape)],
+                                        dtype=config.dtypes[config.dtype])
             self.output.batch_ = None
+        if (self.output_rand.batch == None or
+            self.output_rand.batch.size != output_size):
+            self.output_rand.batch = numpy.zeros([self.input.batch.shape[0],
+                                        numpy.prod(self.output_shape)],
+                                        dtype=config.dtypes[config.dtype])
+            self.output_rand.batch_ = None
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
+        self.output_rand.initialize(self.device)
 
         if not self.device:
             return
@@ -120,7 +135,7 @@ class All2All(units.OpenCLUnit):
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("%s/feed_%d_%d.cl" % (config.cache_dir,
+            fout = open("%s/rbm_%d_%d.cl" % (config.cache_dir,
                 self.input.batch.size // self.input.batch.shape[0],
                 self.output.batch.size // self.output.batch.shape[0]), "w")
             fout.write(s)
@@ -134,6 +149,10 @@ class All2All(units.OpenCLUnit):
             self.krn_.set_arg(2, self.output.batch_)
             self.krn_.set_arg(3, self.bias.v_)
 
+            self.krn_apply_rand_ = pyopencl.Kernel(self.prg_, "apply_rand")
+            self.krn_.set_arg(0, self.output.batch_)
+            self.krn_.set_arg(1, self.output_rand.batch_)
+
     def print_times(self, t_start):
         """Show some statistics.
         """
@@ -145,7 +164,7 @@ class All2All(units.OpenCLUnit):
         self.weights.sync()
         self.log().info("%s: %d samples with %d weights in %.2f sec "
             "(min,avg,max,sum):\ty=%.6f,%.4f,%.2f,%.2f" %
-            (self.__class__.__name__.replace("All2All", ""), y.shape[0],
+            (self.__class__.__name__, y.shape[0],
              self.weights.v.size, time.time() - t_start,
              numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
              numpy.fabs(y).max(), y.sum()))
@@ -163,146 +182,26 @@ class All2All(units.OpenCLUnit):
                       self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
+        self.rand.fill(self.output_rnd.batch, -1.7159, 1.7159)
+        self.rand.update()
+        self.rand.sync(formats.GPU)
+        event.wait()
+        self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
+        self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
+        global_size = [self.output.aligned_.size //
+                       self.output.aligned_.shape[0],
+                       self.output.aligned_.shape[0]]
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                    self.krn_apply_rand_, global_size, None)
         event.wait()
         self.output.update(formats.GPU)
 
     def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        self.input.sync()
-        self.weights.sync()
-        self.bias.sync()
-        a = self.input.batch.reshape([self.input.batch.shape[0],
-            self.input.batch.size // self.input.batch.shape[0]])
-        b = self.weights.v.transpose()
-        numpy.dot(a, b, self.output.batch)
-        self.output.batch[:] += self.bias.v
-        self.output.update()
+        return self.gpu_run()
 
     def run(self):
         t1 = time.time()
-        retval = super(All2All, self).run()
+        retval = super(RBM, self).run()
         if retval:
             return retval
         self.print_times(t1)
-
-
-class All2AllTanh(All2All):
-    """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
-    """
-    def initialize(self):
-        self.s_activation = "ACTIVATION_TANH"
-        return super(All2AllTanh, self).initialize()
-
-    def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        retval = super(All2AllTanh, self).cpu_run()
-        if retval:
-            return retval
-        self.output.sync()
-        self.output.batch *= 0.6666
-        numpy.tanh(self.output.batch, self.output.batch)
-        self.output.batch *= 1.7159
-        self.output.update()
-
-
-class All2AllSoftmax(All2All):
-    """All2All with linear activation and softmax normalization.
-
-    Should be assigned before initialize():
-
-    Updates after run():
-        max_idx
-
-    Creates within initialize():
-        max_idx
-
-    Attributes:
-        krn_sm_: kernel for softmax activation calculation.
-        max_idx: indexes of element with maximum value for each sample.
-    """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default, unpickling=0):
-        super(All2AllSoftmax, self).__init__(output_shape=output_shape,
-            device=device, weights_amplitude=weights_amplitude, rand=rand,
-            unpickling=unpickling)
-        self.krn_sm_ = None
-        if unpickling:
-            return
-        self.max_idx = formats.Batch()
-
-    def initialize(self):
-        itype = config.get_itype_from_size(numpy.prod(self.output_shape))
-        global this_dir
-        self.cl_sources["%s/softmax.cl" % (config.cl_dir,)] = (
-            "#define itype %s" % (itype,))
-        retval = super(All2AllSoftmax, self).initialize()
-        if retval:
-            return retval
-
-        if self.max_idx.batch == None or \
-           self.max_idx.batch.size != self.output.batch.shape[0]:
-            self.max_idx.batch = numpy.zeros([self.output.batch.shape[0]],
-                dtype=config.itypes[itype])
-            self.max_idx.batch_ = None
-
-        self.max_idx.initialize(self.device)
-
-        if not self.device:
-            return
-
-        self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
-        self.krn_sm_.set_arg(0, self.output.batch_)
-        self.krn_sm_.set_arg(1, self.max_idx.batch_)
-
-    def cpu_apply_exp(self):
-        self.output.sync()
-        log = self.log()
-        if log.isEnabledFor(logging.DEBUG):
-            s = []
-            a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
-            for i in range(a.size - 1, a.size - 11, -1):
-                s.append("%.2f" % (a[i],))
-            self.log().debug("Softmax Wx+b: ", ", ".join(s),
-                             ", %.2f" % (a[0],))
-        for i in range(0, self.output.batch.shape[0]):
-            sample = self.output.batch[i]
-            im = sample.argmax()
-            self.max_idx[i] = im
-            m = sample[im]
-            sample -= m
-            numpy.exp(sample, sample)
-            smm = sample.sum()
-            sample /= smm
-        self.output.update()
-        self.max_idx.update()
-
-    def gpu_apply_exp(self):
-        self.output.sync(formats.GPU)
-        global_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                       self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_sm_,
-                                                 global_size, local_size)
-        event.wait()
-        self.output.update(formats.GPU)
-        self.max_idx.update(formats.GPU)
-
-    def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        retval = super(All2AllSoftmax, self).cpu_run()
-        if retval:
-            return retval
-        self.cpu_apply_exp()
-
-    def gpu_run(self):
-        """Forward propagation from batch on GPU.
-        """
-        retval = super(All2AllSoftmax, self).gpu_run()
-        if retval:
-            return retval
-        self.gpu_apply_exp()

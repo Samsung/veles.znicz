@@ -36,6 +36,7 @@ import hog
 import scipy.ndimage
 import pickle
 import time
+import rbm
 
 
 def normalize(a):
