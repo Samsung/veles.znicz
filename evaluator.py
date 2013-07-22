@@ -432,6 +432,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         #    self.n_err_skipped.v[1])
         self.effective_batch_size[0] = self.batch_size[0]
         self.metrics.update(formats.GPU)
+        self.mse.update(formats.GPU)
 
         self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                              time.time() - t1))
