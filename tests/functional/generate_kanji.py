@@ -1,4 +1,11 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3.3 -O
+"""
+Created on June 29, 2013
+
+File for generation of samples for kanji recognition.
+
+@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+"""
 import sys
 import os
 import logging
