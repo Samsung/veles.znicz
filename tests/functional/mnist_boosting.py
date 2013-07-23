@@ -715,7 +715,7 @@ def main():
         layers = [100, 10]
         weights = []
         bias = []
-        for i in range(0, N):
+        for ii in range(0, N):
             w = Workflow(layers=layers, device=device)
             w.initialize()
             w.run(threshold=1.0, threshold_low=1.0,
@@ -724,7 +724,7 @@ def main():
             weights = []
             bias = []
             # Add another layer
-            if i < N - 1:
+            if ii < N - 1:
                 logging.info("Adding another layer")
                 for i in range(0, len(w.forward) - 1):
                     w.forward[i].weights.sync(read_only=True)

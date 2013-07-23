@@ -705,7 +705,7 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[400, 10], device=device)
+        w = Workflow(layers=[800, 10], device=device)
         w.initialize()
     except KeyboardInterrupt:
         return

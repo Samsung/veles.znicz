@@ -770,7 +770,7 @@ class Workflow(units.OpenCLUnit):
         #self.image_saver.gate_skip_not = [1]
 
         # Add gradient descent units
-        self.gd = list(None for i in range(0, len(self.forward)))
+        self.gd = [None, None]
         self.gd[-1] = gd.GDTanh(device=device)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -879,14 +879,11 @@ class Workflow(units.OpenCLUnit):
             return retval
 
     def run(self, weights, bias):
-        if weights != None:
-            for i, forward in enumerate(self.forward):
-                forward.weights.v[:] = weights[i][:]
-                forward.weights.update()
-        if bias != None:
-            for i, forward in enumerate(self.forward):
-                forward.bias.v[:] = bias[i][:]
-                forward.bias.update()
+        for i in range(0, len(weights) - 1):
+            self.forward[i].weights.v[:] = weights[i][:]
+            self.forward[i].weights.update()
+            self.forward[i].bias.v[:] = bias[i][:]
+            self.forward[i].bias.update()
         retval = self.start_point.run_dependent()
         if retval:
             return retval
@@ -962,22 +959,24 @@ def main():
         cl = opencl.DeviceList()
         device = cl.get_device()
         layers = [1998, 1485, 24 * 24]
-        fnme = "%s/kanji.pickle" % (this_dir,)
+        fnme = "%s/kanji.pickle" % (config.snapshot_dir,)
         fin = None
         try:
             fin = open(fnme, "rb")
         except IOError:
             pass
-        weights = None
-        bias = None
+        weights = []
+        bias = []
         if fin != None:
             w = pickle.load(fin)
             fin.close()
-            if type(w) == list:
+            if type(w) == tuple:
+                logging.info("Will load weights")
                 weights = w[0]
                 bias = w[1]
                 fin = None
             else:
+                logging.info("Will load workflow")
                 logging.info("Weights and bias ranges per layer are:")
                 for forward in w.forward:
                     logging.info("%f %f %f %f" % (
@@ -989,24 +988,15 @@ def main():
     except KeyboardInterrupt:
         return
     try:
-        N = 3
-        for i in range(0, N):
-            w = Workflow(layers=layers, device=device)
-            w.initialize(threshold_ok=0.004, threshold_skip=0.0,
-                         global_alpha=0.001, global_lambda=0.00005,
-                         minibatch_maxsize=594, device=device)
-            w.run(weights=weights, bias=bias)
-            weights = []
-            bias = []
-            # Add another layer
-            if i < N - 1:
-                logging.info("Adding another layer")
-                for i in range(0, len(w.forward) - 1):
-                    w.forward[i].weights.sync(read_only=True)
-                    w.forward[i].bias.sync(read_only=True)
-                    weights.append(w.forward[i].weights.v)
-                    bias.append(w.forward[i].bias.v)
-                layers.insert(len(layers) - 1, layers[-2])
+        logging.info("Adding another layer")
+        layers.insert(len(layers) - 1, layers[-2])
+        w = Workflow(layers=layers, device=device)
+        w.initialize(threshold_ok=0.004, threshold_skip=0.0,
+                     global_alpha=0.001, global_lambda=0.00005,
+                     minibatch_maxsize=594, device=device)
+        w.run(weights=weights, bias=bias)
+        weights = []
+        bias = []
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")

@@ -960,7 +960,7 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        fnme = "%s/kanji.pickle" % (this_dir,)
+        fnme = "%s/kanji.pickle" % (config.snapshot_dir,)
         fin = None
         try:
             fin = open(fnme, "rb")
@@ -971,11 +971,13 @@ def main():
         if fin != None:
             w = pickle.load(fin)
             fin.close()
-            if type(w) == list:
+            if type(w) == tuple:
+                logging.info("Will load weights")
                 weights = w[0]
                 bias = w[1]
                 fin = None
             else:
+                logging.info("Will load workflow")
                 logging.info("Weights and bias ranges per layer are:")
                 for forward in w.forward:
                     logging.info("%f %f %f %f" % (
