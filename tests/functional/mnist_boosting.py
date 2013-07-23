@@ -36,7 +36,6 @@ import hog
 import scipy.ndimage
 import pickle
 import time
-import rbm
 
 
 def normalize(a):
@@ -74,7 +73,7 @@ class Loader(units.Unit):
         original_data: original MNIST images scaled to [-1, 1] as single batch.
         original_labels: original MNIST labels as single batch.
     """
-    def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=120,
+    def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=60,
                  rnd=rnd.default, use_hog=False, unpickling=0):
         """Constructor.
 
@@ -338,7 +337,7 @@ class Decision(units.Unit):
         confusion_mxs: confusion matrixes.
         max_err_y_sums: max last layer backpropagated errors sums for each set.
     """
-    def __init__(self, fail_iterations=500, unpickling=0):
+    def __init__(self, fail_iterations=25, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -511,13 +510,14 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = None
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
+            # if not i:
+            #    amp = 9.0 / 784
+            # else:
+            #    amp = 9.0 / 1.7159 / layers[i - 1]
+            amp = 0.05
             if i < len(layers) - 1:
-                aa = rbm.RBM([layers[i]], device=device,
-                             weights_amplitude=amp)
+                aa = all2all.All2AllTanh([layers[i]], device=device,
+                                         weights_amplitude=amp)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device,
                                             weights_amplitude=amp)
@@ -550,7 +550,7 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add gradient descent units
-        self.gd = list(None for i in range(0, len(self.forward)))
+        self.gd = [None, None]
         self.gd[-1] = gd.GDSM(device=device)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -560,17 +560,17 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
-        for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = rbm.GDTanh(device=device)
-            self.gd[i].y_rand = self.forward[i].output_rand
-            self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].err_y = self.gd[i + 1].err_h
-            self.gd[i].y = self.forward[i].output
-            self.gd[i].h = self.forward[i].input
-            self.gd[i].weights = self.forward[i].weights
-            self.gd[i].bias = self.forward[i].bias
-            self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.loader.minibatch_size
+
+        self.gd[-2] = gd.GDTanh(device=device)
+        self.gd[-2].link_from(self.gd[-1])
+        self.gd[-2].err_y = self.gd[-1].err_h
+        self.gd[-2].y = self.forward[-2].output
+        self.gd[-2].h = self.forward[-2].input
+        self.gd[-2].weights = self.forward[-2].weights
+        self.gd[-2].bias = self.forward[-2].bias
+        self.gd[-2].gate_skip = self.decision.gd_skip
+        self.gd[-2].batch_size = self.loader.minibatch_size
+
         self.rpt.link_from(self.gd[0])
 
         self.end_point = units.EndPoint()
@@ -625,12 +625,18 @@ class Workflow(units.OpenCLUnit):
         if retval:
             return retval
 
-    def run(self, threshold, threshold_low, global_alpha, global_lambda):
+    def run(self, threshold, threshold_low, global_alpha, global_lambda,
+            weights, bias):
         self.ev.threshold = threshold
         self.ev.threshold_low = threshold_low
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
+        for i in range(0, len(weights)):
+            self.forward[i].weights.v[:] = weights[i][:]
+            self.forward[i].weights.update()
+            self.forward[i].bias.v[:] = bias[i][:]
+            self.forward[i].bias.update()
         retval = self.start_point.run_dependent()
         if retval:
             return retval
@@ -638,10 +644,10 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
-    #if __debug__:
-    #    logging.basicConfig(level=logging.DEBUG)
-    #else:
-    logging.basicConfig(level=logging.INFO)
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("mnist.pickle", "rb")
     w = pickle.load(fin)
@@ -702,16 +708,30 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    cl = opencl.DeviceList()
+    device = cl.get_device()
     try:
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        w = Workflow(layers=[400, 10], device=device)
-        w.initialize()
-    except KeyboardInterrupt:
-        return
-    try:
-        w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.001 * 10, global_lambda=0.00005)
+        N = 3
+        layers = [100, 10]
+        weights = []
+        bias = []
+        for i in range(0, N):
+            w = Workflow(layers=layers, device=device)
+            w.initialize()
+            w.run(threshold=1.0, threshold_low=1.0,
+                  global_alpha=0.1, global_lambda=0.000,
+                  weights=weights, bias=bias)
+            weights = []
+            bias = []
+            # Add another layer
+            if i < N - 1:
+                logging.info("Adding another layer")
+                for i in range(0, len(w.forward) - 1):
+                    w.forward[i].weights.sync(read_only=True)
+                    w.forward[i].bias.sync(read_only=True)
+                    weights.append(w.forward[i].weights.v)
+                    bias.append(w.forward[i].bias.v)
+                layers.insert(len(layers) - 1, layers[-2])
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")

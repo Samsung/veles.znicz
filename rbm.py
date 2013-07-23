@@ -13,6 +13,7 @@ import time
 import rnd
 import config
 import logging
+import gd
 
 
 class RBM(units.OpenCLUnit):
@@ -150,8 +151,8 @@ class RBM(units.OpenCLUnit):
             self.krn_.set_arg(3, self.bias.v_)
 
             self.krn_apply_rand_ = pyopencl.Kernel(self.prg_, "apply_rand")
-            self.krn_.set_arg(0, self.output.batch_)
-            self.krn_.set_arg(1, self.output_rand.batch_)
+            self.krn_apply_rand_.set_arg(0, self.output.batch_)
+            self.krn_apply_rand_.set_arg(1, self.output_rand.batch_)
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -182,9 +183,9 @@ class RBM(units.OpenCLUnit):
                       self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
-        self.rand.fill(self.output_rnd.batch, -1.7159, 1.7159)
-        self.rand.update()
-        self.rand.sync(formats.GPU)
+        self.rand.fill(self.output_rand.batch, -1.7159, 1.7159)
+        self.output_rand.update()
+        self.output_rand.sync(formats.GPU)
         event.wait()
         self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
         self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
@@ -205,3 +206,44 @@ class RBM(units.OpenCLUnit):
         if retval:
             return retval
         self.print_times(t1)
+
+
+class GDTanh(gd.GD):
+    """Gradient Descent for f(): y = 1.7159 * tanh(0.6666 * (W * x + b)).
+
+    f'(y) = (a * tanh(b * y))' = a * (1 - b^2 * y^2) * b
+          = a * b - a * b^3 * y^2
+          = 1.143819 - 0.508262 * y^2
+
+    With respect to random activation.
+
+    Attributes:
+        rnd_window_size: size for applying derivative.
+    """
+    def __init__(self, device=None, global_alpha=0.001, global_lambda=0.00005,
+                 rnd_window_size=0.1, unpickling=0):
+        super(GDTanh, self).__init__(device=device, global_alpha=global_alpha,
+                            global_lambda=global_lambda, unpickling=unpickling)
+        if unpickling:
+            return
+        self.rnd_window_size = numpy.array([rnd_window_size],
+                                    dtype=config.dtypes[config.dtype])
+        self.y_rand = None
+
+    def cpu_err_y_update(self):
+        return self.gpu_err_y_update()
+
+    def initialize(self):
+        self.cl_sources["%s/rbm.cl" % (config.cl_dir,)] = ""
+        retval = super(GDTanh, self).initialize()
+        if retval or not self.device:
+            return retval
+        self.y_rand.initialize(self.device)
+        self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
+        self.krn_err_y_.set_arg(0, self.err_y.batch_)
+        self.krn_err_y_.set_arg(1, self.y.batch_)
+        self.krn_err_y_.set_arg(2, self.y_rand.batch_)
+
+    def gpu_err_y_update(self):
+        self.krn_err_y_.set_arg(3, self.rnd_window_size[0])
+        return super(GDTanh, self).gpu_err_y_update()
