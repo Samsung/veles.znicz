@@ -12,41 +12,46 @@
 //#define Y 5
 
 
-/*
-	Feeds the layer with linear or scaled tanh() activation f(): y = 1.7159 * tanh(0.6666 * (W * x + b))
-		Because: f(1) = 1, f(-1) = -1, f"(x) maximum at x = 1
-
-	y = f(h * weights + bias)
-*/
+/// @brief Feeds the layer with linear or scaled tanh() activation f(): y = 1.7159 * tanh(0.6666 * (W * x + b))
+///        Because: f(1) = 1, f(-1) = -1, f"(x) maximum at x = 1
+/// @param h input.
+/// @param weights weights.
+/// @param y output.
+/// @param bias bias.
+/// @details y = f(h * weights + bias)
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void FEED_LAYER(__global dtype *h, __global dtype *weights, __global dtype *y, __global dtype *bias)
-{
- #define A_WIDTH BATCH
- #define B_WIDTH Y
- #define AB_COMMON H
+void FEED_LAYER(__global dtype /*IN*/ *h, __global dtype /*IN*/ *weights,
+                __global dtype /*OUT*/ *y, __global dtype /*IN*/ *bias) {
+  #define A_WIDTH BATCH
+  #define B_WIDTH Y
+  #define AB_COMMON H
 
- #define A h
- #define B weights
- #define C y
+  #define A h
+  #define B weights
+  #define C y
 
- MX_MUL
+  #ifdef WEIGHTS_TRANSPOSED
+  #define B_COL
+  #endif
 
- #undef A_WIDTH
- #undef B_WIDTH
- #undef AB_COMMON
+  MX_MUL
 
- #undef A
- #undef B
- #undef C
+  #undef A_WIDTH
+  #undef B_WIDTH
+  #undef AB_COMMON
 
- if(!ty) // read from memory only for the first row
-  AS[0][tx] = bias[bx * BLOCK_SIZE + tx];
+  #undef A
+  #undef B
+  #undef C
 
- barrier(CLK_LOCAL_MEM_FENCE);
+  if(!ty) // read from memory only for the first row
+    AS[0][tx] = bias[bx * BLOCK_SIZE + tx];
 
- y[idx] =
+  barrier(CLK_LOCAL_MEM_FENCE);
+
+  y[idx] =
  	#ifdef ACTIVATION_LINEAR
- 		sum[0] + AS[0][tx];
+    sum[0] + AS[0][tx];
  	#endif
  	#ifdef ACTIVATION_TANH
  		1.7159f * tanh(0.6666f * (sum[0] + AS[0][tx]));

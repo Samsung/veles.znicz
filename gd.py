@@ -49,9 +49,10 @@ class GD(units.OpenCLUnit):
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
         batch_size: effective batch size (if None, get it from y).
+        weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
-                 unpickling=0):
+                 weights_transposed=False, unpickling=0):
         super(GD, self).__init__(device=device, unpickling=unpickling)
         self.cl_sources["%s/gradient_descent.cl" % (config.cl_dir,)] = ""
         self.krn_err_h_ = None
@@ -60,6 +61,7 @@ class GD(units.OpenCLUnit):
         self.krn_bias_ = None
         if unpickling:
             return
+        self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector(device)
         self.bias = None  # formats.Vector(device)
         self.y = None  # formats.Batch(device)
@@ -89,10 +91,14 @@ class GD(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = ("%s\n"
+                       "%s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % (config.cl_defines[config.dtype],
+                       "#define Y %d\n\n") % (
+                    "#define WEIGHTS_TRANSPOSED"
+                    if self.weights_transposed else "",
+                    config.cl_defines[config.dtype],
                     self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_h.aligned_.shape[0],
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
@@ -139,7 +145,9 @@ class GD(units.OpenCLUnit):
         batch_size = self.y.batch.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
         r_batch_size = 1.0 / batch_size
-        weights = self.weights.v.transpose()
+        weights = self.weights.v
+        if not self.weights_transposed:
+            weights = weights.transpose()
 
         # regularization (will not regularize bias)
         weights *= 1.0 + ((-self.global_alpha) * self.global_lambda)
@@ -168,8 +176,14 @@ class GD(units.OpenCLUnit):
         kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda)
         self.krn_weights_.set_arg(3, kr[0])
         self.krn_weights_.set_arg(4, kr[1])
-        global_size = [self.h.aligned_.size // self.h.aligned_.shape[0],
-                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
+        if self.weights_transposed:
+            global_size = [
+                self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
+                self.h.aligned_.size // self.h.aligned_.shape[0]]
+        else:
+            global_size = [
+                self.h.aligned_.size // self.h.aligned_.shape[0],
+                self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE[config.dtype],
                       self.device.info.BLOCK_SIZE[config.dtype]]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,

@@ -38,9 +38,10 @@ class All2All(units.OpenCLUnit):
         rand: rnd.Rand() object.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
+        weights_transposed: assume weights matrix as a transposed one.
     """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default, unpickling=0):
+    def __init__(self, output_shape=None, device=None, weights_amplitude=None,
+                 rand=rnd.default, weights_transposed=False, unpickling=0):
         super(All2All, self).__init__(unpickling=unpickling, device=device)
         self.krn_ = None
         if unpickling:
@@ -54,6 +55,7 @@ class All2All(units.OpenCLUnit):
         self.weights_amplitude = weights_amplitude
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
+        self.weights_transposed = weights_transposed
 
     def initialize(self):
         if self.weights_amplitude == None:
@@ -66,10 +68,19 @@ class All2All(units.OpenCLUnit):
                                          dtype=config.dtypes[config.dtype])
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
-            # Reshape weights as a transposed matrix:
             self.weights.v = self.weights.v.\
-                reshape([numpy.prod(self.output_shape),
-                         self.input.batch.size // self.input.batch.shape[0]])
+                    reshape([numpy.prod(self.output_shape),
+                        self.input.batch.size // self.input.batch.shape[0]])
+            # Reshape weights as a matrix:
+            if self.weights_transposed:
+                a = self.weights.v.transpose().copy()
+                a = a.reshape(a.size)
+                self.weights.v = self.weights.v.reshape(self.weights.v.size)
+                self.weights.v[:] = a[:]
+                self.weights.v = self.weights.v.\
+                    reshape([self.input.batch.size //
+                             self.input.batch.shape[0],
+                             numpy.prod(self.output_shape)])
             self.weights.v_ = None
         if self.bias.v == None or \
            self.bias.v.size != numpy.prod(self.output_shape):
@@ -98,13 +109,16 @@ class All2All(units.OpenCLUnit):
             output_size = self.output.aligned_.size // \
                           self.output.aligned_.shape[0]
             defines = ("%s\n"
+                       "%s\n"
                        "#define %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define H %d\n"
                        "#define Y %d\n"
                        "#define Y_REAL %d\n"
                        "#define BATCH %d\n\n" %
-                       (config.cl_defines[config.dtype], self.s_activation,
+                       ("#define WEIGHTS_TRANSPOSED"
+                        if self.weights_transposed else "",
+                        config.cl_defines[config.dtype], self.s_activation,
                         self.device.info.BLOCK_SIZE[config.dtype],
                         self.weights.aligned_.size // output_size, output_size,
                         self.output.batch.size // self.output.batch.shape[0],
@@ -145,7 +159,7 @@ class All2All(units.OpenCLUnit):
         self.weights.sync()
         self.log().info("%s: %d samples with %d weights in %.2f sec "
             "(min,avg,max,sum):\ty=%.6f,%.4f,%.2f,%.2f" %
-            (self.__class__.__name__.replace("All2All", ""), y.shape[0],
+            (self.__class__.__name__, y.shape[0],
              self.weights.v.size, time.time() - t_start,
              numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
              numpy.fabs(y).max(), y.sum()))
@@ -174,7 +188,9 @@ class All2All(units.OpenCLUnit):
         self.bias.sync()
         a = self.input.batch.reshape([self.input.batch.shape[0],
             self.input.batch.size // self.input.batch.shape[0]])
-        b = self.weights.v.transpose()
+        b = self.weights.v
+        if not self.weights_transposed:
+            b = b.transpose()
         numpy.dot(a, b, self.output.batch)
         self.output.batch[:] += self.bias.v
         self.output.update()

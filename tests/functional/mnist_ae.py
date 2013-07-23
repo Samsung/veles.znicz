@@ -36,6 +36,7 @@ import plotters
 import pickle
 import time
 import logging
+import glob
 
 
 def normalize(a):
@@ -323,6 +324,8 @@ class ImageSaverAE(units.Unit):
         self.labels = None  # formats.Batch()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
+        self.this_save_date = [0]
+        self.last_save_date = 0
 
     def run(self):
         self.input.sync()
@@ -330,6 +333,15 @@ class ImageSaverAE(units.Unit):
         self.indexes.sync()
         self.labels.sync()
         xy = None
+        if self.last_save_date < self.this_save_date[0]:
+            self.last_save_date = self.this_save_date[0]
+            for dirnme in self.out_dirs:
+                files = glob.glob("%s/*.png" % (dirnme,))
+                for file in files:
+                    try:
+                        os.unlink(file)
+                    except OSError:
+                        pass
         for i in range(0, self.minibatch_size[0]):
             x = self.input.batch[i]
             y = self.output.batch[i].reshape(x.shape)
@@ -637,9 +649,12 @@ class Workflow(units.OpenCLUnit):
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = self.decision.epoch_ended
+            self.plt[-1].link_from(self.decision if not i else
+                                   self.plt[-2])
+            self.plt[-1].gate_block = (self.decision.epoch_ended if not i
+                                       else [1])
             self.plt[-1].gate_block_not = [1]
+        self.plt[0].clear_plot = True
         # Weights plotter
         """
         self.decision.weights_to_sync = self.gd[0].weights
@@ -660,9 +675,12 @@ class Workflow(units.OpenCLUnit):
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
-            self.plt_max[-1].link_from(self.decision)
-            self.plt_max[-1].gate_block = self.decision.epoch_ended
+            self.plt_max[-1].link_from(self.decision if not i else
+                                       self.plt_max[-2])
+            self.plt_max[-1].gate_block = (self.decision.epoch_ended if not i
+                                           else [1])
             self.plt_max[-1].gate_block_not = [1]
+        self.plt_max[0].clear_plot = True
         # Min plotter
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
@@ -672,9 +690,12 @@ class Workflow(units.OpenCLUnit):
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
-            self.plt_min[-1].link_from(self.decision)
-            self.plt_min[-1].gate_block = self.decision.epoch_ended
+            self.plt_min[-1].link_from(self.decision if not i else
+                                       self.plt_min[-2])
+            self.plt_min[-1].gate_block = (self.decision.epoch_ended if not i
+                                           else [1])
             self.plt_min[-1].gate_block_not = [1]
+        self.plt_min[0].clear_plot = True
 
     def initialize(self, threshold_ok, threshold_skip,
               global_alpha, global_lambda):
@@ -778,7 +799,7 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[100, 784], device=device)
+        w = Workflow(layers=[500, 784], device=device)
         w.initialize(threshold_ok=0.0005, threshold_skip=0.0,
               global_alpha=0.001, global_lambda=0.0001)
     except KeyboardInterrupt:

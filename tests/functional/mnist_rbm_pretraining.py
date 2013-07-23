@@ -2,7 +2,7 @@
 """
 Created on Mar 20, 2013
 
-Test of gradient descent for one stochastic RBM layer.
+MNIST with RBM pretraining.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -37,6 +37,7 @@ import scipy.ndimage
 import pickle
 import time
 import rbm
+import mnist_ae
 
 
 def normalize(a):
@@ -325,20 +326,16 @@ class Decision(units.Unit):
         minibatch_last: if current minibatch is last in it's class.
         gd_skip: skip gradient descent or not.
         epoch_number: epoch number.
-        epoch_min_err: minimum number of errors by class per epoch.
-        n_err: current number of errors per class.
+        epoch_min_mse: minimum sse by class per epoch.
         minibatch_n_err: number of errors for minibatch.
-        minibatch_confusion_matrix: confusion matrix for minibatch.
-        minibatch_max_err_y_sum: max last layer backpropagated errors sum.
-        n_err_pt: n_err in percents.
+        minibatch_metrics: [0] - sse, [1] - max of sum of sample graidents.
         class_samples: number of samples per class.
         epoch_ended: if an epoch has ended.
         fail_iterations: number of consequent iterations with non-decreased
             validation error.
-        confusion_mxs: confusion matrixes.
-        max_err_y_sums: max last layer backpropagated errors sums for each set.
+        epoch_metrics: metrics for each set epoch.
     """
-    def __init__(self, fail_iterations=50, unpickling=0):
+    def __init__(self, fail_iterations=10000, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -347,35 +344,38 @@ class Decision(units.Unit):
         self.minibatch_last = None  # [0]
         self.gd_skip = [0]
         self.epoch_number = [0]
-        self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
-        self.n_err = [0, 0, 0]
+        self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
+        self.n_err = [1.0e30, 1.0e30, 1.0e30]
         self.minibatch_n_err = None  # formats.Vector()
-        self.minibatch_confusion_matrix = None  # formats.Vector()
-        self.minibatch_max_err_y_sum = None  # formats.Vector()
+        self.minibatch_metrics = None  # formats.Vector()
         self.fail_iterations = [fail_iterations]
         self.epoch_ended = [0]
         self.n_err_pt = [100.0, 100.0, 100.0]
         self.class_samples = None  # [0, 0, 0]
-        self.min_validation_err = 1.0e30
-        self.min_validation_err_epoch_number = -1
-        # self.prev_train_err = 1.0e30
+        self.min_validation_mse = 1.0e30
+        self.min_validation_mse_epoch_number = -1
+        #self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
-        self.confusion_matrixes = [None, None, None]
-        self.max_err_y_sums = [None, None, None]
+        self.epoch_metrics = [None, None, None]
+        self.just_snapshotted = [0]
+        self.snapshot_date = [0]
+        self.threshold_ok = 0.0
+        self.weights_to_sync = None
+        self.sample_output = None
+        self.sample_input = None
 
     def initialize(self):
-        if (self.minibatch_confusion_matrix != None and
-            self.minibatch_confusion_matrix.v != None):
-            for i in range(0, len(self.confusion_matrixes)):
-                self.confusion_matrixes[i] = (
-                    numpy.zeros_like(self.minibatch_confusion_matrix.v))
-        if (self.minibatch_max_err_y_sum != None and
-            self.minibatch_max_err_y_sum.v != None):
-            for i in range(0, len(self.max_err_y_sums)):
-                self.max_err_y_sums[i] = (
-                    numpy.zeros_like(self.minibatch_max_err_y_sum.v))
+        if (self.minibatch_metrics != None and
+            self.minibatch_metrics.v != None):
+            for i in range(0, len(self.epoch_metrics)):
+                self.epoch_metrics[i] = (
+                    numpy.zeros_like(self.minibatch_metrics.v))
+        self.sample_output = numpy.zeros_like(
+            self.workflow.forward[-1].output.batch[0])
+        self.sample_input = numpy.zeros_like(
+            self.workflow.forward[0].input.batch[0])
 
     def run(self):
         if self.t1 == None:
@@ -386,16 +386,20 @@ class Decision(units.Unit):
         minibatch_class = self.minibatch_class[0]
 
         if self.minibatch_last[0]:
+            self.minibatch_metrics.sync()
+            self.epoch_min_mse[minibatch_class] = (
+                min(self.minibatch_metrics.v[0] /
+                    self.class_samples[minibatch_class],
+                self.epoch_min_mse[minibatch_class]))
+
             self.minibatch_n_err.sync()
             self.n_err[minibatch_class] = self.minibatch_n_err.v[0]
-            self.epoch_min_err[minibatch_class] = \
-                min(self.n_err[minibatch_class],
-                    self.epoch_min_err[minibatch_class])
+
             # Compute error in percents
             if self.class_samples[minibatch_class]:
-                self.n_err_pt[minibatch_class] = 100.0 * \
-                    self.n_err[minibatch_class] / \
-                    self.class_samples[minibatch_class]
+                self.n_err_pt[minibatch_class] = (100.0 *
+                    self.n_err[minibatch_class] /
+                    self.class_samples[minibatch_class])
 
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
@@ -404,83 +408,97 @@ class Decision(units.Unit):
             self.gd_skip[0] = 0
 
         if self.minibatch_last[0]:
-            if (self.minibatch_confusion_matrix != None and
-                self.minibatch_confusion_matrix.v != None):
-                self.minibatch_confusion_matrix.sync()
-                self.confusion_matrixes[minibatch_class][:] = (
-                    self.minibatch_confusion_matrix.v[:])
-            if (self.minibatch_max_err_y_sum != None and
-                self.minibatch_max_err_y_sum.v != None):
-                self.minibatch_max_err_y_sum.sync()
-                self.max_err_y_sums[minibatch_class][:] = (
-                    self.minibatch_max_err_y_sum.v[:])
+            self.epoch_metrics[minibatch_class][:] = (
+                self.minibatch_metrics.v[:])
+            self.epoch_metrics[minibatch_class][0] = (
+                self.epoch_metrics[minibatch_class][0] /
+                self.class_samples[minibatch_class])
 
             # Test and Validation sets processed
             if self.minibatch_class[0] == 1:
-                if self.epoch_min_err[1] < self.min_validation_err:
-                    self.min_validation_err = self.epoch_min_err[1]
-                    self.min_validation_err_epoch_number = self.epoch_number[0]
-                    if self.n_err_pt[1] < 2.5:
+                if self.just_snapshotted[0]:
+                    self.just_snapshotted[0] = 0
+                    #self.complete[0] = 1
+                if self.epoch_min_mse[1] < self.min_validation_mse:
+                    self.min_validation_mse = self.epoch_min_mse[1]
+                    self.min_validation_mse_epoch_number = self.epoch_number[0]
+                    if self.epoch_metrics[1][0] < self.threshold_ok * 50:
                         if self.fnme != None:
                             try:
                                 os.unlink(self.fnme)
                             except FileNotFoundError:
                                 pass
-                        self.fnme = "%s/mnist.%.2f.pickle" % \
-                            (config.snapshot_dir, self.n_err_pt[1])
+                        self.fnme = "%s/mnist_rbm.%.6f.pickle" % \
+                            (config.snapshot_dir, self.epoch_metrics[1][0])
                         self.log().info("Snapshotting to %s" % (self.fnme,))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
+                        self.just_snapshotted[0] = 1
+                        self.snapshot_date[0] = time.time()
                 # Stop condition
                 if self.epoch_number[0] - \
-                   self.min_validation_err_epoch_number > \
+                   self.min_validation_mse_epoch_number > \
                    self.fail_iterations[0]:
                     self.complete[0] = 1
 
             # Print some statistics
             t2 = time.time()
-            self.log().info("Epoch %d Class %d Errors %d in %.2f sec" % \
-                  (self.epoch_number[0], self.minibatch_class[0],
-                   self.n_err[self.minibatch_class[0]],
-                   t2 - self.t1))
+            self.log().info(
+                "Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
+                "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
+                (self.epoch_number[0], self.minibatch_class[0],
+                 self.epoch_metrics[self.minibatch_class[0]][0],
+                 self.threshold_ok,
+                 self.n_err[self.minibatch_class[0]],
+                 self.n_err_pt[self.minibatch_class[0]],
+                 self.epoch_metrics[self.minibatch_class[0]][1],
+                 self.epoch_metrics[self.minibatch_class[0]][2],
+                 t2 - self.t1))
             self.t1 = t2
 
             # Training set processed
             if self.minibatch_class[0] == 2:
-                # this_train_err = self.n_err[2]
-                # if self.prev_train_err:
-                #    k = this_train_err / self.prev_train_err
-                # else:
-                #    k = 1.0
-                # if k < 1.04:
-                #    ak = 1.05
-                # else:
-                #    ak = 0.7
-                # self.prev_train_err = this_train_err
-                # for gd in self.workflow.gd:
-                #    gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
-                #                          0.0001)
-                # self.log().info("new global_alpha: %.4f" % \
-                #      (self.workflow.gd[0].global_alpha, ))
-
+                """
+                this_train_err = self.epoch_metrics[2][0]
+                if self.prev_train_err:
+                    k = this_train_err / self.prev_train_err
+                else:
+                    k = 1.0
+                if k < 1.04:
+                    ak = 1.05
+                else:
+                    ak = 0.7
+                self.prev_train_err = this_train_err
+                for gd in self.workflow.gd:
+                    gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
+                                          0.00001)
+                self.log().info("new global_alpha: %.4f" % \
+                      (self.workflow.gd[0].global_alpha, ))
+                """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
                 # Reset n_err
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
+                # Sync weights
+                if self.weights_to_sync != None:
+                    self.weights_to_sync.sync()
+                self.workflow.forward[0].input.sync(read_only=True)
+                self.workflow.forward[-1].output.sync(read_only=True)
+                self.sample_output[:] = \
+                    self.workflow.forward[-1].output.batch[0][:]
+                self.sample_input[:] = \
+                    self.workflow.forward[0].input.batch[0][:]
 
             # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
             self.minibatch_n_err.update()
-            if (self.minibatch_confusion_matrix != None and
-                self.minibatch_confusion_matrix.v != None):
-                self.minibatch_confusion_matrix.v[:] = 0
-                self.minibatch_confusion_matrix.update()
-            if (self.minibatch_max_err_y_sum != None and
-                self.minibatch_max_err_y_sum.v != None):
-                self.minibatch_max_err_y_sum.v[:] = 0
-                self.minibatch_max_err_y_sum.update()
+            if (self.minibatch_metrics != None and
+                self.minibatch_metrics.v != None):
+                self.minibatch_metrics.v[:] = 0
+                self.minibatch_metrics.v[2] = 1.0e30
+                self.minibatch_metrics.update()
 
 
 class Workflow(units.OpenCLUnit):
@@ -515,16 +533,13 @@ class Workflow(units.OpenCLUnit):
                 amp = None
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            if i < len(layers) - 1:
-                if not i:
-                    aa = rbm.RBMTanh([layers[i]], device=device,
-                                 weights_amplitude=amp)
-                else:
-                    aa = all2all.All2AllTanh([layers[i]], device=device,
-                                 weights_amplitude=amp)
+            if not i:
+                aa = rbm.RBMTanh([layers[i]], device=device,
+                             weights_amplitude=amp)
             else:
-                aa = all2all.All2AllSoftmax([layers[i]], device=device,
-                                            weights_amplitude=amp)
+                aa = all2all.All2AllTanh([layers[i]], device=device,
+                             weights_amplitude=amp,
+                             weights_transposed=False)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -534,12 +549,11 @@ class Workflow(units.OpenCLUnit):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(device=device)
+        self.ev = evaluator.EvaluatorMSE(device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
-        self.ev.labels = self.loader.minibatch_labels
-        self.ev.max_idx = self.forward[-1].max_idx
+        self.ev.target = self.loader.minibatch_data
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -548,14 +562,28 @@ class Workflow(units.OpenCLUnit):
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err_skipped
-        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
-        self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
+        self.decision.minibatch_metrics = self.ev.metrics
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
+        # Add Image Saver unit
+        self.image_saver = mnist_ae.ImageSaverAE(["/tmp/img/test",
+                                                  "/tmp/img/validation",
+                                                  "/tmp/img/train"])
+        self.image_saver.link_from(self.decision)
+        self.image_saver.input = self.loader.minibatch_data
+        self.image_saver.output = self.forward[-1].output
+        self.image_saver.indexes = self.loader.minibatch_indexes
+        self.image_saver.labels = self.loader.minibatch_labels
+        self.image_saver.minibatch_class = self.loader.minibatch_class
+        self.image_saver.minibatch_size = self.loader.minibatch_size
+        self.image_saver.this_save_date = self.decision.snapshot_date
+        self.image_saver.gate_skip = self.decision.just_snapshotted
+        self.image_saver.gate_skip_not = [1]
+
         # Add gradient descent units
         self.gd = list(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GDSM(device=device)
+        self.gd[-1] = gd.GDTanh(device=device)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -587,54 +615,79 @@ class Workflow(units.OpenCLUnit):
 
         self.loader.gate_block = self.decision.complete
 
-        # Error plotter
+        # MSE plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+            self.plt.append(plotters.SimplePlotter(figure_label="mse",
                                                    plot_style=styles[i]))
-            self.plt[-1].input = self.decision.n_err_pt
+            self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision if not i else self.plt[-2])
+            self.plt[-1].link_from(self.decision if not i else
+                                   self.plt[-2])
             self.plt[-1].gate_block = (self.decision.epoch_ended if not i
                                        else [1])
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
-        # Confusion matrix plotter
-        self.plt_mx = []
-        for i in range(0, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(
-                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
-            self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.decision if not i
-                                      else self.plt_mx[-2])
-            self.plt_mx[-1].gate_block = (self.decision.epoch_ended if not i
-                                          else [1])
-            self.plt_mx[-1].gate_block_not = [1]
-        # err_y plotter
-        self.plt_err_y = []
+        # Weights plotter
+        """
+        self.decision.weights_to_sync = self.gd[0].weights
+        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
+        self.plt_mx.input = self.decision.weights_to_sync
+        self.plt_mx.input_field = "v"
+        self.plt_mx.get_shape_from = self.forward[0].input
+        self.plt_mx.link_from(self.decision)
+        self.plt_mx.gate_block = self.decision.epoch_ended
+        self.plt_mx.gate_block_not = [1]
+        """
+        # Max plotter
+        self.plt_max = []
+        styles = ["r--", "b--", "k--"]
         for i in range(0, 3):
-            self.plt_err_y.append(plotters.SimplePlotter(
-                figure_label="Last layer max gradient sum",
-                plot_style=styles[i]))
-            self.plt_err_y[-1].input = self.decision.max_err_y_sums
-            self.plt_err_y[-1].input_field = i
-            self.plt_err_y[-1].link_from(self.decision if not i
-                                         else self.plt_err_y[-2])
-            self.plt_err_y[-1].gate_block = (self.decision.epoch_ended if not i
-                                             else [1])
-            self.plt_err_y[-1].gate_block_not = [1]
-        self.plt_err_y[0].clear_plot = True
+            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
+            self.plt_max[-1].input = self.decision.epoch_metrics
+            self.plt_max[-1].input_field = i
+            self.plt_max[-1].input_offs = 1
+            self.plt_max[-1].link_from(self.decision if not i else
+                                       self.plt_max[-2])
+            self.plt_max[-1].gate_block = (self.decision.epoch_ended if not i
+                                           else [1])
+            self.plt_max[-1].gate_block_not = [1]
+        self.plt_max[0].clear_plot = True
+        # Min plotter
+        self.plt_min = []
+        styles = ["r:", "b:", "k:"]
+        for i in range(0, 3):
+            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
+            self.plt_min[-1].input = self.decision.epoch_metrics
+            self.plt_min[-1].input_field = i
+            self.plt_min[-1].input_offs = 2
+            self.plt_min[-1].link_from(self.decision if not i else
+                                       self.plt_min[-2])
+            self.plt_min[-1].gate_block = (self.decision.epoch_ended if not i
+                                           else [1])
+            self.plt_min[-1].gate_block_not = [1]
+        self.plt_min[0].clear_plot = True
+        # Image plotter
+        self.plt_img = plotters.Image2(figure_label="output sample")
+        self.plt_img.input = self.decision
+        self.plt_img.input_field = "sample_input"
+        self.plt_img.input_field2 = "sample_output"
+        self.plt_img.link_from(self.decision)
+        self.plt_img.gate_block = self.decision.epoch_ended
+        self.plt_img.gate_block_not = [1]
 
     def initialize(self):
         retval = self.start_point.initialize_dependent()
         if retval:
             return retval
 
-    def run(self, threshold, threshold_low, global_alpha, global_lambda):
-        self.ev.threshold = threshold
-        self.ev.threshold_low = threshold_low
+    def run(self, threshold_ok, threshold_skip, global_alpha, global_lambda):
+        self.ev.threshold_ok = threshold_ok
+        self.ev.threshold_skip = threshold_skip
+        self.decision.threshold_ok = threshold_ok
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
@@ -644,64 +697,32 @@ class Workflow(units.OpenCLUnit):
         self.end_point.wait()
 
 
+#import scipy.misc
+
+
 def main():
     #if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
     #else:
     logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("mnist.pickle", "rb")
+    fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir,), "rb")
     w = pickle.load(fin)
     fin.close()
 
-    fout = open("w100.txt", "w")
     weights = w.forward[0].weights.v
+    i = 0
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b100.txt", "w")
-    bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
-    fout.write("\n")
-    fout.close()
+        img = row.reshape(28, 28).copy()
+        img -= img.min()
+        m = img.max()
+        if m:
+            img /= m
+            img *= 255.0
+        scipy.misc.imsave("/tmp/img/%03d.png" % (i,), img.astype(numpy.uint8))
+        i += 1
 
-    a = w.loader.original_data.reshape(70000, 784)[0:10000]
-    b = weights.transpose()
-    c = numpy.zeros([10000, 100], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-    c *= 0.6666
-    numpy.tanh(c, c)
-    c *= 1.7159
-
-    fout = open("w10.txt", "w")
-    weights = w.forward[1].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b10.txt", "w")
-    bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    a = c
-    b = weights.transpose()
-    c = numpy.zeros([10000, 10], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-
-    labels = w.loader.original_labels[0:10000]
-    n_ok = 0
-    for i in range(0, 10000):
-        im = numpy.argmax(c[i])
-        if im == labels[i]:
-            n_ok += 1
-    self.log().info("%d errors" % (10000 - n_ok, ))
-
-    self.log().debug("Done")
+    logging.info("Done")
     sys.exit(0)
     """
 
@@ -712,13 +733,13 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[400, 100, 10], device=device)
+        w = Workflow(layers=[500, 784], device=device)
         w.initialize()
     except KeyboardInterrupt:
         return
     try:
-        w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.001 * 10, global_lambda=0.00005)
+        w.run(threshold_ok=0.0005, threshold_skip=0.0,
+              global_alpha=0.001, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")
@@ -727,7 +748,7 @@ def main():
     time.sleep(5)
     logging.info("Will snapshot after 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist.pickle" % (config.snapshot_dir,)
+    fnme = "%s/mnist_rbm.pickle" % (config.snapshot_dir,)
     logging.info("Snapshotting to %s" % (fnme,))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)

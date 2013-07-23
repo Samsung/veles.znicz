@@ -517,7 +517,8 @@ class Workflow(units.OpenCLUnit):
             amp = 0.05
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
-                                         weights_amplitude=amp)
+                                         weights_amplitude=amp,
+                                         weights_transposed=False)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device,
                                             weights_amplitude=amp)
@@ -561,7 +562,7 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device)
+            self.gd[i] = gd.GDTanh(device=device, weights_transposed=False)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
