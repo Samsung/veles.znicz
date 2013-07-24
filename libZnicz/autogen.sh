@@ -29,7 +29,7 @@ mypath=$(pwd)
 
 if [ ! -e "simd/autogen.sh" ]; then
 	user=$(git remote -v | grep -oE '//[^@]+' -m1 | cut -c3-)
-    sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" .gitmodules
+    sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" ../.gitmodules
     cd ..
     git submodule update --init	
 else
