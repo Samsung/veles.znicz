@@ -38,7 +38,7 @@ class Device(units.SmartPickler):
         if unpickling:
             return
         self.info = info
-        self.prefer_mmap = True
+        self.prefer_mmap = False
 
 
 class DeviceInfo(object):

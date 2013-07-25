@@ -129,6 +129,8 @@ class Batch(OpenCLConnector):
         self.batch = None
 
     def initialize(self, device=None):
+        if len(self.batch.shape) < 2:
+            raise error.ErrBadFormat("Batch shape should be greater than 1.")
         if self.batch_:
             return
         if device:

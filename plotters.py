@@ -3,9 +3,11 @@ Created on May 17, 2013
 
 @author: Kumok Akim <a.kumok@samsung.com>
 """
-import matplotlib.pyplot
-import matplotlib.patches
+import matplotlib.pyplot as pp
+import matplotlib.patches as patches
+import matplotlib.lines as lines
 import matplotlib.cm as cm
+import pylab
 import units
 import tkinter
 import queue
@@ -13,9 +15,10 @@ import threading
 import numpy
 import formats
 import logging
+import config
 
 
-matplotlib.pyplot.ion()
+pp.ion()
 
 
 class Graphics:
@@ -153,7 +156,7 @@ class SimplePlotter(Plotter):
 
     def redraw(self):
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         if self.clear_plot:
             figure.clf()
         axes = figure.add_subplot(111)  # Main axes
@@ -207,7 +210,7 @@ class MatrixPlotter(Plotter):
             value = self.input.__dict__[self.input_field]
 
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
         num_rows = len(value) + 2
         num_columns = len(value[0]) + 2
@@ -216,22 +219,22 @@ class MatrixPlotter(Plotter):
         main_axes.cla()
 
         # First cell color
-        rc = matplotlib.patches.Rectangle(
+        rc = patches.Rectangle(
             (0, (num_rows - 1) / num_rows),
             1.0 / num_rows, 1.0 / num_columns, color='gray')
         main_axes.add_patch(rc)
         # First row last cell color
-        rc = matplotlib.patches.Rectangle(
+        rc = patches.Rectangle(
             ((num_columns - 1) / num_columns, (num_rows - 1) / num_rows),
             1.0 / num_rows, 1.0 / num_columns, color='gray')
         main_axes.add_patch(rc)
         # First column last cell color
-        rc = matplotlib.patches.Rectangle(
+        rc = patches.Rectangle(
             (0, 0),
             1.0 / num_rows, 1.0 / num_columns, color='gray')
         main_axes.add_patch(rc)
         # Last cell color
-        rc = matplotlib.patches.Rectangle(
+        rc = patches.Rectangle(
             ((num_columns - 1) / num_columns, 0),
             1.0 / num_rows, 1.0 / num_columns, color='silver')
         main_axes.add_patch(rc)
@@ -259,28 +262,28 @@ class MatrixPlotter(Plotter):
                         color = "#FF%02X%02X" % (v, v)
                     else:
                         color = 'green'
-                rc = matplotlib.patches.Rectangle(
+                rc = patches.Rectangle(
                     (column / num_columns, (num_rows - row - 1) / num_rows),
                     1.0 / num_rows, 1.0 / num_columns, color=color)
                 main_axes.add_patch(rc)
 
         for row in range(num_rows):
             y = row / num_rows
-            main_axes.add_line(matplotlib.lines.Line2D([0, 1], [y, y]))
+            main_axes.add_line(lines.Line2D([0, 1], [y, y]))
         for column in range(num_columns):
             x = column / num_columns
-            main_axes.add_line(matplotlib.lines.Line2D([x, x], [0, 1]))
+            main_axes.add_line(lines.Line2D([x, x], [0, 1]))
 
         # First cell
         column = 0
         row = 0
-        matplotlib.pyplot.figtext(label="0",
+        pp.figtext(label="0",
             s="target",
             x=(column + 0.9) / num_columns,
             y=(num_rows - row - 0.33) / num_rows,
             verticalalignment="center",
             horizontalalignment="right")
-        matplotlib.pyplot.figtext(label="0",
+        pp.figtext(label="0",
             s="value",
             x=(column + 0.1) / num_columns,
             y=(num_rows - row - 0.66) / num_rows,
@@ -290,7 +293,7 @@ class MatrixPlotter(Plotter):
         # Headers in first row
         row = 0
         for column in range(1, num_columns - 1):
-            matplotlib.pyplot.figtext(label=("C%d" % (column - 1,)),
+            pp.figtext(label=("C%d" % (column - 1,)),
                             s=(column - 1),
                             x=(column + 0.5) / num_columns,
                             y=(num_rows - row - 0.5) / num_rows,
@@ -299,7 +302,7 @@ class MatrixPlotter(Plotter):
         # Headers in first column
         column = 0
         for row in range(1, num_rows - 1):
-            matplotlib.pyplot.figtext(label=("R%d" % (row - 1,)),
+            pp.figtext(label=("R%d" % (row - 1,)),
                             s=(row - 1),
                             x=(column + 0.5) / num_columns,
                             y=(num_rows - row - 0.5) / num_rows,
@@ -314,21 +317,21 @@ class MatrixPlotter(Plotter):
                 n = sum_total
                 pt_total = 100.0 * n_elem / n if n else 0
                 label = "%d as %d" % (column - 1, row - 1)
-                matplotlib.pyplot.figtext(
+                pp.figtext(
                     label=label,
                     s=n_elem,
                     x=(column + 0.5) / num_columns,
                     y=(num_rows - row - 0.33) / num_rows,
                     verticalalignment="center",
                     horizontalalignment="center")
-                #matplotlib.pyplot.figtext(
+                #pp.figtext(
                 #    label=label,
                 #    s=("%.2f%%" % (pt_elem, )),
                 #    x=(column + 0.1) / num_columns,
                 #    y=(num_rows - row - 0.75) / num_rows,
                 #    verticalalignment="center",
                 #    horizontalalignment="left")
-                matplotlib.pyplot.figtext(
+                pp.figtext(
                     label=label,
                     s=("%.2f%%" % (pt_total,)),
                     x=(column + 0.5) / num_columns,
@@ -341,14 +344,14 @@ class MatrixPlotter(Plotter):
         label = "Totals"
         row = num_rows - 1
         column = num_columns - 1
-        matplotlib.pyplot.figtext(
+        pp.figtext(
             label=label,
             s=sum_ok,
             x=(column + 0.5) / num_columns,
             y=(num_rows - row - 0.33) / num_rows,
             verticalalignment="center",
             horizontalalignment="center")
-        matplotlib.pyplot.figtext(
+        pp.figtext(
             label=label,
             s=("%.2f%%" % (pt_total,)),
             x=(column + 0.5) / num_columns,
@@ -403,7 +406,7 @@ class Weights2D(Plotter):
             return
 
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
 
         if self.get_shape_from == None:
@@ -492,7 +495,7 @@ class Image2(Plotter):
             return
 
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
 
         if len(value.shape) == 2:
@@ -574,7 +577,7 @@ class Image3(Plotter):
             value3 = value3.reshape(sy, sx)
 
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
 
         ax = figure.add_subplot(3, 1, 1)
@@ -623,7 +626,7 @@ class Image1(Plotter):
 
     def redraw(self):
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
 
         ax = figure.add_subplot(111)
@@ -684,7 +687,7 @@ class ResultPlotter(Plotter):
 
     def redraw(self):
         figure_label = self.figure_label
-        figure = matplotlib.pyplot.figure(figure_label)
+        figure = pp.figure(figure_label)
         figure.clf()
 
         ax = figure.add_subplot(3, 1, 1)
@@ -715,3 +718,131 @@ class ResultPlotter(Plotter):
             numpy.copyto(self.img, self.image.batch[0])
         Graphics().event_queue.put(self, block=True)
         super(ResultPlotter, self).run()
+
+
+class MSEHistogram(Plotter):
+    """Plotter for drawing histogram.
+
+    Should be assigned before initialize():
+        mse
+
+    Updates after run():
+
+    Creates within initialize():
+
+    """
+    def __init__(self, figure_label="Histogram", n_bars=35, unpickling=0):
+        super(MSEHistogram, self).__init__(unpickling=unpickling)
+        if unpickling:
+            return
+        self.figure_label = figure_label
+        self.val_mse = None
+        self.mse_min = None
+        self.mse_max = None
+        self.n_bars = n_bars
+        self.mse = None  # formats.Vector()
+
+    def initialize(self):
+        self.val_mse = numpy.zeros(self.n_bars,
+                                   dtype=config.dtypes[config.dtype])
+
+    def redraw(self):
+        fig = pp.figure(self.figure_label)
+        fig.clf()
+        fig.patch.set_facecolor('#E8D6BB')
+        #fig.patch.set_alpha(0.45)
+
+        ax = fig.add_subplot(1, 1, 1)
+        ax.cla()
+        ax.patch.set_facecolor('#ffe6ca')
+        #ax.patch.set_alpha(0.45)
+
+        ymin = self.val_min
+        ymax = (self.val_max) * 1.3
+        xmin = self.mse_min
+        xmax = self.mse_max
+        width = ((xmax - xmin) / self.n_bars) * 0.8
+        t0 = 0.65 * ymax
+        l1 = width * 0.5
+        #l3 = 20
+        #koef = 0.5 * ymax
+        #l2 = 0.235 * ymax
+
+        if self.n_bars < 11:
+            l3 = 20
+            koef = 0.5 * ymax
+            l2 = 0.235 * ymax
+
+        if self.n_bars < 31 and self.n_bars > 10:
+            l3 = 25 - (0.5) * self.n_bars
+            koef = 0.635 * ymax - 0.0135 * self.n_bars * ymax
+            l2 = 0.2975 * ymax - 0.00625 * self.n_bars * ymax
+
+        if self.n_bars < 41 and self.n_bars > 30:
+            l3 = 16 - (0.2) * self.n_bars
+            koef = 0.32 * ymax - 0.003 * self.n_bars * ymax
+            l2 = 0.17 * ymax - 0.002 * self.n_bars * ymax
+
+        if self.n_bars < 51 and self.n_bars > 40:
+            l3 = 8
+            koef = 0.32 * ymax - 0.003 * self.n_bars * ymax
+            l2 = 0.17 * ymax - 0.002 * self.n_bars * ymax
+
+        if self.n_bars > 51:
+            l3 = 8
+            koef = 0.17 * ymax
+            l2 = 0.07 * ymax
+
+        N = numpy.linspace(self.mse_min, self.mse_max, num=self.n_bars,
+                           endpoint=True)
+        ax.bar(N, self.val_mse, color='#ffa0ef', width=width,
+               edgecolor='lavender')
+        #, edgecolor='red')
+        #D889B8
+        #B96A9A
+        ax.set_xlabel('Errors', fontsize=20)
+        ax.set_ylabel('Input Data', fontsize=20)
+        ax.set_title('Histogram', fontsize=25)
+        ax.axis([xmin, xmax + ((xmax - xmin) / self.n_bars), ymin, ymax])
+        ax.grid(True)
+        leg = ax.legend(('Train',),)
+                        #'upper center')
+        frame = leg.get_frame()
+        frame.set_facecolor('#E8D6BB')
+        for t in leg.get_texts():
+            t.set_fontsize(18)
+        for l in leg.get_lines():
+            l.set_linewidth(1.5)
+
+        for x, y in zip(N, self.val_mse):
+            if y > koef - l2:
+                pylab.text(x + l1, y - l2, '%.2f' % y,
+                           ha='center', va='bottom',
+                           fontsize=l3, rotation=90)
+            else:
+                pylab.text(x + l1, t0, '%.2f' % y,
+                           ha='center', va='bottom',
+                           fontsize=l3, rotation=90)
+
+        fig.show()
+        super(MSEHistogram, self).redraw()
+
+    def run(self):
+        mx = self.mse.v.max()
+        mi = self.mse.v.min()
+        self.mse_max = mx
+        self.mse_min = mi
+        d = mx - mi
+        if not d:
+            return
+        d = (self.n_bars - 1) / d
+        self.val_mse[:] = 0
+        for mse in self.mse.v:
+            i_bar = int(numpy.floor((mse - mi) * d))
+            self.val_mse[i_bar] += 1
+
+        self.val_max = self.val_mse.max()
+        self.val_min = self.val_mse.min()
+
+        Graphics().event_queue.put(self, block=True)
+        super(MSEHistogram, self).run()

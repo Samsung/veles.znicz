@@ -365,6 +365,11 @@ class Decision(units.Unit):
         self.weights_to_sync = None
         self.sample_output = None
         self.sample_input = None
+        self.all_mse = [formats.Vector(), formats.Vector(), formats.Vector()]
+        self.mse = [formats.Vector(), formats.Vector(), formats.Vector()]
+        self.minibatch_mse = None
+        self.minibatch_offs = None
+        self.minibatch_size = None
 
     def initialize(self):
         if (self.minibatch_metrics != None and
@@ -376,6 +381,15 @@ class Decision(units.Unit):
             self.workflow.forward[-1].output.batch[0])
         self.sample_input = numpy.zeros_like(
             self.workflow.forward[0].input.batch[0])
+        for i in range(0, len(self.mse)):
+            if self.class_samples[i] <= 0:
+                continue
+            if (self.mse[i].v == None or
+                self.mse[i].v.size != self.class_samples[i]):
+                self.mse[i].v = numpy.zeros(self.class_samples[i],
+                                         dtype=config.dtypes[config.dtype])
+                self.all_mse[i].v = numpy.zeros(self.class_samples[i],
+                                         dtype=config.dtypes[config.dtype])
 
     def run(self):
         if self.t1 == None:
@@ -400,6 +414,14 @@ class Decision(units.Unit):
                 self.n_err_pt[minibatch_class] = (100.0 *
                     self.n_err[minibatch_class] /
                     self.class_samples[minibatch_class])
+
+        self.minibatch_mse.sync(read_only=True)
+        offs = self.minibatch_offs[0]
+        for i in range(0, minibatch_class):
+            offs -= self.class_samples[i]
+        size = self.minibatch_size[0]
+        self.mse[minibatch_class].v[offs:offs + size] = \
+            self.minibatch_mse.v[:size]
 
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
@@ -499,6 +521,9 @@ class Decision(units.Unit):
                 self.minibatch_metrics.v[:] = 0
                 self.minibatch_metrics.v[2] = 1.0e30
                 self.minibatch_metrics.update()
+            self.all_mse[minibatch_class].v[:] = \
+                self.mse[minibatch_class].v[:]
+            self.mse[minibatch_class].v[:] = 0
 
 
 class Workflow(units.OpenCLUnit):
@@ -563,6 +588,9 @@ class Workflow(units.OpenCLUnit):
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.minibatch_metrics = self.ev.metrics
+        self.decision.minibatch_mse = self.ev.mse
+        self.decision.minibatch_offs = self.loader.minibatch_offs
+        self.decision.minibatch_size = self.loader.minibatch_size
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
@@ -593,7 +621,9 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            if i:
+            if True:
+                self.gd[i] = gd.GD(device=device)
+            elif i:
                 self.gd[i] = gd.GDTanh(device=device)
             else:
                 self.gd[i] = rbm.GDTanh(device=device)
@@ -678,6 +708,16 @@ class Workflow(units.OpenCLUnit):
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
+        # Histogram plotter
+        self.plt_hist = [None,
+            plotters.MSEHistogram(figure_label="Histogram Validation"),
+            plotters.MSEHistogram(figure_label="Histogram Train")]
+        self.plt_hist[1].link_from(self.decision)
+        self.plt_hist[1].mse = self.decision.all_mse[1]
+        self.plt_hist[1].gate_block = self.decision.epoch_ended
+        self.plt_hist[1].gate_block_not = [1]
+        self.plt_hist[2].link_from(self.plt_hist[1])
+        self.plt_hist[2].mse = self.decision.all_mse[2]
 
     def initialize(self):
         retval = self.start_point.initialize_dependent()

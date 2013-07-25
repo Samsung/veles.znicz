@@ -303,7 +303,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         max_samples_per_epoch: maximum number of samples per epoch,
             will choose n_err_skipped element type based on it.
         metrics: [0] - sse, [1] - maximum of backpropagated error sum.
-        mse: array of mse of each sample in minibatch.
+        mse: array of mse for each sample in minibatch.
         krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
@@ -325,7 +325,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_constants_i_ = None
         self.metrics = formats.Vector()
         self.effective_batch_size = [0]
-        self.mse = formats.Batch()
+        self.mse = formats.Vector()
 
     def initialize(self):
         itype = config.get_itype_from_size((self.y.batch.size //
@@ -350,11 +350,11 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.metrics.v[2] = 1.0e30  # mse_min
             self.metrics.v_ = None
 
-        if (self.mse.batch == None or
-            self.mse.batch.size != self.err_y.batch.shape[0]):
-            self.mse.batch = numpy.zeros([self.err_y.batch.shape[0]],
+        if (self.mse.v == None or
+            self.mse.v.size != self.err_y.batch.shape[0]):
+            self.mse.v = numpy.zeros(self.err_y.batch.shape[0],
                 dtype=config.dtypes[config.dtype])
-            self.mse.batch_ = None
+            self.mse.v_ = None
 
         self.err_y.initialize(self.device)
         self.n_err_skipped.initialize(self.device)
@@ -398,7 +398,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(2, self.err_y.batch_)
             self.krn_.set_arg(3, self.n_err_skipped.v_)
             self.krn_.set_arg(4, self.metrics.v_)
-            self.krn_.set_arg(8, self.mse.batch_)
+            self.krn_.set_arg(8, self.mse.v_)
 
     def gpu_run(self):
         # return self.cpu_run()
