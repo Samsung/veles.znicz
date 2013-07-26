@@ -223,7 +223,7 @@ class Loader(units.Unit):
             sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
@@ -290,7 +290,7 @@ class Loader(units.Unit):
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
         self.minibatch_data.batch[0:minibatch_size] = \
@@ -299,7 +299,7 @@ class Loader(units.Unit):
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
+            self.minibatch_labels.v[minibatch_size:] = -1
             self.minibatch_indexes.batch[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
@@ -564,12 +564,12 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
-        for i in range(len(self.forward) - 2, -1, -1):
+        for i in range(len(self.forward) - 2, 0, -1):
             if i:
                 self.gd[i] = gd.GDTanh(device=device)
             else:
-                self.gd[i] = rbm.GDTanh(device=device)
-                self.gd[i].y_rand = self.forward[i].output_rand
+                self.gd[i] = gd.GDTanh(device=device)
+                #self.gd[i].y_rand = self.forward[i].output_rand
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -578,7 +578,7 @@ class Workflow(units.OpenCLUnit):
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
-        self.rpt.link_from(self.gd[0])
+        self.rpt.link_from(self.gd[1])
 
         self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
@@ -636,6 +636,8 @@ class Workflow(units.OpenCLUnit):
         self.ev.threshold = threshold
         self.ev.threshold_low = threshold_low
         for gd in self.gd:
+            if gd == None:
+                continue
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
         retval = self.start_point.run_dependent()
@@ -709,16 +711,25 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir,), "rb")
+    w = pickle.load(fin)
+    fin.close()
+    weights = w.forward[0].weights.v
+    bias = w.forward[0].bias.v
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[400, 100, 10], device=device)
+        w = Workflow(layers=[500, 250, 10], device=device)
         w.initialize()
+        w.forward[0].weights.v[:] = weights[:]
+        w.forward[0].weights.update()
+        w.forward[0].bias.v[:] = bias[:]
+        w.forward[0].bias.update()
     except KeyboardInterrupt:
         return
     try:
         w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.001 * 10, global_lambda=0.00005)
+              global_alpha=0.001 * 20, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")

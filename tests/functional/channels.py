@@ -237,7 +237,7 @@ class Loader(units.Unit):
             sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
             sh, self.original_data.dtype)
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=self.original_labels.dtype)
         self.minibatch_indexes.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=self.shuffled_indexes.dtype)
@@ -300,7 +300,7 @@ class Loader(units.Unit):
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
         self.minibatch_data.batch[0:minibatch_size] = \
@@ -309,7 +309,7 @@ class Loader(units.Unit):
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
+            self.minibatch_labels.v[minibatch_size:] = -1
             self.minibatch_indexes.batch[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
@@ -376,7 +376,7 @@ class ImageSaver(units.Unit):
             x = self.input.batch[i]
             y = self.output.batch[i]
             idx = self.indexes.batch[i]
-            lbl = self.labels.batch[i]
+            lbl = self.labels.v[i]
             im = self.max_idx[i]
             if im == lbl:
                 continue
@@ -678,16 +678,16 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
         # Matrix plotter
-        """
+        #"""
         self.decision.weights_to_sync = self.gd[0].weights
-        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
-        self.plt_mx.input = self.decision.weights_to_sync
-        self.plt_mx.get_shape_from = self.forward[0].input
-        self.plt_mx.input_field = "v"
-        self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = self.decision.epoch_ended
-        self.plt_mx.gate_block_not = [1]
-        """
+        self.plt_w = plotters.Weights2D(figure_label="First Layer Weights")
+        self.plt_w.input = self.decision.weights_to_sync
+        self.plt_w.get_shape_from = self.forward[0].input
+        self.plt_w.input_field = "v"
+        self.plt_w.link_from(self.decision)
+        self.plt_w.gate_block = self.decision.epoch_ended
+        self.plt_w.gate_block_not = [1]
+        #"""
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
@@ -760,6 +760,7 @@ class Workflow(units.OpenCLUnit):
         for gd in self.gd:
             gd.unlink()
         self.image_saver.unlink()
+        self.plt_w.unlink()
         for plt in self.plt:
             plt.unlink()
         for plt_mx in self.plt_mx:
@@ -933,7 +934,7 @@ def main():
             w = pickle.load(fin)
             fin.close()
         except IOError:
-            w = Workflow(layers=[108, 13], device=device)
+            w = Workflow(layers=[15, 13], device=device)
         w.initialize(threshold=1.0, threshold_low=1.0,
               global_alpha=0.001, global_lambda=0.0,
               minibatch_maxsize=27,

@@ -209,7 +209,7 @@ class Loader(units.Unit):
             sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
@@ -276,7 +276,7 @@ class Loader(units.Unit):
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
         self.minibatch_data.batch[0:minibatch_size] = \
@@ -285,7 +285,7 @@ class Loader(units.Unit):
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
+            self.minibatch_labels.v[minibatch_size:] = -1
             self.minibatch_indexes.batch[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
@@ -346,7 +346,7 @@ class ImageSaverAE(units.Unit):
             x = self.input.batch[i]
             y = self.output.batch[i].reshape(x.shape)
             idx = self.indexes.batch[i]
-            lbl = self.labels.batch[i]
+            lbl = self.labels.v[i]
             mse = numpy.linalg.norm(x - y) / x.size
             if xy == None:
                 xy = numpy.empty([x.shape[0], x.shape[1] * 2], dtype=x.dtype)

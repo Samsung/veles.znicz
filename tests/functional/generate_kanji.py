@@ -40,8 +40,8 @@ SX = 32
 SY = 32
 TARGET_SX = 24
 TARGET_SY = 24
-N_TRANSFORMS = 100
-KANJI_COUNT = 200
+N_TRANSFORMS = 101
+KANJI_COUNT = 300
 
 
 class BMPWriter(object):
@@ -290,9 +290,9 @@ if __name__ == '__main__':
             for i in range(0, N_TRANSFORMS):
             #for s in ((1.0, 1.0), (0.89, 1.0 / 0.89), (1.0 / 0.89, 0.89)):
             #    for angle in (0.0, 12.5, -12.5):
-                angle = -12.0 + numpy.random.rand() * 24.0
-                sx = 0.7 + numpy.random.rand() * (1.0 / 0.7 - 0.7)
-                sy = 0.7 + numpy.random.rand() * (1.0 / 0.7 - 0.7)
+                angle = -14.9 + numpy.random.rand() * 29.8001
+                sx = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
+                sy = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
                 img = do_plot(font, row[1], SY, angle, sx, sy, True,
                               SX, SY)
                 if img == None:

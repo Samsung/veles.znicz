@@ -278,7 +278,7 @@ class Vector(OpenCLConnector):
         self.v[key] = value
 
 
-class Labels(Batch):
+class Labels(Vector):
     """Labels for batch.
 
     Attributes:

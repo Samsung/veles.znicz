@@ -246,7 +246,7 @@ class All2AllSoftmax(All2All):
         self.krn_sm_ = None
         if unpickling:
             return
-        self.max_idx = formats.Batch()
+        self.max_idx = formats.Vector()
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
@@ -257,11 +257,11 @@ class All2AllSoftmax(All2All):
         if retval:
             return retval
 
-        if self.max_idx.batch == None or \
-           self.max_idx.batch.size != self.output.batch.shape[0]:
-            self.max_idx.batch = numpy.zeros([self.output.batch.shape[0]],
+        if self.max_idx.v == None or \
+           self.max_idx.v.size != self.output.batch.shape[0]:
+            self.max_idx.v = numpy.zeros(self.output.batch.shape[0],
                 dtype=config.itypes[itype])
-            self.max_idx.batch_ = None
+            self.max_idx.v_ = None
 
         self.max_idx.initialize(self.device)
 
@@ -270,7 +270,7 @@ class All2AllSoftmax(All2All):
 
         self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
         self.krn_sm_.set_arg(0, self.output.batch_)
-        self.krn_sm_.set_arg(1, self.max_idx.batch_)
+        self.krn_sm_.set_arg(1, self.max_idx.v_)
 
     def cpu_apply_exp(self):
         self.output.sync()

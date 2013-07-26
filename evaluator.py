@@ -68,12 +68,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_samples_per_epoch = None  # [0]
         self.threshold = threshold
         self.threshold_low = threshold_low
-        self.skipped = formats.Batch()
+        self.skipped = formats.Vector()
         self.n_skipped = None
         self.compute_confusion_matrix = compute_confusion_matrix
         self.confusion_matrix = formats.Vector()
         self.n_err_skipped = formats.Vector()
-        self.max_idx = None  # formats.Batch()
+        self.max_idx = None  # formats.Vector()
         self.krn_constants_d_ = None
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
@@ -96,11 +96,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.n_err_skipped.v = numpy.zeros(2, dtype=config.itypes[itype2])
             self.n_err_skipped.v_ = None
 
-        if (self.skipped.batch == None or
-            self.skipped.batch.size != self.y.batch.shape[0]):
-            self.skipped.batch = numpy.zeros(self.y.batch.shape[0],
+        if (self.skipped.v == None or
+            self.skipped.v.size != self.y.batch.shape[0]):
+            self.skipped.v = numpy.zeros(self.y.batch.shape[0],
                 dtype=numpy.int8)
-            self.skipped.batch_ = None
+            self.skipped.v_ = None
 
         out_size = self.y.batch.size // self.y.batch.shape[0]
         if self.compute_confusion_matrix:
@@ -159,10 +159,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
             self.krn_ = pyopencl.Kernel(self.prg_, "ev_sm")
             self.krn_.set_arg(0, self.y.batch_)
-            self.krn_.set_arg(1, self.max_idx.batch_)
-            self.krn_.set_arg(2, self.labels.batch_)
+            self.krn_.set_arg(1, self.max_idx.v_)
+            self.krn_.set_arg(2, self.labels.v_)
             self.krn_.set_arg(3, self.err_y.batch_)
-            self.krn_.set_arg(4, self.skipped.batch_)
+            self.krn_.set_arg(4, self.skipped.v_)
             self.krn_.set_arg(5, self.n_err_skipped.v_)
             self.krn_.set_arg(6, self.confusion_matrix.v_)
             self.krn_.set_arg(7, self.max_err_y_sum.v_)
@@ -212,7 +212,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.y.sync()
         self.max_idx.sync()
         batch_size = self.batch_size[0]
-        labels = self.labels.batch
+        labels = self.labels.v
 
         threshold = self.threshold
         threshold_low = self.threshold_low
@@ -232,7 +232,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             err_y = err_y.reshape(err_y.size)  # make it plain
 
             skip = False
-            max_idx = self.max_idx.batch[i]
+            max_idx = self.max_idx.v[i]
             max_vle = y[max_idx]
             confusion_matrix[max_idx, labels[i]] += 1
             if max_idx == labels[i]:
@@ -241,7 +241,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 if (max_vle > threshold) or \
                    ((max_vle > threshold_low) and (self.skipped[i])):
                     err_y[:] = 0  # already trained good enough, skip it
-                    self.skipped.batch[i] = 1
+                    self.skipped.v[i] = 1
                     skip = True
                     n_skip += 1
 
@@ -249,7 +249,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 # Compute softmax output error gradient
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
-                self.skipped.batch[i] = 0
+                self.skipped.v[i] = 0
                 self.max_err_y_sum = max(self.max_err_y_sum,
                     numpy.sum(numpy.fabs(err_y)))
         # Set errors for excessive samples to zero
@@ -276,7 +276,6 @@ class EvaluatorMSE(units.OpenCLUnit):
         y
         labels
         batch_size
-        max_idx
         max_samples_per_epoch
 
     Updates after run():

@@ -277,7 +277,7 @@ class Loader(units.Unit):
             sht.append(i)
         self.minibatch_target.batch = numpy.zeros(
             sht, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
@@ -337,7 +337,7 @@ class Loader(units.Unit):
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
         self.minibatch_data.batch[0:minibatch_size] = \
@@ -350,7 +350,7 @@ class Loader(units.Unit):
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.batch[minibatch_size:] = 0.0
             self.minibatch_target.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
+            self.minibatch_labels.v[minibatch_size:] = -1
             self.minibatch_indexes.batch[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
@@ -420,7 +420,7 @@ class ImageSaverAE(units.Unit):
             x = self.input.batch[i]
             y = self.output.batch[i].reshape(x.shape)
             idx = self.indexes.batch[i]
-            lbl = self.labels.batch[i]
+            lbl = self.labels.v[i]
             d = x - y
             mse = numpy.linalg.norm(d) / d.size
             if xy == None:
@@ -526,6 +526,11 @@ class Decision(units.Unit):
         self.sample_output = None
         self.sample_input = None
         self.sample_target = None
+        self.all_mse = [formats.Vector(), formats.Vector(), formats.Vector()]
+        self.mse = [formats.Vector(), formats.Vector(), formats.Vector()]
+        self.minibatch_mse = None
+        self.minibatch_offs = None
+        self.minibatch_size = None
 
     def initialize(self):
         if (self.minibatch_metrics != None and
@@ -539,6 +544,15 @@ class Decision(units.Unit):
             self.workflow.forward[0].input.batch[0])
         self.sample_target = numpy.zeros_like(
             self.workflow.ev.target.batch[0])
+        for i in range(0, len(self.mse)):
+            if self.class_samples[i] <= 0:
+                continue
+            if (self.mse[i].v == None or
+                self.mse[i].v.size != self.class_samples[i]):
+                self.mse[i].v = numpy.zeros(self.class_samples[i],
+                                         dtype=config.dtypes[config.dtype])
+                self.all_mse[i].v = numpy.zeros(self.class_samples[i],
+                                         dtype=config.dtypes[config.dtype])
 
     def run(self):
         if self.t1 == None:
@@ -563,6 +577,14 @@ class Decision(units.Unit):
                 self.n_err_pt[minibatch_class] = (100.0 *
                     self.n_err[minibatch_class] /
                     self.class_samples[minibatch_class])
+
+        self.minibatch_mse.sync(read_only=True)
+        offs = self.minibatch_offs[0]
+        for i in range(0, minibatch_class):
+            offs -= self.class_samples[i]
+        size = self.minibatch_size[0]
+        self.mse[minibatch_class].v[offs:offs + size] = \
+            self.minibatch_mse.v[:size]
 
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
@@ -690,6 +712,11 @@ class Decision(units.Unit):
                 self.minibatch_metrics.v[:] = 0
                 self.minibatch_metrics.v[2] = 1.0e30
                 self.minibatch_metrics.update()
+            if (self.all_mse[minibatch_class] != None and
+                self.all_mse[minibatch_class].v != None):
+                self.all_mse[minibatch_class].v[:] = \
+                    self.mse[minibatch_class].v[:]
+            self.mse[minibatch_class].v[:] = 0
 
 
 class Workflow(units.OpenCLUnit):
@@ -701,7 +728,6 @@ class Workflow(units.OpenCLUnit):
         loader: loader.
         forward: list of all-to-all forward units.
         ev: evaluator softmax.
-        stat: stat collector.
         decision: Decision.
         gd: list of gradient descent units.
     """
@@ -762,6 +788,9 @@ class Workflow(units.OpenCLUnit):
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.minibatch_metrics = self.ev.metrics
+        self.decision.minibatch_mse = self.ev.mse
+        self.decision.minibatch_offs = self.loader.minibatch_offs
+        self.decision.minibatch_size = self.loader.minibatch_size
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
@@ -858,6 +887,12 @@ class Workflow(units.OpenCLUnit):
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
+        # Histogram plotter
+        self.plt_hist = plotters.MSEHistogram(figure_label="Histogram")
+        self.plt_hist.link_from(self.decision)
+        self.plt_hist.mse = self.decision.all_mse[2]
+        self.plt_hist.gate_block = self.decision.epoch_ended
+        self.plt_hist.gate_block_not = [1]
 
     def initialize(self, device, threshold_ok, threshold_skip,
                    global_alpha, global_lambda,
@@ -985,10 +1020,10 @@ def main():
                         forward.bias.v.min(), forward.bias.v.max()))
                 w.decision.just_snapshotted[0] = 1
         if fin == None:
-            w = Workflow(layers=[1998, 1485, 24 * 24], device=device)
+            w = Workflow(layers=[2997, 24 * 24], device=device)
         w.initialize(threshold_ok=0.004, threshold_skip=0.0,
                      global_alpha=0.001, global_lambda=0.00005,
-                     minibatch_maxsize=594, device=device)
+                     minibatch_maxsize=891, device=device)
     except KeyboardInterrupt:
         return
     try:

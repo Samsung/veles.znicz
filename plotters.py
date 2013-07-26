@@ -384,7 +384,7 @@ class Weights2D(Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Weights", unpickling=0):
+    def __init__(self, figure_label="Weights", limit=256, unpickling=0):
         super(Weights2D, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -393,6 +393,8 @@ class Weights2D(Plotter):
         self.input_field = None
         self.figure_label = figure_label
         self.get_shape_from = None
+        self.limit = limit
+        self.transposed = False
 
     def redraw(self):
         if type(self.input_field) == int:
@@ -404,6 +406,12 @@ class Weights2D(Plotter):
 
         if type(value) != numpy.ndarray or len(value.shape) != 2:
             return
+
+        if self.transposed:
+            value = value.transpose()
+
+        if value.shape[0] > self.limit:
+            value = value[:self.limit]
 
         figure_label = self.figure_label
         figure = pp.figure(figure_label)
@@ -805,7 +813,7 @@ class MSEHistogram(Plotter):
         ax.set_title('Histogram', fontsize=25)
         ax.axis([xmin, xmax + ((xmax - xmin) / self.n_bars), ymin, ymax])
         ax.grid(True)
-        leg = ax.legend(('Train',),)
+        leg = ax.legend((self.figure_label.replace("Histogram ", ""),),)
                         #'upper center')
         frame = leg.get_frame()
         frame.set_facecolor('#E8D6BB')

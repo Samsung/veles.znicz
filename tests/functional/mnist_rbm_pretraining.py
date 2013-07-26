@@ -224,7 +224,7 @@ class Loader(units.Unit):
             sh.append(i)
         self.minibatch_data.batch = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.batch = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
@@ -291,7 +291,7 @@ class Loader(units.Unit):
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
         self.minibatch_data.batch[0:minibatch_size] = \
@@ -300,7 +300,7 @@ class Loader(units.Unit):
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
+            self.minibatch_labels.v[minibatch_size:] = -1
             self.minibatch_indexes.batch[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
@@ -362,7 +362,7 @@ class Decision(units.Unit):
         self.just_snapshotted = [0]
         self.snapshot_date = [0]
         self.threshold_ok = 0.0
-        self.weights_to_sync = None
+        self.weights_to_sync = []
         self.sample_output = None
         self.sample_input = None
         self.all_mse = [formats.Vector(), formats.Vector(), formats.Vector()]
@@ -504,8 +504,8 @@ class Decision(units.Unit):
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
                 # Sync weights
-                if self.weights_to_sync != None:
-                    self.weights_to_sync.sync()
+                for weights in self.weights_to_sync:
+                    weights.sync(read_only=True)
                 self.workflow.forward[0].input.sync(read_only=True)
                 self.workflow.forward[-1].output.sync(read_only=True)
                 self.sample_output[:] = \
@@ -521,8 +521,10 @@ class Decision(units.Unit):
                 self.minibatch_metrics.v[:] = 0
                 self.minibatch_metrics.v[2] = 1.0e30
                 self.minibatch_metrics.update()
-            self.all_mse[minibatch_class].v[:] = \
-                self.mse[minibatch_class].v[:]
+            if (self.all_mse[minibatch_class] != None and
+                self.all_mse[minibatch_class].v != None):
+                self.all_mse[minibatch_class].v[:] = \
+                    self.mse[minibatch_class].v[:]
             self.mse[minibatch_class].v[:] = 0
 
 
@@ -564,7 +566,8 @@ class Workflow(units.OpenCLUnit):
             else:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
                              weights_amplitude=amp,
-                             weights_transposed=False)
+                             weights_transposed=True)
+                aa.weights = self.forward[0].weights
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -611,7 +614,7 @@ class Workflow(units.OpenCLUnit):
 
         # Add gradient descent units
         self.gd = list(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GDTanh(device=device)
+        self.gd[-1] = gd.GD(device=device, weights_transposed=True)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -621,13 +624,15 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            if True:
+            if False:
                 self.gd[i] = gd.GD(device=device)
             elif i:
                 self.gd[i] = gd.GDTanh(device=device)
             else:
-                self.gd[i] = rbm.GDTanh(device=device)
-                self.gd[i].y_rand = self.forward[i].output_rand
+                self.gd[i] = gd.GDTanh(device=device)
+                #self.gd[i] = rbm.GDTanh(device=device,
+                #                        rnd_window_size=1.0)
+                #self.gd[i].y_rand = self.forward[i].output_rand
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -660,16 +665,26 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         # Weights plotter
-        """
-        self.decision.weights_to_sync = self.gd[0].weights
-        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
-        self.plt_mx.input = self.decision.weights_to_sync
-        self.plt_mx.input_field = "v"
-        self.plt_mx.get_shape_from = self.forward[0].input
-        self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = self.decision.epoch_ended
-        self.plt_mx.gate_block_not = [1]
-        """
+        self.decision.weights_to_sync.clear()
+        self.decision.weights_to_sync.append(self.gd[0].weights)
+        self.plt_mx = []
+        self.plt_mx.append(
+            plotters.Weights2D(figure_label="First Layer Weights", limit=16))
+        self.plt_mx[-1].input = self.decision.weights_to_sync[-1]
+        self.plt_mx[-1].input_field = "v"
+        self.plt_mx[-1].get_shape_from = self.forward[0].input
+        self.plt_mx[-1].link_from(self.decision)
+        self.plt_mx[-1].gate_block = self.decision.epoch_ended
+        self.plt_mx[-1].gate_block_not = [1]
+        # Weights plotter
+        self.decision.weights_to_sync.append(self.gd[-1].weights)
+        self.plt_mx.append(
+            plotters.Weights2D(figure_label="Last Layer Weights", limit=16))
+        self.plt_mx[-1].input = self.decision.weights_to_sync[-1]
+        self.plt_mx[-1].input_field = "v"
+        #self.plt_mx[-1].transposed = True
+        self.plt_mx[-1].get_shape_from = self.forward[0].input
+        self.plt_mx[-1].link_from(self.plt_mx[-2])
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
