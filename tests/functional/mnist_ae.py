@@ -404,7 +404,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
-        #self.prev_train_err = 1.0e30
+        # self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -569,7 +569,7 @@ class Workflow(units.OpenCLUnit):
                 amp = 9.0 / 784
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            #amp = 0.05
+            # amp = 0.05
             aa = all2all.All2AllTanh([layers[i]], device=device,
                                      weights_amplitude=amp)
             self.forward.append(aa)
@@ -795,7 +795,7 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
@@ -827,4 +827,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    sys.exit()
+    sys.exit(0)

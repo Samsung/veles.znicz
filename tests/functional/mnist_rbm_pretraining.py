@@ -354,7 +354,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
-        #self.prev_train_err = 1.0e30
+        # self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -440,7 +440,7 @@ class Decision(units.Unit):
             if self.minibatch_class[0] == 1:
                 if self.just_snapshotted[0]:
                     self.just_snapshotted[0] = 0
-                    #self.complete[0] = 1
+                    # self.complete[0] = 1
                 if self.epoch_min_mse[1] < self.min_validation_mse:
                     self.min_validation_mse = self.epoch_min_mse[1]
                     self.min_validation_mse_epoch_number = self.epoch_number[0]
@@ -752,13 +752,13 @@ class Workflow(units.OpenCLUnit):
         self.end_point.wait()
 
 
-#import scipy.misc
+# import scipy.misc
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir,), "rb")
@@ -815,4 +815,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    sys.exit()
+    sys.exit(0)

@@ -647,9 +647,9 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
     fin = open("mnist.pickle", "rb")
@@ -750,4 +750,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    sys.exit()
+    sys.exit(0)
