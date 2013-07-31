@@ -24,7 +24,6 @@ add_path("%s/../../../src" % (this_dir,))
 
 
 import units
-import saver
 import formats
 import struct
 import error
@@ -37,7 +36,6 @@ import hog
 import scipy.ndimage
 import pickle
 import time
-import thread_pool
 
 
 def normalize(a):
@@ -339,7 +337,7 @@ class Decision(units.Unit):
         confusion_mxs: confusion matrixes.
         max_err_y_sums: max last layer backpropagated errors sums for each set.
     """
-    def __init__(self, fail_iterations=10, unpickling=0):
+    def __init__(self, fail_iterations=50, unpickling=0):
         super(Decision, self).__init__(unpickling=unpickling)
         if unpickling:
             return
@@ -418,7 +416,6 @@ class Decision(units.Unit):
 
             # Test and Validation sets processed
             if self.minibatch_class[0] == 1:
-                self.complete[0] = 1
                 if self.epoch_min_err[1] < self.min_validation_err:
                     self.min_validation_err = self.epoch_min_err[1]
                     self.min_validation_err_epoch_number = self.epoch_number[0]
@@ -520,12 +517,12 @@ class Workflow(units.OpenCLUnit):
             amp = 0.05
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
-                                         weights_amplitude=amp)
+                                         weights_amplitude=amp,
+                                         weights_transposed=False)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device,
                                             weights_amplitude=amp)
             self.forward.append(aa)
-            
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
                 self.forward[i].input = self.forward[i - 1].output
@@ -565,7 +562,7 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device)
+            self.gd[i] = gd.GDTanh(device=device, weights_transposed=False)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -575,20 +572,9 @@ class Workflow(units.OpenCLUnit):
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
-        #TODO (EBulychev): Add saver unit here. 
-        #self.SaverUnit.link_from(self.decision)
-        # change self.end_point.link_from(self.decision) to self.end_point.link_from(self.SaverUnit)
-        # Add saver unit
-        self.saver = saver.SaverUnit(self.forward)
-        self.saver.link_from(self.decision)
-        self.saver.gate_block = self.decision.complete
-        self.saver.gate_block_not = [1]
-        
-        # Add end point unit
+
         self.end_point = units.EndPoint()
-        #self.end_point.link_from(self.decision)
-        self.end_point.link_from(self.saver)
-        
+        self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
 
@@ -635,28 +621,9 @@ class Workflow(units.OpenCLUnit):
     def run(self, threshold, threshold_low, global_alpha, global_lambda):
         self.ev.threshold = threshold
         self.ev.threshold_low = threshold_low
-        #test
-        for i in range(len(self.forward)):
-            #print('weight ',i, ' ',  self.forward[i].weights.v, '-----------------------------------------------------')
-            print('weight size',i, ' ', self.forward[i].weights.v.shape, '-----------------------------------------------------')
-            print('weight width',i, ' ', self.forward[i].weights.v.shape[1], '-----------------------------------------------------')
-            print('weight height',i, ' ', self.forward[i].weights.v.shape[0], '-----------------------------------------------------')
-            print('weight element',i, ' ', self.forward[i].weights[2][0], '-----------------------------------------------------')
-            #print('bias ', self.forward[i].bias.v, '-----------------------------------------------------')
-            print('bias size',i, ' ', self.forward[i].bias.v.shape, '-----------------------------------------------------')
-            print('forward type ', type(self.forward[i]))            
-            
-            if type(self.forward[i]) is all2all.All2AllSoftmax:
-                print('softmax')
-            elif type(self.forward[i]) is  all2all.All2AllTanh:
-                print('tanh')
-            
-#         time.sleep(5)
-        #test
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-
         retval = self.start_point.run_dependent()
         if retval:
             return retval
@@ -725,9 +692,9 @@ def main():
     """
 
     global this_dir
-#     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
-#                                     numpy.int32, 1024))
-#     rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+                                    numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
@@ -739,8 +706,7 @@ def main():
         w.run(threshold=1.0, threshold_low=1.0,
               global_alpha=0.1, global_lambda=0.000)
     except KeyboardInterrupt:
-        w.gd[-1].gate_block = [1]        
-    
+        w.gd[-1].gate_block = [1]
     logging.info("Will snapshot after 15 seconds...")
     time.sleep(5)
     logging.info("Will snapshot after 10 seconds...")
