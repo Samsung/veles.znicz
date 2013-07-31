@@ -10,6 +10,7 @@ import matplotlib.cm as cm
 import pylab
 import units
 import tkinter
+from PyQt4 import QtGui, QtCore
 import queue
 import threading
 import numpy
@@ -62,10 +63,17 @@ class Graphics:
         """
         self.run_lock = threading.Lock()
         self.run_lock.acquire()
-        self.root = tkinter.Tk()
-        self.root.withdraw()
-        self.root.after(100, self.update)
-        tkinter.mainloop()  # Wait for user to close the window
+        if pp.get_backend() == "TkAgg":
+            self.root = tkinter.Tk()
+            self.root.withdraw()
+            self.root.after(100, self.update)
+            tkinter.mainloop()  # Wait for user to close the window
+        elif pp.get_backend() == "Qt4Agg":
+            self.root = QtGui.QApplication([])
+            self.timer = QtCore.QTimer(self.root)
+            self.timer.timeout.connect(self.update)
+            self.timer.start(100)
+            self.root.exec_()
         self.run_lock.release()
 
     def process_event(self, plotter):
@@ -82,13 +90,17 @@ class Graphics:
                 self.process_event(plotter)
         except queue.Empty:
             pass
-        self.root.after(100, self.update)
+        if pp.get_backend() == "TkAgg":
+            self.root.after(100, self.update)
 
     def wait_finish(self):
         """Waits for user to close the window.
         """
         logging.info("Waiting for user to close the window...")
-        self.root.destroy()
+        if pp.get_backend() == "TkAgg":
+            self.root.destroy()
+        elif pp.get_backend() == "Qt4Agg":
+            self.root.quit()
         self.run_lock.acquire()
         self.run_lock.release()
         logging.info("Done")
@@ -248,7 +260,7 @@ class MatrixPlotter(Plotter):
                     max_vle = max(max_vle, value[row, column])
                 else:
                     sum_ok += value[row, column]
-        #sum_by_row = value.sum(axis=0)
+        # sum_by_row = value.sum(axis=0)
         for row in range(1, num_rows - 1):
             for column in range(1, num_columns - 1):
                 n_elem = value[row - 1, column - 1]
@@ -312,8 +324,8 @@ class MatrixPlotter(Plotter):
         for row in range(1, num_rows - 1):
             for column in range(1, num_columns - 1):
                 n_elem = value[row - 1, column - 1]
-                #n = sum_by_row[row - 1]
-                #pt_elem = 100.0 * n_elem / n if n else 0
+                # n = sum_by_row[row - 1]
+                # pt_elem = 100.0 * n_elem / n if n else 0
                 n = sum_total
                 pt_total = 100.0 * n_elem / n if n else 0
                 label = "%d as %d" % (column - 1, row - 1)
@@ -324,7 +336,7 @@ class MatrixPlotter(Plotter):
                     y=(num_rows - row - 0.33) / num_rows,
                     verticalalignment="center",
                     horizontalalignment="center")
-                #pp.figtext(
+                # pp.figtext(
                 #    label=label,
                 #    s=("%.2f%%" % (pt_elem, )),
                 #    x=(column + 0.1) / num_columns,
@@ -758,12 +770,12 @@ class MSEHistogram(Plotter):
         fig = pp.figure(self.figure_label)
         fig.clf()
         fig.patch.set_facecolor('#E8D6BB')
-        #fig.patch.set_alpha(0.45)
+        # fig.patch.set_alpha(0.45)
 
         ax = fig.add_subplot(1, 1, 1)
         ax.cla()
         ax.patch.set_facecolor('#ffe6ca')
-        #ax.patch.set_alpha(0.45)
+        # ax.patch.set_alpha(0.45)
 
         ymin = self.val_min
         ymax = (self.val_max) * 1.3
@@ -772,9 +784,9 @@ class MSEHistogram(Plotter):
         width = ((xmax - xmin) / self.n_bars) * 0.8
         t0 = 0.65 * ymax
         l1 = width * 0.5
-        #l3 = 20
-        #koef = 0.5 * ymax
-        #l2 = 0.235 * ymax
+        # l3 = 20
+        # koef = 0.5 * ymax
+        # l2 = 0.235 * ymax
 
         if self.n_bars < 11:
             l3 = 20
@@ -805,16 +817,16 @@ class MSEHistogram(Plotter):
                            endpoint=True)
         ax.bar(N, self.val_mse, color='#ffa0ef', width=width,
                edgecolor='lavender')
-        #, edgecolor='red')
-        #D889B8
-        #B96A9A
+        # , edgecolor='red')
+        # D889B8
+        # B96A9A
         ax.set_xlabel('Errors', fontsize=20)
         ax.set_ylabel('Input Data', fontsize=20)
         ax.set_title('Histogram', fontsize=25)
         ax.axis([xmin, xmax + ((xmax - xmin) / self.n_bars), ymin, ymax])
         ax.grid(True)
         leg = ax.legend((self.figure_label.replace("Histogram ", ""),),)
-                        #'upper center')
+                        # 'upper center')
         frame = leg.get_frame()
         frame.set_facecolor('#E8D6BB')
         for t in leg.get_texts():

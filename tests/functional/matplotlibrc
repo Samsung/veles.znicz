@@ -1,1 +1,1 @@
-    backend : TkAgg
+    backend : Qt4Agg
