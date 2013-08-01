@@ -19,6 +19,7 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
+add_path("%s" % (this_dir,))
 add_path("%s/../.." % (this_dir,))
 add_path("%s/../../../src" % (this_dir,))
 
@@ -35,6 +36,7 @@ import glob
 import pickle
 import time
 import scipy.ndimage
+import tv_channel_plotter
 
 
 def normalize(a):
@@ -779,7 +781,7 @@ class Workflow(units.OpenCLUnit):
         self.forward[0].input = self.loader.minibatch_data
         for i in range(1, len(self.forward)):
             self.forward[i].link_from(self.forward[i - 1])
-        self.plt_result = plotters.ResultPlotter()
+        self.plt_result = tv_channel_plotter.ResultPlotter()
         self.plt_result.link_from(self.forward[-1])
         self.plt_result.input = self.forward[-1].max_idx
         self.plt_result.image = self.loader.minibatch_data

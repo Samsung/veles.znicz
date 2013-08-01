@@ -1,3 +1,10 @@
+"""
+Plotter for TV-logo recognition demo.
+
+@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+"""
+import matplotlib.pyplot as pp
+import matplotlib.cm as cm
 import numpy
 import threading
 import plotters

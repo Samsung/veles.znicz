@@ -19,6 +19,7 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
+add_path("%s" % (this_dir,))
 add_path("%s/../.." % (this_dir,))
 add_path("%s/../../../src" % (this_dir,))
 
@@ -659,10 +660,11 @@ class Workflow(units.OpenCLUnit):
             self.plt_min[-1].gate_skip_not = [1]
         #self.plt_min[0].clear_plot = True
         # Image plotter
-        self.plt_img = plotters.Image2(figure_label="output sample")
-        self.plt_img.input = self.decision
-        self.plt_img.input_field = "sample_input"
-        self.plt_img.input_field2 = "sample_output"
+        self.plt_img = plotters.Image(figure_label="output sample")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_input")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_output")
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = [0]  # self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
