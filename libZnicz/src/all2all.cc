@@ -10,7 +10,7 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-#include "all2all.h"
+#include "src/all2all.h"
 #include <simd/inc/simd/matrix.h>
 
 namespace Veles {
@@ -25,7 +25,6 @@ std::string All2All::Name() const noexcept {
  *  @TODO Define VELES layer loading
  */
 void All2All::Load(const std::string& data) {
-
 }
 
 /** @brief Execute the neural network layer
@@ -33,10 +32,10 @@ void All2All::Load(const std::string& data) {
  *  @param out Output vector
  */
 void All2All::Execute(float* in, float* out) const {
-  size_t outputs_count = outputs();
-  matrix_multiply(1, weights_.get(), in, inputs(),
+  size_t outputs_count = OutputCount();
+  matrix_multiply(1, weights_.get(), in, InputCount(),
                   outputs_count, 1, outputs_count, out);
-  for(size_t i = 0; i < outputs_count; ++i) {
+  for (size_t i = 0; i < outputs_count; ++i) {
     out[i] = neurons_[i]->Execute(out[i] + bias_[i]);
   }
 }

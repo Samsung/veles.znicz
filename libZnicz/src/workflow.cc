@@ -17,23 +17,19 @@
 namespace Veles {
 namespace Znicz {
 
-/** @brief Load %Workflow data from string
- *  @param data %Workflow declaration in VELES format
- *  @TODO Define VELES workflow loading
- */
+ /** @todo Define VELES Workflow loading
+  */
 void Workflow::Load(const std::string& data) {
-
 }
 
-/** @brief Get maximum input and output size of containing units
- *  @return Maximum size
- */
 size_t Workflow::get_max_unit_size() const noexcept {
-  auto max_func = [](size_t curr, const std::unique_ptr<Unit>& other) -> size_t
-      { return std::max(curr, other->outputs()); };
+  auto max_func = [](size_t curr, std::shared_ptr<Unit> unit) {
+    return std::max(curr, unit->OutputCount());
+  };
   return std::max(
-      std::accumulate(units_.begin(), units_.end(), static_cast<size_t>(0), max_func),
-      !units_.empty() ? units_.front()->inputs() : 0);
+      std::accumulate(units_.begin(), units_.end(),
+                      static_cast<size_t>(0), max_func),
+      !units_.empty() ? units_.front()->OutputCount() : 0);
 }
 
 }  // namespace Znicz

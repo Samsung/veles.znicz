@@ -10,8 +10,8 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-#ifndef INC_NEURON_H_
-#define INC_NEURON_H_
+#ifndef SRC_NEURON_H_
+#define SRC_NEURON_H_
 
 #include <string>
 
@@ -19,10 +19,10 @@ namespace Veles {
 namespace Znicz {
 
 /** @brief VELES neuron */
-class Neuron
-{
+class Neuron {
  public:
-  virtual ~Neuron() noexcept { }
+  virtual ~Neuron() noexcept {
+  }
   virtual std::string Name() const noexcept = 0;
 
   virtual void Load(const std::string& data) = 0;
@@ -32,4 +32,4 @@ class Neuron
 }  // namespace Znicz
 }  // namespace Veles
 
-#endif  // INC_NEURON_H_
+#endif  // SRC_NEURON_H_

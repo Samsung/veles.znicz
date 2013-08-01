@@ -10,8 +10,8 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-#ifndef INC_ALL2ALL_H_
-#define INC_ALL2ALL_H_
+#ifndef SRC_ALL2ALL_H_
+#define SRC_ALL2ALL_H_
 
 #include <string>
 #include <memory>
@@ -25,23 +25,29 @@ namespace Znicz {
 /** @brief "All to all" neural network layer. */
 class All2All : public Unit {
  public:
-  All2All() noexcept : inputs_(0) { }
-  virtual ~All2All() noexcept { }
+  All2All() noexcept : inputs_(0) {
+  }
+  virtual ~All2All() noexcept {
+  }
   virtual std::string Name() const noexcept override final;
 
   virtual void Load(const std::string& data) override final;
   virtual void Execute(float* in, float* out) const override final;
-  virtual size_t inputs() const noexcept override final { return inputs_; }
-  virtual size_t outputs() const noexcept override final { return neurons_.size(); }
+  virtual size_t InputCount() const noexcept override final {
+    return inputs_;
+  }
+  virtual size_t OutputCount() const noexcept override final {
+    return neurons_.size();
+  }
 
  private:
   std::unique_ptr<float[]> weights_;
   std::unique_ptr<float[]> bias_;
-  std::vector<std::unique_ptr<Neuron>> neurons_;
+  std::vector<std::shared_ptr<Neuron>> neurons_;
   size_t inputs_;
 };
 
 }  // namespace Znicz
 }  // namespace Veles
 
-#endif  // INC_ALL2ALL_H_
+#endif  // SRC_ALL2ALL_H_
