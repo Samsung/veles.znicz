@@ -476,9 +476,8 @@ class Decision(units.Unit):
                 self.minibatch_max_err_y_sum.v != None):
                 self.minibatch_max_err_y_sum.v[:] = 0
                 self.minibatch_max_err_y_sum.update()
-            if __debug__:
-                # Do only one iteration
-                self.complete[0] = 1
+            # Do only one iteration
+            # self.complete[0] = 1
 
 
 class Workflow(units.OpenCLUnit):
