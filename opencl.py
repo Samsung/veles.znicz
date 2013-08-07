@@ -98,8 +98,8 @@ class DeviceList(units.SmartPickler):
         for platform in platforms:
             devices = platform.get_devices()
             logging.debug(devices)
-            context = cl.Context(devices)
             for device in devices:
+                context = cl.Context([device])
                 guid = self._get_device_guid(device)
                 if guid not in self.device_infos.keys():
                     info = DeviceInfo(guid=guid)
@@ -126,13 +126,7 @@ class DeviceList(units.SmartPickler):
         self.devices_available.sort(
             key=lambda device: device.info.rating[config.dtype],
             reverse=True)
-        # leave only one context
-        context = self.devices_available[0].context_
-        n = len(self.devices_available)
-        for i in range(n - 1, 0, -1):
-            if self.devices_available[i].context_ != context:
-                self.devices_available.pop(i)
-        logging.info("Selected single context with the following devices "
+        logging.info("Found the following devices "
               "(guid: dtype, rating, BLOCK_SIZE, memalign):")
         for device in self.devices_available:
             for dtype in device.info.rating.keys():
@@ -142,20 +136,20 @@ class DeviceList(units.SmartPickler):
 
         if not unpickling:
             self.devices_in_use = []
-        self.last_index = 0
         for self.last_index in range(0, len(self.devices_in_use)):
             self.devices_in_use[self.last_index].__dict__.\
             update(self.devices_available[self.last_index %
                    len(self.devices_available)].__dict__)
+        self.last_index = len(self.devices_in_use)
 
     def get_device(self):
         """Gets device from the available list.
         """
-        self.last_index += 1
         dev = Device()
         dev.__dict__.update(self.devices_available[self.last_index %
                             len(self.devices_available)].__dict__)
         self.devices_in_use.append(dev)
+        self.last_index += 1
         return dev
 
     def return_device(self, dev):

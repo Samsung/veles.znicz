@@ -15,7 +15,7 @@ import config
 import logging
 
 
-class All2All(units.OpenCLUnit):
+class All2All(units.Forward):
     """All2All with linear activation f(x) = x.
 
     Should be assigned before initialize():
