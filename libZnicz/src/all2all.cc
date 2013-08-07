@@ -10,8 +10,10 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+#include <memory>
 #include "src/all2all.h"
 #include <simd/inc/simd/matrix.h>
+#include <simd/inc/simd/memory.h>
 
 namespace Veles {
 namespace Znicz {
@@ -32,12 +34,14 @@ void All2All::Load(const std::string& data) {
  *  @param out Output vector
  */
 void All2All::Execute(float* in, float* out) const {
-  size_t outputs_count = OutputCount();
-  matrix_multiply(1, weights_.get(), in, InputCount(),
-                  outputs_count, 1, outputs_count, out);
-  for (size_t i = 0; i < outputs_count; ++i) {
-    out[i] = neurons_[i]->Execute(out[i] + bias_[i]);
-  }
+  size_t input_count = InputCount();
+  size_t output_count = OutputCount();
+  std::unique_ptr<float, void (*)(void*)> tmp(
+      mallocf(output_count), std::free);
+  matrix_multiply(1, weights_.get(), in, input_count,
+                  output_count, 1, input_count, tmp.get());
+  matrix_add(1, tmp.get(), bias_.get(), 1, output_count, out);
+  activation_(out);
 }
 
 }  // namespace Znicz

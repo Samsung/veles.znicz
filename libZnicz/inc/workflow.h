@@ -48,8 +48,10 @@ class Workflow {
   void Execute(InputIterator begin, InputIterator end,
                          OutputIterator out) const {
     size_t max_size = get_max_unit_size();
-    std::unique_ptr<float> input(mallocf(max_size), std::free);
-    std::unique_ptr<float> output(mallocf(max_size), std::free);
+    std::unique_ptr<float, void (*)(void*)> input(
+        mallocf(max_size), std::free);
+    std::unique_ptr<float, void (*)(void*)> output(
+        mallocf(max_size), std::free);
     std::copy(begin, end, input.get());
 
     float* curr_in = input.get();

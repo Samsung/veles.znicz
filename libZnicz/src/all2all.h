@@ -16,8 +16,8 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <functional>
 #include <veles/unit.h>
-#include "src/neuron.h"
 
 namespace Veles {
 namespace Znicz {
@@ -25,7 +25,7 @@ namespace Znicz {
 /** @brief "All to all" neural network layer. */
 class All2All : public Unit {
  public:
-  All2All() noexcept : inputs_(0) {
+    All2All() noexcept : inputs_(0), outputs_(0) {
   }
   virtual ~All2All() noexcept {
   }
@@ -37,14 +37,15 @@ class All2All : public Unit {
     return inputs_;
   }
   virtual size_t OutputCount() const noexcept override final {
-    return neurons_.size();
+    return outputs_;
   }
 
  private:
   std::unique_ptr<float[]> weights_;
   std::unique_ptr<float[]> bias_;
-  std::vector<std::shared_ptr<Neuron>> neurons_;
+  std::function<void (float*)> activation_;
   size_t inputs_;
+  size_t outputs_;
 };
 
 }  // namespace Znicz
