@@ -22,10 +22,8 @@ class ResultPlotter(plotters.Plotter):
     Creates within initialize():
 
     """
-    def __init__(self, figure_label="Result", unpickling=0):
-        super(ResultPlotter, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, figure_label="Result"):
+        super(ResultPlotter, self).__init__()
         self.values = []
         self.img = None
         self.input = None  # formats.Batch

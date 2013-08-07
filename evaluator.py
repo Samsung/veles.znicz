@@ -56,11 +56,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
     def __init__(self, threshold=1.0, threshold_low=None, device=None,
-                 compute_confusion_matrix=True, unpickling=0):
-        super(EvaluatorSoftmax, self).__init__(unpickling=unpickling,
-                                               device=device)
-        if unpickling:
-            return
+                 compute_confusion_matrix=True):
+        super(EvaluatorSoftmax, self).__init__(device=device)
         self.labels = None  # formats.Labels()
         self.y = None  # formats.Batch()
         self.err_y = formats.Batch()
@@ -83,7 +80,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                                             self.y.batch.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
-        self.cl_sources["%s/evaluator.cl" % (config.cl_dir,)] = (
+        self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.batch == None or
@@ -145,7 +142,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
                     self.err_y.batch.size // self.err_y.batch.shape[0])
             s = defines
-            for src, define in self.cl_sources.items():
+            for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
@@ -306,12 +303,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
-    def __init__(self, device=None, threshold_skip=0.0, threshold_ok=0.0,
-                 unpickling=0):
-        super(EvaluatorMSE, self).__init__(unpickling=unpickling,
-                                           device=device)
-        if unpickling:
-            return
+    def __init__(self, device=None, threshold_skip=0.0, threshold_ok=0.0):
+        super(EvaluatorMSE, self).__init__(device=device)
         self.target = None  # formats.Batch()
         self.y = None  # formats.Batch()
         self.err_y = formats.Batch()
@@ -330,7 +323,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         itype = config.get_itype_from_size((self.y.batch.size //
                                             self.y.batch.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
-        self.cl_sources["%s/evaluator.cl" % (config.cl_dir,)] = (
+        self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.batch == None or
@@ -379,7 +372,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
                     self.err_y.batch.size // self.err_y.batch.shape[0])
             s = defines
-            for src, define in self.cl_sources.items():
+            for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()

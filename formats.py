@@ -26,10 +26,8 @@ class OpenCLConnector(units.Connector):
         arr_: first argument returned by pyopencl.enqueue_map_buffer().
         aligned_: numpy array aligned to device.info.BLOCK_SIZE.
     """
-    def __init__(self, device=None, unpickling=0):
-        super(OpenCLConnector, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, device=None):
+        super(OpenCLConnector, self).__init__()
         self.device = device
         self.what_changed = 0
         self.arr_ = None
@@ -49,7 +47,7 @@ class OpenCLConnector(units.Connector):
         """Get data from OpenCL device before pickling.
         """
         if self.device and (self.what_changed & GPU) and \
-           self.device.pid == os.getpid():
+           self.device.pid_ == os.getpid():
             self.gpu_2_cpu(True)
         return super(OpenCLConnector, self).__getstate__()
 
@@ -121,12 +119,13 @@ class Batch(OpenCLConnector):
         batch: numpy array with first dimension as batch.
         batch_: OpenCL buffer mapped to aligned_.
     """
-    def __init__(self, device=None, unpickling=0):
-        super(Batch, self).__init__(device=device, unpickling=unpickling)
-        self.batch_ = None
-        if unpickling:
-            return
+    def __init__(self, device=None):
+        super(Batch, self).__init__(device=device)
         self.batch = None
+
+    def init_unpickled(self):
+        super(Batch, self).init_unpickled()
+        self.batch_ = None
 
     def initialize(self, device=None):
         if len(self.batch.shape) < 2:
@@ -213,12 +212,13 @@ class Vector(OpenCLConnector):
         v: numpy array as a vector.
         v_: OpenCL buffer mapped to aligned_.
     """
-    def __init__(self, device=None, unpickling=0):
-        super(Vector, self).__init__(device=device, unpickling=unpickling)
-        self.v_ = None
-        if unpickling:
-            return
+    def __init__(self, device=None):
+        super(Vector, self).__init__(device=device)
         self.v = None
+
+    def init_unpickled(self):
+        super(Vector, self).init_unpickled()
+        self.v_ = None
 
     def initialize(self, device=None):
         if self.v_:
@@ -284,8 +284,6 @@ class Labels(Vector):
     Attributes:
         n_classes: number of classes.
     """
-    def __init__(self, n_classes=0, device=None, unpickling=0):
-        super(Labels, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, n_classes=0, device=None):
+        super(Labels, self).__init__(device=device)
         self.n_classes = n_classes

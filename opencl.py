@@ -20,25 +20,26 @@ CL_MAP_WRITE = 2
 CL_MAP_WRITE_INVALIDATE_REGION = 4
 
 
-class Device(units.SmartPickler):
+class Device(units.Pickleable):
     """OpenCL device helper class.
 
     Attributes:
         info: DeviceInfo object.
         context_: OpenCL context handle.
         queue_: OpenCL device queue.
-        pid: process id.
+        pid_: process id.
         prefer_mmap: use map/unmap instead of read/write.
     """
-    def __init__(self, info=None, unpickling=0):
-        super(Device, self).__init__(unpickling=unpickling)
-        self.context_ = None
-        self.queue_ = None
-        self.pid = os.getpid()
-        if unpickling:
-            return
+    def __init__(self, info=None):
+        super(Device, self).__init__()
         self.info = info
         self.prefer_mmap = False
+
+    def init_unpickled(self):
+        super(Device, self).init_unpickled()
+        self.context_ = None
+        self.queue_ = None
+        self.pid_ = os.getpid()
 
 
 class DeviceInfo(object):
@@ -72,7 +73,7 @@ class DeviceInfo(object):
             self.BLOCK_SIZE[dtype] = 8
 
 
-class DeviceList(units.SmartPickler):
+class DeviceList(units.Pickleable):
     """Contains list of devices sorted by rating.
 
     Attributes:
@@ -83,11 +84,14 @@ class DeviceList(units.SmartPickler):
         last_index: index of the last device returned by get_device()
                     in the devices_available list.
     """
-    def __init__(self, unpickling=0):
-        super(DeviceList, self).__init__(unpickling=unpickling)
+    def __init__(self):
+        super(DeviceList, self).__init__()
+
+    def init_unpickled(self):
+        super(DeviceList, self).init_unpickled()
         self.device_infos = {}
         try:
-            fin = open("%s/device_infos.pickle" % (config.cache_dir,), "rb")
+            fin = open("%s/device_infos.pickle" % (config.cache_dir), "rb")
             self.device_infos = pickle.load(fin)
             fin.close()
         except IOError:
@@ -117,8 +121,8 @@ class DeviceList(units.SmartPickler):
 
         if self._do_tests():
             logging.info("Saving test results to %s/device_infos.pickle..." % (
-                                                        config.cache_dir,))
-            fout = open("%s/device_infos.pickle" % (config.cache_dir,), "wb")
+                                                        config.cache_dir))
+            fout = open("%s/device_infos.pickle" % (config.cache_dir), "wb")
             pickle.dump(self.device_infos, fout)
             fout.close()
             logging.info("Done")
@@ -126,6 +130,7 @@ class DeviceList(units.SmartPickler):
         self.devices_available.sort(
             key=lambda device: device.info.rating[config.dtype],
             reverse=True)
+
         logging.info("Found the following devices "
               "(guid: dtype, rating, BLOCK_SIZE, memalign):")
         for device in self.devices_available:
@@ -134,8 +139,9 @@ class DeviceList(units.SmartPickler):
                     device.info.rating[dtype], device.info.BLOCK_SIZE[dtype],
                     device.info.memalign))
 
-        if not unpickling:
+        if not hasattr(self, "devices_in_use"):
             self.devices_in_use = []
+
         for self.last_index in range(0, len(self.devices_in_use)):
             self.devices_in_use[self.last_index].__dict__.\
             update(self.devices_available[self.last_index %
@@ -238,7 +244,7 @@ class DeviceList(units.SmartPickler):
                             b_numpy = True
                             logging.info("Numpy double precision...")
                             dt = self._do_cpu_test()
-                            logging.info("Done in %.2f seconds" % (dt,))
+                            logging.info("Done in %.2f seconds" % (dt))
                             if dt < dt_numpy:
                                 dt_numpy = dt
                         if dt_numpy < min_dt[dtype]:
@@ -260,14 +266,14 @@ class DeviceList(units.SmartPickler):
                                   "max_diff = %.6f" %
                                   (dt, numpy.linalg.norm(c) / c.size, c.max()))
                         else:
-                            logging.info("Avg is %.2f seconds" % (dt,))
+                            logging.info("Avg is %.2f seconds" % (dt))
                         self._cleanup_after_tests()
                     except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
                         logging.info("Program compilation or run failed for "
                               "BLOCK_SIZE = %d and dtype = %s" % (BLOCK_SIZE,
                                                                   dtype))
                         self._cleanup_after_tests()
-                        #raise
+                        # raise
 
         logging.info("\nRating(numpy double precision): %.4f" % \
               (min_dt[config.dtype] / dt_numpy))
@@ -348,14 +354,14 @@ class DeviceList(units.SmartPickler):
         "#define Y %d\n"
         "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
                                   self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
-        fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
+        fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
         s_mx_mul = fin.read()
         fin.close()
-        fin = open("%s/forward.cl" % (config.cl_dir,), "r")
+        fin = open("%s/forward.cl" % (config.cl_dir), "r")
         s = defines + fin.read()
         fin.close()
         s = s.replace("MX_MUL", s_mx_mul)
-        fout = open("%s/test.cl" % (config.cache_dir,), "w")
+        fout = open("%s/test.cl" % (config.cache_dir), "w")
         fout.write(s)
         fout.close()
 

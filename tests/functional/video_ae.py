@@ -20,8 +20,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 import units
@@ -76,13 +76,11 @@ class Loader(units.Unit):
     """
     def __init__(self,
                  validation_paths=["%s/video_ae/img/*.png" % (
-                                                config.test_dataset_root,)],
+                                                config.test_dataset_root)],
                  train_paths=["%s/video_ae/img/*.png" % (
-                                                config.test_dataset_root,)],
-                 minibatch_max_size=50, rnd=rnd.default, unpickling=0):
-        super(Loader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+                                                config.test_dataset_root)],
+                 minibatch_max_size=50, rnd=rnd.default):
+        super(Loader, self).__init__()
         self.width = None
 
         self.validation_paths = validation_paths
@@ -129,12 +127,12 @@ class Loader(units.Unit):
     def load_original(self, pathname):
         """Loads data from original Hands files.
         """
-        self.log().info("Loading from %s..." % (pathname,))
+        self.log().info("Loading from %s..." % (pathname))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname))
 
         a = self.from_png(files[0])
         sh = [n_files]
@@ -292,10 +290,8 @@ class ImageSaverAE(units.Unit):
         labels: sample labels.
     """
     def __init__(self, out_dirs=["/tmp/img/test", "/tmp/img/validation",
-                                 "/tmp/img/train"], unpickling=0):
-        super(ImageSaverAE, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+                                 "/tmp/img/train"]):
+        super(ImageSaverAE, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Batch()
         self.output = None  # formats.Batch()
@@ -340,11 +336,11 @@ class ImageSaverAE(units.Unit):
             x21 = xy[x.shape[0]:, :x.shape[1]]
             y21 = xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2]
             d21 = xy[x.shape[0]:, x.shape[1] * 2:]
-            #x *= -1.0
+            # x *= -1.0
             x2 += 1.0
             x2 *= 127.5
             numpy.clip(x2, 0, 255, x2)
-            #y *= -1.0
+            # y *= -1.0
             y2 += 1.0
             y2 *= 127.5
             numpy.clip(y2, 0, 255, y2)
@@ -390,10 +386,8 @@ class Decision(units.Unit):
             validation error.
         epoch_metrics: metrics for each set epoch.
     """
-    def __init__(self, fail_iterations=10000, unpickling=0):
-        super(Decision, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, fail_iterations=10000):
+        super(Decision, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -484,7 +478,7 @@ class Decision(units.Unit):
                                 pass
                         self.fnme = "%s/mnist_ae_%.6f.pickle" % \
                             (config.snapshot_dir, self.epoch_metrics[1][0])
-                        self.log().info("Snapshotting to %s" % (self.fnme,))
+                        self.log().info("Snapshotting to %s" % (self.fnme))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -494,7 +488,7 @@ class Decision(units.Unit):
                    self.min_validation_mse_epoch_number > \
                    self.fail_iterations[0]:
                     self.complete[0] = 1
-                #self.workflow.ev.threshold_skip = \
+                # self.workflow.ev.threshold_skip = \
                 #    self.epoch_metrics[self.minibatch_class[0]][0]
 
             # Print some statistics
@@ -529,7 +523,7 @@ class Decision(units.Unit):
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha, ))
+                      (self.workflow.gd[0].global_alpha))
                 """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -568,10 +562,8 @@ class Workflow(units.OpenCLUnit):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None, unpickling=None):
-        super(Workflow, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, layers=None, device=None):
+        super(Workflow, self).__init__(device=device)
         self.start_point = units.Unit()
 
         self.rpt = units.Repeater()
@@ -587,7 +579,7 @@ class Workflow(units.OpenCLUnit):
                 amp = 9.0 / 784
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            #amp = 0.05
+            # amp = 0.05
             aa = all2all.All2AllTanh([layers[i]], device=device,
                                      weights_amplitude=amp)
             self.forward.append(aa)
@@ -757,12 +749,12 @@ def main():
     fout = open("w100.txt", "w")
     weights = w.forward[0].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b100.txt", "w")
     bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -778,12 +770,12 @@ def main():
     fout = open("w10.txt", "w")
     weights = w.forward[1].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b10.txt", "w")
     bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -799,20 +791,20 @@ def main():
         im = numpy.argmax(c[i])
         if im == labels[i]:
             n_ok += 1
-    logging.info("%d errors" % (10000 - n_ok, ))
+    logging.info("%d errors" % (10000 - n_ok))
 
     logging.info("Done")
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        fnme = "%s/video_ae.pickle" % (config.cache_dir,)
+        fnme = "%s/video_ae.pickle" % (config.cache_dir)
         fin = None
         try:
             fin = open(fnme, "rb")
@@ -836,14 +828,14 @@ def main():
               global_alpha=0.0001, global_lambda=0.000)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    logging.info("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot in 15 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot in 10 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/video_ae.pickle" % (config.snapshot_dir,)
-    logging.info("Snapshotting to %s" % (fnme,))
+    fnme = "%s/video_ae.pickle" % (config.snapshot_dir)
+    logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()

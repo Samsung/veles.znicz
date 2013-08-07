@@ -36,9 +36,9 @@ import numpy
 import plotters
 
 def strf(x):
-    return "%.4f" % (x,)
+    return "%.4f" % (x)
 
-class model_WF_wine(units.SmartPickler):
+class model_WF_wine(units.Pickleable):
     """UUseCaseTxt.
 
     Attributes:
@@ -47,10 +47,8 @@ class model_WF_wine(units.SmartPickler):
         end_point: EndPoint.
         t: t.
     """
-    def __init__(self, data_set=None, param=None, cpu=True, unpickling=0):
-        super(model_WF_wine, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, data_set=None, param=None, cpu=True):
+        super(model_WF_wine, self).__init__()
         if data_set == None:
             data_set = {}
         self.data_set = data_set
@@ -173,7 +171,7 @@ class model_WF_wine(units.SmartPickler):
     def do_log(self, out, gdsm, gd1):
         return
         flog = open("logs/out.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes,))
+        flog.write("Iteration %d" % (self.end_point.n_passes))
         flog.write("\nSoftMax layer input:\n")
         for sample in out.input.batch:
             flog.write(" ".join(strf(x) for x in sample))
@@ -197,7 +195,7 @@ class model_WF_wine(units.SmartPickler):
         flog.close()
 
         flog = open("logs/gdsm.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes,))
+        flog.write("Iteration %d" % (self.end_point.n_passes))
         flog.write("\nGD SoftMax err_y:\n")
         for sample in gdsm.err_y.batch:
             flog.write(" ".join(strf(x) for x in sample))
@@ -222,7 +220,7 @@ class model_WF_wine(units.SmartPickler):
 
 
         flog = open("logs/gd1.log", "a")
-        flog.write("Iteration %d" % (self.end_point.n_passes,))
+        flog.write("Iteration %d" % (self.end_point.n_passes))
         flog.write("\nGD1 err_y:\n")
         for sample in gd1.err_y.batch:
             flog.write(" ".join(strf(x) for x in sample))

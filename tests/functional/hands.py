@@ -20,8 +20,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 import units
@@ -87,17 +87,15 @@ class Loader(units.Unit):
     """
     def __init__(self,
                  validation_paths=["%s/Hands/Positive/Testing/*.raw" % (
-                                                config.test_dataset_root,),
+                                                config.test_dataset_root),
                                    "%s/Hands/Negative/Testing/*.raw" % (
-                                                config.test_dataset_root,)],
+                                                config.test_dataset_root)],
                  train_paths=["%s/Hands/Positive/Training/*.raw" % (
-                                                config.test_dataset_root,),
+                                                config.test_dataset_root),
                               "%s/Hands/Negative/Training/*.raw" % (
-                                                config.test_dataset_root,)],
-                 minibatch_max_size=180, rnd=rnd.default, unpickling=0):
-        super(Loader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+                                                config.test_dataset_root)],
+                 minibatch_max_size=180, rnd=rnd.default):
+        super(Loader, self).__init__()
         self.width = None
 
         self.validation_paths = validation_paths
@@ -127,17 +125,17 @@ class Loader(units.Unit):
     def load_original(self, pathname):
         """Loads data from original Hands files.
         """
-        self.log().debug("Loading from %s..." % (pathname,))
+        self.log().debug("Loading from %s..." % (pathname))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname))
         a = numpy.fromfile(files[0], dtype=numpy.byte)
         if self.width == None:
             self.width = int(numpy.sqrt(a.size))
         if self.width * self.width != a.size:
-            raise error.ErrBadFormat("Found non square file %s" % (files[0],))
+            raise error.ErrBadFormat("Found non square file %s" % (files[0]))
         aa = numpy.zeros([n_files, 324],  # self.width, self.width],
                          dtype=config.dtypes[config.dtype])
         a = a.reshape([self.width, self.width])
@@ -315,10 +313,8 @@ class Decision(units.Unit):
             validation error.
         confusion_matrix: confusion matrix.
     """
-    def __init__(self, fail_iterations=100, unpickling=0):
-        super(Decision, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, fail_iterations=100):
+        super(Decision, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -401,7 +397,7 @@ class Decision(units.Unit):
                              self.confusion_matrixes[1][1, 0] /
                              (self.class_samples[0] +
                               self.class_samples[1]) * 100)
-                        self.log().info("Snapshotting to %s" % (self.fnme,))
+                        self.log().info("Snapshotting to %s" % (self.fnme))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -436,7 +432,7 @@ class Decision(units.Unit):
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
                                           0.0001)
                 self.log().debug("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha, ))
+                      (self.workflow.gd[0].global_alpha))
                 """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -466,10 +462,8 @@ class Workflow(units.OpenCLUnit):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None, unpickling=None):
-        super(Workflow, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, layers=None, device=None):
+        super(Workflow, self).__init__(device=device)
         self.start_point = units.Unit()
 
         self.rpt = units.Repeater()
@@ -601,24 +595,24 @@ def main():
     fout = open("w100.txt", "w")
     weights = w.forward[0].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b100.txt", "w")
     bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
     fout = open("w10.txt", "w")
     weights = w.forward[1].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b10.txt", "w")
     bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -626,7 +620,7 @@ def main():
     sys.exit(0)
     """
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -641,14 +635,14 @@ def main():
               global_alpha=0.05, global_lambda=0.0)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    logging.debug("Will snapshot after 15 seconds...")
+    logging.debug("Will snapshot in 15 seconds...")
     time.sleep(5)
-    logging.debug("Will snapshot after 10 seconds...")
+    logging.debug("Will snapshot in 10 seconds...")
     time.sleep(5)
-    logging.debug("Will snapshot after 5 seconds...")
+    logging.debug("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/hands.pickle" % (config.snapshot_dir,)
-    logging.info("Snapshotting to %s" % (fnme,))
+    fnme = "%s/hands.pickle" % (config.snapshot_dir)
+    logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()

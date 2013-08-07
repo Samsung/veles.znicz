@@ -41,12 +41,8 @@ class All2All(units.Forward):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 rand=rnd.default, weights_transposed=False, unpickling=0):
-        super(All2All, self).__init__(unpickling=unpickling, device=device)
-        self.krn_ = None
-        if unpickling:
-            return
-        self.cl_sources["%s/forward.cl" % (config.cl_dir,)] = ""
+                 rand=rnd.default, weights_transposed=False):
+        super(All2All, self).__init__(device=device)
         self.input = None  # formats.Batch(device)
         self.output = formats.Batch(device)
         self.weights = formats.Vector(device)
@@ -56,6 +52,11 @@ class All2All(units.Forward):
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
         self.weights_transposed = weights_transposed
+
+    def init_unpickled(self):
+        super(All2All, self).init_unpickled()
+        self.krn_ = None
+        self.cl_sources_["%s/forward.cl" % (config.cl_dir)] = ""
 
     def initialize(self):
         if self.weights_amplitude == None:
@@ -124,13 +125,13 @@ class All2All(units.Forward):
                         self.output.batch.size // self.output.batch.shape[0],
                         self.output.aligned_.shape[0]))
             s = defines
-            for src, define in self.cl_sources.items():
+            for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
             global this_dir
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
@@ -239,20 +240,21 @@ class All2AllSoftmax(All2All):
         max_idx: indexes of element with maximum value for each sample.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default, unpickling=0):
-        super(All2AllSoftmax, self).__init__(output_shape=output_shape,
-            device=device, weights_amplitude=weights_amplitude, rand=rand,
-            unpickling=unpickling)
-        self.krn_sm_ = None
-        if unpickling:
-            return
+                 rand=rnd.default):
+        super(All2AllSoftmax, self).__init__(
+            output_shape=output_shape, device=device,
+            weights_amplitude=weights_amplitude, rand=rand)
         self.max_idx = formats.Vector()
+
+    def init_unpickled(self):
+        super(All2AllSoftmax, self).init_unpickled()
+        self.krn_sm_ = None
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
         global this_dir
-        self.cl_sources["%s/softmax.cl" % (config.cl_dir,)] = (
-            "#define itype %s" % (itype,))
+        self.cl_sources_["%s/softmax.cl" % (config.cl_dir)] = (
+            "#define itype %s" % (itype))
         retval = super(All2AllSoftmax, self).initialize()
         if retval:
             return retval
@@ -279,9 +281,9 @@ class All2AllSoftmax(All2All):
             s = []
             a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
             for i in range(a.size - 1, a.size - 11, -1):
-                s.append("%.2f" % (a[i],))
+                s.append("%.2f" % (a[i]))
             self.log().debug("Softmax Wx+b: ", ", ".join(s),
-                             ", %.2f" % (a[0],))
+                             ", %.2f" % (a[0]))
         for i in range(0, self.output.batch.shape[0]):
             sample = self.output.batch[i]
             im = sample.argmax()

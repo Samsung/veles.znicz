@@ -12,23 +12,23 @@ import pickle
 g_pt = 0
 
 
-class PickleTest(units.SmartPickler):
+class PickleTest(units.Pickleable):
     """Pickle test.
     """
-    def __init__(self, unpickling=0, a="A", b="B", c="C"):
-        global g_pt
-        g_pt += 1
-        super(PickleTest, self).__init__(unpickling)
-        if unpickling:
-            return
+    def __init__(self, a="A", b="B", c="C"):
+        super(PickleTest, self).__init__()
         self.a = a
         self.b = b
         self.c = c
 
+    def init_unpickled(self):
+        global g_pt
+        g_pt += 1
+
 
 class TestPickle(unittest.TestCase):
     def test(self):
-        # Test for correct behavior of units.SmartPickler
+        # Test for correct behavior of units.Pickleable
         pt = PickleTest(a="AA", c="CC")
         self.assertEqual(g_pt, 1, "Pickle test failed.")
         pt.d = "D"
@@ -50,5 +50,5 @@ class TestPickle(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.test']
+    # import sys;sys.argv = ['', 'Test.test']
     unittest.main()

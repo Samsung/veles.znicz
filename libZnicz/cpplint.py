@@ -805,7 +805,7 @@ class FileInfo:
 
     googlename = self.RepositoryName()
     project, rest = os.path.split(googlename)
-    return (project,) + os.path.splitext(rest)
+    return (project) + os.path.splitext(rest)
 
   def BaseName(self):
     """File base name - text after the final slash, before the final period."""
@@ -1297,8 +1297,7 @@ threading_list = (
     ('rand(', 'rand_r('),
     ('readdir(', 'readdir_r('),
     ('strtok(', 'strtok_r('),
-    ('ttyname(', 'ttyname_r('),
-    )
+    ('ttyname(', 'ttyname_r('))
 
 
 def CheckPosixThreading(filename, clean_lines, linenum, error):
@@ -1794,7 +1793,7 @@ def CheckForNonStandardConstructs(filename, clean_lines, linenum,
 
   if Search(r'("|\').*\\(%|\[|\(|{)', line):
     error(filename, linenum, 'build/printf_format', 3,
-          '%, [, (, and { are undefined character escapes.  Unescape them.')
+          '%, [, (and { are undefined character escapes.  Unescape them.')
 
   # For the rest, work with both comments and strings removed.
   line = clean_lines.elided[linenum]
@@ -3091,7 +3090,7 @@ def _GetTextInside(text, start_pattern):
 
   Given a string of lines and a regular expression string, retrieve all the text
   following the expression and between opening punctuation symbols like
-  (, [, or {, and the matching close-punctuation symbol. This properly nested
+  ([, or {, and the matching close-punctuation symbol. This properly nested
   occurrences of the punctuations, so for the text like
     printf(a(), b(c()));
   a call to _GetTextInside(text, r'printf\(') will return 'a(), b(c())'.
@@ -3515,7 +3514,7 @@ def CheckCStyleCast(filename, linenum, line, raw_line, cast_type, pattern,
 
 
 _HEADERS_CONTAINING_TEMPLATES = (
-    ('<deque>', ('deque',)),
+    ('<deque>', ('deque')),
     ('<functional>', ('unary_function', 'binary_function',
                       'plus', 'minus', 'multiplies', 'divides', 'modulus',
                       'negate',
@@ -3531,25 +3530,23 @@ _HEADERS_CONTAINING_TEMPLATES = (
                       'mem_fun_ref_t',
                       'const_mem_fun_t', 'const_mem_fun1_t',
                       'const_mem_fun_ref_t', 'const_mem_fun1_ref_t',
-                      'mem_fun_ref',
-                     )),
-    ('<limits>', ('numeric_limits',)),
-    ('<list>', ('list',)),
-    ('<map>', ('map', 'multimap',)),
-    ('<memory>', ('allocator',)),
-    ('<queue>', ('queue', 'priority_queue',)),
-    ('<set>', ('set', 'multiset',)),
-    ('<stack>', ('stack',)),
-    ('<string>', ('char_traits', 'basic_string',)),
-    ('<utility>', ('pair',)),
-    ('<vector>', ('vector',)),
+                      'mem_fun_ref')),
+    ('<limits>', ('numeric_limits')),
+    ('<list>', ('list')),
+    ('<map>', ('map', 'multimap')),
+    ('<memory>', ('allocator')),
+    ('<queue>', ('queue', 'priority_queue')),
+    ('<set>', ('set', 'multiset')),
+    ('<stack>', ('stack')),
+    ('<string>', ('char_traits', 'basic_string')),
+    ('<utility>', ('pair')),
+    ('<vector>', ('vector')),
 
     # gcc extensions.
     # Note: std::hash is their hash, ::hash is our hash
-    ('<hash_map>', ('hash_map', 'hash_multimap',)),
-    ('<hash_set>', ('hash_set', 'hash_multiset',)),
-    ('<slist>', ('slist',)),
-    )
+    ('<hash_map>', ('hash_map', 'hash_multimap')),
+    ('<hash_set>', ('hash_set', 'hash_multiset')),
+    ('<slist>', ('slist')))
 
 _RE_PATTERN_STRING = re.compile(r'\bstring\b')
 

@@ -22,17 +22,18 @@ class RBMTanh(all2all.All2AllTanh):
         krn_apply_rand_: OpenCL kernel which applies random.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default, unpickling=0):
+                 rand=rnd.default):
         super(RBMTanh, self).__init__(output_shape=output_shape, device=device,
-            weights_amplitude=weights_amplitude, rand=rand,
-            unpickling=unpickling)
-        self.krn_apply_rand_ = None
-        if unpickling:
-            return
-        self.cl_sources["%s/rbm.cl" % (config.cl_dir,)] = ""
+                                      weights_amplitude=weights_amplitude,
+                                      rand=rand)
         self.output_rand = formats.Batch(device)
         self.y_low_high = numpy.array([-1.0, 1.0],
                                       dtype=config.dtypes[config.dtype])
+
+    def init_unpickled(self):
+        super(RBMTanh, self).init_unpickled()
+        self.krn_apply_rand_ = None
+        self.cl_sources_["%s/rbm.cl" % (config.cl_dir)] = ""
 
     def initialize(self):
         retval = super(RBMTanh, self).initialize()
@@ -93,12 +94,11 @@ class GDTanh(gd.GD):
         rnd_window_size: size for applying derivative.
     """
     def __init__(self, device=None, global_alpha=0.001, global_lambda=0.00005,
-                 weights_transposed=False, rnd_window_size=0.1, unpickling=0):
-        super(GDTanh, self).__init__(device=device, global_alpha=global_alpha,
-            global_lambda=global_lambda, weights_transposed=weights_transposed,
-            unpickling=unpickling)
-        if unpickling:
-            return
+                 weights_transposed=False, rnd_window_size=0.1):
+        super(GDTanh, self).__init__(
+            device=device, global_alpha=global_alpha,
+            global_lambda=global_lambda,
+            weights_transposed=weights_transposed)
         self.rnd_window_size = numpy.array([rnd_window_size],
                                     dtype=config.dtypes[config.dtype])
         self.y_rand = None
@@ -107,7 +107,7 @@ class GDTanh(gd.GD):
         return self.gpu_err_y_update()
 
     def initialize(self):
-        self.cl_sources["%s/rbm.cl" % (config.cl_dir,)] = ""
+        self.cl_sources_["%s/rbm.cl" % (config.cl_dir)] = ""
         retval = super(GDTanh, self).initialize()
         if retval or not self.device:
             return retval

@@ -19,8 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 import units
@@ -94,10 +94,8 @@ class Loader(units.Unit):
         original_labels: original Hands labels as single batch.
         width: width of the input image.
     """
-    def __init__(self, minibatch_max_size=27, rnd=rnd.default, unpickling=0):
-        super(Loader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, minibatch_max_size=27, rnd=rnd.default):
+        super(Loader, self).__init__()
         self.rnd = [rnd]
 
         self.minibatch_data = formats.Batch()
@@ -129,7 +127,7 @@ class Loader(units.Unit):
             dtype=config.itypes[config.get_itype_from_size(n_classes)])
 
         # Load Validation
-        fin = open("%s/cifar/10/test_batch" % (config.test_dataset_root,),
+        fin = open("%s/cifar/10/test_batch" % (config.test_dataset_root),
                    "rb")
         u = pickle._Unpickler(fin)
         u.encoding = 'latin1'
@@ -277,10 +275,8 @@ class ImageSaver(units.Unit):
         indexes: sample indexes.
         labels: sample labels.
     """
-    def __init__(self, out_dirs=[".", ".", "."], unpickling=0):
-        super(ImageSaver, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, out_dirs=[".", ".", "."]):
+        super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Batch()
         self.output = None  # formats.Batch()
@@ -301,7 +297,7 @@ class ImageSaver(units.Unit):
         dirnme = self.out_dirs[self.minibatch_class[0]]
         if self.snapshot_date[0] != self.last_snapshot_date:
             self.last_snapshot_date = self.snapshot_date[0]
-            files = glob.glob("%s/*.png" % (dirnme,))
+            files = glob.glob("%s/*.png" % (dirnme))
             for file in files:
                 try:
                     os.unlink(file)
@@ -339,13 +335,8 @@ class Decision(units.Unit):
             validation error.
         confusion_matrix: confusion matrix.
     """
-    def __init__(self, fail_iterations=100, unpickling=0):
-        super(Decision, self).__init__(unpickling=unpickling)
-        if unpickling:
-            self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
-            self.n_err_pt = [100.0, 100.0, 100.0]
-            self.n_err = [0, 0, 0]
-            return
+    def __init__(self, fail_iterations=100):
+        super(Decision, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -369,6 +360,11 @@ class Decision(units.Unit):
         self.snapshot_date = [0]
         self.just_snapshotted = [0]
         self.weights_to_sync = None
+
+    def init_unpickled(self):
+        self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
+        self.n_err_pt = [100.0, 100.0, 100.0]
+        self.n_err = [0, 0, 0]
 
     def initialize(self):
         if (self.minibatch_confusion_matrix == None or
@@ -432,7 +428,7 @@ class Decision(units.Unit):
                             (this_dir, self.n_err_pt[minibatch_class])
                         self.log().info(
                             "                                        "
-                            "Snapshotting to %s" % (self.fnme,))
+                            "Snapshotting to %s" % (self.fnme))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -469,7 +465,7 @@ class Decision(units.Unit):
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
                                           0.0001)
                 self.log().info("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha,))
+                      (self.workflow.gd[0].global_alpha))
                 """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -502,10 +498,8 @@ class Workflow(units.OpenCLUnit):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None, unpickling=None):
-        super(Workflow, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, layers=None, device=None):
+        super(Workflow, self).__init__(device=device)
         self.start_point = units.Unit()
 
         self.rpt = units.Repeater()
@@ -521,7 +515,7 @@ class Workflow(units.OpenCLUnit):
                 amp = None
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            #amp = 0.05
+            # amp = 0.05
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
                                          weights_amplitude=amp)
@@ -614,7 +608,7 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
         # Matrix plotter
-        #"""
+        # """
         self.decision.weights_to_sync = self.gd[0].weights
         self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
                                         limit=25)
@@ -624,7 +618,7 @@ class Workflow(units.OpenCLUnit):
         self.plt_w.link_from(self.decision)
         self.plt_w.gate_block = self.decision.epoch_ended
         self.plt_w.gate_block_not = [1]
-        #"""
+        # """
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
@@ -652,7 +646,7 @@ class Workflow(units.OpenCLUnit):
 
         # If channels.feed is found - do only forward propagation.
         try:
-            #feed = open("/tmp/feed", "rb")
+            # feed = open("/tmp/feed", "rb")
             self.log().info("will open pipe")
             f = os.open("/tmp/feed", os.O_RDONLY)
             self.log().info("pipe opened")
@@ -724,11 +718,8 @@ class UYVYStreamLoader(units.Unit):
         gray: if grayscale.
     """
     def __init__(self, feed=None, frame_width=1920, frame_height=1080,
-                 x=66, y=64, width=464, height=128, scale=0.5, gray=True,
-                 unpickling=0):
-        super(UYVYStreamLoader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+                 x=66, y=64, width=464, height=128, scale=0.5, gray=True):
+        super(UYVYStreamLoader, self).__init__()
         self.feed = feed
         self.frame_width = frame_width
         self.frame_height = frame_height
@@ -821,24 +812,24 @@ def main():
     fout = open("w100.txt", "w")
     weights = w.forward[0].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b100.txt", "w")
     bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
     fout = open("w10.txt", "w")
     weights = w.forward[1].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b10.txt", "w")
     bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -846,14 +837,14 @@ def main():
     sys.exit(0)
     """
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
         try:
-            fin = open("%s/cifar.pickle" % (config.snapshot_dir,), "rb")
+            fin = open("%s/cifar.pickle" % (config.snapshot_dir), "rb")
             w = pickle.load(fin)
             fin.close()
         except IOError:
@@ -868,14 +859,14 @@ def main():
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     """
-    logging.info("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot in 15 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot in 10 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/channels.pickle" % (this_dir, )
-    logging.info("Snapshotting to %s" % (fnme, ))
+    fnme = "%s/channels.pickle" % (this_dir)
+    logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()

@@ -19,8 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 add_path("/usr/local/lib/python3.3/dist-packages/freetype")
@@ -64,7 +64,7 @@ class BMPWriter(object):
         """
         if len(a.shape) != 2:
             raise Exception("a should be 2-dimensional, got: %s" % (
-                str(a.shape),))
+                str(a.shape)))
 
         fout = open(fnme, "wb")
 
@@ -139,7 +139,7 @@ def do_plot(fontPath, text, size, angle, sx, sy,
     img[y:y + height, x: x + width] = numpy.array(bitmap.buffer,
         dtype=numpy.uint8).reshape(height, width)
     if img.max() == img.min():
-        logging.info("Font %s returned empty glyph" % (fontPath,))
+        logging.info("Font %s returned empty glyph" % (fontPath))
         return None
     return img
 
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
-    db = sqlite3.connect("%s/kanji/kanji.db" % (config.test_dataset_root,))
+    db = sqlite3.connect("%s/kanji/kanji.db" % (config.test_dataset_root))
 
     try:
         rs = db.execute("select count(*) from kanji")
@@ -238,14 +238,14 @@ if __name__ == '__main__':
         fill_tables(db)
     query = ("select idx, literal from kanji where grade <> 0 "
              "order by grade asc, freq desc, idx asc limit %d" % (
-                                                        KANJI_COUNT,))
-    rs = db.execute("select count(*) from (%s)" % (query,))
+                                                        KANJI_COUNT))
+    rs = db.execute("select count(*) from (%s)" % (query))
     n_kanji = rs.fetchone()[0]
-    logging.info("Kanji count: %d" % (n_kanji,))
+    logging.info("Kanji count: %d" % (n_kanji))
     if n_kanji < 1:
         sys.exit(0)
 
-    fonts = glob.glob("%s/kanji/fonts/*" % (config.test_dataset_root,))
+    fonts = glob.glob("%s/kanji/fonts/*" % (config.test_dataset_root))
     fonts.sort()
 
     ok = {}
@@ -256,9 +256,9 @@ if __name__ == '__main__':
 
     bmp = BMPWriter()
 
-    dirnme = "%s/kanji/train" % (config.test_dataset_root,)
-    target_dirnme = "/%s/kanji/target" % (config.test_dataset_root,)
-    files = glob.glob("%s/*.bmp" % (dirnme,))
+    dirnme = "%s/kanji/train" % (config.test_dataset_root)
+    target_dirnme = "/%s/kanji/target" % (config.test_dataset_root)
+    files = glob.glob("%s/*.bmp" % (dirnme))
     i = 0
     for file in files:
         try:
@@ -267,8 +267,8 @@ if __name__ == '__main__':
         except FileNotFoundError:
             pass
     if i:
-        logging.info("Unlinked %d files" % (i,))
-    files = glob.glob("%s/*.bmp" % (target_dirnme,))
+        logging.info("Unlinked %d files" % (i))
+    files = glob.glob("%s/*.bmp" % (target_dirnme))
     i = 0
     for file in files:
         try:
@@ -277,7 +277,7 @@ if __name__ == '__main__':
         except FileNotFoundError:
             pass
     if i:
-        logging.info("Unlinked %d files" % (i,))
+        logging.info("Unlinked %d files" % (i))
     del files
 
     ii = 0
@@ -296,7 +296,7 @@ if __name__ == '__main__':
                 img = do_plot(font, row[1], SY, angle, sx, sy, True,
                               SX, SY)
                 if img == None:
-                    #logging.info("Not found for font %s" % (font, ))
+                    #logging.info("Not found for font %s" % (font))
                     continue
                 fnme = "%s/%05d.%.1fx%.1f_%.0f.%02d.bmp" % (dirnme,
                     row[0], sx, sy, angle, idx)

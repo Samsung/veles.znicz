@@ -52,15 +52,8 @@ class GD(units.OpenCLUnit):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
-                 weights_transposed=False, unpickling=0):
-        super(GD, self).__init__(device=device, unpickling=unpickling)
-        self.cl_sources["%s/gradient_descent.cl" % (config.cl_dir,)] = ""
-        self.krn_err_h_ = None
-        self.krn_weights_ = None
-        self.krn_err_y_ = None
-        self.krn_bias_ = None
-        if unpickling:
-            return
+                 weights_transposed=False):
+        super(GD, self).__init__(device=device)
         self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector(device)
         self.bias = None  # formats.Vector(device)
@@ -71,6 +64,14 @@ class GD(units.OpenCLUnit):
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
         self.batch_size = None  # [0]
+
+    def init_unpickled(self):
+        super(GD, self).init_unpickled()
+        self.cl_sources_["%s/gradient_descent.cl" % (config.cl_dir)] = ""
+        self.krn_err_h_ = None
+        self.krn_weights_ = None
+        self.krn_err_y_ = None
+        self.krn_bias_ = None
 
     def initialize(self):
         if self.err_h.batch == None or \
@@ -104,12 +105,12 @@ class GD(units.OpenCLUnit):
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
             s = defines
-            for src, define in self.cl_sources.items():
+            for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
                 fin = open(src, "r")
                 s += fin.read()
                 fin.close()
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir,), "r")
+            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
             s_mx_mul = fin.read()
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
@@ -344,7 +345,7 @@ class GDTanh(GD):
         self.err_y.update()
 
     def initialize(self):
-        self.cl_sources["%s/gradient_descent_tanh.cl" % (config.cl_dir,)] = ""
+        self.cl_sources_["%s/gradient_descent_tanh.cl" % (config.cl_dir)] = ""
         retval = super(GDTanh, self).initialize()
         if retval or not self.device:
             return retval
@@ -378,14 +379,9 @@ class GDA(GD):
     """
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
                  alpha_inc=1.05, alpha_dec=0.7,
-                 alpha_max=0.9, alpha_min=0.000001,
-                 unpickling=0):
+                 alpha_max=0.9, alpha_min=0.000001):
         super(GDA, self).__init__(device=device, global_alpha=global_alpha,
-            global_lambda=global_lambda, unpickling=unpickling)
-        self.krn_weights_a_ = None
-        self.krn_bias_a_ = None
-        if unpickling:
-            return
+            global_lambda=global_lambda)
         self.alpha_inc = alpha_inc
         self.alpha_dec = alpha_dec
         self.alpha_max = alpha_max
@@ -393,9 +389,14 @@ class GDA(GD):
         self.weights_alphas = formats.Vector()
         self.bias_alphas = formats.Vector()
 
+    def init_unpickled(self):
+        super(GDA, self).init_unpickled()
+        self.krn_weights_a_ = None
+        self.krn_bias_a_ = None
+
     def initialize(self):
-        self.cl_sources["%s/gradient_descent_alpha.cl" % (
-                                            config.cl_dir,)] = ""
+        self.cl_sources_["%s/gradient_descent_alpha.cl" % (
+                                            config.cl_dir)] = ""
         retval = super(GDA, self).initialize()
         if retval:
             return retval

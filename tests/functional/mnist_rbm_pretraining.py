@@ -19,8 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 import units
@@ -76,7 +76,7 @@ class Loader(units.Unit):
         original_labels: original MNIST labels as single batch.
     """
     def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=120,
-                 rnd=rnd.default, use_hog=False, unpickling=0):
+                 rnd=rnd.default, use_hog=False):
         """Constructor.
 
         Parameters:
@@ -85,9 +85,7 @@ class Loader(units.Unit):
                 floats - relative from (0 to 1).
             minibatch_size: minibatch max size.
         """
-        super(Loader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+        super(Loader, self).__init__()
         self.rnd = [rnd]
         self.use_hog = use_hog
 
@@ -213,11 +211,11 @@ class Loader(units.Unit):
 
         global this_dir
         self.load_original(0, 10000,
-                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir,),
-                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir,))
+                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir),
+                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir))
         self.load_original(10000, 60000,
-                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir,),
-                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir,))
+                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir),
+                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir))
 
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
@@ -335,10 +333,8 @@ class Decision(units.Unit):
             validation error.
         epoch_metrics: metrics for each set epoch.
     """
-    def __init__(self, fail_iterations=10000, unpickling=0):
-        super(Decision, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, fail_iterations=10000):
+        super(Decision, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -452,7 +448,7 @@ class Decision(units.Unit):
                                 pass
                         self.fnme = "%s/mnist_rbm.%.6f.pickle" % \
                             (config.snapshot_dir, self.epoch_metrics[1][0])
-                        self.log().info("Snapshotting to %s" % (self.fnme,))
+                        self.log().info("Snapshotting to %s" % (self.fnme))
                         fout = open(self.fnme, "wb")
                         pickle.dump(self.workflow, fout)
                         fout.close()
@@ -496,7 +492,7 @@ class Decision(units.Unit):
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha, ))
+                      (self.workflow.gd[0].global_alpha))
                 """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -541,10 +537,8 @@ class Workflow(units.OpenCLUnit):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None, unpickling=None):
-        super(Workflow, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, layers=None, device=None):
+        super(Workflow, self).__init__(device=device)
         self.start_point = units.Unit()
 
         self.rpt = units.Repeater()
@@ -630,9 +624,9 @@ class Workflow(units.OpenCLUnit):
                 self.gd[i] = gd.GDTanh(device=device)
             else:
                 self.gd[i] = gd.GDTanh(device=device)
-                #self.gd[i] = rbm.GDTanh(device=device,
+                # self.gd[i] = rbm.GDTanh(device=device,
                 #                        rnd_window_size=1.0)
-                #self.gd[i].y_rand = self.forward[i].output_rand
+                # self.gd[i].y_rand = self.forward[i].output_rand
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -682,7 +676,7 @@ class Workflow(units.OpenCLUnit):
             plotters.Weights2D(figure_label="Last Layer Weights", limit=16))
         self.plt_mx[-1].input = self.decision.weights_to_sync[-1]
         self.plt_mx[-1].input_field = "v"
-        #self.plt_mx[-1].transposed = True
+        # self.plt_mx[-1].transposed = True
         self.plt_mx[-1].get_shape_from = self.forward[0].input
         self.plt_mx[-1].link_from(self.plt_mx[-2])
         # Max plotter
@@ -762,7 +756,7 @@ def main():
     # else:
     logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir,), "rb")
+    fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir), "rb")
     w = pickle.load(fin)
     fin.close()
 
@@ -775,7 +769,7 @@ def main():
         if m:
             img /= m
             img *= 255.0
-        scipy.misc.imsave("/tmp/img/%03d.png" % (i,), img.astype(numpy.uint8))
+        scipy.misc.imsave("/tmp/img/%03d.png" % (i), img.astype(numpy.uint8))
         i += 1
 
     logging.info("Done")
@@ -783,7 +777,7 @@ def main():
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
@@ -798,14 +792,14 @@ def main():
               global_alpha=0.001, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    logging.info("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot in 15 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot in 10 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist_rbm.pickle" % (config.snapshot_dir,)
-    logging.info("Snapshotting to %s" % (fnme,))
+    fnme = "%s/mnist_rbm.pickle" % (config.snapshot_dir)
+    logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()

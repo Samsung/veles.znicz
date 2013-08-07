@@ -32,7 +32,7 @@ class BMPWriter(object):
         """
         if len(a.shape) != 2:
             raise Exception("a should be 2-dimensional, got: %s" % (
-                str(a.shape),))
+                str(a.shape)))
 
         fout = open(fnme, "wb")
 
@@ -61,9 +61,9 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir,))
-add_path("%s/../.." % (this_dir,))
-add_path("%s/../../../src" % (this_dir,))
+add_path("%s/../src" % (this_dir))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 
 
 import units
@@ -77,7 +77,7 @@ import plotters
 import pickle
 import time
 import glob
-#import scipy.ndimage
+# import scipy.ndimage
 
 
 def normalize(a):
@@ -117,13 +117,10 @@ class Loader(units.Unit):
     """
     def __init__(self,
                  train_paths=["%s/kanji/train/*.bmp" % (
-                    config.test_dataset_root,)],
-                 target_dir=("%s/kanji/target" % (config.test_dataset_root,)),
-                 minibatch_max_size=100, rnd=rnd.default, unpickling=0):
-        super(Loader, self).__init__(unpickling=unpickling)
-        if unpickling:
-            self.target_by_lbl = {}
-            return
+                    config.test_dataset_root)],
+                 target_dir=("%s/kanji/target" % (config.test_dataset_root)),
+                 minibatch_max_size=100, rnd=rnd.default):
+        super(Loader, self).__init__()
         self.width = None
 
         self.train_paths = train_paths
@@ -153,6 +150,9 @@ class Loader(units.Unit):
 
         self.shuffled_indexes = None
 
+    def init_unpickled(self):
+        self.target_by_lbl = {}
+
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
         state["original_data"] = None
@@ -162,7 +162,7 @@ class Loader(units.Unit):
         return state
 
     def from_image(self, fnme):
-        #a = scipy.ndimage.imread(fnme)
+        # a = scipy.ndimage.imread(fnme)
         fin = open(fnme, "rb")
         fin.read(54 + 256 * 4)
         a = numpy.fromfile(fin, dtype=numpy.uint8)
@@ -173,9 +173,9 @@ class Loader(units.Unit):
 
         a = a.astype(config.dtypes[config.dtype])
         normalize(a)
-        #a /= 127.5
-        #a -= 1.0
-        #if numpy.fabs(a.min() + 1.0) > 0.000001 or \
+        # a /= 127.5
+        # a -= 1.0
+        # if numpy.fabs(a.min() + 1.0) > 0.000001 or \
         #   numpy.fabs(a.max() - 1.0) > 0.000001:
         #    self.log().info("Found an image with unexpected range:",
         #        a.min(), a.max(), fnme)
@@ -184,12 +184,12 @@ class Loader(units.Unit):
     def load_original(self, pathname):
         """Loads data from original files.
         """
-        self.log().info("Loading from %s..." % (pathname,))
+        self.log().info("Loading from %s..." % (pathname))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname,))
+            raise error.ErrNotExists("No files fetched as %s" % (pathname))
 
         a = self.from_image(files[0])
         sh = [n_files]
@@ -230,7 +230,7 @@ class Loader(units.Unit):
     def initialize(self):
         """Here we will load Hands data.
         """
-        #if self.original_data != None and self.original_labels != None:
+        # if self.original_data != None and self.original_labels != None:
         #    return
         # Load validation set.
         self.class_samples[0] = 0
@@ -379,10 +379,8 @@ class ImageSaverAE(units.Unit):
         labels: sample labels.
     """
     def __init__(self, out_dirs=["/tmp/img/test", "/tmp/img/validation",
-                                 "/tmp/img/train"], unpickling=0):
-        super(ImageSaverAE, self).__init__(unpickling=unpickling)
-        if unpickling:
-            return
+                                 "/tmp/img/train"]):
+        super(ImageSaverAE, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Batch()
         self.output = None  # formats.Batch()
@@ -410,7 +408,7 @@ class ImageSaverAE(units.Unit):
         dirnme = self.out_dirs[self.minibatch_class[0]]
         if self.this_save_time[0] > self.last_save_time:
             self.last_save_time = self.this_save_time[0]
-            files = glob.glob("%s/*.bmp" % (dirnme,))
+            files = glob.glob("%s/*.bmp" % (dirnme))
             for file in files:
                 try:
                     os.unlink(file)
@@ -439,11 +437,11 @@ class ImageSaverAE(units.Unit):
             x21 = xy[x.shape[0]:, :x.shape[1]]
             y21 = xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2]
             d21 = xy[x.shape[0]:, x.shape[1] * 2:]
-            #x *= -1.0
+            # x *= -1.0
             x2 += 1.0
             x2 *= 127.5
             numpy.clip(x2, 0, 255, x2)
-            #y *= -1.0
+            # y *= -1.0
             y2 += 1.0
             y2 *= 127.5
             numpy.clip(y2, 0, 255, y2)
@@ -463,12 +461,12 @@ class ImageSaverAE(units.Unit):
             normalize(d21)
             d21 += 1.0
             d21 *= 127.5
-            #fnme = "%s/%.6f_%d_%d.png" % (
+            # fnme = "%s/%.6f_%d_%d.png" % (
             #    self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            #scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
-            #fnme = "%s/out_%d.png" % (self.out_dirs[self.minibatch_class[0]],
+            # scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
+            # fnme = "%s/out_%d.png" % (self.out_dirs[self.minibatch_class[0]],
             #                          idx)
-            #scipy.misc.imsave(fnme, y2.astype(numpy.uint8))
+            # scipy.misc.imsave(fnme, y2.astype(numpy.uint8))
             fnme = "%s/%06f.%05d.%06d.bmp" % (dirnme, mse, lbl, idx)
             tmp = y2.astype(numpy.uint8).reshape(x.shape)
             self.bmp.write_gray(fnme, tmp)
@@ -492,13 +490,8 @@ class Decision(units.Unit):
             validation error.
         epoch_metrics: metrics for each set epoch.
     """
-    def __init__(self, fail_iterations=10000, unpickling=0):
-        super(Decision, self).__init__(unpickling=unpickling)
-        if unpickling:
-            self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
-            self.n_err = [1.0e30, 1.0e30, 1.0e30]
-            self.n_err_pt = [100.0, 100.0, 100.0]
-            return
+    def __init__(self, fail_iterations=10000):
+        super(Decision, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -531,6 +524,11 @@ class Decision(units.Unit):
         self.minibatch_mse = None
         self.minibatch_offs = None
         self.minibatch_size = None
+
+    def init_unpickled(self):
+        self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
+        self.n_err = [1.0e30, 1.0e30, 1.0e30]
+        self.n_err_pt = [100.0, 100.0, 100.0]
 
     def initialize(self):
         if (self.minibatch_metrics != None and
@@ -622,14 +620,14 @@ class Decision(units.Unit):
                     self.fnme = "%s/kanji_%.6f.pickle" % \
                         (config.snapshot_dir,
                          self.epoch_metrics[minibatch_class][0])
-                    self.log().info("Snapshotting to %s" % (self.fnme,))
+                    self.log().info("Snapshotting to %s" % (self.fnme))
                     fout = open(self.fnme, "wb")
                     pickle.dump(self.workflow, fout)
                     fout.close()
                     self.fnmeWb = "%s/kanji_%.6f_Wb.pickle" % \
                         (config.snapshot_dir,
                          self.epoch_metrics[minibatch_class][0])
-                    self.log().info("Exporting weights to %s" % (self.fnmeWb,))
+                    self.log().info("Exporting weights to %s" % (self.fnmeWb))
                     fout = open(self.fnmeWb, "wb")
                     weights = []
                     bias = []
@@ -650,7 +648,7 @@ class Decision(units.Unit):
                    self.min_validation_mse_epoch_number > \
                    self.fail_iterations[0]:
                     self.complete[0] = 1
-                #self.workflow.ev.threshold_skip = \
+                # self.workflow.ev.threshold_skip = \
                 #    self.epoch_metrics[minibatch_class][0]
 
             # Print some statistics
@@ -685,7 +683,7 @@ class Decision(units.Unit):
                     gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha, ))
+                      (self.workflow.gd[0].global_alpha))
                 """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -693,7 +691,7 @@ class Decision(units.Unit):
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
                 # Sync weights
-                #self.weights_to_sync.sync(read_only=True)
+                # self.weights_to_sync.sync(read_only=True)
                 self.workflow.forward[0].input.sync(read_only=True)
                 self.workflow.forward[-1].output.sync(read_only=True)
                 self.workflow.ev.target.sync(read_only=True)
@@ -731,10 +729,8 @@ class Workflow(units.OpenCLUnit):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None, unpickling=None):
-        super(Workflow, self).__init__(device=device, unpickling=unpickling)
-        if unpickling:
-            return
+    def __init__(self, layers=None, device=None):
+        super(Workflow, self).__init__(device=device)
         self.start_point = units.Unit()
 
         self.rpt = units.Repeater()
@@ -750,7 +746,7 @@ class Workflow(units.OpenCLUnit):
                 amp = None
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            #amp = 0.05
+            # amp = 0.05
             aa = all2all.All2AllTanh([layers[i]], device=device,
                                      weights_amplitude=amp)
             self.forward.append(aa)
@@ -794,9 +790,9 @@ class Workflow(units.OpenCLUnit):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        #self.image_saver.this_save_time = self.decision.snapshot_time
-        #self.image_saver.gate_skip = self.decision.just_snapshotted
-        #self.image_saver.gate_skip_not = [1]
+        # self.image_saver.this_save_time = self.decision.snapshot_time
+        # self.image_saver.gate_skip = self.decision.just_snapshotted
+        # self.image_saver.gate_skip_not = [1]
 
         # Add gradient descent units
         self.gd = list(None for i in range(0, len(self.forward)))
@@ -842,14 +838,14 @@ class Workflow(units.OpenCLUnit):
             self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
         # Matrix plotter
-        #self.decision.weights_to_sync = self.gd[0].weights
-        #self.decision.output_to_sync = self.forward[-1].output
-        #self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
-        #self.plt_mx.input = self.decision.weights_to_sync
-        #self.plt_mx.input_field = "v"
-        #self.plt_mx.link_from(self.decision)
-        #self.plt_mx.gate_block = self.decision.epoch_ended
-        #self.plt_mx.gate_block_not = [1]
+        # self.decision.weights_to_sync = self.gd[0].weights
+        # self.decision.output_to_sync = self.forward[-1].output
+        # self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
+        # self.plt_mx.input = self.decision.weights_to_sync
+        # self.plt_mx.input_field = "v"
+        # self.plt_mx.link_from(self.decision)
+        # self.plt_mx.gate_block = self.decision.epoch_ended
+        # self.plt_mx.gate_block_not = [1]
         # Max plotter
         self.plt_max = []
         styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
@@ -942,12 +938,12 @@ def main():
     fout = open("w100.txt", "w")
     weights = w.forward[0].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b100.txt", "w")
     bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -963,12 +959,12 @@ def main():
     fout = open("w10.txt", "w")
     weights = w.forward[1].weights.v
     for row in weights:
-        fout.write(" ".join("%.6f" % (x, ) for x in row))
+        fout.write(" ".join("%.6f" % (x) for x in row))
         fout.write("\n")
     fout.close()
     fout = open("b10.txt", "w")
     bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x, ) for x in bias))
+    fout.write(" ".join("%.6f" % (x) for x in bias))
     fout.write("\n")
     fout.close()
 
@@ -984,20 +980,20 @@ def main():
         im = numpy.argmax(c[i])
         if im == labels[i]:
             n_ok += 1
-    self.log().info("%d errors" % (10000 - n_ok, ))
+    self.log().info("%d errors" % (10000 - n_ok))
 
     self.log().info("Done")
     sys.exit(0)
     """
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        fnme = "%s/kanji.pickle" % (config.snapshot_dir,)
+        fnme = "%s/kanji.pickle" % (config.snapshot_dir)
         fin = None
         try:
             fin = open(fnme, "rb")
@@ -1032,14 +1028,14 @@ def main():
         w.run(weights=weights, bias=bias)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
-    logging.info("Will snapshot after 15 seconds...")
+    logging.info("Will snapshot in 15 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 10 seconds...")
+    logging.info("Will snapshot in 10 seconds...")
     time.sleep(5)
-    logging.info("Will snapshot after 5 seconds...")
+    logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/kanji.pickle" % (config.snapshot_dir,)
-    logging.info("Snapshotting to %s" % (fnme,))
+    fnme = "%s/kanji.pickle" % (config.snapshot_dir)
+    logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)
     fout.close()
