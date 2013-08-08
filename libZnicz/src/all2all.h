@@ -17,6 +17,7 @@
 #include <memory>
 #include <vector>
 #include <functional>
+#include <unordered_map>
 #include <veles/unit.h>
 
 namespace Veles {
@@ -25,13 +26,14 @@ namespace Znicz {
 /** @brief "All to all" neural network layer. */
 class All2All : public Unit {
  public:
-    All2All() noexcept : inputs_(0), outputs_(0) {
-  }
+  /** @brief Constructs an empty unit
+   */
+  All2All() noexcept;
   virtual ~All2All() noexcept {
   }
   virtual std::string Name() const noexcept override final;
-
-  virtual void Load(const std::string& data) override final;
+  virtual void SetParameter(const std::string& name,
+                            std::shared_ptr<void> value) override final;
   virtual void Execute(float* in, float* out) const override final;
   virtual size_t InputCount() const noexcept override final {
     return inputs_;
@@ -41,10 +43,50 @@ class All2All : public Unit {
   }
 
  private:
-  std::unique_ptr<float[]> weights_;
-  std::unique_ptr<float[]> bias_;
-  std::function<void (float*)> activation_;
+  /** @brief Constructs a function that converts shared_ptr<void> to pointer
+   *  to the desired type and assigns pointed value to the provided variable
+   *  using full copy.
+   *  @param data Variable, setter for which is constructed
+   */
+  template<class T>
+  static std::function<void (std::shared_ptr<void>)>
+  GetSetter(T* data) {
+    return [data](std::shared_ptr<void> value) {
+      *data = *std::static_pointer_cast<T>(value);
+    };
+  }
+
+  /** @brief Constructs a function that takes shared_ptr<void> and assigns it
+   *  to the provided variable without doing full copy of contents.
+   *  @param data Variable of shared_ptr type, setter for which is constructed.
+   */
+  template<class T>
+  static std::function<void (std::shared_ptr<void>)>
+  GetSetter(std::shared_ptr<T>* data) {
+    return [data](std::shared_ptr<void> value) {
+      *data = std::static_pointer_cast<T>(value);
+    };
+  }
+
+  /** @brief Weights matrix
+   */
+  std::shared_ptr<float> weights_;
+  /** @brief Bias vector
+   */
+  std::shared_ptr<float> bias_;
+  /** @brief Activation function, that applies in-place transform
+   *  to the output vector
+   */
+  std::function<void (float*, size_t)> activation_;
+  /** @brief Parameter name to Parameter setter map
+   */
+  std::unordered_map<std::string, std::function<void (std::shared_ptr<void>)>>
+    setters_;
+  /** @brief Number of inputs
+   */
   size_t inputs_;
+  /** Number of outputs
+   */
   size_t outputs_;
 };
 

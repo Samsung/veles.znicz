@@ -10,7 +10,9 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+#include <cmath>
 #include <memory>
+#include <functional>
 #include "src/all2all.h"
 #include <simd/inc/simd/matrix.h>
 #include <simd/inc/simd/memory.h>
@@ -18,15 +20,25 @@
 namespace Veles {
 namespace Znicz {
 
+All2All::All2All() noexcept : setters_ {
+  {"weights", GetSetter(&weights_)},
+  {"bias", GetSetter(&bias_)},
+  {"activation", GetSetter(&activation_)},
+  {"inputs", GetSetter(&inputs_)},
+  {"outputs", GetSetter(&outputs_)}
+}, inputs_(0), outputs_(0) {
+}
+
 std::string All2All::Name() const noexcept {
   return "All2All";
 }
 
-/** @brief Load unit data from string
- *  @param data %Unit declaration in VELES format
- *  @TODO Define VELES layer loading
- */
-void All2All::Load(const std::string& data) {
+void All2All::SetParameter(const std::string& name,
+                           std::shared_ptr<void> value) {
+  auto it = setters_.find(name);
+  if(it != setters_.end()) {
+    it->second(value);
+  }
 }
 
 /** @brief Execute the neural network layer
@@ -41,7 +53,7 @@ void All2All::Execute(float* in, float* out) const {
   matrix_multiply(1, weights_.get(), in, input_count,
                   output_count, 1, input_count, tmp.get());
   matrix_add(1, tmp.get(), bias_.get(), 1, output_count, out);
-  activation_(out);
+  activation_(out, outputs_);
 }
 
 }  // namespace Znicz

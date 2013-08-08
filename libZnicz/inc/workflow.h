@@ -28,16 +28,18 @@ class Workflow {
  public:
   /** @brief Constructs empty workflow */
   Workflow() = default;
-
-  /** @brief Constructs workflow from data in VELES format */
-  explicit Workflow(const std::string& data) {
-    Load(data);
+  /** @brief Appends a unit to the end of workflow
+   *  @param unit VELES unit
+   */
+  void AddUnit(std::shared_ptr<Unit> unit) {
+    units_.push_back(unit);
   }
 
-  /** @brief Load Workflow data from string
-   *  @param data Workflow declaration in VELES format
+  /** @brief Clears the Workflow
    */
-  void Load(const std::string& data);
+  void Clear() {
+    units_.clear();
+  }
 
   /** @brief Execute the workflow
    *  @param begin Iterator to the first element of initial data

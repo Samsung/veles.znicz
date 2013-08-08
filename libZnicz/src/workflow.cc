@@ -17,11 +17,6 @@
 namespace Veles {
 namespace Znicz {
 
- /** @todo Define VELES Workflow loading
-  */
-void Workflow::Load(const std::string& data) {
-}
-
 size_t Workflow::get_max_unit_size() const noexcept {
   auto max_func = [](size_t curr, std::shared_ptr<Unit> unit) {
     return std::max(curr, unit->OutputCount());
