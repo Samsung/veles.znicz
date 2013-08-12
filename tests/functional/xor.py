@@ -2,7 +2,7 @@
 """
 Created on Mar 20, 2013
 
-MNIST with RBM pretraining.
+xor with rbm.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -26,15 +26,12 @@ add_path("%s/../../../src" % (this_dir))
 
 import units
 import formats
-import struct
 import error
 import numpy
 import config
 import rnd
 import opencl
 import plotters
-import hog
-import scipy.ndimage
 import pickle
 import time
 import rbm

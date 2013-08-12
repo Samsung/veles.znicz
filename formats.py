@@ -111,6 +111,13 @@ class OpenCLConnector(units.Connector):
                 mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.aligned_)
         return buf
 
+    def reset(self):
+        """Sets buffers to None
+        """
+        self.what_changed = 0
+        self.arr_ = None
+        self.aligned_ = None
+
 
 class Batch(OpenCLConnector):
     """Batch.
@@ -204,6 +211,11 @@ class Batch(OpenCLConnector):
     def __setitem__(self, key, value):
         self.batch[key] = value
 
+    def reset(self):
+        self.batch = None
+        self.batch_ = None
+        super(Batch, self).reset()
+
 
 class Vector(OpenCLConnector):
     """Vector.
@@ -276,6 +288,11 @@ class Vector(OpenCLConnector):
 
     def __setitem__(self, key, value):
         self.v[key] = value
+
+    def reset(self):
+        self.v = None
+        self.v_ = None
+        super(Vector, self).reset()
 
 
 class Labels(Vector):

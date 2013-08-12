@@ -52,7 +52,7 @@ class GD(units.OpenCLUnit):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, device=None, global_alpha=0.1, global_lambda=0.001,
-                 weights_transposed=False):
+                 weights_transposed=False, store_gradient=False):
         super(GD, self).__init__(device=device)
         self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector(device)
@@ -64,6 +64,10 @@ class GD(units.OpenCLUnit):
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
         self.batch_size = None  # [0]
+        self.gradient_weights = formats.Vector()
+        self.gradient_bias = formats.Vector()
+        self.store_gradient = store_gradient
+        self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
@@ -74,11 +78,23 @@ class GD(units.OpenCLUnit):
         self.krn_bias_ = None
 
     def initialize(self):
-        if self.err_h.batch == None or \
-           self.err_h.batch.size != self.h.batch.size:
+        if (self.err_h.batch == None or
+            self.err_h.batch.size != self.h.batch.size):
             self.err_h.batch = numpy.zeros(self.h.batch.shape,
                                            dtype=config.dtypes[config.dtype])
             self.err_h.batch_ = None
+
+        if (self.store_gradient and
+            (self.gradient_weights.v == None or
+             self.gradient_weights.v.size != self.weights.v.size)):
+            self.gradient_weights.v = numpy.zeros_like(self.weights.v)
+            self.gradient_weights.v_ = None
+
+        if (self.store_gradient and
+            (self.gradient_bias.v == None or
+             self.gradient_bias.v.size != self.bias.v.size)):
+            self.gradient_bias.v = numpy.zeros_like(self.bias.v)
+            self.gradient_bias.v_ = None
 
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
@@ -86,12 +102,17 @@ class GD(units.OpenCLUnit):
         self.h.initialize(self.device)
         self.err_y.initialize(self.device)
         self.err_h.initialize(self.device)
+        if self.store_gradient:
+            self.gradient_weights.initialize(self.device)
+            self.gradient_bias.initialize(self.device)
 
         if not self.device:
             return
 
         if self.prg_ == None:
-            defines = ("%s\n"
+            defines = ("#define APPLY_GRADIENT\n"
+                       "%s\n"
+                       "%s\n"
                        "%s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
@@ -99,6 +120,8 @@ class GD(units.OpenCLUnit):
                        "#define Y %d\n\n") % (
                     "#define WEIGHTS_TRANSPOSED"
                     if self.weights_transposed else "",
+                    "#define STORE_GRADIENT"
+                    if self.store_gradient else "",
                     config.cl_defines[config.dtype],
                     self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_h.aligned_.shape[0],
@@ -131,10 +154,12 @@ class GD(units.OpenCLUnit):
             self.krn_weights_.set_arg(0, self.err_y.batch_)
             self.krn_weights_.set_arg(1, self.h.batch_)
             self.krn_weights_.set_arg(2, self.weights.v_)
+            self.krn_weights_.set_arg(3, self.gradient_weights.v_)
 
             self.krn_bias_ = pyopencl.Kernel(self.prg_, "bias_update")
-            self.krn_bias_.set_arg(0, self.bias.v_)
-            self.krn_bias_.set_arg(1, self.err_y.batch_)
+            self.krn_bias_.set_arg(0, self.err_y.batch_)
+            self.krn_bias_.set_arg(1, self.bias.v_)
+            self.krn_bias_.set_arg(2, self.gradient_bias.v_)
 
     def cpu_weights_update(self):
         self.h.sync()
@@ -172,11 +197,10 @@ class GD(units.OpenCLUnit):
 
         batch_size = self.y.batch.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
-        kr = numpy.empty([2], config.dtypes[config.dtype])
-        kr[0] = (-self.global_alpha) / batch_size
-        kr[1] = 1.0 + ((-self.global_alpha) * self.global_lambda)
-        self.krn_weights_.set_arg(3, kr[0])
-        self.krn_weights_.set_arg(4, kr[1])
+        self.cl_const[0] = -self.global_alpha / batch_size
+        self.cl_const[1] = -self.global_alpha * self.global_lambda
+        self.krn_weights_.set_arg(4, self.cl_const[0])
+        self.krn_weights_.set_arg(5, self.cl_const[1])
         if self.weights_transposed:
             global_size = [
                 self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
@@ -190,7 +214,7 @@ class GD(units.OpenCLUnit):
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_weights_, global_size, local_size)
 
-        self.krn_bias_.set_arg(2, kr[0])
+        self.krn_bias_.set_arg(3, self.cl_const[0])
         global_size = [self.err_y.aligned_.size //
                        self.err_y.aligned_.shape[0],
                        self.device.info.BLOCK_SIZE[config.dtype]]

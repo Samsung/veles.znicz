@@ -274,6 +274,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         labels
         batch_size
         max_samples_per_epoch
+        class_target
 
     Updates after run():
         err_y
@@ -285,7 +286,6 @@ class EvaluatorMSE(units.OpenCLUnit):
     Creates within initialize():
         err_y
         n_err_skipped
-        confusion_matrix
         skipped
         max_err_y_sum
 
@@ -302,6 +302,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         mse: array of mse for each sample in minibatch.
         krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
+        class_target: target for each class (may be None).
     """
     def __init__(self, device=None, threshold_skip=0.0, threshold_ok=0.0):
         super(EvaluatorMSE, self).__init__(device=device)
@@ -318,6 +319,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.metrics = formats.Vector()
         self.effective_batch_size = [0]
         self.mse = formats.Vector()
+        self.class_target = None
+        self.labels = None
 
     def initialize(self):
         itype = config.get_itype_from_size((self.y.batch.size //
@@ -398,6 +401,10 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         batch_size = self.batch_size[0]
 
+        if self.class_target != None:
+            self.n_err_skipped.sync(read_only=True)
+            old_n_err = self.n_err_skipped.v[0]
+
         self.y.sync(formats.GPU)
         self.target.sync(formats.GPU)
         self.n_err_skipped.sync(formats.GPU)
@@ -425,6 +432,25 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.effective_batch_size[0] = self.batch_size[0]
         self.metrics.update(formats.GPU)
         self.mse.update(formats.GPU)
+
+        if self.class_target != None:
+            n_err = 0
+            self.y.sync(read_only=True)
+            self.n_err_skipped.sync()
+            t = self.class_target.v
+            y = self.y.batch
+            for i in range(0, y.shape[0]):
+                md = 1.0e30
+                mi = 0
+                for j in range(0, t.shape[0]):
+                    d = numpy.linalg.norm(t[j] - y[i])
+                    if d < md:
+                        md = d
+                        mi = j
+                if mi != self.labels.v[i]:
+                    n_err += 1
+            self.n_err_skipped.v[0] = old_n_err + n_err
+            self.n_err_skipped.update()
 
         self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                              time.time() - t1))
