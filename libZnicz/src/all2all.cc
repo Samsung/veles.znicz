@@ -20,10 +20,9 @@
 namespace Veles {
 namespace Znicz {
 
-All2All::All2All() noexcept : setters_ {
+All2All::All2All() : setters_ {
   {"weights", GetSetter(&weights_)},
   {"bias", GetSetter(&bias_)},
-  {"activation", GetSetter(&activation_)},
   {"inputs", GetSetter(&inputs_)},
   {"outputs", GetSetter(&outputs_)}
 }, inputs_(0), outputs_(0) {
@@ -53,7 +52,7 @@ void All2All::Execute(float* in, float* out) const {
   matrix_multiply(1, weights_.get(), in, input_count,
                   output_count, 1, input_count, tmp.get());
   matrix_add(1, tmp.get(), bias_.get(), 1, output_count, out);
-  activation_(out, outputs_);
+  ApplyActivationFunction(out, outputs_);
 }
 
 }  // namespace Znicz

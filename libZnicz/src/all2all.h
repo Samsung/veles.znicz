@@ -1,5 +1,5 @@
 /*! @file all2all.h
- *  @brief "All to all" neural network layer.
+ *  @brief "All to all" neural network layer
  *  @author Ernesto Sanches <ernestosanches@gmail.com>
  *  @version 1.0
  *
@@ -23,14 +23,10 @@
 namespace Veles {
 namespace Znicz {
 
-/** @brief "All to all" neural network layer. */
+/** @brief "All to all" neural network layer */
 class All2All : public Unit {
  public:
-  /** @brief Constructs an empty unit
-   */
-  All2All() noexcept;
-  virtual ~All2All() noexcept {
-  }
+  All2All();
   virtual std::string Name() const noexcept override final;
   virtual void SetParameter(const std::string& name,
                             std::shared_ptr<void> value) override final;
@@ -41,6 +37,13 @@ class All2All : public Unit {
   virtual size_t OutputCount() const noexcept override final {
     return outputs_;
   }
+
+ protected:
+  /** @brief Activation function used by the neural network layer.
+   *  @param data Vector to be transformed
+   *  @param length Number of elements in the data vector
+   */
+  virtual void ApplyActivationFunction(float* data, size_t length) const = 0;
 
  private:
   /** @brief Constructs a function that converts shared_ptr<void> to pointer
@@ -74,10 +77,6 @@ class All2All : public Unit {
   /** @brief Bias vector
    */
   std::shared_ptr<float> bias_;
-  /** @brief Activation function, that applies in-place transform
-   *  to the output vector
-   */
-  std::function<void (float*, size_t)> activation_;
   /** @brief Parameter name to Parameter setter map
    */
   std::unordered_map<std::string, std::function<void (std::shared_ptr<void>)>>
