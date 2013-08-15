@@ -45,9 +45,9 @@ class ResultPlotter(plotters.Plotter):
         self.lock = threading.Lock()
 
     def initialize(self):
-        if type(self.image) != formats.Batch:
+        if type(self.image) != formats.Vector:
             return
-        self.img = numpy.zeros_like(self.image.batch[0])
+        self.img = numpy.zeros_like(self.image.v[0])
         self.lock.acquire()
 
     def redraw(self):
@@ -74,12 +74,12 @@ class ResultPlotter(plotters.Plotter):
         super(ResultPlotter, self).redraw()
 
     def run(self):
-        if type(self.input) != formats.Batch:
+        if type(self.input) != formats.Vector:
             return
-        self.input.sync(read_only=True)
+        self.input.sync()
         self.values.append(self.input.batch[0])
-        if type(self.image) == formats.Batch:
-            self.image.sync(read_only=True)
-            numpy.copyto(self.img, self.image.batch[0])
+        if type(self.image) == formats.Vector:
+            self.image.sync()
+            numpy.copyto(self.img, self.image.v[0])
         plotters.Graphics().event_queue.put(self, block=True)
         super(ResultPlotter, self).run()

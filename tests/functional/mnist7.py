@@ -1,10 +1,10 @@
 #!/usr/bin/python3.3 -O
 """
-Created on Mar 20, 2013
+Created on August 12, 2013
 
-File for MNIST dataset.
+MNIST with target encoded as 7 points, MSE.
 
-AutoEncoder version.
+Such encoding is not working because of the addititional abstract layer.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -89,6 +89,7 @@ class Loader(units.Unit):
         self.minibatch_data = formats.Vector()
         self.minibatch_indexes = formats.Vector()
         self.minibatch_labels = formats.Vector()
+        self.minibatch_target = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -117,6 +118,8 @@ class Loader(units.Unit):
 
         self.original_data = None
         self.original_labels = None
+        self.original_target = None
+        self.class_target = formats.Vector()
 
         self.shuffled_indexes = None
 
@@ -202,6 +205,25 @@ class Loader(units.Unit):
                            "%s/MNIST/train-labels.idx1-ubyte" % (this_dir),
                            "%s/MNIST/train-images.idx3-ubyte" % (this_dir))
 
+        self.class_target.reset()
+        self.class_target.v = numpy.array(
+            [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
+             [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
+             [1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0],  # 2
+             [1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0],  # 3
+             [-1.0, 1.0, 1.0, 1.0, -1.0, 1.0, -1.0],  # 4
+             [1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0],  # 5
+             [1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0],  # 6
+             [1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 7
+             [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 8
+             [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
+            dtype=config.dtypes[config.dtype])
+        self.original_target = numpy.zeros([self.original_labels.shape[0], 7],
+            dtype=config.dtypes[config.dtype])
+        for i in range(0, self.original_labels.shape[0]):
+            label = self.original_labels[i]
+            self.original_target[i] = self.class_target.v[label]
+
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
@@ -211,6 +233,11 @@ class Loader(units.Unit):
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
+        sh = [self.minibatch_maxsize[0]]
+        for i in self.original_target.shape[1:]:
+            sh.append(i)
+        self.minibatch_target.v = numpy.zeros(
+            sh, dtype=config.dtypes[config.dtype])
 
         if self.class_samples[0]:
             self.shuffle_validation_train()
@@ -280,6 +307,9 @@ class Loader(units.Unit):
         self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
+        self.minibatch_target.v[0:minibatch_size] = \
+            self.original_target[idxs[0:minibatch_size]]
+
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.v[minibatch_size:] = 0.0
@@ -290,6 +320,7 @@ class Loader(units.Unit):
         self.minibatch_data.update()
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
+        self.minibatch_target.update()
 
         self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
@@ -316,6 +347,7 @@ class ImageSaverAE(units.Unit):
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
+        self.target = None  # formats.Vector()
         self.indexes = None  # formats.Vector()
         self.labels = None  # formats.Vector()
         self.minibatch_class = None  # [0]
@@ -326,12 +358,16 @@ class ImageSaverAE(units.Unit):
     def run(self):
         self.input.sync()
         self.output.sync()
+        self.target.sync()
         self.indexes.sync()
         self.labels.sync()
-        xy = None
         if self.last_save_date < self.this_save_date[0]:
             self.last_save_date = self.this_save_date[0]
             for dirnme in self.out_dirs:
+                try:
+                    os.makedirs(dirnme)
+                except OSError:
+                    pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
                     try:
@@ -340,27 +376,20 @@ class ImageSaverAE(units.Unit):
                         pass
         for i in range(0, self.minibatch_size[0]):
             x = self.input.v[i]
-            y = self.output.v[i].reshape(x.shape)
+            y = self.output.v[i]
+            t = self.target.v[i]
             idx = self.indexes.v[i]
             lbl = self.labels.v[i]
-            mse = numpy.linalg.norm(x - y) / x.size
-            if xy == None:
-                xy = numpy.empty([x.shape[0], x.shape[1] * 2], dtype=x.dtype)
-            xy[:, :x.shape[1]] = x[:, :]
-            xy[:, x.shape[1]:] = y[:, :]
-            x = xy[:, :x.shape[1]]
-            y = xy[:, x.shape[1]:]
-            x *= -1.0
-            x += 1.0
-            x *= 127.5
-            numpy.clip(x, 0, 255, x)
-            y *= -1.0
-            y += 1.0
-            y *= 127.5
-            numpy.clip(y, 0, 255, y)
+            mse = numpy.linalg.norm(t - y) / t.size
             fnme = "%s/%.6f_%d_%d.png" % (
                 self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
+            img = x.copy()
+            img -= img.min()
+            m = img.max()
+            if m:
+                img /= m
+                img *= 255.0
+            scipy.misc.imsave(fnme, img.astype(numpy.uint8))
 
 
 class Decision(units.Unit):
@@ -398,7 +427,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
-        # self.prev_train_err = 1.0e30
+        self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -481,11 +510,10 @@ class Decision(units.Unit):
             # Print some statistics
             t2 = time.time()
             self.log().info(
-                "Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
+                "Epoch %d Class %d AvgMSE %.6f Err %d (%.2f%%) "
                 "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
                 (self.epoch_number[0], self.minibatch_class[0],
                  self.epoch_metrics[self.minibatch_class[0]][0],
-                 self.threshold_ok,
                  self.n_err[self.minibatch_class[0]],
                  self.n_err_pt[self.minibatch_class[0]],
                  self.epoch_metrics[self.minibatch_class[0]][1],
@@ -495,7 +523,7 @@ class Decision(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
-                """
+                #"""
                 this_train_err = self.epoch_metrics[2][0]
                 if self.prev_train_err:
                     k = this_train_err / self.prev_train_err
@@ -511,7 +539,7 @@ class Decision(units.Unit):
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha))
-                """
+                #"""
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
                 # Reset n_err
@@ -557,11 +585,11 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = 9.0 / 784
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
-            # amp = 0.05
+            #if not i:
+            #    amp = None
+            #else:
+            #    amp = 9.0 / 1.7159 / layers[i - 1]
+            amp = 0.1
             aa = all2all.All2AllTanh([layers[i]], device=device,
                                      weights_amplitude=amp)
             self.forward.append(aa)
@@ -577,7 +605,9 @@ class Workflow(units.OpenCLUnit):
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
-        self.ev.target = self.loader.minibatch_data
+        self.ev.target = self.loader.minibatch_target
+        self.ev.class_target = self.loader.class_target
+        self.ev.labels = self.loader.minibatch_labels
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -591,11 +621,13 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE(["img/test", "img/validation",
-                                         "img/train"])
+        self.image_saver = ImageSaverAE(["/tmp/img/test",
+                                         "/tmp/img/validation",
+                                         "/tmp/img/train"])
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
-        self.image_saver.output = self.forward[-1].output
+        self.image_saver.output = self.ev.y
+        self.image_saver.target = self.ev.target
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class
@@ -651,7 +683,7 @@ class Workflow(units.OpenCLUnit):
         #"""
         self.decision.weights_to_sync = self.gd[0].weights
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
-                                         limit=16)
+                                         limit=25)
         self.plt_mx.input = self.decision.weights_to_sync
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = self.forward[0].input
@@ -690,14 +722,7 @@ class Workflow(units.OpenCLUnit):
             self.plt_min[-1].gate_block_not = [1]
         self.plt_min[0].clear_plot = True
 
-    def initialize(self, threshold_ok, threshold_skip,
-              global_alpha, global_lambda):
-        self.ev.threshold_ok = threshold_ok
-        self.ev.threshold_skip = threshold_skip
-        self.decision.threshold_ok = threshold_ok
-        for gd in self.gd:
-            gd.global_alpha = global_alpha
-            gd.global_lambda = global_lambda
+    def initialize(self):
         retval = self.start_point.initialize_dependent()
         if retval:
             return retval
@@ -716,12 +741,12 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
-    if __debug__:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    #if __debug__:
+    #    logging.basicConfig(level=logging.DEBUG)
+    #else:
+    logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("mnist_ae.pickle", "rb")
+    fin = open("mnist7.pickle", "rb")
     w = pickle.load(fin)
     fin.close()
 
@@ -792,14 +817,13 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[500, 784], device=device)
-        w.initialize(threshold_ok=0.0005, threshold_skip=0.0,
-              global_alpha=0.001, global_lambda=0.0001)
+        w = Workflow(layers=[100, 100, 7], device=device)
+        w.initialize()
     except KeyboardInterrupt:
         return
     try:
-        w.run(threshold_ok=0.0005, threshold_skip=0.0,
-              global_alpha=0.001, global_lambda=0.0001)
+        w.run(threshold_ok=0.00001, threshold_skip=0.0,
+              global_alpha=0.0001, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot in 15 seconds...")
@@ -808,7 +832,7 @@ def main():
     time.sleep(5)
     logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist_ae.pickle" % (config.snapshot_dir)
+    fnme = "%s/mnist7.pickle" % (config.snapshot_dir)
     logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)

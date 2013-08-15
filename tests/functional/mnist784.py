@@ -1,10 +1,8 @@
 #!/usr/bin/python3.3 -O
 """
-Created on Mar 20, 2013
+Created on August 12, 2013
 
-File for MNIST dataset.
-
-AutoEncoder version.
+MNIST with target encoded as ideal image (784 points), MSE.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
@@ -37,6 +35,70 @@ import pickle
 import time
 import logging
 import glob
+
+
+add_path("/usr/local/lib/python3.3/dist-packages/freetype")
+add_path("/usr/local/lib/python3.3/dist-packages/freetype/ft_enums")
+from freetype import *
+
+
+def do_plot(fontPath, text, size, angle, sx, sy,
+            randomizePosition, SX, SY):
+    face = Face(bytes(fontPath, 'UTF-8'))
+    #face.set_char_size(48 * 64)
+    face.set_pixel_sizes(0, size)
+
+    c = text[0]
+
+    angle = (angle / 180.0) * numpy.pi
+
+    mx_r = numpy.array([[numpy.cos(angle), -numpy.sin(angle)],
+                        [numpy.sin(angle), numpy.cos(angle)]],
+                       dtype=numpy.double)
+    mx_s = numpy.array([[sx, 0.0],
+                        [0.0, sy]], dtype=numpy.double)
+
+    mx = numpy.dot(mx_s, mx_r)
+
+    matrix = FT_Matrix((int)(mx[0, 0] * 0x10000),
+                       (int)(mx[0, 1] * 0x10000),
+                       (int)(mx[1, 0] * 0x10000),
+                       (int)(mx[1, 1] * 0x10000))
+    flags = FT_LOAD_RENDER
+    pen = FT_Vector(0, 0)
+    FT_Set_Transform(face._FT_Face, byref(matrix), byref(pen))
+
+    j = 0
+    while True:
+        slot = face.glyph
+        if not face.get_char_index(c):
+            return None
+        face.load_char(c, flags)
+        bitmap = slot.bitmap
+        width = bitmap.width
+        height = bitmap.rows
+        if width > SX or height > SY:
+            j = j + 1
+            face.set_pixel_sizes(0, size - j)
+            #logging.info("Set pixel size for font %s to %d" % (
+            #    fontPath, size - j))
+            continue
+        break
+
+    if randomizePosition:
+        x = int(numpy.floor(numpy.random.rand() * (SX - width)))
+        y = int(numpy.floor(numpy.random.rand() * (SY - height)))
+    else:
+        x = int(numpy.floor((SX - width) * 0.5))
+        y = int(numpy.floor((SY - height) * 0.5))
+
+    img = numpy.zeros([SY, SX], dtype=numpy.uint8)
+    img[y:y + height, x: x + width] = numpy.array(bitmap.buffer,
+        dtype=numpy.uint8).reshape(height, width)
+    if img.max() == img.min():
+        logging.info("Font %s returned empty glyph" % (fontPath))
+        return None
+    return img
 
 
 def normalize(a):
@@ -89,6 +151,7 @@ class Loader(units.Unit):
         self.minibatch_data = formats.Vector()
         self.minibatch_indexes = formats.Vector()
         self.minibatch_labels = formats.Vector()
+        self.minibatch_target = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -117,6 +180,8 @@ class Loader(units.Unit):
 
         self.original_data = None
         self.original_labels = None
+        self.original_target = None
+        self.class_target = formats.Vector()
 
         self.shuffled_indexes = None
 
@@ -202,6 +267,24 @@ class Loader(units.Unit):
                            "%s/MNIST/train-labels.idx1-ubyte" % (this_dir),
                            "%s/MNIST/train-images.idx3-ubyte" % (this_dir))
 
+        self.class_target.reset()
+        self.class_target.v = numpy.zeros([10, 784],
+            dtype=config.dtypes[config.dtype])
+
+        for i in range(0, 10):
+            img = do_plot("%s/arial.ttf" % (config.test_dataset_root,),
+                          "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
+            self.class_target.v[i] = img.ravel().astype(
+                                config.dtypes[config.dtype])
+            normalize(self.class_target.v[i])
+
+        self.original_target = numpy.zeros([self.original_labels.shape[0],
+                                            self.class_target.v.shape[1]],
+            dtype=config.dtypes[config.dtype])
+        for i in range(0, self.original_labels.shape[0]):
+            label = self.original_labels[i]
+            self.original_target[i] = self.class_target.v[label]
+
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
@@ -211,6 +294,11 @@ class Loader(units.Unit):
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
         self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
+        sh = [self.minibatch_maxsize[0]]
+        for i in self.original_target.shape[1:]:
+            sh.append(i)
+        self.minibatch_target.v = numpy.zeros(
+            sh, dtype=config.dtypes[config.dtype])
 
         if self.class_samples[0]:
             self.shuffle_validation_train()
@@ -280,6 +368,9 @@ class Loader(units.Unit):
         self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
+        self.minibatch_target.v[0:minibatch_size] = \
+            self.original_target[idxs[0:minibatch_size]]
+
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.v[minibatch_size:] = 0.0
@@ -290,6 +381,7 @@ class Loader(units.Unit):
         self.minibatch_data.update()
         self.minibatch_labels.update()
         self.minibatch_indexes.update()
+        self.minibatch_target.update()
 
         self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
@@ -316,6 +408,7 @@ class ImageSaverAE(units.Unit):
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
+        self.target = None  # formats.Vector()
         self.indexes = None  # formats.Vector()
         self.labels = None  # formats.Vector()
         self.minibatch_class = None  # [0]
@@ -326,12 +419,16 @@ class ImageSaverAE(units.Unit):
     def run(self):
         self.input.sync()
         self.output.sync()
+        self.target.sync()
         self.indexes.sync()
         self.labels.sync()
-        xy = None
         if self.last_save_date < self.this_save_date[0]:
             self.last_save_date = self.this_save_date[0]
             for dirnme in self.out_dirs:
+                try:
+                    os.makedirs(dirnme)
+                except OSError:
+                    pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
                     try:
@@ -340,27 +437,20 @@ class ImageSaverAE(units.Unit):
                         pass
         for i in range(0, self.minibatch_size[0]):
             x = self.input.v[i]
-            y = self.output.v[i].reshape(x.shape)
+            y = self.output.v[i]
+            t = self.target.v[i]
             idx = self.indexes.v[i]
             lbl = self.labels.v[i]
-            mse = numpy.linalg.norm(x - y) / x.size
-            if xy == None:
-                xy = numpy.empty([x.shape[0], x.shape[1] * 2], dtype=x.dtype)
-            xy[:, :x.shape[1]] = x[:, :]
-            xy[:, x.shape[1]:] = y[:, :]
-            x = xy[:, :x.shape[1]]
-            y = xy[:, x.shape[1]:]
-            x *= -1.0
-            x += 1.0
-            x *= 127.5
-            numpy.clip(x, 0, 255, x)
-            y *= -1.0
-            y += 1.0
-            y *= 127.5
-            numpy.clip(y, 0, 255, y)
+            mse = numpy.linalg.norm(t - y) / t.size
             fnme = "%s/%.6f_%d_%d.png" % (
                 self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
+            img = x.copy()
+            img -= img.min()
+            m = img.max()
+            if m:
+                img /= m
+                img *= 255.0
+            scipy.misc.imsave(fnme, img.astype(numpy.uint8))
 
 
 class Decision(units.Unit):
@@ -398,7 +488,7 @@ class Decision(units.Unit):
         self.class_samples = None  # [0, 0, 0]
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
-        # self.prev_train_err = 1.0e30
+        self.prev_train_err = 1.0e30
         self.workflow = None
         self.fnme = None
         self.t1 = None
@@ -406,6 +496,9 @@ class Decision(units.Unit):
         self.just_snapshotted = [0]
         self.threshold_ok = 0.0
         self.weights_to_sync = None
+        self.sample_output = None
+        self.sample_input = None
+        self.sample_target = None
 
     def initialize(self):
         if (self.minibatch_metrics != None and
@@ -413,6 +506,12 @@ class Decision(units.Unit):
             for i in range(0, len(self.epoch_metrics)):
                 self.epoch_metrics[i] = (
                     numpy.zeros_like(self.minibatch_metrics.v))
+        self.sample_output = numpy.zeros_like(
+            self.workflow.forward[-1].output.v[0])
+        self.sample_input = numpy.zeros_like(
+            self.workflow.forward[0].input.v[0])
+        self.sample_target = numpy.zeros_like(
+            self.workflow.ev.target.v[0])
 
     def run(self):
         if self.t1 == None:
@@ -481,11 +580,10 @@ class Decision(units.Unit):
             # Print some statistics
             t2 = time.time()
             self.log().info(
-                "Epoch %d Class %d AvgMSE %.6f Greater%.3f %d (%.2f%%) "
+                "Epoch %d Class %d AvgMSE %.6f Err %d (%.2f%%) "
                 "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
                 (self.epoch_number[0], self.minibatch_class[0],
                  self.epoch_metrics[self.minibatch_class[0]][0],
-                 self.threshold_ok,
                  self.n_err[self.minibatch_class[0]],
                  self.n_err_pt[self.minibatch_class[0]],
                  self.epoch_metrics[self.minibatch_class[0]][1],
@@ -495,7 +593,7 @@ class Decision(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
-                """
+                #"""
                 this_train_err = self.epoch_metrics[2][0]
                 if self.prev_train_err:
                     k = this_train_err / self.prev_train_err
@@ -511,9 +609,19 @@ class Decision(units.Unit):
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha))
-                """
+                #"""
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
+                # Copy sample_input, output, target
+                self.workflow.forward[0].input.sync()
+                self.workflow.forward[-1].output.sync()
+                self.workflow.ev.target.sync()
+                self.sample_output[:] = \
+                    self.workflow.forward[-1].output.v[0][:]
+                self.sample_input[:] = \
+                    self.workflow.forward[0].input.v[0][:]
+                self.sample_target[:] = \
+                    self.workflow.ev.target.v[0][:]
                 # Reset n_err
                 for i in range(0, len(self.n_err)):
                     self.n_err[i] = 0
@@ -558,10 +666,9 @@ class Workflow(units.OpenCLUnit):
         self.forward = []
         for i in range(0, len(layers)):
             if not i:
-                amp = 9.0 / 784
+                amp = None
             else:
                 amp = 9.0 / 1.7159 / layers[i - 1]
-            # amp = 0.05
             aa = all2all.All2AllTanh([layers[i]], device=device,
                                      weights_amplitude=amp)
             self.forward.append(aa)
@@ -577,7 +684,9 @@ class Workflow(units.OpenCLUnit):
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
-        self.ev.target = self.loader.minibatch_data
+        self.ev.target = self.loader.minibatch_target
+        self.ev.class_target = self.loader.class_target
+        self.ev.labels = self.loader.minibatch_labels
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -591,11 +700,13 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE(["img/test", "img/validation",
-                                         "img/train"])
+        self.image_saver = ImageSaverAE(["/tmp/img/test",
+                                         "/tmp/img/validation",
+                                         "/tmp/img/train"])
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
-        self.image_saver.output = self.forward[-1].output
+        self.image_saver.output = self.ev.y
+        self.image_saver.target = self.ev.target
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class
@@ -659,6 +770,17 @@ class Workflow(units.OpenCLUnit):
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
         #"""
+        # Image plotter
+        self.plt_img = plotters.Image(figure_label="output sample")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_input")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_output")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_target")
+        self.plt_img.link_from(self.decision)
+        self.plt_img.gate_block = self.decision.epoch_ended
+        self.plt_img.gate_block_not = [1]
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
@@ -690,14 +812,7 @@ class Workflow(units.OpenCLUnit):
             self.plt_min[-1].gate_block_not = [1]
         self.plt_min[0].clear_plot = True
 
-    def initialize(self, threshold_ok, threshold_skip,
-              global_alpha, global_lambda):
-        self.ev.threshold_ok = threshold_ok
-        self.ev.threshold_skip = threshold_skip
-        self.decision.threshold_ok = threshold_ok
-        for gd in self.gd:
-            gd.global_alpha = global_alpha
-            gd.global_lambda = global_lambda
+    def initialize(self):
         retval = self.start_point.initialize_dependent()
         if retval:
             return retval
@@ -716,12 +831,12 @@ class Workflow(units.OpenCLUnit):
 
 
 def main():
-    if __debug__:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    #if __debug__:
+    #    logging.basicConfig(level=logging.DEBUG)
+    #else:
+    logging.basicConfig(level=logging.INFO)
     """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("mnist_ae.pickle", "rb")
+    fin = open("mnist15.pickle", "rb")
     w = pickle.load(fin)
     fin.close()
 
@@ -792,14 +907,13 @@ def main():
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()
-        w = Workflow(layers=[500, 784], device=device)
-        w.initialize(threshold_ok=0.0005, threshold_skip=0.0,
-              global_alpha=0.001, global_lambda=0.0001)
+        w = Workflow(layers=[784, 784], device=device)
+        w.initialize()
     except KeyboardInterrupt:
         return
     try:
-        w.run(threshold_ok=0.0005, threshold_skip=0.0,
-              global_alpha=0.001, global_lambda=0.0001)
+        w.run(threshold_ok=0.00001, threshold_skip=0.0,
+              global_alpha=0.001, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot in 15 seconds...")
@@ -808,7 +922,7 @@ def main():
     time.sleep(5)
     logging.info("Will snapshot in 5 seconds...")
     time.sleep(5)
-    fnme = "%s/mnist_ae.pickle" % (config.snapshot_dir)
+    fnme = "%s/mnist15.pickle" % (config.snapshot_dir)
     logging.info("Snapshotting to %s" % (fnme))
     fout = open(fnme, "wb")
     pickle.dump(w, fout)

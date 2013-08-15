@@ -103,9 +103,9 @@ class Loader(units.Unit):
 
         self.rnd = [rnd]
 
-        self.minibatch_data = formats.Batch()
-        self.minibatch_indexes = formats.Labels()
-        self.minibatch_labels = formats.Labels()
+        self.minibatch_data = formats.Vector()
+        self.minibatch_indexes = formats.Vector()
+        self.minibatch_labels = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -203,15 +203,12 @@ class Loader(units.Unit):
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
-        self.minibatch_data.batch = numpy.zeros(
+        self.minibatch_data.v = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
         self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
-        self.minibatch_indexes.batch = numpy.zeros(
+        self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
-
-        self.minibatch_indexes.n_classes = self.total_samples[0]
-        self.minibatch_labels.n_classes = len(self.validation_paths)
 
         self.minibatch_offs[0] = self.total_samples[0]
 
@@ -264,21 +261,21 @@ class Loader(units.Unit):
         self.minibatch_data.sync()
 
         # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.batch
+        idxs = self.minibatch_indexes.v
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
         self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
-        self.minibatch_data.batch[0:minibatch_size] = \
+        self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.batch[minibatch_size:] = 0.0
+            self.minibatch_data.v[minibatch_size:] = 0.0
             self.minibatch_labels.v[minibatch_size:] = -1
-            self.minibatch_indexes.batch[minibatch_size:] = -1
+            self.minibatch_indexes.v[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
         self.minibatch_data.update()

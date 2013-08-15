@@ -98,9 +98,9 @@ class Loader(units.Unit):
         super(Loader, self).__init__()
         self.rnd = [rnd]
 
-        self.minibatch_data = formats.Batch()
-        self.minibatch_indexes = formats.Labels()
-        self.minibatch_labels = formats.Labels()
+        self.minibatch_data = formats.Vector()
+        self.minibatch_indexes = formats.Vector()
+        self.minibatch_labels = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -173,15 +173,12 @@ class Loader(units.Unit):
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
-        self.minibatch_data.batch = numpy.zeros(
+        self.minibatch_data.v = numpy.zeros(
             sh, self.original_data.dtype)
         self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=self.original_labels.dtype)
-        self.minibatch_indexes.batch = numpy.zeros(
+        self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=self.shuffled_indexes.dtype)
-
-        self.minibatch_indexes.n_classes = self.total_samples[0]
-        self.minibatch_labels.n_classes = self.original_labels.max() + 1
 
         self.minibatch_offs[0] = self.total_samples[0]
 
@@ -234,21 +231,21 @@ class Loader(units.Unit):
         self.minibatch_data.sync()
 
         # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.batch
+        idxs = self.minibatch_indexes.v
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
         self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
-        self.minibatch_data.batch[0:minibatch_size] = \
+        self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.batch[minibatch_size:] = 0.0
+            self.minibatch_data.v[minibatch_size:] = 0.0
             self.minibatch_labels.v[minibatch_size:] = -1
-            self.minibatch_indexes.batch[minibatch_size:] = -1
+            self.minibatch_indexes.v[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
         self.minibatch_data.update()
@@ -278,10 +275,10 @@ class ImageSaver(units.Unit):
     def __init__(self, out_dirs=[".", ".", "."]):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
-        self.input = None  # formats.Batch()
-        self.output = None  # formats.Batch()
-        self.indexes = None  # formats.Batch()
-        self.labels = None  # formats.Batch()
+        self.input = None  # formats.Vector()
+        self.output = None  # formats.Vector()
+        self.indexes = None  # formats.Vector()
+        self.labels = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
         self.snapshot_date = None
@@ -289,11 +286,11 @@ class ImageSaver(units.Unit):
         self.max_idx = None
 
     def run(self):
-        self.input.sync(read_only=True)
-        self.output.sync(read_only=True)
-        self.max_idx.sync(read_only=True)
-        self.indexes.sync(read_only=True)
-        self.labels.sync(read_only=True)
+        self.input.sync()
+        self.output.sync()
+        self.max_idx.sync()
+        self.indexes.sync()
+        self.labels.sync()
         dirnme = self.out_dirs[self.minibatch_class[0]]
         if self.snapshot_date[0] != self.last_snapshot_date:
             self.last_snapshot_date = self.snapshot_date[0]
@@ -305,9 +302,9 @@ class ImageSaver(units.Unit):
                     pass
             del files
         for i in range(0, self.minibatch_size[0]):
-            x = self.input.batch[i]
-            y = self.output.batch[i]
-            idx = self.indexes.batch[i]
+            x = self.input.v[i]
+            y = self.output.v[i]
+            idx = self.indexes.v[i]
             lbl = self.labels.v[i]
             im = self.max_idx[i]
             if im == lbl:
@@ -362,6 +359,7 @@ class Decision(units.Unit):
         self.weights_to_sync = None
 
     def init_unpickled(self):
+        super(Decision, self).init_unpickled()
         self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
         self.n_err_pt = [100.0, 100.0, 100.0]
         self.n_err = [0, 0, 0]
@@ -474,7 +472,7 @@ class Decision(units.Unit):
                     self.n_err[i] = 0
                 # Sync weights
                 if self.weights_to_sync != None:
-                    self.weights_to_sync.sync(read_only=True)
+                    self.weights_to_sync.sync()
 
             # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
@@ -729,7 +727,7 @@ class UYVYStreamLoader(units.Unit):
         self.height = height
         self.scale = scale
         self.gray = gray
-        self.minibatch_data = formats.Batch()
+        self.minibatch_data = formats.Vector()
         self.minibatch_size = [1]
         self.complete = [0]
         self.cc = None
@@ -748,7 +746,7 @@ class UYVYStreamLoader(units.Unit):
         else:
             self.subframe = numpy.zeros([self.ah << 1, self.aw],
                 dtype=numpy.uint8)
-        self.minibatch_data.batch = numpy.zeros([1, self.subframe.shape[0],
+        self.minibatch_data.v = numpy.zeros([1, self.subframe.shape[0],
             self.subframe.shape[1]], dtype=config.dtypes[config.dtype])
 
     def run(self):
@@ -793,7 +791,7 @@ class UYVYStreamLoader(units.Unit):
             a[self.ah:, :self.aw >> 1] = au
             a[self.ah:, self.aw >> 1:] = av
 
-        sample = self.minibatch_data.batch[0]
+        sample = self.minibatch_data.v[0]
         sample[:] = a[:]
         normalize(sample)
         self.minibatch_data.update()

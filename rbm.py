@@ -26,7 +26,7 @@ class RBMTanh(all2all.All2AllTanh):
         super(RBMTanh, self).__init__(output_shape=output_shape, device=device,
                                       weights_amplitude=weights_amplitude,
                                       rand=rand)
-        self.output_rand = formats.Batch(device)
+        self.output_rand = formats.Vector(device)
         self.y_low_high = numpy.array([-1.0, 1.0],
                                       dtype=config.dtypes[config.dtype])
 
@@ -39,16 +39,16 @@ class RBMTanh(all2all.All2AllTanh):
         retval = super(RBMTanh, self).initialize()
         if retval:
             return retval
-        if (self.output_rand.batch == None or
-            self.output_rand.batch.size != self.output.batch.size):
-            self.output_rand.batch = numpy.zeros_like(self.output.batch)
-            self.output_rand.batch_ = None
+        if (self.output_rand.v == None or
+            self.output_rand.v.size != self.output.v.size):
+            self.output_rand.v = numpy.zeros_like(self.output.v)
+            self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
         if not self.device:
             return
         self.krn_apply_rand_ = pyopencl.Kernel(self.prg_, "apply_rand")
-        self.krn_apply_rand_.set_arg(0, self.output.batch_)
-        self.krn_apply_rand_.set_arg(1, self.output_rand.batch_)
+        self.krn_apply_rand_.set_arg(0, self.output.v_)
+        self.krn_apply_rand_.set_arg(1, self.output_rand.v_)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
@@ -63,7 +63,7 @@ class RBMTanh(all2all.All2AllTanh):
                       self.device.info.BLOCK_SIZE[config.dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
-        self.rand.fill(self.output_rand.batch, -1.7159, 1.7159)
+        self.rand.fill(self.output_rand.v, -1.7159, 1.7159)
         self.output_rand.update()
         self.output_rand.sync(formats.GPU)
         event.wait()
@@ -113,9 +113,9 @@ class GDTanh(gd.GD):
             return retval
         self.y_rand.initialize(self.device)
         self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
-        self.krn_err_y_.set_arg(0, self.err_y.batch_)
-        self.krn_err_y_.set_arg(1, self.y.batch_)
-        self.krn_err_y_.set_arg(2, self.y_rand.batch_)
+        self.krn_err_y_.set_arg(0, self.err_y.v_)
+        self.krn_err_y_.set_arg(1, self.y.v_)
+        self.krn_err_y_.set_arg(2, self.y_rand.v_)
 
     def gpu_err_y_update(self):
         self.krn_err_y_.set_arg(3, self.rnd_window_size[0])

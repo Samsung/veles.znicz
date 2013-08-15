@@ -87,9 +87,9 @@ class Loader(units.Unit):
         self.rnd = [rnd]
         self.use_hog = use_hog
 
-        self.minibatch_data = formats.Batch()
-        self.minibatch_indexes = formats.Labels(8)
-        self.minibatch_labels = formats.Labels(2)
+        self.minibatch_data = formats.Vector()
+        self.minibatch_indexes = formats.Vector()
+        self.minibatch_labels = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -161,11 +161,11 @@ class Loader(units.Unit):
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
-        self.minibatch_data.batch = numpy.zeros(
+        self.minibatch_data.v = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
         self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
-        self.minibatch_indexes.batch = numpy.zeros(
+        self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
 
         if self.class_samples[0]:
@@ -226,21 +226,21 @@ class Loader(units.Unit):
         self.minibatch_size[0] = minibatch_size
 
         # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.batch
+        idxs = self.minibatch_indexes.v
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
         self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
-        self.minibatch_data.batch[0:minibatch_size] = \
+        self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.batch[minibatch_size:] = 0.0
+            self.minibatch_data.v[minibatch_size:] = 0.0
             self.minibatch_labels.v[minibatch_size:] = -1
-            self.minibatch_indexes.batch[minibatch_size:] = -1
+            self.minibatch_indexes.v[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
         self.minibatch_data.update()
@@ -315,9 +315,9 @@ class Decision(units.Unit):
                 self.epoch_metrics[i] = (
                     numpy.zeros_like(self.minibatch_metrics.v))
         self.sample_output = numpy.zeros_like(
-            self.workflow.forward[-1].output.batch[0])
+            self.workflow.forward[-1].output.v[0])
         self.sample_input = numpy.zeros_like(
-            self.workflow.forward[0].input.batch[0])
+            self.workflow.forward[0].input.v[0])
         for i in range(0, len(self.mse)):
             if self.class_samples[i] <= 0:
                 continue
@@ -353,7 +353,7 @@ class Decision(units.Unit):
                     self.n_err[minibatch_class] /
                     self.class_samples[minibatch_class])
 
-        self.minibatch_mse.sync(read_only=True)
+        self.minibatch_mse.sync()
         offs = self.minibatch_offs[0]
         for i in range(0, minibatch_class):
             offs -= self.class_samples[i]
@@ -445,13 +445,13 @@ class Decision(units.Unit):
                     self.n_err[i] = 0
                 # Sync weights
                 for weights in self.weights_to_sync:
-                    weights.sync(read_only=True)
-                self.workflow.forward[0].input.sync(read_only=True)
-                self.workflow.forward[-1].output.sync(read_only=True)
+                    weights.sync()
+                self.workflow.forward[0].input.sync()
+                self.workflow.forward[-1].output.sync()
                 self.sample_output[:] = \
-                    self.workflow.forward[-1].output.batch[0][:]
+                    self.workflow.forward[-1].output.v[0][:]
                 self.sample_input[:] = \
-                    self.workflow.forward[0].input.batch[0][:]
+                    self.workflow.forward[0].input.v[0][:]
 
             # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
@@ -1058,8 +1058,8 @@ def main():
             fin.close()
             layers = []
             for i in range(0, len(w0.forward) - 1):
-                layers.append(w0.forward[i].output.batch.size //
-                              w0.forward[i].output.batch.shape[0])
+                layers.append(w0.forward[i].output.v.size //
+                              w0.forward[i].output.v.shape[0])
             layers.append(2)
             w = Workflow2(layers=layers, device=device)
             w.initialize()

@@ -57,10 +57,10 @@ class GD(units.OpenCLUnit):
         self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector(device)
         self.bias = None  # formats.Vector(device)
-        self.y = None  # formats.Batch(device)
-        self.h = None  # formats.Batch(device)
-        self.err_y = None  # formats.Batch(device)
-        self.err_h = formats.Batch(device)
+        self.y = None  # formats.Vector(device)
+        self.h = None  # formats.Vector(device)
+        self.err_y = None  # formats.Vector(device)
+        self.err_h = formats.Vector(device)
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
         self.batch_size = None  # [0]
@@ -78,11 +78,11 @@ class GD(units.OpenCLUnit):
         self.krn_bias_ = None
 
     def initialize(self):
-        if (self.err_h.batch == None or
-            self.err_h.batch.size != self.h.batch.size):
-            self.err_h.batch = numpy.zeros(self.h.batch.shape,
+        if (self.err_h.v == None or
+            self.err_h.v.size != self.h.v.size):
+            self.err_h.v = numpy.zeros(self.h.v.shape,
                                            dtype=config.dtypes[config.dtype])
-            self.err_h.batch_ = None
+            self.err_h.v_ = None
 
         if (self.store_gradient and
             (self.gradient_weights.v == None or
@@ -138,26 +138,26 @@ class GD(units.OpenCLUnit):
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
             fout = open("%s/gd_%d_%d.cl" % (config.cache_dir,
-                self.h.batch.size // self.h.batch.shape[0],
-                self.y.batch.size // self.y.batch.shape[0]), "w")
+                self.h.v.size // self.h.v.shape[0],
+                self.y.v.size // self.y.v.shape[0]), "w")
             fout.write(s)
             fout.close()
 
             self.prg_ = pyopencl.Program(self.device.context_, s).build()
 
             self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
-            self.krn_err_h_.set_arg(0, self.err_y.batch_)
+            self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.weights.v_)
-            self.krn_err_h_.set_arg(2, self.err_h.batch_)
+            self.krn_err_h_.set_arg(2, self.err_h.v_)
 
             self.krn_weights_ = pyopencl.Kernel(self.prg_, "weights_update")
-            self.krn_weights_.set_arg(0, self.err_y.batch_)
-            self.krn_weights_.set_arg(1, self.h.batch_)
+            self.krn_weights_.set_arg(0, self.err_y.v_)
+            self.krn_weights_.set_arg(1, self.h.v_)
             self.krn_weights_.set_arg(2, self.weights.v_)
             self.krn_weights_.set_arg(3, self.gradient_weights.v_)
 
             self.krn_bias_ = pyopencl.Kernel(self.prg_, "bias_update")
-            self.krn_bias_.set_arg(0, self.err_y.batch_)
+            self.krn_bias_.set_arg(0, self.err_y.v_)
             self.krn_bias_.set_arg(1, self.bias.v_)
             self.krn_bias_.set_arg(2, self.gradient_bias.v_)
 
@@ -168,7 +168,7 @@ class GD(units.OpenCLUnit):
         self.bias.sync()
         bias = self.bias.v
         bias = bias.reshape(bias.size)  # make it plain
-        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+        batch_size = self.y.v.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
         r_batch_size = 1.0 / batch_size
         weights = self.weights.v
@@ -179,9 +179,9 @@ class GD(units.OpenCLUnit):
         weights *= 1.0 + ((-self.global_alpha) * self.global_lambda)
 
         for i in range(0, batch_size):  # loop by batch
-            err_y = self.err_y.batch[i]
+            err_y = self.err_y.v[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
-            h = self.h.batch[i]
+            h = self.h.v[i]
             h = h.reshape(h.size)  # make it plain
             weights += numpy.outer(h, err_y) * ((-self.global_alpha) *
                                                 r_batch_size)
@@ -195,7 +195,7 @@ class GD(units.OpenCLUnit):
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
 
-        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+        batch_size = self.y.v.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
@@ -236,12 +236,12 @@ class GD(units.OpenCLUnit):
         self.weights.sync()
         self.err_y.sync()
         weights = self.weights.v
-        err_y = self.err_y.batch.reshape([self.err_y.batch.shape[0],
-                                          self.err_y.batch.size //
-                                          self.err_y.batch.shape[0]])
-        err_h = self.err_h.batch.reshape([self.err_h.batch.shape[0],
-                                          self.err_h.batch.size //
-                                          self.err_h.batch.shape[0]])
+        err_y = self.err_y.v.reshape([self.err_y.v.shape[0],
+                                          self.err_y.v.size //
+                                          self.err_y.v.shape[0]])
+        err_h = self.err_h.v.reshape([self.err_h.v.shape[0],
+                                          self.err_h.v.size //
+                                          self.err_h.v.shape[0]])
         numpy.dot(err_y, weights, err_h)
         self.err_h.update()
 
@@ -276,8 +276,8 @@ class GD(units.OpenCLUnit):
             self.log().debug("BP %d_%d in %.2f sec (min, avg, max):\t"
                   "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f\t"
                   "WAlpha=%.6f,%.4f,%.2f\tBAlpha=%.6f,%.4f,%.2f" %
-                  (self.h.batch.size // self.h.batch.shape[0],
-                   self.y.batch.size // self.y.batch.shape[0],
+                  (self.h.v.size // self.h.v.shape[0],
+                   self.y.v.size // self.y.v.shape[0],
                    time.time() - t_start,
                    numpy.fabs(weights).min(),
                    numpy.average(numpy.fabs(weights)),
@@ -294,8 +294,8 @@ class GD(units.OpenCLUnit):
         else:
             self.log().debug("BP %d_%d in %.2f sec (min, avg, max):\t"
                   "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f" %
-                  (self.h.batch.size // self.h.batch.shape[0],
-                   self.y.batch.size // self.y.batch.shape[0],
+                  (self.h.v.size // self.h.v.shape[0],
+                   self.y.v.size // self.y.v.shape[0],
                    time.time() - t_start,
                    numpy.fabs(weights).min(),
                    numpy.average(numpy.fabs(weights)),
@@ -364,8 +364,8 @@ class GDTanh(GD):
         """
         self.y.sync()
         self.err_y.sync()
-        y = self.y.batch
-        self.err_y.batch *= y * y * (-0.508262) + 1.143819
+        y = self.y.v
+        self.err_y.v *= y * y * (-0.508262) + 1.143819
         self.err_y.update()
 
     def initialize(self):
@@ -374,8 +374,8 @@ class GDTanh(GD):
         if retval or not self.device:
             return retval
         self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
-        self.krn_err_y_.set_arg(0, self.err_y.batch_)
-        self.krn_err_y_.set_arg(1, self.y.batch_)
+        self.krn_err_y_.set_arg(0, self.err_y.v_)
+        self.krn_err_y_.set_arg(1, self.y.v_)
 
 
 class GDA(GD):
@@ -439,14 +439,14 @@ class GDA(GD):
         if not self.device:
             return
         self.krn_weights_a_ = pyopencl.Kernel(self.prg_, "weights_update_a")
-        self.krn_weights_a_.set_arg(0, self.err_y.batch_)
-        self.krn_weights_a_.set_arg(1, self.h.batch_)
+        self.krn_weights_a_.set_arg(0, self.err_y.v_)
+        self.krn_weights_a_.set_arg(1, self.h.v_)
         self.krn_weights_a_.set_arg(2, self.weights.v_)
         self.krn_weights_a_.set_arg(9, self.weights_alphas.v_)
 
         self.krn_bias_a_ = pyopencl.Kernel(self.prg_, "bias_update_a")
         self.krn_bias_a_.set_arg(0, self.bias.v_)
-        self.krn_bias_a_.set_arg(1, self.err_y.batch_)
+        self.krn_bias_a_.set_arg(1, self.err_y.v_)
         self.krn_bias_a_.set_arg(7, self.bias_alphas.v_)
 
     def gpu_weights_update(self):
@@ -457,7 +457,7 @@ class GDA(GD):
         self.weights_alphas.sync(formats.GPU)
         self.bias_alphas.sync(formats.GPU)
 
-        batch_size = self.y.batch.shape[0] if self.batch_size == None \
+        batch_size = self.y.v.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
         kr = numpy.empty([6], config.dtypes[config.dtype])
         kr[0] = 1.0 / batch_size

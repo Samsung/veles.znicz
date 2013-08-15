@@ -58,9 +58,9 @@ class EvaluatorSoftmax(units.OpenCLUnit):
     def __init__(self, threshold=1.0, threshold_low=None, device=None,
                  compute_confusion_matrix=True):
         super(EvaluatorSoftmax, self).__init__(device=device)
-        self.labels = None  # formats.Labels()
-        self.y = None  # formats.Batch()
-        self.err_y = formats.Batch()
+        self.labels = None  # formats.Vector()
+        self.y = None  # formats.Vector()
+        self.err_y = formats.Vector()
         self.batch_size = None  # [0]
         self.max_samples_per_epoch = None  # [0]
         self.threshold = threshold
@@ -76,30 +76,30 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
-        itype = config.get_itype_from_size((self.y.batch.size //
-                                            self.y.batch.shape[0]))
+        itype = config.get_itype_from_size((self.y.v.size //
+                                            self.y.v.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
         self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
-        if (self.err_y.batch == None or
-            self.err_y.batch.size != self.y.batch.size):
-            self.err_y.batch = numpy.zeros(self.y.batch.shape,
+        if (self.err_y.v == None or
+            self.err_y.v.size != self.y.v.size):
+            self.err_y.v = numpy.zeros(self.y.v.shape,
                 dtype=config.dtypes[config.dtype])
-            self.err_y.batch_ = None
+            self.err_y.v_ = None
 
         if self.n_err_skipped.v == None or self.n_err_skipped.v.size < 2:
             self.n_err_skipped.v = numpy.zeros(2, dtype=config.itypes[itype2])
             self.n_err_skipped.v_ = None
 
         if (self.skipped.v == None or
-            self.skipped.v.size != self.y.batch.shape[0]):
-            self.skipped.v = numpy.zeros(self.y.batch.shape[0],
+            self.skipped.v.size != self.y.v.shape[0]):
+            self.skipped.v = numpy.zeros(self.y.v.shape[0],
                 dtype=numpy.int8)
             self.skipped.v_ = None
 
-        out_size = self.y.batch.size // self.y.batch.shape[0]
+        out_size = self.y.v.size // self.y.v.shape[0]
         if self.compute_confusion_matrix:
             if (self.confusion_matrix.v == None or
                 self.confusion_matrix.v.size != out_size * out_size):
@@ -140,7 +140,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                     self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_y.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
-                    self.err_y.batch.size // self.err_y.batch.shape[0])
+                    self.err_y.v.size // self.err_y.v.shape[0])
             s = defines
             for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
@@ -148,17 +148,17 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 s += fin.read()
                 fin.close()
             fout = open("%s/ev_%d.cl" % (config.cache_dir,
-                self.y.batch.size // self.y.batch.shape[0]), "w")
+                self.y.v.size // self.y.v.shape[0]), "w")
             fout.write(s)
             fout.close()
 
             self.prg_ = pyopencl.Program(self.device.context_, s).build()
 
             self.krn_ = pyopencl.Kernel(self.prg_, "ev_sm")
-            self.krn_.set_arg(0, self.y.batch_)
+            self.krn_.set_arg(0, self.y.v_)
             self.krn_.set_arg(1, self.max_idx.v_)
             self.krn_.set_arg(2, self.labels.v_)
-            self.krn_.set_arg(3, self.err_y.batch_)
+            self.krn_.set_arg(3, self.err_y.v_)
             self.krn_.set_arg(4, self.skipped.v_)
             self.krn_.set_arg(5, self.n_err_skipped.v_)
             self.krn_.set_arg(6, self.confusion_matrix.v_)
@@ -223,9 +223,9 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         n_ok = 0
         n_skip = 0
         for i in range(0, batch_size):  # loop by batch
-            y = self.y.batch[i]
+            y = self.y.v[i]
             y = y.reshape(y.size)  # make it plain
-            err_y = self.err_y.batch[i]
+            err_y = self.err_y.v[i]
             err_y = err_y.reshape(err_y.size)  # make it plain
 
             skip = False
@@ -250,8 +250,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 self.max_err_y_sum = max(self.max_err_y_sum,
                     numpy.sum(numpy.fabs(err_y)))
         # Set errors for excessive samples to zero
-        if batch_size < self.err_y.batch.shape[0]:
-            err_y = self.err_y.batch[batch_size:]
+        if batch_size < self.err_y.v.shape[0]:
+            err_y = self.err_y.v[batch_size:]
             err_y = err_y.reshape(err_y.size)  # make it plain
             err_y[:] = 0.0
         self.n_err_skipped.v[0] += batch_size - n_ok
@@ -306,9 +306,9 @@ class EvaluatorMSE(units.OpenCLUnit):
     """
     def __init__(self, device=None, threshold_skip=0.0, threshold_ok=0.0):
         super(EvaluatorMSE, self).__init__(device=device)
-        self.target = None  # formats.Batch()
-        self.y = None  # formats.Batch()
-        self.err_y = formats.Batch()
+        self.target = None  # formats.Vector()
+        self.y = None  # formats.Vector()
+        self.err_y = formats.Vector()
         self.batch_size = None  # [0]
         self.max_samples_per_epoch = None  # [0]
         self.threshold_skip = threshold_skip
@@ -323,17 +323,17 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.labels = None
 
     def initialize(self):
-        itype = config.get_itype_from_size((self.y.batch.size //
-                                            self.y.batch.shape[0]))
+        itype = config.get_itype_from_size((self.y.v.size //
+                                            self.y.v.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
-        if (self.err_y.batch == None or
-            self.err_y.batch.size != self.y.batch.size):
-            self.err_y.batch = numpy.zeros(self.y.batch.shape,
+        if (self.err_y.v == None or
+            self.err_y.v.size != self.y.v.size):
+            self.err_y.v = numpy.zeros(self.y.v.shape,
                 dtype=config.dtypes[config.dtype])
-            self.err_y.batch_ = None
+            self.err_y.v_ = None
 
         if self.n_err_skipped.v == None or self.n_err_skipped.v.size < 2:
             self.n_err_skipped.v = numpy.zeros(2, dtype=config.itypes[itype2])
@@ -346,8 +346,8 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.metrics.v_ = None
 
         if (self.mse.v == None or
-            self.mse.v.size != self.err_y.batch.shape[0]):
-            self.mse.v = numpy.zeros(self.err_y.batch.shape[0],
+            self.mse.v.size != self.err_y.v.shape[0]):
+            self.mse.v = numpy.zeros(self.err_y.v.shape[0],
                 dtype=config.dtypes[config.dtype])
             self.mse.v_ = None
 
@@ -373,7 +373,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                     self.device.info.BLOCK_SIZE[config.dtype],
                     self.err_y.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
-                    self.err_y.batch.size // self.err_y.batch.shape[0])
+                    self.err_y.v.size // self.err_y.v.shape[0])
             s = defines
             for src, define in self.cl_sources_.items():
                 s += "\n" + define + "\n"
@@ -381,16 +381,16 @@ class EvaluatorMSE(units.OpenCLUnit):
                 s += fin.read()
                 fin.close()
             fout = open("%s/ev_%d.cl" % (config.cache_dir,
-                self.y.batch.size // self.y.batch.shape[0]), "w")
+                self.y.v.size // self.y.v.shape[0]), "w")
             fout.write(s)
             fout.close()
 
             self.prg_ = pyopencl.Program(self.device.context_, s).build()
 
             self.krn_ = pyopencl.Kernel(self.prg_, "ev_mse")
-            self.krn_.set_arg(0, self.y.batch_)
-            self.krn_.set_arg(1, self.target.batch_)
-            self.krn_.set_arg(2, self.err_y.batch_)
+            self.krn_.set_arg(0, self.y.v_)
+            self.krn_.set_arg(1, self.target.v_)
+            self.krn_.set_arg(2, self.err_y.v_)
             self.krn_.set_arg(3, self.n_err_skipped.v_)
             self.krn_.set_arg(4, self.metrics.v_)
             self.krn_.set_arg(8, self.mse.v_)
@@ -402,7 +402,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         batch_size = self.batch_size[0]
 
         if self.class_target != None:
-            self.n_err_skipped.sync(read_only=True)
+            self.n_err_skipped.sync()
             old_n_err = self.n_err_skipped.v[0]
 
         self.y.sync(formats.GPU)
@@ -435,10 +435,10 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         if self.class_target != None:
             n_err = 0
-            self.y.sync(read_only=True)
+            self.y.sync()
             self.n_err_skipped.sync()
             t = self.class_target.v
-            y = self.y.batch
+            y = self.y.v
             for i in range(0, y.shape[0]):
                 md = 1.0e30
                 mi = 0

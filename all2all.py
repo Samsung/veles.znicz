@@ -43,8 +43,8 @@ class All2All(units.Forward):
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
                  rand=rnd.default, weights_transposed=False):
         super(All2All, self).__init__(device=device)
-        self.input = None  # formats.Batch(device)
-        self.output = formats.Batch(device)
+        self.input = None  # formats.Vector(device)
+        self.output = formats.Vector(device)
         self.weights = formats.Vector(device)
         self.bias = formats.Vector(device)
         self.output_shape = output_shape
@@ -60,9 +60,9 @@ class All2All(units.Forward):
 
     def initialize(self):
         if self.weights_amplitude == None:
-            self.weights_amplitude = 9.0 / (self.input.batch.size //
-                                            self.input.batch.shape[0])
-        n_weights = self.input.batch.size // self.input.batch.shape[0] * \
+            self.weights_amplitude = 9.0 / (self.input.v.size //
+                                            self.input.v.shape[0])
+        n_weights = self.input.v.size // self.input.v.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.v = numpy.zeros([n_weights],
@@ -71,7 +71,7 @@ class All2All(units.Forward):
                            self.weights_amplitude)
             self.weights.v = self.weights.v.\
                     reshape([numpy.prod(self.output_shape),
-                        self.input.batch.size // self.input.batch.shape[0]])
+                        self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
@@ -79,8 +79,8 @@ class All2All(units.Forward):
                 self.weights.v = self.weights.v.reshape(self.weights.v.size)
                 self.weights.v[:] = a[:]
                 self.weights.v = self.weights.v.\
-                    reshape([self.input.batch.size //
-                             self.input.batch.shape[0],
+                    reshape([self.input.v.size //
+                             self.input.v.shape[0],
                              numpy.prod(self.output_shape)])
             self.weights.v_ = None
         if self.bias.v == None or \
@@ -91,12 +91,12 @@ class All2All(units.Forward):
                            self.weights_amplitude)
             self.bias.v_ = None
 
-        output_size = self.input.batch.shape[0] * numpy.prod(self.output_shape)
-        if self.output.batch == None or self.output.batch.size != output_size:
-            self.output.batch = numpy.zeros([self.input.batch.shape[0],
+        output_size = self.input.v.shape[0] * numpy.prod(self.output_shape)
+        if self.output.v == None or self.output.v.size != output_size:
+            self.output.v = numpy.zeros([self.input.v.shape[0],
                                              numpy.prod(self.output_shape)],
                                             dtype=config.dtypes[config.dtype])
-            self.output.batch_ = None
+            self.output.v_ = None
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -122,7 +122,7 @@ class All2All(units.Forward):
                         config.cl_defines[config.dtype], self.s_activation,
                         self.device.info.BLOCK_SIZE[config.dtype],
                         self.weights.aligned_.size // output_size, output_size,
-                        self.output.batch.size // self.output.batch.shape[0],
+                        self.output.v.size // self.output.v.shape[0],
                         self.output.aligned_.shape[0]))
             s = defines
             for src, define in self.cl_sources_.items():
@@ -136,17 +136,17 @@ class All2All(units.Forward):
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
             fout = open("%s/feed_%d_%d.cl" % (config.cache_dir,
-                self.input.batch.size // self.input.batch.shape[0],
-                self.output.batch.size // self.output.batch.shape[0]), "w")
+                self.input.v.size // self.input.v.shape[0],
+                self.output.v.size // self.output.v.shape[0]), "w")
             fout.write(s)
             fout.close()
 
             self.prg_ = pyopencl.Program(self.device.context_, s).build()
 
             self.krn_ = pyopencl.Kernel(self.prg_, "FEED_LAYER")
-            self.krn_.set_arg(0, self.input.batch_)
+            self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.weights.v_)
-            self.krn_.set_arg(2, self.output.batch_)
+            self.krn_.set_arg(2, self.output.v_)
             self.krn_.set_arg(3, self.bias.v_)
 
     def print_times(self, t_start):
@@ -155,7 +155,7 @@ class All2All(units.Forward):
         log = self.log()
         if not log.isEnabledFor(logging.DEBUG):
             return
-        y = self.output.batch
+        y = self.output.v
         self.output.sync()
         self.weights.sync()
         self.log().info("%s: %d samples with %d weights in %.2f sec "
@@ -187,13 +187,13 @@ class All2All(units.Forward):
         self.input.sync()
         self.weights.sync()
         self.bias.sync()
-        a = self.input.batch.reshape([self.input.batch.shape[0],
-            self.input.batch.size // self.input.batch.shape[0]])
+        a = self.input.v.reshape([self.input.v.shape[0],
+            self.input.v.size // self.input.v.shape[0]])
         b = self.weights.v
         if not self.weights_transposed:
             b = b.transpose()
-        numpy.dot(a, b, self.output.batch)
-        self.output.batch[:] += self.bias.v
+        numpy.dot(a, b, self.output.v)
+        self.output.v[:] += self.bias.v
         self.output.update()
 
     def run(self):
@@ -218,9 +218,9 @@ class All2AllTanh(All2All):
         if retval:
             return retval
         self.output.sync()
-        self.output.batch *= 0.6666
-        numpy.tanh(self.output.batch, self.output.batch)
-        self.output.batch *= 1.7159
+        self.output.v *= 0.6666
+        numpy.tanh(self.output.v, self.output.v)
+        self.output.v *= 1.7159
         self.output.update()
 
 
@@ -260,8 +260,8 @@ class All2AllSoftmax(All2All):
             return retval
 
         if self.max_idx.v == None or \
-           self.max_idx.v.size != self.output.batch.shape[0]:
-            self.max_idx.v = numpy.zeros(self.output.batch.shape[0],
+           self.max_idx.v.size != self.output.v.shape[0]:
+            self.max_idx.v = numpy.zeros(self.output.v.shape[0],
                 dtype=config.itypes[itype])
             self.max_idx.v_ = None
 
@@ -271,7 +271,7 @@ class All2AllSoftmax(All2All):
             return
 
         self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
-        self.krn_sm_.set_arg(0, self.output.batch_)
+        self.krn_sm_.set_arg(0, self.output.v_)
         self.krn_sm_.set_arg(1, self.max_idx.v_)
 
     def cpu_apply_exp(self):
@@ -279,13 +279,13 @@ class All2AllSoftmax(All2All):
         log = self.log()
         if log.isEnabledFor(logging.DEBUG):
             s = []
-            a = numpy.sort(self.output.batch.reshape(self.output.batch.size))
+            a = numpy.sort(self.output.v.reshape(self.output.v.size))
             for i in range(a.size - 1, a.size - 11, -1):
                 s.append("%.2f" % (a[i]))
             self.log().debug("Softmax Wx+b: ", ", ".join(s),
                              ", %.2f" % (a[0]))
-        for i in range(0, self.output.batch.shape[0]):
-            sample = self.output.batch[i]
+        for i in range(0, self.output.v.shape[0]):
+            sample = self.output.v[i]
             im = sample.argmax()
             self.max_idx[i] = im
             m = sample[im]

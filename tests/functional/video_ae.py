@@ -88,9 +88,9 @@ class Loader(units.Unit):
 
         self.rnd = [rnd]
 
-        self.minibatch_data = formats.Batch()
-        self.minibatch_indexes = formats.Labels()
-        self.minibatch_labels = formats.Labels()
+        self.minibatch_data = formats.Vector()
+        self.minibatch_indexes = formats.Vector()
+        self.minibatch_labels = formats.Vector()
 
         self.minibatch_class = [0]
         self.minibatch_last = [0]
@@ -187,15 +187,12 @@ class Loader(units.Unit):
         sh = [self.minibatch_maxsize[0]]
         for i in self.original_data.shape[1:]:
             sh.append(i)
-        self.minibatch_data.batch = numpy.zeros(
+        self.minibatch_data.v = numpy.zeros(
             sh, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.batch = numpy.zeros(
+        self.minibatch_labels.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int8)
-        self.minibatch_indexes.batch = numpy.zeros(
+        self.minibatch_indexes.v = numpy.zeros(
             [self.minibatch_maxsize[0]], dtype=numpy.int32)
-
-        self.minibatch_indexes.n_classes = self.total_samples[0]
-        self.minibatch_labels.n_classes = len(self.validation_paths)
 
         self.minibatch_offs[0] = self.total_samples[0]
 
@@ -248,21 +245,21 @@ class Loader(units.Unit):
         self.minibatch_data.sync()
 
         # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.batch
+        idxs = self.minibatch_indexes.v
         idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_labels.batch[0:minibatch_size] = \
+        self.minibatch_labels.v[0:minibatch_size] = \
             self.original_labels[idxs[0:minibatch_size]]
 
-        self.minibatch_data.batch[0:minibatch_size] = \
+        self.minibatch_data.v[0:minibatch_size] = \
             self.original_data[idxs[0:minibatch_size]]
 
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.batch[minibatch_size:] = 0.0
-            self.minibatch_labels.batch[minibatch_size:] = -1
-            self.minibatch_indexes.batch[minibatch_size:] = -1
+            self.minibatch_data.v[minibatch_size:] = 0.0
+            self.minibatch_labels.v[minibatch_size:] = -1
+            self.minibatch_indexes.v[minibatch_size:] = -1
 
         # Set update flag for GPU operation.
         self.minibatch_data.update()
@@ -293,10 +290,10 @@ class ImageSaverAE(units.Unit):
                                  "/tmp/img/train"]):
         super(ImageSaverAE, self).__init__()
         self.out_dirs = out_dirs
-        self.input = None  # formats.Batch()
-        self.output = None  # formats.Batch()
-        self.indexes = None  # formats.Batch()
-        self.labels = None  # formats.Batch()
+        self.input = None  # formats.Vector()
+        self.output = None  # formats.Vector()
+        self.indexes = None  # formats.Vector()
+        self.labels = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
 
@@ -314,10 +311,10 @@ class ImageSaverAE(units.Unit):
         self.labels.sync()
         xy = None
         for i in range(0, self.minibatch_size[0]):
-            x = self.input.batch[i]
-            y = self.output.batch[i].reshape(x.shape)
-            idx = self.indexes.batch[i]
-            lbl = self.labels.batch[i]
+            x = self.input.v[i]
+            y = self.output.v[i].reshape(x.shape)
+            idx = self.indexes.v[i]
+            lbl = self.labels.v[i]
             d = x - y
             mse = numpy.linalg.norm(d) / d.size
             if xy == None:
@@ -420,9 +417,9 @@ class Decision(units.Unit):
                 self.epoch_metrics[i] = (
                     numpy.zeros_like(self.minibatch_metrics.v))
         self.sample_output = numpy.zeros_like(
-            self.workflow.forward[-1].output.batch[0])
+            self.workflow.forward[-1].output.v[0])
         self.sample_input = numpy.zeros_like(
-            self.workflow.forward[0].input.batch[0])
+            self.workflow.forward[0].input.v[0])
 
     def run(self):
         if self.t1 == None:
@@ -535,9 +532,9 @@ class Decision(units.Unit):
                 self.workflow.forward[0].input.sync()
                 self.workflow.forward[-1].output.sync()
                 self.sample_output[:] = \
-                    self.workflow.forward[-1].output.batch[0][:]
+                    self.workflow.forward[-1].output.v[0][:]
                 self.sample_input[:] = \
-                    self.workflow.forward[0].input.batch[0][:]
+                    self.workflow.forward[0].input.v[0][:]
 
             # Reset statistics per class
             self.minibatch_n_err.v[:] = 0
