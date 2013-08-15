@@ -524,6 +524,7 @@ class Decision(units.Unit):
         self.minibatch_size = None
 
     def init_unpickled(self):
+        super(Decision, self).init_unpickled()
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.n_err = [1.0e30, 1.0e30, 1.0e30]
         self.n_err_pt = [100.0, 100.0, 100.0]
