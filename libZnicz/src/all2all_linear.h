@@ -21,12 +21,15 @@ namespace Znicz {
 /** @brief "All to all" neural network layer with linear activation function
  */
 class All2AllLinear : public All2All {
+ public:
+  virtual std::string Name() const noexcept override final;
+
  protected:
   /** @details Linear activation function, does nothing on the input data:
    *      f(x) = x
    */
   virtual void ApplyActivationFunction(float* data,
-                                  size_t length) const override final {
+                                       size_t length) const override final {
   }
 };
 

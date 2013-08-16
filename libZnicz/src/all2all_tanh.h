@@ -21,6 +21,9 @@ namespace Znicz {
 /** @brief "All to all" neural network layer with Tanh activation function
  */
 class All2AllTanh : public All2All {
+ public:
+  virtual std::string Name() const noexcept override final;
+
  protected:
   /** @brief Activation function used by the neural network layer.
    *  @param data Vector to be transformed

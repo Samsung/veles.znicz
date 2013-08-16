@@ -28,10 +28,6 @@ All2All::All2All() : setters_ {
 }, inputs_(0), outputs_(0) {
 }
 
-std::string All2All::Name() const noexcept {
-  return "All2All";
-}
-
 void All2All::SetParameter(const std::string& name,
                            std::shared_ptr<void> value) {
   auto it = setters_.find(name);

@@ -14,10 +14,15 @@
 #include <cmath>
 #include <simd/memory.h>
 #include <simd/arithmetic-inl.h>
+#include <veles/unit_registry.h>
 #include "src/all2all_tanh.h"
 
 namespace Veles {
 namespace Znicz {
+
+std::string All2AllTanh::Name() const noexcept {
+  return "All2AllTanh";
+}
 
 void All2AllTanh::ApplyActivationFunction(float* data, size_t length) const {
   std::unique_ptr<float[], void (*)(void*)> tmp(
@@ -28,6 +33,8 @@ void All2AllTanh::ApplyActivationFunction(float* data, size_t length) const {
   }
   real_multiply_scalar(tmp.get(), length, kScaleY, data);
 }
+
+REGISTER_UNIT(All2AllTanh);
 
 }  // namespace Znicz
 }  // namespace Veles

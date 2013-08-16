@@ -27,7 +27,6 @@ namespace Znicz {
 class All2All : public Unit {
  public:
   All2All();
-  virtual std::string Name() const noexcept override final;
   virtual void SetParameter(const std::string& name,
                             std::shared_ptr<void> value) override final;
   virtual void Execute(float* in, float* out) const override final;
