@@ -96,6 +96,10 @@ class Loader(units.Unit):
             return res
 
         # Check for correctness.
+        if self.total_samples[0] == 0:
+            raise error.ErrBadFormat("class_samples, nextclass_offs "
+                "and total_samples should be initialized after load_data(): "
+                "got self.total_samples[0] == 0")
         if self.total_samples[0] != self.nextclass_offs[2]:
             raise error.ErrBadFormat("self.total_samples[0] != "
                 "self.nextclass_offs[2] (%d != %d)" % (
@@ -118,6 +122,8 @@ class Loader(units.Unit):
         if self.minibatch_data.v == None:
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")
+
+        self.minibatch_offs[0] = self.total_samples[0]
 
         # Initial shuffle.
         self.shuffled_indexes = numpy.arange(self.total_samples[0],
@@ -210,8 +216,8 @@ class FullBatchLoader(Loader):
     Should be overriden in child class:
         load_data()
     """
-    def __init__(self):
-        super(FullBatchLoader, self).__init__()
+    def init_unpickled(self):
+        super(FullBatchLoader, self).init_unpickled()
         self.original_data = None
         self.original_labels = None
         self.original_target = None
