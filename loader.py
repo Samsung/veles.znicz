@@ -407,7 +407,7 @@ class ImageLoader(FullBatchLoader):
             for pathname in self.target_paths:
                 (aa, ll) = self.load_original(pathname)
                 for i, label in enumerate(ll):
-                    self.target_by_label[label] = aa[i]
+                    self.target_by_lbl[label] = aa[i]
 
         self.original_data = data
 
