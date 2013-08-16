@@ -48,7 +48,7 @@ class Loader(loader.ImageLoader):
     """
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
-        self.lbl_re_ = re.compile("/(\d+)\.\w+/[\w*.]+$")
+        self.lbl_re_ = re.compile("/(\d+)\.\w+/[\w.]+$")
 
     def get_label_from_filename(self, filename):
         res = self.lbl_re_.search(filename)
