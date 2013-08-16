@@ -229,7 +229,8 @@ class Decision(units.Unit):
                             except FileNotFoundError:
                                 pass
                         self.fnme = "%s/channels_%.2f.pickle" % \
-                            (this_dir, self.n_err_pt[minibatch_class])
+                            (config.snapshot_dir,
+                             self.n_err_pt[minibatch_class])
                         self.log().info(
                             "                                        "
                             "Snapshotting to %s" % (self.fnme))

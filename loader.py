@@ -107,6 +107,11 @@ class Loader(units.Unit):
                 raise error.ErrBadFormat("self.nextclass_offs[%d] != "
                     "%d" % (self.nextclass_offs[i], offs))
 
+        # Adjust minibatch_maxsize.
+        self.minibatch_maxsize[0] = min(self.minibatch_maxsize[0],
+            max(self.class_samples[2], self.class_samples[1],
+                self.class_samples[0]))
+
         res = self.create_minibatches()
         if res:
             return res
