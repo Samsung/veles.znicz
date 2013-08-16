@@ -26,7 +26,6 @@ add_path("%s/../../../src" % (this_dir))
 
 import units
 import formats
-import error
 import numpy
 import config
 import rnd
@@ -37,285 +36,26 @@ import pickle
 import time
 import scipy.ndimage
 import tv_channel_plotter
+import loader
+import re
 
 
-def normalize(a):
-    a -= a.min()
-    m = a.max()
-    if m:
-        a /= m
-        a *= 2.0
-        a -= 1.0
-
-
-def normalize_pointwise(a):
-    IMul = numpy.zeros_like(a[0])
-    IAdd = numpy.zeros_like(a[0])
-
-    mins = numpy.min(a, 0)
-    maxs = numpy.max(a, 0)
-    ds = maxs - mins
-    zs = numpy.nonzero(ds)
-
-    IMul[zs] = 2.0
-    IMul[zs] /= ds[zs]
-
-    mins *= IMul
-    IAdd[zs] = -1.0
-    IAdd[zs] -= mins[zs]
-
-    logging.info("%f %f %f %f" % (IMul.min(), IMul.max(),
-                                  IAdd.min(), IAdd.max()))
-
-    return (IMul, IAdd)
-
-
-class Loader(units.Unit):
-    """Loads Hands data and provides mini-batch output interface.
+class Loader(loader.ImageLoader):
+    """Loads channels.
 
     Attributes:
-        rnd: rnd.Rand().
-
-        minibatch_data: Hands images scaled to [-1, 1].
-        minibatch_indexes: global indexes of images in minibatch.
-        minibatch_labels: labels for indexes in minibatch.
-
-        minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
-        minibatch_last: if current minibatch is last in it's class.
-
-        minibatch_offs: offset of the current minibatch in all samples,
-                        where first come test samples, then validation, with
-                        train ones at the end.
-        minibatch_size: size of the current minibatch.
-        total_samples: total number of samples in the dataset.
-        class_samples: number of samples per class.
-        minibatch_maxsize: maximum size of minibatch in samples.
-        nextclass_offs: offset in samples where the next class begins.
-
-        original_data: original Hands images scaled to [-1, 1] as single batch.
-        original_labels: original Hands labels as single batch.
-        width: width of the input image.
+        lbl_re_: regular expression for extracting label from filename.
     """
-    def __init__(self,
-                 test_paths=[],
-                 validation_paths=[],
-                 train_paths=[],
-                 minibatch_max_size=27, rnd=rnd.default):
-        super(Loader, self).__init__()
-        self.IMul = None
-        self.IAdd = None
+    def init_unpickled(self):
+        super(Loader, self).init_unpickled()
+        self.lbl_re_ = re.compile("/(\d+)\.\w+/[\w*.]+$")
 
-        self.test_paths = test_paths
-        self.validation_paths = validation_paths
-        self.train_paths = train_paths
-
-        self.rnd = [rnd]
-
-        self.minibatch_data = formats.Vector()
-        self.minibatch_indexes = formats.Vector()
-        self.minibatch_labels = formats.Vector()
-
-        self.minibatch_class = [0]
-        self.minibatch_last = [0]
-
-        self.total_samples = [0]
-        self.class_samples = [0, 0, 0]
-        self.minibatch_offs = [0]
-        self.minibatch_size = [0]
-        self.minibatch_maxsize = [minibatch_max_size]
-        self.nextclass_offs = [0, 0, 0]
-
-        self.original_data = None
-        self.original_labels = None
-
-        self.shuffled_indexes = None
-
-    def load_original(self, pathname):
-        """Loads data from original files.
-        """
-        self.log().info("Loading from %s..." % (pathname))
-        files = glob.glob("%s/*.png" % (pathname))
-        files.sort()
-        n_files = len(files)
-        if not n_files:
-            raise error.ErrNotExists("No files fetched as %s" % (pathname))
-        a = scipy.ndimage.imread(files[0], True)
-        normalize(a)
-        aa = numpy.zeros([n_files, a.shape[0], a.shape[1]],
-                         dtype=config.dtypes[config.dtype])
-        aa[0][:] = a[:]
-        for i in range(1, n_files):
-            a = scipy.ndimage.imread(files[i], True)
-            normalize(a)
-            aa[i][:] = a[:]
-        return aa
-
-    def initialize(self):
-        """Here we will load data.
-        """
-        self.test_paths.sort()
-        self.validation_paths.sort()
-        self.train_paths.sort()
-        self.original_data = None
-        n_classes = max(len(self.test_paths),
-                        len(self.validation_paths),
-                        len(self.train_paths))
-        self.original_labels = numpy.zeros(0,
-            dtype=config.itypes[config.get_itype_from_size(n_classes)])
-        # Load test set.
-        for i in range(0, len(self.test_paths)):
-            a = self.load_original(self.test_paths[i])
-            if self.original_data == None:
-                self.original_data = a
-            else:
-                self.original_data = numpy.append(self.original_data, a, 0)
-            l = numpy.zeros(a.shape[0], dtype=self.original_labels.dtype)
-            l[:] = i
-            self.original_labels = numpy.append(self.original_labels, l, 0)
-        if self.original_data != None:
-            self.class_samples[0] = self.original_data.shape[0]
-            self.nextclass_offs[0] = self.original_data.shape[0]
-        else:
-            self.class_samples[0] = 0
-            self.nextclass_offs[0] = 0
-        # Load validation set.
-        for i in range(0, len(self.validation_paths)):
-            a = self.load_original(self.validation_paths[i])
-            if self.original_data == None:
-                self.original_data = a
-            else:
-                self.original_data = numpy.append(self.original_data, a, 0)
-            l = numpy.zeros(a.shape[0], dtype=self.original_labels.dtype)
-            l[:] = i
-            self.original_labels = numpy.append(self.original_labels, l, 0)
-        if self.original_data != None:
-            self.class_samples[1] = (self.original_data.shape[0] -
-                                     self.nextclass_offs[0])
-            self.nextclass_offs[1] = self.original_data.shape[0]
-        else:
-            self.class_samples[1] = 0
-            self.nextclass_offs[1] = 0
-        # Load train set.
-        for i in range(0, len(self.train_paths)):
-            a = self.load_original(self.train_paths[i])
-            if self.original_data == None:
-                self.original_data = a
-            else:
-                self.original_data = numpy.append(self.original_data, a, 0)
-            l = numpy.zeros(a.shape[0], dtype=self.original_labels.dtype)
-            l[:] = i
-            self.original_labels = numpy.append(self.original_labels, l, 0)
-        self.class_samples[2] = (self.original_data.shape[0] -
-            self.nextclass_offs[1])
-        self.nextclass_offs[2] = self.original_data.shape[0]
-        self.total_samples[0] = self.original_data.shape[0]
-
-        """
-        self.IMul, self.IAdd = normalize_pointwise(
-            self.original_data[self.nextclass_offs[1]:self.nextclass_offs[1] +
-                               self.class_samples[2]])
-
-        self.original_data[:] *= self.IMul
-        self.original_data[:] += self.IAdd
-
-        self.log().info("%f %f" % (self.original_data.min(),
-                                   self.original_data.max()))
-        self.log().info("%f %f" % (self.original_data.min(0).max(),
-                                   self.original_data.max(0).min()))
-        """
-
-        self.shuffled_indexes = numpy.arange(self.total_samples[0],
-                                             dtype=numpy.int32)
-
-        self.minibatch_maxsize[0] = min(self.minibatch_maxsize[0],
-                                        max(self.class_samples[2],
-                                            self.class_samples[1],
-                                            self.class_samples[0]))
-
-        sh = [self.minibatch_maxsize[0]]
-        for i in self.original_data.shape[1:]:
-            sh.append(i)
-        self.minibatch_data.v = numpy.zeros(
-            sh, self.original_data.dtype)
-        self.minibatch_labels.v = numpy.zeros(
-            [self.minibatch_maxsize[0]], dtype=self.original_labels.dtype)
-        self.minibatch_indexes.v = numpy.zeros(
-            [self.minibatch_maxsize[0]], dtype=self.shuffled_indexes.dtype)
-
-        self.minibatch_offs[0] = self.total_samples[0]
-
-        if self.class_samples[0]:
-            self.shuffle_validation_train()
-        else:
-            self.shuffle_train()
-
-    def shuffle_validation_train(self):
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
-                                                  self.nextclass_offs[2]])
-
-    def shuffle_train(self):
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:\
-                                                  self.nextclass_offs[2]])
-
-    def shuffle(self):
-        """Shuffle the dataset after one epoch.
-        """
-        self.shuffle_train()
-
-    def run(self):
-        """Prepare the minibatch.
-        """
-        t1 = time.time()
-
-        self.minibatch_offs[0] += self.minibatch_size[0]
-        # Reshuffle when end of data reached.
-        if self.minibatch_offs[0] >= self.total_samples[0]:
-            self.shuffle()
-            self.minibatch_offs[0] = 0
-
-        # Compute minibatch size and it's class.
-        for i in range(0, len(self.nextclass_offs)):
-            if self.minibatch_offs[0] < self.nextclass_offs[i]:
-                self.minibatch_class[0] = i
-                minibatch_size = min(self.minibatch_maxsize[0],
-                    self.nextclass_offs[i] - self.minibatch_offs[0])
-                if self.minibatch_offs[0] + minibatch_size >= \
-                   self.nextclass_offs[self.minibatch_class[0]]:
-                    self.minibatch_last[0] = 1
-                else:
-                    self.minibatch_last[0] = 0
-                break
-        else:
-            raise error.ErrNotExists("Could not determine minibatch class.")
-        self.minibatch_size[0] = minibatch_size
-
-        # Sync from GPU if neccessary.
-        self.minibatch_data.sync()
-
-        # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.v
-        idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
-            self.minibatch_offs[0] + minibatch_size]
-
-        self.minibatch_labels.v[0:minibatch_size] = \
-            self.original_labels[idxs[0:minibatch_size]]
-
-        self.minibatch_data.v[0:minibatch_size] = \
-            self.original_data[idxs[0:minibatch_size]]
-
-        # Fill excessive indexes.
-        if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.v[minibatch_size:] = 0.0
-            self.minibatch_labels.v[minibatch_size:] = -1
-            self.minibatch_indexes.v[minibatch_size:] = -1
-
-        # Set update flag for GPU operation.
-        self.minibatch_data.update()
-        self.minibatch_labels.update()
-        self.minibatch_indexes.update()
-
-        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
-                                             time.time() - t1))
+    def get_label_from_filename(self, filename):
+        res = self.lbl_re_.search(filename)
+        if res == None:
+            return
+        lbl = int(res.group(1))
+        return lbl
 
 
 import all2all
@@ -569,7 +309,11 @@ class Workflow(units.OpenCLUnit):
         self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        train_paths = glob.glob("%s/channels/img/*" % (
+                                config.test_dataset_root,))
+        for i in range(0, len(train_paths)):
+            train_paths[i] += "/*.png"
+        self.loader = Loader(train_paths=train_paths)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -695,22 +439,7 @@ class Workflow(units.OpenCLUnit):
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
-                   minibatch_maxsize,
-                   test_dir, validation_dir, train_dir,
-                   device):
-        if test_dir:
-            self.loader.test_paths = glob.glob("%s/*" % (test_dir))
-        else:
-            self.loader.test_paths = []
-        if validation_dir:
-            self.loader.validation_paths = \
-                glob.glob("%s/*" % (validation_dir))
-        else:
-            self.loader.validation_paths = []
-        if train_dir:
-            self.loader.train_paths = glob.glob("%s/*" % (train_dir))
-        else:
-            self.loader.train_paths = []
+                   minibatch_maxsize, device):
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.ev.device = device
         self.ev.threshold = threshold
@@ -872,7 +601,7 @@ class UYVYStreamLoader(units.Unit):
 
         sample = self.minibatch_data.v[0]
         sample[:] = a[:]
-        normalize(sample)
+        formats.normalize(sample)
         self.minibatch_data.update()
 
 
@@ -928,10 +657,7 @@ def main():
             w = Workflow(layers=[15, 13], device=device)
         w.initialize(threshold=1.0, threshold_low=1.0,
               global_alpha=0.001, global_lambda=0.0,
-              minibatch_maxsize=27,
-              test_dir=None, validation_dir=None,
-              train_dir=("%s/channels/img" % (config.test_dataset_root)),
-              device=device)
+              minibatch_maxsize=27, device=device)
     except KeyboardInterrupt:
         return
     try:

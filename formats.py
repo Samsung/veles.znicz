@@ -5,15 +5,86 @@ Data formats for connectors.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import numpy
 import units
 import pyopencl
 import os
 import config
 import error
+import logging
 
 
 CPU = 1
 GPU = 2
+
+
+def normalize(a):
+    """Normalizes numpy array to [-1, 1] in-place.
+    """
+    a -= a.min()
+    m = a.max()
+    if m:
+        a /= m
+        a *= 2.0
+        a -= 1.0
+
+
+def normalize_pointwise(a):
+    """Normalizes dataset pointwise.
+    """
+    IMul = numpy.zeros_like(a[0])
+    IAdd = numpy.zeros_like(a[0])
+
+    mins = numpy.min(a, 0)
+    maxs = numpy.max(a, 0)
+    ds = maxs - mins
+    zs = numpy.nonzero(ds)
+
+    IMul[zs] = 2.0
+    IMul[zs] /= ds[zs]
+
+    mins *= IMul
+    IAdd[zs] = -1.0
+    IAdd[zs] -= mins[zs]
+
+    logging.info("%f %f %f %f" % (IMul.min(), IMul.max(),
+                                  IAdd.min(), IAdd.max()))
+
+    return (IMul, IAdd)
+
+
+def realign(arr, boundary=4096):
+    """Reallocates array to become PAGE-aligned as required for
+        clEnqueueMapBuffer().
+    """
+    if arr == None:
+        return None
+    address = arr.__array_interface__["data"][0]
+    if address % boundary == 0:
+        return arr
+    N = numpy.prod(arr.shape)
+    d = arr.dtype
+    tmp = numpy.empty(N * d.itemsize + boundary, dtype=numpy.uint8)
+    address = tmp.__array_interface__["data"][0]
+    offset = (boundary - address % boundary) % boundary
+    newarr = tmp[offset:offset + N * d.itemsize]\
+        .view(dtype=d)\
+        .reshape(arr.shape, order="C")
+    newarr[:] = arr[:]
+    return newarr
+
+
+def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
+    """Allocates PAGE-aligned array required for clEnqueueMapBuffer().
+    """
+    N = numpy.prod(shape)
+    d = numpy.dtype(dtype)
+    tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
+    address = tmp.__array_interface__["data"][0]
+    offset = (boundary - address % boundary) % boundary
+    return tmp[offset:offset + N * d.itemsize]\
+        .view(dtype=d)\
+        .reshape(shape, order="C")
 
 
 class Vector(units.Connector):
@@ -81,7 +152,7 @@ class Vector(units.Connector):
             d2 = dim2
             if (n_dims > 1) and (d2 % BLOCK_SIZE):
                 d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = units.aligned_zeros([d1, d2],
+            self.aligned_ = aligned_zeros([d1, d2],
                 boundary=self.device.info.memalign, dtype=self.v.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
@@ -90,7 +161,7 @@ class Vector(units.Connector):
                 raise error.VelesException(
                     "Address after ndarray.view() differs from original one.")
         else:
-            self.aligned_ = units.realign(self.v, self.device.info.memalign)
+            self.aligned_ = realign(self.v, self.device.info.memalign)
             self.v = self.aligned_
         mf = pyopencl.mem_flags
         self.v_ = pyopencl.Buffer(self.device.context_,
