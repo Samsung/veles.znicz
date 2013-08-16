@@ -296,10 +296,11 @@ class ImageLoader(FullBatchLoader):
     Should be overriden in child class:
         get_label_from_filename()
     """
-    def __init__(self, test_paths=None, validation_paths=None,
-                 train_paths=None, target_paths=None,
-                 grayscale=True):
-        super(ImageLoader, self).__init__()
+    def __init__(self, minibatch_max_size=100,
+                 test_paths=None, validation_paths=None, train_paths=None,
+                 target_paths=None, grayscale=True, rnd=rnd.default):
+        super(ImageLoader, self).__init__(
+            minibatch_max_size=minibatch_max_size, rnd=rnd)
         self.test_paths = test_paths
         self.validation_paths = validation_paths
         self.train_paths = train_paths
@@ -390,7 +391,8 @@ class ImageLoader(FullBatchLoader):
                 else:
                     data = numpy.append(data, aa, axis=0)
             self.class_samples[i] = len(data) - offs
-            self.nextclass_offs[i] = len(data)
+            offs = len(data)
+            self.nextclass_offs[i] = offs
 
         self.total_samples[0] = len(data)
         if len(labels):

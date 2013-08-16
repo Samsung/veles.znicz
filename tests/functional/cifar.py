@@ -23,9 +23,9 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import numpy
 import units
 import formats
-import numpy
 import config
 import rnd
 import opencl
