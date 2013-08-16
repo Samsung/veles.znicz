@@ -18,14 +18,12 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
+add_path("%s" % (this_dir))
 add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
 import units
-import formats
-import struct
-import error
 import numpy
 import config
 import rnd
@@ -35,6 +33,8 @@ import pickle
 import time
 import logging
 import glob
+import mnist
+import formats
 
 
 add_path("/usr/local/lib/python3.3/dist-packages/freetype")
@@ -101,290 +101,28 @@ def do_plot(fontPath, text, size, angle, sx, sy,
     return img
 
 
-def normalize(a):
-    a -= a.min()
-    m = a.max()
-    if m:
-        a /= m
-        a *= 2.0
-        a -= 1.0
-
-
-class Loader(units.Unit):
-    """Loads MNIST data and provides mini-batch output interface.
-
-    Attributes:
-        rnd: rnd.Rand().
-
-        minibatch_data: MNIST images scaled to [-1, 1].
-        minibatch_indexes: global indexes of images in minibatch.
-        minibatch_labels: labels for indexes in minibatch.
-
-        minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
-        minibatch_last: if current minibatch is last in it's class.
-
-        minibatch_offs: offset of the current minibatch in all samples,
-                        where first come test samples, then validation, with
-                        train ones at the end.
-        minibatch_size: size of the current minibatch.
-        total_samples: total number of samples in the dataset.
-        class_samples: number of samples per class.
-        minibatch_maxsize: maximum size of minibatch in samples.
-        nextclass_offs: offset in samples where the next class begins.
-
-        original_data: original MNIST images scaled to [-1, 1] as single batch.
-        original_labels: original MNIST labels as single batch.
+class Loader(mnist.Loader):
+    """Loads MNIST dataset.
     """
-    def __init__(self, classes=[0, 10000, 60000], minibatch_max_size=60,
-                 rnd=rnd.default):
-        """Constructor.
-
-        Parameters:
-            classes: [test, validation, train],
-                ints - in samples,
-                floats - relative from (0 to 1).
-            minibatch_size: minibatch max size.
-        """
-        super(Loader, self).__init__()
-        self.rnd = [rnd]
-
-        self.minibatch_data = formats.Vector()
-        self.minibatch_indexes = formats.Vector()
-        self.minibatch_labels = formats.Vector()
-        self.minibatch_target = formats.Vector()
-
-        self.minibatch_class = [0]
-        self.minibatch_last = [0]
-
-        self.total_samples = [70000]
-        self.class_samples = classes.copy()
-        if type(self.class_samples[2]) == float:
-            smm = 0
-            for i in range(0, len(self.class_samples) - 1):
-                self.class_samples[i] = int(
-                numpy.round(self.total_samples[0] * self.class_samples[i]))
-                smm += self.class_samples[i]
-            self.class_samples[-1] = self.total_samples[0] - smm
-        self.minibatch_offs = [self.total_samples[0]]
-        self.minibatch_size = [0]
-        self.minibatch_maxsize = [minibatch_max_size]
-        self.nextclass_offs = [0, 0, 0]
-        offs = 0
-        for i in range(0, len(self.class_samples)):
-            offs += self.class_samples[i]
-            self.nextclass_offs[i] = offs
-        if self.nextclass_offs[-1] != self.total_samples[0]:
-            raise error.ErrBadFormat("Sum of class samples (%d) differs from "
-                "total number of samples (%d)" % (self.nextclass_offs[-1],
-                                                  self.total_samples))
-
-        self.original_data = None
-        self.original_labels = None
-        self.original_target = None
-        self.class_target = formats.Vector()
-
-        self.shuffled_indexes = None
-
-    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
-        """Loads data from original MNIST files.
-        """
-        self.log().info("Loading from original MNIST files...")
-
-        # Reading labels:
-        fin = open(labels_fnme, "rb")
-
-        header, = struct.unpack(">i", fin.read(4))
-        if header != 2049:
-            raise error.ErrBadFormat("Wrong header in train-labels")
-
-        n_labels, = struct.unpack(">i", fin.read(4))
-        if n_labels != labels_count:
-            raise error.ErrBadFormat("Wrong number of labels in train-labels")
-
-        arr = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
-        if arr.size != n_labels:
-            raise error.ErrBadFormat("EOF reached while reading labels from "
-                                     "train-labels")
-        self.original_labels[offs:offs + labels_count] = arr[:]
-        if self.original_labels.min() != 0 or self.original_labels.max() != 9:
-            raise error.ErrBadFormat("Wrong labels range in train-labels.")
-
-        fin.close()
-
-        # Reading images:
-        fin = open(images_fnme, "rb")
-
-        header, = struct.unpack(">i", fin.read(4))
-        if header != 2051:
-            raise error.ErrBadFormat("Wrong header in train-images")
-
-        n_images, = struct.unpack(">i", fin.read(4))
-        if n_images != n_labels:
-            raise error.ErrBadFormat("Wrong number of images in train-images")
-
-        n_rows, n_cols = struct.unpack(">2i", fin.read(8))
-        if n_rows != 28 or n_cols != 28:
-            raise error.ErrBadFormat("Wrong images size in train-images, "
-                                     "should be 28*28")
-
-        # 0 - white, 255 - black
-        pixels = numpy.fromfile(fin, dtype=numpy.ubyte,
-                                count=n_images * n_rows * n_cols)
-        if pixels.shape[0] != n_images * n_rows * n_cols:
-            raise error.ErrBadFormat("EOF reached while reading images "
-                                     "from train-images")
-
-        fin.close()
-
-        # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(config.dtypes[config.dtype]).\
-            reshape(n_images, n_rows, n_cols)
-        self.log().info("Original range: [%.1f, %.1f]" % (images.min(),
-                                                images.max()))
-        for image in images:
-            normalize(image)
-        self.log().info("Range after normalization: [%.1f, %.1f]" % (
-                                            images.min(), images.max()))
-        self.original_data[offs:offs + n_images] = images[:]
-        self.log().info("Done")
-
-    def initialize(self):
+    def load_data(self):
         """Here we will load MNIST data.
         """
-        if not self.original_labels or self.original_labels.size < 70000:
-            self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
-        if not self.original_data or self.original_data.shape[0] < 70000:
-            self.original_data = \
-            numpy.zeros([70000, 28, 28], dtype=config.dtypes[config.dtype])
-        if not self.shuffled_indexes or self.shuffled_indexes.size < 70000:
-            self.shuffled_indexes = numpy.arange(70000, dtype=numpy.int32)
-
-        global this_dir
-        self.load_original(0, 10000,
-                           "%s/MNIST/t10k-labels.idx1-ubyte" % (this_dir),
-                           "%s/MNIST/t10k-images.idx3-ubyte" % (this_dir))
-        self.load_original(10000, 60000,
-                           "%s/MNIST/train-labels.idx1-ubyte" % (this_dir),
-                           "%s/MNIST/train-images.idx3-ubyte" % (this_dir))
-
+        super(Loader, self).load_data()
         self.class_target.reset()
         self.class_target.v = numpy.zeros([10, 784],
             dtype=config.dtypes[config.dtype])
-
         for i in range(0, 10):
             img = do_plot("%s/arial.ttf" % (config.test_dataset_root,),
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_target.v[i] = img.ravel().astype(
                                 config.dtypes[config.dtype])
-            normalize(self.class_target.v[i])
-
+            formats.normalize(self.class_target.v[i])
         self.original_target = numpy.zeros([self.original_labels.shape[0],
                                             self.class_target.v.shape[1]],
             dtype=config.dtypes[config.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
             self.original_target[i] = self.class_target.v[label]
-
-        sh = [self.minibatch_maxsize[0]]
-        for i in self.original_data.shape[1:]:
-            sh.append(i)
-        self.minibatch_data.v = numpy.zeros(
-            sh, dtype=config.dtypes[config.dtype])
-        self.minibatch_labels.v = numpy.zeros(
-            [self.minibatch_maxsize[0]], dtype=numpy.int8)
-        self.minibatch_indexes.v = numpy.zeros(
-            [self.minibatch_maxsize[0]], dtype=numpy.int32)
-        sh = [self.minibatch_maxsize[0]]
-        for i in self.original_target.shape[1:]:
-            sh.append(i)
-        self.minibatch_target.v = numpy.zeros(
-            sh, dtype=config.dtypes[config.dtype])
-
-        if self.class_samples[0]:
-            self.shuffle_validation_train()
-        else:
-            self.shuffle_train()
-
-    def shuffle_validation_train(self):
-        """Shuffles validation and train dataset
-            so the layout will be:
-                0:10000: test,
-                10000:20000: randomized validation,
-                20000:70000: randomized train.
-        """
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
-                                                  self.nextclass_offs[2]])
-
-    def shuffle_train(self):
-        """Shuffles train dataset
-            so the layout will be:
-                0:10000: test,
-                10000:20000: validation,
-                20000:70000: randomized train.
-        """
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:\
-                                                  self.nextclass_offs[2]])
-
-    def shuffle(self):
-        """Shuffle the dataset after one epoch.
-        """
-        self.shuffle_train()
-
-    def run(self):
-        """Prepare the minibatch.
-        """
-        t1 = time.time()
-
-        self.minibatch_offs[0] += self.minibatch_size[0]
-        # Reshuffle when end of data reached.
-        if self.minibatch_offs[0] >= self.total_samples[0]:
-            self.shuffle()
-            self.minibatch_offs[0] = 0
-
-        # Compute minibatch size and it's class.
-        for i in range(0, len(self.nextclass_offs)):
-            if self.minibatch_offs[0] < self.nextclass_offs[i]:
-                self.minibatch_class[0] = i
-                minibatch_size = min(self.minibatch_maxsize[0],
-                    self.nextclass_offs[i] - self.minibatch_offs[0])
-                if self.minibatch_offs[0] + minibatch_size >= \
-                   self.nextclass_offs[self.minibatch_class[0]]:
-                    self.minibatch_last[0] = 1
-                else:
-                    self.minibatch_last[0] = 0
-                break
-        else:
-            raise error.ErrNotExists("Could not determine minibatch class.")
-        self.minibatch_size[0] = minibatch_size
-
-        # Fill minibatch data labels and indexes according to current shuffle.
-        idxs = self.minibatch_indexes.v
-        idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
-            self.minibatch_offs[0] + minibatch_size]
-
-        self.minibatch_labels.v[0:minibatch_size] = \
-            self.original_labels[idxs[0:minibatch_size]]
-
-        self.minibatch_data.v[0:minibatch_size] = \
-            self.original_data[idxs[0:minibatch_size]]
-
-        self.minibatch_target.v[0:minibatch_size] = \
-            self.original_target[idxs[0:minibatch_size]]
-
-        # Fill excessive indexes.
-        if minibatch_size < self.minibatch_maxsize[0]:
-            self.minibatch_data.v[minibatch_size:] = 0.0
-            self.minibatch_labels.v[minibatch_size:] = -1
-            self.minibatch_indexes.v[minibatch_size:] = -1
-
-        # Set update flag for GPU operation.
-        self.minibatch_data.update()
-        self.minibatch_labels.update()
-        self.minibatch_indexes.update()
-        self.minibatch_target.update()
-
-        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
 
 
 import all2all
