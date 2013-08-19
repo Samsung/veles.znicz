@@ -219,25 +219,20 @@ class Decision(units.Unit):
             self.on_stop_condition(minibatch_class)
 
     def on_print_statistics(self, minibatch_class, dt):
-        if self.epoch_metrics[minibatch_class]:
-            self.log().info(
-                "Epoch %d Class %d AvgMSE %.6f n_err %d (%.2f%%) "
-                "MaxMSE %.6f MinMSE %.3e in %.2f sec" %
-                (self.epoch_number[0], minibatch_class,
-                 self.epoch_metrics[minibatch_class][0],
-                 self.epoch_n_err[minibatch_class],
-                 self.epoch_n_err_pt[minibatch_class],
-                 self.epoch_metrics[minibatch_class][1],
-                 self.epoch_metrics[minibatch_class][2],
-                 dt))
-        else:
-            self.log().info(
-                "Epoch %d Class %d n_err %d (%.2f%%) "
-                "in %.2f sec" %
-                (self.epoch_number[0], minibatch_class,
-                 self.epoch_n_err[minibatch_class],
-                 self.epoch_n_err_pt[minibatch_class],
-                 dt))
+        ss = []
+        if self.epoch_metrics[minibatch_class] != None:
+            ss.append("AvgMSE %.6f MaxMSE %.6f "
+                      "MinMSE %.3e" % (
+                      self.epoch_metrics[minibatch_class][0],
+                      self.epoch_metrics[minibatch_class][1],
+                      self.epoch_metrics[minibatch_class][2]))
+        if self.minibatch_n_err != None:
+            ss.append("n_err %d (%.2f%%)" % (
+                      self.epoch_n_err[minibatch_class],
+                      self.epoch_n_err_pt[minibatch_class]))
+        self.log().info("Epoch %d Class %d %s in %.2f sec" % (
+                        self.epoch_number[0], minibatch_class,
+                        " ".join(ss), dt))
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
