@@ -26,7 +26,6 @@ add_path("%s/../../../src" % (this_dir))
 
 import units
 import formats
-import error
 import numpy
 import config
 import rnd
@@ -244,7 +243,7 @@ class Decision(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
-                # """
+                """
                 this_train_err = self.epoch_metrics[2][0]
                 if self.prev_train_err:
                     k = this_train_err / self.prev_train_err
@@ -260,7 +259,7 @@ class Decision(units.Unit):
                                           0.00001)
                 self.log().info("new global_alpha: %.4f" % \
                       (self.workflow.gd[0].global_alpha))
-                # """
+                """
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
                 # Reset n_err
@@ -534,7 +533,7 @@ class Decision2(units.Unit):
         confusion_mxs: confusion matrixes.
         max_err_y_sums: max last layer backpropagated errors sums for each set.
     """
-    def __init__(self, fail_iterations=100):
+    def __init__(self, fail_iterations=50):
         super(Decision2, self).__init__()
         self.complete = [0]
         self.minibatch_class = None  # [0]
@@ -644,6 +643,7 @@ class Decision2(units.Unit):
 
             # Training set processed
             if self.minibatch_class[0] == 2:
+                """
                 this_train_err = self.n_err[2]
                 if self.prev_train_err:
                     k = this_train_err / self.prev_train_err
@@ -661,6 +661,7 @@ class Decision2(units.Unit):
                                           0.0001)
                 self.log().info("new global_alpha: %.4f" % \
                     (self.workflow.gd[-1].global_alpha))
+                """
 
                 self.epoch_ended[0] = 1
                 self.epoch_number[0] += 1
@@ -892,7 +893,7 @@ def main():
                 w.forward[i].bias.v[:] = w0.forward[i].bias.v[:]
                 w.forward[i].bias.update()
             w.run(threshold=1.0, threshold_low=1.0,
-                  global_alpha=0.001, global_lambda=0.00005)
+                  global_alpha=0.05, global_lambda=0.00005)
         except FileNotFoundError:
             w = Workflow(layers=[8, 3], device=device)
             w.initialize()
