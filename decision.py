@@ -44,9 +44,9 @@ class Decision(units.Unit):
         epoch_samples_mse: mse for each sample in the previous epoch
                            (can be used for Histogram plotter).
         tmp_epoch_samples_mse: mse for each sample in the current epoch.
-        max_err_y_sums: maximums of backpropagated gradient.
         minibatch_max_err_y_sum: maximum of backpropagated gradient
                                  for a minibatch.
+        max_err_y_sums: maximums of backpropagated gradient.
         vectors_to_sync: list of Vector() objects to sync after each epoch.
         sample_input: will be a copy of first element from forward[0].input
                       if the later is in vectors_to_sync.
@@ -89,11 +89,11 @@ class Decision(units.Unit):
                                    formats.Vector()]
                                   if store_samples_mse
                                   else [])
-        self.tmp_epoch_sample_mse = ([formats.Vector(),
-                                      formats.Vector(),
-                                      formats.Vector()]
-                                     if store_samples_mse
-                                     else [])
+        self.tmp_epoch_samples_mse = ([formats.Vector(),
+                                       formats.Vector(),
+                                       formats.Vector()]
+                                      if store_samples_mse
+                                      else [])
         self.minibatch_offs = None
         self.minibatch_size = None
         self.confusion_matrixes = [None, None, None]
@@ -385,8 +385,8 @@ class Decision(units.Unit):
             for i in range(0, minibatch_class):
                 offs -= self.class_samples[i]
                 size = self.minibatch_size[0]
-                self.mse[minibatch_class].v[offs:offs + size] = (
-                    self.minibatch_mse.v[:size])
+            self.tmp_epoch_samples_mse[minibatch_class].v[
+                offs:offs + size] = self.minibatch_mse.v[:size]
 
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
