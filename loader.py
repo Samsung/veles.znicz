@@ -420,5 +420,5 @@ class ImageLoader(FullBatchLoader):
         if target != None:
             for i, label in enumerate(self.original_labels):
                 target[i] = self.target_by_lbl[label]
-                self.target_by_lbl.pop(label)
+            self.target_by_lbl.clear()
         self.original_target = target
