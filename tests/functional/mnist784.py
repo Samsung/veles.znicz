@@ -35,6 +35,7 @@ import logging
 import glob
 import mnist
 import formats
+import decision
 
 
 add_path("/usr/local/lib/python3.3/dist-packages/freetype")
@@ -191,192 +192,6 @@ class ImageSaverAE(units.Unit):
             scipy.misc.imsave(fnme, img.astype(numpy.uint8))
 
 
-class Decision(units.Unit):
-    """Decides on the learning behavior.
-
-    Attributes:
-        complete: completed.
-        minibatch_class: current minibatch class.
-        minibatch_last: if current minibatch is last in it's class.
-        gd_skip: skip gradient descent or not.
-        epoch_number: epoch number.
-        epoch_min_mse: minimum sse by class per epoch.
-        minibatch_n_err: number of errors for minibatch.
-        minibatch_metrics: [0] - sse, [1] - max of sum of sample graidents.
-        class_samples: number of samples per class.
-        epoch_ended: if an epoch has ended.
-        fail_iterations: number of consequent iterations with non-decreased
-            validation error.
-        epoch_metrics: metrics for each set epoch.
-    """
-    def __init__(self, fail_iterations=10000):
-        super(Decision, self).__init__()
-        self.complete = [0]
-        self.minibatch_class = None  # [0]
-        self.minibatch_last = None  # [0]
-        self.gd_skip = [0]
-        self.epoch_number = [0]
-        self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
-        self.n_err = [1.0e30, 1.0e30, 1.0e30]
-        self.minibatch_n_err = None  # formats.Vector()
-        self.minibatch_metrics = None  # formats.Vector()
-        self.fail_iterations = [fail_iterations]
-        self.epoch_ended = [0]
-        self.n_err_pt = [100.0, 100.0, 100.0]
-        self.class_samples = None  # [0, 0, 0]
-        self.min_validation_mse = 1.0e30
-        self.min_validation_mse_epoch_number = -1
-        self.prev_train_err = 1.0e30
-        self.workflow = None
-        self.fnme = None
-        self.t1 = None
-        self.epoch_metrics = [None, None, None]
-        self.just_snapshotted = [0]
-        self.threshold_ok = 0.0
-        self.weights_to_sync = None
-        self.sample_output = None
-        self.sample_input = None
-        self.sample_target = None
-
-    def initialize(self):
-        if (self.minibatch_metrics != None and
-            self.minibatch_metrics.v != None):
-            for i in range(0, len(self.epoch_metrics)):
-                self.epoch_metrics[i] = (
-                    numpy.zeros_like(self.minibatch_metrics.v))
-        self.sample_output = numpy.zeros_like(
-            self.workflow.forward[-1].output.v[0])
-        self.sample_input = numpy.zeros_like(
-            self.workflow.forward[0].input.v[0])
-        self.sample_target = numpy.zeros_like(
-            self.workflow.ev.target.v[0])
-
-    def run(self):
-        if self.t1 == None:
-            self.t1 = time.time()
-        self.complete[0] = 0
-        self.epoch_ended[0] = 0
-
-        minibatch_class = self.minibatch_class[0]
-
-        if self.minibatch_last[0]:
-            self.minibatch_metrics.sync()
-            self.epoch_min_mse[minibatch_class] = (
-                min(self.minibatch_metrics.v[0] /
-                    self.class_samples[minibatch_class],
-                self.epoch_min_mse[minibatch_class]))
-
-            self.minibatch_n_err.sync()
-            self.n_err[minibatch_class] = self.minibatch_n_err.v[0]
-
-            # Compute error in percents
-            if self.class_samples[minibatch_class]:
-                self.n_err_pt[minibatch_class] = (100.0 *
-                    self.n_err[minibatch_class] /
-                    self.class_samples[minibatch_class])
-
-        # Check skip gradient descent or not
-        if self.minibatch_class[0] < 2:
-            self.gd_skip[0] = 1
-        else:
-            self.gd_skip[0] = 0
-
-        if self.minibatch_last[0]:
-            self.epoch_metrics[minibatch_class][:] = (
-                self.minibatch_metrics.v[:])
-            self.epoch_metrics[minibatch_class][0] = (
-                self.epoch_metrics[minibatch_class][0] /
-                self.class_samples[minibatch_class])
-
-            # Test and Validation sets processed
-            if self.minibatch_class[0] == 1:
-                if self.just_snapshotted[0]:
-                    self.just_snapshotted[0] = 0
-                    self.complete[0] = 1
-                if self.epoch_min_mse[1] < self.min_validation_mse:
-                    self.min_validation_mse = self.epoch_min_mse[1]
-                    self.min_validation_mse_epoch_number = self.epoch_number[0]
-                    if self.epoch_metrics[1][0] < self.threshold_ok:
-                        if self.fnme != None:
-                            try:
-                                os.unlink(self.fnme)
-                            except FileNotFoundError:
-                                pass
-                        self.fnme = "%s/mnist_ae.%.4f.pickle" % \
-                            (config.snapshot_dir, self.epoch_metrics[1][0])
-                        self.log().info("Snapshotting to %s" % (self.fnme))
-                        fout = open(self.fnme, "wb")
-                        pickle.dump(self.workflow, fout)
-                        fout.close()
-                        self.just_snapshotted[0] = 1
-                # Stop condition
-                if self.epoch_number[0] - \
-                   self.min_validation_mse_epoch_number > \
-                   self.fail_iterations[0]:
-                    self.complete[0] = 1
-
-            # Print some statistics
-            t2 = time.time()
-            self.log().info(
-                "Epoch %d Class %d AvgMSE %.6f Err %d (%.2f%%) "
-                "MaxMSE %.6f MinMSE %.2e in %.2f sec" % \
-                (self.epoch_number[0], self.minibatch_class[0],
-                 self.epoch_metrics[self.minibatch_class[0]][0],
-                 self.n_err[self.minibatch_class[0]],
-                 self.n_err_pt[self.minibatch_class[0]],
-                 self.epoch_metrics[self.minibatch_class[0]][1],
-                 self.epoch_metrics[self.minibatch_class[0]][2],
-                 t2 - self.t1))
-            self.t1 = t2
-
-            # Training set processed
-            if self.minibatch_class[0] == 2:
-                #"""
-                this_train_err = self.epoch_metrics[2][0]
-                if self.prev_train_err:
-                    k = this_train_err / self.prev_train_err
-                else:
-                    k = 1.0
-                if k < 1.04:
-                    ak = 1.05
-                else:
-                    ak = 0.7
-                self.prev_train_err = this_train_err
-                for gd in self.workflow.gd:
-                    gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
-                                          0.00001)
-                self.log().info("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha))
-                #"""
-                self.epoch_ended[0] = 1
-                self.epoch_number[0] += 1
-                # Copy sample_input, output, target
-                self.workflow.forward[0].input.sync()
-                self.workflow.forward[-1].output.sync()
-                self.workflow.ev.target.sync()
-                self.sample_output[:] = \
-                    self.workflow.forward[-1].output.v[0][:]
-                self.sample_input[:] = \
-                    self.workflow.forward[0].input.v[0][:]
-                self.sample_target[:] = \
-                    self.workflow.ev.target.v[0][:]
-                # Reset n_err
-                for i in range(0, len(self.n_err)):
-                    self.n_err[i] = 0
-                # Sync weights
-                if self.weights_to_sync != None:
-                    self.weights_to_sync.sync()
-
-            # Reset statistics per class
-            self.minibatch_n_err.v[:] = 0
-            self.minibatch_n_err.update()
-            if (self.minibatch_metrics != None and
-                self.minibatch_metrics.v != None):
-                self.minibatch_metrics.v[:] = 0
-                self.minibatch_metrics.v[2] = 1.0e30
-                self.minibatch_metrics.update()
-
-
 class Workflow(units.OpenCLUnit):
     """Sample workflow for MNIST dataset.
 
@@ -428,7 +243,7 @@ class Workflow(units.OpenCLUnit):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = Decision()
+        self.decision = decision.Decision()
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -498,10 +313,10 @@ class Workflow(units.OpenCLUnit):
         self.plt[0].clear_plot = True
         # Weights plotter
         #"""
-        self.decision.weights_to_sync = self.gd[0].weights
+        self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
                                          limit=16)
-        self.plt_mx.input = self.decision.weights_to_sync
+        self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = self.forward[0].input
         self.plt_mx.link_from(self.decision)
@@ -509,6 +324,9 @@ class Workflow(units.OpenCLUnit):
         self.plt_mx.gate_block_not = [1]
         #"""
         # Image plotter
+        self.decision.vectors_to_sync[self.forward[0].input] = 1
+        self.decision.vectors_to_sync[self.forward[-1].output] = 1
+        self.decision.vectors_to_sync[self.ev.target] = 1
         self.plt_img = plotters.Image(figure_label="output sample")
         self.plt_img.inputs.append(self.decision)
         self.plt_img.input_fields.append("sample_input")

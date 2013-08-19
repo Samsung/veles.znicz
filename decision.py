@@ -39,7 +39,6 @@ class Decision(units.Unit):
         fnmeWb: filename of the last weights + bias snapshot.
         just_snapshotted: 1 after snapshot.
         snapshot_time: time of the last snapshot.
-        vectors_to_sync: list of Vector() objects to sync after each epoch.
         confusion_matrixes: confusion matrixes.
         minibatch_confusion_matrix: confusion matrix for a minibatch.
         epoch_samples_mse: mse for each sample in the previous epoch
@@ -48,6 +47,13 @@ class Decision(units.Unit):
         max_err_y_sums: maximums of backpropagated gradient.
         minibatch_max_err_y_sum: maximum of backpropagated gradient
                                  for a minibatch.
+        vectors_to_sync: list of Vector() objects to sync after each epoch.
+        sample_input: will be a copy of first element from forward[0].input
+                      if the later is in vectors_to_sync.
+        sample_output: will be a copy of first element from forward[-1].output
+                       if the later is in vectors_to_sync.
+        sample_target: will be a copy of first element from ev.target
+                       if the later is in vectors_to_sync.
     """
     def __init__(self, fail_iterations=50, snapshot_prefix="",
                  store_samples_mse=False):
@@ -90,11 +96,14 @@ class Decision(units.Unit):
                                      else [])
         self.minibatch_offs = None
         self.minibatch_size = None
-        self.vectors_to_sync = []
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
         self.max_err_y_sums = [0, 0, 0]
         self.minibatch_max_err_y_sum = None  # formats.Vector()
+        self.vectors_to_sync = {}
+        self.sample_input = None
+        self.sample_output = None
+        self.sample_target = None
 
     def init_unpickled(self):
         super(Decision, self).init_unpickled()
@@ -129,6 +138,19 @@ class Decision(units.Unit):
                 self.epoch_samples_mse[i].v = (
                     numpy.zeros(self.class_samples[i],
                     dtype=config.dtypes[config.dtype]))
+
+        # Initialize sample_input, sample_output, sample_target if neccessary
+        if self.workflow.forward[0].input in self.vectors_to_sync:
+            self.sample_input = numpy.zeros_like(
+                self.workflow.forward[0].input.v[0])
+        if self.workflow.forward[-1].output in self.vectors_to_sync:
+            self.sample_output = numpy.zeros_like(
+                self.workflow.forward[-1].output.v[0])
+        if (self.workflow.ev.__dict__.get("target") != None
+            and self.workflow.ev.target in self.vectors_to_sync
+            and self.workflow.ev.target.v != None):
+            self.sample_target = numpy.zeros_like(
+                self.workflow.ev.target.v[0])
 
     def on_snapshot(self, minibatch_class):
         if self.workflow == None:
@@ -283,8 +305,14 @@ class Decision(units.Unit):
         for i in range(0, len(self.epoch_n_err)):
             self.epoch_n_err[i] = 0
         # Sync vectors
-        for vector in self.vectors_to_sync:
+        for vector in self.vectors_to_sync.keys():
             vector.sync()
+        if self.sample_input != None:
+            self.sample_input[:] = self.workflow.forward[0].input.v[0]
+        if self.sample_output != None:
+            self.sample_output[:] = self.workflow.forward[-1].output.v[0]
+        if self.sample_target != None:
+            self.sample_target[:] = self.workflow.ev.target.v[0]
 
     def on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix

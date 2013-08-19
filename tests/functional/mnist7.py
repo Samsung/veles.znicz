@@ -255,10 +255,10 @@ class Workflow(units.OpenCLUnit):
         self.plt[0].clear_plot = True
         # Weights plotter
         #"""
-        self.decision.weights_to_sync = self.gd[0].weights
+        self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
                                          limit=25)
-        self.plt_mx.input = self.decision.weights_to_sync
+        self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = self.forward[0].input
         self.plt_mx.link_from(self.decision)
