@@ -25,7 +25,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import units
-import formats
 import numpy
 import config
 import rnd

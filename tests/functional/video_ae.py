@@ -20,7 +20,6 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s" % (this_dir))
 add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 

@@ -19,7 +19,6 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s" % (this_dir))
 add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
@@ -35,6 +34,7 @@ import pickle
 import time
 import hog
 import loader
+import decision
 
 
 class Loader(loader.ImageLoader):
@@ -67,161 +67,6 @@ class Loader(loader.ImageLoader):
 import all2all
 import evaluator
 import gd
-
-
-class Decision(units.Unit):
-    """Decides on the learning behavior.
-
-    Attributes:
-        complete: completed.
-        minibatch_class: current minibatch class.
-        minibatch_last: if current minibatch is last in it's class.
-        gd_skip: skip gradient descent or not.
-        epoch_number: epoch number.
-        epoch_min_err: minimum number of errors by class per epoch.
-        n_err: current number of errors per class.
-        minibatch_n_err: number of errors for minibatch.
-        n_err_pt: n_err in percents.
-        class_samples: number of samples per class.
-        epoch_ended: if an epoch has ended.
-        fail_iterations: number of consequent iterations with non-decreased
-            validation error.
-        confusion_matrix: confusion matrix.
-    """
-    def __init__(self, fail_iterations=100):
-        super(Decision, self).__init__()
-        self.complete = [0]
-        self.minibatch_class = None  # [0]
-        self.minibatch_last = None  # [0]
-        self.gd_skip = [0]
-        self.epoch_number = [0]
-        self.epoch_min_err = [1.0e30, 1.0e30, 1.0e30]
-        self.n_err = [0, 0, 0]
-        self.minibatch_n_err = None  # formats.Vector()
-        self.minibatch_confusion_matrix = None  # formats.Vector()
-        self.fail_iterations = [fail_iterations]
-        self.epoch_ended = [0]
-        self.n_err_pt = [100.0, 100.0, 100.0]
-        self.class_samples = None  # [0, 0, 0]
-        self.min_validation_err = 1.0e30
-        self.min_validation_err_epoch_number = -1
-        # self.prev_train_err = 1.0e30
-        self.workflow = None
-        self.fnme = None
-        self.t1 = None
-        self.confusion_matrixes = [None, None, None]
-
-    def initialize(self):
-        if (self.minibatch_confusion_matrix == None or
-            self.minibatch_confusion_matrix.v == None):
-            return
-        for i in range(0, len(self.confusion_matrixes)):
-            self.confusion_matrixes[i] = (
-                numpy.zeros_like(self.minibatch_confusion_matrix.v))
-
-    def run(self):
-        if self.t1 == None:
-            self.t1 = time.time()
-        self.complete[0] = 0
-        self.epoch_ended[0] = 0
-
-        minibatch_class = self.minibatch_class[0]
-
-        if self.minibatch_last[0]:
-            self.minibatch_n_err.sync()
-            self.n_err[minibatch_class] += self.minibatch_n_err.v[0]
-            self.epoch_min_err[minibatch_class] = \
-                min(self.n_err[minibatch_class],
-                    self.epoch_min_err[minibatch_class])
-            # Compute error in percents
-            if self.class_samples[minibatch_class]:
-                self.n_err_pt[minibatch_class] = (self.n_err[minibatch_class] /
-                    self.class_samples[minibatch_class])
-                self.n_err_pt[minibatch_class] *= 100.0
-
-        # Check skip gradient descent or not
-        if self.minibatch_class[0] < 2:
-            self.gd_skip[0] = 1
-        else:
-            self.gd_skip[0] = 0
-
-        if self.minibatch_last[0]:
-            if (self.minibatch_confusion_matrix != None and
-                self.minibatch_confusion_matrix.v != None):
-                self.minibatch_confusion_matrix.sync()
-                self.confusion_matrixes[minibatch_class][:] = (
-                    self.minibatch_confusion_matrix.v[:])
-
-            # Test and Validation sets processed
-            if self.minibatch_class[0] == 1:
-                if self.epoch_min_err[1] < self.min_validation_err:
-                    self.min_validation_err = self.epoch_min_err[1]
-                    self.min_validation_err_epoch_number = self.epoch_number[0]
-                    if self.n_err_pt[1] < 4.5:
-                        global this_dir
-                        if self.fnme != None:
-                            try:
-                                os.unlink(self.fnme)
-                            except FileNotFoundError:
-                                pass
-                        self.fnme = "%s/hands_%.2f_%.2f_%.2f.pickle" % \
-                            (config.snapshot_dir, self.n_err_pt[1],
-                             self.confusion_matrixes[1][0, 1] /
-                             (self.class_samples[0] +
-                              self.class_samples[1]) * 100,
-                             self.confusion_matrixes[1][1, 0] /
-                             (self.class_samples[0] +
-                              self.class_samples[1]) * 100)
-                        self.log().info("Snapshotting to %s" % (self.fnme))
-                        fout = open(self.fnme, "wb")
-                        pickle.dump(self.workflow, fout)
-                        fout.close()
-                # Stop condition
-                if self.epoch_number[0] - \
-                   self.min_validation_err_epoch_number > \
-                   self.fail_iterations[0]:
-                    self.complete[0] = 1
-
-            # Print some statistics
-            t2 = time.time()
-            self.log().info("Epoch %d Class %d Errors %d in %.2f sec" % \
-                  (self.epoch_number[0], self.minibatch_class[0],
-                   self.n_err[self.minibatch_class[0]],
-                   t2 - self.t1))
-            self.t1 = t2
-
-            # Training set processed
-            if self.minibatch_class[0] == 2:
-                """
-                this_train_err = self.n_err[2]
-                if self.prev_train_err:
-                    k = this_train_err / self.prev_train_err
-                else:
-                    k = 1.0
-                if k < 1.04:
-                    ak = 1.05
-                else:
-                    ak = 0.7
-                self.prev_train_err = this_train_err
-                for gd in self.workflow.gd:
-                    gd.global_alpha = max(min(ak * gd.global_alpha, 0.9999),
-                                          0.0001)
-                self.log().debug("new global_alpha: %.4f" % \
-                      (self.workflow.gd[0].global_alpha))
-                """
-                self.epoch_ended[0] = 1
-                self.epoch_number[0] += 1
-                # Reset n_err
-                for i in range(0, len(self.n_err)):
-                    self.n_err[i] = 0
-
-            # Reset statistics per class
-            self.minibatch_n_err.v[:] = 0
-            self.minibatch_n_err.update()
-            if (self.minibatch_confusion_matrix != None and
-                self.minibatch_confusion_matrix.v != None):
-                self.minibatch_confusion_matrix.v[:] = 0
-                self.minibatch_confusion_matrix.update()
 
 
 class Workflow(units.OpenCLUnit):
@@ -285,7 +130,7 @@ class Workflow(units.OpenCLUnit):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = Decision()
+        self.decision = decision.Decision()
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -330,7 +175,7 @@ class Workflow(units.OpenCLUnit):
         for i in range(0, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
                                                    plot_style=styles[i]))
-            self.plt[-1].input = self.decision.n_err_pt
+            self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = self.decision.epoch_ended
