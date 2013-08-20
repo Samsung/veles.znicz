@@ -54,9 +54,10 @@ class Decision(units.Unit):
                        if the later is in vectors_to_sync.
         sample_target: will be a copy of first element from ev.target
                        if the later is in vectors_to_sync.
+        use_dynamic_alpha: will adjust alpha according to previous train error.
     """
-    def __init__(self, fail_iterations=50, snapshot_prefix="",
-                 store_samples_mse=False):
+    def __init__(self, fail_iterations=100, snapshot_prefix="",
+                 store_samples_mse=False, use_dynamic_alpha=False):
         super(Decision, self).__init__()
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
@@ -104,6 +105,8 @@ class Decision(units.Unit):
         self.sample_input = None
         self.sample_output = None
         self.sample_target = None
+        self.use_dynamic_alpha = use_dynamic_alpha
+        self.prev_train_err = 1.0e30
 
     def init_unpickled(self):
         super(Decision, self).init_unpickled()
@@ -237,8 +240,8 @@ class Decision(units.Unit):
         if do_snapshot:
             # Do the snapshot
             self.on_snapshot(minibatch_class)
-            # Stop condition
-            self.on_stop_condition(minibatch_class)
+        # Stop condition
+        self.on_stop_condition(minibatch_class)
 
     def on_print_statistics(self, minibatch_class, dt):
         ss = []
@@ -282,23 +285,33 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.update()
 
     def on_training_processed(self, minibatch_class):
-        """
-        this_train_err = self.epoch_metrics[2][0]
-        if self.prev_train_err:
-            k = this_train_err / self.prev_train_err
-        else:
-            k = 1.0
-        if k < 1.04:
-            ak = 1.05
-        else:
-            ak = 0.7
-        self.prev_train_err = this_train_err
-        for gd in self.workflow.gd:
-        gd.global_alpha = max(min(ak * gd.global_alpha, 0.99999),
-                              0.00001)
-        self.log().info("new global_alpha: %.6f" % \
-            (self.workflow.gd[0].global_alpha))
-        """
+        if self.use_dynamic_alpha:
+            if (self.minibatch_metrics != None and
+                self.minibatch_metrics.v != None):
+                this_train_err = self.epoch_metrics[2][0]
+            elif (self.minibatch_n_err != None and
+                  self.minibatch_n_err.v != None):
+                this_train_err = self.epoch_n_err[2]
+            else:
+                this_train_err = self.prev_train_err
+            if self.prev_train_err:
+                k = this_train_err / self.prev_train_err
+            else:
+                k = 1.0
+            if k < 1.04:
+                ak = 1.05
+            else:
+                ak = 0.7
+            self.prev_train_err = this_train_err
+            alpha = 0
+            for gd in self.workflow.gd:
+                if gd == None:
+                    continue
+                gd.global_alpha = numpy.clip(ak * gd.global_alpha,
+                                             0.00001, 0.75)
+                if not alpha:
+                    alpha = gd.global_alpha
+            self.log().info("new global_alpha: %.6f" % (alpha))
         self.epoch_ended[0] = 1
         self.epoch_number[0] += 1
         # Reset n_err
