@@ -60,8 +60,8 @@ class All2All(units.Forward):
 
     def initialize(self):
         if self.weights_amplitude == None:
-            self.weights_amplitude = 9.0 / (self.input.v.size //
-                                            self.input.v.shape[0])
+            self.weights_amplitude = min(9.0 / (self.input.v.size //
+                self.input.v.shape[0]), 0.05)
         n_weights = self.input.v.size // self.input.v.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
