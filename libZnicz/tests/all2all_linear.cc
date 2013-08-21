@@ -26,11 +26,11 @@ TEST_F(All2AllLinear, Execution) {
   auto bias = CreateFloatArray(kOutputs);
   memcpy(weights.get(), weights_f, sizeof(weights_f));
   memcpy(bias.get(), bias_f, sizeof(bias_f));
-  unit_->SetParameter("weights", weights);
-  unit_->SetParameter("bias", bias);
-  unit_->Execute(input_.get(), output_.get());
+  unit()->SetParameter("weights", weights);
+  unit()->SetParameter("bias", bias);
+  unit()->Execute(input().get(), output().get());
   for(size_t i = 0; i < kOutputs; ++i) {
-    EXPECT_FLOAT_EQ(expected[i], output_.get()[i]);
+    EXPECT_FLOAT_EQ(expected[i], output().get()[i]);
   }
 }
 
@@ -39,28 +39,24 @@ TEST_F(All2AllLinearSquare, ExecutionIdentity) {
   for(size_t i = 0; i < kCount; ++i) {
     weights.get()[(kCount + 1) * i] = kValueOne;
   }
-  unit_->SetParameter("weights", weights);
-  unit_->Execute(input_.get(), output_.get());
+  unit()->SetParameter("weights", weights);
+  unit()->Execute(input().get(), output().get());
   for(size_t i = 0; i < kCount; ++i) {
-    EXPECT_EQ(kValueInputInit, output_.get()[i]);
+    EXPECT_EQ(kValueInputInit, output().get()[i]);
   }
 }
 
 TEST_F(All2AllLinearSquare, ExecutionBias) {
   auto bias = CreateFloatArray(kCount * kCount, kValueOther);
-  unit_->SetParameter("bias", bias);
-  unit_->Execute(input_.get(), output_.get());
+  unit()->SetParameter("bias", bias);
+  unit()->Execute(input().get(), output().get());
   for(size_t i = 0; i < kCount; ++i) {
-    EXPECT_EQ(kValueOther, output_.get()[i]);
+    EXPECT_EQ(kValueOther, output().get()[i]);
   }
 }
 
-namespace Veles {
-namespace Znicz {
-
-REGISTER_UNIT(All2AllLinear);
-
+GTEST_API_ int main(int argc, char **argv) {
+  REFERENCE_UNIT(Veles::Znicz, All2AllLinear);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
-}
-
-#include "tests/google/src/gtest_main.cc"

@@ -43,6 +43,8 @@ class All2AllTanh : public All2All {
   static constexpr float kScaleY = 1.7159;
 };
 
+DECLARE_UNIT(All2AllTanh);
+
 }  // namespace Znicz
 }  // namespace Veles
 

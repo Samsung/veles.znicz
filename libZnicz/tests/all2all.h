@@ -30,12 +30,12 @@ class All2AllTest : public ::testing::Test {
   static const size_t kOutputs;
 
   All2AllTest(const std::string& name)
-    : unit_(CreateUnit(name)), name_(name) {
+    : unit_(nullptr), name_(name) {
   }
 
   virtual ~All2AllTest() = default;
 
-  std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) {
+  static std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) {
     return Veles::UnitFactory::Instance()[name]();
   }
 
@@ -51,13 +51,33 @@ class All2AllTest : public ::testing::Test {
     auto bias = CreateFloatArray(outputs);
     input_ = CreateFloatArray(inputs, kValueInputInit);
     output_ = CreateFloatArray(outputs, kValueOutputInit);
-    unit_->SetParameter("weights", weights);
-    unit_->SetParameter("bias", bias);
-    unit_->SetParameter("inputs", std::make_shared<size_t>(inputs));
-    unit_->SetParameter("outputs", std::make_shared<size_t>(outputs));
+    unit()->SetParameter("weights", weights);
+    unit()->SetParameter("bias", bias);
+    unit()->SetParameter("inputs", std::make_shared<size_t>(inputs));
+    unit()->SetParameter("outputs", std::make_shared<size_t>(outputs));
   }
 
-  std::shared_ptr<Veles::Unit> unit_;
+  std::shared_ptr<Veles::Unit> unit() const {
+    if (!unit_) {
+      unit_ = CreateUnit(name_);
+    }
+    return unit_;
+  }
+
+  std::shared_ptr<float> input() {
+    return input_;
+  }
+
+  std::shared_ptr<float> output() {
+    return output_;
+  }
+
+  std::string name() const {
+    return name_;
+  }
+
+ private:
+  mutable std::shared_ptr<Veles::Unit> unit_;
   std::shared_ptr<float> input_;
   std::shared_ptr<float> output_;
   std::string name_;

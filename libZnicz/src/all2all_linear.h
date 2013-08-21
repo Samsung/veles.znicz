@@ -28,10 +28,11 @@ class All2AllLinear : public All2All {
   /** @details Linear activation function, does nothing on the input data:
    *      f(x) = x
    */
-  virtual void ApplyActivationFunction(float* data,
-                                       size_t length) const override final {
+  virtual void ApplyActivationFunction(float*,  size_t) const override final {
   }
 };
+
+DECLARE_UNIT(All2AllLinear);
 
 }  // namespace Znicz
 }  // namespace Veles

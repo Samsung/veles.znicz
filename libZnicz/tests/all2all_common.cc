@@ -16,35 +16,31 @@
 #include "tests/all2all_common.h"
 
 TEST_P(All2AllCommon, EmptyConstruction) {
-  std::shared_ptr<Veles::Unit> unit(CreateUnit(name_));
-  EXPECT_EQ(name_, unit->Name());
+  std::shared_ptr<Veles::Unit> unit(CreateUnit(name()));
+  EXPECT_EQ(name(), unit->Name());
   EXPECT_EQ(kValueZero, unit->InputCount());
   EXPECT_EQ(kValueZero, unit->OutputCount());
 }
 
 TEST_P(All2AllCommon, Construction) {
-  EXPECT_EQ(name_, unit_->Name());
-  EXPECT_EQ(kInputs, unit_->InputCount());
-  EXPECT_EQ(kOutputs, unit_->OutputCount());
+  EXPECT_EQ(name(), unit()->Name());
+  EXPECT_EQ(kInputs, unit()->InputCount());
+  EXPECT_EQ(kOutputs, unit()->OutputCount());
 }
 
 TEST_P(All2AllCommon, ExecutionZeroWeightsBias) {
-  unit_->Execute(input_.get(), output_.get());
+  unit()->Execute(input().get(), output().get());
   for(size_t i = 0; i < kOutputs; ++i) {
-    EXPECT_EQ(kValueZero, output_.get()[i]);
+    EXPECT_EQ(kValueZero, output().get()[i]);
   }
-}
-
-namespace Veles {
-namespace Znicz {
-
-REGISTER_UNIT(All2AllLinear);
-REGISTER_UNIT(All2AllTanh);
-
-}
 }
 
 INSTANTIATE_TEST_CASE_P(All2AllCommonTests, All2AllCommon,
                         ::testing::Values("All2All", "All2AllTanh"));
 
-#include "tests/google/src/gtest_main.cc"
+GTEST_API_ int main(int argc, char **argv) {
+  REFERENCE_UNIT(Veles::Znicz, All2AllLinear);
+  REFERENCE_UNIT(Veles::Znicz, All2AllTanh);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
