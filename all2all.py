@@ -35,13 +35,19 @@ class All2All(units.Forward):
         bias: bias as Vector.
         output_shape: shape of the output layer.
         weights_amplitude: amplitude of the random distribution of weights.
-        rand: rnd.Rand() object.
+        rand: rnd.Rand() object for initial weights generation.
+        input_maxvle: supposed maximum value of the input value
+            (used for weights generation when weights_amplitude is None).
+            For better performance should be 1.0 for an input layer
+            and 1.7159 for other layers if scaled tanh activation is used,
+            while values of an input should be normalized to -1, 1.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 rand=rnd.default, weights_transposed=False):
+                 input_maxvle=1.7159, rand=rnd.default,
+                 weights_transposed=False):
         super(All2All, self).__init__(device=device)
         self.input = None  # formats.Vector(device)
         self.output = formats.Vector(device)
@@ -49,6 +55,7 @@ class All2All(units.Forward):
         self.bias = formats.Vector(device)
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
+        self.input_maxvle = input_maxvle
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
         self.weights_transposed = weights_transposed
@@ -58,10 +65,19 @@ class All2All(units.Forward):
         self.krn_ = None
         self.cl_sources_["%s/forward.cl" % (config.cl_dir)] = ""
 
+    def get_weights_amplitude(self):
+        """
+        Returns: weights amplitude for initial random distribution,
+                 such that activation function will be near maximum
+                 if all input values are at their supposed max value.
+        """
+        return (9.0 / self.input_maxvle /
+                (self.input.v.size // self.input.v.shape[0]))
+
     def initialize(self):
         if self.weights_amplitude == None:
-            self.weights_amplitude = min(9.0 / (self.input.v.size //
-                self.input.v.shape[0]), 0.05)
+            # Get weights amplitude and cap it to 0.05
+            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
         n_weights = self.input.v.size // self.input.v.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:
@@ -211,6 +227,10 @@ class All2AllTanh(All2All):
         self.s_activation = "ACTIVATION_TANH"
         return super(All2AllTanh, self).initialize()
 
+    def get_weights_amplitude(self):
+        return (9.0 / (self.input_maxvle * 0.6666) /
+                (self.input.v.size // self.input.v.shape[0]))
+
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
@@ -239,16 +259,22 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
         max_idx: indexes of element with maximum value for each sample.
     """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default):
+    def __init__(self, output_shape=None, device=None, weights_amplitude=None,
+                 input_maxvle=1.7159, rand=rnd.default,
+                 weights_transposed=False):
         super(All2AllSoftmax, self).__init__(
             output_shape=output_shape, device=device,
-            weights_amplitude=weights_amplitude, rand=rand)
+            weights_amplitude=weights_amplitude, input_maxvle=input_maxvle,
+            rand=rand, weights_transposed=weights_transposed)
         self.max_idx = formats.Vector()
 
     def init_unpickled(self):
         super(All2AllSoftmax, self).init_unpickled()
         self.krn_sm_ = None
+
+    def get_weights_amplitude(self):
+        return (9.0 / self.input_maxvle /
+                (self.input.v.size // self.input.v.shape[0]))
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))

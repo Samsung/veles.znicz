@@ -179,13 +179,8 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = None
-            else:
-                amp = min(9.0 / 1.7159 / layers[i - 1], 0.05)
-            # amp = 0.05
             aa = all2all.All2AllTanh([layers[i]], device=device,
-                                     weights_amplitude=amp)
+                input_maxvle=(1.0 if not i else 1.7159))
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -423,12 +418,12 @@ def main():
         else:
             w = Workflow(layers=[9, 14400], device=device)
         w.initialize(device=device, threshold_ok=0.0001, threshold_skip=0.0,
-                     global_alpha=0.0001, global_lambda=0.0)
+                     global_alpha=0.0002, global_lambda=0.00005)
     except KeyboardInterrupt:
         return
     try:
         w.run(threshold_ok=0.0001, threshold_skip=0.0,
-              global_alpha=0.0001, global_lambda=0.0)
+              global_alpha=0.0002, global_lambda=0.00005)
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot in 15 seconds...")
