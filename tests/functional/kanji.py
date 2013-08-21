@@ -8,49 +8,7 @@ File for kanji recognition.
 """
 import sys
 import os
-import struct
 import logging
-
-
-class BMPWriter(object):
-    """Writes bmp file.
-
-    Attributes:
-        rgbquad: color table for gray scale.
-    """
-    def __init__(self):
-        self.rgbquad = numpy.zeros([256, 4], dtype=numpy.uint8)
-        for i in range(0, 256):
-            self.rgbquad[i] = (i, i, i, 0)
-
-    def write_gray(self, fnme, a):
-        """Writes bmp as gray scale.
-
-        Parameters:
-            fnme: file name.
-            a: numpy array with 2 dimensions.
-        """
-        if len(a.shape) != 2:
-            raise Exception("a should be 2-dimensional, got: %s" % (
-                str(a.shape)))
-
-        fout = open(fnme, "wb")
-
-        header_size = 54 + 256 * 4
-        file_size = header_size + a.size
-
-        header = struct.pack("<HIHHI"
-                             "IiiHHIIiiII",
-                             19778, file_size, 0, 0, header_size,
-                             40, a.shape[1], -a.shape[0], 1, 8, 0, a.size,
-                             0, 0, 0, 0)
-        fout.write(header)
-
-        self.rgbquad.tofile(fout)
-
-        a.astype(numpy.uint8).tofile(fout)
-
-        fout.close()
 
 
 def add_path(path):
@@ -67,7 +25,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import units
-import formats
 import numpy
 import config
 import rnd
@@ -75,9 +32,12 @@ import opencl
 import plotters
 import pickle
 import time
-import glob
 import loader
 import decision
+import image_saver
+import all2all
+import evaluator
+import gd
 import re
 
 
@@ -97,115 +57,6 @@ class Loader(loader.ImageLoader):
             return
         lbl = int(res.group(1))
         return lbl
-
-
-import all2all
-import evaluator
-import gd
-
-
-class ImageSaverAE(units.Unit):
-    """Saves input and output side by side to png for AutoEncoder.
-
-    Attributes:
-        out_dirs: output directories by minibatch_class where to save png.
-        input: batch with input samples.
-        output: batch with corresponding output samples.
-        indexes: sample indexes.
-        labels: sample labels.
-    """
-    def __init__(self, out_dirs=["/tmp/img/test", "/tmp/img/validation",
-                                 "/tmp/img/train"]):
-        super(ImageSaverAE, self).__init__()
-        self.out_dirs = out_dirs
-        self.input = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
-        self.last_save_time = 0
-        self.this_save_time = [0]
-        self.bmp = BMPWriter()
-
-    def initialize(self):
-        for dirnme in self.out_dirs:
-            try:
-                os.mkdir(dirnme)
-            except OSError:
-                pass
-
-    def run(self):
-        self.input.sync()
-        self.output.sync()
-        self.indexes.sync()
-        self.labels.sync()
-        xy = None
-        dirnme = self.out_dirs[self.minibatch_class[0]]
-        if self.this_save_time[0] > self.last_save_time:
-            self.last_save_time = self.this_save_time[0]
-            files = glob.glob("%s/*.bmp" % (dirnme))
-            for file in files:
-                try:
-                    os.unlink(file)
-                except FileNotFoundError:
-                    pass
-        for i in range(0, self.minibatch_size[0]):
-            x = self.input.v[i]
-            y = self.output.v[i].reshape(x.shape)
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
-            d = x - y
-            mse = numpy.linalg.norm(d) / d.size
-            if xy == None:
-                xy = numpy.empty([x.shape[0] * 2, x.shape[1] * 3],
-                                 dtype=x.dtype)
-            xy[:x.shape[0], :x.shape[1]] = x[:, :]
-            xy[:x.shape[0], x.shape[1]:x.shape[1] * 2] = y[:, :]
-            xy[:x.shape[0], x.shape[1] * 2:] = d[:, :]
-            x2 = xy[:x.shape[0], :x.shape[1]]
-            y2 = xy[:x.shape[0], x.shape[1]:x.shape[1] * 2]
-            d2 = xy[:x.shape[0], x.shape[1] * 2:]
-            #
-            xy[x.shape[0]:, :x.shape[1]] = x[:, :]
-            xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2] = y[:, :]
-            xy[x.shape[0]:, x.shape[1] * 2:] = d[:, :]
-            x21 = xy[x.shape[0]:, :x.shape[1]]
-            y21 = xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2]
-            d21 = xy[x.shape[0]:, x.shape[1] * 2:]
-            # x *= -1.0
-            x2 += 1.0
-            x2 *= 127.5
-            numpy.clip(x2, 0, 255, x2)
-            # y *= -1.0
-            y2 += 1.0
-            y2 *= 127.5
-            numpy.clip(y2, 0, 255, y2)
-            #
-            formats.normalize(d2)
-            d2 += 1.0
-            d2 *= 127.5
-            #
-            formats.normalize(x21)
-            x21 += 1.0
-            x21 *= 127.5
-            #
-            formats.normalize(y21)
-            y21 += 1.0
-            y21 *= 127.5
-            #
-            formats.normalize(d21)
-            d21 += 1.0
-            d21 *= 127.5
-            # fnme = "%s/%.6f_%d_%d.png" % (
-            #    self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            # scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
-            # fnme = "%s/out_%d.png" % (self.out_dirs[self.minibatch_class[0]],
-            #                          idx)
-            # scipy.misc.imsave(fnme, y2.astype(numpy.uint8))
-            fnme = "%s/%06f.%05d.%06d.bmp" % (dirnme, mse, lbl, idx)
-            tmp = y2.astype(numpy.uint8).reshape(x.shape)
-            self.bmp.write_gray(fnme, tmp)
 
 
 class Workflow(units.OpenCLUnit):
@@ -228,22 +79,16 @@ class Workflow(units.OpenCLUnit):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(train_paths=[
-            "%s/kanji/train/*.bmp" % (config.test_dataset_root)],
+            "%s/kanji/train/*.png" % (config.test_dataset_root)],
                              target_paths=[
-            "%s/kanji/target/*.bmp" % (config.test_dataset_root)],
+            "%s/kanji/target/*.png" % (config.test_dataset_root)],
                              minibatch_max_size=100)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = None
-            else:
-                amp = min(9.0 / 1.7159 / layers[i - 1], 0.05)
-            # amp = 0.05
-            aa = all2all.All2AllTanh([layers[i]], device=device,
-                                     weights_amplitude=amp)
+            aa = all2all.All2AllTanh([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -254,10 +99,11 @@ class Workflow(units.OpenCLUnit):
 
         # Add Image Saver unit
         """
-        self.image_saver = ImageSaverAE()
+        self.image_saver = image_saver.ImageSaver()
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
+        self.image_saver.target = self.loader.minibatch_target
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class

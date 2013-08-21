@@ -33,11 +33,14 @@ import opencl
 import plotters
 import glob
 import pickle
-import time
 import scipy.ndimage
 import tv_channel_plotter
 import loader
 import decision
+import image_saver
+import all2all
+import evaluator
+import gd
 import re
 
 
@@ -57,67 +60,6 @@ class Loader(loader.ImageLoader):
             return
         lbl = int(res.group(1))
         return lbl
-
-
-import all2all
-import evaluator
-import gd
-import scipy.misc
-
-
-class ImageSaver(units.Unit):
-    """Saves input and output side by side to png for AutoEncoder.
-
-    Attributes:
-        out_dirs: output directories by minibatch_class where to save png.
-        input: batch with input samples.
-        output: batch with corresponding output samples.
-        indexes: sample indexes.
-        labels: sample labels.
-    """
-    def __init__(self, out_dirs=[".", ".", "."]):
-        super(ImageSaver, self).__init__()
-        self.out_dirs = ["/home/ajk/Projects/img/test",
-                         "/home/ajk/Projects/img/validation",
-                         "/home/ajk/Projects/img/train"]
-        self.last_snapshot_time = 0
-        self.out_dirs = out_dirs
-        self.input = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
-        self.snapshot_time = None
-        self.last_snapshot_time = 0
-        self.max_idx = None
-
-    def run(self):
-        self.input.sync()
-        self.output.sync()
-        self.max_idx.sync()
-        self.indexes.sync()
-        self.labels.sync()
-        dirnme = self.out_dirs[self.minibatch_class[0]]
-        if self.snapshot_time[0] != self.last_snapshot_time:
-            self.last_snapshot_time = self.snapshot_time[0]
-            files = glob.glob("%s/*.png" % (dirnme))
-            for file in files:
-                try:
-                    os.unlink(file)
-                except OSError:
-                    pass
-            del files
-        for i in range(0, self.minibatch_size[0]):
-            x = self.input.v[i]
-            y = self.output.v[i]
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
-            im = self.max_idx[i]
-            if im == lbl:
-                continue
-            fnme = "%s/%d_as_%d.%.0fpt.%d.png" % (dirnme, lbl, im, y[im], idx)
-            scipy.misc.imsave(fnme, x)
 
 
 class Workflow(units.OpenCLUnit):
@@ -151,8 +93,7 @@ class Workflow(units.OpenCLUnit):
         self.forward = []
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh([layers[i]], device=device,
-                    input_maxvle=(1.0 if not i else 1.7159))
+                aa = all2all.All2AllTanh([layers[i]], device=device)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device)
             self.forward.append(aa)
@@ -164,7 +105,8 @@ class Workflow(units.OpenCLUnit):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = ImageSaver(["/data/veles/channels/tmpimg/test",
+        self.image_saver = image_saver.ImageSaver(out_dirs=[
+            "/data/veles/channels/tmpimg/test",
             "/data/veles/channels/tmpimg/validation",
             "/data/veles/channels/tmpimg/train"])
         self.image_saver.link_from(self.forward[-1])
@@ -195,7 +137,7 @@ class Workflow(units.OpenCLUnit):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        self.image_saver.gate_skip = self.decision.just_snapshotted
+        self.image_saver.gate_skip = [0]  # self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
         self.image_saver.snapshot_time = self.decision.snapshot_time
 

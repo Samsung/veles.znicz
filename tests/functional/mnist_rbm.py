@@ -66,20 +66,13 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = None
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
             if i < len(layers) - 1:
                 if not i:
-                    aa = rbm.RBMTanh([layers[i]], device=device,
-                                 weights_amplitude=amp)
+                    aa = rbm.RBMTanh([layers[i]], device=device)
                 else:
-                    aa = all2all.All2AllTanh([layers[i]], device=device,
-                                 weights_amplitude=amp)
+                    aa = all2all.All2AllTanh([layers[i]], device=device)
             else:
-                aa = all2all.All2AllSoftmax([layers[i]], device=device,
-                                            weights_amplitude=amp)
+                aa = all2all.All2AllSoftmax([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])

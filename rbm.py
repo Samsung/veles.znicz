@@ -21,11 +21,11 @@ class RBMTanh(all2all.All2AllTanh):
         output_rand: vector of random values in the shape of output.
         krn_apply_rand_: OpenCL kernel which applies random.
     """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=0.05,
-                 rand=rnd.default):
+    def __init__(self, output_shape=None, device=None, weights_amplitude=None,
+                 rand=rnd.default, weights_transposed=False):
         super(RBMTanh, self).__init__(output_shape=output_shape, device=device,
-                                      weights_amplitude=weights_amplitude,
-                                      rand=rand)
+            weights_amplitude=weights_amplitude, rand=rand,
+            weights_transposed=weights_transposed)
         self.output_rand = formats.Vector(device)
         self.y_low_high = numpy.array([-1.0, 1.0],
                                       dtype=config.dtypes[config.dtype])

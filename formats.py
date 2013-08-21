@@ -97,6 +97,7 @@ class Vector(units.Connector):
         aligned_: numpy array, aligned to BLOCK_SIZE
                   for OpenCL matrix multiplication.
         v_: OpenCL buffer mapped to aligned_.
+        supposed_maxvle: supposed maximum element value.
 
     Example of how to use:
         1. Construct an object:
@@ -115,6 +116,7 @@ class Vector(units.Connector):
         self.device = device
         self.what_changed = 0
         self.v = None
+        self.supposed_maxvle = 1.0
 
     def init_unpickled(self):
         super(Vector, self).init_unpickled()

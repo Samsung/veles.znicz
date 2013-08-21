@@ -36,10 +36,10 @@ import time
 import logging
 import loader
 import decision
+import image_saver
 import all2all
 import evaluator
 import gd
-import scipy.misc
 import re
 
 
@@ -59,95 +59,6 @@ class Loader(loader.ImageLoader):
             return
         lbl = int(res.group(1))
         return lbl
-
-
-class ImageSaverAE(units.Unit):
-    """Saves input and output side by side to png for AutoEncoder.
-
-    Attributes:
-        out_dirs: output directories by minibatch_class where to save png.
-        input: batch with input samples.
-        output: batch with corresponding output samples.
-        indexes: sample indexes.
-        labels: sample labels.
-    """
-    def __init__(self, out_dirs=["/tmp/img/test", "/tmp/img/validation",
-                                 "/tmp/img/train"]):
-        super(ImageSaverAE, self).__init__()
-        self.out_dirs = out_dirs
-        self.input = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
-
-    def initialize(self):
-        for dirnme in self.out_dirs:
-            try:
-                os.mkdir(dirnme)
-            except OSError:
-                pass
-
-    def run(self):
-        self.input.sync()
-        self.output.sync()
-        self.indexes.sync()
-        self.labels.sync()
-        xy = None
-        for i in range(0, self.minibatch_size[0]):
-            x = self.input.v[i]
-            y = self.output.v[i].reshape(x.shape)
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
-            d = x - y
-            mse = numpy.linalg.norm(d) / d.size
-            if xy == None:
-                xy = numpy.empty([x.shape[0] * 2, x.shape[1] * 3],
-                                 dtype=x.dtype)
-            xy[:x.shape[0], :x.shape[1]] = x[:, :]
-            xy[:x.shape[0], x.shape[1]:x.shape[1] * 2] = y[:, :]
-            xy[:x.shape[0], x.shape[1] * 2:] = d[:, :]
-            x2 = xy[:x.shape[0], :x.shape[1]]
-            y2 = xy[:x.shape[0], x.shape[1]:x.shape[1] * 2]
-            d2 = xy[:x.shape[0], x.shape[1] * 2:]
-            #
-            xy[x.shape[0]:, :x.shape[1]] = x[:, :]
-            xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2] = y[:, :]
-            xy[x.shape[0]:, x.shape[1] * 2:] = d[:, :]
-            x21 = xy[x.shape[0]:, :x.shape[1]]
-            y21 = xy[x.shape[0]:, x.shape[1]:x.shape[1] * 2]
-            d21 = xy[x.shape[0]:, x.shape[1] * 2:]
-            # x *= -1.0
-            x2 += 1.0
-            x2 *= 127.5
-            numpy.clip(x2, 0, 255, x2)
-            # y *= -1.0
-            y2 += 1.0
-            y2 *= 127.5
-            numpy.clip(y2, 0, 255, y2)
-            #
-            formats.normalize(d2)
-            d2 += 1.0
-            d2 *= 127.5
-            #
-            formats.normalize(x21)
-            x21 += 1.0
-            x21 *= 127.5
-            #
-            formats.normalize(y21)
-            y21 += 1.0
-            y21 *= 127.5
-            #
-            formats.normalize(d21)
-            d21 += 1.0
-            d21 *= 127.5
-            fnme = "%s/%.6f_%d_%d.png" % (
-                self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
-            fnme = "%s/out_%d.png" % (self.out_dirs[self.minibatch_class[0]],
-                                      idx)
-            scipy.misc.imsave(fnme, y2.astype(numpy.uint8))
 
 
 class Workflow(units.OpenCLUnit):
@@ -190,10 +101,11 @@ class Workflow(units.OpenCLUnit):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE()
+        self.image_saver = image_saver.ImageSaver()
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
+        self.image_saver.target = self.image_saver.input
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class

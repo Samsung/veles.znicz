@@ -25,7 +25,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import units
-import formats
 import numpy
 import config
 import rnd
@@ -35,11 +34,11 @@ import pickle
 import time
 import mnist
 import rbm
-import mnist_ae
 import all2all
 import evaluator
 import gd
 import decision
+import image_saver
 
 
 class Workflow(units.OpenCLUnit):
@@ -69,15 +68,9 @@ class Workflow(units.OpenCLUnit):
         self.forward = []
         for i in range(0, len(layers)):
             if not i:
-                amp = None
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
-            if not i:
-                aa = rbm.RBMTanh([layers[i]], device=device,
-                             weights_amplitude=amp)
+                aa = rbm.RBMTanh([layers[i]], device=device)
             else:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
-                             weights_amplitude=amp,
                              weights_transposed=True)
                 aa.weights = self.forward[0].weights
             self.forward.append(aa)
@@ -112,12 +105,11 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = mnist_ae.ImageSaverAE(["/tmp/img/test",
-                                                  "/tmp/img/validation",
-                                                  "/tmp/img/train"])
+        self.image_saver = image_saver.ImageSaver()
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
+        self.image_saver.target = self.image_saver.input
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class

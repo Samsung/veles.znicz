@@ -36,6 +36,10 @@ import glob
 import mnist
 import formats
 import decision
+import image_saver
+import all2all
+import evaluator
+import gd
 
 
 add_path("/usr/local/lib/python3.3/dist-packages/freetype")
@@ -126,72 +130,6 @@ class Loader(mnist.Loader):
             self.original_target[i] = self.class_target.v[label]
 
 
-import all2all
-import evaluator
-import gd
-import scipy.misc
-
-
-class ImageSaverAE(units.Unit):
-    """Saves input and output side by side to png for AutoEncoder.
-
-    Attributes:
-        out_dirs: output directories by minibatch_class where to save png.
-        input: batch with input samples.
-        output: batch with corresponding output samples.
-        indexes: sample indexes.
-        labels: sample labels.
-    """
-    def __init__(self, out_dirs=[".", ".", "."]):
-        super(ImageSaverAE, self).__init__()
-        self.out_dirs = out_dirs
-        self.input = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.target = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
-        self.this_save_date = [0]
-        self.last_save_date = 0
-
-    def run(self):
-        self.input.sync()
-        self.output.sync()
-        self.target.sync()
-        self.indexes.sync()
-        self.labels.sync()
-        if self.last_save_date < self.this_save_date[0]:
-            self.last_save_date = self.this_save_date[0]
-            for dirnme in self.out_dirs:
-                try:
-                    os.makedirs(dirnme)
-                except OSError:
-                    pass
-                files = glob.glob("%s/*.png" % (dirnme))
-                for file in files:
-                    try:
-                        os.unlink(file)
-                    except OSError:
-                        pass
-        for i in range(0, self.minibatch_size[0]):
-            x = self.input.v[i]
-            y = self.output.v[i]
-            t = self.target.v[i]
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
-            mse = numpy.linalg.norm(t - y) / t.size
-            fnme = "%s/%.6f_%d_%d.png" % (
-                self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            img = x.copy()
-            img -= img.min()
-            m = img.max()
-            if m:
-                img /= m
-                img *= 255.0
-            scipy.misc.imsave(fnme, img.astype(numpy.uint8))
-
-
 class Workflow(units.OpenCLUnit):
     """Sample workflow for MNIST dataset.
 
@@ -218,12 +156,7 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = None
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
-            aa = all2all.All2AllTanh([layers[i]], device=device,
-                                     weights_amplitude=amp)
+            aa = all2all.All2AllTanh([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -253,9 +186,7 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE(["/tmp/img/test",
-                                         "/tmp/img/validation",
-                                         "/tmp/img/train"])
+        self.image_saver = image_saver.ImageSaver()
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.ev.y

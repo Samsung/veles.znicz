@@ -159,18 +159,13 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            # if not i:
-            #    amp = 9.0 / 784
-            # else:
-            #    amp = 9.0 / 1.7159 / layers[i - 1]
-            amp = 0.05
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
-                                         weights_amplitude=amp,
+                                         weights_amplitude=0.05,
                                          weights_transposed=False)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device,
-                                            weights_amplitude=amp)
+                                            weights_amplitude=0.05)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])

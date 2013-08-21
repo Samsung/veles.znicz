@@ -31,9 +31,9 @@ from freetype import *
 import numpy
 import sqlite3
 import xml.etree.ElementTree as et
-import struct
 import glob
 import config
+import scipy.misc
 
 
 SX = 32
@@ -42,47 +42,6 @@ TARGET_SX = 24
 TARGET_SY = 24
 N_TRANSFORMS = 101
 KANJI_COUNT = 30
-
-
-class BMPWriter(object):
-    """Writes bmp file.
-
-    Attributes:
-        rgbquad: color table for gray scale.
-    """
-    def __init__(self):
-        self.rgbquad = numpy.zeros([256, 4], dtype=numpy.uint8)
-        for i in range(0, 256):
-            self.rgbquad[i] = (i, i, i, 0)
-
-    def write_gray(self, fnme, a):
-        """Writes bmp as gray scale.
-
-        Parameters:
-            fnme: file name.
-            a: numpy array with 2 dimensions.
-        """
-        if len(a.shape) != 2:
-            raise Exception("a should be 2-dimensional, got: %s" % (
-                str(a.shape)))
-
-        fout = open(fnme, "wb")
-
-        header_size = 54 + 256 * 4
-        file_size = header_size + a.size
-
-        header = struct.pack("<HIHHI"
-                             "IiiHHIIiiII",
-                             19778, file_size, 0, 0, header_size,
-                             40, a.shape[1], -a.shape[0], 1, 8, 0, a.size,
-                             0, 0, 0, 0)
-        fout.write(header)
-
-        self.rgbquad.tofile(fout)
-
-        a.astype(numpy.uint8).tofile(fout)
-
-        fout.close()
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,
@@ -254,11 +213,9 @@ if __name__ == '__main__':
 
     rs = db.execute(query)
 
-    bmp = BMPWriter()
-
     dirnme = "%s/kanji/train" % (config.test_dataset_root)
     target_dirnme = "/%s/kanji/target" % (config.test_dataset_root)
-    files = glob.glob("%s/*.bmp" % (dirnme))
+    files = glob.glob("%s/*.png" % (dirnme))
     i = 0
     for file in files:
         try:
@@ -268,7 +225,7 @@ if __name__ == '__main__':
             pass
     if i:
         logging.info("Unlinked %d files" % (i))
-    files = glob.glob("%s/*.bmp" % (target_dirnme))
+    files = glob.glob("%s/*.png" % (target_dirnme))
     i = 0
     for file in files:
         try:
@@ -298,15 +255,15 @@ if __name__ == '__main__':
                 if img == None:
                     #logging.info("Not found for font %s" % (font))
                     continue
-                fnme = "%s/%05d.%.1fx%.1f_%.0f.%02d.bmp" % (dirnme,
+                fnme = "%s/%05d.%.1fx%.1f_%.0f.%02d.png" % (dirnme,
                     row[0], sx, sy, angle, idx)
-                bmp.write_gray(fnme, img)
+                scipy.misc.imsave(fnme, img)
                 if not font_ok:
                     if not idx:  # writing to target
                         img = do_plot(font, row[1], TARGET_SY, 0, 1.0, 1.0,
                                       False, TARGET_SX, TARGET_SY)
-                        fnme = "%s/%05d.bmp" % (target_dirnme, row[0])
-                        bmp.write_gray(fnme, img)
+                        fnme = "%s/%05d.png" % (target_dirnme, row[0])
+                        scipy.misc.imsave(fnme, img)
                     font_ok = True
             if font_ok:
                 ok[font] += 1

@@ -10,7 +10,6 @@ import units
 import scipy.misc
 import os
 import glob
-import error
 
 
 class ImageSaver(units.Unit):
@@ -35,7 +34,9 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, out_dirs=[".", ".", "."]):
+    def __init__(self, out_dirs=["/tmp/img/test",
+                                 "/tmp/img/validation",
+                                 "/tmp/img/train"]):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
@@ -65,8 +66,7 @@ class ImageSaver(units.Unit):
                 xx[:, :, 2:3] = x[2:3, :, :].reshape(
                     x.shape[1], x.shape[2], 1)[:, :, 0:1]
                 return xx
-        raise error.ErrBadFormat("Unsupported input shape: %s" % (
-                                                        str(x.shape)))
+        return x.ravel()
 
     def run(self):
         self.input.sync()
@@ -117,10 +117,11 @@ class ImageSaver(units.Unit):
             if xyt == None:
                 n_rows = x.shape[0]
                 n_cols = x.shape[1]
-                if self.max_idx == None and y != None:
+                if self.max_idx == None and y != None and len(y.shape) != 1:
                     n_rows += y.shape[0]
                     n_cols = max(n_cols, y.shape[1])
-                if self.max_idx == None and t != x:
+                if (self.max_idx == None and t != None and
+                    len(t.shape) != 1 and self.input != self.target):
                     n_rows += t.shape[0]
                     n_cols = max(n_cols, t.shape[1])
                 xyt = numpy.empty([n_rows, n_cols, x.shape[2]], dtype=x.dtype)
@@ -132,7 +133,7 @@ class ImageSaver(units.Unit):
             img += 1.0
             img *= 127.5
             numpy.clip(img, 0, 255, img)
-            if self.max_idx == None and y != None:
+            if self.max_idx == None and y != None and len(y.shape) != 1:
                 offs = (xyt.shape[1] - y.shape[1]) >> 1
                 xyt[x.shape[0]:x.shape[0] + y.shape[0],
                     offs:offs + y.shape[1]] = y[:, :]
@@ -142,7 +143,8 @@ class ImageSaver(units.Unit):
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
-            if self.max_idx == None and t != x:
+            if (self.max_idx == None and t != None and
+                len(t.shape) != 1 and self.input != self.target):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
                 img = xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]]

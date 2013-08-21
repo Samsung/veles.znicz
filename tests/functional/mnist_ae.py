@@ -34,75 +34,12 @@ import plotters
 import pickle
 import time
 import logging
-import glob
 import mnist
 import all2all
 import evaluator
 import gd
-import scipy.misc
 import decision
-
-
-class ImageSaverAE(units.Unit):
-    """Saves input and output side by side to png for AutoEncoder.
-
-    Attributes:
-        out_dirs: output directories by minibatch_class where to save png.
-        input: batch with input samples.
-        output: batch with corresponding output samples.
-        indexes: sample indexes.
-        labels: sample labels.
-    """
-    def __init__(self, out_dirs=[".", ".", "."]):
-        super(ImageSaverAE, self).__init__()
-        self.out_dirs = out_dirs
-        self.input = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
-        self.this_save_date = [0]
-        self.last_save_date = 0
-
-    def run(self):
-        self.input.sync()
-        self.output.sync()
-        self.indexes.sync()
-        self.labels.sync()
-        xy = None
-        if self.last_save_date < self.this_save_date[0]:
-            self.last_save_date = self.this_save_date[0]
-            for dirnme in self.out_dirs:
-                files = glob.glob("%s/*.png" % (dirnme))
-                for file in files:
-                    try:
-                        os.unlink(file)
-                    except OSError:
-                        pass
-        for i in range(0, self.minibatch_size[0]):
-            x = self.input.v[i]
-            y = self.output.v[i].reshape(x.shape)
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
-            mse = numpy.linalg.norm(x - y) / x.size
-            if xy == None:
-                xy = numpy.empty([x.shape[0], x.shape[1] * 2], dtype=x.dtype)
-            xy[:, :x.shape[1]] = x[:, :]
-            xy[:, x.shape[1]:] = y[:, :]
-            x = xy[:, :x.shape[1]]
-            y = xy[:, x.shape[1]:]
-            x *= -1.0
-            x += 1.0
-            x *= 127.5
-            numpy.clip(x, 0, 255, x)
-            y *= -1.0
-            y += 1.0
-            y *= 127.5
-            numpy.clip(y, 0, 255, y)
-            fnme = "%s/%.6f_%d_%d.png" % (
-                self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
-            scipy.misc.imsave(fnme, xy.astype(numpy.uint8))
+import image_saver
 
 
 class Workflow(units.OpenCLUnit):
@@ -131,13 +68,7 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            if not i:
-                amp = 9.0 / 784
-            else:
-                amp = 9.0 / 1.7159 / layers[i - 1]
-            # amp = 0.05
-            aa = all2all.All2AllTanh([layers[i]], device=device,
-                                     weights_amplitude=amp)
+            aa = all2all.All2AllTanh([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -166,12 +97,11 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = ImageSaverAE(["/tmp/img/test",
-                                         "/tmp/img/validation",
-                                         "/tmp/img/train"])
+        self.image_saver = image_saver.ImageSaver()
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
+        self.image_saver.target = self.image_saver.input
         self.image_saver.indexes = self.loader.minibatch_indexes
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class

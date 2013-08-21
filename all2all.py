@@ -46,8 +46,7 @@ class All2All(units.Forward):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 input_maxvle=1.7159, rand=rnd.default,
-                 weights_transposed=False):
+                 rand=rnd.default, weights_transposed=False):
         super(All2All, self).__init__(device=device)
         self.input = None  # formats.Vector(device)
         self.output = formats.Vector(device)
@@ -55,7 +54,6 @@ class All2All(units.Forward):
         self.bias = formats.Vector(device)
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
-        self.input_maxvle = input_maxvle
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
         self.weights_transposed = weights_transposed
@@ -71,7 +69,7 @@ class All2All(units.Forward):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        return (9.0 / self.input_maxvle /
+        return (9.0 / self.input.supposed_maxvle /
                 (self.input.v.size // self.input.v.shape[0]))
 
     def initialize(self):
@@ -225,10 +223,13 @@ class All2AllTanh(All2All):
     """
     def initialize(self):
         self.s_activation = "ACTIVATION_TANH"
-        return super(All2AllTanh, self).initialize()
+        retval = super(All2AllTanh, self).initialize()
+        if retval:
+            return retval
+        self.output.supposed_maxvle = 1.7159
 
     def get_weights_amplitude(self):
-        return (9.0 / (self.input_maxvle * 0.6666) /
+        return (9.0 / (self.input.supposed_maxvle * 0.6666) /
                 (self.input.v.size // self.input.v.shape[0]))
 
     def cpu_run(self):
@@ -260,12 +261,11 @@ class All2AllSoftmax(All2All):
         max_idx: indexes of element with maximum value for each sample.
     """
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 input_maxvle=1.7159, rand=rnd.default,
-                 weights_transposed=False):
+                 rand=rnd.default, weights_transposed=False):
         super(All2AllSoftmax, self).__init__(
             output_shape=output_shape, device=device,
-            weights_amplitude=weights_amplitude, input_maxvle=input_maxvle,
-            rand=rand, weights_transposed=weights_transposed)
+            weights_amplitude=weights_amplitude, rand=rand,
+            weights_transposed=weights_transposed)
         self.max_idx = formats.Vector()
 
     def init_unpickled(self):
@@ -273,7 +273,7 @@ class All2AllSoftmax(All2All):
         self.krn_sm_ = None
 
     def get_weights_amplitude(self):
-        return (9.0 / self.input_maxvle /
+        return (9.0 / self.input.supposed_maxvle /
                 (self.input.v.size // self.input.v.shape[0]))
 
     def initialize(self):
