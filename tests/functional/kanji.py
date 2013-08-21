@@ -362,7 +362,7 @@ def main():
                         forward.bias.v.min(), forward.bias.v.max()))
                 w.decision.just_snapshotted[0] = 1
         if fin == None:
-            w = Workflow(layers=[2997, 24 * 24], device=device)
+            w = Workflow(layers=[300, 300, 24 * 24], device=device)
         w.initialize(threshold_ok=0.004, threshold_skip=0.0,
                      global_alpha=0.001, global_lambda=0.00005,
                      minibatch_maxsize=891, device=device)
