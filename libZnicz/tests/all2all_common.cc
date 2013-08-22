@@ -38,9 +38,4 @@ TEST_P(All2AllCommon, ExecutionZeroWeightsBias) {
 INSTANTIATE_TEST_CASE_P(All2AllCommonTests, All2AllCommon,
                         ::testing::Values("All2All", "All2AllTanh"));
 
-GTEST_API_ int main(int argc, char **argv) {
-  REFERENCE_UNIT(Veles::Znicz, All2AllLinear);
-  REFERENCE_UNIT(Veles::Znicz, All2AllTanh);
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+#include "tests/google/src/gtest_main.cc"

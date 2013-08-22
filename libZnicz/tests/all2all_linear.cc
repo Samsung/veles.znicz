@@ -55,8 +55,4 @@ TEST_F(All2AllLinearSquare, ExecutionBias) {
   }
 }
 
-GTEST_API_ int main(int argc, char **argv) {
-  REFERENCE_UNIT(Veles::Znicz, All2AllLinear);
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+#include "tests/google/src/gtest_main.cc"
