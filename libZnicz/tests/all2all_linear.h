@@ -19,19 +19,14 @@ class All2AllLinear : public All2AllTest {
  protected:
   All2AllLinear() : All2AllTest("All2All") {
   }
-
-  virtual void SetUp() override {
-    Initialize(kInputs, kOutputs);
-  }
+  virtual void SetUp() override;
 };
 
 class All2AllLinearSquare : public All2AllLinear {
  protected:
   static const size_t kCount;
 
-  virtual void SetUp() override {
-    Initialize(kCount, kCount);
-  }
+  virtual void SetUp() override;
 };
 
 #endif  // TESTS_ALL2ALL_H_

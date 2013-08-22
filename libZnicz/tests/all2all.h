@@ -46,15 +46,32 @@ class All2AllTest : public ::testing::Test {
     return ptr;
   }
 
-  void Initialize(size_t inputs, size_t outputs) {
-    auto weights = CreateFloatArray(inputs * outputs);
-    auto bias = CreateFloatArray(outputs);
+  void Initialize(size_t inputs, size_t outputs,
+                  float* weights = nullptr, float* bias = nullptr) {
+    auto weights_array = CreateFloatArray(inputs * outputs);
+    auto bias_array = CreateFloatArray(outputs);
+    if (weights) {
+      memcpy(weights_array.get(), weights, inputs * outputs * sizeof(float));
+    }
+    if (bias) {
+      memcpy(bias_array.get(), bias, outputs * sizeof(float));
+    }
     input_ = CreateFloatArray(inputs, kValueInputInit);
     output_ = CreateFloatArray(outputs, kValueOutputInit);
-    unit()->SetParameter("weights", weights);
-    unit()->SetParameter("bias", bias);
+    unit()->SetParameter("weights", weights_array);
+    unit()->SetParameter("bias", bias_array);
     unit()->SetParameter("inputs", std::make_shared<size_t>(inputs));
     unit()->SetParameter("outputs", std::make_shared<size_t>(outputs));
+  }
+
+  template<class InputIterator>
+  void TestExecution(InputIterator expected_begin,
+                     InputIterator expected_end) {
+    unit()->Execute(input().get(), output().get());
+    int i = 0;
+    for (InputIterator it = expected_begin; it != expected_end; ++it, ++i) {
+      ASSERT_NEAR(*it, output().get()[i], 0.01);
+    }
   }
 
   std::shared_ptr<Veles::Unit> unit() const {

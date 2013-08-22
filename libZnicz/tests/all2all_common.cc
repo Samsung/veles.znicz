@@ -30,7 +30,7 @@ TEST_P(All2AllCommon, Construction) {
 
 TEST_P(All2AllCommon, ExecutionZeroWeightsBias) {
   unit()->Execute(input().get(), output().get());
-  for(size_t i = 0; i < kOutputs; ++i) {
+  for (size_t i = 0; i < kOutputs; ++i) {
     EXPECT_EQ(kValueZero, output().get()[i]);
   }
 }

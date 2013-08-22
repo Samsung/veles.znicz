@@ -10,49 +10,43 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-
-#include <veles/unit_factory.h>
+#include <vector>
 #include "src/all2all_linear.h"
 #include "tests/all2all_linear.h"
 
 const size_t All2AllLinearSquare::kCount = 5;
 
-TEST_F(All2AllLinear, Execution) {
-  float weights_f[kInputs * kOutputs] = {1, 2.1, 33,
+void All2AllLinear::SetUp() {
+  float weights[kInputs * kOutputs] = {1, 2.1, 33,
                                          4, 55, 6 };
-  float bias_f[kOutputs] = {433, 42.9};
-  float expected[kOutputs] = {1964.362, 2800.2};
-  auto weights = CreateFloatArray(kInputs * kOutputs);
-  auto bias = CreateFloatArray(kOutputs);
-  memcpy(weights.get(), weights_f, sizeof(weights_f));
-  memcpy(bias.get(), bias_f, sizeof(bias_f));
-  unit()->SetParameter("weights", weights);
-  unit()->SetParameter("bias", bias);
-  unit()->Execute(input().get(), output().get());
-  for(size_t i = 0; i < kOutputs; ++i) {
-    EXPECT_FLOAT_EQ(expected[i], output().get()[i]);
-  }
+  float bias[kOutputs] = {433, 42.9};
+  Initialize(kInputs, kOutputs, weights, bias);
+}
+
+TEST_F(All2AllLinear, Execution) {
+  std::vector<float> expected = {1964.362, 2800.2};
+  TestExecution(expected.begin(), expected.end());
+}
+
+void All2AllLinearSquare::SetUp() {
+  Initialize(kCount, kCount);
 }
 
 TEST_F(All2AllLinearSquare, ExecutionIdentity) {
   auto weights = CreateFloatArray(kCount * kCount);
-  for(size_t i = 0; i < kCount; ++i) {
+  for (size_t i = 0; i < kCount; ++i) {
     weights.get()[(kCount + 1) * i] = kValueOne;
   }
   unit()->SetParameter("weights", weights);
-  unit()->Execute(input().get(), output().get());
-  for(size_t i = 0; i < kCount; ++i) {
-    EXPECT_EQ(kValueInputInit, output().get()[i]);
-  }
+  std::vector<float> expected(kCount, kValueInputInit);
+  TestExecution(expected.begin(), expected.end());
 }
 
 TEST_F(All2AllLinearSquare, ExecutionBias) {
   auto bias = CreateFloatArray(kCount * kCount, kValueOther);
   unit()->SetParameter("bias", bias);
-  unit()->Execute(input().get(), output().get());
-  for(size_t i = 0; i < kCount; ++i) {
-    EXPECT_EQ(kValueOther, output().get()[i]);
-  }
+  std::vector<float> expected(kCount, kValueOther);
+  TestExecution(expected.begin(), expected.end());
 }
 
 #include "tests/google/src/gtest_main.cc"
