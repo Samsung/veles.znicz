@@ -10,8 +10,6 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-
-#include <veles/unit_factory.h>
 #include "src/all2all_linear.h"
 
 namespace Veles {

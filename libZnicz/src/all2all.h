@@ -19,6 +19,7 @@
 #include <functional>
 #include <unordered_map>
 #include <veles/unit.h>
+#include <veles/unit_factory.h>
 
 namespace Veles {
 namespace Znicz {
