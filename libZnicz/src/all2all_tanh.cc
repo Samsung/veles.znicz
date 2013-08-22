@@ -14,6 +14,7 @@
 #include <cmath>
 #include <simd/memory.h>
 #include <simd/arithmetic-inl.h>
+#include <veles/make_unique.h>
 #include <veles/unit_registry.h>
 #include "src/all2all_tanh.h"
 
@@ -25,11 +26,10 @@ std::string All2AllTanh::Name() const noexcept {
 }
 
 void All2AllTanh::ApplyActivationFunction(float* data, size_t length) const {
-  std::unique_ptr<float[], void (*)(void*)> tmp(
-      mallocf(length), std::free);
+  auto tmp = std::uniquify(mallocf(length), std::free);
   real_multiply_scalar(data, length, kScaleX, tmp.get());
   for(size_t i = 0; i < length; ++i) {
-    tmp[i] = std::tanh(tmp[i]);
+    tmp.get()[i] = std::tanh(tmp.get()[i]);
   }
   real_multiply_scalar(tmp.get(), length, kScaleY, data);
 }
