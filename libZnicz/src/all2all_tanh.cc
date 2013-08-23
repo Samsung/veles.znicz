@@ -15,7 +15,7 @@
 #include <simd/memory.h>
 #include <simd/arithmetic-inl.h>
 #include <veles/make_unique.h>
-#include <veles/unit_registry.h>
+#include <veles/unit_factory.h>
 #include "src/all2all_tanh.h"
 
 namespace Veles {

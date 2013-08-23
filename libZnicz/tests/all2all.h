@@ -16,7 +16,7 @@
 #include <memory>
 #include <gtest/gtest.h>
 #include <veles/unit.h>
-#include <veles/unit_registry.h>
+#include <veles/unit_factory.h>
 #include <simd/inc/simd/memory.h>
 
 class All2AllTest : public ::testing::Test {

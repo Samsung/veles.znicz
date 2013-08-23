@@ -15,6 +15,10 @@
 
 #include "src/all2all.h"
 
+#if __GNUC__ >= 4
+#pragma GCC visibility push(default)
+#endif
+
 namespace Veles {
 namespace Znicz {
 
@@ -36,5 +40,9 @@ DECLARE_UNIT(All2AllLinear);
 
 }  // namespace Znicz
 }  // namespace Veles
+
+#if __GNUC__ >= 4
+#pragma GCC visibility pop
+#endif
 
 #endif  // SRC_ALL2ALL_LINEAR_H_
