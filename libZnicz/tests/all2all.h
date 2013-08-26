@@ -18,14 +18,10 @@
 #include <veles/unit.h>
 #include <veles/unit_factory.h>
 #include <simd/inc/simd/memory.h>
+#include "tests/common_test.h"
 
-class All2AllTest : public ::testing::Test {
+class All2AllTest : public CommonTest {
  protected:
-  static const float kValueZero;
-  static const float kValueOne;
-  static const float kValueInputInit;
-  static const float kValueOutputInit;
-  static const float kValueOther;
   static const size_t kInputs;
   static const size_t kOutputs;
 
@@ -33,35 +29,11 @@ class All2AllTest : public ::testing::Test {
     : unit_(nullptr), name_(name) {
   }
 
-  virtual ~All2AllTest() = default;
-
-  static std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) {
-    return Veles::UnitFactory::Instance()[name]();
-  }
-
-  std::shared_ptr<float> CreateFloatArray(size_t count,
-                                          float initializer = kValueZero) {
-    auto ptr = std::shared_ptr<float>(mallocf(count), std::free);
-    memsetf(ptr.get(), count, initializer);
-    return ptr;
-  }
-
   void Initialize(size_t inputs, size_t outputs,
                   float* weights = nullptr, float* bias = nullptr) {
-    auto weights_array = CreateFloatArray(inputs * outputs);
-    auto bias_array = CreateFloatArray(outputs);
-    if (weights) {
-      memcpy(weights_array.get(), weights, inputs * outputs * sizeof(float));
-    }
-    if (bias) {
-      memcpy(bias_array.get(), bias, outputs * sizeof(float));
-    }
+    InitializeUnit(unit(), inputs, outputs, weights, bias);
     input_ = CreateFloatArray(inputs, kValueInputInit);
     output_ = CreateFloatArray(outputs, kValueOutputInit);
-    unit()->SetParameter("weights", weights_array);
-    unit()->SetParameter("bias", bias_array);
-    unit()->SetParameter("inputs", std::make_shared<size_t>(inputs));
-    unit()->SetParameter("outputs", std::make_shared<size_t>(outputs));
   }
 
   template<class InputIterator>
@@ -100,11 +72,6 @@ class All2AllTest : public ::testing::Test {
   std::string name_;
 };
 
-const float All2AllTest::kValueZero = 0;
-const float All2AllTest::kValueOne = 1;
-const float All2AllTest::kValueInputInit = 42.42;
-const float All2AllTest::kValueOutputInit = 412.31415;
-const float All2AllTest::kValueOther = 156.27172;
 const size_t All2AllTest::kInputs = 3;
 const size_t All2AllTest::kOutputs = 2;
 
