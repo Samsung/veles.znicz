@@ -40,8 +40,8 @@ SX = 32
 SY = 32
 TARGET_SX = 24
 TARGET_SY = 24
-N_TRANSFORMS = 101
-KANJI_COUNT = 30
+N_TRANSFORMS = 150
+KANJI_COUNT = 500
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,
@@ -238,18 +238,26 @@ if __name__ == '__main__':
     del files
 
     ii = 0
+    n_dups = 0
     for row in rs:
         ii += 1
         logging.info("%d: %d %s" % (ii, row[0], row[1]))
         exists = False
         for idx, font in enumerate(fonts):
             font_ok = False
+            transforms = set()
             for i in range(0, N_TRANSFORMS):
-            #for s in ((1.0, 1.0), (0.89, 1.0 / 0.89), (1.0 / 0.89, 0.89)):
-            #    for angle in (0.0, 12.5, -12.5):
-                angle = -14.9 + numpy.random.rand() * 29.8001
-                sx = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
-                sy = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
+                while True:
+                    angle = -14.9 + numpy.random.rand() * 29.8001
+                    sx = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
+                    sy = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
+                    key = "%.1f_%.2f_%.2f" % (angle, sx, sy)
+                    if key in transforms:
+                        n_dups += 1
+                        logging.info("Same transform found, will retry")
+                        continue
+                    transforms.add(key)
+                    break
                 img = do_plot(font, row[1], SY, angle, sx, sy, True,
                               SX, SY)
                 if img == None:
@@ -274,4 +282,5 @@ if __name__ == '__main__':
     for font, n in ok.items():
         logging.info("%s: %d (%.2f%%)" % (font, n, 100.0 * n / n_kanji))
 
+    logging.info("Retried transforms %d times" % (n_dups))
     sys.exit(0)
