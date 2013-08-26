@@ -41,7 +41,7 @@ void All2All::SetParameter(const std::string& name,
  *  @param in Input vector
  *  @param out Output vector
  */
-void All2All::Execute(float* in, float* out) const {
+void All2All::Execute(const float* in, float* out) const {
   size_t input_count = InputCount();
   size_t output_count = OutputCount();
   auto tmp = std::uniquify(mallocf(output_count), std::free);

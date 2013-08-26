@@ -30,7 +30,7 @@ class All2All : public Unit {
   All2All();
   virtual void SetParameter(const std::string& name,
                             std::shared_ptr<void> value) override final;
-  virtual void Execute(float* in, float* out) const override final;
+  virtual void Execute(const float* in, float* out) const override final;
   virtual size_t InputCount() const noexcept override final {
     return inputs_;
   }
