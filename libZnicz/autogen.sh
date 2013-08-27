@@ -40,7 +40,7 @@ cd "$mypath"
 
 isubuntu="$(uname -v|grep Ubuntu)"
 
-echo "\$(dirname \$0)/configure \$@ --disable-simd-fftf" > simd/configure.gnu
+echo "\$(dirname \$0)/configure \$@ --disable-simd-fftf --disable-tests --disable-doxygen" > simd/configure.gnu
 chmod +x simd/configure.gnu
 
 check_prog() {
