@@ -40,6 +40,9 @@ cd "$mypath"
 
 isubuntu="$(uname -v|grep Ubuntu)"
 
+echo "\$(dirname \$0)/configure \$@ --disable-simd-fftf" > simd/configure.gnu
+chmod +x simd/configure.gnu
+
 check_prog() {
     printf "Checking for $1... "
     if [ -z "$($1 --version 2>/dev/null)" ]; then
