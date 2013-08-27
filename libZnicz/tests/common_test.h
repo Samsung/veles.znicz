@@ -14,6 +14,7 @@
 #define COMMON_TEST_H_
 
 #include <memory>
+#include <cstdio>
 #include <gtest/gtest.h>
 #include <veles/unit.h>
 #include <veles/unit_factory.h>
@@ -35,7 +36,16 @@ class CommonTest : public ::testing::Test {
   }
 
   static std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) {
-    return Veles::UnitFactory::Instance()[name]();
+    std::shared_ptr<Veles::Unit> unit;
+    try {
+      unit = Veles::UnitFactory::Instance()[name]();
+    }
+    catch(const std::exception& e) {
+      fprintf(stderr, "Failed to create an unit using a factory.\n"
+              "Name: %s\nException: %s", name.c_str(), e.what());
+      throw;
+    }
+    return unit;
   }
 
   static void InitializeUnit(std::shared_ptr<Veles::Unit> unit,
