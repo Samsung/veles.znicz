@@ -31,10 +31,10 @@ if [ ! -e "simd/autogen.sh" ]; then
 	user=$(git remote -v | grep -oE '//[^@]+' -m1 | cut -c3-)
     sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" ../.gitmodules
     cd ..
-    git submodule update --init	
+    git submodule update --init	libZnicz/simd
 else
 	cd ..
-    git submodule update
+    git submodule update libZnicz/simd
 fi
 cd "$mypath"
 
