@@ -23,7 +23,6 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
 import formats
 import struct
 import error
@@ -133,31 +132,21 @@ class Loader(loader.FullBatchLoader):
         self.total_samples[0] = 70000
 
 
-class Workflow(units.OpenCLUnit):
-    """Sample workflow for MNIST dataset.
+import workflow
 
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        stat: stat collector.
-        decision: Decision.
-        gd: list of gradient descent units.
+
+class Workflow(workflow.NNWorkflow):
+    """Sample workflow for MNIST dataset.
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-        self.start_point = units.Unit()
 
-        self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(minibatch_max_size=60)
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward = []
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
@@ -196,7 +185,7 @@ class Workflow(units.OpenCLUnit):
         self.decision.workflow = self
 
         # Add gradient descent units
-        self.gd = list(None for i in range(0, len(self.forward)))
+        self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(device=device)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -218,7 +207,6 @@ class Workflow(units.OpenCLUnit):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
@@ -265,21 +253,17 @@ class Workflow(units.OpenCLUnit):
             self.plt_err_y[-1].gate_block_not = [1]
         self.plt_err_y[0].clear_plot = True
 
-    def initialize(self):
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
-
-    def run(self, threshold, threshold_low, global_alpha, global_lambda):
+    def initialize(self, threshold, threshold_low, global_alpha,
+                   global_lambda, device=None):
         self.ev.threshold = threshold
         self.ev.threshold_low = threshold_low
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        retval = self.start_point.run_dependent()
+        super(Workflow, self).initialize(device=device)
+        retval = self.start_point.initialize_dependent()
         if retval:
             return retval
-        self.end_point.wait()
 
 
 def main():
@@ -351,12 +335,12 @@ def main():
         cl = opencl.DeviceList()
         device = cl.get_device()
         w = Workflow(layers=[100, 10], device=device)
-        w.initialize()
+        w.initialize(device=device, threshold=1.0, threshold_low=1.0,
+                     global_alpha=0.1, global_lambda=0.000)
     except KeyboardInterrupt:
         return
     try:
-        w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.1, global_lambda=0.000)
+        w.run()
     except KeyboardInterrupt:
         w.gd[-1].gate_block = [1]
     logging.info("Will snapshot in 15 seconds...")
