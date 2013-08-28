@@ -1,3 +1,4 @@
 [submodule "libZnicz/simd"]
 	path = libZnicz/simd
+	branch = master
 	url = ssh://alserver.rnd.samsung.ru:29418/Simd.git
