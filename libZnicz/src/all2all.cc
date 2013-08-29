@@ -25,9 +25,9 @@ namespace Znicz {
 All2All::All2All() : setters_ {
   {"weights", Attribute::GetSetter(&weights_)},
   {"bias", Attribute::GetSetter(&bias_)},
-  {"inputs", Attribute::GetSetter(&inputs_)},
-  {"outputs", Attribute::GetSetter(&outputs_)}
-}, inputs_(0), outputs_(0) {
+  {"weights_length", Attribute::GetSetter(&weights_length_)},
+  {"bias_length", Attribute::GetSetter(&bias_length_)}
+}, weights_length_(0), bias_length_(0) {
 }
 
 void All2All::SetParameter(const std::string& name,
@@ -49,7 +49,7 @@ void All2All::Execute(const float* in, float* out) const {
   matrix_multiply(1, weights_.get(), in, input_count,
                   output_count, 1, input_count, tmp.get());
   matrix_add(1, tmp.get(), bias_.get(), 1, output_count, out);
-  ApplyActivationFunction(out, outputs_);
+  ApplyActivationFunction(out, output_count);
 }
 
 }  // namespace Znicz

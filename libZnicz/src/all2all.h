@@ -33,10 +33,11 @@ class All2All : public Unit {
                             std::shared_ptr<void> value) override final;
   virtual void Execute(const float* in, float* out) const override final;
   virtual size_t InputCount() const noexcept override final {
-    return inputs_;
+    size_t outputs = OutputCount();
+    return outputs ? weights_length_ / outputs : 0;
   }
   virtual size_t OutputCount() const noexcept override final {
-    return outputs_;
+    return bias_length_;
   }
 
  protected:
@@ -57,12 +58,14 @@ class All2All : public Unit {
    */
   std::unordered_map<std::string, std::function<void (std::shared_ptr<void>)>>
     setters_;
-  /** @brief Number of inputs
+  /** @brief Number of elements in the weights matrix.
+   *  @details Number of inputs is computed using this length and outputs count.
    */
-  size_t inputs_;
-  /** Number of outputs
+  size_t weights_length_;
+  /** @brief Number of elements in the bias vector.
+   *  @details Equals to the number of outputs.
    */
-  size_t outputs_;
+  size_t bias_length_;
 };
 
 }  // namespace Znicz

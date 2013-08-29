@@ -10,8 +10,8 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-#ifndef FUNCTIONAL_TEST_H_
-#define FUNCTIONAL_TEST_H_
+#ifndef TESTS_FUNCTIONAL_TEST_H_
+#define TESTS_FUNCTIONAL_TEST_H_
 
 #include <veles/workflow.h>
 #include <tests/common_test.h>
@@ -51,4 +51,4 @@ class WorkflowTest : public CommonTest {
   std::shared_ptr<float> output_;
 };
 
-#endif  // FUNCTIONAL_TEST_H_
+#endif  // TESTS_FUNCTIONAL_TEST_H_

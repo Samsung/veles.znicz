@@ -10,8 +10,8 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
-#ifndef COMMON_TEST_H_
-#define COMMON_TEST_H_
+#ifndef TESTS_COMMON_TEST_H_
+#define TESTS_COMMON_TEST_H_
 
 #include <memory>
 #include <cstdio>
@@ -61,8 +61,9 @@ class CommonTest : public ::testing::Test {
     }
     unit->SetParameter("weights", weights_array);
     unit->SetParameter("bias", bias_array);
-    unit->SetParameter("inputs", std::make_shared<size_t>(inputs));
-    unit->SetParameter("outputs", std::make_shared<size_t>(outputs));
+    unit->SetParameter("weights_length",
+                       std::make_shared<size_t>(inputs * outputs));
+    unit->SetParameter("bias_length", std::make_shared<size_t>(outputs));
   }
 };
 
@@ -72,4 +73,4 @@ const float CommonTest::kValueInputInit = 42.42;
 const float CommonTest::kValueOutputInit = 412.31415;
 const float CommonTest::kValueOther = 156.27172;
 
-#endif  // TEST_COMMON_H_
+#endif  // TESTS_COMMON_TEST_H_
