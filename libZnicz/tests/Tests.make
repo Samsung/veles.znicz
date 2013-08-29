@@ -46,7 +46,7 @@ endif
 
 AM_DEFAULT_SOURCE_EXT = .cc
 
-AM_CPPFLAGS = -I$(top_srcdir)/tests/google
+AM_CPPFLAGS += -I$(top_srcdir)/tests/google
 AM_LDFLAGS = $(top_builddir)/src/libZnicz.la \
        $(top_builddir)/tests/google/lib_gtest.la \
        @VELES_LIBS@ @SIMD_LIBS@ -pthread
