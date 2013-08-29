@@ -24,7 +24,8 @@
 namespace Veles {
 namespace Znicz {
 
-/** @brief "All to all" neural network layer */
+/** @brief "All to all" neural network layer
+ */
 class All2All : public Unit {
  public:
   All2All();
@@ -46,31 +47,6 @@ class All2All : public Unit {
   virtual void ApplyActivationFunction(float* data, size_t length) const = 0;
 
  private:
-  /** @brief Constructs a function that converts shared_ptr<void> to pointer
-   *  to the desired type and assigns pointed value to the provided variable
-   *  using full copy.
-   *  @param data Variable, setter for which is constructed
-   */
-  template<class T>
-  static std::function<void (std::shared_ptr<void>)>
-  GetSetter(T* data) {
-    return [data](std::shared_ptr<void> value) {
-      *data = *std::static_pointer_cast<T>(value);
-    };
-  }
-
-  /** @brief Constructs a function that takes shared_ptr<void> and assigns it
-   *  to the provided variable without doing full copy of contents.
-   *  @param data Variable of shared_ptr type, setter for which is constructed.
-   */
-  template<class T>
-  static std::function<void (std::shared_ptr<void>)>
-  GetSetter(std::shared_ptr<T>* data) {
-    return [data](std::shared_ptr<void> value) {
-      *data = std::static_pointer_cast<T>(value);
-    };
-  }
-
   /** @brief Weights matrix
    */
   std::shared_ptr<float> weights_;

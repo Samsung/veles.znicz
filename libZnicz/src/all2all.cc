@@ -14,18 +14,19 @@
 #include <memory>
 #include <functional>
 #include <veles/make_unique.h>
-#include "src/all2all.h"
 #include <simd/inc/simd/matrix.h>
 #include <simd/inc/simd/memory.h>
+#include "src/attribute.h"
+#include "src/all2all.h"
 
 namespace Veles {
 namespace Znicz {
 
 All2All::All2All() : setters_ {
-  {"weights", GetSetter(&weights_)},
-  {"bias", GetSetter(&bias_)},
-  {"inputs", GetSetter(&inputs_)},
-  {"outputs", GetSetter(&outputs_)}
+  {"weights", Attribute::GetSetter(&weights_)},
+  {"bias", Attribute::GetSetter(&bias_)},
+  {"inputs", Attribute::GetSetter(&inputs_)},
+  {"outputs", Attribute::GetSetter(&outputs_)}
 }, inputs_(0), outputs_(0) {
 }
 
