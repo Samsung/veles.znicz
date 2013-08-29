@@ -41,7 +41,6 @@ AS_IF([test "x$SYSROOT" != "x" ],
 AC_GNU_SOURCE
 AC_PROG_CXX
 AC_PROG_CC
-AC_PROG_CC_C99
 AC_HEADER_STDC
 AC_C_BIGENDIAN([AC_MSG_ERROR([Big endian hosts are not supported.])])
 
@@ -203,6 +202,9 @@ LDFLAGS="$LDFLAGS -rdynamic"
 
 # Use the latest C++ standard
 AM_CXXFLAGS="$AM_CXXFLAGS -std=c++0x -fno-deduce-init-list"
+
+# Use C99 standard
+AM_CFLAGS="$AM_CFLAGS -std=c99"
 
 # Warn of unused precompiled headers
 AM_CXXFLAGS="$AM_CXXFLAGS -Winvalid-pch"
