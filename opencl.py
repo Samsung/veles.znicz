@@ -13,6 +13,7 @@ import units
 import os
 import config
 import logging
+import formats
 
 
 CL_MAP_READ = 1
@@ -311,24 +312,24 @@ class DeviceList(units.Pickleable):
             self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = numpy.random.get_state()
 
-        self.a = units.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
+        self.a = formats.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
                                      dtype=config.dtypes[dtype])
         self.a[:] = numpy.random.rand(self.a.size)
         self.a -= 0.5
         self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
 
-        self.b = units.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH],
+        self.b = formats.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH],
                                      dtype=config.dtypes[dtype])
         self.b[:] = numpy.random.rand(self.b.size)
         self.b -= 0.5
         self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
 
-        self.bias = units.aligned_zeros([self.B_HEIGHT],
+        self.bias = formats.aligned_zeros([self.B_HEIGHT],
                                         dtype=config.dtypes[dtype])
         self.bias[:] = numpy.random.rand(self.bias.size)
         self.bias -= 0.5
 
-        self.c = units.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT],
+        self.c = formats.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT],
                                      dtype=config.dtypes[dtype])
 
     def _cleanup_after_tests(self):
