@@ -22,10 +22,9 @@ class All2AllLinear : public All2AllTest {
   virtual void SetUp() override;
 };
 
-class All2AllLinearSquare : public All2AllLinear {
+class All2AllLinearSquare : public All2AllLinear,
+                            public ::testing::WithParamInterface<size_t> {
  protected:
-  static const size_t kCount;
-
   virtual void SetUp() override;
 };
 

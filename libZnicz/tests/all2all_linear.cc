@@ -14,8 +14,6 @@
 #include "src/all2all_linear.h"
 #include "tests/all2all_linear.h"
 
-const size_t All2AllLinearSquare::kCount = 5;
-
 void All2AllLinear::SetUp() {
   float weights[kInputs * kOutputs] = {1, 2.1, 33,
                                          4, 55, 6 };
@@ -29,24 +27,30 @@ TEST_F(All2AllLinear, Execution) {
 }
 
 void All2AllLinearSquare::SetUp() {
-  Initialize(kCount, kCount);
+  size_t count = GetParam();
+  Initialize(count, count);
 }
 
-TEST_F(All2AllLinearSquare, ExecutionIdentity) {
-  auto weights = CreateFloatArray(kCount * kCount);
-  for (size_t i = 0; i < kCount; ++i) {
-    weights.get()[(kCount + 1) * i] = kValueOne;
+TEST_P(All2AllLinearSquare, ExecutionIdentity) {
+  size_t count = GetParam();
+  auto weights = CreateFloatArray(count * count);
+  for (size_t i = 0; i < count; ++i) {
+    weights.get()[(count + 1) * i] = kValueOne;
   }
   unit()->SetParameter("weights", weights);
-  std::vector<float> expected(kCount, kValueInputInit);
+  std::vector<float> expected(count, kValueInputInit);
   TestExecution(expected.begin(), expected.end());
 }
 
-TEST_F(All2AllLinearSquare, ExecutionBias) {
-  auto bias = CreateFloatArray(kCount * kCount, kValueOther);
+TEST_P(All2AllLinearSquare, ExecutionBias) {
+  size_t count = GetParam();
+  auto bias = CreateFloatArray(count * count, kValueOther);
   unit()->SetParameter("bias", bias);
-  std::vector<float> expected(kCount, kValueOther);
+  std::vector<float> expected(count, kValueOther);
   TestExecution(expected.begin(), expected.end());
 }
+
+INSTANTIATE_TEST_CASE_P(All2AllLinearSquareTests, All2AllLinearSquare,
+                        ::testing::Values(1, 5, 199));
 
 #include "tests/google/src/gtest_main.cc"

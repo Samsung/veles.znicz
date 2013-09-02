@@ -13,6 +13,8 @@
 #ifndef TESTS_ALL2ALL_H_
 #define TESTS_ALL2ALL_H_
 
+#define GTEST_HAS_TR1_TUPLE 1
+
 #include <memory>
 #include <gtest/gtest.h>
 #include <veles/unit.h>
@@ -42,7 +44,8 @@ class All2AllTest : public CommonTest {
     unit()->Execute(input().get(), output().get());
     int i = 0;
     for (InputIterator it = expected_begin; it != expected_end; ++it, ++i) {
-      ASSERT_NEAR(*it, output().get()[i], 0.01);
+      ASSERT_NEAR(*it, output().get()[i], 0.01)
+        << "i = " << i << std::endl;
     }
   }
 
