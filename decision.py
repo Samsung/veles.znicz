@@ -220,7 +220,7 @@ class Decision(units.Unit):
         if (self.epoch_number[0] - self.min_validation_mse_epoch_number >
             self.fail_iterations[0] and
             self.epoch_number[0] - self.min_validation_n_err_epoch_number >
-            self.fail_iterations[0]):
+            self.fail_iterations[0]) or self.min_validation_n_err == 0:
             self.complete[0] = 1
 
     def on_test_validation_processed(self, minibatch_class):

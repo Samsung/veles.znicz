@@ -336,7 +336,7 @@ def main():
         device = cl.get_device()
         w = Workflow(layers=[100, 10], device=device)
         w.initialize(device=device, threshold=1.0, threshold_low=1.0,
-                     global_alpha=0.1, global_lambda=0.000)
+                     global_alpha=0.05, global_lambda=0.000)
     except KeyboardInterrupt:
         return
     try:

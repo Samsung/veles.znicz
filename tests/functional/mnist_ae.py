@@ -106,7 +106,7 @@ class Workflow(units.OpenCLUnit):
         self.image_saver.labels = self.loader.minibatch_labels
         self.image_saver.minibatch_class = self.loader.minibatch_class
         self.image_saver.minibatch_size = self.loader.minibatch_size
-        self.image_saver.gate_skip = self.decision.just_snapshotted
+        self.image_saver.gate_skip = [0]  # self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
 
         # Add gradient descent units

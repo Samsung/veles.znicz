@@ -9,6 +9,7 @@ import numpy
 import time
 import config
 import pyopencl
+import error
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -76,8 +77,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
-        itype = config.get_itype_from_size((self.y.v.size //
-                                            self.y.v.shape[0]))
+        for k, v in config.itypes.items():
+            if v == self.labels.v.dtype:
+                itype = k
+                break
+        else:
+            raise error.ErrBadFormat("Could not determine itype for labels.")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
         self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
@@ -165,7 +170,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_.set_arg(7, self.max_err_y_sum.v_)
 
     def gpu_run(self):
-        # return self.cpu_run()
+        #return self.cpu_run()
         t1 = time.time()
 
         threshold = self.threshold
@@ -247,7 +252,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 err_y[:] = y[:]
                 err_y[labels[i]] = y[labels[i]] - 1.0
                 self.skipped.v[i] = 0
-                self.max_err_y_sum = max(self.max_err_y_sum,
+                self.max_err_y_sum.v[0] = max(self.max_err_y_sum.v[0],
                     numpy.sum(numpy.fabs(err_y)))
         # Set errors for excessive samples to zero
         if batch_size < self.err_y.v.shape[0]:
