@@ -34,8 +34,8 @@ void WorkflowTest::SetUp() {
   auto unit_tanh = CreateUnit("All2AllTanh");
   InitializeUnit(unit_tanh, kOutputsLinear, kOutputsTanh,
                  weights_tanh, bias_tanh);
-  workflow()->AddUnit(unit_linear);
-  workflow()->AddUnit(unit_tanh);
+  workflow()->Add(unit_linear);
+  workflow()->Add(unit_tanh);
 }
 
 TEST_F(WorkflowTest, Functional) {
