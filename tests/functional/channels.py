@@ -82,7 +82,7 @@ class Workflow(units.OpenCLUnit):
         self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
-        train_paths = glob.glob("%s/channels/img/*" % (
+        train_paths = glob.glob("%s/channels/demo/img/*" % (
                                 config.test_dataset_root,))
         for i in range(0, len(train_paths)):
             train_paths[i] += "/*.png"
@@ -106,9 +106,9 @@ class Workflow(units.OpenCLUnit):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(out_dirs=[
-            "/data/veles/channels/tmpimg/test",
-            "/data/veles/channels/tmpimg/validation",
-            "/data/veles/channels/tmpimg/train"])
+            "/data/veles/channels/demo/tmpimg/test",
+            "/data/veles/channels/demo/tmpimg/validation",
+            "/data/veles/channels/demo/tmpimg/train"])
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output

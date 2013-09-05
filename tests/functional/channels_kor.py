@@ -550,14 +550,14 @@ def main():
     cl = opencl.DeviceList()
     device = cl.get_device()
     try:
-        fin = open("%s/channels.pickle" % (config.snapshot_dir), "rb")
+        fin = open("%s/channels_kor.pickle" % (config.snapshot_dir), "rb")
         w = pickle.load(fin)
         fin.close()
     except IOError:
         w = Workflow(layers=[100, 24], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
-                 global_alpha=0.001, global_lambda=0.0,
-                 minibatch_maxsize=27, device=device)
+                 global_alpha=0.001, global_lambda=0.00005,
+                 minibatch_maxsize=270, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
