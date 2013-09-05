@@ -89,10 +89,16 @@ class Loader(loader.FullBatchLoader):
             for k, v in obj.items():
                 if type(v) == list:
                     o = self.__dict__[k]
+                    if o == None:
+                        o = []
+                        self.__dict__[k] = o
                     o.clear()
                     o.extend(v)
                 elif type(v) == dict:
                     o = self.__dict__[k]
+                    if o == None:
+                        o = {}
+                        self.__dict__[k] = o
                     o.update(v)
                 else:
                     self.__dict__[k] = v
