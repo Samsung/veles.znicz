@@ -77,7 +77,7 @@ class ResultPlotter(plotters.Plotter):
         if type(self.input) != formats.Vector:
             return
         self.input.sync()
-        self.values.append(self.input.batch[0])
+        self.values.append(self.input.v[0])
         if type(self.image) == formats.Vector:
             self.image.sync()
             numpy.copyto(self.img, self.image.v[0])
