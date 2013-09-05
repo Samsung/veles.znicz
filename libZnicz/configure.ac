@@ -64,6 +64,7 @@ AC_ARG_WITH([veles-build-root],
     ])     
 ])
 
+
 AS_IF([test "x$with_veles_headers" == "xno" -a "x$with_veles_build_root" == "xno"], [
 	# Check for installed libVeles
 	PKG_CHECK_MODULES([VELES], [Veles >= 1.0])

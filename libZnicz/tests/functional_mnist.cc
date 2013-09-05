@@ -10,13 +10,15 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+#include <unistd.h>
+#include <cfloat>
+#include <chrono>
+#include <cstdio>
+#include <string>
+#include <veles/workflow_loader.h>
+#include <gtest/gtest.h>
 #include "src/all2all_linear.h"
 #include "src/all2all_tanh.h"
-#include <veles/workflow_loader.h>
-#include <unistd.h>
-#include <float.h>
-#include <string>
-#include <gtest/gtest.h>
 
 using std::string;
 using std::static_pointer_cast;
@@ -27,39 +29,95 @@ class WorkflowLoaderTest: public ::testing::Test {
  public:
   WorkflowLoaderTest() {
     current_path = "";
-    char  currentPath[FILENAME_MAX];
+    char currentPath[FILENAME_MAX];
 
     if (!getcwd(currentPath, sizeof(currentPath))) {
       fprintf(stderr, "Can't locate current directory\n");
     } else {
       current_path = currentPath;
     }
-    string temp_path1 = current_path + "/../workflow_files/";
-    string temp_path2 = current_path + "/tests/workflow_files/";
-    string temp_path3 = current_path + "/workflow_files/";
-    // Check existence of archive
-    if (access(temp_path1.c_str(), 0) != -1) {
-      current_path = temp_path1;  // "/workflow_desc_files/"
-    } else if (access(temp_path2.c_str(), 0) != -1) {
-      current_path = temp_path2;  // "/tests/workflow_desc_files/"
-    } else if (access(temp_path3.c_str(), 0) != -1) {
-      current_path = temp_path3;  // "/tests/workflow_desc_files/"
-    } else {
-      fprintf(stderr, "%s\n", current_path.c_str());
-      current_path = "";  // Error
+    // Check existence of the archive directory
+    auto try_path = current_path + "/../../tests/workflow_files/";
+    if (access(try_path.c_str(), 0) != -1) {
+      current_path = try_path;
+      return;
     }
+    try_path = current_path + "/../tests/workflow_files/";
+    if (access(try_path.c_str(), 0) != -1) {
+      current_path = try_path;
+      return;
+    }
+    try_path = current_path + "/tests/workflow_files/";
+    if (access(try_path.c_str(), 0) != -1) {
+      current_path = try_path;
+      return;
+    }
+    fprintf(stderr, "%s", current_path.c_str());
+    current_path = "";
+  }
+
+  void ChronoTest() {
+    if (current_path == string("")) {
+      FAIL() << "Can't find folder workflow_desc_files";
+    }
+    WorkflowLoader testWorkflowLoader;
+
+    string temp = current_path + "workflow2013-09-03T23:19:38.323304.tar.gz";
+
+    ASSERT_NO_THROW(testWorkflowLoader.Load(temp));
+
+    Workflow testWorkflow;
+    ASSERT_NO_THROW(testWorkflow = testWorkflowLoader.GetWorkflow());
+
+
+    const size_t imgNumber = 60;
+    const size_t pxNumber = 784;
+    const size_t outputNumber = 100;
+
+    typedef std::chrono::high_resolution_clock Time;
+
+    auto t1 = Time::now();
+
+    time_t tt1 = time(0);
+    float resultFromExecute[outputNumber];
+    for (size_t i = 0; i < imgNumber; ++i) {
+      auto begin = static_cast<float*>(
+          testWorkflowLoader.workflow_desc_.Units.at(0).Properties.at("input").get());
+      float array[pxNumber];
+      for (size_t j = 0; j < pxNumber; ++j) {
+        array[j] = begin[j + pxNumber*i];
+      }
+      testWorkflow.Execute(array, array + pxNumber - 1, resultFromExecute);
+    }
+    time_t tt2 = time(0);
+    fprintf(stderr, "time_t diff = %zu", tt2 - tt1);
+    auto t2 = Time::now();
+
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<
+        std::chrono::duration<double>>(t2 - t1);
+    fprintf(stderr, "count %lf\n", time_span.count());
+    double result = std::chrono::duration_cast<std::chrono::duration<double,
+        std::ratio<1>>>
+        (t2-t1).count();
+
+    fprintf(stderr, "Total duration: %lf\n", result);
+    fprintf(stderr, "One image: %lf\n", result/imgNumber);
   }
 
   void Mnist() {
     if (current_path == string("")) {
-      FAIL();  // Can't find folder workflow_desc_files
+      FAIL() << "Can't find folder workflow_desc_files";
     }
-    // Check everything
     WorkflowLoader testWorkflowLoader;
 
     string temp = current_path + "workflow.tar.gz";
     ASSERT_NO_THROW(testWorkflowLoader.Load(temp));
 
+    Workflow testWorkflow;
+    ASSERT_NO_THROW(testWorkflow = testWorkflowLoader.GetWorkflow());
+
+    // Get 60 images from WorkflowLoader: unit "All2AllTanh", parameter "input"
+    // Image = 28*28 pixels, each pixel is represented by float
     UnitDescription testUnitAll2AllTanh;
     UnitDescription testUnitAll2All;
 
@@ -77,10 +135,6 @@ class WorkflowLoaderTest: public ::testing::Test {
         FAIL();
       }
     }
-
-    Workflow testWorkflow;
-    ASSERT_NO_THROW(testWorkflow = testWorkflowLoader.GetWorkflow());
-
     ASSERT_EQ(size_t(2), testWorkflow.Size());
 
     ASSERT_EQ(size_t(2), testWorkflowLoader.workflow_desc_.Units.size());
@@ -123,8 +177,6 @@ class WorkflowLoaderTest: public ::testing::Test {
       }
 
       float resultFromExecute[digitNumber];
-
-      /*ASSERT_NO_FATAL_FAILURE*/
       testWorkflow.Execute(array, array + pxNumber - 1, resultFromExecute);
 
       if (findMaxFromNFloats(result) != findMaxFromNFloats(resultFromExecute)) {
@@ -178,9 +230,12 @@ TEST_F(WorkflowLoaderTest, MainTest) {
   Mnist();
 }
 
+/*
+TEST_F(WorkflowLoaderTest, Chrono) {
+  ChronoTest();
+}
+*/
+
 }  // namespace Veles
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
 #include "tests/google/src/gtest_main.cc"
-#pragma GCC diagnostic pop
