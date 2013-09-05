@@ -169,8 +169,8 @@ class Loader(loader.FullBatchLoader):
             files[dirnme] = glob.glob("%s/%s/*.jp2" % (
                                 self.channels_dir, dirnme))
             total_files += len(files[dirnme])
-            total_samples += len(files[dirnme]) * (len(sz.keys()) -
-                (1 if dirnme in self.channel_map.keys() else 0))
+            # We will extract data from every corner.
+            total_samples += len(files[dirnme]) * len(sz.keys())
         self.log().info("Found %d files" % (total_files))
         self.log().info("Together with negative set "
                         "will generate %d samples" % (total_samples))
