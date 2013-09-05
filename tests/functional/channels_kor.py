@@ -205,9 +205,9 @@ class Loader(loader.FullBatchLoader):
                         self.original_data[i, j] = y
                     formats.normalize(self.original_data[i])
                     i += 1
-            n_files += 1
-            self.log().info("Read %d files (%.2f%%)" % (n_files,
-                            100.0 * n_files / total_files))
+                n_files += 1
+                self.log().info("Read %d files (%.2f%%)" % (n_files,
+                                100.0 * n_files / total_files))
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
