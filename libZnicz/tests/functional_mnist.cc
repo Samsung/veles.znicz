@@ -180,11 +180,11 @@ class WorkflowLoaderTest: public ::testing::Test {
       testWorkflow.Execute(array, array + pxNumber - 1, resultFromExecute);
 
       if (findMaxFromNFloats(result) != findMaxFromNFloats(resultFromExecute)) {
-        fprintf(stderr, "%lu : %lu\n", findMaxFromNFloats(result) + 1,
+        fprintf(stderr, "%zu : %zu\n", findMaxFromNFloats(result) + 1,
                findMaxFromNFloats(resultFromExecute) + 1);
         calcSoftmax(resultFromExecute);
         for (size_t j = 0; j < digitNumber; ++j) {
-          fprintf(stderr,"%lu.%lu) %f : %f\n", i, j+1, result[j],
+          fprintf(stderr,"%zu.%zu) %f : %f\n", i, j+1, result[j],
                   resultFromExecute[j]);
         }
         fprintf(stderr,"\n");
