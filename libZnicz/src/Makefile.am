@@ -36,6 +36,8 @@ libZnicz_la_SOURCES = all2all.cc all2all_tanh.cc all2all_linear.cc
 # Used libraries
 libZnicz_la_LIBADD = @VELES_LIBS@ @SIMD_LIBS@
 
+libZnicz_la_CPPFLAGS = $(AM_CPPFLAGS) -fPIC
+
 libZnicz_la_LDFLAGS = $(AM_LDFLAGS) \
 	-version-info $(INTERFACE_VERSION):$(REVISION_NUMBER):$(AGE_NUMBER)
 
