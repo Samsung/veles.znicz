@@ -90,7 +90,7 @@ class WorkflowLoaderTest: public ::testing::Test {
       testWorkflow.Execute(array, array + pxNumber - 1, resultFromExecute);
     }
     time_t tt2 = time(0);
-    fprintf(stderr, "time_t diff = %zu", tt2 - tt1);
+    fprintf(stderr, "time_t diff = %ld", tt2 - tt1);
     auto t2 = Time::now();
 
     std::chrono::duration<double> time_span = std::chrono::duration_cast<
