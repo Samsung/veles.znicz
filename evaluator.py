@@ -77,12 +77,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
-        for k, v in config.itypes.items():
-            if v == self.labels.v.dtype:
-                itype = k
-                break
-        else:
-            raise error.ErrBadFormat("Could not determine itype for labels.")
+        itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
+        if self.labels.v.dtype != config.itypes[itype]:
+            raise error.ErrBadFormat("Uncorrectly set labels.dtype "
+                                     "(probably in Loader).")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
         self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (

@@ -42,6 +42,7 @@ import all2all
 import evaluator
 import gd
 import glymur
+import workflow
 
 
 class Loader(loader.FullBatchLoader):
@@ -50,18 +51,18 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 scale=0.5):
+                 rect=(192, 128)):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
         self.channels_dir = channels_dir
-        self.scale = scale
+        self.rect = rect
         self.channel_map = None
         self.sz = None
         self.pos = None
         self.frame = None
         self.attributes_for_cached_data = [
-            "channels_dir", "scale", "channel_map", "sz", "pos", "frame",
+            "channels_dir", "rect", "channel_map", "sz", "pos", "frame",
             "total_samples", "class_samples", "nextclass_offs"]
 
     def from_jp2(self, fnme):
@@ -183,10 +184,8 @@ class Loader(loader.FullBatchLoader):
 
         self.original_labels = numpy.zeros(total_samples,
             dtype=config.itypes[config.get_itype_from_size(len(dirs))])
-        scale = self.scale
-        szf = [int(szm[0] * scale), int(szm[1] * scale)]
-        self.original_data = numpy.zeros([total_samples, 3, szf[1], szf[0]],
-                                         config.dtypes[config.dtype])
+        self.original_data = numpy.zeros([total_samples, 3,
+            self.rect[1], self.rect[0]], config.dtypes[config.dtype])
         i = 0
         n_files = 0
         for dirnme in dirs:
@@ -202,13 +201,15 @@ class Loader(loader.FullBatchLoader):
                         self.original_labels[i] = 0
                     # Loop by color planes.
                     for j in range(0, a.shape[0]):
-                        x = a[j, pos[k][1]:pos[k][1] + sz[k][1],
+                        x = numpy.rot90(a[j], 2)
+                        x = x[pos[k][1]:pos[k][1] + sz[k][1],
                               pos[k][0]:pos[k][0] + sz[k][0]]
-                        if scale != 1.0:
-                            y = scipy.ndimage.zoom(x, scale, order=1)
-                        else:
-                            y = x
-                        self.original_data[i, j] = y
+                        scale_x = self.rect[0] / sz[k][0]
+                        scale_y = self.rect[1] / sz[k][1]
+                        if scale_x != 1.0 or scale_y != 1.0:
+                            x = scipy.ndimage.zoom(x, (scale_y, scale_x),
+                                                   order=1)
+                        self.original_data[i, j] = x
                     formats.normalize(self.original_data[i])
                     i += 1
                 n_files += 1
@@ -238,31 +239,19 @@ class Loader(loader.FullBatchLoader):
         fout.close()
 
 
-class Workflow(units.OpenCLUnit):
-    """Sample workflow.
-
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        stat: stat collector.
-        decision: Decision.
-        gd: list of gradient descent units.
+class Workflow(workflow.NNWorkflow):
+    """Workflow.
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-        self.start_point = units.Unit()
 
-        self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader()
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward = []
+        self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device)
@@ -300,7 +289,7 @@ class Workflow(units.OpenCLUnit):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="channels")
+        self.decision = decision.Decision(snapshot_prefix="channels_kor")
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -314,9 +303,10 @@ class Workflow(units.OpenCLUnit):
         self.image_saver.snapshot_time = self.decision.snapshot_time
 
         # Add gradient descent units
-        self.gd = list(None for i in range(0, len(self.forward)))
+        self.gd.clear()
+        self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(device=device)
-        self.gd[-1].link_from(self.decision)
+        #self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -346,35 +336,47 @@ class Workflow(units.OpenCLUnit):
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(0, 3):
+        for i in range(2, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
-                                                   plot_style=styles[i]))
+                                                   plot_style=styles[i],
+                                                   bounds=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = self.decision.epoch_ended
-            self.plt[-1].gate_block_not = [1]
-        # Matrix plotter
-        # """
+            self.plt[-1].gate_skip = self.decision.epoch_ended
+            self.plt[-1].gate_skip_not = [1]
+        self.plt[0].clear_plot = True
+        # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_w = plotters.Weights2D(figure_label="First Layer Weights")
+        self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
+                                        limit=16)
         self.plt_w.input = self.gd[0].weights
         self.plt_w.get_shape_from = self.forward[0].input
         self.plt_w.input_field = "v"
-        self.plt_w.link_from(self.decision)
-        self.plt_w.gate_block = self.decision.epoch_ended
-        self.plt_w.gate_block_not = [1]
-        # """
+        self.plt_w.link_from(self.plt[-1])
+        self.plt_w.gate_skip = self.decision.epoch_ended
+        self.plt_w.gate_skip_not = [1]
+        # Image plottter
+        self.decision.vectors_to_sync[self.forward[0].input] = 1
+        self.plt_i = plotters.Image(figure_label="Input")
+        self.plt_i.inputs.append(self.decision)
+        self.plt_i.input_fields.append("sample_input")
+        self.plt_i.link_from(self.plt_w)
+        self.plt_i.gate_skip = self.decision.epoch_ended
+        self.plt_i.gate_skip_not = [1]
         # Confusion matrix plotter
+        """
         self.plt_mx = []
-        for i in range(0, len(self.decision.confusion_matrixes)):
+        for i in range(2, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.plt[-1])
-            self.plt_mx[-1].gate_block = self.decision.epoch_ended
-            self.plt_mx[-1].gate_block_not = [1]
+            self.plt_mx[-1].link_from(self.plt_w)
+            self.plt_mx[-1].gate_skip = self.decision.epoch_ended
+            self.plt_mx[-1].gate_skip_not = [1]
+        """
+        self.gd[-1].link_from(self.plt_i)
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
@@ -389,159 +391,7 @@ class Workflow(units.OpenCLUnit):
             gd.global_lambda = global_lambda
         for forward in self.forward:
             forward.device = device
-
-        # If channels.feed is found - do only forward propagation.
-        try:
-            # feed = open("/tmp/feed", "rb")
-            self.log().info("will open pipe")
-            f = os.open("/tmp/feed", os.O_RDONLY)
-            self.log().info("pipe opened")
-            feed = os.fdopen(f, "rb")
-            self.log().info("pipe linked to python descriptor")
-            self.switch_to_forward_workflow(feed)
-        except FileNotFoundError:
-            self.log().info("pipe was not found")
-
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
-
-    def run(self):
-        retval = self.start_point.run_dependent()
-        if retval:
-            return retval
-        self.end_point.wait()
-
-    def switch_to_forward_workflow(self, feed):
-        self.start_point.unlink()
-        self.end_point.unlink()
-        self.decision.unlink()
-        self.ev.unlink()
-        self.loader.unlink()
-        self.rpt.unlink()
-        for gd in self.gd:
-            gd.unlink()
-        self.image_saver.unlink()
-        self.plt_w.unlink()
-        for plt in self.plt:
-            plt.unlink()
-        for plt_mx in self.plt_mx:
-            plt_mx.unlink()
-        for forward in self.forward:
-            forward.unlink()
-        self.rpt.link_from(self.start_point)
-        self.loader = UYVYStreamLoader(feed=feed)
-        self.loader.link_from(self.rpt)
-        self.end_point.link_from(self.loader)
-        self.end_point.gate_skip = self.loader.complete
-        self.end_point.gate_skip_not = [1]
-        self.end_point.gate_block = [0]
-        self.end_point.gate_block_not = [0]
-        self.forward[0].link_from(self.end_point)
-        self.forward[0].input = self.loader.minibatch_data
-        for i in range(1, len(self.forward)):
-            self.forward[i].link_from(self.forward[i - 1])
-        self.plt_result = tv_channel_plotter.ResultPlotter()
-        self.plt_result.link_from(self.forward[-1])
-        self.plt_result.input = self.forward[-1].max_idx
-        self.plt_result.image = self.loader.minibatch_data
-        self.rpt.link_from(self.plt_result)
-
-
-class UYVYStreamLoader(units.Unit):
-    """Provides samples from UYVY packed raw video stream.
-
-    Attributes:
-        feed: pipe with video stream.
-        frame_width: video frame width.
-        frame_height: video frame height.
-        x: output rectangle left.
-        y: output rectangle top.
-        width: output rectangle width.
-        height: output rectangle height.
-        scale: factor to scale frame.
-        gray: if grayscale.
-    """
-    def __init__(self, feed=None, frame_width=1920, frame_height=1080,
-                 x=66, y=64, width=464, height=128, scale=0.5, gray=True):
-        super(UYVYStreamLoader, self).__init__()
-        self.feed = feed
-        self.frame_width = frame_width
-        self.frame_height = frame_height
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.scale = scale
-        self.gray = gray
-        self.minibatch_data = formats.Vector()
-        self.minibatch_size = [1]
-        self.complete = [0]
-        self.cc = None
-
-    def initialize(self):
-        self.cy = numpy.zeros([self.height, self.width], dtype=numpy.uint8)
-        self.cu = numpy.zeros([self.height, self.width >> 1],
-            dtype=numpy.uint8)
-        self.cv = numpy.zeros([self.height, self.width >> 1],
-            dtype=numpy.uint8)
-
-        self.aw = int(numpy.round(self.width * self.scale))
-        self.ah = int(numpy.round(self.height * self.scale))
-        if self.gray:
-            self.subframe = numpy.zeros([self.ah, self.aw], dtype=numpy.uint8)
-        else:
-            self.subframe = numpy.zeros([self.ah << 1, self.aw],
-                dtype=numpy.uint8)
-        self.minibatch_data.v = numpy.zeros([1, self.subframe.shape[0],
-            self.subframe.shape[1]], dtype=config.dtypes[config.dtype])
-
-    def run(self):
-        if self.complete[0]:
-            return
-        try:
-            n = self.frame_width * self.frame_height * 2
-            s = self.feed.read(n)
-            frame_img = numpy.frombuffer(s, dtype=numpy.uint8, count=n).\
-                reshape(self.frame_height, self.frame_width // 2, 4)
-            img = frame_img[self.y:self.y + self.height,
-                self.x // 2:(self.x + self.width) // 2]
-        except ValueError:
-            self.complete[0] = 1
-            return
-        y = self.cy
-        u = self.cu
-        v = self.cv
-
-        for row in range(0, img.shape[0]):
-            for col in range(0, img.shape[1]):
-                pix = img[row, col]
-                u[row, col] = pix[0]
-                v[row, col] = pix[2]
-                y[row, col << 1] = pix[1]
-                y[row, (col << 1) + 1] = pix[3]
-
-        if self.scale != 1.0:
-            ay = scipy.ndimage.zoom(y, self.scale, order=1)
-            if not self.gray:
-                au = scipy.ndimage.zoom(u, self.scale, order=1)
-                av = scipy.ndimage.zoom(v, self.scale, order=1)
-        else:
-            ay = y
-            au = u
-            av = v
-
-        a = self.subframe
-
-        a[:self.ah, :] = ay[:]
-        if not self.gray:
-            a[self.ah:, :self.aw >> 1] = au
-            a[self.ah:, self.aw >> 1:] = av
-
-        sample = self.minibatch_data.v[0]
-        sample[:] = a[:]
-        formats.normalize(sample)
-        self.minibatch_data.update()
+        return self.start_point.initialize_dependent()
 
 
 def main():
@@ -560,10 +410,10 @@ def main():
         w = pickle.load(fin)
         fin.close()
     except IOError:
-        w = Workflow(layers=[100, 24], device=device)
+        w = Workflow(layers=[100, 28], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
-                 global_alpha=0.001, global_lambda=0.00005,
-                 minibatch_maxsize=270, device=device)
+                 global_alpha=0.001, global_lambda=0.0,
+                 minibatch_maxsize=27, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")

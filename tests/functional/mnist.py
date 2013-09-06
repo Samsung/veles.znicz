@@ -147,6 +147,7 @@ class Workflow(workflow.NNWorkflow):
         self.loader.link_from(self.rpt)
 
         # Add forward units
+        self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
@@ -185,6 +186,7 @@ class Workflow(workflow.NNWorkflow):
         self.decision.workflow = self
 
         # Add gradient descent units
+        self.gd.clear()
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(device=device)
         self.gd[-1].link_from(self.decision)
@@ -261,9 +263,7 @@ class Workflow(workflow.NNWorkflow):
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
         super(Workflow, self).initialize(device=device)
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
+        return self.start_point.initialize_dependent()
 
 
 def main():
