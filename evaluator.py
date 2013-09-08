@@ -78,7 +78,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
     def initialize(self):
         itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
-        if self.labels.v.dtype != config.itypes[itype]:
+        if (self.labels.v.dtype != config.itypes[itype] or
+            self.labels.v.dtype != self.max_idx.v.dtype):
             raise error.ErrBadFormat("Uncorrectly set labels.dtype "
                                      "(probably in Loader).")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
@@ -127,7 +128,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.labels.initialize(self.device)
         self.max_err_y_sum.initialize(self.device)
 
-        if not self.device:
+        if self.device == None:
             return
 
         self.krn_constants_d_ = numpy.zeros(2, config.dtypes[config.dtype])
@@ -168,7 +169,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_.set_arg(7, self.max_err_y_sum.v_)
 
     def gpu_run(self):
-        #return self.cpu_run()
+        return self.cpu_run()
         t1 = time.time()
 
         threshold = self.threshold
@@ -209,9 +210,16 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
     def cpu_run(self):
         t1 = time.time()
+        batch_size = self.batch_size[0]
+
         self.y.sync()
         self.max_idx.sync()
-        batch_size = self.batch_size[0]
+        self.labels.sync()
+        self.skipped.sync()
+        self.n_err_skipped.sync()
+        self.confusion_matrix.sync()
+        self.max_err_y_sum.sync()
+
         labels = self.labels.v
 
         threshold = self.threshold
@@ -220,16 +228,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             threshold_low = threshold
 
         confusion_matrix = self.confusion_matrix.v
-        self.confusion_matrix.sync()
-        self.skipped.sync()
 
         n_ok = 0
         n_skip = 0
         for i in range(0, batch_size):  # loop by batch
-            y = self.y.v[i]
-            y = y.reshape(y.size)  # make it plain
-            err_y = self.err_y.v[i]
-            err_y = err_y.reshape(err_y.size)  # make it plain
+            y = formats.ravel(self.y.v[i])
+            err_y = formats.ravel(self.err_y.v[i])
 
             skip = False
             max_idx = self.max_idx.v[i]
@@ -254,9 +258,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                     numpy.sum(numpy.fabs(err_y)))
         # Set errors for excessive samples to zero
         if batch_size < self.err_y.v.shape[0]:
-            err_y = self.err_y.v[batch_size:]
-            err_y = err_y.reshape(err_y.size)  # make it plain
-            err_y[:] = 0.0
+            self.err_y.v[batch_size:] = 0.0
         self.n_err_skipped.v[0] += batch_size - n_ok
         self.n_err_skipped.v[1] += n_skip
 

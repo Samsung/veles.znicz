@@ -84,6 +84,7 @@ class Workflow(units.OpenCLUnit):
 
         train_paths = glob.glob("%s/channels/demo/img/*" % (
                                 config.test_dataset_root,))
+        train_paths.sort()
         for i in range(0, len(train_paths)):
             train_paths[i] += "/*.png"
         self.loader = Loader(train_paths=train_paths)
@@ -228,7 +229,7 @@ class Workflow(units.OpenCLUnit):
             self.log().info("pipe linked to python descriptor")
             self.switch_to_forward_workflow(feed)
         except FileNotFoundError:
-            pass
+            self.log().info("pipe was not found")
 
         retval = self.start_point.initialize_dependent()
         if retval:
@@ -414,17 +415,24 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
+        #device = None
         cl = opencl.DeviceList()
         device = cl.get_device()
-        try:
-            fin = open("%s/channels.pickle" % (config.snapshot_dir), "rb")
-            w = pickle.load(fin)
-            fin.close()
-        except IOError:
-            w = Workflow(layers=[15, 13], device=device)
+        w = Workflow(layers=[15, 13], device=device)
         w.initialize(threshold=1.0, threshold_low=1.0,
               global_alpha=0.001, global_lambda=0.0,
               minibatch_maxsize=27, device=device)
+        try:
+            fin = open("%s/channels_Wb.pickle" % (config.snapshot_dir), "rb")
+            W, b = pickle.load(fin)
+            fin.close()
+            for i in range(0, len(W)):
+                w.forward[i].weights.v[:] = W[i][:]
+                w.forward[i].bias.v[:] = b[i][:]
+                w.forward[i].weights.update()
+                w.forward[i].bias.update()
+        except IOError:
+            pass
     except KeyboardInterrupt:
         return
     try:
@@ -454,3 +462,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)

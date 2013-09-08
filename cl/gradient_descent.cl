@@ -104,7 +104,7 @@ void weights_update(__global dtype /*IN*/ *err_y, __global dtype /*IN*/  *h,
 /// @param err_y backpropagated error
 /// @param gradient computed gradient to store in if not null
 /// @param alpha_batch (-global_alpha / batch_size)
-/// @details gradient = err_y * alpha_batch
+/// @details gradient = sum(err_y) * alpha_batch
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void bias_update(__global dtype /*IN*/ *err_y, __global dtype /*IO*/ *bias,
                  __global dtype /*OUT*/ *gradient, const dtype alpha_batch) {

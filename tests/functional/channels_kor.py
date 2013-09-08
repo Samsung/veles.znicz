@@ -43,6 +43,7 @@ import evaluator
 import gd
 import glymur
 import workflow
+import scipy.io
 
 
 class Loader(loader.FullBatchLoader):
@@ -51,18 +52,17 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 rect=(192, 128)):
+                 rect=(160, 80)):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
         self.channels_dir = channels_dir
         self.rect = rect
         self.channel_map = None
-        self.sz = None
-        self.pos = None
-        self.frame = None
+        self.pos = {}
+        self.sz = [0, 0]
         self.attributes_for_cached_data = [
-            "channels_dir", "rect", "channel_map", "sz", "pos", "frame",
+            "channels_dir", "rect", "channel_map", "pos", "sz",
             "total_samples", "class_samples", "nextclass_offs"]
 
     def from_jp2(self, fnme):
@@ -115,6 +115,11 @@ class Loader(loader.FullBatchLoader):
                 self.original_data[i] = a
             fin.close()
             self.log().info("Succeeded")
+            fnme = "%s/ch.mat" % (config.cache_dir)
+            self.log().info("Exporting to matlab file: %s" % (fnme))
+            scipy.io.savemat(fnme, {"data": self.original_data,
+                                    "labels": self.original_labels})
+            self.log().info("Done")
             return
         except FileNotFoundError:
             self.log().info("Failed")
@@ -128,56 +133,64 @@ class Loader(loader.FullBatchLoader):
                                                     self.channels_dir))
             raise
         # Parse config
-        sz = {}
         pos = {}
+        rpos = {}
         frame = self.conf_.frame
         self.channel_map = self.conf_.channel_map
         for conf in self.channel_map.values():
-            if conf["type"] not in sz.keys():
-                sz[conf["type"]] = [0, 0]
+            if conf["type"] not in pos.keys():
                 pos[conf["type"]] = frame.copy()
-            sz[conf["type"]][0] = max(sz[conf["type"]][0], conf["size"][0])
-            sz[conf["type"]][1] = max(sz[conf["type"]][1], conf["size"][1])
+                rpos[conf["type"]] = [0, 0]
             pos[conf["type"]][0] = min(pos[conf["type"]][0], conf["pos"][0])
             pos[conf["type"]][1] = min(pos[conf["type"]][1], conf["pos"][1])
+            rpos[conf["type"]][0] = max(rpos[conf["type"]][0],
+                conf["pos"][0] + conf["size"][0])
+            rpos[conf["type"]][1] = max(rpos[conf["type"]][1],
+                conf["pos"][1] + conf["size"][1])
 
         self.log().info("Found rectangles:")
-        self.sz = sz
-        self.pos = pos
-        self.frame = frame
-        szm = [0, 0]
-        for k in sz.keys():
-            sz[k][0] = min(sz[k][0], frame[0] - pos[k][0])
-            sz[k][1] = min(sz[k][1], frame[1] - pos[k][1])
-            szm[0] = max(szm[0], sz[k][0])
-            szm[1] = max(szm[1], sz[k][1])
-            self.log().info("%s: pos: (%d, %d) sz: (%d, %d)" % (k,
-                pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
+        sz = [0, 0]
+        for k in pos.keys():
+            sz[0] = max(sz[0], rpos[k][0] - pos[k][0])
+            sz[1] = max(sz[1], rpos[k][1] - pos[k][1])
+            self.log().info("%s: pos: (%d, %d)" % (k, pos[k][0], pos[k][1]))
+        self.log().info("sz: (%d, %d)" % (sz[0], sz[1]))
 
         self.log().info("Adjusted rectangles:")
-        for k in sz.keys():
-            pos[k][0] -= (szm[0] - sz[k][0]) >> 1
-            pos[k][1] -= (szm[1] - sz[k][1]) >> 1
-            sz[k][0] = szm[0]
-            sz[k][1] = szm[1]
-            pos[k][0] = min(pos[k][0], frame[0] - sz[k][0])
-            pos[k][1] = min(pos[k][1], frame[1] - sz[k][1])
+        sz[0] += 16
+        sz[1] += 16
+        for k in pos.keys():
+            pos[k][0] -= (rpos[k][0] - pos[k][0] - sz[0]) >> 1
+            pos[k][1] -= (rpos[k][1] - pos[k][1] - sz[1]) >> 1
+            pos[k][0] = min(pos[k][0], frame[0] - sz[0])
+            pos[k][1] = min(pos[k][1], frame[1] - sz[1])
             pos[k][0] = max(pos[k][0], 0)
             pos[k][1] = max(pos[k][1], 0)
-            self.log().info("%s: pos: (%d, %d) sz: (%d, %d)" % (k,
-                pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
+            self.log().info("%s: pos: (%d, %d)" % (k, pos[k][0], pos[k][1]))
+            # Calculate relative values
+            pos[k][0] /= frame[0]
+            pos[k][1] /= frame[1]
+        sz[0] /= frame[0]
+        sz[1] /= frame[1]
+
+        self.pos.clear()
+        self.pos.update(pos)
+        self.sz.clear()
+        self.sz.extend(sz)
 
         files = {}
         total_files = 0
         total_samples = 0
         dirs = [self.conf_.no_channel_dir]
         dirs.extend(self.channel_map.keys())
+        dirs.sort()
         for dirnme in dirs:
             files[dirnme] = glob.glob("%s/%s/*.jp2" % (
                                 self.channels_dir, dirnme))
+            files[dirnme].sort()
             total_files += len(files[dirnme])
             # We will extract data from every corner.
-            total_samples += len(files[dirnme]) * len(sz.keys())
+            total_samples += len(files[dirnme]) * len(pos.keys())
         self.log().info("Found %d files" % (total_files))
         self.log().info("Together with negative set "
                         "will generate %d samples" % (total_samples))
@@ -193,7 +206,7 @@ class Loader(loader.FullBatchLoader):
             for fnme in files[dirnme]:
                 a = self.from_jp2(fnme)
                 # Data from corners will form samples.
-                for k in sz.keys():
+                for k in pos.keys():
                     if (dirnme in self.channel_map.keys() and
                         self.channel_map[dirnme]["type"] == k):
                         self.original_labels[i] = int(dirnme)
@@ -202,10 +215,13 @@ class Loader(loader.FullBatchLoader):
                     # Loop by color planes.
                     for j in range(0, a.shape[0]):
                         x = numpy.rot90(a[j], 2)
-                        x = x[pos[k][1]:pos[k][1] + sz[k][1],
-                              pos[k][0]:pos[k][0] + sz[k][0]]
-                        scale_x = self.rect[0] / sz[k][0]
-                        scale_y = self.rect[1] / sz[k][1]
+                        left = pos[k][0] * x.shape[1]
+                        top = pos[k][1] * x.shape[0]
+                        width = sz[0] * x.shape[1]
+                        height = sz[1] * x.shape[0]
+                        x = x[top:top + height, left:left + width]
+                        scale_x = self.rect[0] / width
+                        scale_y = self.rect[1] / height
                         if scale_x != 1.0 or scale_y != 1.0:
                             x = scipy.ndimage.zoom(x, (scale_y, scale_x),
                                                    order=1)
@@ -267,9 +283,9 @@ class Workflow(workflow.NNWorkflow):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(out_dirs=[
-            "/data/veles/channels/tmpimg/test",
-            "/data/veles/channels/tmpimg/validation",
-            "/data/veles/channels/tmpimg/train"])
+            "/data/veles/channels/korean_960_540/tmpimg/test",
+            "/data/veles/channels/korean_960_540/tmpimg/validation",
+            "/data/veles/channels/korean_960_540/tmpimg/train"], limit=100)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -289,7 +305,8 @@ class Workflow(workflow.NNWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="channels_kor")
+        self.decision = decision.Decision(snapshot_prefix="channels_kor",
+                                          use_dynamic_alpha=False)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -298,9 +315,9 @@ class Workflow(workflow.NNWorkflow):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        self.image_saver.gate_skip = [0]  # self.decision.just_snapshotted
+        self.image_saver.gate_skip = self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
-        self.image_saver.snapshot_time = self.decision.snapshot_time
+        self.image_saver.this_save_time = self.decision.snapshot_time
 
         # Add gradient descent units
         self.gd.clear()
@@ -365,18 +382,18 @@ class Workflow(workflow.NNWorkflow):
         self.plt_i.gate_skip = self.decision.epoch_ended
         self.plt_i.gate_skip_not = [1]
         # Confusion matrix plotter
-        """
+        #"""
         self.plt_mx = []
         for i in range(2, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.plt_w)
+            self.plt_mx[-1].link_from(self.plt_i)
             self.plt_mx[-1].gate_skip = self.decision.epoch_ended
             self.plt_mx[-1].gate_skip_not = [1]
-        """
-        self.gd[-1].link_from(self.plt_i)
+        #"""
+        self.gd[-1].link_from(self.plt_mx[-1])
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
@@ -410,10 +427,10 @@ def main():
         w = pickle.load(fin)
         fin.close()
     except IOError:
-        w = Workflow(layers=[100, 28], device=device)
+        w = Workflow(layers=[500, 28], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
-                 minibatch_maxsize=27, device=device)
+                 minibatch_maxsize=54, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")

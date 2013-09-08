@@ -138,10 +138,12 @@ class Loader(units.Unit):
     def shuffle_validation_train(self):
         self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
                                                   self.nextclass_offs[2]])
+        pass
 
     def shuffle_train(self):
         self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:\
                                                   self.nextclass_offs[2]])
+        pass
 
     def shuffle(self):
         """Shuffle the dataset after one epoch.

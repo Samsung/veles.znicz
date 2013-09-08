@@ -36,7 +36,7 @@ class ImageSaver(units.Unit):
     """
     def __init__(self, out_dirs=["/tmp/img/test",
                                  "/tmp/img/validation",
-                                 "/tmp/img/train"]):
+                                 "/tmp/img/train"], limit=100):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
@@ -49,6 +49,8 @@ class ImageSaver(units.Unit):
         self.minibatch_size = None  # [0]
         self.this_save_time = [0]
         self.last_save_time = 0
+        self.limit = limit
+        self.n_saved = 0
 
     def as_image(self, x):
         if len(x.shape) == 2:
@@ -76,23 +78,31 @@ class ImageSaver(units.Unit):
         self.labels.sync()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
+            self.n_saved = 0
             for dirnme in self.out_dirs:
-                i = 0
+                i = 1
                 while True:
-                    j = dirnme.find("/", i)
-                    if j <= i:
-                        break
+                    j = dirnme[i:].find("/")
+                    if j <= 0:
+                        d = dirnme
+                    else:
+                        d = dirnme[:i + j]
                     try:
-                        os.mkdir(dirnme[:j - 1])
+                        #print("To mkdir:", d)
+                        os.mkdir(d)
                     except OSError:
                         pass
-                    i = j + 1
+                    if j <= 0:
+                        break
+                    i += j + 1
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
                     try:
                         os.unlink(file)
                     except OSError:
                         pass
+        if self.n_saved >= self.limit:
+            return
         xyt = None
         x = None
         y = None
@@ -163,3 +173,6 @@ class ImageSaver(units.Unit):
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
             scipy.misc.imsave(fnme, img.astype(numpy.uint8))
+            self.n_saved += 1
+            if self.n_saved >= self.limit:
+                return

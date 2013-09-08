@@ -18,6 +18,29 @@ CPU = 1
 GPU = 2
 
 
+def assert_addr(a, b):
+    """Raises an exception if addresses of the supplied arrays differ.
+    """
+    if a.__array_interface__["data"][0] != b.__array_interface__["data"][0]:
+        raise error.ErrBadFormat("Addresses of the arrays are not equal.")
+
+
+def ravel(a):
+    """numpy.ravel() with address check.
+    """
+    b = a.ravel()
+    assert_addr(a, b)
+    return b
+
+
+def reshape(a, shape):
+    """numpy.reshape() with address check.
+    """
+    b = a.reshape(shape)
+    assert_addr(a, b)
+    return b
+
+
 def normalize(a):
     """Normalizes numpy array to [-1, 1] in-place.
     """
@@ -67,11 +90,11 @@ def realign(arr, boundary=4096):
     tmp = numpy.empty(N * d.itemsize + boundary, dtype=numpy.uint8)
     address = tmp.__array_interface__["data"][0]
     offset = (boundary - address % boundary) % boundary
-    newarr = tmp[offset:offset + N * d.itemsize]\
-        .view(dtype=d)\
-        .reshape(arr.shape, order="C")
-    newarr[:] = arr[:]
-    return newarr
+    a = tmp[offset:offset + N * d.itemsize].view(dtype=d)
+    b = a.reshape(arr.shape, order="C")
+    assert_addr(a, b)
+    b[:] = arr[:]
+    return b
 
 
 def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
@@ -82,9 +105,10 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
     tmp = numpy.zeros(N * d.itemsize + boundary, dtype=numpy.uint8)
     address = tmp.__array_interface__["data"][0]
     offset = (boundary - address % boundary) % boundary
-    return tmp[offset:offset + N * d.itemsize]\
-        .view(dtype=d)\
-        .reshape(shape, order="C")
+    a = tmp[offset:offset + N * d.itemsize].view(dtype=d)
+    b = a.reshape(shape, order="C")
+    assert_addr(a, b)
+    return b
 
 
 class Vector(units.Connector):
@@ -114,7 +138,7 @@ class Vector(units.Connector):
     def __init__(self, device=None):
         super(Vector, self).__init__()
         self.device = device
-        self.what_changed = 0
+        self.what_changed = CPU
         self.v = None
         self.supposed_maxvle = 1.0
 
@@ -158,16 +182,14 @@ class Vector(units.Connector):
                 boundary=self.device.info.memalign, dtype=self.v.dtype)
             self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
             self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
-            if (self.aligned_.__array_interface__["data"][0] !=
-                self.v.__array_interface__["data"][0]):
-                raise error.VelesException(
-                    "Address after ndarray.view() differs from original one.")
+            assert_addr(self.aligned_, self.v)
         else:
             self.aligned_ = realign(self.v, self.device.info.memalign)
             self.v = self.aligned_
         mf = pyopencl.mem_flags
         self.v_ = pyopencl.Buffer(self.device.context_,
                 mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.aligned_)
+        self.what_changed = 0
 
     def update(self, what_changed=CPU):
         """Sets where the data has been changed (on CPU or GPU).
@@ -220,7 +242,7 @@ class Vector(units.Connector):
     def reset(self):
         """Sets buffers to None
         """
-        self.what_changed = 0
+        self.what_changed = CPU
         self.v = None
         self.aligned_ = None
         self.v_ = None

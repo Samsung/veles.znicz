@@ -201,13 +201,15 @@ class All2All(units.Forward):
         self.input.sync()
         self.weights.sync()
         self.bias.sync()
-        a = self.input.v.reshape([self.input.v.shape[0],
-            self.input.v.size // self.input.v.shape[0]])
+        a = formats.reshape(self.input.v,
+            [self.input.v.shape[0],
+             self.input.v.size // self.input.v.shape[0]])
         b = self.weights.v
         if not self.weights_transposed:
             b = b.transpose()
-        numpy.dot(a, b, self.output.v)
-        self.output.v[:] += self.bias.v
+        v = numpy.dot(a, b)
+        v += self.bias.v
+        self.output.v[:] = v[:]
         self.output.update()
 
     def run(self):
@@ -239,9 +241,11 @@ class All2AllTanh(All2All):
         if retval:
             return retval
         self.output.sync()
-        self.output.v *= 0.6666
-        numpy.tanh(self.output.v, self.output.v)
-        self.output.v *= 1.7159
+        v = self.output.v.copy()
+        v *= 0.6666
+        numpy.tanh(v, v)
+        v *= 1.7159
+        self.output.v[:] = v[:]
         self.output.update()
 
 
@@ -308,8 +312,7 @@ class All2AllSoftmax(All2All):
             a = numpy.sort(self.output.v.reshape(self.output.v.size))
             for i in range(a.size - 1, a.size - 11, -1):
                 s.append("%.2f" % (a[i]))
-            self.log().debug("Softmax Wx+b: ", ", ".join(s),
-                             ", %.2f" % (a[0]))
+            log.debug("Softmax Wx+b: %s, %.2f" % (", ".join(s), a[0]))
         for i in range(0, self.output.v.shape[0]):
             sample = self.output.v[i]
             im = sample.argmax()
@@ -341,7 +344,25 @@ class All2AllSoftmax(All2All):
         retval = super(All2AllSoftmax, self).cpu_run()
         if retval:
             return retval
+        log = self.log()
+        if not log.isEnabledFor(logging.DEBUG):
+            self.cpu_apply_exp()
+            return
+        log.debug("weights[0]: %s" % (" ".join("%.6f" % (x)
+                                      for x in self.weights.v[0])))
+        log.debug("weights[-1]: %s" % (" ".join("%.6f" % (x)
+                                       for x in self.weights.v[-1])))
+        for xx in self.output.v:
+            s = "Before exp: "
+            for x in xx:
+                s += " %.6f" % (x)
+            log.debug(s)
         self.cpu_apply_exp()
+        for xx in self.output.v:
+            s = "After exp: "
+            for x in xx:
+                s += " %.6f" % (x)
+            log.debug(s)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.

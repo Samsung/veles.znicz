@@ -6,7 +6,6 @@ Plotter for TV-logo recognition demo.
 import matplotlib.pyplot as pp
 import matplotlib.cm as cm
 import numpy
-import threading
 import plotters
 import formats
 
@@ -42,13 +41,6 @@ class ResultPlotter(plotters.Plotter):
                       10: "M2",
                       11: "Newros",
                       12: "Sterk"}
-        self.lock = threading.Lock()
-
-    def initialize(self):
-        if type(self.image) != formats.Vector:
-            return
-        self.img = numpy.zeros_like(self.image.v[0])
-        self.lock.acquire()
 
     def redraw(self):
         figure_label = self.figure_label
@@ -62,12 +54,15 @@ class ResultPlotter(plotters.Plotter):
         ax = figure.add_subplot(3, 1, 2)
         ax.cla()
         ax.axis('off')
-        ax.imshow(self.img, interpolation="nearest", cmap=cm.gray)
+        if self.img != None:
+            ax.imshow(self.img, interpolation="nearest", cmap=cm.gray)
 
         ax = figure.add_subplot(3, 1, 3)
         ax.cla()
         ax.axis('off')
-        ax.text(0.5, 0.5, self.names.get(self.values[-1], ""),
+        nme = self.names.get(self.values[-1], "")
+        self.log().info(nme)
+        ax.text(0.5, 0.5, nme,
                 ha='center', va='center', fontsize=40)
 
         figure.show()
@@ -77,9 +72,8 @@ class ResultPlotter(plotters.Plotter):
         if type(self.input) != formats.Vector:
             return
         self.input.sync()
-        self.values.append(self.input.v[0])
+        self.values.append(float(self.input.v[0]))
         if type(self.image) == formats.Vector:
             self.image.sync()
-            numpy.copyto(self.img, self.image.v[0])
-        plotters.Graphics().event_queue.put(self, block=True)
+            self.img = plotters.norm_image(self.image.v[0])
         super(ResultPlotter, self).run()
