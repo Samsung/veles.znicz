@@ -63,7 +63,7 @@ class Loader(loader.FullBatchLoader):
         self.sz = [0, 0]
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "total_samples", "class_samples", "nextclass_offs"]
+            "class_samples"]
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
@@ -105,7 +105,7 @@ class Loader(loader.FullBatchLoader):
                     self.__dict__[k] = v
             self.original_labels = pickle.load(fin)
             a = pickle.load(fin)
-            sh = [self.total_samples[0]]
+            sh = [self.original_labels.shape[0]]
             sh.extend(a.shape)
             self.original_data = numpy.zeros(sh,
                 dtype=config.dtypes[config.dtype])
