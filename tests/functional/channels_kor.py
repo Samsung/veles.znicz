@@ -226,7 +226,11 @@ class Loader(loader.FullBatchLoader):
                             x = scipy.ndimage.zoom(x, (scale_y, scale_x),
                                                    order=1)
                         self.original_data[i, j] = x
-                    formats.normalize(self.original_data[i])
+
+                    # Normalize Y and UV planes separately.
+                    formats.normalize(self.original_data[i][0])
+                    formats.normalize(self.original_data[i][1:])
+
                     i += 1
                 n_files += 1
                 self.log().info("Read %d files (%.2f%%)" % (n_files,
@@ -235,12 +239,6 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[0] = 0
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
-
-        self.nextclass_offs[0] = 0
-        self.nextclass_offs[1] = 0
-        self.nextclass_offs[2] = self.original_data.shape[0]
-
-        self.total_samples[0] = self.original_data.shape[0]
 
         self.log().info("Saving loaded data for later faster load to "
                         "%s" % (cached_data_fnme))

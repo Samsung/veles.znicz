@@ -81,7 +81,7 @@ class Loader(units.Unit):
         """Load the data here.
 
         Should be filled here:
-            total_samples, class_samples, nextclass_offs.
+            class_samples[].
         """
         pass
 
@@ -95,21 +95,14 @@ class Loader(units.Unit):
         if res:
             return res
 
-        # Check for correctness.
-        if self.total_samples[0] == 0:
-            raise error.ErrBadFormat("class_samples, nextclass_offs "
-                "and total_samples should be initialized after load_data(): "
-                "got self.total_samples[0] == 0")
-        if self.total_samples[0] != self.nextclass_offs[2]:
-            raise error.ErrBadFormat("self.total_samples[0] != "
-                "self.nextclass_offs[2] (%d != %d)" % (
-                self.total_samples[0], self.nextclass_offs[2]))
-        offs = 0
-        for i in range(0, 3):
-            offs += self.class_samples[i]
-            if self.nextclass_offs[i] != offs:
-                raise error.ErrBadFormat("self.nextclass_offs[%d] != "
-                    "%d" % (self.nextclass_offs[i], offs))
+        total_samples = 0
+        for i, n in enumerate(self.class_samples):
+            total_samples += n
+            self.nextclass_offs[i] = total_samples
+        self.total_samples[0] = total_samples
+        if total_samples == 0:
+            raise error.ErrBadFormat("class_samples should be filled in "
+                                     "load_data()")
 
         # Adjust minibatch_maxsize.
         self.minibatch_maxsize[0] = min(self.minibatch_maxsize[0],
@@ -394,9 +387,7 @@ class ImageLoader(FullBatchLoader):
                     data = numpy.append(data, aa, axis=0)
             self.class_samples[i] = len(data) - offs
             offs = len(data)
-            self.nextclass_offs[i] = offs
 
-        self.total_samples[0] = len(data)
         if len(labels):
             max_ll = max(labels)
             self.log().info("Labels are indexed from-to: %d %d" % (
