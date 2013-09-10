@@ -228,7 +228,9 @@ class Loader(loader.FullBatchLoader):
                         top = pos[k][1] * x.shape[0]
                         width = sz[0] * x.shape[1]
                         height = sz[1] * x.shape[0]
-                        x = x[top:top + height, left:left + width]
+                        x = x[top:top + height, left:left + width].\
+                            ravel().copy().\
+                            reshape((height, width), order="C")
                         x = image.resize(x, self.rect[0], self.rect[1])
                         self.original_data[i] = x
                     else:
@@ -239,7 +241,9 @@ class Loader(loader.FullBatchLoader):
                             top = pos[k][1] * x.shape[0]
                             width = sz[0] * x.shape[1]
                             height = sz[1] * x.shape[0]
-                            x = x[top:top + height, left:left + width]
+                            x = x[top:top + height, left:left + width].\
+                                ravel().copy().\
+                                reshape((height, width), order="C")
                             x = image.resize(x, self.rect[0], self.rect[1])
                             self.original_data[i, j] = x
 
