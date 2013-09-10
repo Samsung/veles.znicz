@@ -9,7 +9,7 @@ Extract and scale y, u, v to png from raw uyvy 1920*1080 files.
 import argparse
 import numpy
 import scipy.misc
-import scipy.ndimage
+import image
 
 
 if __name__ == "__main__":
@@ -57,9 +57,12 @@ if __name__ == "__main__":
                 y[row, (col << 1) + 1] = pix[3]
 
         if args.scale != 1.0:
-            ay = scipy.ndimage.zoom(y, args.scale, order=1)
-            au = scipy.ndimage.zoom(u, args.scale, order=1)
-            av = scipy.ndimage.zoom(v, args.scale, order=1)
+            ay = image.resize(y, args.scale * y.shape[1],
+                              args.scale * y.shape[0])
+            au = image.resize(y, args.scale * u.shape[1],
+                              args.scale * u.shape[0])
+            av = image.resize(y, args.scale * v.shape[1],
+                              args.scale * v.shape[0])
         else:
             ay = y
             au = u

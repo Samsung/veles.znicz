@@ -33,7 +33,7 @@ import opencl
 import plotters
 import glob
 import pickle
-import scipy.ndimage
+import image
 import tv_channel_plotter
 import loader
 import decision
@@ -52,31 +52,36 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 rect=(160, 80)):
+                 rect=(276, 138), grayscale=False):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
         self.channels_dir = channels_dir
         self.rect = rect
+        self.grayscale = grayscale
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples"]
+            "class_samples", "grayscale"]
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
         a2 = j2.read()  # returns interleaved yuv444
-        a = numpy.empty([3, a2.shape[0], a2.shape[1]],
-                        dtype=config.dtypes[config.dtype])
-        # transform to different yuv planes
-        a[0:1, :, :].reshape(
-            a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
-        a[1:2, :, :].reshape(
-            a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 1:2]
-        a[2:3, :, :].reshape(
-            a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
+        if self.grayscale:
+            a = numpy.empty([a2.shape[0], a2.shape[1], 1],
+                dtype=config.dtypes[config.dtype])
+            a[:, :, 0:1] = a2[:, :, 0:1]
+            a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
+        else:
+            # transform to different yuv planes
+            a[0:1, :, :].reshape(
+                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
+            a[1:2, :, :].reshape(
+                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 1:2]
+            a[2:3, :, :].reshape(
+                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         return a
 
     def load_data(self):
@@ -197,8 +202,12 @@ class Loader(loader.FullBatchLoader):
 
         self.original_labels = numpy.zeros(total_samples,
             dtype=config.itypes[config.get_itype_from_size(len(dirs))])
-        self.original_data = numpy.zeros([total_samples, 3,
-            self.rect[1], self.rect[0]], config.dtypes[config.dtype])
+        if self.grayscale:
+            self.original_data = numpy.zeros([total_samples,
+                self.rect[1], self.rect[0]], config.dtypes[config.dtype])
+        else:
+            self.original_data = numpy.zeros([total_samples, 3,
+                self.rect[1], self.rect[0]], config.dtypes[config.dtype])
         i = 0
         n_files = 0
         for dirnme in dirs:
@@ -212,24 +221,34 @@ class Loader(loader.FullBatchLoader):
                         self.original_labels[i] = int(dirnme)
                     else:
                         self.original_labels[i] = 0
-                    # Loop by color planes.
-                    for j in range(0, a.shape[0]):
-                        x = numpy.rot90(a[j], 2)
+
+                    if self.grayscale:
+                        x = numpy.rot90(a, 2)
                         left = pos[k][0] * x.shape[1]
                         top = pos[k][1] * x.shape[0]
                         width = sz[0] * x.shape[1]
                         height = sz[1] * x.shape[0]
                         x = x[top:top + height, left:left + width]
-                        scale_x = self.rect[0] / width
-                        scale_y = self.rect[1] / height
-                        if scale_x != 1.0 or scale_y != 1.0:
-                            x = scipy.ndimage.zoom(x, (scale_y, scale_x),
-                                                   order=1)
-                        self.original_data[i, j] = x
+                        x = image.resize(x, self.rect[0], self.rect[1])
+                        self.original_data[i] = x
+                    else:
+                        # Loop by color planes.
+                        for j in range(0, a.shape[0]):
+                            x = numpy.rot90(a[j], 2)
+                            left = pos[k][0] * x.shape[1]
+                            top = pos[k][1] * x.shape[0]
+                            width = sz[0] * x.shape[1]
+                            height = sz[1] * x.shape[0]
+                            x = x[top:top + height, left:left + width]
+                            x = image.resize(x, self.rect[0], self.rect[1])
+                            self.original_data[i, j] = x
 
-                    # Normalize Y and UV planes separately.
-                    formats.normalize(self.original_data[i][0])
-                    formats.normalize(self.original_data[i][1:])
+                    if self.grayscale:
+                        formats.normalize(self.original_data[i])
+                    else:
+                        # Normalize Y and UV planes separately.
+                        formats.normalize(self.original_data[i][0])
+                        formats.normalize(self.original_data[i][1:])
 
                     i += 1
                 n_files += 1
@@ -425,7 +444,7 @@ def main():
         w = pickle.load(fin)
         fin.close()
     except IOError:
-        w = Workflow(layers=[500, 28], device=device)
+        w = Workflow(layers=[50, 28], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
                  minibatch_maxsize=54, device=device)
