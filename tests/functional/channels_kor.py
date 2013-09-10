@@ -70,14 +70,12 @@ class Loader(loader.FullBatchLoader):
         j2 = glymur.Jp2k(fnme)
         a2 = j2.read()  # returns interleaved yuv444
         if self.grayscale:
-            a = numpy.empty([a2.shape[0], a2.shape[1], 1],
-                dtype=config.dtypes[config.dtype])
+            a = numpy.empty([a2.shape[0], a2.shape[1], 1], dtype=numpy.uint8)
             a[:, :, 0:1] = a2[:, :, 0:1]
             a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
         else:
             # transform to different yuv planes
-            a = numpy.empty([3, a2.shape[0], a2.shape[1]],
-                dtype=config.dtypes[config.dtype])
+            a = numpy.empty([3, a2.shape[0], a2.shape[1]], dtype=numpy.uint8)
             a[0:1, :, :].reshape(
                 a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
             a[1:2, :, :].reshape(
