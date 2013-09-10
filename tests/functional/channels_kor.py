@@ -52,7 +52,7 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 rect=(276, 138), grayscale=False):
+                 rect=(160, 80), grayscale=False):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
@@ -76,6 +76,8 @@ class Loader(loader.FullBatchLoader):
             a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
         else:
             # transform to different yuv planes
+            a = numpy.empty([3, a2.shape[0], a2.shape[1]],
+                dtype=config.dtypes[config.dtype])
             a[0:1, :, :].reshape(
                 a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
             a[1:2, :, :].reshape(
