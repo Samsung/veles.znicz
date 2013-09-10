@@ -210,10 +210,15 @@ class Loader(loader.FullBatchLoader):
                 self.rect[1], self.rect[0]], config.dtypes[config.dtype])
         i = 0
         n_files = 0
+        fout = open("%s/frames3.raw" % (config.cache_dir), "wb")
         for dirnme in dirs:
+            n_saved = 0
             self.log().info("Loading from %s" % (dirnme))
             for fnme in files[dirnme]:
                 a = self.from_jp2(fnme)
+                n_saved += 1
+                if n_saved <= 3:
+                    a.tofile(fout)
                 # Data from corners will form samples.
                 for k in pos.keys():
                     if (dirnme in self.channel_map.keys() and
@@ -258,6 +263,7 @@ class Loader(loader.FullBatchLoader):
                 n_files += 1
                 self.log().info("Read %d files (%.2f%%)" % (n_files,
                                 100.0 * n_files / total_files))
+        fout.close()
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
