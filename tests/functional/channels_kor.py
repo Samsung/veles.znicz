@@ -164,9 +164,10 @@ class Loader(loader.FullBatchLoader):
         self.log().info("Adjusted rectangles:")
         sz[0] += 16
         sz[1] += 16
+        self.log().info("sz: (%d, %d)" % (sz[0], sz[1]))
         for k in pos.keys():
-            pos[k][0] -= (rpos[k][0] - pos[k][0] - sz[0]) >> 1
-            pos[k][1] -= (rpos[k][1] - pos[k][1] - sz[1]) >> 1
+            pos[k][0] += (rpos[k][0] - pos[k][0] - sz[0]) >> 1
+            pos[k][1] += (rpos[k][1] - pos[k][1] - sz[1]) >> 1
             pos[k][0] = min(pos[k][0], frame[0] - sz[0])
             pos[k][1] = min(pos[k][1], frame[1] - sz[1])
             pos[k][0] = max(pos[k][0], 0)
