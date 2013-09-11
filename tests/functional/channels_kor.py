@@ -86,7 +86,8 @@ class Loader(loader.FullBatchLoader):
 
     def load_data(self):
         cached_data_fnme = "%s/%s_%s.pickle" % (
-            config.cache_dir, __file__, self.__class__.__name__)
+            config.cache_dir, os.path.basename(__file__),
+                self.__class__.__name__)
         self.log().info("Will try to load previously cached data from "
                         "%s" % (cached_data_fnme))
         try:
@@ -108,6 +109,13 @@ class Loader(loader.FullBatchLoader):
                     o.update(v)
                 else:
                     self.__dict__[k] = v
+
+            for k in self.pos.keys():
+                self.log().info("%s: pos: (%.6f, %.6f)" % (
+                    k, self.pos[k][0], self.pos[k][1]))
+            self.log().info("sz: (%.6f, %.6f)" % (self.sz[0], self.sz[1]))
+            self.log().info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
+
             self.original_labels = pickle.load(fin)
             a = pickle.load(fin)
             sh = [self.original_labels.shape[0]]
@@ -230,10 +238,10 @@ class Loader(loader.FullBatchLoader):
 
                     if self.grayscale:
                         x = numpy.rot90(a, 2)
-                        left = pos[k][0] * x.shape[1]
-                        top = pos[k][1] * x.shape[0]
-                        width = sz[0] * x.shape[1]
-                        height = sz[1] * x.shape[0]
+                        left = int(numpy.round(pos[k][0] * x.shape[1]))
+                        top = int(numpy.round(pos[k][1] * x.shape[0]))
+                        width = int(numpy.round(sz[0] * x.shape[1]))
+                        height = int(numpy.round(sz[1] * x.shape[0]))
                         x = x[top:top + height, left:left + width].\
                             ravel().copy().\
                             reshape((height, width), order="C")
@@ -243,10 +251,10 @@ class Loader(loader.FullBatchLoader):
                         # Loop by color planes.
                         for j in range(0, a.shape[0]):
                             x = numpy.rot90(a[j], 2)
-                            left = pos[k][0] * x.shape[1]
-                            top = pos[k][1] * x.shape[0]
-                            width = sz[0] * x.shape[1]
-                            height = sz[1] * x.shape[0]
+                            left = int(numpy.round(pos[k][0] * x.shape[1]))
+                            top = int(numpy.round(pos[k][1] * x.shape[0]))
+                            width = int(numpy.round(sz[0] * x.shape[1]))
+                            height = int(numpy.round(sz[1] * x.shape[0]))
                             x = x[top:top + height, left:left + width].\
                                 ravel().copy().\
                                 reshape((height, width), order="C")
