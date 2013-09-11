@@ -359,7 +359,7 @@ class Workflow(workflow.NNWorkflow):
         self.gd.clear()
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(device=device)
-        #self.gd[-1].link_from(self.decision)
+        # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -418,7 +418,7 @@ class Workflow(workflow.NNWorkflow):
         self.plt_i.gate_skip = self.decision.epoch_ended
         self.plt_i.gate_skip_not = [1]
         # Confusion matrix plotter
-        #"""
+        # """
         self.plt_mx = []
         for i in range(2, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
@@ -428,7 +428,7 @@ class Workflow(workflow.NNWorkflow):
             self.plt_mx[-1].link_from(self.plt_i)
             self.plt_mx[-1].gate_skip = self.decision.epoch_ended
             self.plt_mx[-1].gate_skip_not = [1]
-        #"""
+        # """
         self.gd[-1].link_from(self.plt_mx[-1])
 
     def initialize(self, threshold, threshold_low,
@@ -447,6 +447,10 @@ class Workflow(workflow.NNWorkflow):
         return self.start_point.initialize_dependent()
 
 
+import time
+import traceback
+
+
 def main():
     if __debug__:
         logging.basicConfig(level=logging.DEBUG)
@@ -462,6 +466,18 @@ def main():
         fin = open("%s/channels_kor.pickle" % (config.snapshot_dir), "rb")
         w = pickle.load(fin)
         fin.close()
+        tm = time.localtime()
+        s = "%d.%02d.%02d_%02d.%02d.%02d" % (tm.tm_year, tm.tm_mon, tm.tm_mday,
+                                             tm.tm_hour, tm.tm_min, tm.tm_sec)
+        fnme = "/home/ebulychev/workflows/kor_channels_workflow_%s" % (s)
+        try:
+            w.export(fnme)
+            logging.info("Exported successfully to %s" % (fnme))
+        except:
+            a, b, c = sys.exc_info()
+            traceback.print_exception(a, b, c)
+            logging.error("Error while exporting.")
+        sys.exit(0)
     except IOError:
         w = Workflow(layers=[50, 28], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
