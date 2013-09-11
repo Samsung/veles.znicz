@@ -479,7 +479,7 @@ def main():
             logging.error("Error while exporting.")
         sys.exit(0)
     except IOError:
-        w = Workflow(layers=[50, 28], device=device)
+        w = Workflow(layers=[50, 22], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
                  minibatch_maxsize=54, device=device)
