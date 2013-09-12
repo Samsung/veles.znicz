@@ -34,7 +34,6 @@ import plotters
 import glob
 import pickle
 import image
-import tv_channel_plotter
 import loader
 import decision
 import image_saver
@@ -469,7 +468,7 @@ def main():
         tm = time.localtime()
         s = "%d.%02d.%02d_%02d.%02d.%02d" % (tm.tm_year, tm.tm_mon, tm.tm_mday,
                                              tm.tm_hour, tm.tm_min, tm.tm_sec)
-        fnme = "/home/ebulychev/workflows/kor_channels_workflow_%s" % (s)
+        fnme = "%s/kor_channels_workflow_%s" % (config.snapshot_dir, s)
         try:
             w.export(fnme)
             logging.info("Exported successfully to %s" % (fnme))
