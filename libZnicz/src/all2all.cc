@@ -45,9 +45,10 @@ void All2All::SetParameter(const std::string& name,
 void All2All::Execute(const float* in, float* out) const {
   size_t input_count = InputCount();
   size_t output_count = OutputCount();
+
   auto tmp = std::uniquify(mallocf(output_count), std::free);
-  matrix_multiply_transposed(1, in, weights_.get(), input_count,
-                  1, input_count, output_count, tmp.get());
+  matrix_multiply_transposed(true, in, weights_.get(), input_count,
+                             1, input_count, output_count, tmp.get());
   matrix_add(1, tmp.get(), bias_.get(), 1, output_count, out);
   ApplyActivationFunction(out, output_count);
 }
