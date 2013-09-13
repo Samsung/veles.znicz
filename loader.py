@@ -309,7 +309,11 @@ class ImageLoader(FullBatchLoader):
     def from_image(self, fnme):
         """Loads data from image and normalizes it.
 
-        Override to resize if neccessary.
+        Returns:
+            numpy array: if there was one image in the file.
+            tuple: (a, l) if there were many images in the file
+                a - data
+                l - labels.
         """
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)
         a = a.astype(config.dtypes[config.dtype])
@@ -336,25 +340,49 @@ class ImageLoader(FullBatchLoader):
         ll = []
 
         sz = -1
+        this_samples = 0
+        next_samples = 0
         for i in range(0, n_files):
-            a = self.from_image(files[i])
-            if sz != -1 and a.size != sz:
-                raise error.ErrBadFormat("Found file with different "
-                                         "size than first: %s", files[i])
+            obj = self.from_image(files[i])
+            if type(obj) == numpy.ndarray:
+                a = obj
+                if sz != -1 and a.size != sz:
+                    raise error.ErrBadFormat("Found file with different "
+                                             "size than first: %s", files[i])
+                else:
+                    sz = a.size
+                lbl = self.get_label_from_filename(files[i])
+                if lbl != None:
+                    if type(lbl) != int:
+                        raise error.ErrBadFormat("Found non-integer label "
+                            "with type %s for %s" % (str(type(ll)), files[i]))
+                    ll.append(lbl)
+                if aa == None:
+                    sh = [n_files]
+                    sh.extend(a.shape)
+                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                next_samples = this_samples + 1
             else:
-                sz = a.size
-            if aa == None:
-                sh = [n_files]
-                sh.extend(a.shape)
-                aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
-            aa[i] = a
-            lbl = self.get_label_from_filename(files[i])
-            if lbl != None:
-                if type(lbl) != int:
-                    raise error.ErrBadFormat("Found non-integer label "
-                        "with type %s for %s" % (str(type(ll)), files[i]))
-                ll.append(lbl)
-
+                a, l = obj[0], obj[1]
+                if len(a) != len(l):
+                    raise error.ErrBadFormat("from_image() returned different "
+                                             "number of samples and labels.")
+                if sz != -1 and a[0].size != sz:
+                    raise error.ErrBadFormat("Found file with different sample"
+                                             " size than first: %s", files[i])
+                else:
+                    sz = a[0].size
+                ll.extend(l)
+                if aa == None:
+                    sh = [n_files + len(l) - 1]
+                    sh.extend(a[0].shape)
+                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                next_samples = this_samples + len(l)
+            if aa.shape[0] <= next_samples:
+                aa = numpy.append(aa, a)
+            aa[this_samples:next_samples] = a
+            self.total_samples[0] += next_samples - this_samples
+            this_samples = next_samples
         return (aa, ll)
 
     def load_data(self):

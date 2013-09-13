@@ -74,8 +74,8 @@ class All2All(units.Forward):
 
     def initialize(self):
         if self.weights_amplitude == None:
-            # Get weights amplitude and cap it to 0.05
-            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
+            # Get weights amplitude and cap it to 0.1
+            self.weights_amplitude = min(self.get_weights_amplitude(), 0.1)
         n_weights = self.input.v.size // self.input.v.shape[0] * \
                     numpy.prod(self.output_shape)
         if self.weights.v == None or self.weights.v.size != n_weights:

@@ -51,7 +51,7 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 rect=(160, 80), grayscale=False):
+                 rect=(160, 80), grayscale=False, shift_size=0, shift_count=0):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
@@ -61,9 +61,11 @@ class Loader(loader.FullBatchLoader):
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
+        self.shift_size = shift_size
+        self.shift_count = shift_count
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale"]
+            "class_samples", "grayscale", "shift_size", "shift_count"]
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
@@ -481,7 +483,7 @@ def main():
         w = Workflow(layers=[50, 22], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
-                 minibatch_maxsize=54, device=device)
+                 minibatch_maxsize=66, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
