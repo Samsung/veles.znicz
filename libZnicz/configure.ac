@@ -103,3 +103,16 @@ AM_COND_IF([TESTS], [
 ])
 
 AC_OUTPUT
+
+AC_DEFUN([ZNICZ_PRINT_STATUS], [
+echo
+echo -e "${COLOR_WHITE}Znicz options:${COLOR_RESET}"
+echo "  built_in_simd......: ${with_built_in_simd:-no}"
+echo "  veles_headers......: ${with_veles_headers:-no}"
+echo "  veles_build_root...: ${with_veles_build_root:-no}"
+echo
+])
+
+COMMON_PRINT_STATUS
+ZNICZ_PRINT_STATUS
+
