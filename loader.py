@@ -425,10 +425,22 @@ class ImageLoader(FullBatchLoader):
 
         # Loading target data and labels.
         if self.target_paths != None:
+            n = 0
             for pathname in self.target_paths:
                 (aa, ll) = self.load_original(pathname)
-                for i, label in enumerate(ll):
-                    self.target_by_lbl[label] = aa[i]
+                if len(ll):  # there are labels
+                    for i, label in enumerate(ll):
+                        self.target_by_lbl[label] = aa[i]
+                else:  # assume that target order is the same as data
+                    for a in aa:
+                        self.target_by_lbl[n] = a
+                        n += 1
+            if n:
+                if n != numpy.sum(self.class_samples):
+                    raise error.ErrBadFormat("Target samples count differs "
+                                             "from data samples count.")
+                self.original_labels = numpy.arange(n,
+                    dtype=config.itypes[config.get_itype_from_size(n)])
 
         self.original_data = data
 

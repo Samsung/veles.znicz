@@ -53,10 +53,7 @@ class Loader(loader.ImageLoader):
                                      "in %s" % (fnme))
         aa = numpy.zeros(a.shape, dtype=config.dtypes[config.dtype])
         aa[:] = a[:]
-        ll = []
-        for i in range(0, len(aa)):
-            ll.append(self.total_samples[0] + i)
-        return (aa, ll)
+        return (aa, [])
 
     def load_data(self):
         super(Loader, self).load_data()
