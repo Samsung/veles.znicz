@@ -305,10 +305,10 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     cl = opencl.DeviceList()
     device = cl.get_device()
-    w = Workflow(layers=[54, 9], device=device)
+    w = Workflow(layers=[81, 9], device=device)
     w.initialize(threshold_ok=0.005, threshold_skip=0.0,
-                 global_alpha=0.005, global_lambda=0.00005,
-                 minibatch_maxsize=54, device=device)
+                 global_alpha=0.01, global_lambda=0.00005,
+                 minibatch_maxsize=27, device=device)
     w.run()
 
     plotters.Graphics().wait_finish()
