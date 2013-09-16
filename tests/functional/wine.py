@@ -167,7 +167,7 @@ class Workflow(workflow.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
                                                    plot_style=styles[i],
-                                                   bounds=(0, 100)))
+                                                   ylim=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else self.plt[-2])

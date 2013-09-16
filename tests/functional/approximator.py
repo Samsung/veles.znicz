@@ -57,6 +57,7 @@ class Loader(loader.ImageLoader):
 
     def load_data(self):
         super(Loader, self).load_data()
+        return
         if self.class_samples[1] == 0:
             n = self.class_samples[2] * 10 // 70
             self.class_samples[1] = n
@@ -219,21 +220,23 @@ class Workflow(workflow.NNWorkflow):
         self.loader.gate_block = self.decision.complete
 
         # Average plotter
-        self.plt = []
+        self.plt_avg = []
         styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
         j = 0
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_avg.append(plotters.SimplePlotter(figure_label="mse",
                                                    plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_metrics
-            self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.plt[-2] if j else self.decision)
-            self.plt[-1].gate_block = [1] if j else self.decision.epoch_ended
-            self.plt[-1].gate_block_not = [1]
+            self.plt_avg[-1].input = self.decision.epoch_metrics
+            self.plt_avg[-1].input_field = i
+            self.plt_avg[-1].link_from(self.plt_avg[-2] if j
+                                       else self.decision)
+            self.plt_avg[-1].gate_block = ([1] if j
+                                           else self.decision.epoch_ended)
+            self.plt_avg[-1].gate_block_not = [1]
             j += 1
-        self.plt[0].clear_plot = True
+        self.plt_avg[0].clear_plot = True
         # Max plotter
         self.plt_max = []
         styles = ["", "b--", "k--"]  # ["r--", "b--", "k--"]
@@ -246,7 +249,8 @@ class Workflow(workflow.NNWorkflow):
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
-            self.plt_max[-1].link_from(self.plt_max[-2] if j else self.plt[-1])
+            self.plt_max[-1].link_from(self.plt_max[-2] if j
+                                       else self.plt_avg[-1])
             j += 1
         # Min plotter
         self.plt_min = []
@@ -270,6 +274,24 @@ class Workflow(workflow.NNWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
+        # Plot
+        self.plt = plotters.Plot(figure_label="Plot", ylim=[-1.5, 1.5])
+        self.plt.inputs.clear()
+        self.plt.inputs.append(self.loader.minibatch_data)
+        self.plt.inputs.append(self.loader.minibatch_target)
+        self.decision.vectors_to_sync[self.forward[-1].output] = 1
+        self.plt.inputs.append(self.forward[-1].output)
+        self.plt.input_fields.clear()
+        self.plt.input_fields.append(0)
+        self.plt.input_fields.append(0)
+        self.plt.input_fields.append(0)
+        self.plt.input_styles.clear()
+        self.plt.input_styles.append("k-")
+        self.plt.input_styles.append("g-")
+        self.plt.input_styles.append("b-")
+        self.plt.link_from(self.decision)
+        self.plt.gate_block = self.decision.epoch_ended
+        self.plt.gate_block_not = [1]
 
     def initialize(self, device, threshold_ok, threshold_skip,
                    global_alpha, global_lambda,
@@ -302,9 +324,9 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     cl = opencl.DeviceList()
     device = cl.get_device()
-    w = Workflow(layers=[81, 9], device=device)
+    w = Workflow(layers=[2700, 9], device=device)
     w.initialize(threshold_ok=0.005, threshold_skip=0.0,
-                 global_alpha=0.01, global_lambda=0.00005,
+                 global_alpha=0.1, global_lambda=0.00005,
                  minibatch_maxsize=27, device=device)
     w.run()
 
