@@ -41,7 +41,7 @@ SY = 32
 TARGET_SX = 24
 TARGET_SY = 24
 N_TRANSFORMS = 150
-KANJI_COUNT = 500
+KANJI_COUNT = 50
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,

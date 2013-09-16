@@ -90,11 +90,11 @@ class Workflow(units.OpenCLUnit):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(validation_paths=[
-            "%s/Hands/Positive/Testing/*.raw" % (config.test_dataset_root,),
-            "%s/Hands/Negative/Testing/*.raw" % (config.test_dataset_root,)],
+            "%s/hands/Positive/Testing/*.raw" % (config.test_dataset_root,),
+            "%s/hands/Negative/Testing/*.raw" % (config.test_dataset_root,)],
                              train_paths=[
-            "%s/Hands/Positive/Training/*.raw" % (config.test_dataset_root,),
-            "%s/Hands/Negative/Training/*.raw" % (config.test_dataset_root,)],
+            "%s/hands/Positive/Training/*.raw" % (config.test_dataset_root,),
+            "%s/hands/Negative/Training/*.raw" % (config.test_dataset_root,)],
                              minibatch_max_size=180)
         self.loader.link_from(self.rpt)
 
