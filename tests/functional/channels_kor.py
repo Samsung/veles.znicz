@@ -34,6 +34,7 @@ import plotters
 import glob
 import pickle
 import image
+import tv_channel_plotter
 import loader
 import decision
 import image_saver
@@ -48,10 +49,11 @@ import scipy.io
 class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
+    attributes_to_save = ["rect", "pos", "sz"]
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/by_number" % (
                                                 config.test_dataset_root),
-                 rect=(160, 80), grayscale=False, shift_size=0, shift_count=0):
+                 rect=(160, 80), grayscale=False):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.conf_ = None
@@ -61,11 +63,9 @@ class Loader(loader.FullBatchLoader):
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
-        self.shift_size = shift_size
-        self.shift_count = shift_count
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale", "shift_size", "shift_count"]
+            "class_samples", "grayscale"]
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
@@ -91,16 +91,9 @@ class Loader(loader.FullBatchLoader):
                 self.__class__.__name__)
         self.log().info("Will try to load previously cached data from "
                         "%s" % (cached_data_fnme))
-        save_to_cache = True
         try:
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
-            if obj["channels_dir"] != self.channels_dir:
-                save_to_cache = False
-                self.log().info("different dir found in cached data: %s" % (
-                                                        obj["channels_dir"]))
-                fin.close()
-                raise FileNotFoundError()
             for k, v in obj.items():
                 if type(v) == list:
                     o = self.__dict__[k]
@@ -136,15 +129,11 @@ class Loader(loader.FullBatchLoader):
                 self.original_data[i] = a
             fin.close()
             self.log().info("Succeeded")
-            self.log().info("class_samples=[%s]" % (
-                ", ".join(str(x) for x in self.class_samples)))
-            """
             fnme = "%s/ch.mat" % (config.cache_dir)
             self.log().info("Exporting to matlab file: %s" % (fnme))
             scipy.io.savemat(fnme, {"data": self.original_data,
                                     "labels": self.original_labels})
             self.log().info("Done")
-            """
             return
         except FileNotFoundError:
             self.log().info("Failed")
@@ -290,14 +279,6 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
 
-        # Randomly generate validation set from train.
-        self.extract_validation_from_train()
-
-        self.log().info("class_samples=[%s]" % (
-            ", ".join(str(x) for x in self.class_samples)))
-
-        if not save_to_cache:
-            return
         self.log().info("Saving loaded data for later faster load to "
                         "%s" % (cached_data_fnme))
         fout = open(cached_data_fnme, "wb")
@@ -316,8 +297,6 @@ class Workflow(workflow.NNWorkflow):
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-
-        self.saver = None
 
         self.rpt.link_from(self.start_point)
 
@@ -411,17 +390,16 @@ class Workflow(workflow.NNWorkflow):
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(1, 3):
+        for i in range(2, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
                                                    plot_style=styles[i],
-                                                   ylim=(0, 100)))
+                                                   bounds=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_skip = self.decision.epoch_ended
             self.plt[-1].gate_skip_not = [1]
         self.plt[0].clear_plot = True
-        self.plt[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
@@ -443,7 +421,7 @@ class Workflow(workflow.NNWorkflow):
         # Confusion matrix plotter
         # """
         self.plt_mx = []
-        for i in range(1, 3):
+        for i in range(2, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
@@ -456,10 +434,7 @@ class Workflow(workflow.NNWorkflow):
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
-                   minibatch_maxsize, dirnme, dump,
-                   snapshot_prefix, device):
-        self.decision.snapshot_prefix = snapshot_prefix
-        self.loader.channels_dir = dirnme
+                   minibatch_maxsize, device):
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.ev.device = device
         self.ev.threshold = threshold
@@ -470,90 +445,11 @@ class Workflow(workflow.NNWorkflow):
             gd.global_lambda = global_lambda
         for forward in self.forward:
             forward.device = device
-        if self.__dict__.get("saver") != None:
-            self.saver.unlink()
-            self.saver = None
-        if len(dump):
-            self.saver = Saver(fnme=dump)
-            self.saver.link_from(self.decision)
-            self.loader.shuffle = self.loader.nothing
-            self.loader.shuffle_train = self.loader.nothing
-            self.loader.shuffle_validation_train = self.loader.nothing
-            #self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
-            #self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
-            self.saver.vectors_to_save["y"] = self.forward[-1].output
-            self.saver.vectors_to_save["l"] = self.loader.minibatch_labels
-            self.saver.flush = self.decision.epoch_ended
-            self.saver.minibatch_size = self.loader.minibatch_size
-            self.end_point.link_from(self.saver)
-            self.rpt.link_from(self.saver)
-            self.loader.gate_block = self.decision.epoch_ended
-            self.end_point.gate_block = self.decision.epoch_ended
-            self.end_point.gate_block_not = [1]
-            self.end_point.link_from(self.plt_mx[-1])
-            for gd in self.gd:
-                gd.unlink()
         return self.start_point.initialize_dependent()
-
-
-class Saver(units.Unit):
-    """Saves vars to file.
-
-    Attributes:
-        vectors_to_save: dictionary of vectors to save,
-            name => Vector().
-        vectors_: dictionary of lists of accumulated vectors.
-        flush: if [1] - flushes vectors_ to fnme.
-        fnme: filename to save vectors_ to.
-    """
-    def __init__(self, fnme):
-        super(Saver, self).__init__()
-        self.vectors_to_save = {}
-        self.vectors_ = {}
-        self.flush = [0]
-        self.fnme = fnme
-        self.minibatch_size = None
-
-    def run(self):
-        for name, vector in self.vectors_to_save.items():
-            vector.sync()
-            if name not in self.vectors_.keys():
-                self.vectors_[name] = []
-            if self.minibatch_size != None:
-                self.vectors_[name].append(
-                    vector.v[:self.minibatch_size[0]].copy())
-            else:
-                self.vectors_[name].append(vector.v.copy())
-        if self.flush[0]:
-            self.log().info("Saving collected vectors to %s" % (self.fnme))
-            to_save = {}
-            for name, vectors in self.vectors_.items():
-                sh = [0]
-                dtype = config.dtypes[config.dtype]
-                for vector in vectors:
-                    if len(sh) == 1:
-                        dtype = vector.dtype
-                        sh.extend(vector.shape[1:])
-                    sh[0] += len(vector)
-                a = numpy.zeros(sh, dtype=dtype)
-                i = 0
-                for vector in vectors:
-                    n = len(vector)
-                    a[i:i + n] = vector
-                    i += n
-                to_save[name] = a
-                self.vectors_[name].clear()
-            self.vectors_.clear()
-            scipy.io.savemat(self.fnme, to_save)
-            self.log().info("Saved")
-            to_save.clear()
-            time.sleep(86400)
 
 
 import time
 import traceback
-import argparse
-import re
 
 
 def main():
@@ -561,35 +457,6 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-snapshot", type=str,
-        help="Snapshot with trained network",
-        default="%s/channels_kor.pickle" % (config.snapshot_dir))
-    parser.add_argument("-export", type=bool,
-        help="Export trained network to C",
-        default=False)
-    parser.add_argument("-dump", type=str,
-        help="Dump trained network output to .mat",
-        default="")
-    parser.add_argument("-dir", type=str,
-        help="Directory with channels",
-        default="%s/channels/korean_960_540/by_number" % (
-                                    config.test_dataset_root))
-    parser.add_argument("-snapshot_prefix", type=str,
-        help="Snapshot prefix.", default="channels_kor")
-    parser.add_argument("-layers", type=str,
-        help="NN layer sizes, separated by any separator.",
-        default="50_22")
-    args = parser.parse_args()
-
-    s_layers = re.split("\D+", args.layers)
-    layers = []
-    for s in s_layers:
-        layers.append(int(s))
-    logging.info("Will train NN with layers: %s" % (" ".join(
-                                        str(x) for x in layers)))
-
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
@@ -597,29 +464,26 @@ def main():
     cl = opencl.DeviceList()
     device = cl.get_device()
     try:
-        fin = open(args.snapshot, "rb")
+        fin = open("%s/channels_kor.pickle" % (config.snapshot_dir), "rb")
         w = pickle.load(fin)
         fin.close()
-        if args.export:
-            tm = time.localtime()
-            s = "%d.%02d.%02d_%02d.%02d.%02d" % (
-                tm.tm_year, tm.tm_mon, tm.tm_mday,
-                tm.tm_hour, tm.tm_min, tm.tm_sec)
-            fnme = "%s/kor_channels_workflow_%s" % (config.snapshot_dir, s)
-            try:
-                w.export(fnme)
-                logging.info("Exported successfully to %s" % (fnme))
-            except:
-                a, b, c = sys.exc_info()
-                traceback.print_exception(a, b, c)
-                logging.error("Error while exporting.")
-            sys.exit(0)
+        tm = time.localtime()
+        s = "%d.%02d.%02d_%02d.%02d.%02d" % (tm.tm_year, tm.tm_mon, tm.tm_mday,
+                                             tm.tm_hour, tm.tm_min, tm.tm_sec)
+        fnme = "/home/ebulychev/workflows/kor_channels_workflow_%s" % (s)
+        try:
+            w.export(fnme)
+            logging.info("Exported successfully to %s" % (fnme))
+        except:
+            a, b, c = sys.exc_info()
+            traceback.print_exception(a, b, c)
+            logging.error("Error while exporting.")
+        sys.exit(0)
     except IOError:
-        w = Workflow(layers=layers, device=device)
+        w = Workflow(layers=[50, 28], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
-                 minibatch_maxsize=66, dirnme=args.dir, dump=args.dump,
-                 snapshot_prefix=args.snapshot_prefix, device=device)
+                 minibatch_maxsize=54, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
