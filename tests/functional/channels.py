@@ -33,6 +33,7 @@ import opencl
 import plotters
 import glob
 import pickle
+import scipy.ndimage
 import tv_channel_plotter
 import loader
 import decision
@@ -41,7 +42,6 @@ import all2all
 import evaluator
 import gd
 import re
-import image
 
 
 class Loader(loader.ImageLoader):
@@ -351,13 +351,10 @@ class UYVYStreamLoader(units.Unit):
                 y[row, (col << 1) + 1] = pix[3]
 
         if self.scale != 1.0:
-            ay = image.resize(y, self.scale * y.shape[1],
-                              self.scale * y.shape[0])
+            ay = scipy.ndimage.zoom(y, self.scale, order=1)
             if not self.gray:
-                au = image.resize(u, self.scale * u.shape[1],
-                              self.scale * u.shape[0])
-                av = image.resize(v, self.scale * v.shape[1],
-                              self.scale * v.shape[0])
+                au = scipy.ndimage.zoom(u, self.scale, order=1)
+                av = scipy.ndimage.zoom(v, self.scale, order=1)
         else:
             ay = y
             au = u

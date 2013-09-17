@@ -45,6 +45,9 @@ class All2All(units.Forward):
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
+    # List that contains all names of variables to save.
+    attributes_to_save = ["bias", "weights"]
+
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
                  rand=rnd.default, weights_transposed=False):
         super(All2All, self).__init__(device=device)
@@ -70,35 +73,35 @@ class All2All(units.Forward):
                  if all input values are at their supposed max value.
         """
         return (9.0 / self.input.supposed_maxvle /
-                (self.input.v.size // self.input.v.shape[0]))
+                (self.input.v.sz // self.input.v.shape[0]))
 
     def initialize(self):
         if self.weights_amplitude == None:
-            # Get weights amplitude and cap it to 0.1
-            self.weights_amplitude = min(self.get_weights_amplitude(), 0.1)
-        n_weights = self.input.v.size // self.input.v.shape[0] * \
+            # Get weights amplitude and cap it to 0.05
+            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
+        n_weights = self.input.v.sz // self.input.v.shape[0] * \
                     numpy.prod(self.output_shape)
-        if self.weights.v == None or self.weights.v.size != n_weights:
+        if self.weights.v == None or self.weights.v.sz != n_weights:
             self.weights.v = numpy.zeros([n_weights],
                                          dtype=config.dtypes[config.dtype])
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
             self.weights.v = self.weights.v.\
                     reshape([numpy.prod(self.output_shape),
-                        self.input.v.size // self.input.v.shape[0]])
+                        self.input.v.sz // self.input.v.shape[0]])
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
-                a = a.reshape(a.size)
-                self.weights.v = self.weights.v.reshape(self.weights.v.size)
+                a = a.reshape(a.sz)
+                self.weights.v = self.weights.v.reshape(self.weights.v.sz)
                 self.weights.v[:] = a[:]
                 self.weights.v = self.weights.v.\
-                    reshape([self.input.v.size //
+                    reshape([self.input.v.sz //
                              self.input.v.shape[0],
                              numpy.prod(self.output_shape)])
             self.weights.v_ = None
         if self.bias.v == None or \
-           self.bias.v.size != numpy.prod(self.output_shape):
+           self.bias.v.sz != numpy.prod(self.output_shape):
             self.bias.v = numpy.zeros([numpy.prod(self.output_shape)],
                                       dtype=config.dtypes[config.dtype])
             self.rand.fill(self.bias.v, -self.weights_amplitude,
@@ -106,7 +109,7 @@ class All2All(units.Forward):
             self.bias.v_ = None
 
         output_size = self.input.v.shape[0] * numpy.prod(self.output_shape)
-        if self.output.v == None or self.output.v.size != output_size:
+        if self.output.v == None or self.output.v.sz != output_size:
             self.output.v = numpy.zeros([self.input.v.shape[0],
                                              numpy.prod(self.output_shape)],
                                             dtype=config.dtypes[config.dtype])
@@ -121,7 +124,7 @@ class All2All(units.Forward):
             return
 
         if self.krn_ == None:
-            output_size = self.output.aligned_.size // \
+            output_size = self.output.aligned_.sz // \
                           self.output.aligned_.shape[0]
             defines = ("%s\n"
                        "%s\n"
@@ -135,8 +138,8 @@ class All2All(units.Forward):
                         if self.weights_transposed else "",
                         config.cl_defines[config.dtype], self.s_activation,
                         self.device.info.BLOCK_SIZE[config.dtype],
-                        self.weights.aligned_.size // output_size, output_size,
-                        self.output.v.size // self.output.v.shape[0],
+                        self.weights.aligned_.sz // output_size, output_size,
+                        self.output.v.sz // self.output.v.shape[0],
                         self.output.aligned_.shape[0]))
             s = defines
             for src, define in self.cl_sources_.items():
@@ -150,8 +153,8 @@ class All2All(units.Forward):
             fin.close()
             s = s.replace("MX_MUL", s_mx_mul)
             fout = open("%s/feed_%d_%d.cl" % (config.cache_dir,
-                self.input.v.size // self.input.v.shape[0],
-                self.output.v.size // self.output.v.shape[0]), "w")
+                self.input.v.sz // self.input.v.shape[0],
+                self.output.v.sz // self.output.v.shape[0]), "w")
             fout.write(s)
             fout.close()
 
@@ -175,7 +178,7 @@ class All2All(units.Forward):
         self.log().info("%s: %d samples with %d weights in %.2f sec "
             "(min,avg,max,sum):\ty=%.6f,%.4f,%.2f,%.2f" %
             (self.__class__.__name__, y.shape[0],
-             self.weights.v.size, time.time() - t_start,
+             self.weights.v.sz, time.time() - t_start,
              numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
              numpy.fabs(y).max(), y.sum()))
 
@@ -185,7 +188,7 @@ class All2All(units.Forward):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(self.output.aligned_.size //
+        output_size = int(self.output.aligned_.sz //
                           self.output.aligned_.shape[0])
         global_size = [output_size, self.output.aligned_.shape[0]]
         local_size = [self.device.info.BLOCK_SIZE[config.dtype],
@@ -203,7 +206,7 @@ class All2All(units.Forward):
         self.bias.sync()
         a = formats.reshape(self.input.v,
             [self.input.v.shape[0],
-             self.input.v.size // self.input.v.shape[0]])
+             self.input.v.sz // self.input.v.shape[0]])
         b = self.weights.v
         if not self.weights_transposed:
             b = b.transpose()
@@ -232,7 +235,7 @@ class All2AllTanh(All2All):
 
     def get_weights_amplitude(self):
         return (9.0 / (self.input.supposed_maxvle * 0.6666) /
-                (self.input.v.size // self.input.v.shape[0]))
+                (self.input.v.sz // self.input.v.shape[0]))
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -278,7 +281,7 @@ class All2AllSoftmax(All2All):
 
     def get_weights_amplitude(self):
         return (9.0 / self.input.supposed_maxvle /
-                (self.input.v.size // self.input.v.shape[0]))
+                (self.input.v.sz // self.input.v.shape[0]))
 
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
@@ -290,7 +293,7 @@ class All2AllSoftmax(All2All):
             return retval
 
         if self.max_idx.v == None or \
-           self.max_idx.v.size != self.output.v.shape[0]:
+           self.max_idx.v.sz != self.output.v.shape[0]:
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
                 dtype=config.itypes[itype])
             self.max_idx.v_ = None
@@ -309,8 +312,8 @@ class All2AllSoftmax(All2All):
         log = self.log()
         if log.isEnabledFor(logging.DEBUG):
             s = []
-            a = numpy.sort(self.output.v.reshape(self.output.v.size))
-            for i in range(a.size - 1, a.size - 11, -1):
+            a = numpy.sort(self.output.v.reshape(self.output.v.sz))
+            for i in range(a.sz - 1, a.sz - 11, -1):
                 s.append("%.2f" % (a[i]))
             log.debug("Softmax Wx+b: %s, %.2f" % (", ".join(s), a[0]))
         for i in range(0, self.output.v.shape[0]):

@@ -15,8 +15,8 @@
 #include <chrono>
 #include <cstdio>
 #include <string>
-#include <gtest/gtest.h>
 #include <veles/workflow_loader.h>
+#include <gtest/gtest.h>
 #include "src/all2all_linear.h"
 #include "src/all2all_tanh.h"
 
