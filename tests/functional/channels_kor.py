@@ -448,7 +448,9 @@ class Workflow(workflow.NNWorkflow):
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
-                   minibatch_maxsize, dirnme, dump, device):
+                   minibatch_maxsize, dirnme, dump,
+                   snapshot_prefix, device):
+        self.decision.snapshot_prefix = snapshot_prefix
         self.loader.channels_dir = dirnme
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.ev.device = device
@@ -466,6 +468,9 @@ class Workflow(workflow.NNWorkflow):
         if len(dump):
             self.saver = Saver(fnme=dump)
             self.saver.link_from(self.decision)
+            self.old_sm_ = self.forward[-1]
+            #self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
+            #self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
             self.saver.vectors_to_save["y"] = self.forward[-1].output
             self.saver.vectors_to_save["l"] = self.loader.minibatch_labels
             self.saver.flush = self.decision.epoch_ended
@@ -560,6 +565,8 @@ def main():
         help="Directory with channels",
         default="%s/channels/korean_960_540/by_number" % (
                                     config.test_dataset_root))
+    parser.add_argument("-snapshot_prefix", type=str,
+        help="Snapshot prefix.", default="channels_kor")
     args = parser.parse_args()
 
     global this_dir
@@ -591,7 +598,7 @@ def main():
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
                  minibatch_maxsize=66, dirnme=args.dir, dump=args.dump,
-                 device=device)
+                 snapshot_prefix=args.snapshot_prefix, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
