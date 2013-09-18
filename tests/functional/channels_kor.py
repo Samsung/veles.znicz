@@ -91,9 +91,16 @@ class Loader(loader.FullBatchLoader):
                 self.__class__.__name__)
         self.log().info("Will try to load previously cached data from "
                         "%s" % (cached_data_fnme))
+        save_to_cache = True
         try:
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
+            if obj["channels_dir"] != self.channels_dir:
+                save_to_cache = False
+                self.log().info("different dir found in cached data: %s" % (
+                                                        obj["channels_dir"]))
+                fin.close()
+                raise FileNotFoundError()
             for k, v in obj.items():
                 if type(v) == list:
                     o = self.__dict__[k]
@@ -129,11 +136,13 @@ class Loader(loader.FullBatchLoader):
                 self.original_data[i] = a
             fin.close()
             self.log().info("Succeeded")
+            """
             fnme = "%s/ch.mat" % (config.cache_dir)
             self.log().info("Exporting to matlab file: %s" % (fnme))
             scipy.io.savemat(fnme, {"data": self.original_data,
                                     "labels": self.original_labels})
             self.log().info("Done")
+            """
             return
         except FileNotFoundError:
             self.log().info("Failed")
@@ -279,6 +288,8 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
 
+        if not save_to_cache:
+            return
         self.log().info("Saving loaded data for later faster load to "
                         "%s" % (cached_data_fnme))
         fout = open(cached_data_fnme, "wb")
@@ -297,6 +308,8 @@ class Workflow(workflow.NNWorkflow):
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
+
+        self.saver = None
 
         self.rpt.link_from(self.start_point)
 
@@ -400,6 +413,7 @@ class Workflow(workflow.NNWorkflow):
             self.plt[-1].gate_skip = self.decision.epoch_ended
             self.plt[-1].gate_skip_not = [1]
         self.plt[0].clear_plot = True
+        self.plt[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
@@ -434,7 +448,8 @@ class Workflow(workflow.NNWorkflow):
 
     def initialize(self, threshold, threshold_low,
                    global_alpha, global_lambda,
-                   minibatch_maxsize, device):
+                   minibatch_maxsize, dirnme, dump, device):
+        self.loader.channels_dir = dirnme
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.ev.device = device
         self.ev.threshold = threshold
@@ -445,11 +460,84 @@ class Workflow(workflow.NNWorkflow):
             gd.global_lambda = global_lambda
         for forward in self.forward:
             forward.device = device
+        if self.__dict__.get("saver") != None:
+            self.saver.unlink()
+            self.saver = None
+        if len(dump):
+            self.saver = Saver(fnme=dump)
+            self.saver.link_from(self.decision)
+            self.saver.vectors_to_save["y"] = self.forward[-1].output
+            self.saver.vectors_to_save["l"] = self.loader.minibatch_labels
+            self.saver.flush = self.decision.epoch_ended
+            self.saver.minibatch_size = self.loader.minibatch_size
+            self.end_point.link_from(self.saver)
+            self.rpt.link_from(self.saver)
+            self.loader.gate_block = self.decision.epoch_ended
+            self.end_point.gate_block = self.decision.epoch_ended
+            self.end_point.gate_block_not = [1]
+            self.end_point.link_from(self.plt_mx[-1])
+            for gd in self.gd:
+                gd.unlink()
         return self.start_point.initialize_dependent()
+
+
+class Saver(units.Unit):
+    """Saves vars to file.
+
+    Attributes:
+        vectors_to_save: dictionary of vectors to save,
+            name => Vector().
+        vectors_: dictionary of lists of accumulated vectors.
+        flush: if [1] - flushes vectors_ to fnme.
+        fnme: filename to save vectors_ to.
+    """
+    def __init__(self, fnme):
+        super(Saver, self).__init__()
+        self.vectors_to_save = {}
+        self.vectors_ = {}
+        self.flush = [0]
+        self.fnme = fnme
+        self.minibatch_size = None
+
+    def run(self):
+        for name, vector in self.vectors_to_save.items():
+            vector.sync()
+            if name not in self.vectors_.keys():
+                self.vectors_[name] = []
+            if self.minibatch_size != None:
+                self.vectors_[name].append(
+                    vector.v[:self.minibatch_size[0]].copy())
+            else:
+                self.vectors_[name].append(vector.v.copy())
+        if self.flush[0]:
+            self.log().info("Saving collected vectors to %s" % (self.fnme))
+            to_save = {}
+            for name, vectors in self.vectors_.items():
+                sh = [0]
+                dtype = config.dtypes[config.dtype]
+                for vector in vectors:
+                    if len(sh) == 1:
+                        dtype = vector.dtype
+                        sh.extend(vector.shape[1:])
+                    sh[0] += len(vector)
+                a = numpy.zeros(sh, dtype=dtype)
+                i = 0
+                for vector in vectors:
+                    n = len(vector)
+                    a[i:i + n] = vector
+                    i += n
+                to_save[name] = a
+                self.vectors_[name].clear()
+            self.vectors_.clear()
+            scipy.io.savemat(self.fnme, to_save)
+            self.log().info("Saved")
+            to_save.clear()
+            time.sleep(86400)
 
 
 import time
 import traceback
+import argparse
 
 
 def main():
@@ -457,6 +545,23 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-snapshot", type=str,
+        help="Snapshot with trained network",
+        default="%s/channels_kor.pickle" % (config.snapshot_dir))
+    parser.add_argument("-export", type=bool,
+        help="Export trained network to C",
+        default=False)
+    parser.add_argument("-dump", type=str,
+        help="Dump trained network output to .mat",
+        default="")
+    parser.add_argument("-dir", type=str,
+        help="Directory with channels",
+        default="%s/channels/korean_960_540/by_number" % (
+                                    config.test_dataset_root))
+    args = parser.parse_args()
+
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
@@ -464,26 +569,29 @@ def main():
     cl = opencl.DeviceList()
     device = cl.get_device()
     try:
-        fin = open("%s/channels_kor.pickle" % (config.snapshot_dir), "rb")
+        fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
         fin.close()
-        tm = time.localtime()
-        s = "%d.%02d.%02d_%02d.%02d.%02d" % (tm.tm_year, tm.tm_mon, tm.tm_mday,
-                                             tm.tm_hour, tm.tm_min, tm.tm_sec)
-        fnme = "%s/kor_channels_workflow_%s" % (config.snapshot_dir, s)
-        try:
-            w.export(fnme)
-            logging.info("Exported successfully to %s" % (fnme))
-        except:
-            a, b, c = sys.exc_info()
-            traceback.print_exception(a, b, c)
-            logging.error("Error while exporting.")
-        sys.exit(0)
+        if args.export:
+            tm = time.localtime()
+            s = "%d.%02d.%02d_%02d.%02d.%02d" % (
+                tm.tm_year, tm.tm_mon, tm.tm_mday,
+                tm.tm_hour, tm.tm_min, tm.tm_sec)
+            fnme = "%s/kor_channels_workflow_%s" % (config.snapshot_dir, s)
+            try:
+                w.export(fnme)
+                logging.info("Exported successfully to %s" % (fnme))
+            except:
+                a, b, c = sys.exc_info()
+                traceback.print_exception(a, b, c)
+                logging.error("Error while exporting.")
+            sys.exit(0)
     except IOError:
         w = Workflow(layers=[50, 22], device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
-                 minibatch_maxsize=66, device=device)
+                 minibatch_maxsize=66, dirnme=args.dir, dump=args.dump,
+                 device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")

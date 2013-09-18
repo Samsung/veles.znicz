@@ -71,6 +71,24 @@ class Loader(loader.ImageLoader):
             self.original_data.min(), self.original_data.max(),
             self.original_target.min(), self.original_target.max()))
         # Normalization
+        for i in range(0, self.original_data.shape[0]):
+            data = self.original_data[i]
+            data /= 127.5
+            data -= 1.0
+            m = data.mean()
+            data -= m
+            data *= 0.5
+            target = self.original_target[i]
+            target /= 127.5
+            target -= 1.0
+            target -= m
+            target *= 0.5
+
+        self.log().info("norm data range: (%.6f, %.6f), "
+                        "norm target range: (%.6f, %.6f)" % (
+            self.original_data.min(), self.original_data.max(),
+            self.original_target.min(), self.original_target.max()))
+        """
         train_data = self.original_data[self.nextclass_offs[1]:
                                         self.nextclass_offs[2]]
         train_target = self.original_target[self.nextclass_offs[1]:
@@ -129,6 +147,7 @@ class Loader(loader.ImageLoader):
                 validation_data.min(), validation_data.max()))
             self.log().info("validation target normed range: (%.6f, %.6f)" % (
                 validation_target.min(), validation_target.max()))
+        """
 
 
 class Workflow(workflow.NNWorkflow):
@@ -275,7 +294,7 @@ class Workflow(workflow.NNWorkflow):
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
         # Plot
-        self.plt = plotters.Plot(figure_label="Plot", ylim=[-1.5, 1.5])
+        self.plt = plotters.Plot(figure_label="Plot", ylim=[-1.1, 1.1])
         self.plt.inputs.clear()
         self.plt.inputs.append(self.loader.minibatch_data)
         self.plt.inputs.append(self.loader.minibatch_target)
@@ -324,10 +343,10 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     cl = opencl.DeviceList()
     device = cl.get_device()
-    w = Workflow(layers=[81, 9], device=device)
+    w = Workflow(layers=[810, 9], device=device)
     w.initialize(threshold_ok=0.005, threshold_skip=0.0,
-                 global_alpha=0.1, global_lambda=0.00005,
-                 minibatch_maxsize=27, device=device)
+                 global_alpha=0.01, global_lambda=0.00005,
+                 minibatch_maxsize=81, device=device)
     w.run()
 
     plotters.Graphics().wait_finish()
