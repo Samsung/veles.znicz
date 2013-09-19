@@ -23,7 +23,8 @@
 ##  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ##  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-TESTS = all2all_common all2all_linear all2all_tanh functional_test attribute functional_mnist
+TESTS = all2all_common all2all_linear all2all_tanh all2all_softmax \
+	attribute functional_test functional_mnist
 
 PARALLEL_SUBDIRS =
 
