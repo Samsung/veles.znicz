@@ -13,8 +13,8 @@
 #ifndef TESTS_FUNCTIONAL_TEST_H_
 #define TESTS_FUNCTIONAL_TEST_H_
 
-#include <veles/workflow.h>
 #include <tests/common_test.h>
+#include <veles/workflow.h>
 
 /** @brief Functional test of the workflow containing two neural network layers
  *  with different activation functions and number of neurons.

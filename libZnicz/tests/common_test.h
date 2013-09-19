@@ -20,7 +20,9 @@
 #include <veles/unit_factory.h>
 #include <simd/inc/simd/memory.h>
 
-class CommonTest : public ::testing::Test {
+class CommonTest
+    : public ::testing::Test,
+      public Veles::DefaultLogger<CommonTest, Veles::Logger::COLOR_RED> {
  protected:
   static const float kValueZero;
   static const float kValueOne;
@@ -35,14 +37,14 @@ class CommonTest : public ::testing::Test {
     return ptr;
   }
 
-  static std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) {
+  std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) const {
     std::shared_ptr<Veles::Unit> unit;
     try {
       unit = Veles::UnitFactory::Instance()[name]();
     }
     catch(const std::exception& e) {
-      fprintf(stderr, "Failed to create an unit using a factory.\n"
-              "Name: %s\nException: %s", name.c_str(), e.what());
+      ERR("Failed to create an unit using a factory."
+          "Name: %s\nException: %s", name.c_str(), e.what());
       throw;
     }
     return unit;

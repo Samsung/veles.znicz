@@ -10,9 +10,9 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+#include "tests/functional_test.h"
 #include "src/all2all_tanh.h"
 #include "src/all2all_linear.h"
-#include "tests/functional_test.h"
 
 const size_t WorkflowTest::kInputsLinear = 4;
 const size_t WorkflowTest::kOutputsLinear = 3;

@@ -10,9 +10,9 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+#include "tests/all2all_linear.h"
 #include <vector>
 #include "src/all2all_linear.h"
-#include "tests/all2all_linear.h"
 
 void All2AllLinear::SetUp() {
   float weights[kInputs * kOutputs] = {1, 2.1, 33,

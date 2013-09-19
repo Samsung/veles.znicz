@@ -11,8 +11,8 @@
  */
 
 #include <vector>
-#include "src/all2all_tanh.h"
 #include "tests/all2all_tanh.h"
+#include "src/all2all_tanh.h"
 
 void All2AllTanh::SetUp() {
   float weights[kInputs * kOutputs] = {1, 2.1, 33,

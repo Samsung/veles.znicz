@@ -57,9 +57,11 @@ AC_ARG_WITH([veles-build-root],
     AS_HELP_STRING([--with-veles-build-root], [link with Veles in this path]), [
     AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/'], [
     	VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la \
+    	\$(abs_top_builddir)/$with_veles_build_root/eina/libEina.la \
     	\$(abs_top_builddir)/$with_veles_build_root/libarchive/libarchive.la" 
     ], [
     	VELES_LIBS="$with_veles_build_root/src/libVeles.la \
+    	$with_veles_build_root/eina/libEina.la \
     	$with_veles_build_root/libarchive/libarchive.la"
     ])     
 ])
@@ -71,6 +73,26 @@ AS_IF([test "x$with_veles_headers" == "xno" -a "x$with_veles_build_root" == "xno
 ])
 
 CPPFLAGS="$CPPFLAGS $VELES_CFLAGS"
+
+# Check whether to use nice Eina logging
+AC_ARG_ENABLE([eina-logging],
+    AS_HELP_STRING([--disable-eina-logging], [do not use Eina as the logging backend])
+)
+AC_ARG_WITH([built-in-eina-logging],
+AS_HELP_STRING([--with-built-in-eina-logging], [use bundled eina_log module]), [
+    AS_IF([test "x$enable_eina_logging" != "xno"], [
+    	EINA_CFLAGS="-DEINA_STRIPPED -I\$(top_srcdir)/eina"
+    	EINA_LIBS="\$(top_builddir)/eina/libEina.la"
+    	EINA_DIR=eina    	
+	])
+], [
+    AS_IF([test "x$enable_eina_logging" != "xno"], [
+        PKG_CHECK_MODULES([EINA], [eina >= 1.0])      
+    ])
+])
+AS_IF([test "x$enable_eina_logging" != "xno"], [
+	AM_CPPFLAGS="$AM_CPPFLAGS -DEINA $EINA_CFLAGS"
+])
 
 AC_CONFIG_COMMANDS([Creating workflow_files directory in tests], 
 	[mkdir -p tests/workflow_files])
