@@ -136,6 +136,8 @@ class Loader(loader.FullBatchLoader):
                 self.original_data[i] = a
             fin.close()
             self.log().info("Succeeded")
+            self.log().info("class_samples=[%s]" % (
+                ", ".join(str(x) for x in self.class_samples)))
             """
             fnme = "%s/ch.mat" % (config.cache_dir)
             self.log().info("Exporting to matlab file: %s" % (fnme))
@@ -288,6 +290,12 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
 
+        # Randomly generate validation set from train.
+        self.extract_validation_from_train()
+
+        self.log().info("class_samples=[%s]" % (
+            ", ".join(str(x) for x in self.class_samples)))
+
         if not save_to_cache:
             return
         self.log().info("Saving loaded data for later faster load to "
@@ -403,7 +411,7 @@ class Workflow(workflow.NNWorkflow):
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(2, 3):
+        for i in range(1, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
                                                    plot_style=styles[i],
                                                    ylim=(0, 100)))
@@ -435,7 +443,7 @@ class Workflow(workflow.NNWorkflow):
         # Confusion matrix plotter
         # """
         self.plt_mx = []
-        for i in range(2, 3):
+        for i in range(1, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
                 figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
@@ -468,7 +476,9 @@ class Workflow(workflow.NNWorkflow):
         if len(dump):
             self.saver = Saver(fnme=dump)
             self.saver.link_from(self.decision)
-            self.old_sm_ = self.forward[-1]
+            self.loader.shuffle = self.loader.nothing
+            self.loader.shuffle_train = self.loader.nothing
+            self.loader.shuffle_validation_train = self.loader.nothing
             #self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
             #self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
             self.saver.vectors_to_save["y"] = self.forward[-1].output
@@ -543,6 +553,7 @@ class Saver(units.Unit):
 import time
 import traceback
 import argparse
+import re
 
 
 def main():
@@ -567,7 +578,17 @@ def main():
                                     config.test_dataset_root))
     parser.add_argument("-snapshot_prefix", type=str,
         help="Snapshot prefix.", default="channels_kor")
+    parser.add_argument("-layers", type=str,
+        help="NN layer sizes, separated by any separator.",
+        default="50_22")
     args = parser.parse_args()
+
+    s_layers = re.split("\D+", args.layers)
+    layers = []
+    for s in s_layers:
+        layers.append(int(s))
+    logging.info("Will train NN with layers: %s" % (" ".join(
+                                        str(x) for x in layers)))
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
@@ -594,7 +615,7 @@ def main():
                 logging.error("Error while exporting.")
             sys.exit(0)
     except IOError:
-        w = Workflow(layers=[50, 22], device=device)
+        w = Workflow(layers=layers, device=device)
     w.initialize(threshold=1.0, threshold_low=1.0,
                  global_alpha=0.001, global_lambda=0.0,
                  minibatch_maxsize=66, dirnme=args.dir, dump=args.dump,

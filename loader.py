@@ -129,14 +129,12 @@ class Loader(units.Unit):
             self.shuffle_train()
 
     def shuffle_validation_train(self):
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:\
+        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[0]:
                                                   self.nextclass_offs[2]])
-        pass
 
     def shuffle_train(self):
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:\
+        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offs[1]:
                                                   self.nextclass_offs[2]])
-        pass
 
     def shuffle(self):
         """Shuffle the dataset after one epoch.
@@ -268,6 +266,73 @@ class FullBatchLoader(Loader):
         if self.original_target != None:
             self.minibatch_target.v[0:minibatch_size] = \
                 self.original_target[idxs[0:minibatch_size]]
+
+    def extract_validation_from_train(self, amount=0.3):
+        """Extracts validation dataset from train dataset randomly.
+
+        Parameters:
+            amount: how many samples move from train dataset
+                    relative to the entire samples count for each class.
+        """
+        if amount <= 0:  # Dispose of validation set
+            self.class_samples[2] += self.class_samples[1]
+            self.class_samples[1] = 0
+            return
+        offs0 = self.class_samples[0]
+        offs = offs0
+        train_samples = self.class_samples[1] + self.class_samples[2]
+        total_samples = train_samples + offs
+        original_labels = self.original_labels
+        original_data = self.original_data
+        rand = self.rnd[0]
+        tmp = numpy.zeros_like(original_data[0])
+        # If there are no labels
+        if original_labels == None:
+            n = int(numpy.round(amount * train_samples))
+            while n > 0:
+                i = rand.randint(offs, offs + train_samples)
+                l = original_labels[i]
+                tmp[:] = original_data[offs][:]
+                original_data[offs] = original_data[i]
+                original_data[i] = tmp
+                original_labels[i] = original_labels[offs]
+                original_labels[offs] = l
+                offs += 1
+                n -= 1
+            self.class_samples[1] = offs - offs0
+            self.class_samples[2] = (total_samples - self.class_samples[1] -
+                                     offs0)
+            return
+        # If there are labels
+        nn = {}
+        for l in original_labels[offs:]:
+            nn[l] = nn.get(l, 0) + 1
+        n = 0
+        for l in nn.keys():
+            nn[l] = int(numpy.round(amount * nn[l]))
+            n += nn[l]
+        while n > 0:
+            i = rand.randint(offs, offs0 + train_samples)
+            l = original_labels[i]
+            if nn[l] <= 0:
+                # Move unused label to the end
+                tmp[:] = original_data[offs0 + train_samples - 1][:]
+                original_data[offs0 + train_samples - 1] = original_data[i]
+                original_data[i] = tmp
+                original_labels[i] = original_labels[offs0 + train_samples - 1]
+                original_labels[offs0 + train_samples - 1] = l
+                train_samples -= 1
+                continue
+            tmp[:] = original_data[offs][:]
+            original_data[offs] = original_data[i]
+            original_data[i] = tmp
+            original_labels[i] = original_labels[offs]
+            original_labels[offs] = l
+            nn[l] -= 1
+            n -= 1
+            offs += 1
+        self.class_samples[1] = offs - offs0
+        self.class_samples[2] = (total_samples - self.class_samples[1] - offs0)
 
 
 import glob
