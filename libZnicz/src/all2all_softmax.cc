@@ -26,23 +26,20 @@ std::string All2AllSoftmax::Name() const noexcept {
 }
 
 void All2AllSoftmax::ApplyActivationFunction(float* data, size_t length) const {
-  auto tmp_a = std::uniquify(mallocf(length), std::free);
-  auto tmp_b = std::uniquify(mallocf(length), std::free);
+  auto a_minus_max = std::uniquify(mallocf(length), std::free);
   float max_data = *std::max_element(data, data + length);
-  // tmp_a = data - Max
+  // a_minus_max = data - Max
   for(size_t i = 0; i < length; ++i) {
-    tmp_a.get()[i] = data[i] - max_data;
+    a_minus_max.get()[i] = data[i] - max_data;
   }
-  // tmp_b = exp(tmp_a) # using simd exp
-  exp_psv(true, tmp_a.get(), length, tmp_b.get());
-  // lse = ln(sum(tmp_b)) + Max # using simd sum
-  float lse = log(sum_elements(tmp_b.get(), length)) + max_data;
-  // tmp_a = data - lse
+  // data = exp(a_minus_max) # using simd exp
+  exp_psv(true, a_minus_max.get(), length, data);
+  // sum_exp = sum(data) # using simd sum
+  float sum_exp = sum_elements(data, length);
+  // data /= sum_exp
   for(size_t i = 0; i < length; ++i) {
-    data[i] -= lse;
+    data[i] /= sum_exp;
   }
-  // result = exp(tmp_a) # using simd exp
-  exp_psv(true, tmp_a.get(), length, data);
 }
 
 REGISTER_UNIT(All2AllSoftmax);

@@ -22,7 +22,7 @@ void All2AllSoftmax::SetUp() {
 }
 
 TEST_F(All2AllSoftmax, Execution) {
-  std::vector<float> expected = {0,31, 0,67};
+  std::vector<float> expected = {0.31, 0.69};
   TestExecution(expected.begin(), expected.end());
 }
 
