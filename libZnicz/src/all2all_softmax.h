@@ -22,7 +22,7 @@
 namespace Veles {
 namespace Znicz {
 
-/** @brief "All to all" neural network layer with Tanh activation function
+/** @brief "All to all" neural network layer with Softmax activation function
  */
 class All2AllSoftmax : public All2All {
  public:
@@ -42,4 +42,4 @@ DECLARE_UNIT(All2AllSoftmax);
 #pragma GCC visibility pop
 #endif
 
-#endif  // SRC_ALL2ALL_TANH_H_
+#endif  // SRC_ALL2ALL_SOFTMAX_H_
