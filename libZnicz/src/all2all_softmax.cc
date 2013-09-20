@@ -36,7 +36,7 @@ void All2AllSoftmax::ApplyActivationFunction(float* data, size_t length) const {
   // tmp_b = exp(tmp_a) # using simd exp
   exp_psv(true, tmp_a.get(), length, tmp_b.get());
   // lse = ln(sum(tmp_b)) + Max # using simd sum
-  float lse = log(sum(tmp_b.get(), length)) + max_data;
+  float lse = log(sum_elements(tmp_b.get(), length)) + max_data;
   // tmp_a = data - lse
   for(size_t i = 0; i < length; ++i) {
     data[i] -= lse;
