@@ -57,11 +57,9 @@ AC_ARG_WITH([veles-build-root],
     AS_HELP_STRING([--with-veles-build-root], [link with Veles in this path]), [
     AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/'], [
     	VELES_LIBS="\$(abs_top_builddir)/$with_veles_build_root/src/libVeles.la \
-    	\$(abs_top_builddir)/$with_veles_build_root/eina/libEina.la \
-    	\$(abs_top_builddir)/$with_veles_build_root/libarchive/libarchive.la" 
+    	\$(abs_top_builddir)/$with_veles_build_root/libarchive/libarchive.la"
     ], [
     	VELES_LIBS="$with_veles_build_root/src/libVeles.la \
-    	$with_veles_build_root/eina/libEina.la \
     	$with_veles_build_root/libarchive/libarchive.la"
     ])     
 ])
@@ -82,13 +80,14 @@ AC_ARG_WITH([built-in-eina-logging],
 AS_HELP_STRING([--with-built-in-eina-logging], [use bundled eina_log module]), [
     AS_IF([test "x$enable_eina_logging" != "xno"], [
     	EINA_CFLAGS="-DEINA_STRIPPED -I\$(top_srcdir)/eina"
-    	EINA_LIBS="\$(top_builddir)/eina/libEina.la"
-    	EINA_DIR=eina    	
+    	AS_IF([test "x$with_veles_build_root" != "xno"], [
+	    	AS_IF([test $(echo "$with_veles_build_root" | cut -c1) != '/'], [
+	    	    VELES_LIBS="$VELES_LIBS \$(abs_top_builddir)/$with_veles_build_root/eina/libEina.la"
+	    	], [
+	    		VELES_LIBS="$VELES_LIBS $with_veles_build_root/eina/libEina.la"
+	    	])
+    	])	
 	])
-], [
-    AS_IF([test "x$enable_eina_logging" != "xno"], [
-        PKG_CHECK_MODULES([EINA], [eina >= 1.0])      
-    ])
 ])
 AS_IF([test "x$enable_eina_logging" != "xno"], [
 	AM_CPPFLAGS="$AM_CPPFLAGS -DEINA $EINA_CFLAGS"
