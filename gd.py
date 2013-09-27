@@ -340,11 +340,15 @@ class GDSM(GD):
 
 
 class GDTanh(GD):
-    """Gradient Descent for f(): y = 1.7159 * tanh(0.6666 * (W * x + b)).
+    """Gradient Descent for f(x) = 1.7159 * tanh(0.6666 * s), s = (W * x + b),
+       y = a * tanh(b * s).
 
-    f'(y) = (a * tanh(b * y))' = a * (1 - b^2 * y^2) * b
-          = a * b - a * b^3 * y^2
-          = 1.143819 - 0.508262 * y^2
+    f'(s) = (a * tanh(b * s))' = a * tanh'(b * s) * b
+          = a * (1.0 - tanh^2(b * s)) * b
+          = a * b - a * b * tanh^2(b * s)
+          = a * b - y * y * b / a
+          = y * y * (-b / a) + (a * b)
+          = y * y * (-0.388484177) + 1.14381894
     """
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
@@ -352,7 +356,7 @@ class GDTanh(GD):
         self.y.sync()
         self.err_y.sync()
         y = self.y.v
-        self.err_y.v *= y * y * (-0.508262) + 1.143819
+        self.err_y.v *= y * y * (-0.388484177) + 1.14381894
         self.err_y.update()
 
     def initialize(self):

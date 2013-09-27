@@ -151,8 +151,7 @@ class Workflow(workflow.NNWorkflow):
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
-                                         weights_amplitude=0.05,
-                                         weights_transposed=False)
+                                         weights_amplitude=0.05)
             else:
                 aa = all2all.All2AllSoftmax([layers[i]], device=device,
                                             weights_amplitude=0.05)
@@ -330,7 +329,7 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
-    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         cl = opencl.DeviceList()
         device = cl.get_device()

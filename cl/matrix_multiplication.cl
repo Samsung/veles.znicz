@@ -50,11 +50,14 @@
 #if (BLOCKS > 16) && (BLOCKS <= 32)
 #define N_SUM 16
 #endif
-#if (BLOCKS > 32) && (BLOCKS <= 64)
+#if (BLOCKS > 32) && ((BLOCKS <= 64) || (sizeof_dtype > 8))
 #define N_SUM 32
 #endif
-#if BLOCKS > 64
+#if (sizeof_dtype <= 8) && (BLOCKS > 64) && ((BLOCKS <= 128) || (sizeof_dtype > 4))
 #define N_SUM 64
+#endif
+#if (sizeof_dtype <= 4) && (BLOCKS > 128)
+#define N_SUM 128
 #endif
 #endif
 
