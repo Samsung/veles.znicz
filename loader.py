@@ -205,12 +205,10 @@ class FullBatchLoader(Loader):
                          (in case of classification).
         original_target: numpy array of original target
                          (in case of MSE).
-        attributes_to_save: Names of attributes that should be saved.
 
     Should be overriden in child class:
         load_data()
     """
-    attributes_to_save = []
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
         self.original_data = None
@@ -269,6 +267,73 @@ class FullBatchLoader(Loader):
             self.minibatch_target.v[0:minibatch_size] = \
                 self.original_target[idxs[0:minibatch_size]]
 
+    def extract_validation_from_train(self, amount=0.3):
+        """Extracts validation dataset from train dataset randomly.
+
+        Parameters:
+            amount: how many samples move from train dataset
+                    relative to the entire samples count for each class.
+        """
+        if amount <= 0:  # Dispose of validation set
+            self.class_samples[2] += self.class_samples[1]
+            self.class_samples[1] = 0
+            return
+        offs0 = self.class_samples[0]
+        offs = offs0
+        train_samples = self.class_samples[1] + self.class_samples[2]
+        total_samples = train_samples + offs
+        original_labels = self.original_labels
+        original_data = self.original_data
+        rand = self.rnd[0]
+        tmp = numpy.zeros_like(original_data[0])
+        # If there are no labels
+        if original_labels == None:
+            n = int(numpy.round(amount * train_samples))
+            while n > 0:
+                i = rand.randint(offs, offs + train_samples)
+                l = original_labels[i]
+                tmp[:] = original_data[offs][:]
+                original_data[offs] = original_data[i]
+                original_data[i] = tmp
+                original_labels[i] = original_labels[offs]
+                original_labels[offs] = l
+                offs += 1
+                n -= 1
+            self.class_samples[1] = offs - offs0
+            self.class_samples[2] = (total_samples - self.class_samples[1] -
+                                     offs0)
+            return
+        # If there are labels
+        nn = {}
+        for l in original_labels[offs:]:
+            nn[l] = nn.get(l, 0) + 1
+        n = 0
+        for l in nn.keys():
+            nn[l] = int(numpy.round(amount * nn[l]))
+            n += nn[l]
+        while n > 0:
+            i = rand.randint(offs, offs0 + train_samples)
+            l = original_labels[i]
+            if nn[l] <= 0:
+                # Move unused label to the end
+                tmp[:] = original_data[offs0 + train_samples - 1][:]
+                original_data[offs0 + train_samples - 1] = original_data[i]
+                original_data[i] = tmp
+                original_labels[i] = original_labels[offs0 + train_samples - 1]
+                original_labels[offs0 + train_samples - 1] = l
+                train_samples -= 1
+                continue
+            tmp[:] = original_data[offs][:]
+            original_data[offs] = original_data[i]
+            original_data[i] = tmp
+            original_labels[i] = original_labels[offs]
+            original_labels[offs] = l
+            nn[l] -= 1
+            n -= 1
+            offs += 1
+        self.class_samples[1] = offs - offs0
+        self.class_samples[2] = (total_samples - self.class_samples[1] - offs0)
+
 
 import glob
 import scipy.ndimage
@@ -309,7 +374,11 @@ class ImageLoader(FullBatchLoader):
     def from_image(self, fnme):
         """Loads data from image and normalizes it.
 
-        Override to resize if neccessary.
+        Returns:
+            numpy array: if there was one image in the file.
+            tuple: (a, l) if there were many images in the file
+                a - data
+                l - labels.
         """
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)
         a = a.astype(config.dtypes[config.dtype])
@@ -336,25 +405,49 @@ class ImageLoader(FullBatchLoader):
         ll = []
 
         sz = -1
+        this_samples = 0
+        next_samples = 0
         for i in range(0, n_files):
-            a = self.from_image(files[i])
-            if sz != -1 and a.sz != sz:
-                raise error.ErrBadFormat("Found file with different "
-                                         "sz than first: %s", files[i])
+            obj = self.from_image(files[i])
+            if type(obj) == numpy.ndarray:
+                a = obj
+                if sz != -1 and a.size != sz:
+                    raise error.ErrBadFormat("Found file with different "
+                                             "size than first: %s", files[i])
+                else:
+                    sz = a.size
+                lbl = self.get_label_from_filename(files[i])
+                if lbl != None:
+                    if type(lbl) != int:
+                        raise error.ErrBadFormat("Found non-integer label "
+                            "with type %s for %s" % (str(type(ll)), files[i]))
+                    ll.append(lbl)
+                if aa == None:
+                    sh = [n_files]
+                    sh.extend(a.shape)
+                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                next_samples = this_samples + 1
             else:
-                sz = a.sz
-            if aa == None:
-                sh = [n_files]
-                sh.extend(a.shape)
-                aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
-            aa[i] = a
-            lbl = self.get_label_from_filename(files[i])
-            if lbl != None:
-                if type(lbl) != int:
-                    raise error.ErrBadFormat("Found non-integer label "
-                        "with type %s for %s" % (str(type(ll)), files[i]))
-                ll.append(lbl)
-
+                a, l = obj[0], obj[1]
+                if len(a) != len(l):
+                    raise error.ErrBadFormat("from_image() returned different "
+                                             "number of samples and labels.")
+                if sz != -1 and a[0].size != sz:
+                    raise error.ErrBadFormat("Found file with different sample"
+                                             " size than first: %s", files[i])
+                else:
+                    sz = a[0].size
+                ll.extend(l)
+                if aa == None:
+                    sh = [n_files + len(l) - 1]
+                    sh.extend(a[0].shape)
+                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                next_samples = this_samples + len(l)
+            if aa.shape[0] <= next_samples:
+                aa = numpy.append(aa, a)
+            aa[this_samples:next_samples] = a
+            self.total_samples[0] += next_samples - this_samples
+            this_samples = next_samples
         return (aa, ll)
 
     def load_data(self):
@@ -397,10 +490,22 @@ class ImageLoader(FullBatchLoader):
 
         # Loading target data and labels.
         if self.target_paths != None:
+            n = 0
             for pathname in self.target_paths:
                 (aa, ll) = self.load_original(pathname)
-                for i, label in enumerate(ll):
-                    self.target_by_lbl[label] = aa[i]
+                if len(ll):  # there are labels
+                    for i, label in enumerate(ll):
+                        self.target_by_lbl[label] = aa[i]
+                else:  # assume that target order is the same as data
+                    for a in aa:
+                        self.target_by_lbl[n] = a
+                        n += 1
+            if n:
+                if n != numpy.sum(self.class_samples):
+                    raise error.ErrBadFormat("Target samples count differs "
+                                             "from data samples count.")
+                self.original_labels = numpy.arange(n,
+                    dtype=config.itypes[config.get_itype_from_size(n)])
 
         self.original_data = data
 
