@@ -69,6 +69,7 @@ class Loader(loader.FullBatchLoader):
             "channels_dir", "rect", "channel_map", "pos", "sz",
             "class_samples", "grayscale", "find_negative",
             "shift_size", "shift_count"]
+        self.exports = ["rect", "pos", "sz"]
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)

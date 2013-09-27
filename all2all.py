@@ -15,7 +15,7 @@ import config
 import logging
 
 
-class All2All(units.Forward):
+class All2All(units.OpenCLUnit):
     """All2All with linear activation f(x) = x.
 
     Should be assigned before initialize():
@@ -57,6 +57,7 @@ class All2All(units.Forward):
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
         self.weights_transposed = weights_transposed
+        self.exports = ["weights", "bias"]
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
