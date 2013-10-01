@@ -105,10 +105,12 @@ AC_OUTPUT
 
 AC_DEFUN([ZNICZ_PRINT_STATUS], [
 echo
-echo -e "${COLOR_WHITE}Znicz options:${COLOR_RESET}"
-echo "  built_in_simd......: ${with_built_in_simd:-no}"
-echo "  veles_headers......: ${with_veles_headers:-no}"
-echo "  veles_build_root...: ${with_veles_build_root:-no}"
+echo -e "${COLOR_WHITE}$PACKAGE_NAME options:${COLOR_RESET}"
+echo -e "  built_in_simd......: $(color_yes_no ${with_built_in_simd:-no})"
+echo -e "  veles_headers......: ${COLOR_CYAN}${with_veles_headers:-no}${COLOR_RESET}"
+echo -e "  veles_build_root...: ${COLOR_CYAN}${with_veles_build_root:-no}${COLOR_RESET}"
+echo -e "  eina_logging............: $(color_yes_no ${enable_eina_logging:-yes})"
+echo -e "  built_in_eina_logging...: $(color_yes_no ${with_built_in_eina_logging:-no})"
 echo
 ])
 
