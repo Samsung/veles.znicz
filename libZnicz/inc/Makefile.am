@@ -24,4 +24,4 @@
 ##  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Append header file names which you want to ship here
-pkginclude_HEADERS = 
+pkginclude_HEADERS = znicz/units.h
