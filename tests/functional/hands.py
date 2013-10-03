@@ -23,15 +23,12 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
 import formats
 import numpy
 import config
 import rnd
 import opencl
 import plotters
-import pickle
-import time
 import hog
 import loader
 import decision
@@ -41,52 +38,29 @@ class Loader(loader.ImageLoader):
     """Loads Hands dataset.
     """
     def from_image(self, fnme):
-        a = numpy.fromfile(fnme, dtype=numpy.uint8)
+        a = numpy.fromfile(fnme, dtype=numpy.uint8).astype(numpy.float32)
         sx = int(numpy.sqrt(a.size))
-        return a.reshape(sx, sx)
+        a = hog.hog(a.reshape(sx, sx)).astype(numpy.float32)
+        formats.normalize(a)
+        return a
 
     def get_label_from_filename(self, filename):
         lbl = 1 if filename.find("Positive") >= 0 else 0
         return lbl
 
-    def load_data(self):
-        super(Loader, self).load_data()
-
-        b = hog.hog(self.original_data[0])
-        data = numpy.zeros([self.original_data.shape[0], len(b)],
-            dtype=self.original_data.dtype)
-
-        for i, a in enumerate(self.original_data):
-            b = hog.hog(a)
-            data[i] = b
-            formats.normalize(data[i])
-
-        self.original_data = data
-
 
 import all2all
 import evaluator
 import gd
+import workflow
 
 
-class Workflow(units.OpenCLUnit):
+class Workflow(workflow.NNWorkflow):
     """Sample workflow for Hands dataset.
-
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        stat: stat collector.
-        decision: Decision.
-        gd: list of gradient descent units.
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-        self.start_point = units.Unit()
 
-        self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(validation_paths=[
@@ -94,24 +68,16 @@ class Workflow(units.OpenCLUnit):
             "%s/hands/Negative/Testing/*.raw" % (config.test_dataset_root,)],
                              train_paths=[
             "%s/hands/Positive/Training/*.raw" % (config.test_dataset_root,),
-            "%s/hands/Negative/Training/*.raw" % (config.test_dataset_root,)],
-                             minibatch_max_size=180)
+            "%s/hands/Negative/Training/*.raw" % (config.test_dataset_root,)])
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward = []
+        self.forward.clear()
         for i in range(0, len(layers)):
-            # if not i:
-            #    amp = 9.0 / 784
-            # else:
-            #    amp = 9.0 / 1.7159 / layers[i - 1]
-            amp = 0.05
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh([layers[i]], device=device,
-                                         weights_amplitude=amp)
+                aa = all2all.All2AllTanh([layers[i]], device=device)
             else:
-                aa = all2all.All2AllSoftmax([layers[i]], device=device,
-                                            weights_amplitude=amp)
+                aa = all2all.All2AllSoftmax([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -130,17 +96,18 @@ class Workflow(units.OpenCLUnit):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision()
+        self.decision = decision.Decision(snapshot_prefix="hands")
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err_skipped
+        self.decision.minibatch_n_err = self.ev.n_err
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
         # Add gradient descent units
-        self.gd = list(None for i in range(0, len(self.forward)))
+        self.gd.clear()
+        self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(device=device)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -162,7 +129,6 @@ class Workflow(units.OpenCLUnit):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
@@ -177,9 +143,12 @@ class Workflow(units.OpenCLUnit):
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = self.decision.epoch_ended
+            self.plt[-1].link_from(self.decision if not i else self.plt[-2])
+            self.plt[-1].gate_block = (self.decision.epoch_ended if not i
+                                       else [1])
             self.plt[-1].gate_block_not = [1]
+        self.plt[0].clear_plot = True
+        self.plt[-1].redraw_plot = True
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
@@ -191,21 +160,11 @@ class Workflow(units.OpenCLUnit):
             self.plt_mx[-1].gate_block = self.decision.epoch_ended
             self.plt_mx[-1].gate_block_not = [1]
 
-    def initialize(self):
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
-
-    def run(self, threshold, threshold_low, global_alpha, global_lambda):
-        self.ev.threshold = threshold
-        self.ev.threshold_low = threshold_low
+    def initialize(self, global_alpha, global_lambda):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        retval = self.start_point.run_dependent()
-        if retval:
-            return retval
-        self.end_point.wait()
+        return self.start_point.initialize_dependent()
 
 
 def main():
@@ -213,70 +172,18 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    """
-    fin = open("mnist.1.86.2layer100neurons.pickle", "rb")
-    w = pickle.load(fin)
-    fin.close()
 
-    fout = open("w100.txt", "w")
-    weights = w.forward[0].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b100.txt", "w")
-    bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    fout = open("w10.txt", "w")
-    weights = w.forward[1].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b10.txt", "w")
-    bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    self.log().debug("Done")
-    sys.exit(0)
-    """
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    try:
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        w = Workflow(layers=[30, 2], device=device)
-        w.initialize()
-    except KeyboardInterrupt:
-        return
-    try:
-        w.run(threshold=1.0, threshold_low=1.0,
-              global_alpha=0.05, global_lambda=0.0)
-    except KeyboardInterrupt:
-        w.gd[-1].gate_block = [1]
-    logging.debug("Will snapshot in 15 seconds...")
-    time.sleep(5)
-    logging.debug("Will snapshot in 10 seconds...")
-    time.sleep(5)
-    logging.debug("Will snapshot in 5 seconds...")
-    time.sleep(5)
-    fnme = "%s/hands.pickle" % (config.snapshot_dir,)
-    logging.info("Snapshotting to %s" % (fnme,))
-    fout = open(fnme, "wb")
-    pickle.dump(w, fout)
-    fout.close()
+    cl = opencl.DeviceList()
+    device = cl.get_device()
+    w = Workflow(layers=[30, 2], device=device)
+    w.initialize(global_alpha=0.05, global_lambda=0.0)
+    w.run()
 
-    try:
-        plotters.Graphics().wait_finish()
-    except:
-        pass
+    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

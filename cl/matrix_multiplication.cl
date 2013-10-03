@@ -14,7 +14,6 @@
 ///          __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 ///
 ///          Sizes should be declared externally (values are given for example):
-///          #define dtype float
 ///          #define BLOCK_SIZE 16
 ///          #define A_WIDTH 512
 ///          #define B_WIDTH 256
@@ -50,20 +49,20 @@
 #if (BLOCKS > 16) && (BLOCKS <= 32)
 #define N_SUM 16
 #endif
-#if (BLOCKS > 32) && ((BLOCKS <= 64) || (sizeof_dtype > 8))
+#if (BLOCKS > 32) && ((BLOCKS <= 64) || (sizeof_c_dtype > 8))
 #define N_SUM 32
 #endif
-#if (sizeof_dtype <= 8) && (BLOCKS > 64) && ((BLOCKS <= 128) || (sizeof_dtype > 4))
+#if (sizeof_c_dtype <= 8) && (BLOCKS > 64) && ((BLOCKS <= 128) || (sizeof_c_dtype > 4))
 #define N_SUM 64
 #endif
-#if (sizeof_dtype <= 4) && (BLOCKS > 128)
+#if (sizeof_c_dtype <= 4) && (BLOCKS > 128)
 #define N_SUM 128
 #endif
 #endif
 
   // The source for matrix multiplication comes here:
-  __local dtype AS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of A
-  __local dtype BS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of B
+  __local c_dtype AS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of A
+  __local c_dtype BS[BLOCK_SIZE][BLOCK_SIZE]; // shared submatrix of B
 
   // Block index in matrix C, where the values will be put
   int bx = get_group_id(0); // from 0 to B_WIDTH / BLOCK_SIZE - 1
@@ -89,9 +88,9 @@
   int b_offs = bx * AB_COMMON * BLOCK_SIZE + ty * AB_COMMON + tx;
 #endif
 
-  dtype sum[N_SUM];
+  c_dtype sum[N_SUM];
   for (int i_sum = 0; i_sum < N_SUM; i_sum++) {
-    sum[i_sum] = 0.0f;
+    sum[i_sum] = c_from_re(0);
     for (int i = AB_COMMON / BLOCK_SIZE * i_sum / N_SUM; i < AB_COMMON / BLOCK_SIZE * (i_sum + 1) / N_SUM; i++,
          a_offs += A_OFFS, b_offs += B_OFFS) {
       AS[ty][tx] = A[a_offs];
@@ -104,15 +103,15 @@
       for(int k = 0; k < BLOCK_SIZE; k++)
       #ifdef B_COL
       #ifdef A_COL
-        sum[i_sum] += AS[k][ty] * BS[k][tx];
+        sum[i_sum] += c_mul(AS[k][ty], BS[k][tx]);
       #else
-        sum[i_sum] += AS[ty][k] * BS[k][tx];
+        sum[i_sum] += c_mul(AS[ty][k], BS[k][tx]);
       #endif
       #else
       #ifdef A_COL
-        sum[i_sum] += AS[k][ty] * BS[tx][k];
+        sum[i_sum] += c_mul(AS[k][ty], BS[tx][k]);
       #else
-        sum[i_sum] += AS[ty][k] * BS[tx][k];
+        sum[i_sum] += c_mul(AS[ty][k], BS[tx][k]);
       #endif
       #endif
 

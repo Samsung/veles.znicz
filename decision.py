@@ -203,9 +203,20 @@ class Decision(units.Unit):
             forward.bias.sync()
             weights.append(forward.weights.v)
             bias.append(forward.bias.v)
-        self.log().info("%f %f %f %f" % (
-            forward.weights.v.min(), forward.weights.v.max(),
-            forward.bias.v.min(), forward.bias.v.max()))
+            if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
+                self.log().info("%f %f %f %f" % (
+                    min(forward.weights.v.real.min(),
+                        forward.weights.v.imag.min()),
+                    max(forward.weights.v.real.max(),
+                        forward.weights.v.imag.max()),
+                    min(forward.bias.v.real.min(),
+                        forward.bias.v.imag.min()),
+                    max(forward.bias.v.real.max(),
+                        forward.bias.v.imag.max())))
+            else:
+                self.log().info("%f %f %f %f" % (
+                    forward.weights.v.min(), forward.weights.v.max(),
+                    forward.bias.v.min(), forward.bias.v.max()))
         pickle.dump((weights, bias), fout)
         fout.close()
         for fnme in to_rm:
@@ -261,8 +272,9 @@ class Decision(units.Unit):
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
-        self.minibatch_n_err.v[:] = 0
-        self.minibatch_n_err.update()
+        if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+            self.minibatch_n_err.v[:] = 0
+            self.minibatch_n_err.update()
         if (self.minibatch_metrics != None and
             self.minibatch_metrics.v != None):
             self.minibatch_metrics.v[:] = 0

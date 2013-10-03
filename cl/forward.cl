@@ -5,23 +5,24 @@
 
 
 //Should be declared externally:
-//#define dtype float
 //#define BLOCK_SIZE 16
 //#define BATCH 178
 //#define H 13
 //#define Y 5
 
 
-/// @brief Feeds the layer with linear or scaled tanh() activation f(): y = 1.7159 * tanh(0.6666 * (W * x + b))
-///        Because: f(1) = 1, f(-1) = -1, f"(x) maximum at x = 1
+/// @brief Feeds the layer with activation function:
+///        linear activation: x;
+///        scaled tanh activation: 1.7159 * tanh(0.6666 * x)),
+///        because: f(1) = 1, f(-1) = -1 and f"(x) maximum at x = 1.
 /// @param h input.
 /// @param weights weights.
 /// @param y output.
 /// @param bias bias.
 /// @details y = f(h * weights + bias)
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void FEED_LAYER(__global dtype /*IN*/ *h, __global dtype /*IN*/ *weights,
-                __global dtype /*OUT*/ *y, __global dtype /*IN*/ *bias) {
+void FEED_LAYER(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
+                __global c_dtype /*OUT*/ *y, __global c_dtype /*IN*/ *bias) {
   #define A_WIDTH BATCH
   #define B_WIDTH Y
   #define AB_COMMON H
@@ -49,11 +50,11 @@ void FEED_LAYER(__global dtype /*IN*/ *h, __global dtype /*IN*/ *weights,
 
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  y[idx] =
+  c_dtype s = sum[0] + AS[0][tx];
  	#ifdef ACTIVATION_LINEAR
-    sum[0] + AS[0][tx];
+  y[idx] = s;
  	#endif
  	#ifdef ACTIVATION_TANH
- 		1.7159f * tanh(0.6666f * (sum[0] + AS[0][tx]));
+  y[idx] = c_tanh(s * (dtype)0.6666) * (dtype)1.7159;
  	#endif
 }

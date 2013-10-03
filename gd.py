@@ -12,7 +12,6 @@ import time
 import pyopencl
 import config
 import logging
-import sys
 
 
 class GD(units.OpenCLUnit):
@@ -81,8 +80,7 @@ class GD(units.OpenCLUnit):
     def initialize(self):
         if (self.err_h.v == None or
             self.err_h.v.size != self.h.v.size):
-            self.err_h.v = numpy.zeros(self.h.v.shape,
-                                           dtype=config.dtypes[config.dtype])
+            self.err_h.v = numpy.zeros(self.h.v.shape, dtype=self.h.v.dtype)
             self.err_h.v_ = None
 
         if (self.store_gradient and
@@ -123,28 +121,14 @@ class GD(units.OpenCLUnit):
                     if self.weights_transposed else "",
                     "#define STORE_GRADIENT"
                     if self.store_gradient else "",
-                    config.cl_defines[config.dtype],
-                    self.device.info.BLOCK_SIZE[config.dtype],
+                    config.cl_defines[config.c_dtype],
+                    self.device.info.BLOCK_SIZE[config.c_dtype],
                     self.err_h.aligned_.shape[0],
                     self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
                     self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
-            s = defines
-            for src, define in self.cl_sources_.items():
-                s += "\n" + define + "\n"
-                fin = open(src, "r")
-                s += fin.read()
-                fin.close()
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
-            s_mx_mul = fin.read()
-            fin.close()
-            s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("%s/gd_%d_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/gd_%d_%d.cl" % (config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
-                self.y.v.size // self.y.v.shape[0]), "w")
-            fout.write(s)
-            fout.close()
-
-            self.prg_ = pyopencl.Program(self.device.context_, s).build()
+                self.y.v.size // self.y.v.shape[0]))
 
             self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
@@ -218,17 +202,17 @@ class GD(units.OpenCLUnit):
             global_size = [
                 self.h.aligned_.size // self.h.aligned_.shape[0],
                 self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0])
         global_size = [self.err_y.aligned_.size //
                        self.err_y.aligned_.shape[0],
-                       self.device.info.BLOCK_SIZE[config.dtype]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+                       self.device.info.BLOCK_SIZE[config.c_dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_, global_size,
                                                local_size)
@@ -264,8 +248,8 @@ class GD(units.OpenCLUnit):
         global_size = [self.err_h.aligned_.size //
                        self.err_h.aligned_.shape[0],
                        self.err_h.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_err_h_, global_size, local_size)
         event.wait()
@@ -279,17 +263,31 @@ class GD(units.OpenCLUnit):
         self.bias.sync()
         weights = self.weights.v
         bias = self.bias.v
-        self.log().debug("BP %d_%d in %.2f sec (min, avg, max):\t"
-                         "W=%.6f,%.4f,%.2f\tB=%.6f,%.4f,%.2f" %
+        if weights.dtype in (numpy.complex64, numpy.complex128):
+            self.log().debug("BP %d_%d in %.2f sec: min avg max: "
+                         "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
                   (self.h.v.size // self.h.v.shape[0],
                    self.y.v.size // self.y.v.shape[0],
                    time.time() - t_start,
-                   numpy.fabs(weights).min(),
-                   numpy.average(numpy.fabs(weights)),
-                   numpy.fabs(weights).max(),
-                   numpy.fabs(bias).min(),
-                   numpy.average(numpy.fabs(bias)),
-                   numpy.fabs(bias).max()))
+                   min(weights.real.min(), weights.imag.min()),
+                   (numpy.average(weights.real) +
+                    numpy.average(weights.imag)) * 0.5,
+                   max(weights.real.max(), weights.imag.max()),
+                   min(bias.real.min(), bias.imag.min()),
+                   (numpy.average(bias.real) + numpy.average(bias.imag)) * 0.5,
+                   max(bias.real.max(), bias.imag.max())))
+        else:
+            self.log().debug("BP %d_%d in %.2f sec: min avg max: "
+                         "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
+                  (self.h.v.size // self.h.v.shape[0],
+                   self.y.v.size // self.y.v.shape[0],
+                   time.time() - t_start,
+                   weights.min(),
+                   numpy.average(weights),
+                   weights.max(),
+                   bias.min(),
+                   numpy.average(bias),
+                   bias.max()))
 
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.

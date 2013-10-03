@@ -25,7 +25,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import units
-import formats
 import numpy
 import config
 import rnd
@@ -61,24 +60,15 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-class Workflow(units.OpenCLUnit):
-    """Sample workflow for MNIST dataset.
+import workflow
 
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        stat: stat collector.
-        decision: Decision.
-        gd: list of gradient descent units.
+
+class Workflow(workflow.NNWorkflow):
+    """Sample workflow.
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-        self.start_point = units.Unit()
 
-        self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(
@@ -90,8 +80,7 @@ class Workflow(units.OpenCLUnit):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh([layers[i]], device=device,
-                input_maxvle=(1.0 if not i else 1.7159))
+            aa = all2all.All2AllTanh([layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -112,7 +101,7 @@ class Workflow(units.OpenCLUnit):
         self.image_saver.minibatch_size = self.loader.minibatch_size
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device, threshold_ok=0.005)
+        self.ev = evaluator.EvaluatorMSE(device=device)
         self.ev.link_from(self.image_saver)
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -124,11 +113,11 @@ class Workflow(units.OpenCLUnit):
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.minibatch_metrics = self.ev.metrics
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
+        self.image_saver.this_time = self.decision.snapshot_time
         self.image_saver.gate_skip = self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
 
@@ -142,7 +131,7 @@ class Workflow(units.OpenCLUnit):
         self.gd[-1].weights = self.forward[-1].weights
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].batch_size = self.ev.effective_batch_size
+        self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(device=device)
             self.gd[i].link_from(self.gd[i + 1])
@@ -152,10 +141,9 @@ class Workflow(units.OpenCLUnit):
             self.gd[i].weights = self.forward[i].weights
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.ev.effective_batch_size
+            self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
@@ -220,8 +208,7 @@ class Workflow(units.OpenCLUnit):
         self.plt_img.gate_block_not = [1]
         """
 
-    def initialize(self, device, threshold_ok, threshold_skip,
-                   global_alpha, global_lambda):
+    def initialize(self, global_alpha, global_lambda, device):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
@@ -229,21 +216,7 @@ class Workflow(units.OpenCLUnit):
         for forward in self.forward:
             forward.device = device
         self.ev.device = device
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
-
-    def run(self, threshold_ok, threshold_skip, global_alpha, global_lambda):
-        self.ev.threshold_ok = threshold_ok
-        self.ev.threshold_skip = threshold_skip
-        self.decision.threshold_ok = threshold_ok
-        for gd in self.gd:
-            gd.global_alpha = global_alpha
-            gd.global_lambda = global_lambda
-        retval = self.start_point.run_dependent()
-        if retval:
-            return retval
-        self.end_point.wait()
+        return self.start_point.initialize_dependent()
 
 
 def main():
@@ -251,104 +224,30 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("mnist.pickle", "rb")
-    w = pickle.load(fin)
-    fin.close()
-
-    fout = open("w100.txt", "w")
-    weights = w.forward[0].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b100.txt", "w")
-    bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    a = w.loader.original_data.reshape(70000, 784)[0:10000]
-    b = weights.transpose()
-    c = numpy.zeros([10000, 100], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-    c *= 0.6666
-    numpy.tanh(c, c)
-    c *= 1.7159
-
-    fout = open("w10.txt", "w")
-    weights = w.forward[1].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b10.txt", "w")
-    bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    a = c
-    b = weights.transpose()
-    c = numpy.zeros([10000, 10], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-
-    labels = w.loader.original_labels[0:10000]
-    n_ok = 0
-    for i in range(0, 10000):
-        im = numpy.argmax(c[i])
-        if im == labels[i]:
-            n_ok += 1
-    logging.info("%d errors" % (10000 - n_ok))
-
-    logging.info("Done")
-    sys.exit(0)
-    """
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    cl = opencl.DeviceList()
+    device = cl.get_device()
+    fnme = "%s/video_ae.pickle" % (config.cache_dir)
+    fin = None
     try:
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        fnme = "%s/video_ae.pickle" % (config.cache_dir)
-        fin = None
-        try:
-            fin = open(fnme, "rb")
-        except IOError:
-            pass
-        if fin != None:
-            w = pickle.load(fin)
-            fin.close()
-            for forward in w.forward:
-                logging.info(forward.weights.v.min(), forward.weights.v.max(),
-                      forward.bias.v.min(), forward.bias.v.max())
-            w.decision.just_snapshotted[0] = 1
-        else:
-            w = Workflow(layers=[9, 14400], device=device)
-        w.initialize(device=device, threshold_ok=0.0001, threshold_skip=0.0,
-                     global_alpha=0.0002, global_lambda=0.00005)
-    except KeyboardInterrupt:
-        return
-    try:
-        w.run(threshold_ok=0.0001, threshold_skip=0.0,
-              global_alpha=0.0002, global_lambda=0.00005)
-    except KeyboardInterrupt:
-        w.gd[-1].gate_block = [1]
-    logging.info("Will snapshot in 15 seconds...")
-    time.sleep(5)
-    logging.info("Will snapshot in 10 seconds...")
-    time.sleep(5)
-    logging.info("Will snapshot in 5 seconds...")
-    time.sleep(5)
-    fnme = "%s/video_ae.pickle" % (config.snapshot_dir)
-    logging.info("Snapshotting to %s" % (fnme))
-    fout = open(fnme, "wb")
-    pickle.dump(w, fout)
-    fout.close()
+        fin = open(fnme, "rb")
+    except IOError:
+        pass
+    if fin != None:
+        w = pickle.load(fin)
+        fin.close()
+        for forward in w.forward:
+            logging.info(forward.weights.v.min(), forward.weights.v.max(),
+                         forward.bias.v.min(), forward.bias.v.max())
+        w.decision.just_snapshotted[0] = 1
+    else:
+        w = Workflow(layers=[9, 14400], device=device)
+    w.initialize(global_alpha=0.0002, global_lambda=0.00005, device=device)
+    w.run()
 
     plotters.Graphics().wait_finish()
     logging.info("End of job")

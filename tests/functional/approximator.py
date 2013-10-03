@@ -35,7 +35,6 @@ import all2all
 import evaluator
 import gd
 import scipy.io
-import formats
 import workflow
 import error
 import config
@@ -151,16 +150,7 @@ class Loader(loader.ImageLoader):
 
 
 class Workflow(workflow.NNWorkflow):
-    """Sample workflow for MNIST dataset.
-
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        decision: Decision.
-        gd: list of gradient descent units.
+    """Sample workflow.
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
@@ -187,7 +177,7 @@ class Workflow(workflow.NNWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device, threshold_ok=0.005)
+        self.ev = evaluator.EvaluatorMSE(device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -200,7 +190,6 @@ class Workflow(workflow.NNWorkflow):
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err_skipped
         self.decision.minibatch_metrics = self.ev.metrics
         self.decision.minibatch_mse = self.ev.mse
         self.decision.minibatch_offs = self.loader.minibatch_offs
@@ -218,7 +207,7 @@ class Workflow(workflow.NNWorkflow):
         self.gd[-1].weights = self.forward[-1].weights
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].batch_size = self.ev.effective_batch_size
+        self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(device=device)
             self.gd[i].link_from(self.gd[i + 1])
@@ -228,7 +217,7 @@ class Workflow(workflow.NNWorkflow):
             self.gd[i].weights = self.forward[i].weights
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.ev.effective_batch_size
+            self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
         self.end_point = units.EndPoint()
@@ -312,9 +301,8 @@ class Workflow(workflow.NNWorkflow):
         self.plt.gate_block = self.decision.epoch_ended
         self.plt.gate_block_not = [1]
 
-    def initialize(self, device, threshold_ok, threshold_skip,
-                   global_alpha, global_lambda,
-                   minibatch_maxsize):
+    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+                   device):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
@@ -323,19 +311,14 @@ class Workflow(workflow.NNWorkflow):
             forward.device = device
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
-        self.decision.threshold_ok = threshold_ok
-        self.ev.threshold_ok = threshold_ok
-        self.ev.threshold_skip = threshold_skip
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
+        return self.start_point.initialize_dependent()
 
 
 def main():
-    #if __debug__:
-    #    logging.basicConfig(level=logging.DEBUG)
-    #else:
-    logging.basicConfig(level=logging.INFO)
+    if __debug__:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
@@ -344,8 +327,7 @@ def main():
     cl = opencl.DeviceList()
     device = cl.get_device()
     w = Workflow(layers=[810, 9], device=device)
-    w.initialize(threshold_ok=0.005, threshold_skip=0.0,
-                 global_alpha=0.01, global_lambda=0.00005,
+    w.initialize(global_alpha=0.01, global_lambda=0.00005,
                  minibatch_maxsize=81, device=device)
     w.run()
 

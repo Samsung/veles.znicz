@@ -11,7 +11,6 @@ import numpy
 import pyopencl
 import rnd
 import config
-import gd
 
 
 class RBMTanh(all2all.All2AllTanh):
@@ -41,7 +40,8 @@ class RBMTanh(all2all.All2AllTanh):
             return retval
         if (self.output_rand.v == None or
             self.output_rand.v.size != self.output.v.size):
-            self.output_rand.v = numpy.zeros_like(self.output.v)
+            self.output_rand.v = numpy.zeros(self.output.v.shape,
+                                             dtype=config.dtypes[config.dtype])
             self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
         if not self.device:
@@ -59,8 +59,8 @@ class RBMTanh(all2all.All2AllTanh):
         output_size = int(self.output.aligned_.size //
                           self.output.aligned_.shape[0])
         global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         self.rand.fill(self.output_rand.v, -1.7159, 1.7159)
@@ -79,44 +79,3 @@ class RBMTanh(all2all.All2AllTanh):
 
     def cpu_run(self):
         return self.gpu_run()
-
-
-class GDTanh(gd.GD):
-    """Gradient Descent for f(): y = 1.7159 * tanh(0.6666 * (W * x + b)).
-
-    f'(y) = (a * tanh(b * y))' = a * (1 - b^2 * y^2) * b
-          = a * b - a * b^3 * y^2
-          = 1.143819 - 0.508262 * y^2
-
-    With respect to random activation.
-
-    Attributes:
-        rnd_window_size: size for applying derivative.
-    """
-    def __init__(self, device=None, global_alpha=0.001, global_lambda=0.00005,
-                 weights_transposed=False, rnd_window_size=0.1):
-        super(GDTanh, self).__init__(
-            device=device, global_alpha=global_alpha,
-            global_lambda=global_lambda,
-            weights_transposed=weights_transposed)
-        self.rnd_window_size = numpy.array([rnd_window_size],
-                                    dtype=config.dtypes[config.dtype])
-        self.y_rand = None
-
-    def cpu_err_y_update(self):
-        return self.gpu_err_y_update()
-
-    def initialize(self):
-        self.cl_sources_["%s/rbm.cl" % (config.cl_dir)] = ""
-        retval = super(GDTanh, self).initialize()
-        if retval or not self.device:
-            return retval
-        self.y_rand.initialize(self.device)
-        self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
-        self.krn_err_y_.set_arg(0, self.err_y.v_)
-        self.krn_err_y_.set_arg(1, self.y.v_)
-        self.krn_err_y_.set_arg(2, self.y_rand.v_)
-
-    def gpu_err_y_update(self):
-        self.krn_err_y_.set_arg(3, self.rnd_window_size[0])
-        return super(GDTanh, self).gpu_err_y_update()

@@ -24,7 +24,6 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
 import formats
 import numpy
 import config
@@ -248,15 +247,10 @@ class Loader(loader.FullBatchLoader):
                 self.rect[1], self.rect[0]], numpy.float32)
         i = 0
         n_files = 0
-        fout = open("%s/frames3.raw" % (config.cache_dir), "wb")
         for dirnme in dirs:
-            n_saved = 0
             self.log().info("Loading from %s" % (dirnme))
             for fnme in files[dirnme]:
                 a = self.from_jp2(fnme)
-                n_saved += 1
-                if n_saved <= 3:
-                    a.tofile(fout)
                 rot = fnme.find("norotate") < 0
                 # Data from corners will form samples.
                 for k in pos.keys():
@@ -302,7 +296,6 @@ class Loader(loader.FullBatchLoader):
                 n_files += 1
                 self.log().info("Read %d files (%.2f%%)" % (n_files,
                                 100.0 * n_files / total_files))
-        fout.close()
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
@@ -361,7 +354,7 @@ class Workflow(workflow.NNWorkflow):
         self.image_saver = image_saver.ImageSaver(out_dirs=[
             "/tmp/tmpimg/test",
             "/tmp/tmpimg/validation",
-            "/tmp/tmpimg/train"], limit=100)
+            "/tmp/tmpimg/train"])
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -386,7 +379,7 @@ class Workflow(workflow.NNWorkflow):
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err_skipped
+        self.decision.minibatch_n_err = self.ev.n_err
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
@@ -397,7 +390,7 @@ class Workflow(workflow.NNWorkflow):
 
         # Add gradient descent units
         self.gd.clear()
-        self.gd.extend(list(None for i in range(0, len(self.forward))))
+        self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(device=device)
         # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -419,7 +412,6 @@ class Workflow(workflow.NNWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
@@ -429,17 +421,16 @@ class Workflow(workflow.NNWorkflow):
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        j = 0
         for i in range(1, 3):
             self.plt.append(plotters.SimplePlotter(figure_label="num errors",
                                                    plot_style=styles[i],
                                                    ylim=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.plt[-2] if j else self.decision)
+            self.plt[-1].link_from(self.decision if len(self.plt) == 1
+                                   else self.plt[-2])
             self.plt[-1].gate_skip = self.decision.epoch_ended
             self.plt[-1].gate_skip_not = [1]
-            j += 1
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Weights plotter
@@ -464,7 +455,6 @@ class Workflow(workflow.NNWorkflow):
         self.plt_i.gate_skip = self.decision.epoch_ended
         self.plt_i.gate_skip_not = [1]
         # Confusion matrix plotter
-        # """
         self.plt_mx = []
         j = 0
         for i in range(1, 3):
@@ -476,11 +466,9 @@ class Workflow(workflow.NNWorkflow):
             self.plt_mx[-1].gate_skip = self.decision.epoch_ended
             self.plt_mx[-1].gate_skip_not = [1]
             j += 1
-        # """
         self.gd[-1].link_from(self.plt_mx[-1])
 
-    def initialize(self, threshold, threshold_low,
-                   global_alpha, global_lambda,
+    def initialize(self, global_alpha, global_lambda,
                    minibatch_maxsize, dirnme, dump,
                    snapshot_prefix, find_negative, device):
         self.decision.snapshot_prefix = snapshot_prefix
@@ -488,8 +476,6 @@ class Workflow(workflow.NNWorkflow):
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.loader.find_negative = find_negative
         self.ev.device = device
-        self.ev.threshold = threshold
-        self.ev.threshold_low = threshold_low
         for gd in self.gd:
             gd.device = device
             gd.global_alpha = global_alpha
@@ -520,6 +506,9 @@ class Workflow(workflow.NNWorkflow):
             for gd in self.gd:
                 gd.unlink()
         return self.start_point.initialize_dependent()
+
+
+import units
 
 
 class Saver(units.Unit):
@@ -654,8 +643,7 @@ def main():
             sys.exit(0)
     except IOError:
         w = Workflow(layers=layers, device=device)
-    w.initialize(threshold=1.0, threshold_low=1.0,
-                 global_alpha=args.global_alpha,
+    w.initialize(global_alpha=args.global_alpha,
                  global_lambda=args.global_lambda,
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
                  dump=args.dump, snapshot_prefix=args.snapshot_prefix,
@@ -667,3 +655,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)

@@ -41,8 +41,8 @@ def reshape(a, shape):
     return b
 
 
-def normalize(a):
-    """Normalizes numpy array to [-1, 1] in-place.
+def real_normalize(a):
+    """Normalizes real array to [-1, 1] in-place.
     """
     a -= a.min()
     m = a.max()
@@ -50,6 +50,21 @@ def normalize(a):
         a /= m
         a *= 2.0
         a -= 1.0
+
+
+def complex_normalize(a):
+    """Normalizes complex array to unit-circle in-place.
+    """
+    a -= numpy.average(a)
+    m = numpy.sqrt((a.real * a.real + a.imag * a.imag).max())
+    if m:
+        a /= m
+
+
+def normalize(a):
+    if a.dtype in (numpy.complex64, numpy.complex128):
+        return complex_normalize(a)
+    return real_normalize(a)
 
 
 def normalize_pointwise(a):
@@ -156,16 +171,17 @@ class Vector(units.Connector):
         return super(Vector, self).__getstate__()
 
     def initialize(self, device=None):
-        if self.v_:
+        if self.v == None or self.v_ != None:
             return
-        if device:
+        if device != None:
             self.device = device
-        if not self.device:
+        if self.device == None:
             return
-        if self.v.dtype in config.dtypes.values() and \
-           config.dtypes[config.dtype] != self.v.dtype:
-            self.v = self.v.astype(config.dtype)
-        BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.dtype]
+        if (self.v.dtype in config.convert_map.keys() and
+            config.convert_map[self.v.dtype] in [
+                config.dtypes[config.dtype], config.dtypes[config.c_dtype]]):
+            self.v = self.v.astype(config.convert_map[self.v.dtype])
+        BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.c_dtype]
         dim1 = self.v.shape[0]
         n_dims = len(self.v.shape)
         dim2 = self.v.size // self.v.shape[0]

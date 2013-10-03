@@ -70,48 +70,49 @@ class All2All(units.OpenCLUnit):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
+        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+            return (1.0 / self.input.supposed_maxvle /
+                (self.input.v.size // self.input.v.shape[0]))
         return (9.0 / self.input.supposed_maxvle /
                 (self.input.v.size // self.input.v.shape[0]))
 
     def initialize(self):
         if self.weights_amplitude == None:
-            # Get weights amplitude and cap it to 0.1
-            self.weights_amplitude = min(self.get_weights_amplitude(), 0.1)
-        n_weights = self.input.v.size // self.input.v.shape[0] * \
-                    numpy.prod(self.output_shape)
+            # Get weights amplitude and cap it to 0.05
+            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
+        n_weights = (self.input.v.size // self.input.v.shape[0] *
+                     numpy.prod(self.output_shape))
         if self.weights.v == None or self.weights.v.size != n_weights:
-            self.weights.v = numpy.zeros([n_weights],
-                                         dtype=config.dtypes[config.dtype])
+            self.weights.reset()
+            self.weights.v = numpy.zeros([n_weights], dtype=self.input.v.dtype)
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
-            self.weights.v = self.weights.v.\
-                    reshape([numpy.prod(self.output_shape),
-                        self.input.v.size // self.input.v.shape[0]])
+            self.weights.v = self.weights.v.reshape([
+                numpy.prod(self.output_shape),
+                self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
                 a = a.reshape(a.size)
                 self.weights.v = self.weights.v.reshape(self.weights.v.size)
                 self.weights.v[:] = a[:]
-                self.weights.v = self.weights.v.\
-                    reshape([self.input.v.size //
-                             self.input.v.shape[0],
-                             numpy.prod(self.output_shape)])
-            self.weights.v_ = None
-        if self.bias.v == None or \
-           self.bias.v.size != numpy.prod(self.output_shape):
+                self.weights.v = self.weights.v.reshape([
+                    self.input.v.size // self.input.v.shape[0],
+                    numpy.prod(self.output_shape)])
+        if (self.bias.v == None or
+            self.bias.v.size != numpy.prod(self.output_shape)):
+            self.bias.reset()
             self.bias.v = numpy.zeros([numpy.prod(self.output_shape)],
-                                      dtype=config.dtypes[config.dtype])
+                                      dtype=self.input.v.dtype)
             self.rand.fill(self.bias.v, -self.weights_amplitude,
                            self.weights_amplitude)
-            self.bias.v_ = None
 
         output_size = self.input.v.shape[0] * numpy.prod(self.output_shape)
         if self.output.v == None or self.output.v.size != output_size:
+            self.output.reset()
             self.output.v = numpy.zeros([self.input.v.shape[0],
-                                             numpy.prod(self.output_shape)],
-                                            dtype=config.dtypes[config.dtype])
-            self.output.v_ = None
+                                        numpy.prod(self.output_shape)],
+                                        dtype=self.input.v.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -122,8 +123,8 @@ class All2All(units.OpenCLUnit):
             return
 
         if self.krn_ == None:
-            output_size = self.output.aligned_.size // \
-                          self.output.aligned_.shape[0]
+            output_size = (self.output.aligned_.size //
+                           self.output.aligned_.shape[0])
             defines = ("%s\n"
                        "%s\n"
                        "#define %s\n"
@@ -134,29 +135,14 @@ class All2All(units.OpenCLUnit):
                        "#define BATCH %d\n\n" %
                        ("#define WEIGHTS_TRANSPOSED"
                         if self.weights_transposed else "",
-                        config.cl_defines[config.dtype], self.s_activation,
-                        self.device.info.BLOCK_SIZE[config.dtype],
+                        config.cl_defines[config.c_dtype], self.s_activation,
+                        self.device.info.BLOCK_SIZE[config.c_dtype],
                         self.weights.aligned_.size // output_size, output_size,
                         self.output.v.size // self.output.v.shape[0],
                         self.output.aligned_.shape[0]))
-            s = defines
-            for src, define in self.cl_sources_.items():
-                s += "\n" + define + "\n"
-                fin = open(src, "r")
-                s += fin.read()
-                fin.close()
-            global this_dir
-            fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
-            s_mx_mul = fin.read()
-            fin.close()
-            s = s.replace("MX_MUL", s_mx_mul)
-            fout = open("%s/feed_%d_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
                 self.input.v.size // self.input.v.shape[0],
-                self.output.v.size // self.output.v.shape[0]), "w")
-            fout.write(s)
-            fout.close()
-
-            self.prg_ = pyopencl.Program(self.device.context_, s).build()
+                self.output.v.size // self.output.v.shape[0]))
 
             self.krn_ = pyopencl.Kernel(self.prg_, "FEED_LAYER")
             self.krn_.set_arg(0, self.input.v_)
@@ -170,15 +156,22 @@ class All2All(units.OpenCLUnit):
         log = self.log()
         if not log.isEnabledFor(logging.DEBUG):
             return
-        y = self.output.v
         self.output.sync()
-        self.weights.sync()
-        self.log().info("%s: %d samples with %d weights in %.2f sec "
-            "(min,avg,max,sum):\ty=%.6f,%.4f,%.2f,%.2f" %
-            (self.__class__.__name__, y.shape[0],
-             self.weights.v.size, time.time() - t_start,
-             numpy.fabs(y).min(), numpy.average(numpy.fabs(y)),
-             numpy.fabs(y).max(), y.sum()))
+        y = self.output.v
+        if y.dtype in (numpy.complex64, numpy.complex128):
+            self.log().debug("%s: %d samples with %d weights in %.2f sec: "
+                "y: min avg max: %.6f %.6f %.6f" %
+                (self.__class__.__name__, y.shape[0],
+                 self.weights.v.size, time.time() - t_start,
+                 min(y.real.min(), y.imag.min()),
+                 (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
+                 max(y.real.max(), y.imag.max())))
+        else:
+            self.log().debug("%s: %d samples with %d weights in %.2f sec: "
+                "y: min avg max: %.6f %.6f %.6f" %
+                (self.__class__.__name__, y.shape[0],
+                 self.weights.v.size, time.time() - t_start,
+                 y.min(), numpy.average(y), y.max()))
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
@@ -189,8 +182,8 @@ class All2All(units.OpenCLUnit):
         output_size = int(self.output.aligned_.size //
                           self.output.aligned_.shape[0])
         global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         event.wait()
@@ -232,6 +225,9 @@ class All2AllTanh(All2All):
         self.output.supposed_maxvle = 1.7159
 
     def get_weights_amplitude(self):
+        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+            return (1.0 / (self.input.supposed_maxvle * 0.6666) /
+                    (self.input.v.size // self.input.v.shape[0]))
         return (9.0 / (self.input.supposed_maxvle * 0.6666) /
                 (self.input.v.size // self.input.v.shape[0]))
 
@@ -277,10 +273,6 @@ class All2AllSoftmax(All2All):
         super(All2AllSoftmax, self).init_unpickled()
         self.krn_sm_ = None
 
-    def get_weights_amplitude(self):
-        return (9.0 / self.input.supposed_maxvle /
-                (self.input.v.size // self.input.v.shape[0]))
-
     def initialize(self):
         itype = config.get_itype_from_size(numpy.prod(self.output_shape))
         global this_dir
@@ -307,13 +299,6 @@ class All2AllSoftmax(All2All):
 
     def cpu_apply_exp(self):
         self.output.sync()
-        log = self.log()
-        if log.isEnabledFor(logging.DEBUG):
-            s = []
-            a = numpy.sort(self.output.v.reshape(self.output.v.size))
-            for i in range(a.size - 1, a.size - 11, -1):
-                s.append("%.2f" % (a[i]))
-            log.debug("Softmax Wx+b: %s, %.2f" % (", ".join(s), a[0]))
         for i in range(0, self.output.v.shape[0]):
             sample = self.output.v[i]
             im = sample.argmax()
@@ -328,10 +313,10 @@ class All2AllSoftmax(All2All):
 
     def gpu_apply_exp(self):
         self.output.sync(formats.GPU)
-        global_size = [self.device.info.BLOCK_SIZE[config.dtype],
+        global_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
                        self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.dtype],
-                      self.device.info.BLOCK_SIZE[config.dtype]]
+        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
+                      self.device.info.BLOCK_SIZE[config.c_dtype]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_sm_,
                                                  global_size, local_size)
@@ -345,25 +330,7 @@ class All2AllSoftmax(All2All):
         retval = super(All2AllSoftmax, self).cpu_run()
         if retval:
             return retval
-        log = self.log()
-        if not log.isEnabledFor(logging.DEBUG):
-            self.cpu_apply_exp()
-            return
-        log.debug("weights[0]: %s" % (" ".join("%.6f" % (x)
-                                      for x in self.weights.v[0])))
-        log.debug("weights[-1]: %s" % (" ".join("%.6f" % (x)
-                                       for x in self.weights.v[-1])))
-        for xx in self.output.v:
-            s = "Before exp: "
-            for x in xx:
-                s += " %.6f" % (x)
-            log.debug(s)
         self.cpu_apply_exp()
-        for xx in self.output.v:
-            s = "After exp: "
-            for x in xx:
-                s += " %.6f" % (x)
-            log.debug(s)
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.

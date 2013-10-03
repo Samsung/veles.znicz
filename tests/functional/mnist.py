@@ -27,12 +27,9 @@ import formats
 import struct
 import error
 import numpy
-import config
 import rnd
 import opencl
 import plotters
-import pickle
-import time
 import all2all
 import evaluator
 import gd
@@ -95,8 +92,7 @@ class Loader(loader.FullBatchLoader):
         fin.close()
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(config.dtypes[config.dtype]).\
-                reshape(n_images, n_rows, n_cols)
+        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
         self.log().info("Original range: [%.1f, %.1f]" % (images.min(),
                                                           images.max()))
         for image in images:
@@ -110,8 +106,7 @@ class Loader(loader.FullBatchLoader):
         """Here we will load MNIST data.
         """
         self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
-        self.original_data = numpy.zeros([70000, 28, 28],
-            dtype=config.dtypes[config.dtype])
+        self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
 
         global this_dir
         self.load_original(0, 10000,
@@ -173,12 +168,11 @@ class Workflow(workflow.NNWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(fail_iterations=25,
-                                          snapshot_prefix="mnist")
+        self.decision = decision.Decision(snapshot_prefix="mnist")
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err_skipped
+        self.decision.minibatch_n_err = self.ev.n_err
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
@@ -227,6 +221,7 @@ class Workflow(workflow.NNWorkflow):
                                        else [1])
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
+        self.plt[-1].redraw_plot = True
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
@@ -253,11 +248,9 @@ class Workflow(workflow.NNWorkflow):
                                              else [1])
             self.plt_err_y[-1].gate_block_not = [1]
         self.plt_err_y[0].clear_plot = True
+        self.plt_err_y[-1].redraw_plot = True
 
-    def initialize(self, threshold, threshold_low, global_alpha,
-                   global_lambda, device=None):
-        self.ev.threshold = threshold
-        self.ev.threshold_low = threshold_low
+    def initialize(self, global_alpha, global_lambda, device=None):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
@@ -270,89 +263,16 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    """This is a test for correctness of a particular trained 2-layer network.
-    fin = open("mnist.pickle", "rb")
-    w = pickle.load(fin)
-    fin.close()
-
-    fout = open("w100.txt", "w")
-    weights = w.forward[0].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b100.txt", "w")
-    bias = w.forward[0].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    a = w.loader.original_data.reshape(70000, 784)[0:10000]
-    b = weights.transpose()
-    c = numpy.zeros([10000, 100], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-    c *= 0.6666
-    numpy.tanh(c, c)
-    c *= 1.7159
-
-    fout = open("w10.txt", "w")
-    weights = w.forward[1].weights.v
-    for row in weights:
-        fout.write(" ".join("%.6f" % (x) for x in row))
-        fout.write("\n")
-    fout.close()
-    fout = open("b10.txt", "w")
-    bias = w.forward[1].bias.v
-    fout.write(" ".join("%.6f" % (x) for x in bias))
-    fout.write("\n")
-    fout.close()
-
-    a = c
-    b = weights.transpose()
-    c = numpy.zeros([10000, 10], dtype=a.dtype)
-    numpy.dot(a, b, c)
-    c[:] += bias
-
-    labels = w.loader.original_labels[0:10000]
-    n_ok = 0
-    for i in range(0, 10000):
-        im = numpy.argmax(c[i])
-        if im == labels[i]:
-            n_ok += 1
-    self.log().info("%d errors" % (10000 - n_ok))
-
-    self.log().debug("Done")
-    sys.exit(0)
-    """
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    try:
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        w = Workflow(layers=[100, 10], device=device)
-        w.initialize(device=device, threshold=1.0, threshold_low=1.0,
-                     global_alpha=0.1, global_lambda=0.0)
-    except KeyboardInterrupt:
-        return
-    try:
-        w.run()
-    except KeyboardInterrupt:
-        w.gd[-1].gate_block = [1]
-    logging.info("Will snapshot in 15 seconds...")
-    time.sleep(5)
-    logging.info("Will snapshot in 10 seconds...")
-    time.sleep(5)
-    logging.info("Will snapshot in 5 seconds...")
-    time.sleep(5)
-    fnme = "%s/mnist.pickle" % (config.snapshot_dir)
-    logging.info("Snapshotting to %s" % (fnme))
-    fout = open(fnme, "wb")
-    pickle.dump(w, fout)
-    fout.close()
+    cl = opencl.DeviceList()
+    device = cl.get_device()
+    w = Workflow(layers=[100, 10], device=device)
+    w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
+    w.run()
 
     plotters.Graphics().wait_finish()
     logging.debug("End of job")

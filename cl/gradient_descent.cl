@@ -5,7 +5,6 @@
 
 
 //Should be declared externally:
-//#define dtype float
 //#define BLOCK_SIZE 16
 //#define BATCH 178
 //#define H 13
@@ -14,7 +13,8 @@
 
 /// @brief err_h = err_y * weights
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void err_h_update(__global dtype *err_y, __global dtype *weights, __global dtype *err_h) {
+void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
+                  __global c_dtype /*OUT*/ *err_h) {
   #define A_WIDTH BATCH
   #define B_WIDTH H
   #define AB_COMMON Y
@@ -54,8 +54,8 @@ void err_h_update(__global dtype *err_y, __global dtype *weights, __global dtype
 /// @param alpha_lambda (-global_alpha * global_lambda)
 /// @details gradient = err_y * h * alpha_batch + weights * alpha_lambda
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void weights_update(__global dtype /*IN*/ *err_y, __global dtype /*IN*/  *h,
-                    __global dtype /*IO*/ *weights, __global dtype /*OUT*/ *gradient,
+void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
+                    __global c_dtype /*IO*/ *weights, __global c_dtype /*OUT*/ *gradient,
                     const dtype alpha_batch, const dtype alpha_lambda) {
   #ifdef WEIGHTS_TRANSPOSED
   #define A_WIDTH H
@@ -88,8 +88,8 @@ void weights_update(__global dtype /*IN*/ *err_y, __global dtype /*IN*/  *h,
   #undef B
   #undef C
 
-  dtype weight = weights[idx];
-  dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
+  c_dtype weight = weights[idx];
+  c_dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
   #ifdef STORE_GRADIENT
   gradient[idx] = gd;
   #endif
@@ -106,16 +106,16 @@ void weights_update(__global dtype /*IN*/ *err_y, __global dtype /*IN*/  *h,
 /// @param alpha_batch (-global_alpha / batch_size)
 /// @details gradient = sum(err_y) * alpha_batch
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void bias_update(__global dtype /*IN*/ *err_y, __global dtype /*IO*/ *bias,
-                 __global dtype /*OUT*/ *gradient, const dtype alpha_batch) {
-  __local dtype AS[BLOCK_SIZE][BLOCK_SIZE];
+void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
+                 __global c_dtype /*OUT*/ *gradient, const dtype alpha_batch) {
+  __local c_dtype AS[BLOCK_SIZE][BLOCK_SIZE];
  
   int bx = get_group_id(0); // from 0 to Y / BLOCK_SIZE - 1
  
   int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
   int ty = get_local_id(1); // from 0 to BLOCK_SIZE - 1
  
-  dtype sum = 0.0f;
+  c_dtype sum = c_from_re(0);
  
   int offs = get_global_id(0) + ty * Y;
   for (int i = 0; i < BATCH / BLOCK_SIZE; i++, offs += Y * BLOCK_SIZE) {
@@ -133,7 +133,7 @@ void bias_update(__global dtype /*IN*/ *err_y, __global dtype /*IO*/ *bias,
     for (int k = 1; k < BLOCK_SIZE; k++)
       sum += AS[k][tx];
 
-    dtype gd = sum * alpha_batch;
+    c_dtype gd = sum * alpha_batch;
     #ifdef STORE_GRADIENT
     gradient[get_global_id(0)] = gd;
     #endif

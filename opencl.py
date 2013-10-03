@@ -14,6 +14,7 @@ import os
 import config
 import logging
 import formats
+import rnd
 
 
 CL_MAP_READ = 1
@@ -96,7 +97,8 @@ class DeviceList(units.Pickleable):
             self.device_infos = pickle.load(fin)
             fin.close()
         except IOError:
-            pass
+            self.log().info("%s/device_infos.pickle was not found, "
+                "will one-time test device performance" % (config.cache_dir))
 
         self.devices_available = []
         platforms = cl.get_platforms()
@@ -188,14 +190,16 @@ class DeviceList(units.Pickleable):
     def _do_cpu_test(self):
         """Pure single core CPU test
         """
-        a = numpy.empty(self.a.shape, dtype=numpy.float64)
+        dtype = (numpy.complex128 if self.a.dtype in (
+                    numpy.complex64, numpy.complex128) else numpy.float64)
+        a = numpy.empty(self.a.shape, dtype=dtype)
         a[:] = self.a[:]
         bt = self.b.transpose()
-        b = numpy.empty(bt.shape, dtype=numpy.float64)
+        b = numpy.empty(bt.shape, dtype=dtype)
         b[:] = bt[:]
-        bias = numpy.empty(self.bias.shape, dtype=numpy.float64)
+        bias = numpy.empty(self.bias.shape, dtype=dtype)
         bias[:] = self.bias[:]
-        c = numpy.empty(self.c.shape, dtype=numpy.float64)
+        c = numpy.empty(self.c.shape, dtype=dtype)
         t1 = time.time()
         numpy.dot(a, b, c)
         c[:] += bias
@@ -219,6 +223,9 @@ class DeviceList(units.Pickleable):
         else:
             return 0
 
+        self.log().info("Untested devices found, "
+                        "will one-time test device performance")
+
         min_dt = {}
         for dtype in config.dtypes.keys():
             min_dt[dtype] = 86400
@@ -228,12 +235,16 @@ class DeviceList(units.Pickleable):
                 min_dt[dtype] = info.min_dt[dtype]
             break
 
+        inf_processed = set()
         for device in self.devices_available:
+            if device.info in inf_processed:
+                continue
             for dtype in config.dtypes.keys():
                 if not device.info.rating[dtype]:
                     break
             else:
                 continue
+            inf_processed.add(device.info)
             for dtype in device.info.dt.keys():
                 device.info.dt[dtype] = 86400
             for BLOCK_SIZE in range(32, 3, -1):
@@ -241,9 +252,10 @@ class DeviceList(units.Pickleable):
                     try:
                         self._prepare_tests(BLOCK_SIZE, dtype)
                         b_numpy = False
-                        if BLOCK_SIZE == 32 and dt_numpy == 86400:
+                        if BLOCK_SIZE == 32:
                             b_numpy = True
-                            logging.info("Numpy double precision...")
+                            logging.info("Numpy double precision "
+                                         "for dtype=%s" % (dtype))
                             dt = self._do_cpu_test()
                             logging.info("Done in %.2f seconds" % (dt))
                             if dt < dt_numpy:
@@ -253,7 +265,7 @@ class DeviceList(units.Pickleable):
                         logging.info("Testing %s with BLOCK_SIZE = %d "
                               "and dtype = %s" % \
                               (device.info.guid, BLOCK_SIZE, dtype))
-                        dt = self._do_test(device, BLOCK_SIZE, dtype, 7)
+                        dt = self._do_test(device, BLOCK_SIZE, dtype, 3)
                         if dt < device.info.dt[dtype]:
                             device.info.dt[dtype] = dt
                             device.info.BLOCK_SIZE[dtype] = BLOCK_SIZE
@@ -262,10 +274,11 @@ class DeviceList(units.Pickleable):
                         if b_numpy:
                             c = self.cc.copy()
                             c -= self.c
-                            numpy.abs(c, c)
+                            c = numpy.sqrt(numpy.square(numpy.real(c)) +
+                                           numpy.square(numpy.imag(c)))
                             logging.info("Avg is %.2f seconds, MSE = %.6f, "
                                   "max_diff = %.6f" %
-                                  (dt, numpy.linalg.norm(c) / c.size, c.max()))
+                                  (dt, numpy.sum(c) / c.size, c.max()))
                         else:
                             logging.info("Avg is %.2f seconds" % (dt))
                         self._cleanup_after_tests()
@@ -274,7 +287,6 @@ class DeviceList(units.Pickleable):
                               "BLOCK_SIZE = %d and dtype = %s" % (BLOCK_SIZE,
                                                                   dtype))
                         self._cleanup_after_tests()
-                        # raise
 
         logging.info("\nRating(numpy double precision): %.4f" % \
               (min_dt[config.dtype] / dt_numpy))
@@ -310,24 +322,21 @@ class DeviceList(units.Pickleable):
         logging.info("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (
             self.AB_WIDTH, self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
             self.A_HEIGHT, self.B_HEIGHT))
-        self.rnd_state = numpy.random.get_state()
+        self.rnd_state = rnd.default.state
 
         self.a = formats.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
                                      dtype=config.dtypes[dtype])
-        self.a[:] = numpy.random.rand(self.a.size)
-        self.a -= 0.5
+        rnd.default.fill(self.a, -0.1, 0.1)
         self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
 
         self.b = formats.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH],
                                      dtype=config.dtypes[dtype])
-        self.b[:] = numpy.random.rand(self.b.size)
-        self.b -= 0.5
+        rnd.default.fill(self.b, -0.1, 0.1)
         self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
 
         self.bias = formats.aligned_zeros([self.B_HEIGHT],
                                         dtype=config.dtypes[dtype])
-        self.bias[:] = numpy.random.rand(self.bias.size)
-        self.bias -= 0.5
+        rnd.default.fill(self.bias, -0.1, 0.1)
 
         self.c = formats.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT],
                                      dtype=config.dtypes[dtype])
@@ -339,7 +348,7 @@ class DeviceList(units.Pickleable):
         del(self.bias)
         del(self.b)
         del(self.a)
-        numpy.random.set_state(self.rnd_state)
+        rnd.default.state = self.rnd_state
         del(self.rnd_state)
         del(self.A_HEIGHT)
         del(self.B_HEIGHT)
@@ -355,11 +364,15 @@ class DeviceList(units.Pickleable):
         "#define Y %d\n"
         "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
                                   self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
+        s = defines
+        fin = open("%s/defines.cl" % (config.cl_dir), "r")
+        s += fin.read()
+        fin.close()
         fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
         s_mx_mul = fin.read()
         fin.close()
         fin = open("%s/forward.cl" % (config.cl_dir), "r")
-        s = defines + fin.read()
+        s += fin.read()
         fin.close()
         s = s.replace("MX_MUL", s_mx_mul)
         fout = open("%s/test.cl" % (config.cache_dir), "w")

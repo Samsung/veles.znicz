@@ -227,14 +227,14 @@ class FullBatchLoader(Loader):
         sh = [self.minibatch_maxsize[0]]
         sh.extend(self.original_data.shape[1:])
         self.minibatch_data.v = numpy.zeros(sh,
-                dtype=self.original_data.dtype)
+                dtype=config.dtypes[config.c_dtype])
 
         self.minibatch_target.reset()
         if self.original_target != None:
             sh = [self.minibatch_maxsize[0]]
             sh.extend(self.original_target.shape[1:])
             self.minibatch_target.v = numpy.zeros(sh,
-                dtype=self.original_target.dtype)
+                dtype=config.dtypes[config.c_dtype])
 
         self.minibatch_labels.reset()
         if self.original_labels != None:
@@ -381,7 +381,7 @@ class ImageLoader(FullBatchLoader):
                 l - labels.
         """
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)
-        a = a.astype(config.dtypes[config.dtype])
+        a = a.astype(numpy.float32)
         formats.normalize(a)
         return a
 
@@ -425,7 +425,7 @@ class ImageLoader(FullBatchLoader):
                 if aa == None:
                     sh = [n_files]
                     sh.extend(a.shape)
-                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                    aa = numpy.zeros(sh, dtype=a.dtype)
                 next_samples = this_samples + 1
             else:
                 a, l = obj[0], obj[1]
@@ -441,10 +441,10 @@ class ImageLoader(FullBatchLoader):
                 if aa == None:
                     sh = [n_files + len(l) - 1]
                     sh.extend(a[0].shape)
-                    aa = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+                    aa = numpy.zeros(sh, dtype=a[0].dtype)
                 next_samples = this_samples + len(l)
-            if aa.shape[0] <= next_samples:
-                aa = numpy.append(aa, a)
+            if aa.shape[0] < next_samples:
+                aa = numpy.append(aa, a, axis=0)
             aa[this_samples:next_samples] = a
             self.total_samples[0] += next_samples - this_samples
             this_samples = next_samples
@@ -513,7 +513,7 @@ class ImageLoader(FullBatchLoader):
         for aa in self.target_by_lbl.values():
             sh = [len(self.original_data)]
             sh.extend(aa.shape)
-            target = numpy.zeros(sh, dtype=config.dtypes[config.dtype])
+            target = numpy.zeros(sh, dtype=aa.dtype)
             break
         if target != None:
             for i, label in enumerate(self.original_labels):

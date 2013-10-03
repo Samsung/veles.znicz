@@ -6,7 +6,7 @@ Created on Aug 27, 2013
 import units
 
 
-class Conv(units.Forward):
+class Conv(units.OpenCLUnit):
     """Convolutional layer.
     """
     def __init__(self, device=None):
