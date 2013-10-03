@@ -167,17 +167,20 @@ class Loader(loader.FullBatchLoader):
 
         self.log().info("Will load data from original jp2 files")
         try:
-            add_path(self.channels_dir)
-            self.conf_ = __import__("conf")
+            fin = open("%s/conf.py" % (self.channels_dir), "r")
+            s = fin.read()
+            fin.close()
+            self.conf_ = {}
+            exec(s, self.conf_, self.conf_)
         except:
-            self.log().error("Error while importing %s/config.py" % (
+            self.log().error("Error while executing %s/conf.py" % (
                                                     self.channels_dir))
             raise
         # Parse config
         pos = {}
         rpos = {}
-        frame = self.conf_.frame
-        self.channel_map = self.conf_.channel_map
+        frame = self.conf_["frame"]
+        self.channel_map = self.conf_["channel_map"]
         for conf in self.channel_map.values():
             if conf["type"] not in pos.keys():
                 pos[conf["type"]] = frame.copy()
@@ -223,7 +226,7 @@ class Loader(loader.FullBatchLoader):
         files = {}
         total_files = 0
         total_samples = 0
-        dirs = [self.conf_.no_channel_dir]
+        dirs = [self.conf_["no_channel_dir"]]
         dirs.extend(self.channel_map.keys())
         dirs.sort()
         for dirnme in dirs:
@@ -590,7 +593,7 @@ def main():
         default="")
     parser.add_argument("-dir", type=str,
         help="Directory with channels",
-        default="%s/channels/korean_960_540/by_number" % (
+        default="%s/channels/korean_960_540/all" % (
                                     config.test_dataset_root))
     parser.add_argument("-snapshot_prefix", type=str,
         help="Snapshot prefix.", default="channels_kor")
