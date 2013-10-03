@@ -15,6 +15,8 @@ import config
 import logging
 import formats
 import rnd
+import traceback
+import sys
 
 
 CL_MAP_READ = 1
@@ -284,9 +286,11 @@ class DeviceList(units.Pickleable):
                             logging.info("Avg is %.2f seconds" % (dt))
                         self._cleanup_after_tests()
                     except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
+                        a, b, c = sys.exc_info()
                         logging.info("Program compilation or run failed for "
-                              "BLOCK_SIZE = %d and dtype = %s" % (BLOCK_SIZE,
-                                                                  dtype))
+                              "BLOCK_SIZE = %d and dtype = %s "
+                              "(details in stderr)" % (BLOCK_SIZE, dtype))
+                        traceback.print_exception(a, b, c)
                         self._cleanup_after_tests()
 
         logging.info("\nRating(numpy double precision): %.4f" % \
