@@ -98,7 +98,8 @@ class DeviceList(units.Pickleable):
             fin.close()
         except IOError:
             self.log().info("%s/device_infos.pickle was not found, "
-                "will one-time test device performance" % (config.cache_dir))
+                "will one-time test available devices performance" % (
+                                                        config.cache_dir))
 
         self.devices_available = []
         platforms = cl.get_platforms()
@@ -224,7 +225,7 @@ class DeviceList(units.Pickleable):
             return 0
 
         self.log().info("Untested devices found, "
-                        "will one-time test device performance")
+                        "will one-time test that devices performance")
 
         min_dt = {}
         for dtype in config.dtypes.keys():
