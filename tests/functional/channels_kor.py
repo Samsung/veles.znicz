@@ -48,13 +48,16 @@ class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
-                 channels_dir="%s/channels/korean_960_540/by_number" % (
+                 channels_dir="%s/channels/korean_960_540/train" % (
                                                 config.test_dataset_root),
                  rect=(176, 96), grayscale=False, find_negative=False,
                  shift_size=0, shift_count=0):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
-        self.conf_ = None
+        #: Top-level configuration from channels_dir/conf.py
+        self.top_conf_ = None
+        #: Configuration from channels_dir/subdirectory/conf.py
+        self.subdir_conf_ = {}
         self.channels_dir = channels_dir
         self.rect = rect
         self.grayscale = grayscale
@@ -166,107 +169,121 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Failed")
 
         self.log().info("Will load data from original jp2 files")
+
+        # Read top-level configuration
         try:
             fin = open("%s/conf.py" % (self.channels_dir), "r")
             s = fin.read()
             fin.close()
-            self.conf_ = {}
-            exec(s, self.conf_, self.conf_)
+            self.top_conf_ = {}
+            exec(s, self.top_conf_, self.top_conf_)
         except:
             self.log().error("Error while executing %s/conf.py" % (
-                                                    self.channels_dir))
+                self.channels_dir))
             raise
-        # Parse config
+
+        # Read subdirectories configurations
+        self.subdir_conf_.clear()
+        for subdir in self.top_conf_["dirs_to_scan"]:
+            try:
+                fin = open("%s/%s/conf.py" % (self.channels_dir, subdir), "r")
+                s = fin.read()
+                fin.close()
+                self.subdir_conf_[subdir] = {}
+                exec(s, self.subdir_conf_[subdir], self.subdir_conf_[subdir])
+            except:
+                self.log().error("Error while executing %s/%s/conf.py" % (
+                    self.channels_dir, subdir))
+                raise
+
+        # Parse configs
+        self.channel_map = self.top_conf_["channel_map"]
         pos = {}
         rpos = {}
-        frame = self.conf_["frame"]
-        self.channel_map = self.conf_["channel_map"]
-        for conf in self.channel_map.values():
-            if conf["type"] not in pos.keys():
-                pos[conf["type"]] = frame.copy()
-                rpos[conf["type"]] = [0, 0]
-            pos[conf["type"]][0] = min(pos[conf["type"]][0], conf["pos"][0])
-            pos[conf["type"]][1] = min(pos[conf["type"]][1], conf["pos"][1])
-            rpos[conf["type"]][0] = max(rpos[conf["type"]][0],
-                conf["pos"][0] + conf["size"][0])
-            rpos[conf["type"]][1] = max(rpos[conf["type"]][1],
-                conf["pos"][1] + conf["size"][1])
+        for subdir, subdir_conf in self.subdir_conf_.items():
+            frame = subdir_conf["frame"]
+            if subdir not in pos.keys():
+                pos[subdir] = frame.copy()  # bottom-right corner
+                rpos[subdir] = [0, 0]
+            for pos_size in subdir_conf["channel_map"].values():
+                pos[subdir][0] = min(pos[subdir][0], pos_size["pos"][0])
+                pos[subdir][1] = min(pos[subdir][1], pos_size["pos"][1])
+                rpos[subdir][0] = max(rpos[subdir][0],
+                                      pos_size["pos"][0] + pos_size["size"][0])
+                rpos[subdir][1] = max(rpos[subdir][1],
+                                      pos_size["pos"][1] + pos_size["size"][1])
+            # Convert to relative values
+            pos[subdir][0] /= frame[0]
+            pos[subdir][1] /= frame[1]
+            rpos[subdir][0] /= frame[0]
+            rpos[subdir][1] /= frame[1]
 
         self.log().info("Found rectangles:")
         sz = [0, 0]
         for k in pos.keys():
             sz[0] = max(sz[0], rpos[k][0] - pos[k][0])
             sz[1] = max(sz[1], rpos[k][1] - pos[k][1])
-            self.log().info("%s: pos: (%d, %d)" % (k, pos[k][0], pos[k][1]))
-        self.log().info("sz: (%d, %d)" % (sz[0], sz[1]))
+            self.log().info("%s: pos: (%.6f, %.6f)" % (k, pos[k][0],
+                                                       pos[k][1]))
+        self.log().info("sz: (%.6f, %.6f)" % (sz[0], sz[1]))
 
         self.log().info("Adjusted rectangles:")
-        sz[0] += 16
-        sz[1] += 16
-        self.log().info("sz: (%d, %d)" % (sz[0], sz[1]))
+        sz[0] *= 1.02
+        sz[1] *= 1.02
+        self.log().info("sz: (%.6f, %.6f)" % (sz[0], sz[1]))
         for k in pos.keys():
-            pos[k][0] += (rpos[k][0] - pos[k][0] - sz[0]) >> 1
-            pos[k][1] += (rpos[k][1] - pos[k][1] - sz[1]) >> 1
-            pos[k][0] = min(pos[k][0], frame[0] - sz[0])
-            pos[k][1] = min(pos[k][1], frame[1] - sz[1])
-            pos[k][0] = max(pos[k][0], 0)
-            pos[k][1] = max(pos[k][1], 0)
-            self.log().info("%s: pos: (%d, %d)" % (k, pos[k][0], pos[k][1]))
-            # Calculate relative values
-            pos[k][0] /= frame[0]
-            pos[k][1] /= frame[1]
-        sz[0] /= frame[0]
-        sz[1] /= frame[1]
+            pos[k][0] += (rpos[k][0] - pos[k][0] - sz[0]) * 0.5
+            pos[k][1] += (rpos[k][1] - pos[k][1] - sz[1]) * 0.5
+            pos[k][0] = min(pos[k][0], 1.0 - sz[0])
+            pos[k][1] = min(pos[k][1], 1.0 - sz[1])
+            pos[k][0] = max(pos[k][0], 0.0)
+            pos[k][1] = max(pos[k][1], 0.0)
+            self.log().info("%s: pos: (%.6f, %.6f)" % (k, pos[k][0],
+                                                       pos[k][1]))
 
         self.pos.clear()
         self.pos.update(pos)
         self.sz.clear()
         self.sz.extend(sz)
 
+        max_lbl = 0
         files = {}
         total_files = 0
-        total_samples = 0
-        dirs = [self.conf_["no_channel_dir"]]
-        dirs.extend(self.channel_map.keys())
-        dirs.sort()
-        for dirnme in dirs:
-            files[dirnme] = glob.glob("%s/%s/*.jp2" % (
-                                self.channels_dir, dirnme))
-            files[dirnme].sort()
-            total_files += len(files[dirnme])
-            # We will extract data from every corner.
-            total_samples += len(files[dirnme]) * len(pos.keys())
+        for subdir, subdir_conf in self.subdir_conf_.items():
+            for dirnme in subdir_conf["channel_map"].keys():
+                max_lbl = max(max_lbl, int(dirnme))
+                relpath = "%s/%s" % (subdir, dirnme)
+                files[relpath] = glob.glob("%s/%s/*.jp2" % (
+                    self.channels_dir, relpath))
+                files[relpath].sort()
+                total_files += len(files[relpath])
         self.log().info("Found %d files" % (total_files))
-        self.log().info("Together with negative set "
-                        "will generate %d samples" % (total_samples))
 
-        self.original_labels = numpy.zeros(total_samples,
-            dtype=config.itypes[config.get_itype_from_size(len(dirs))])
+        self.original_labels = numpy.zeros(total_files,
+            dtype=config.itypes[config.get_itype_from_size(max_lbl + 1)])
         if self.grayscale:
-            self.original_data = numpy.zeros([total_samples,
+            self.original_data = numpy.zeros([total_files,
                 self.rect[1], self.rect[0]], numpy.float32)
         else:
-            self.original_data = numpy.zeros([total_samples, 3,
+            self.original_data = numpy.zeros([total_files, 3,
                 self.rect[1], self.rect[0]], numpy.float32)
         i = 0
         n_files = 0
-        for dirnme in dirs:
-            self.log().info("Loading from %s" % (dirnme))
-            for fnme in files[dirnme]:
-                a = self.from_jp2(fnme)
-                rot = fnme.find("norotate") < 0
-                # Data from corners will form samples.
-                for k in pos.keys():
-                    if (dirnme in self.channel_map.keys() and
-                        self.channel_map[dirnme]["type"] == k):
-                        self.original_labels[i] = int(dirnme)
-                    else:
-                        self.original_labels[i] = 0
+        for subdir in sorted(self.subdir_conf_.keys()):
+            subdir_conf = self.subdir_conf_[subdir]
+            for dirnme in sorted(subdir_conf["channel_map"].keys()):
+                relpath = "%s/%s" % (subdir, dirnme)
+                self.log().info("Loading from %s" % (relpath))
+                for fnme in files[relpath]:
+                    a = self.from_jp2(fnme)
+                    rot = fnme.find("norotate") < 0
+                    # Get the sample from corresponding corner (dirnme)
+                    self.original_labels[i] = int(dirnme)
 
                     if self.grayscale:
                         x = numpy.rot90(a, 2) if rot else a
-                        left = int(numpy.round(pos[k][0] * x.shape[1]))
-                        top = int(numpy.round(pos[k][1] * x.shape[0]))
+                        left = int(numpy.round(pos[subdir][0] * x.shape[1]))
+                        top = int(numpy.round(pos[subdir][1] * x.shape[0]))
                         width = int(numpy.round(sz[0] * x.shape[1]))
                         height = int(numpy.round(sz[1] * x.shape[0]))
                         x = x[top:top + height, left:left + width].\
@@ -278,8 +295,9 @@ class Loader(loader.FullBatchLoader):
                         # Loop by color planes.
                         for j in range(0, a.shape[0]):
                             x = numpy.rot90(a[j], 2) if rot else a[j]
-                            left = int(numpy.round(pos[k][0] * x.shape[1]))
-                            top = int(numpy.round(pos[k][1] * x.shape[0]))
+                            left = int(numpy.round(pos[subdir][0] *
+                                                   x.shape[1]))
+                            top = int(numpy.round(pos[subdir][1] * x.shape[0]))
                             width = int(numpy.round(sz[0] * x.shape[1]))
                             height = int(numpy.round(sz[1] * x.shape[0]))
                             x = x[top:top + height, left:left + width].\
@@ -296,9 +314,10 @@ class Loader(loader.FullBatchLoader):
                         formats.normalize(self.original_data[i][1:])
 
                     i += 1
-                n_files += 1
-                self.log().info("Read %d files (%.2f%%)" % (n_files,
-                                100.0 * n_files / total_files))
+                    n_files += 1
+                    if n_files % 10 == 0:
+                        self.log().info("Read %d files (%.2f%%)" % (
+                            n_files, 100.0 * n_files / total_files))
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
@@ -593,7 +612,7 @@ def main():
         default="")
     parser.add_argument("-dir", type=str,
         help="Directory with channels",
-        default="%s/channels/korean_960_540/all" % (
+        default="%s/channels/korean_960_540/train" % (
                                     config.test_dataset_root))
     parser.add_argument("-snapshot_prefix", type=str,
         help="Snapshot prefix.", default="channels_kor")
