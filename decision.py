@@ -54,6 +54,8 @@ class Decision(units.Unit):
                        if the later is in vectors_to_sync.
         sample_target: will be a copy of first element from ev.target
                        if the later is in vectors_to_sync.
+        sample_label: will be a copy of first element label from ev.labels
+                       if the later is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, fail_iterations=100, snapshot_prefix="",
@@ -105,6 +107,7 @@ class Decision(units.Unit):
         self.sample_input = None
         self.sample_output = None
         self.sample_target = None
+        self.sample_label = None
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
 
@@ -338,6 +341,9 @@ class Decision(units.Unit):
             self.sample_output[:] = self.workflow.forward[-1].output.v[0]
         if self.sample_target != None:
             self.sample_target[:] = self.workflow.ev.target.v[0]
+        if (self.workflow.ev.__dict__.get("labels") in
+            self.vectors_to_sync.keys()):
+            self.sample_label = self.workflow.ev.labels.v[0]
 
     def on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix

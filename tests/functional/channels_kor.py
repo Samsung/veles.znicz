@@ -448,7 +448,7 @@ class Workflow(workflow.NNWorkflow):
         self.plt_w.gate_skip_not = [1]
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
-        self.decision.vectors_to_sync[self.loader.minibatch_labels] = 1
+        self.decision.vectors_to_sync[self.ev.labels] = 1
         self.plt_i = plotters.Image(figure_label="Input")
         self.plt_i.inputs.append(self.decision)
         self.plt_i.input_fields.append("sample_label")
