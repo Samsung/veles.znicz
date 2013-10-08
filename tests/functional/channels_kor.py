@@ -42,6 +42,8 @@ import gd
 import glymur
 import workflow
 import scipy.io
+import thread_pool
+import threading
 
 
 class Loader(loader.FullBatchLoader):
@@ -91,6 +93,53 @@ class Loader(loader.FullBatchLoader):
                 a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         return a
 
+    def from_jp2_async(self, fnme, subdir, pos, sz,
+                       data_lock, i_sample, lbl, n_files, total_files):
+        """Forks then loads, crops and normalizes image in the child process.
+        """
+        a = self.from_jp2(fnme)
+        aa = numpy.empty_like(self.original_data[0])
+        rot = fnme.find("norotate") < 0
+        if self.grayscale:
+            x = numpy.rot90(a, 2) if rot else a
+            left = int(numpy.round(pos[subdir][0] * x.shape[1]))
+            top = int(numpy.round(pos[subdir][1] * x.shape[0]))
+            width = int(numpy.round(sz[0] * x.shape[1]))
+            height = int(numpy.round(sz[1] * x.shape[0]))
+            x = x[top:top + height, left:left + width].ravel().copy().\
+                reshape((height, width), order="C")
+            x = image.resize(x, self.rect[0], self.rect[1])
+            aa[:] = x[:]
+        else:
+            # Loop by color planes.
+            for j in range(0, a.shape[0]):
+                x = numpy.rot90(a[j], 2) if rot else a[j]
+                left = int(numpy.round(pos[subdir][0] * x.shape[1]))
+                top = int(numpy.round(pos[subdir][1] * x.shape[0]))
+                width = int(numpy.round(sz[0] * x.shape[1]))
+                height = int(numpy.round(sz[1] * x.shape[0]))
+                x = x[top:top + height, left:left + width].ravel().copy().\
+                    reshape((height, width), order="C")
+                x = image.resize(x, self.rect[0], self.rect[1])
+                aa[j] = x
+
+        if self.grayscale:
+            formats.normalize(aa)
+        else:
+            # Normalize Y and UV planes separately.
+            formats.normalize(aa[0])
+            formats.normalize(aa[1:])
+
+        self.original_labels[i_sample] = lbl
+        self.original_data[i_sample] = aa
+
+        data_lock.acquire()
+        n_files[0] += 1
+        if n_files[0] % 10 == 0:
+            self.log().info("Read %d files (%.2f%%)" % (
+                n_files[0], 100.0 * n_files[0] / total_files))
+        data_lock.release()
+
     def load_data(self):
         cached_data_fnme = "%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
@@ -131,39 +180,19 @@ class Loader(loader.FullBatchLoader):
             self.log().info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
             self.original_labels = pickle.load(fin)
-            a = pickle.load(fin)
             sh = [self.original_labels.shape[0]]
-            sh.extend(a.shape)
-            self.original_data = numpy.zeros(sh, dtype=numpy.float32)
-            self.original_data[0] = a
-            for i in range(1, self.original_data.shape[0]):
-                a = pickle.load(fin)
-                self.original_data[i] = a
+            if not self.grayscale:
+                sh.append(3)
+            sh.append(self.rect[1])
+            sh.append(self.rect[0])
+            # Get raw array from file
+            self.original_data = numpy.fromfile(fin, dtype=numpy.float32,
+                                    count=numpy.prod(sh)).reshape(sh)
+            self.rnd[0].state = pickle.load(fin)
             fin.close()
             self.log().info("Succeeded")
             self.log().info("class_samples=[%s]" % (
                 ", ".join(str(x) for x in self.class_samples)))
-            """
-            self.log().info("Exporting to matlab files:")
-            lbls = self.original_labels
-            i_lbls = numpy.argsort(lbls)
-            n = len(i_lbls)
-            j = 0
-            last_lbl = lbls[i_lbls[0]]
-            for i in range(0, n):
-                if lbls[i_lbls[i]] != last_lbl or i == n - 1:
-                    ii = i if i != n - 1 else i + 1
-                    fnme = "%s/ch_%d.mat" % (config.cache_dir, last_lbl)
-                    self.log().info(fnme)
-                    scipy.io.savemat(fnme, {
-                        "data": self.original_data[i_lbls[j:ii]],
-                        "idxs": i_lbls[j:ii],
-                        "lbl": last_lbl},
-                        format='5', long_field_names=True, oned_as='row')
-                    last_lbl = lbls[i_lbls[i]]
-                    j = i
-            self.log().info("Done")
-            """
             return
         except FileNotFoundError:
             self.log().info("Failed")
@@ -267,57 +296,26 @@ class Loader(loader.FullBatchLoader):
         else:
             self.original_data = numpy.zeros([total_files, 3,
                 self.rect[1], self.rect[0]], numpy.float32)
-        i = 0
-        n_files = 0
+
+        # Read samples in parallel
+        n_threads = 32
+        pool = thread_pool.ThreadPool(max_threads=n_threads,
+                                      max_enqueued_tasks=n_threads)
+        data_lock = threading.Lock()
+        n_files = [0]
+        i_sample = 0
         for subdir in sorted(self.subdir_conf_.keys()):
             subdir_conf = self.subdir_conf_[subdir]
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
                 relpath = "%s/%s" % (subdir, dirnme)
-                self.log().info("Loading from %s" % (relpath))
+                self.log().info("Will load from %s" % (relpath))
+                lbl = int(dirnme)
                 for fnme in files[relpath]:
-                    a = self.from_jp2(fnme)
-                    rot = fnme.find("norotate") < 0
-                    # Get the sample from corresponding corner (dirnme)
-                    self.original_labels[i] = int(dirnme)
-
-                    if self.grayscale:
-                        x = numpy.rot90(a, 2) if rot else a
-                        left = int(numpy.round(pos[subdir][0] * x.shape[1]))
-                        top = int(numpy.round(pos[subdir][1] * x.shape[0]))
-                        width = int(numpy.round(sz[0] * x.shape[1]))
-                        height = int(numpy.round(sz[1] * x.shape[0]))
-                        x = x[top:top + height, left:left + width].\
-                            ravel().copy().\
-                            reshape((height, width), order="C")
-                        x = image.resize(x, self.rect[0], self.rect[1])
-                        self.original_data[i] = x
-                    else:
-                        # Loop by color planes.
-                        for j in range(0, a.shape[0]):
-                            x = numpy.rot90(a[j], 2) if rot else a[j]
-                            left = int(numpy.round(pos[subdir][0] *
-                                                   x.shape[1]))
-                            top = int(numpy.round(pos[subdir][1] * x.shape[0]))
-                            width = int(numpy.round(sz[0] * x.shape[1]))
-                            height = int(numpy.round(sz[1] * x.shape[0]))
-                            x = x[top:top + height, left:left + width].\
-                                ravel().copy().\
-                                reshape((height, width), order="C")
-                            x = image.resize(x, self.rect[0], self.rect[1])
-                            self.original_data[i, j] = x
-
-                    if self.grayscale:
-                        formats.normalize(self.original_data[i])
-                    else:
-                        # Normalize Y and UV planes separately.
-                        formats.normalize(self.original_data[i][0])
-                        formats.normalize(self.original_data[i][1:])
-
-                    i += 1
-                    n_files += 1
-                    if n_files % 10 == 0:
-                        self.log().info("Read %d files (%.2f%%)" % (
-                            n_files, 100.0 * n_files / total_files))
+                    pool.request(self.from_jp2_async, ("%s" % (fnme),
+                        "%s" % (subdir), pos, sz, data_lock,
+                        0 + i_sample, 0 + lbl, n_files, total_files))
+                    i_sample += 1
+        pool.shutdown(execute_remaining=True)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
@@ -339,8 +337,10 @@ class Loader(loader.FullBatchLoader):
             obj[name] = self.__dict__[name]
         pickle.dump(obj, fout)
         pickle.dump(self.original_labels, fout)
-        for a in self.original_data:
-            pickle.dump(a, fout)
+        # Because pickle doesn't support greater than 4Gb arrays
+        self.original_data.ravel().tofile(fout)
+        # Save random state
+        pickle.dump(self.rnd[0].state, fout)
         fout.close()
 
 
@@ -595,6 +595,50 @@ import re
 
 
 def main():
+    """Some visualization
+    import matplotlib.pyplot as pp
+    cached_data_fnme = "%s/%s_Loader.pickle" % (
+        config.cache_dir, os.path.basename(__file__))
+    fin = open(cached_data_fnme, "rb")
+    pickle.load(fin)
+    original_labels = pickle.load(fin)
+    a = pickle.load(fin)
+    sh = [original_labels.shape[0]]
+    sh.extend(a.shape)
+    original_data = numpy.zeros(sh, dtype=numpy.float32)
+    original_data[0] = a
+    for i in range(1, original_data.shape[0]):
+        a = pickle.load(fin)
+        original_data[i] = a
+    fin.close()
+    fig = pp.figure()
+    for i in range(49):
+        ax = fig.add_subplot(7, 7, i + 1)
+        ax.axis('off')
+
+        ii = numpy.random.randint(original_data.shape[0])
+        a = original_data[ii]
+
+        aa = numpy.zeros([a.shape[1], a.shape[2], 3], dtype=numpy.float32)
+        aa[:, :, 0:1] = a[0:1, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
+                                                                        0:1]
+        aa[:, :, 1:2] = a[1:2, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
+                                                                        0:1]
+        aa[:, :, 2:3] = a[2:3, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
+                                                                        0:1]
+        aa -= aa.min()
+        m = aa.max()
+        if m:
+            aa /= m
+            aa *= 255.0
+
+        ax.imshow(aa.astype(numpy.uint8), interpolation="nearest")
+        ax.text(0.5, 0.5, str(original_labels[ii]),
+                horizontalalignment='center',
+                verticalalignment='center')
+    pp.show()
+    sys.exit(0)
+    """
     if __debug__:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -615,12 +659,12 @@ def main():
         default="%s/channels/korean_960_540/train" % (
                                     config.test_dataset_root))
     parser.add_argument("-snapshot_prefix", type=str,
-        help="Snapshot prefix.", default="channels_kor")
+        help="Snapshot prefix.", default="108_81_24")
     parser.add_argument("-layers", type=str,
         help="NN layer sizes, separated by any separator.",
-        default="75_22")
+        default="108_81_24")
     parser.add_argument("-minibatch_size", type=int,
-        help="Minibatch size.", default=81)
+        help="Minibatch size.", default=135)
     parser.add_argument("-global_alpha", type=float,
         help="Global Alpha.", default=0.0005)
     parser.add_argument("-global_lambda", type=float,
