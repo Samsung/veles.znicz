@@ -376,7 +376,7 @@ class Workflow(workflow.NNWorkflow):
         self.image_saver = image_saver.ImageSaver(out_dirs=[
             "/tmp/tmpimg/test",
             "/tmp/tmpimg/validation",
-            "/tmp/tmpimg/train"])
+            "/tmp/tmpimg/train"], yuv=True)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -458,7 +458,7 @@ class Workflow(workflow.NNWorkflow):
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
-                                        limit=16)
+                                        limit=16, yuv=True)
         self.plt_w.input = self.gd[0].weights
         self.plt_w.get_shape_from = self.forward[0].input
         self.plt_w.input_field = "v"
@@ -468,7 +468,7 @@ class Workflow(workflow.NNWorkflow):
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
-        self.plt_i = plotters.Image(figure_label="Input")
+        self.plt_i = plotters.Image(figure_label="Input", yuv=True)
         self.plt_i.inputs.append(self.decision)
         self.plt_i.input_fields.append("sample_label")
         self.plt_i.inputs.append(self.decision)
@@ -659,14 +659,14 @@ def main():
         default="%s/channels/korean_960_540/train" % (
                                     config.test_dataset_root))
     parser.add_argument("-snapshot_prefix", type=str,
-        help="Snapshot prefix.", default="108_81_24")
+        help="Snapshot prefix.", default="108_24")
     parser.add_argument("-layers", type=str,
         help="NN layer sizes, separated by any separator.",
-        default="108_81_24")
+        default="108_24")
     parser.add_argument("-minibatch_size", type=int,
-        help="Minibatch size.", default=135)
+        help="Minibatch size.", default=81)
     parser.add_argument("-global_alpha", type=float,
-        help="Global Alpha.", default=0.0005)
+        help="Global Alpha.", default=0.01)
     parser.add_argument("-global_lambda", type=float,
         help="Global Lambda.", default=0.00005)
     parser.add_argument("-find_negative", type=bool,

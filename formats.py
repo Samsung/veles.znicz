@@ -91,6 +91,29 @@ def normalize_pointwise(a):
     return (IMul, IAdd)
 
 
+def norm_image(a, yuv=False):
+    """Normalizes numpy array to interval [0, 255].
+    """
+    aa = a.astype(numpy.float32)
+    if aa.__array_interface__["data"][0] == a.__array_interface__["data"][0]:
+        aa = aa.copy()
+    aa -= aa.min()
+    m = aa.max()
+    if m:
+        m /= 255.0
+        aa /= m
+    else:
+        aa[:] = 127.5
+    if yuv and len(aa.shape) == 3 and aa.shape[2] == 3:
+        aaa = numpy.empty_like(aa)
+        aaa[:, :, 0:1] = aa[:, :, 0:1] + (aa[:, :, 2:3] - 128) * 1.402
+        aaa[:, :, 1:2] = (aa[:, :, 0:1] + (aa[:, :, 1:2] - 128) * (-0.34414) +
+                          (aa[:, :, 2:3] - 128) * (-0.71414))
+        aaa[:, :, 2:3] = aa[:, :, 0:1] + (aa[:, :, 1:2] - 128) * 1.772
+        numpy.clip(aaa, 0.0, 255.0, aa)
+    return aa.astype(numpy.uint8)
+
+
 def realign(arr, boundary=4096):
     """Reallocates array to become PAGE-aligned as required for
         clEnqueueMapBuffer().

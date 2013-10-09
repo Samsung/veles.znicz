@@ -10,6 +10,7 @@ import units
 import scipy.misc
 import os
 import glob
+import formats
 
 
 class ImageSaver(units.Unit):
@@ -36,7 +37,7 @@ class ImageSaver(units.Unit):
     """
     def __init__(self, out_dirs=["/tmp/img/test",
                                  "/tmp/img/validation",
-                                 "/tmp/img/train"], limit=100):
+                                 "/tmp/img/train"], limit=100, yuv=False):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
@@ -51,6 +52,7 @@ class ImageSaver(units.Unit):
         self.last_save_time = 0
         self.limit = limit
         self.n_saved = 0
+        self.yuv = [1 if yuv else 0]
 
     def as_image(self, x):
         if len(x.shape) == 2:
@@ -172,7 +174,7 @@ class ImageSaver(units.Unit):
             img = xyt
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
-            scipy.misc.imsave(fnme, img.astype(numpy.uint8))
+            scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
             self.n_saved += 1
             if self.n_saved >= self.limit:
                 return
