@@ -10,6 +10,12 @@
  *  Copyright 2013 Samsung R&D Institute Russia
  */
 
+/*!
+ * @mainpage Neural network realization.
+ * \image html neural-network.jpg
+ *
+ */
+
 #ifndef SRC_ATTRIBUTE_H_
 #define SRC_ATTRIBUTE_H_
 
