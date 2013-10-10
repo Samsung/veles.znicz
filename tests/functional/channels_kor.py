@@ -30,7 +30,6 @@ import config
 import rnd
 import opencl
 import plotters
-import glob
 import pickle
 import image
 import loader
@@ -44,6 +43,7 @@ import workflow
 import scipy.io
 import thread_pool
 import threading
+import re
 
 
 class Loader(loader.FullBatchLoader):
@@ -52,8 +52,7 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/train" % (
                                                 config.test_dataset_root),
-                 rect=(176, 96), grayscale=False, find_negative=False,
-                 shift_size=0, shift_count=0):
+                 rect=(176, 96), grayscale=False, find_negative=False):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         #: Top-level configuration from channels_dir/conf.py
@@ -67,12 +66,9 @@ class Loader(loader.FullBatchLoader):
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
-        self.shift_size = shift_size
-        self.shift_count = shift_count
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale", "find_negative",
-            "shift_size", "shift_count"]
+            "class_samples", "grayscale"]
         self.exports = ["rect", "pos", "sz"]
 
     def from_jp2(self, fnme):
@@ -93,17 +89,22 @@ class Loader(loader.FullBatchLoader):
                 a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         return a
 
-    def from_jp2_async(self, fnme, subdir, pos, sz,
-                       data_lock, i_sample, lbl, n_files, total_files):
-        """Forks then loads, crops and normalizes image in the child process.
+    def from_jp2_async(self, fnme, pos, sz,
+                       data_lock, i_sample, lbl, n_files, total_files,
+                       negative_data):
+        """Loads, crops and normalizes image in the parallel thread.
         """
+        if self.find_negative:
+            # Find the positions from where to sample rectangles
+            pass
+
         a = self.from_jp2(fnme)
         aa = numpy.empty_like(self.original_data[0])
         rot = fnme.find("norotate") < 0
         if self.grayscale:
             x = numpy.rot90(a, 2) if rot else a
-            left = int(numpy.round(pos[subdir][0] * x.shape[1]))
-            top = int(numpy.round(pos[subdir][1] * x.shape[0]))
+            left = int(numpy.round(pos[0] * x.shape[1]))
+            top = int(numpy.round(pos[1] * x.shape[0]))
             width = int(numpy.round(sz[0] * x.shape[1]))
             height = int(numpy.round(sz[1] * x.shape[0]))
             x = x[top:top + height, left:left + width].ravel().copy().\
@@ -114,8 +115,8 @@ class Loader(loader.FullBatchLoader):
             # Loop by color planes.
             for j in range(0, a.shape[0]):
                 x = numpy.rot90(a[j], 2) if rot else a[j]
-                left = int(numpy.round(pos[subdir][0] * x.shape[1]))
-                top = int(numpy.round(pos[subdir][1] * x.shape[0]))
+                left = int(numpy.round(pos[0] * x.shape[1]))
+                top = int(numpy.round(pos[1] * x.shape[0]))
                 width = int(numpy.round(sz[0] * x.shape[1]))
                 height = int(numpy.round(sz[1] * x.shape[0]))
                 x = x[top:top + height, left:left + width].ravel().copy().\
@@ -148,6 +149,9 @@ class Loader(loader.FullBatchLoader):
                         "%s" % (cached_data_fnme))
         save_to_cache = True
         try:
+            if self.find_negative:
+                self.log().info("- need to search for a negative set")
+                raise FileNotFoundError()
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
             if obj["channels_dir"] != self.channels_dir:
@@ -278,14 +282,27 @@ class Loader(loader.FullBatchLoader):
         max_lbl = 0
         files = {}
         total_files = 0
+        baddir = re.compile("bad", re.IGNORECASE)
+        jp2 = re.compile("\.jp2$", re.IGNORECASE)
         for subdir, subdir_conf in self.subdir_conf_.items():
             for dirnme in subdir_conf["channel_map"].keys():
                 max_lbl = max(max_lbl, int(dirnme))
                 relpath = "%s/%s" % (subdir, dirnme)
-                files[relpath] = glob.glob("%s/%s/*.jp2" % (
-                    self.channels_dir, relpath))
-                files[relpath].sort()
-                total_files += len(files[relpath])
+                found_files = []
+                fordel = []
+                for basedir, dirlist, filelist in os.walk("%s/%s" % (
+                    self.channels_dir, relpath)):
+                    for i, nme in enumerate(dirlist):
+                        if baddir.search(nme) != None:
+                            fordel.append(i)
+                    while len(fordel) > 0:
+                        dirlist.pop(fordel.pop())
+                    for nme in filelist:
+                        if jp2.search(nme) != None:
+                            found_files.append("%s/%s" % (basedir, nme))
+                found_files.sort()
+                files[relpath] = found_files
+                total_files += len(found_files)
         self.log().info("Found %d files" % (total_files))
 
         self.original_labels = numpy.zeros(total_files,
@@ -298,6 +315,7 @@ class Loader(loader.FullBatchLoader):
                 self.rect[1], self.rect[0]], numpy.float32)
 
         # Read samples in parallel
+        negative_data = {}  # dictionary: i => list of found negative data
         n_threads = 32
         pool = thread_pool.ThreadPool(max_threads=n_threads,
                                       max_enqueued_tasks=n_threads)
@@ -312,8 +330,9 @@ class Loader(loader.FullBatchLoader):
                 lbl = int(dirnme)
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, ("%s" % (fnme),
-                        "%s" % (subdir), pos, sz, data_lock,
-                        0 + i_sample, 0 + lbl, n_files, total_files))
+                        pos[subdir], sz, data_lock,
+                        0 + i_sample, 0 + lbl, n_files, total_files,
+                        negative_data))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
 

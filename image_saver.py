@@ -51,7 +51,7 @@ class ImageSaver(units.Unit):
         self.this_save_time = [0]
         self.last_save_time = 0
         self.limit = limit
-        self.n_saved = 0
+        self.n_saved = [0, 0, 0]
         self.yuv = [1 if yuv else 0]
 
     def as_image(self, x):
@@ -80,7 +80,8 @@ class ImageSaver(units.Unit):
         self.labels.sync()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
-            self.n_saved = 0
+            for i in range(len(self.n_saved)):
+                self.n_saved[i] = 0
             for dirnme in self.out_dirs:
                 i = 1
                 while True:
@@ -103,7 +104,7 @@ class ImageSaver(units.Unit):
                         os.unlink(file)
                     except OSError:
                         pass
-        if self.n_saved >= self.limit:
+        if self.n_saved[self.minibatch_class[0]] >= self.limit:
             return
         xyt = None
         x = None
@@ -175,6 +176,6 @@ class ImageSaver(units.Unit):
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
             scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
-            self.n_saved += 1
-            if self.n_saved >= self.limit:
+            self.n_saved[self.minibatch_class[0]] += 1
+            if self.n_saved[self.minibatch_class[0]] >= self.limit:
                 return
