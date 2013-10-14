@@ -335,7 +335,7 @@ class Loader(loader.FullBatchLoader):
 
         # Read samples in parallel
         rand = rnd.Rand()
-        rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32, 1024))
+        rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32, count=1024))
         negative_data = {}  # dictionary: i => list of found negative data
         n_threads = 32
         pool = thread_pool.ThreadPool(max_threads=n_threads,
