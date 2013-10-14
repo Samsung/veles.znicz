@@ -76,8 +76,10 @@ class Decision(units.Unit):
         self.minibatch_metrics = None  # formats.Vector()
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
+        self.min_train_mse = 1.0e30
         self.min_validation_n_err = 1.0e30
         self.min_validation_n_err_epoch_number = -1
+        self.min_train_n_err = 1.0e30
         self.workflow = None
         self.snapshot_prefix = snapshot_prefix
         self.fnme = None
@@ -242,14 +244,20 @@ class Decision(units.Unit):
             self.just_snapshotted[0] = 0
         do_snapshot = False
         if (self.minibatch_metrics != None and
-            self.epoch_min_mse[minibatch_class] < self.min_validation_mse):
+            (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
+             (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
+              and self.epoch_min_mse[2] < self.min_train_mse))):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number[0]
+            self.min_train_mse = self.epoch_min_mse[2]
             do_snapshot = True
         if (self.minibatch_n_err != None and
-            self.epoch_n_err[minibatch_class] < self.min_validation_n_err):
+            (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
+             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
+              and self.epoch_n_err[2] == self.min_train_n_err))):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
             self.min_validation_n_err_epoch_number = self.epoch_number[0]
+            self.min_train_n_err = self.epoch_n_err[2]
             do_snapshot = True
         if do_snapshot:
             # Do the snapshot

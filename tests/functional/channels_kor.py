@@ -24,6 +24,7 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import units
 import formats
 import numpy
 import config
@@ -52,7 +53,7 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
                  channels_dir="%s/channels/korean_960_540/train" % (
                                                 config.test_dataset_root),
-                 rect=(176, 96), grayscale=False, find_negative=False):
+                 rect=(176, 96), grayscale=False):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         #: Top-level configuration from channels_dir/conf.py
@@ -62,7 +63,7 @@ class Loader(loader.FullBatchLoader):
         self.channels_dir = channels_dir
         self.rect = rect
         self.grayscale = grayscale
-        self.find_negative = find_negative
+        self.w_neg = None  # workflow for finding the negative dataset
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
@@ -71,9 +72,11 @@ class Loader(loader.FullBatchLoader):
             "class_samples", "grayscale"]
         self.exports = ["rect", "pos", "sz"]
 
-    def from_jp2(self, fnme):
+    def from_jp2(self, fnme, rot):
         j2 = glymur.Jp2k(fnme)
         a2 = j2.read()  # returns interleaved yuv444
+        if rot:
+            a2 = numpy.rot90(a2, 2)
         if self.grayscale:
             a = numpy.empty([a2.shape[0], a2.shape[1], 1], dtype=numpy.uint8)
             a[:, :, 0:1] = a2[:, :, 0:1]
@@ -89,20 +92,10 @@ class Loader(loader.FullBatchLoader):
                 a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         return a
 
-    def from_jp2_async(self, fnme, pos, sz,
-                       data_lock, i_sample, lbl, n_files, total_files,
-                       negative_data):
-        """Loads, crops and normalizes image in the parallel thread.
-        """
-        if self.find_negative:
-            # Find the positions from where to sample rectangles
-            pass
-
-        a = self.from_jp2(fnme)
+    def sample_rect(self, a, pos, sz):
         aa = numpy.empty_like(self.original_data[0])
-        rot = fnme.find("norotate") < 0
         if self.grayscale:
-            x = numpy.rot90(a, 2) if rot else a
+            x = a
             left = int(numpy.round(pos[0] * x.shape[1]))
             top = int(numpy.round(pos[1] * x.shape[0]))
             width = int(numpy.round(sz[0] * x.shape[1]))
@@ -114,7 +107,7 @@ class Loader(loader.FullBatchLoader):
         else:
             # Loop by color planes.
             for j in range(0, a.shape[0]):
-                x = numpy.rot90(a[j], 2) if rot else a[j]
+                x = a[j]
                 left = int(numpy.round(pos[0] * x.shape[1]))
                 top = int(numpy.round(pos[1] * x.shape[0]))
                 width = int(numpy.round(sz[0] * x.shape[1]))
@@ -131,8 +124,31 @@ class Loader(loader.FullBatchLoader):
             formats.normalize(aa[0])
             formats.normalize(aa[1:])
 
+        return aa
+
+    def from_jp2_async(self, fnme, pos, sz,
+                       data_lock, i_sample, lbl, n_files, total_files,
+                       negative_data, rand):
+        """Loads, crops and normalizes image in the parallel thread.
+        """
+        a = self.from_jp2(fnme, fnme.find("norotate") < 0)
+
         self.original_labels[i_sample] = lbl
-        self.original_data[i_sample] = aa
+        self.original_data[i_sample] = self.sample_rect(a, pos, sz)
+
+        # Collect negative dataset from positive samples only
+        if lbl and self.w_neg != None:
+            negative_data[i_sample] = []
+            # Sample vertival line
+            p = [pos[0] + (1 if pos[0] < 0.5 else -1) * sz[0], 0.0]
+            while p[1] + sz[1] <= 1.0:
+                negative_data[i_sample].append(self.sample_rect(a, p, sz))
+                p[1] += rand.rand() * 0.5
+            p = [0.0, pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
+            # Sample horizontal line
+            while p[0] + sz[0] <= 1.0:
+                negative_data[i_sample].append(self.sample_rect(a, p, sz))
+                p[0] += rand.rand() * 0.5
 
         data_lock.acquire()
         n_files[0] += 1
@@ -142,6 +158,9 @@ class Loader(loader.FullBatchLoader):
         data_lock.release()
 
     def load_data(self):
+        if self.original_data != None and self.original_labels != None:
+            return
+
         cached_data_fnme = "%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
                 self.__class__.__name__)
@@ -149,7 +168,7 @@ class Loader(loader.FullBatchLoader):
                         "%s" % (cached_data_fnme))
         save_to_cache = True
         try:
-            if self.find_negative:
+            if self.w_neg != None:
                 self.log().info("- need to search for a negative set")
                 raise FileNotFoundError()
             fin = open(cached_data_fnme, "rb")
@@ -315,6 +334,8 @@ class Loader(loader.FullBatchLoader):
                 self.rect[1], self.rect[0]], numpy.float32)
 
         # Read samples in parallel
+        rand = rnd.Rand()
+        rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32, 1024))
         negative_data = {}  # dictionary: i => list of found negative data
         n_threads = 32
         pool = thread_pool.ThreadPool(max_threads=n_threads,
@@ -332,9 +353,35 @@ class Loader(loader.FullBatchLoader):
                     pool.request(self.from_jp2_async, ("%s" % (fnme),
                         pos[subdir], sz, data_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
-                        negative_data))
+                        negative_data, rand))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
+
+        # Check the need of negative data filtering
+        if len(negative_data) > 0:
+            n = 0
+            for batch in negative_data.values():
+                n += len(batch)
+            self.log().info("Will filter %d negative samples" % (n))
+            sh = [n]
+            sh.extend(self.original_data[0].shape)
+            data = numpy.empty(sh, dtype=self.original_data.dtype)
+            j = 0
+            for i in sorted(negative_data.keys()):
+                for sample in negative_data[i]:
+                    data[j] = sample
+                    j += 1
+                negative_data[i].clear()
+            negative_data.clear()
+            lbls = numpy.zeros(n, dtype=numpy.int8)
+            n = self.filter_negative(data, lbls)
+            self.w_neg.loader.original_data = None
+            self.w_neg.loader.original_labels = None
+            self.w_neg = None
+            self.original_data = numpy.append(self.original_data, data[:n],
+                                              axis=0)
+            self.original_labels = numpy.append(self.original_labels, lbls[:n],
+                                                axis=0)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
@@ -361,6 +408,49 @@ class Loader(loader.FullBatchLoader):
         # Save random state
         pickle.dump(self.rnd[0].state, fout)
         fout.close()
+        self.log().info("Done")
+
+    def filter_negative(self, data, lbls):
+        """Filters negative data by running w_neg workflow over it.
+        """
+        w_neg = self.w_neg
+        w_neg.loader.original_data = data
+        w_neg.loader.original_labels = lbls
+        w_neg.loader.class_samples[0] = 0
+        w_neg.loader.class_samples[1] = 0
+        w_neg.loader.class_samples[2] = len(data)
+
+        w_neg.decision.unlink()
+        w_neg.decision.link_from(w_neg.ev)
+        for f in w_neg.forward:
+            f.device = w_neg.device
+        w_neg.ev.device = w_neg.device
+        w_neg.saver = Saver()
+        w_neg.saver.vectors_to_save["m"] = w_neg.forward[-1].max_idx
+        w_neg.saver.link_from(w_neg.decision)
+        w_neg.loader.shuffle = w_neg.loader.nothing
+        w_neg.loader.shuffle_train = w_neg.loader.nothing
+        w_neg.loader.shuffle_validation_train = w_neg.loader.nothing
+        w_neg.saver.minibatch_size = w_neg.loader.minibatch_size
+        w_neg.end_point.link_from(w_neg.saver)
+        w_neg.rpt.link_from(w_neg.saver)
+        w_neg.loader.gate_block = w_neg.decision.epoch_ended
+        w_neg.end_point.gate_block = w_neg.decision.epoch_ended
+        w_neg.end_point.gate_block_not = [1]
+        w_neg.end_point.link_from(w_neg.saver)
+        for gd in w_neg.gd:
+            gd.unlink()
+        w_neg.run()
+
+        n = 0
+        i = 0
+        for batch in w_neg.saver.vectors_["m"]:
+            for j in batch:
+                if j != lbls[i]:
+                    data[n] = data[i]
+                    n += 1
+                i += 1
+        return n
 
 
 class Workflow(workflow.NNWorkflow):
@@ -511,11 +601,11 @@ class Workflow(workflow.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda,
                    minibatch_maxsize, dirnme, dump,
-                   snapshot_prefix, find_negative, device):
+                   snapshot_prefix, w_neg, device):
         self.decision.snapshot_prefix = snapshot_prefix
         self.loader.channels_dir = dirnme
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
-        self.loader.find_negative = find_negative
+        self.loader.w_neg = w_neg
         self.ev.device = device
         for gd in self.gd:
             gd.device = device
@@ -549,9 +639,6 @@ class Workflow(workflow.NNWorkflow):
         return self.start_point.initialize_dependent()
 
 
-import units
-
-
 class Saver(units.Unit):
     """Saves vars to file.
 
@@ -562,7 +649,7 @@ class Saver(units.Unit):
         flush: if [1] - flushes vectors_ to fnme.
         fnme: filename to save vectors_ to.
     """
-    def __init__(self, fnme):
+    def __init__(self, fnme=None):
         super(Saver, self).__init__()
         self.vectors_to_save = {}
         self.vectors_ = {}
@@ -580,7 +667,7 @@ class Saver(units.Unit):
                     vector.v[:self.minibatch_size[0]].copy())
             else:
                 self.vectors_[name].append(vector.v.copy())
-        if self.flush[0]:
+        if self.flush[0] and self.fnme != None:
             self.log().info("Saving collected vectors to %s" % (self.fnme))
             to_save = {}
             for name, vectors in self.vectors_.items():
@@ -610,7 +697,6 @@ class Saver(units.Unit):
 import time
 import traceback
 import argparse
-import re
 
 
 def main():
@@ -708,6 +794,7 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     cl = opencl.DeviceList()
     device = cl.get_device()
+    w_neg = None
     try:
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
@@ -726,13 +813,17 @@ def main():
                 traceback.print_exception(a, b, c)
                 logging.error("Error while exporting.")
             sys.exit(0)
+        if args.find_negative:
+            w_neg = w
+            w_neg.device = device
+            raise IOError()
     except IOError:
         w = Workflow(layers=layers, device=device)
     w.initialize(global_alpha=args.global_alpha,
                  global_lambda=args.global_lambda,
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
                  dump=args.dump, snapshot_prefix=args.snapshot_prefix,
-                 find_negative=args.find_negative, device=device)
+                 w_neg=w_neg, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
