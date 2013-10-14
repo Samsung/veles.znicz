@@ -64,6 +64,7 @@ class Loader(loader.FullBatchLoader):
         self.rect = rect
         self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
+        self.negative_count_per_picture = 8
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
@@ -139,16 +140,22 @@ class Loader(loader.FullBatchLoader):
         # Collect negative dataset from positive samples only
         if lbl and self.w_neg != None:
             negative_data[i_sample] = []
-            # Sample vertival line
-            p = [pos[0] + (1 if pos[0] < 0.5 else -1) * sz[0], 0.0]
-            while p[1] + sz[1] <= 1.0:
+            # Sample N pictures at random positions
+            for i in range(self.negative_count_per_picture):
+                t = rand.randint(2)
+                if t == 0:
+                    # Sample vertical line
+                    p = [pos[0] + (1 if pos[0] < 0.5 else -1) * sz[0],
+                         rand.rand()]
+                    while p[1] + sz[1] > 1.0:
+                        p[1] = rand.rand()
+                elif t == 1:
+                    # Sample horizontal line
+                    p = [rand.rand(),
+                         pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
+                    while p[0] + sz[0] > 1.0:
+                        p[0] = rand.rand()
                 negative_data[i_sample].append(self.sample_rect(a, p, sz))
-                p[1] += rand.rand() * 0.5
-            p = [0.0, pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
-            # Sample horizontal line
-            while p[0] + sz[0] <= 1.0:
-                negative_data[i_sample].append(self.sample_rect(a, p, sz))
-                p[0] += rand.rand() * 0.5
 
         data_lock.acquire()
         n_files[0] += 1
@@ -335,7 +342,8 @@ class Loader(loader.FullBatchLoader):
 
         # Read samples in parallel
         rand = rnd.Rand()
-        rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32, count=1024))
+        rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
+                                 count=1024))
         negative_data = {}  # dictionary: i => list of found negative data
         n_threads = 32
         pool = thread_pool.ThreadPool(max_threads=n_threads,
