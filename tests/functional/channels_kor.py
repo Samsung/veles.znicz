@@ -64,7 +64,7 @@ class Loader(loader.FullBatchLoader):
         self.rect = rect
         self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
-        self.negative_count_per_picture = 8
+        self.negative_count_per_picture = 9
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
@@ -139,22 +139,19 @@ class Loader(loader.FullBatchLoader):
 
         # Collect negative dataset from positive samples only
         if lbl and self.w_neg != None:
-            negative_data[i_sample] = []
+            if i_sample not in negative_data.keys():
+                negative_data[i_sample] = []
             # Sample N pictures at random positions
             for i in range(self.negative_count_per_picture):
                 t = rand.randint(2)
                 if t == 0:
                     # Sample vertical line
                     p = [pos[0] + (1 if pos[0] < 0.5 else -1) * sz[0],
-                         rand.rand()]
-                    while p[1] + sz[1] > 1.0:
-                        p[1] = rand.rand()
+                         rand.rand() * (1.0 - sz[1])]
                 elif t == 1:
                     # Sample horizontal line
-                    p = [rand.rand(),
+                    p = [rand.rand() * (1.0 - sz[0]),
                          pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
-                    while p[0] + sz[0] > 1.0:
-                        p[0] = rand.rand()
                 negative_data[i_sample].append(self.sample_rect(a, p, sz))
 
         data_lock.acquire()
@@ -168,6 +165,8 @@ class Loader(loader.FullBatchLoader):
         if self.original_data != None and self.original_labels != None:
             return
 
+        negative_data = {}  # dictionary: i => list of found negative data
+
         cached_data_fnme = "%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
                 self.__class__.__name__)
@@ -175,9 +174,6 @@ class Loader(loader.FullBatchLoader):
                         "%s" % (cached_data_fnme))
         save_to_cache = True
         try:
-            if self.w_neg != None:
-                self.log().info("- need to search for a negative set")
-                raise FileNotFoundError()
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
             if obj["channels_dir"] != self.channels_dir:
@@ -223,7 +219,20 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Succeeded")
             self.log().info("class_samples=[%s]" % (
                 ", ".join(str(x) for x in self.class_samples)))
-            return
+            if self.w_neg == None:
+                return
+            self.log().info("Will search for a negative set")
+            # Saving the old negative set
+            self.log().info("Saving the old negative set")
+            data = []
+            for i, l in enumerate(self.original_labels):
+                if l:
+                    continue
+                data.append(self.original_data[i].copy())
+            negative_data[0] = data
+            self.original_data = None
+            self.original_labels = None
+            self.log().info("Done")
         except FileNotFoundError:
             self.log().info("Failed")
 
@@ -344,7 +353,6 @@ class Loader(loader.FullBatchLoader):
         rand = rnd.Rand()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
-        negative_data = {}  # dictionary: i => list of found negative data
         n_threads = 32
         pool = thread_pool.ThreadPool(max_threads=n_threads,
                                       max_enqueued_tasks=n_threads)
