@@ -64,7 +64,7 @@ class Loader(loader.FullBatchLoader):
         self.rect = rect
         self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
-        self.negative_count_per_picture = 9
+        self.find_negative = 0
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
@@ -138,11 +138,11 @@ class Loader(loader.FullBatchLoader):
         self.original_data[i_sample] = self.sample_rect(a, pos, sz)
 
         # Collect negative dataset from positive samples only
-        if lbl and self.w_neg != None:
+        if lbl and self.w_neg != None and self.find_negative > 0:
             if i_sample not in negative_data.keys():
                 negative_data[i_sample] = []
-            # Sample N pictures at random positions
-            for i in range(self.negative_count_per_picture):
+            # Sample pictures at random positions
+            for i in range(self.find_negative):
                 t = rand.randint(2)
                 if t == 0:
                     # Sample vertical line
@@ -152,6 +152,8 @@ class Loader(loader.FullBatchLoader):
                     # Sample horizontal line
                     p = [rand.rand() * (1.0 - sz[0]),
                          pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
+                else:
+                    continue
                 negative_data[i_sample].append(self.sample_rect(a, p, sz))
 
         data_lock.acquire()
@@ -219,7 +221,7 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Succeeded")
             self.log().info("class_samples=[%s]" % (
                 ", ".join(str(x) for x in self.class_samples)))
-            if self.w_neg == None:
+            if self.w_neg == None or self.find_negative <= 0:
                 return
             self.log().info("Will search for a negative set")
             # Saving the old negative set
@@ -617,11 +619,12 @@ class Workflow(workflow.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda,
                    minibatch_maxsize, dirnme, dump,
-                   snapshot_prefix, w_neg, device):
+                   snapshot_prefix, w_neg, find_negative, device):
         self.decision.snapshot_prefix = snapshot_prefix
         self.loader.channels_dir = dirnme
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.loader.w_neg = w_neg
+        self.loader.find_negative = find_negative
         self.ev.device = device
         for gd in self.gd:
             gd.device = device
@@ -790,11 +793,10 @@ def main():
         help="Global Alpha.", default=0.01)
     parser.add_argument("-global_lambda", type=float,
         help="Global Lambda.", default=0.00005)
-    parser.add_argument("-find_negative", type=bool,
-        help="Extend negative dataset by finding wrong responses of "
-        "the supplied network within the training images regions. "
-        "-snapshot should be provided.",
-        default=False)
+    parser.add_argument("-find_negative", type=int,
+        help="Extend negative dataset by at most this number of negative "
+             "samples per image. -snapshot should be provided.",
+        default=0)
     args = parser.parse_args()
 
     s_layers = re.split("\D+", args.layers)
@@ -829,7 +831,7 @@ def main():
                 traceback.print_exception(a, b, c)
                 logging.error("Error while exporting.")
             sys.exit(0)
-        if args.find_negative:
+        if args.find_negative > 0:
             w_neg = w
             w_neg.device = device
             raise IOError()
@@ -839,7 +841,7 @@ def main():
                  global_lambda=args.global_lambda,
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
                  dump=args.dump, snapshot_prefix=args.snapshot_prefix,
-                 w_neg=w_neg, device=device)
+                 w_neg=w_neg, find_negative=args.find_negative, device=device)
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")
