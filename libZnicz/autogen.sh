@@ -25,23 +25,7 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mypath=$(pwd)
-
-if [ ! -e "simd/autogen.sh" ]; then
-	user=$(git remote -v | grep -oE '//[^@]+' -m1 | cut -c3-)
-    sed -i "/$user/b; s/ssh:\/\//ssh:\/\/$user@/g" ../.gitmodules
-    cd ..
-    git submodule update --init	libZnicz/simd
-else
-	cd ..
-    git submodule update libZnicz/simd
-fi
-cd "$mypath"
-
 isubuntu="$(uname -v|grep Ubuntu)"
-
-echo "\$(dirname \$0)/configure \$@ --disable-simd-fftf --disable-tests --disable-doxygen" > simd/configure.gnu
-chmod +x simd/configure.gnu
 
 check_prog() {
     printf "Checking for $1... "
@@ -69,11 +53,13 @@ check_prog autoconf autoconf
 check_prog libtoolize libtool
 check_prog automake automake
 
-rm -rf autom4te.cache m4
+rm -rf autom4te.cache
 rm -f aclocal.m4 ltmain.sh config.log config.status configure libtool stamp-h1 config.h config.h.in
 find -name Makefile.in -exec rm {} \;
 
-echo "Running aclocal..." ; aclocal $ACLOCAL_FLAGS || exit 1
+mkdir -p m4
+echo "Running aclocal..." ; aclocal $ACLOCAL_FLAGS || (rmdir --ignore-fail-on-non-empty m4; exit 1)
+rmdir --ignore-fail-on-non-empty m4
 echo "Running autoheader..." ; autoheader || exit 1
 echo "Running autoconf..." ; autoconf || exit 1
 echo "Running libtoolize..." ; (libtoolize --copy --automake || glibtoolize --automake) || exit 1
@@ -102,12 +88,6 @@ if [ $W -ne 0 ]; then
 else
 	rm -f config.cache-env.tmp
 fi
-
-# autogen.sh in submodules
-# note the order: first root autogen.sh, then children
-cd ..
-git submodule foreach ./autogen.sh
-cd "$mypath"
 
 if [ -n "$1" ]; then
 	path=$(pwd)
