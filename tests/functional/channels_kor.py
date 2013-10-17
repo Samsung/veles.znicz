@@ -139,8 +139,7 @@ class Loader(loader.FullBatchLoader):
 
         # Collect negative dataset from positive samples only
         if lbl and self.w_neg != None and self.find_negative > 0:
-            if i_sample not in negative_data.keys():
-                negative_data[i_sample] = []
+            negative_data[i_sample] = []
             # Sample pictures at random positions
             for i in range(self.find_negative):
                 t = rand.randint(2)
@@ -167,7 +166,7 @@ class Loader(loader.FullBatchLoader):
         if self.original_data != None and self.original_labels != None:
             return
 
-        negative_data = {}  # dictionary: i => list of found negative data
+        old_negative_data = []  # old negative set from previous snapshot
 
         cached_data_fnme = "%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
@@ -226,12 +225,10 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Will search for a negative set")
             # Saving the old negative set
             self.log().info("Saving the old negative set")
-            data = []
             for i, l in enumerate(self.original_labels):
                 if l:
                     continue
-                data.append(self.original_data[i].copy())
-            negative_data[0] = data
+                old_negative_data.append(self.original_data[i].copy())
             self.original_data = None
             self.original_labels = None
             self.log().info("Done")
@@ -342,13 +339,16 @@ class Loader(loader.FullBatchLoader):
                 total_files += len(found_files)
         self.log().info("Found %d files" % (total_files))
 
-        self.original_labels = numpy.zeros(total_files,
+        self.original_labels = numpy.zeros(
+            total_files + len(old_negative_data),
             dtype=config.itypes[config.get_itype_from_size(max_lbl + 1)])
         if self.grayscale:
-            self.original_data = numpy.zeros([total_files,
+            self.original_data = numpy.zeros([
+                total_files + len(old_negative_data),
                 self.rect[1], self.rect[0]], numpy.float32)
         else:
-            self.original_data = numpy.zeros([total_files, 3,
+            self.original_data = numpy.zeros([
+                total_files + len(old_negative_data), 3,
                 self.rect[1], self.rect[0]], numpy.float32)
 
         # Read samples in parallel
@@ -361,6 +361,7 @@ class Loader(loader.FullBatchLoader):
         data_lock = threading.Lock()
         n_files = [0]
         i_sample = 0
+        negative_data = {}  # dictionary: i => list of found negative data
         for subdir in sorted(self.subdir_conf_.keys()):
             subdir_conf = self.subdir_conf_[subdir]
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
@@ -374,6 +375,11 @@ class Loader(loader.FullBatchLoader):
                         negative_data, rand))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
+
+        # Fill the negative data from previous pickle
+        for i in range(len(old_negative_data)):
+            self.original_data[total_files + i] = old_negative_data[i]
+        del(old_negative_data)
 
         # Check the need of negative data filtering
         if len(negative_data) > 0:
@@ -763,10 +769,10 @@ def main():
     pp.show()
     sys.exit(0)
     """
-    if __debug__:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    #if __debug__:
+    #    logging.basicConfig(level=logging.DEBUG)
+    #else:
+    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-snapshot", type=str,

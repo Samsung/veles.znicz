@@ -267,7 +267,7 @@ class FullBatchLoader(Loader):
             self.minibatch_target.v[0:minibatch_size] = \
                 self.original_target[idxs[0:minibatch_size]]
 
-    def extract_validation_from_train(self, amount=0.3):
+    def extract_validation_from_train(self, amount=0.15):
         """Extracts validation dataset from train dataset randomly.
 
         Parameters:

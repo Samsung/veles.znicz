@@ -35,9 +35,9 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, out_dirs=["/tmp/img/test",
-                                 "/tmp/img/validation",
-                                 "/tmp/img/train"], limit=100, yuv=False):
+    def __init__(self, out_dirs=["/tmp/tmpimg/test",
+                                 "/tmp/tmpimg/validation",
+                                 "/tmp/tmpimg/train"], limit=100, yuv=False):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
@@ -78,6 +78,8 @@ class ImageSaver(units.Unit):
             self.output.sync()
         self.indexes.sync()
         self.labels.sync()
+        if self.max_idx != None:
+            self.max_idx.sync()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
             for i in range(len(self.n_saved)):
