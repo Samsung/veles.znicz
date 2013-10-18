@@ -68,9 +68,10 @@ class Loader(loader.FullBatchLoader):
         self.channel_map = None
         self.pos = {}
         self.sz = [0, 0]
+        self.file_map = {}  # sample index to its file name map
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale"]
+            "class_samples", "grayscale", "file_map"]
         self.exports = ["rect", "pos", "sz"]
 
     def from_jp2(self, fnme, rot):
@@ -129,17 +130,19 @@ class Loader(loader.FullBatchLoader):
 
     def from_jp2_async(self, fnme, pos, sz,
                        data_lock, i_sample, lbl, n_files, total_files,
-                       negative_data, rand):
+                       negative_data, negative_file_map, rand):
         """Loads, crops and normalizes image in the parallel thread.
         """
         a = self.from_jp2(fnme, fnme.find("norotate") < 0)
 
         self.original_labels[i_sample] = lbl
         self.original_data[i_sample] = self.sample_rect(a, pos, sz)
+        self.file_map[i_sample] = fnme
 
         # Collect negative dataset from positive samples only
         if lbl and self.w_neg != None and self.find_negative > 0:
             negative_data[i_sample] = []
+            negative_file_map[i_sample] = fnme
             # Sample pictures at random positions
             for i in range(self.find_negative):
                 t = rand.randint(2)
@@ -167,6 +170,7 @@ class Loader(loader.FullBatchLoader):
             return
 
         old_negative_data = []  # old negative set from previous snapshot
+        old_file_map = []
 
         cached_data_fnme = "%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
@@ -206,6 +210,7 @@ class Loader(loader.FullBatchLoader):
             self.log().info("sz: (%.6f, %.6f)" % (self.sz[0], self.sz[1]))
             self.log().info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
+            self.shuffled_indexes = pickle.load(fin)
             self.original_labels = pickle.load(fin)
             sh = [self.original_labels.shape[0]]
             if not self.grayscale:
@@ -229,13 +234,17 @@ class Loader(loader.FullBatchLoader):
                 if l:
                     continue
                 old_negative_data.append(self.original_data[i].copy())
+                old_file_map.append(self.file_map[self.shuffled_indexes[i]])
             self.original_data = None
             self.original_labels = None
+            self.shuffled_indexes = None
             self.log().info("Done")
         except FileNotFoundError:
             self.log().info("Failed")
 
         self.log().info("Will load data from original jp2 files")
+
+        self.file_map.clear()
 
         # Read top-level configuration
         try:
@@ -362,6 +371,7 @@ class Loader(loader.FullBatchLoader):
         n_files = [0]
         i_sample = 0
         negative_data = {}  # dictionary: i => list of found negative data
+        negative_file_map = {}  # dictionary: i => file name
         for subdir in sorted(self.subdir_conf_.keys()):
             subdir_conf = self.subdir_conf_[subdir]
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
@@ -372,14 +382,16 @@ class Loader(loader.FullBatchLoader):
                     pool.request(self.from_jp2_async, ("%s" % (fnme),
                         pos[subdir], sz, data_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
-                        negative_data, rand))
+                        negative_data, negative_file_map, rand))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
 
         # Fill the negative data from previous pickle
         for i in range(len(old_negative_data)):
             self.original_data[total_files + i] = old_negative_data[i]
+            self.file_map[total_files + i] = old_file_map[i]
         del(old_negative_data)
+        del(old_file_map)
 
         # Check the need of negative data filtering
         if len(negative_data) > 0:
@@ -390,29 +402,39 @@ class Loader(loader.FullBatchLoader):
             sh = [n]
             sh.extend(self.original_data[0].shape)
             data = numpy.empty(sh, dtype=self.original_data.dtype)
+            file_map = {}
             j = 0
             for i in sorted(negative_data.keys()):
                 for sample in negative_data[i]:
                     data[j] = sample
+                    file_map[j] = negative_file_map[i]
                     j += 1
                 negative_data[i].clear()
-            negative_data.clear()
+            del(negative_data)
+            del(negative_file_map)
             lbls = numpy.zeros(n, dtype=numpy.int8)
-            n = self.filter_negative(data, lbls)
+            idxs = numpy.arange(n,
+                dtype=config.itypes[config.get_itype_from_size(n)])
+            n = self.filter_negative(data, lbls, idxs)
             self.w_neg.loader.original_data = None
             self.w_neg.loader.original_labels = None
+            self.w_neg.loader.shuffled_indexes = None
             self.w_neg = None
             self.original_data = numpy.append(self.original_data, data[:n],
                                               axis=0)
             self.original_labels = numpy.append(self.original_labels, lbls[:n],
                                                 axis=0)
+            nn = len(self.original_data)
+            for i in range(n):
+                self.file_map[nn + i] = file_map[idxs[i]]
+            del(file_map)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
 
         # Randomly generate validation set from train.
-        self.extract_validation_from_train(amount=0.15)
+        self.extract_validation_from_train()
 
         self.log().info("class_samples=[%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
@@ -426,6 +448,7 @@ class Loader(loader.FullBatchLoader):
         for name in self.attributes_for_cached_data:
             obj[name] = self.__dict__[name]
         pickle.dump(obj, fout)
+        pickle.dump(self.shuffled_indexes, fout)
         pickle.dump(self.original_labels, fout)
         # Because pickle doesn't support greater than 4Gb arrays
         self.original_data.ravel().tofile(fout)
@@ -434,12 +457,13 @@ class Loader(loader.FullBatchLoader):
         fout.close()
         self.log().info("Done")
 
-    def filter_negative(self, data, lbls):
+    def filter_negative(self, data, lbls, idxs):
         """Filters negative data by running w_neg workflow over it.
         """
         w_neg = self.w_neg
         w_neg.loader.original_data = data
         w_neg.loader.original_labels = lbls
+        w_neg.loader.shuffled_indexes = idxs
         w_neg.loader.class_samples[0] = 0
         w_neg.loader.class_samples[1] = 0
         w_neg.loader.class_samples[2] = len(data)
@@ -472,6 +496,8 @@ class Loader(loader.FullBatchLoader):
             for j in batch:
                 if j != lbls[i]:
                     data[n] = data[i]
+                    lbls[n] = lbls[i]
+                    idxs[n] = idxs[i]
                     n += 1
                 i += 1
         return n
@@ -848,6 +874,15 @@ def main():
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
                  dump=args.dump, snapshot_prefix=args.snapshot_prefix,
                  w_neg=w_neg, find_negative=args.find_negative, device=device)
+    fnme = "%s/%s.txt" % (config.cache_dir, args.snapshot_prefix)
+    logging.info("Dumping file map to %s" % (fnme))
+    fout = open(fnme, "w")
+    file_map = w.loader.file_map
+    for i in sorted(file_map.keys()):
+        fout.write("%d\t%s\n" % (i, file_map[i]))
+    fout.close()
+    logging.info("Done")
+    logging.info("Will execute workflow now")
     w.run()
     plotters.Graphics().wait_finish()
     logging.info("End of job")

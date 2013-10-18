@@ -119,9 +119,10 @@ class Loader(units.Unit):
         self.minibatch_offs[0] = self.total_samples[0]
 
         # Initial shuffle.
-        self.shuffled_indexes = numpy.arange(self.total_samples[0],
-            dtype=config.itypes[
-                config.get_itype_from_size(self.total_samples[0])])
+        if self.shuffled_indexes == None:
+            self.shuffled_indexes = numpy.arange(self.total_samples[0],
+                dtype=config.itypes[
+                    config.get_itype_from_size(self.total_samples[0])])
 
         if self.class_samples[0]:
             self.shuffle_validation_train()
@@ -214,12 +215,14 @@ class FullBatchLoader(Loader):
         self.original_data = None
         self.original_labels = None
         self.original_target = None
+        self.shuffled_indexes = None
 
     def __getstate__(self):
         state = super(FullBatchLoader, self).__getstate__()
         state["original_data"] = None
         state["original_labels"] = None
         state["original_target"] = None
+        state["shuffled_indexes"] = None
         return state
 
     def create_minibatches(self):
@@ -270,6 +273,8 @@ class FullBatchLoader(Loader):
     def extract_validation_from_train(self, amount=0.15):
         """Extracts validation dataset from train dataset randomly.
 
+        We will rearrange indexes only.
+
         Parameters:
             amount: how many samples move from train dataset
                     relative to the entire samples count for each class.
@@ -283,20 +288,25 @@ class FullBatchLoader(Loader):
         train_samples = self.class_samples[1] + self.class_samples[2]
         total_samples = train_samples + offs
         original_labels = self.original_labels
-        original_data = self.original_data
+
+        if self.shuffled_indexes == None:
+            self.shuffled_indexes = numpy.arange(total_samples,
+                dtype=config.itypes[
+                    config.get_itype_from_size(total_samples)])
+        shuffled_indexes = self.shuffled_indexes
+
         rand = self.rnd[0]
-        tmp = numpy.zeros_like(original_data[0])
         # If there are no labels
         if original_labels == None:
             n = int(numpy.round(amount * train_samples))
             while n > 0:
                 i = rand.randint(offs, offs + train_samples)
-                l = original_labels[i]
-                tmp[:] = original_data[offs][:]
-                original_data[offs] = original_data[i]
-                original_data[i] = tmp
-                original_labels[i] = original_labels[offs]
-                original_labels[offs] = l
+
+                # Swap indexes
+                ii = shuffled_indexes[offs]
+                shuffled_indexes[offs] = shuffled_indexes[i]
+                shuffled_indexes[i] = ii
+
                 offs += 1
                 n -= 1
             self.class_samples[1] = offs - offs0
@@ -305,7 +315,8 @@ class FullBatchLoader(Loader):
             return
         # If there are labels
         nn = {}
-        for l in original_labels[offs:]:
+        for i in shuffled_indexes[offs:]:
+            l = original_labels[i]
             nn[l] = nn.get(l, 0) + 1
         n = 0
         for l in nn.keys():
@@ -313,21 +324,23 @@ class FullBatchLoader(Loader):
             n += nn[l]
         while n > 0:
             i = rand.randint(offs, offs0 + train_samples)
-            l = original_labels[i]
+            l = original_labels[shuffled_indexes[i]]
             if nn[l] <= 0:
                 # Move unused label to the end
-                tmp[:] = original_data[offs0 + train_samples - 1][:]
-                original_data[offs0 + train_samples - 1] = original_data[i]
-                original_data[i] = tmp
-                original_labels[i] = original_labels[offs0 + train_samples - 1]
-                original_labels[offs0 + train_samples - 1] = l
+
+                # Swap indexes
+                ii = shuffled_indexes[offs0 + train_samples - 1]
+                shuffled_indexes[
+                    offs0 + train_samples - 1] = shuffled_indexes[i]
+                shuffled_indexes[i] = ii
+
                 train_samples -= 1
                 continue
-            tmp[:] = original_data[offs][:]
-            original_data[offs] = original_data[i]
-            original_data[i] = tmp
-            original_labels[i] = original_labels[offs]
-            original_labels[offs] = l
+            # Swap indexes
+            ii = shuffled_indexes[offs]
+            shuffled_indexes[offs] = shuffled_indexes[i]
+            shuffled_indexes[i] = ii
+
             nn[l] -= 1
             n -= 1
             offs += 1
