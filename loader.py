@@ -109,9 +109,7 @@ class Loader(units.Unit):
             max(self.class_samples[2], self.class_samples[1],
                 self.class_samples[0]))
 
-        res = self.create_minibatches()
-        if res:
-            return res
+        self.create_minibatches()
         if self.minibatch_data.v == None:
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")

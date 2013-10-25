@@ -359,9 +359,7 @@ class GDTanh(GD):
 
     def initialize(self):
         self.cl_sources_["%s/gradient_descent_tanh.cl" % (config.cl_dir)] = ""
-        retval = super(GDTanh, self).initialize()
-        if retval or not self.device:
-            return retval
+        super(GDTanh, self).initialize()
         self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
         self.krn_err_y_.set_arg(0, self.err_y.v_)
         self.krn_err_y_.set_arg(1, self.y.v_)

@@ -35,9 +35,7 @@ class RBMTanh(all2all.All2AllTanh):
         self.cl_sources_["%s/rbm.cl" % (config.cl_dir)] = ""
 
     def initialize(self):
-        retval = super(RBMTanh, self).initialize()
-        if retval:
-            return retval
+        super(RBMTanh, self).initialize()
         if (self.output_rand.v == None or
             self.output_rand.v.size != self.output.v.size):
             self.output_rand.v = numpy.zeros(self.output.v.shape,

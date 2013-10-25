@@ -219,9 +219,7 @@ class All2AllTanh(All2All):
     """
     def initialize(self):
         self.s_activation = "ACTIVATION_TANH"
-        retval = super(All2AllTanh, self).initialize()
-        if retval:
-            return retval
+        super(All2AllTanh, self).initialize()
         self.output.supposed_maxvle = 1.7159
 
     def get_weights_amplitude(self):
@@ -278,9 +276,7 @@ class All2AllSoftmax(All2All):
         global this_dir
         self.cl_sources_["%s/softmax.cl" % (config.cl_dir)] = (
             "#define itype %s" % (itype))
-        retval = super(All2AllSoftmax, self).initialize()
-        if retval:
-            return retval
+        super(All2AllSoftmax, self).initialize()
 
         if self.max_idx.v == None or \
            self.max_idx.v.size != self.output.v.shape[0]:

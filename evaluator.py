@@ -66,7 +66,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
         if (self.labels.v.dtype != config.itypes[itype] or
             self.labels.v.dtype != self.max_idx.v.dtype):
-            raise error.ErrBadFormat("Uncorrectly set labels.dtype "
+            raise error.ErrBadFormat("Incorrectly set labels.dtype "
                                      "(probably in Loader).")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
