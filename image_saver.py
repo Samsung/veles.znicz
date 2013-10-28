@@ -144,7 +144,7 @@ class ImageSaver(units.Unit):
             offs = (xyt.shape[1] - x.shape[1]) >> 1
             xyt[:x.shape[0], offs:offs + x.shape[1]] = x[:, :]
             img = xyt[:x.shape[0], offs:offs + x.shape[1]]
-            img *= -1.0
+            #img *= -1.0
             img += 1.0
             img *= 127.5
             numpy.clip(img, 0, 255, img)
@@ -154,7 +154,7 @@ class ImageSaver(units.Unit):
                     offs:offs + y.shape[1]] = y[:, :]
                 img = xyt[x.shape[0]:x.shape[0] + y.shape[0],
                           offs:offs + y.shape[1]]
-                img *= -1.0
+                #img *= -1.0
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
@@ -163,7 +163,7 @@ class ImageSaver(units.Unit):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
                 img = xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]]
-                img *= -1.0
+                #img *= -1.0
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)

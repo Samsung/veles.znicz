@@ -36,12 +36,14 @@ import image
 import loader
 import decision
 import image_saver
+import error
 import all2all
 import evaluator
 import gd
 import glymur
 import workflow
 import scipy.io
+import scipy.misc
 import thread_pool
 import threading
 import re
@@ -230,11 +232,12 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Will search for a negative set")
             # Saving the old negative set
             self.log().info("Saving the old negative set")
-            for i, l in enumerate(self.original_labels):
+            for i in self.shuffled_indexes:
+                l = self.original_labels[i]
                 if l:
                     continue
                 old_negative_data.append(self.original_data[i].copy())
-                old_file_map.append(self.file_map[self.shuffled_indexes[i]])
+                old_file_map.append(self.file_map[i])
             self.original_data = None
             self.original_labels = None
             self.shuffled_indexes = None
@@ -420,11 +423,23 @@ class Loader(loader.FullBatchLoader):
             self.w_neg.loader.original_labels = None
             self.w_neg.loader.shuffled_indexes = None
             self.w_neg = None
+            nn = len(self.original_data)
+            # Saving extracted negative samples
+            dirnme = "%s/found_negative_images" % (config.cache_dir)
+            self.log().info("Dumping found negative images to %s" % (dirnme))
+            try:
+                os.mkdir(dirnme)
+            except OSError:
+                pass
+            for i in range(n):
+                fnme = "%s/%d.png" % (dirnme, nn + i)
+                scipy.misc.imsave(fnme, self.as_image(data[i]))
+            self.log().info("Done")
+            #
             self.original_data = numpy.append(self.original_data, data[:n],
                                               axis=0)
             self.original_labels = numpy.append(self.original_labels, lbls[:n],
                                                 axis=0)
-            nn = len(self.original_data)
             for i in range(n):
                 self.file_map[nn + i] = file_map[idxs[i]]
             del(file_map)
@@ -435,6 +450,20 @@ class Loader(loader.FullBatchLoader):
 
         # Randomly generate validation set from train.
         self.extract_validation_from_train()
+
+        # Saving all the samples
+        self.log().info("Dumping all the samples to %s" % (config.cache_dir))
+        for i in self.shuffled_indexes:
+            l = self.original_labels[i]
+            dirnme = "%s/%03d" % (config.cache_dir, l)
+            try:
+                os.mkdir(dirnme)
+            except OSError:
+                pass
+            fnme = "%s/%d.png" % (dirnme, i)
+            scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
+        self.log().info("Done")
+        #
 
         self.log().info("class_samples=[%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
@@ -479,6 +508,7 @@ class Loader(loader.FullBatchLoader):
         w_neg.loader.shuffle = w_neg.loader.nothing
         w_neg.loader.shuffle_train = w_neg.loader.nothing
         w_neg.loader.shuffle_validation_train = w_neg.loader.nothing
+        w_neg.decision.on_snapshot = w_neg.decision.nothing
         w_neg.saver.minibatch_size = w_neg.loader.minibatch_size
         w_neg.end_point.link_from(w_neg.saver)
         w_neg.rpt.link_from(w_neg.saver)
@@ -488,6 +518,7 @@ class Loader(loader.FullBatchLoader):
         w_neg.end_point.link_from(w_neg.saver)
         for gd in w_neg.gd:
             gd.unlink()
+        w_neg.start_point.initialize_dependent()
         w_neg.run()
 
         n = 0
@@ -501,6 +532,28 @@ class Loader(loader.FullBatchLoader):
                     n += 1
                 i += 1
         return n
+
+    def as_image(self, x):
+        if len(x.shape) == 2:
+            x = x.copy()
+        elif len(x.shape) == 3:
+            if x.shape[2] == 3:
+                x = x.copy()
+            elif x.shape[0] == 3:
+                xx = numpy.empty([x.shape[1], x.shape[2], 3],
+                                 dtype=x.dtype)
+                xx[:, :, 0:1] = x[0:1, :, :].reshape(
+                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
+                xx[:, :, 1:2] = x[1:2, :, :].reshape(
+                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
+                xx[:, :, 2:3] = x[2:3, :, :].reshape(
+                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
+                x = xx
+            else:
+                raise error.ErrBadFormat()
+        else:
+            raise error.ErrBadFormat()
+        return formats.norm_image(x, True)
 
 
 class Workflow(workflow.NNWorkflow):
@@ -675,6 +728,7 @@ class Workflow(workflow.NNWorkflow):
             self.loader.shuffle_validation_train = self.loader.nothing
             #self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
             #self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
+            self.decision.on_snapshot = self.decision.nothing
             self.saver.vectors_to_save["y"] = self.forward[-1].output
             self.saver.vectors_to_save["l"] = self.loader.minibatch_labels
             self.saver.flush = self.decision.epoch_ended

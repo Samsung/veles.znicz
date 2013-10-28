@@ -113,26 +113,37 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
 
-    def init_unpickled(self):
-        super(Decision, self).init_unpickled()
-        self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
-        self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
-        self.epoch_n_err_pt = [100.0, 100.0, 100.0]
-
     def initialize(self):
+        # Reset errors
+        self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
+        self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]
+        self.epoch_n_err_pt[:] = [100.0, 100.0, 100.0]
+        for i in range(3):
+            self.on_reset_statistics(i)
+
         # Allocate arrays for confusion matrixes.
         if (self.minibatch_confusion_matrix != None and
             self.minibatch_confusion_matrix.v != None):
             for i in range(0, len(self.confusion_matrixes)):
-                self.confusion_matrixes[i] = (
-                    numpy.zeros_like(self.minibatch_confusion_matrix.v))
+                if (self.confusion_matrixes[i] == None or
+                    self.confusion_matrixes[i].size !=
+                    self.minibatch_confusion_matrix.v.size):
+                    self.confusion_matrixes[i] = (
+                        numpy.zeros_like(self.minibatch_confusion_matrix.v))
+                else:
+                    self.confusion_matrixes[i][:] = 0
 
         # Allocate arrays for epoch metrics.
         if (self.minibatch_metrics != None and
             self.minibatch_metrics.v != None):
             for i in range(0, len(self.epoch_metrics)):
-                self.epoch_metrics[i] = (
-                    numpy.zeros_like(self.minibatch_metrics.v))
+                if (self.epoch_metrics[i] == None or
+                    self.epoch_metrics[i].size !=
+                    self.minibatch_metrics.v.size):
+                    self.epoch_metrics[i] = (
+                        numpy.zeros_like(self.minibatch_metrics.v))
+                else:
+                    self.epoch_metrics[i][:] = 0
 
         # Allocate vectors for storing samples mse.
         for i in range(0, len(self.epoch_samples_mse)):
@@ -146,6 +157,9 @@ class Decision(units.Unit):
                 self.epoch_samples_mse[i].v = (
                     numpy.zeros(self.class_samples[i],
                     dtype=config.dtypes[config.dtype]))
+            else:
+                self.tmp_epoch_samples_mse[i].v[:] = 0
+                self.epoch_samples_mse[i].v[:] = 0
 
         # Initialize sample_input, sample_output, sample_target if neccessary
         if self.workflow.forward[0].input in self.vectors_to_sync:
@@ -291,7 +305,7 @@ class Decision(units.Unit):
             self.minibatch_metrics.v[:] = 0
             self.minibatch_metrics.v[2] = 1.0e30
             self.minibatch_metrics.update()
-        if (len(self.epoch_samples_mse) >= minibatch_class and
+        if (len(self.epoch_samples_mse) > minibatch_class and
             self.epoch_samples_mse[minibatch_class] != None and
             self.epoch_samples_mse[minibatch_class].v != None):
             self.epoch_samples_mse[minibatch_class].v[:] = (
