@@ -255,7 +255,7 @@ class Workflow(workflow.NNWorkflow):
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
         super(Workflow, self).initialize(device=device)
-        return self.start_point.initialize_dependent()
+        return self.start_point.initialize_recursively()
 
 
 def main():

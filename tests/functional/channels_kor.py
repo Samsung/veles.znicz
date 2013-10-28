@@ -687,7 +687,7 @@ class Workflow(workflow.NNWorkflow):
             self.end_point.link_from(self.plt_mx[-1])
             for gd in self.gd:
                 gd.unlink()
-        return self.start_point.initialize_dependent()
+        return self.start_point.initialize_recursively()
 
 
 class Saver(units.Unit):

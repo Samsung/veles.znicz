@@ -261,12 +261,12 @@ class model_WF_wine(units.Pickleable):
         self.gd1.global_lambda = _t['global_lambda']
         logging.info()
         logging.info("Initializing...")
-        self.start_point.initialize_dependent()
+        self.start_point.initialize_recursively()
         self.end_point.wait()
         # for l in self.t.labels.batch:
         #    self.log().debug(l)
         # sys.exit()
         logging.info()
         logging.info("Running...")
-        self.start_point.run_dependent()
+        self.start_point.run_recursively()
         self.end_point.wait()

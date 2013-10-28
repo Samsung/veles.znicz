@@ -204,7 +204,7 @@ class Workflow(units.OpenCLUnit):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        retval = self.start_point.initialize_dependent()
+        retval = self.start_point.initialize_recursively()
         if retval:
             return retval
 
@@ -215,7 +215,7 @@ class Workflow(units.OpenCLUnit):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        retval = self.start_point.run_dependent()
+        retval = self.start_point.run_recursively()
         if retval:
             return retval
         self.end_point.wait()

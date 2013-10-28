@@ -216,7 +216,7 @@ class Workflow(workflow.NNWorkflow):
         for forward in self.forward:
             forward.device = device
         self.ev.device = device
-        return self.start_point.initialize_dependent()
+        return self.start_point.initialize_recursively()
 
 
 def main():

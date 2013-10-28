@@ -228,7 +228,7 @@ class Workflow(workflow.NNWorkflow):
             gd.global_lambda = global_lambda
         for forward in self.forward:
             forward.device = device
-        return self.start_point.initialize_dependent()
+        return self.start_point.initialize_recursively()
 
 
 def main():
