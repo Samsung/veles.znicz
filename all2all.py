@@ -61,8 +61,8 @@ class All2All(units.OpenCLUnit):
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.krn_ = None
         self.cl_sources_["%s/forward.cl" % (config.cl_dir)] = ""
+        self.krn_ = None
 
     def get_weights_amplitude(self):
         """
@@ -77,6 +77,8 @@ class All2All(units.OpenCLUnit):
                 (self.input.v.size // self.input.v.shape[0]))
 
     def initialize(self):
+        super(All2All, self).initialize()
+
         if self.weights_amplitude == None:
             # Get weights amplitude and cap it to 0.05
             self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
@@ -119,7 +121,7 @@ class All2All(units.OpenCLUnit):
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
 
-        if not self.device:
+        if self.device == None:
             return
 
         if self.krn_ == None:
@@ -278,15 +280,15 @@ class All2AllSoftmax(All2All):
             "#define itype %s" % (itype))
         super(All2AllSoftmax, self).initialize()
 
-        if self.max_idx.v == None or \
-           self.max_idx.v.size != self.output.v.shape[0]:
+        if (self.max_idx.v == None or
+            self.max_idx.v.size != self.output.v.shape[0]):
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
                 dtype=config.itypes[itype])
             self.max_idx.v_ = None
 
         self.max_idx.initialize(self.device)
 
-        if not self.device:
+        if self.device == None:
             return
 
         self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
