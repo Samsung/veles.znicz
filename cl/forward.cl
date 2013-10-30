@@ -13,7 +13,7 @@
 
 /// @brief Feeds the layer with activation function:
 ///        linear activation: x;
-///        scaled tanh activation: 1.7159 * tanh(0.6666 * x)),
+///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
 ///        because: f(1) = 1, f(-1) = -1 and f"(x) maximum at x = 1.
 /// @param h input.
 /// @param weights weights.

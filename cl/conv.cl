@@ -1,30 +1,36 @@
 /*
  * Kernels for convolutional network.
+ * FIXME(a.kazantsev): due to the unified cache on GeForce Titan and higher
+ *                     we can safely implement convolutional network via matrix multiplications.
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
 
-//Should be declared externally:
-//#define BLOCK_SIZE 16
-//#define BATCH 178
-//#define H 13
-//#define Y 5
 
-
-/// @brief Feeds the layer with activation function:
+/// @brief Feeds 2D multichannel convolutional layer with activation function:
 ///        linear activation: x;
-///        scaled tanh activation: 1.7159 * tanh(0.6666 * x)),
+///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
 ///        because: f(1) = 1, f(-1) = -1 and f"(x) maximum at x = 1.
-/// @param h input.
+/// @param h input as 2D image with interleaved channels.
 /// @param weights weights.
 /// @param y output.
 /// @param bias bias.
 /// @details y = f(h * weights + bias)
+///          Should be defined externally:
+///          FIXME(a.kazantsev): for performance reasons defines are better than parameters.
+///          BLOCK_SIZE - optimal block size for matrix multiplication,
+///          BATCH - minibatch size,
+///          WIDTH - input width,
+///          HEIGHT - input height,
+///          N_CHANNELS - number of input channels,
+///          KERNEL_WIDTH - width of the sliding window,
+///          KERNEL_HEIGHT - height of the sliding window,
+///          N_KERNELS - number of convolutional kernels which is the same as number of neurons.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void FEED_LAYER(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
                 __global c_dtype /*OUT*/ *y, __global c_dtype /*IN*/ *bias) {
-  #define A_WIDTH BATCH
-  #define B_WIDTH Y
-  #define AB_COMMON H
+  #define A_WIDTH (BATCH * (WIDTH - KERNEL_WIDTH + 1) * (HEIGHT - KERNEL_HEIGHT + 1))
+  #define B_WIDTH N_KERNELS
+  #define AB_COMMON (KERNEL_WIDTH * KERNEL_HEIGHT * N_CHANNELS)
 
   #define A h
   #define B weights
@@ -93,6 +99,9 @@ void FEED_LAYER(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
     sum[i_sum] = c_from_re(0);
     for (int i = AB_COMMON / BLOCK_SIZE * i_sum / N_SUM; i < AB_COMMON / BLOCK_SIZE * (i_sum + 1) / N_SUM; i++,
          a_offs += A_OFFS, b_offs += B_OFFS) {
+
+      // TODO(a.kazantsev): adjust offsets here.
+
       AS[ty][tx] = A[a_offs];
       BS[ty][tx] = B[b_offs];
 
