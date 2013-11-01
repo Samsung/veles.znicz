@@ -22,7 +22,7 @@
 
 class CommonTest
     : public ::testing::Test,
-      public Veles::DefaultLogger<CommonTest, Veles::Logger::COLOR_RED> {
+      public veles::DefaultLogger<CommonTest, veles::Logger::COLOR_RED> {
  protected:
   static const float kValueZero;
   static const float kValueOne;
@@ -37,10 +37,10 @@ class CommonTest
     return ptr;
   }
 
-  std::shared_ptr<Veles::Unit> CreateUnit(const std::string& name) const {
-    std::shared_ptr<Veles::Unit> unit;
+  std::shared_ptr<veles::Unit> CreateUnit(const std::string& name) const {
+    std::shared_ptr<veles::Unit> unit;
     try {
-      unit = Veles::UnitFactory::Instance()[name]();
+      unit = veles::UnitFactory::Instance()[name]();
     }
     catch(const std::exception& e) {
       ERR("Failed to create an unit using a factory."
@@ -50,7 +50,7 @@ class CommonTest
     return unit;
   }
 
-  static void InitializeUnit(std::shared_ptr<Veles::Unit> unit,
+  static void InitializeUnit(std::shared_ptr<veles::Unit> unit,
                              size_t inputs, size_t outputs,
                              float* weights = nullptr, float* bias = nullptr) {
     auto weights_array = CreateFloatArray(inputs * outputs);

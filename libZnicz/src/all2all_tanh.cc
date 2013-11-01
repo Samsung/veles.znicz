@@ -17,8 +17,8 @@
 #include <veles/make_unique.h>
 #include "src/all2all_tanh.h"
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 std::string All2AllTanh::Name() const noexcept {
   return "All2AllTanh";
@@ -35,5 +35,5 @@ void All2AllTanh::ApplyActivationFunction(float* data, size_t length) const {
 
 REGISTER_UNIT(All2AllTanh);
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles

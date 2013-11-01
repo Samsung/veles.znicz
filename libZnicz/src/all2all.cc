@@ -19,8 +19,8 @@
 #include "src/attribute.h"
 #include "src/all2all.h"
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 All2All::All2All() : setters_ {
   {"weights", Attribute::GetSetter(&weights_)},
@@ -53,5 +53,5 @@ void All2All::Execute(const float* in, float* out) const {
   ApplyActivationFunction(out, output_count);
 }
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles

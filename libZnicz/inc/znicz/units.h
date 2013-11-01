@@ -19,8 +19,8 @@
 #pragma GCC visibility push(default)
 #endif
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 class All2AllTanh;
 class All2AllSoftmax;
@@ -30,8 +30,8 @@ DECLARE_UNIT(All2AllLinear);
 DECLARE_UNIT(All2AllSoftmax);
 DECLARE_UNIT(All2AllTanh);
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles
 
 #if __GNUC__ >= 4
 #pragma GCC visibility pop

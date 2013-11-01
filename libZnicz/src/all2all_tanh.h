@@ -19,8 +19,8 @@
 #pragma GCC visibility push(default)
 #endif
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 /** @brief "All to all" neural network layer with Tanh activation function
  */
@@ -49,8 +49,8 @@ class All2AllTanh : public All2All {
 
 DECLARE_UNIT(All2AllTanh);
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles
 
 #if __GNUC__ >= 4
 #pragma GCC visibility pop

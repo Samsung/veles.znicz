@@ -21,8 +21,8 @@
 #include <veles/unit.h>
 #include <veles/unit_factory.h>
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 /** @brief "All to all" neural network layer
  */
@@ -68,7 +68,7 @@ class All2All : public Unit {
   size_t bias_length_;
 };
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles
 
 #endif  // SRC_ALL2ALL_H_

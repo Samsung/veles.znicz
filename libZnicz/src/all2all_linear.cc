@@ -12,8 +12,8 @@
 
 #include "src/all2all_linear.h"
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 std::string All2AllLinear::Name() const noexcept {
   return "All2All";
@@ -21,5 +21,5 @@ std::string All2AllLinear::Name() const noexcept {
 
 REGISTER_UNIT(All2AllLinear);
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles

@@ -23,7 +23,7 @@
 using std::string;
 using std::static_pointer_cast;
 
-namespace Veles {
+namespace veles {
 
 class WorkflowLoaderTest : public ::testing::Test, public WorkflowLoader {
  public:
@@ -189,7 +189,7 @@ TEST_F(WorkflowLoaderTest, MainTest) {
   ASSERT_EQ(size_t(2400/4), *std::static_pointer_cast<size_t>(
       testUnitAll2All.Properties.at("output_length")));
 
-  DBG("Before Znicz::Execute.\n\n");
+  DBG("Before znicz::Execute.\n\n");
   const size_t pxNumber = 784;  // Number of pixels in image
   const size_t imgNumber = 60;  // batch contents 60 frames
   const size_t digitNumber = 10;  // Number of digits
@@ -231,6 +231,6 @@ TEST_F(WorkflowLoaderTest, Chrono) {
 }
 */
 
-}  // namespace Veles
+}  // namespace veles
 
 #include "tests/google/src/gtest_main.cc"

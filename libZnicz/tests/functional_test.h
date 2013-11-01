@@ -26,9 +26,9 @@ class WorkflowTest : public CommonTest {
   static const size_t kOutputsTanh;
 
   virtual void SetUp() override;
-  std::shared_ptr<Veles::Workflow> workflow() {
+  std::shared_ptr<veles::Workflow> workflow() {
     if (!workflow_) {
-      workflow_ = std::make_shared<Veles::Workflow>();
+      workflow_ = std::make_shared<veles::Workflow>();
     }
     return workflow_;
   }
@@ -46,7 +46,7 @@ class WorkflowTest : public CommonTest {
   }
 
  private:
-  std::shared_ptr<Veles::Workflow> workflow_;
+  std::shared_ptr<veles::Workflow> workflow_;
   std::shared_ptr<float> input_;
   std::shared_ptr<float> output_;
 };

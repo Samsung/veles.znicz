@@ -49,7 +49,7 @@ class All2AllTest : public CommonTest {
     }
   }
 
-  std::shared_ptr<Veles::Unit> unit() const {
+  std::shared_ptr<veles::Unit> unit() const {
     if (!unit_) {
       unit_ = CreateUnit(name_);
     }
@@ -69,7 +69,7 @@ class All2AllTest : public CommonTest {
   }
 
  private:
-  mutable std::shared_ptr<Veles::Unit> unit_;
+  mutable std::shared_ptr<veles::Unit> unit_;
   std::shared_ptr<float> input_;
   std::shared_ptr<float> output_;
   std::string name_;

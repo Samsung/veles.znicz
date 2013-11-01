@@ -16,7 +16,7 @@
 #include "src/all2all_tanh.h"
 
 TEST_P(All2AllEmptyConstruction, EmptyConstruction) {
-  std::shared_ptr<Veles::Unit> unit(CreateUnit(name()));
+  std::shared_ptr<veles::Unit> unit(CreateUnit(name()));
   EXPECT_EQ(name(), unit->Name());
   EXPECT_EQ(kValueZero, unit->InputCount());
   EXPECT_EQ(kValueZero, unit->OutputCount());

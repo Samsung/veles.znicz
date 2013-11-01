@@ -18,8 +18,8 @@
 #include <veles/make_unique.h>
 #include "src/all2all_softmax.h"
 
-namespace Veles {
-namespace Znicz {
+namespace veles {
+namespace znicz {
 
 std::string All2AllSoftmax::Name() const noexcept {
   return "All2AllSoftmax";
@@ -44,5 +44,5 @@ void All2AllSoftmax::ApplyActivationFunction(float* data, size_t length) const {
 
 REGISTER_UNIT(All2AllSoftmax);
 
-}  // namespace Znicz
-}  // namespace Veles
+}  // namespace znicz
+}  // namespace veles
