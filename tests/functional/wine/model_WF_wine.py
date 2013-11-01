@@ -1,27 +1,28 @@
-'''
+"""
 Created on Apr 19, 2013
-model use always dataset in the txt format 
+model use always dataset in the txt format
 
 (data parameters is  in the  separate configuration file data.
  need to write a module configuration file read data
  need to write a reader txt files in any format.
 )
 
-Example wine data set -13 paramets input.  3 class outputs / 178 samples( all dataset and train and test)
+Example wine data set -13 paramets input.  3 class outputs / 178 samples (all
+dataset and train and test)
 Fixed structure NN (5[Tanh]-3[SoftMax])
 
 All train set is in the train-batch BP methods
-(simple)  (type of operation (surgery or criterion) must be specified in the configuration file jobs)
+(simple)  (type of operation (surgery or criterion) must be specified
+in the configuration file jobs)
 
 Criterion of learning is to remember all. (-"-)
-  
+
 Result is in the serialize (-"-)
 
 no testing for test data set. (-"-)
 
 @author: Seresov Denis <d.seresov@samsung.com>
-
-'''
+"""
 import units
 import opencl
 import loader
@@ -31,12 +32,13 @@ import evaluator
 import gd
 import repeater
 import units_end_point
-import rnd
 import numpy
 import plotters
 
+
 def strf(x):
     return "%.4f" % (x)
+
 
 class model_WF_wine(units.Pickleable):
     """UUseCaseTxt.
@@ -57,7 +59,8 @@ class model_WF_wine(units.Pickleable):
         self.param = param
 
         # rnd.default.seed(numpy.fromfile("seed", numpy.integer, 1024))
-        numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))  # сделать считывание из конфига
+        # TODO(d.seresov): get it from config service
+        numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))
         dev = None
         if not cpu:
             self.device_list = opencl.DeviceList()
@@ -65,7 +68,6 @@ class model_WF_wine(units.Pickleable):
 
         # Setup notification flow
         self.start_point = units.Unit()
-
 
         # self.log().debug(self.config_data_seta)
         # self.log().debug(self.config_datasa)
@@ -88,7 +90,6 @@ class model_WF_wine(units.Pickleable):
         out = all2all.All2AllSoftmax(output_shape=[3], device=dev)
         out.input = aa1.output
         out.link_from(aa1)
-
 
         ev = evaluator.EvaluatorSoftmax2(device=dev)
         ev.y = out.output
@@ -157,7 +158,8 @@ class model_WF_wine(units.Pickleable):
 
         rpt.link_from(gd1)
 
-        self.end_point = units_end_point.EndPoint(self, self.do_log, (out, gdsm, gd1))
+        self.end_point = units_end_point.EndPoint(self, self.do_log,
+                                                  (out, gdsm, gd1))
         self.end_point.status = ev.status
         self.end_point.link_from(ev)
         gdsm.link_from(self.end_point)
@@ -186,7 +188,8 @@ class model_WF_wine(units.Pickleable):
             flog.write("\n")
         flog.write("\nSoftMax layer bias:\n")
         flog.write(" ".join(strf(x) for x in out.bias.v))
-        flog.write("\n(min, max)(input, output, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
+        flog.write("\n(min, max)(input, output, weights, bias) = "
+                   "((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
                    (out.input.batch.min(), out.input.batch.max(), \
                     out.output.batch.min(), out.output.batch.max(), \
                     out.weights.v.min(), out.weights.v.max(), \
@@ -210,14 +213,14 @@ class model_WF_wine(units.Pickleable):
             flog.write("\n")
         flog.write("\nGD SoftMax bias:\n")
         flog.write(" ".join(strf(x) for x in gdsm.bias.v))
-        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
+        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), "
+                   "(%f, %f), (%f, %f), (%f, %f)\n" % \
                    (gdsm.err_y.batch.min(), gdsm.err_y.batch.max(), \
                     gdsm.err_h.batch.min(), gdsm.err_h.batch.max(), \
                     gdsm.weights.v.min(), gdsm.weights.v.max(), \
                     gdsm.bias.v.min(), gdsm.bias.v.max()))
         flog.write("\n")
         flog.close()
-
 
         flog = open("logs/gd1.log", "a")
         flog.write("Iteration %d" % (self.end_point.n_passes))
@@ -235,7 +238,8 @@ class model_WF_wine(units.Pickleable):
             flog.write("\n")
         flog.write("\nGD1 bias:\n")
         flog.write(" ".join(strf(x) for x in gd1.bias.v))
-        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), (%f, %f), (%f, %f), (%f, %f)\n" % \
+        flog.write("\n(min, max)(err_y, err_h, weights, bias) = ((%f, %f), "
+                   "(%f, %f), (%f, %f), (%f, %f)\n" % \
                    (gd1.err_y.batch.min(), gd1.err_y.batch.max(), \
                     gd1.err_h.batch.min(), gd1.err_h.batch.max(), \
                     gd1.weights.v.min(), gd1.weights.v.max(), \
@@ -243,14 +247,12 @@ class model_WF_wine(units.Pickleable):
         flog.write("\n")
         flog.close()
 
-
-
     def run(self):
-
-        _t = self.param['train_param']  # считаю что структуру param с параметрами прочли или она сериализована
+        # Assume that train_param already exists at this point
+        _t = self.param['train_param']
         logging.debug(_t)
         logging.debug(" WF WINE RUN START")
-        # Start the process:
+        # Start the process
         self.sm.threshold = _t['threshold']
         self.sm.threshold_low = _t['threshold_low']
         self.ev.threshold = _t['threshold']
@@ -261,12 +263,12 @@ class model_WF_wine(units.Pickleable):
         self.gd1.global_lambda = _t['global_lambda']
         logging.info()
         logging.info("Initializing...")
-        self.start_point.initialize_recursively()
+        self.start_point.initialize_dependent()
         self.end_point.wait()
         # for l in self.t.labels.batch:
         #    self.log().debug(l)
         # sys.exit()
         logging.info()
         logging.info("Running...")
-        self.start_point.run_recursively()
+        self.start_point.run_dependent()
         self.end_point.wait()

@@ -232,7 +232,7 @@ class Workflow(workflow.NNWorkflow):
             forward.device = device
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
-        return self.start_point.initialize_recursively()
+        return self.start_point.initialize_dependent()
 
     def run(self, weights, bias):
         if weights != None:

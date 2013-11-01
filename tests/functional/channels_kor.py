@@ -497,7 +497,7 @@ class Loader(loader.FullBatchLoader):
         w_neg.loader.class_samples[1] = 0
         w_neg.loader.class_samples[2] = len(data)
 
-        w_neg.decision.unlink_all()
+        w_neg.decision.unlink_from_all()
         w_neg.decision.link_from(w_neg.ev)
         for f in w_neg.forward:
             f.device = w_neg.device
@@ -517,7 +517,7 @@ class Loader(loader.FullBatchLoader):
         w_neg.end_point.gate_block_not = [1]
         w_neg.end_point.link_from(w_neg.saver)
         for gd in w_neg.gd:
-            gd.unlink_all()
+            gd.unlink_from_all()
         w_neg.start_point.initialize_dependent()
         w_neg.run()
 
@@ -718,7 +718,7 @@ class Workflow(workflow.NNWorkflow):
         for forward in self.forward:
             forward.device = device
         if self.__dict__.get("saver") != None:
-            self.saver.unlink_all()
+            self.saver.unlink_from_all()
             self.saver = None
         if len(dump):
             self.saver = Saver(fnme=dump)
@@ -740,8 +740,8 @@ class Workflow(workflow.NNWorkflow):
             self.end_point.gate_block_not = [1]
             self.end_point.link_from(self.plt_mx[-1])
             for gd in self.gd:
-                gd.unlink_all()
-        return self.start_point.initialize_recursively()
+                gd.unlink_from_all()
+        return self.start_point.initialize_dependent()
 
 
 class Saver(units.Unit):
@@ -922,6 +922,10 @@ def main():
             w_neg.device = device
             raise IOError()
     except IOError:
+        if (args.find_negative > 0 and w_neg == None):
+            logging.error("Valid snapshot should be provided if "
+                          "find_negative supplied. Will now exit.")
+            return
         w = Workflow(layers=layers, device=device)
     w.initialize(global_alpha=args.global_alpha,
                  global_lambda=args.global_lambda,

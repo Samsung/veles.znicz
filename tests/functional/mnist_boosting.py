@@ -160,7 +160,7 @@ class Workflow(workflow.NNWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_recursively()
+        return self.start_point.initialize_dependent()
 
     def run(self, weights, bias):
         for i in range(0, len(weights)):

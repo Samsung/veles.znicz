@@ -9,8 +9,8 @@ import numpy
 import config
 import workflow
 import rnd
-
 from config import getConfig, sconfig
+
 
 class Loader(loader.FullBatchLoader):
     """Loads Wine dataset.
@@ -21,20 +21,19 @@ class Loader(loader.FullBatchLoader):
         #read names file dataset
         self.loader_use_seed = getConfig(sconfig.loader.use_seed, 0)
         self.loader_rnd_seed = getConfig(sconfig.loader.rnd_seed, "")
-        self.loader_minibatch_size = getConfig(sconfig.loader.minibatch_size, 100)
+        self.loader_minibatch_size = getConfig(sconfig.loader.minibatch_size,
+                                               100)
 
         if self.loader_use_seed == 1:
-            self.rnd = rnd.Rand();
-            self.rnd.seed(numpy.fromfile(self.loader_rnd_seed, numpy.int32, 1024))
+            self.rnd = rnd.Rand()
+            self.rnd.seed(numpy.fromfile(self.loader_rnd_seed, numpy.int32,
+                                         1024))
         else:
-            self.rnd = rnd.Rand();
+            self.rnd = rnd.Rand()
             self.rnd.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
 
-
         super(Loader, self).__init__(
-                                     minibatch_max_size=self.loader_minibatch_size,
-                                     rnd=self.rnd)
-
+            minibatch_max_size=self.loader_minibatch_size, rnd=self.rnd)
 
     def load_data(self):
         """Here we will load MNIST data.
@@ -79,6 +78,7 @@ class Loader(loader.FullBatchLoader):
 
         self.total_samples[0] = self.original_data.shape[0]
 
+
 class Workflow(workflow.NNWorkflow):
     """Sample workflow for MNIST dataset.
     """
@@ -97,7 +97,6 @@ class Workflow(workflow.NNWorkflow):
         self.snapshot_prefix = getConfig(sconfig.snapshot_prefix, 'test_pr')
         self.snapshot = getConfig(sconfig.snapshot, 'test')
 
-
         self.nn_layers = getConfig(sconfig.wf_nn.layers, 0)
         self.weights_amplitude = getConfig(
                         sconfig.wf_nn.weights_amplitude, None)
@@ -113,7 +112,6 @@ class Workflow(workflow.NNWorkflow):
          default use wf_nn.weights_amplitude = None and use method=0
         """
 
-
         self.wf_nn_train_fail_iterations = getConfig(
                         sconfig.wf_nn_train.fail_iterations, 25)
         self.train_global_alpha = getConfig(
@@ -124,8 +122,6 @@ class Workflow(workflow.NNWorkflow):
         self.train_momentum = getConfig(
                         sconfig.wf_nn_train.momentum, 0.9)
 
-
-
         self.wf_nn_use_seed = getConfig(sconfig.wf_nn.use_seed, 0)
         self.wf_nn_rnd_seed = getConfig(sconfig.wf_nn.rnd_seed, "")
 
@@ -133,14 +129,12 @@ class Workflow(workflow.NNWorkflow):
                         sconfig.wf_nn_train.compute_confusion_matrix, 1)
         """ (not work) """
 
-
         # initialization device ... may be refactor
-        self.device = sconfig.device;
+        self.device = sconfig.device
 
         # validation errors parameters
         if self.nn_layers == 0:
             print('error NN layers')
-
 
         # initialization random generator for nn
         # need  be connected to random weigths
@@ -153,11 +147,8 @@ class Workflow(workflow.NNWorkflow):
             self.rnd.seed(numpy.fromfile(
                         "/dev/urandom", numpy.int32, 1024))
 
-
-
         #self.device = args.device
         #self.args.snapshot_prefix =args.snapshot_prefix; #'wine'
-
 
         super(Workflow, self).__init__(device=self.device)
 
@@ -249,4 +240,4 @@ class Workflow(workflow.NNWorkflow):
             gd.global_alpha = self.train_global_alpha
             gd.global_lambda = self.train_global_lambda
         super(Workflow, self).initialize(device=self.device)
-        return self.start_point.initialize_recursively()
+        return self.start_point.initialize_dependent()
