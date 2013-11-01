@@ -100,10 +100,11 @@ void FEED_LAYER(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
     for (int i = AB_COMMON / BLOCK_SIZE * i_sum / N_SUM; i < AB_COMMON / BLOCK_SIZE * (i_sum + 1) / N_SUM; i++,
          a_offs += A_OFFS, b_offs += B_OFFS) {
 
-      // TODO(a.kazantsev): adjust offsets here.
+      int ao = a_offs,
+          bo = b_offs; // TODO(a.kazantsev): continue here.
 
-      AS[ty][tx] = A[a_offs];
-      BS[ty][tx] = B[b_offs];
+      AS[ty][tx] = A[ao];
+      BS[ty][tx] = B[bo];
 
       // ensure all shared loaded
       barrier(CLK_LOCAL_MEM_FENCE);
