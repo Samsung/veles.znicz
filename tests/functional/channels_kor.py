@@ -232,16 +232,24 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Will search for a negative set")
             # Saving the old negative set
             self.log().info("Saving the old negative set")
+            n_not_exists_anymore = 0
             for i in self.shuffled_indexes:
                 l = self.original_labels[i]
                 if l:
+                    continue
+                try:
+                    fin = open(self.file_map[i], "rb")
+                    fin.close()
+                except IOError:
+                    n_not_exists_anymore += 1
                     continue
                 old_negative_data.append(self.original_data[i].copy())
                 old_file_map.append(self.file_map[i])
             self.original_data = None
             self.original_labels = None
             self.shuffled_indexes = None
-            self.log().info("Done")
+            self.log().info("Done (%d saved, %d not exists anymore)" % (
+                len(old_negative_data), n_not_exists_anymore))
         except FileNotFoundError:
             self.log().info("Failed")
 
