@@ -190,7 +190,7 @@ class DeviceList(units.Pickleable):
         # than the total device RAM.
         return device.get_info(cl.device_info.GLOBAL_MEM_SIZE) * 9 // 10
 
-    def _do_cpu_test(self):
+    def _do_cpu_test(self, cc, key):
         """Pure single core CPU test
         """
         dtype = (numpy.complex128 if self.a.dtype in (
@@ -210,7 +210,7 @@ class DeviceList(units.Pickleable):
         numpy.tanh(c, c)
         c *= 1.7159
         dt = time.time() - t1
-        self.cc = c
+        cc[key] = c
         return dt
 
     def _do_tests(self):
@@ -224,7 +224,8 @@ class DeviceList(units.Pickleable):
                 continue
             break
         else:
-            return 0
+            if not config.retest_devices:
+                return 0
 
         self.log().info("Untested devices found, "
                         "will one-time test that devices performance")
@@ -239,11 +240,12 @@ class DeviceList(units.Pickleable):
             break
 
         inf_processed = set()
+        cc = {}
         for device in self.devices_available:
             if device.info in inf_processed:
                 continue
             for dtype in config.dtypes.keys():
-                if not device.info.rating[dtype]:
+                if not device.info.rating[dtype] or config.retest_devices:
                     break
             else:
                 continue
@@ -251,15 +253,17 @@ class DeviceList(units.Pickleable):
             for dtype in device.info.dt.keys():
                 device.info.dt[dtype] = 86400
             for BLOCK_SIZE in range(32, 3, -1):
-                for dtype in config.dtypes.keys():
+                for dtype in sorted(config.dtypes.keys()):
                     try:
                         self._prepare_tests(BLOCK_SIZE, dtype)
-                        b_numpy = False
-                        if BLOCK_SIZE == 32:
-                            b_numpy = True
+                        key = "%s_%d_%d_%d" % (
+                            "double2" if dtype[-1] == "2"
+                                      else "double", self.AB_WIDTH,
+                            self.B_HEIGHT, self.A_HEIGHT)
+                        if not key in cc.keys():
                             logging.info("Numpy double precision "
                                          "for dtype=%s" % (dtype))
-                            dt = self._do_cpu_test()
+                            dt = self._do_cpu_test(cc, key)
                             logging.info("Done in %.2f seconds" % (dt))
                             if dt < dt_numpy:
                                 dt_numpy = dt
@@ -274,16 +278,13 @@ class DeviceList(units.Pickleable):
                             device.info.BLOCK_SIZE[dtype] = BLOCK_SIZE
                         if dt < min_dt[dtype]:
                             min_dt[dtype] = dt
-                        if b_numpy:
-                            c = self.cc.copy()
-                            c -= self.c
-                            c = numpy.sqrt(numpy.square(numpy.real(c)) +
-                                           numpy.square(numpy.imag(c)))
-                            logging.info("Avg is %.2f seconds, MSE = %.6f, "
-                                  "max_diff = %.6f" %
-                                  (dt, numpy.sum(c) / c.size, c.max()))
-                        else:
-                            logging.info("Avg is %.2f seconds" % (dt))
+                        c = cc[key].copy()
+                        c -= self.c
+                        c = numpy.sqrt(numpy.square(numpy.real(c)) +
+                                       numpy.square(numpy.imag(c)))
+                        logging.info("Avg is %.2f seconds, MSE = %.6f, "
+                                     "max_diff = %.6f" %
+                                     (dt, numpy.sum(c) / c.size, c.max()))
                         self._cleanup_after_tests()
                     except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
                         a, b, c = sys.exc_info()
@@ -292,6 +293,8 @@ class DeviceList(units.Pickleable):
                               "(details in stderr)" % (BLOCK_SIZE, dtype))
                         traceback.print_exception(a, b, c)
                         self._cleanup_after_tests()
+
+        del cc
 
         logging.info("\nRating(numpy double precision): %.4f" % \
               (min_dt[config.dtype] / dt_numpy))
@@ -315,15 +318,13 @@ class DeviceList(units.Pickleable):
         return 1
 
     def _prepare_tests(self, BLOCK_SIZE, dtype):
-        self.AB_WIDTH = 128 * 1024
-        self.B_HEIGHT = 256
-        self.A_HEIGHT = 512
-        if self.AB_WIDTH % BLOCK_SIZE:
-            self.AB_WIDTH += BLOCK_SIZE - self.AB_WIDTH % BLOCK_SIZE
-        if self.B_HEIGHT % BLOCK_SIZE:
-            self.B_HEIGHT += BLOCK_SIZE - self.B_HEIGHT % BLOCK_SIZE
-        if self.A_HEIGHT % BLOCK_SIZE:
-            self.A_HEIGHT += BLOCK_SIZE - self.A_HEIGHT % BLOCK_SIZE
+        self.AB_WIDTH = 65537
+        self.B_HEIGHT = 257
+        self.A_HEIGHT = 511
+        if False:
+            self.AB_WIDTH = formats.roundup(self.AB_WIDTH, BLOCK_SIZE)
+            self.B_HEIGHT = formats.roundup(self.B_HEIGHT, BLOCK_SIZE)
+            self.A_HEIGHT = formats.roundup(self.A_HEIGHT, BLOCK_SIZE)
         logging.info("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (
             self.AB_WIDTH, self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
             self.A_HEIGHT, self.B_HEIGHT))
@@ -347,8 +348,6 @@ class DeviceList(units.Pickleable):
                                      dtype=config.dtypes[dtype])
 
     def _cleanup_after_tests(self):
-        if "cc" in self.__dict__:
-            del(self.cc)
         del(self.c)
         del(self.bias)
         del(self.b)
@@ -403,7 +402,8 @@ class DeviceList(units.Pickleable):
         krn.set_arg(2, c_buf)
         krn.set_arg(3, bias_buf)
 
-        global_size = [self.B_HEIGHT, self.A_HEIGHT]
+        global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
+                       formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
         t1 = time.time()
         # Will skip the first iteration
