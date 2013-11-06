@@ -18,6 +18,13 @@ CPU = 1
 GPU = 2
 
 
+def roundup(num, align):
+    d = num % align
+    if d == 0:
+        return num
+    return num + (align - d)
+
+
 def assert_addr(a, b):
     """Raises an exception if addresses of the supplied arrays differ.
     """
@@ -156,9 +163,7 @@ class Vector(units.Connector):
         device: OpenCL device.
         what_changed: what buffer has changed (CPU or GPU).
         v: numpy array.
-        aligned_: numpy array, aligned to BLOCK_SIZE
-                  for OpenCL matrix multiplication.
-        v_: OpenCL buffer mapped to aligned_.
+        v_: OpenCL buffer mapped to v.
         supposed_maxvle: supposed maximum element value.
 
     Example of how to use:
@@ -176,13 +181,12 @@ class Vector(units.Connector):
     def __init__(self, device=None):
         super(Vector, self).__init__()
         self.device = device
-        self.what_changed = CPU
         self.v = None
         self.supposed_maxvle = 1.0
 
     def init_unpickled(self):
         super(Vector, self).init_unpickled()
-        self.aligned_ = None
+        self.what_changed = CPU
         self.v_ = None
 
     def __getstate__(self):
@@ -204,30 +208,10 @@ class Vector(units.Connector):
             config.convert_map[self.v.dtype] in [
                 config.dtypes[config.dtype], config.dtypes[config.c_dtype]]):
             self.v = self.v.astype(config.convert_map[self.v.dtype])
-        BLOCK_SIZE = self.device.info.BLOCK_SIZE[config.c_dtype]
-        dim1 = self.v.shape[0]
-        n_dims = len(self.v.shape)
-        dim2 = self.v.size // self.v.shape[0]
-        if self.v.dtype in config.dtypes.values() and \
-           ((dim1 % BLOCK_SIZE) or ((n_dims > 1) and (dim2 % BLOCK_SIZE))):
-            b = self.v.reshape([dim1, dim2])
-            d1 = dim1
-            if d1 % BLOCK_SIZE:
-                d1 += BLOCK_SIZE - d1 % BLOCK_SIZE
-            d2 = dim2
-            if (n_dims > 1) and (d2 % BLOCK_SIZE):
-                d2 += BLOCK_SIZE - d2 % BLOCK_SIZE
-            self.aligned_ = aligned_zeros([d1, d2],
-                boundary=self.device.info.memalign, dtype=self.v.dtype)
-            self.aligned_[0:dim1, 0:dim2] = b[0:dim1, 0:dim2]
-            self.v = self.aligned_[0:dim1, 0:dim2].view().reshape(self.v.shape)
-            assert_addr(self.aligned_, self.v)
-        else:
-            self.aligned_ = realign(self.v, self.device.info.memalign)
-            self.v = self.aligned_
+        self.v = realign(self.v, self.device.info.memalign)
         mf = pyopencl.mem_flags
         self.v_ = pyopencl.Buffer(self.device.context_,
-                mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.aligned_)
+            mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.v)
         self.what_changed = 0
 
     def update(self, what_changed=CPU):
@@ -252,13 +236,13 @@ class Vector(units.Connector):
             return
 
     def gpu_2_cpu(self):
-        ev = pyopencl.enqueue_copy(self.device.queue_, self.aligned_, self.v_,
+        ev = pyopencl.enqueue_copy(self.device.queue_, self.v, self.v_,
                                    wait_for=None, is_blocking=False)
         ev.wait()
         self.what_changed = 0
 
     def cpu_2_gpu(self):
-        ev = pyopencl.enqueue_copy(self.device.queue_, self.v_, self.aligned_,
+        ev = pyopencl.enqueue_copy(self.device.queue_, self.v_, self.v,
                                    wait_for=None, is_blocking=False)
         ev.wait()
         self.what_changed = 0
@@ -283,5 +267,4 @@ class Vector(units.Connector):
         """
         self.what_changed = CPU
         self.v = None
-        self.aligned_ = None
         self.v_ = None

@@ -1,17 +1,11 @@
-/*
- * Gradient descent.
- * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
- */
-
-
-//Should be declared externally:
-//#define BLOCK_SIZE 16
-//#define BATCH 178
-//#define H 13
-//#define Y 5
-
-
-/// @brief err_h = err_y * weights
+/// @brief Computes backprogated error for previous layer:
+///        err_h = err_y * weights
+/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
+/// @details Should be defined externally:
+///          BLOCK_SIZE - size of the block for matrix multiplication,
+///          BATCH - minibatch size,
+///          H - input size,
+///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
                   __global c_dtype /*OUT*/ *err_h) {
@@ -41,11 +35,13 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
   #undef B
   #undef C
 
-  err_h[idx] = sum[0];
+  if (valid)
+    err_h[idx] = sum[0];
 }
 
 
 /// @brief Calculate gradient for weights update.
+/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y backpropagated error
 /// @param h layer input
 /// @param weights layer weights
@@ -53,6 +49,11 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 /// @param alpha_batch (-global_alpha / batch_size)
 /// @param alpha_lambda (-global_alpha * global_lambda)
 /// @details gradient = err_y * h * alpha_batch + weights * alpha_lambda
+///          Should be defined externally:
+///          BLOCK_SIZE - size of the block for matrix multiplication,
+///          BATCH - minibatch size,
+///          H - input size,
+///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
                     __global c_dtype /*IO*/ *weights, __global c_dtype /*OUT*/ *gradient,
@@ -88,57 +89,68 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
   #undef B
   #undef C
 
-  c_dtype weight = weights[idx];
-  c_dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
-  #ifdef STORE_GRADIENT
-  gradient[idx] = gd;
-  #endif
-  #ifdef APPLY_GRADIENT
-  weights[idx] = weight + gd;
-  #endif
+  if (valid) {
+    c_dtype weight = weights[idx];
+    c_dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
+    #ifdef STORE_GRADIENT
+    gradient[idx] = gd;
+    #endif
+    #ifdef APPLY_GRADIENT
+    weights[idx] = weight + gd;
+    #endif
+  }
 }
 
 
 /// @brief Calculate gradient for bias update.
+/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param bias layer bias
 /// @param err_y backpropagated error
 /// @param gradient computed gradient to store in if not null
 /// @param alpha_batch (-global_alpha / batch_size)
 /// @details gradient = sum(err_y) * alpha_batch
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+///          Should be defined externally:
+///          BLOCK_SIZE - size of the block for matrix multiplication,
+///          BATCH - minibatch size,
+///          H - input size,
+///          Y - output size.
+__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
                  __global c_dtype /*OUT*/ *gradient, const dtype alpha_batch) {
-  __local c_dtype AS[BLOCK_SIZE][BLOCK_SIZE];
+  __local c_dtype AS[BLOCK_SIZE];
  
   int bx = get_group_id(0); // from 0 to Y / BLOCK_SIZE - 1
- 
   int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
-  int ty = get_local_id(1); // from 0 to BLOCK_SIZE - 1
- 
+
   c_dtype sum = c_from_re(0);
  
-  int offs = get_global_id(0) + ty * Y;
+  int offs = bx + tx * Y;
   for (int i = 0; i < BATCH / BLOCK_SIZE; i++, offs += Y * BLOCK_SIZE) {
     sum += err_y[offs];
   }
+  // Sum the remaining part
+  #if (BATCH % BLOCK_SIZE) != 0
+  if (tx < BATCH % BLOCK_SIZE)
+    sum += err_y[offs];
+  #endif
  
-  AS[ty][tx] = sum;
+  AS[tx] = sum;
   // ensure all shared loaded
   barrier(CLK_LOCAL_MEM_FENCE);
  
-  if (!ty) {
-    sum = AS[0][tx];
+  if (!tx) {
+    sum = AS[0];
   
     #pragma unroll
     for (int k = 1; k < BLOCK_SIZE; k++)
-      sum += AS[k][tx];
+      sum += AS[k];
 
     c_dtype gd = sum * alpha_batch;
     #ifdef STORE_GRADIENT
-    gradient[get_global_id(0)] = gd;
+    gradient[bx] = gd;
     #endif
     #ifdef APPLY_GRADIENT
-    bias[get_global_id(0)] += gd;
+    bias[bx] += gd;
     #endif
   }
 }

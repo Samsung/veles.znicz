@@ -117,7 +117,7 @@ class Workflow(workflow.NNWorkflow):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        self.image_saver.this_time = self.decision.snapshot_time
+        self.image_saver.this_save_time = self.decision.snapshot_time
         self.image_saver.gate_skip = self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
 

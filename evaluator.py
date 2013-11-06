@@ -113,12 +113,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             defines = ("%s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
-                       "#define Y %d\n"
-                       "#define Y_REAL %d\n\n") % \
+                       "#define Y %d\n\n") % \
                    (config.cl_defines[config.c_dtype],
                     self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_y.aligned_.shape[0],
-                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
+                    self.err_y.v.shape[0],
                     self.err_y.v.size // self.err_y.v.shape[0])
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
@@ -293,12 +291,10 @@ class EvaluatorMSE(units.OpenCLUnit):
             defines = ("%s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
-                       "#define Y %d\n"
-                       "#define Y_REAL %d\n\n") % \
+                       "#define Y %d\n\n") % \
                    (config.cl_defines[config.c_dtype],
                     self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_y.aligned_.shape[0],
-                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
+                    self.err_y.v.shape[0],
                     self.err_y.v.size // self.err_y.v.shape[0])
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))

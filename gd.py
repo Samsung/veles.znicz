@@ -105,7 +105,7 @@ class GD(units.OpenCLUnit):
             self.gradient_weights.initialize(self.device)
             self.gradient_bias.initialize(self.device)
 
-        if not self.device:
+        if self.device == None:
             return
 
         if self.prg_ == None:
@@ -123,9 +123,9 @@ class GD(units.OpenCLUnit):
                     if self.store_gradient else "",
                     config.cl_defines[config.c_dtype],
                     self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_h.aligned_.shape[0],
-                    self.err_h.aligned_.size // self.err_h.aligned_.shape[0],
-                    self.err_y.aligned_.size // self.err_y.aligned_.shape[0])
+                    self.err_h.v.shape[0],
+                    self.err_h.v.size // self.err_h.v.shape[0],
+                    self.err_y.v.size // self.err_y.v.shape[0])
             self.build_program(defines, "%s/gd_%d_%d.cl" % (config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
@@ -194,25 +194,27 @@ class GD(units.OpenCLUnit):
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
         self.krn_weights_.set_arg(5, self.cl_const[1])
+        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
         if self.weights_transposed:
             global_size = [
-                self.err_y.aligned_.size // self.err_y.aligned_.shape[0],
-                self.h.aligned_.size // self.h.aligned_.shape[0]]
+                formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
+                                block_size),
+                formats.roundup(self.h.v.size // self.h.v.shape[0],
+                                block_size)]
         else:
             global_size = [
-                self.h.aligned_.size // self.h.aligned_.shape[0],
-                self.err_y.aligned_.size // self.err_y.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+                formats.roundup(self.h.v.size // self.h.v.shape[0],
+                                block_size),
+                formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
+                                block_size)]
+        local_size = [block_size, block_size]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                    self.krn_weights_, global_size, local_size)
+            self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0])
-        global_size = [self.err_y.aligned_.size //
-                       self.err_y.aligned_.shape[0],
-                       self.device.info.BLOCK_SIZE[config.c_dtype]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+        global_size = [(self.err_y.v.size // self.err_y.v.shape[0]) *
+                       block_size]
+        local_size = [block_size]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_, global_size,
                                                local_size)
@@ -245,11 +247,12 @@ class GD(units.OpenCLUnit):
         """
         self.err_y.sync(formats.GPU)
         self.weights.sync(formats.GPU)
-        global_size = [self.err_h.aligned_.size //
-                       self.err_h.aligned_.shape[0],
-                       self.err_h.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        global_size = [formats.roundup(self.err_h.v.size //
+                       self.err_h.v.shape[0], block_size),
+                       formats.roundup(self.err_h.v.shape[0],
+                                       block_size)]
+        local_size = [block_size, block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_err_h_, global_size, local_size)
         event.wait()
@@ -301,9 +304,8 @@ class GD(units.OpenCLUnit):
             return
         self.y.sync(formats.GPU)
         self.err_y.sync(formats.GPU)
-        global_size = [self.err_y.aligned_.size //
-                       self.err_y.aligned_.shape[0],
-                       self.err_y.aligned_.shape[0]]
+        global_size = [self.err_y.v.size // self.err_y.v.shape[0],
+                       self.err_y.v.shape[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_err_y_, global_size,
                                                  None)
@@ -360,6 +362,8 @@ class GDTanh(GD):
     def initialize(self):
         self.cl_sources_["%s/gradient_descent_tanh.cl" % (config.cl_dir)] = ""
         super(GDTanh, self).initialize()
+        if self.device == None:
+            return
         self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
         self.krn_err_y_.set_arg(0, self.err_y.v_)
         self.krn_err_y_.set_arg(1, self.y.v_)

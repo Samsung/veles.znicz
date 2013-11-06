@@ -11,6 +11,7 @@ import scipy.misc
 import os
 import glob
 import formats
+import config
 
 
 class ImageSaver(units.Unit):
@@ -35,9 +36,10 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, out_dirs=["/tmp/tmpimg/test",
-                                 "/tmp/tmpimg/validation",
-                                 "/tmp/tmpimg/train"], limit=100, yuv=False):
+    def __init__(self, out_dirs=["%s/tmpimg/test" % (config.cache_dir),
+                                 "%s/tmpimg/validation" % (config.cache_dir),
+                                 "%s/tmpimg/train" % (config.cache_dir)],
+                 limit=100, yuv=False):
         super(ImageSaver, self).__init__()
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()

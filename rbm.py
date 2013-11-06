@@ -54,11 +54,12 @@ class RBMTanh(all2all.All2AllTanh):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(self.output.aligned_.size //
-                          self.output.aligned_.shape[0])
-        global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+        output_size = int(self.output.v.size //
+                          self.output.v.shape[0])
+        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        global_size = [formats.roundup(output_size, block_size),
+                       formats.roundup(self.output.v.shape[0], block_size)]
+        local_size = [block_size, block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         self.rand.fill(self.output_rand.v, -1.7159, 1.7159)
@@ -67,9 +68,8 @@ class RBMTanh(all2all.All2AllTanh):
         event.wait()
         self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
         self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
-        global_size = [self.output.aligned_.size //
-                       self.output.aligned_.shape[0],
-                       self.output.aligned_.shape[0]]
+        global_size = [self.output.v.size // self.output.v.shape[0],
+                       self.output.v.shape[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_apply_rand_, global_size, None)
         event.wait()

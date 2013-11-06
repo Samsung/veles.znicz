@@ -1,21 +1,5 @@
-/*
- * Evaluates output:
- *   - must compute error for backpropagation,
- *   - may compute number of wrong-guessed samples and confusion matrix.
- * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
- */
-
-
-//Should be declared externally:
-//#define itype uchar /* type of sample label */
-//#define itype2 uint /* type of elements for confusion matrix and n_err_skipped */
-//#define BLOCK_SIZE 30 /* BATCH should be multiple of BLOCK_SIZE */
-//#define BATCH 600 /* total batch size */
-//#define Y 24 /* last layer output size aligned to BLOCK_SIZE */
-//#define Y_REAL 5 /* real last layer output size */
-
-
 /// @brief Evaluate softmax.
+/// @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the last layer with applied softmax.
 /// @param max_idx index of maximum element for each sample in batch.
 /// @param labels labels for samples in batch.
@@ -25,6 +9,20 @@
 /// @param batch_size size of the current batch.
 /// @param max_err_y_sum maximum sum of backpropagated gradient norms.
 /// @details We will launch a single workgroup here.
+///          Should be defined externally:
+///          itype - type of sample label (char)
+///          itype2 - type of elements for confusion matrix and n_err_skipped (int)
+///          BLOCK_SIZE - block size
+///          BATCH - minibatch size
+///          Y - last layer output size.
+#ifdef N_BLOCKS
+#undef N_BLOCKS
+#endif
+#if (BATCH % BLOCK_SIZE) == 0
+#define N_BLOCKS (BATCH / BLOCK_SIZE)
+#else
+#define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
+#endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global itype /*IN*/ *labels,
            __global c_dtype /*OUT*/ *err_y, __global itype2 /*IO*/ *n_err,
@@ -39,7 +37,7 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
   dtype _max_err_y_sum = 0;
 
   // Compute err_y and fill the confusion matrix
-  for (int i = 0; i < BATCH / BLOCK_SIZE; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
+  for (int i = 0; i < N_BLOCKS; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
     dtype err_y_sum = 0;
     if (i_sample < batch_size) {
       itype im = max_idx[i_sample];
@@ -62,13 +60,13 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
       err_y[y_start + ireal] = vle;
       err_y_sum += c_norm(vle);
 
-      for (int j = ireal + 1; j < Y_REAL; j++) {
+      for (int j = ireal + 1; j < Y; j++) {
         vle = y[y_start + j];
         err_y[y_start + j] = vle;
         err_y_sum += c_norm(vle);
       }
-    } else { // set excessive gradients to zero
-      for (int j = 0; j < Y_REAL; j++)
+    } else if (i_sample < BATCH) { // set excessive gradients to zero
+      for (int j = 0; j < Y; j++)
         err_y[y_start + j] = 0;
     }
     _max_err_y_sum = max(_max_err_y_sum, err_y_sum);
@@ -80,7 +78,7 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
       if (n > BLOCK_SIZE)
         n = BLOCK_SIZE;
       for (int j = 0; j < n; j++)
-        confusion_matrix[IM[j] * Y_REAL + IREAL[j]]++;
+        confusion_matrix[IM[j] * Y + IREAL[j]]++;
     }
     barrier(CLK_LOCAL_MEM_FENCE);
   }
@@ -103,6 +101,7 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
 
 
 /// @brief Evaluate MSE.
+/// @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the last layer.
 /// @param target target values.
 /// @param err_y output error for backpropagation.
@@ -110,6 +109,20 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
 /// @param mse sample's mse.
 /// @param batch_size size of the current batch.
 /// @details We will launch a single workgroup here.
+///          Should be defined externally:
+///          itype - type of sample label (char)
+///          itype2 - type of elements for confusion matrix and n_err_skipped (int)
+///          BLOCK_SIZE - block size
+///          BATCH - minibatch size
+///          Y - last layer output size.
+#ifdef N_BLOCKS
+#undef N_BLOCKS
+#endif
+#if (BATCH % BLOCK_SIZE) == 0
+#define N_BLOCKS (BATCH / BLOCK_SIZE)
+#else
+#define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
+#endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
             __global c_dtype /*OUT*/ *err_y, __global c_dtype /*IO*/ *metrics,
@@ -121,24 +134,24 @@ void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
   dtype mse_sum = 0, mse_max = 0, mse_min = MAXFLOAT;
  
   // Compute err_y and fill the confusion matrix
-  for (int i = 0; i < BATCH / BLOCK_SIZE; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
+  for (int i = 0; i < N_BLOCKS; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
     if (i_sample < batch_size) {
       c_dtype vle, vle_target;
       dtype sample_sse = 0;
-      for (int j = 0; j < Y_REAL; j++) {
+      for (int j = 0; j < Y; j++) {
         vle = y[y_start + j];
         vle_target = target[y_start + j];
         vle -= vle_target;
         sample_sse += c_norm2(vle);
         err_y[y_start + j] = vle;
       }
-      dtype sample_mse = sqrt(sample_sse) / Y_REAL;
+      dtype sample_mse = sqrt(sample_sse) / Y;
       mse[i_sample] = sample_mse;
       mse_sum += sample_mse;
       mse_max = max(mse_max, sample_mse);
       mse_min = min(mse_min, sample_mse);
-    } else {
-      for (int j = 0; j < Y_REAL; j++)
+    } else if (i_sample < BATCH) {
+      for (int j = 0; j < Y; j++)
         err_y[y_start + j] = 0;
     }
   }

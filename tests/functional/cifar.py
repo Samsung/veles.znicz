@@ -258,4 +258,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    if config.plotters_disabled:
+        os._exit(0)
     sys.exit(0)

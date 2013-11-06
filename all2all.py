@@ -125,23 +125,21 @@ class All2All(units.OpenCLUnit):
             return
 
         if self.krn_ == None:
-            output_size = (self.output.aligned_.size //
-                           self.output.aligned_.shape[0])
+            output_size = (self.output.v.size //
+                           self.output.v.shape[0])
             defines = ("%s\n"
                        "%s\n"
                        "#define %s\n"
                        "#define BLOCK_SIZE %d\n"
                        "#define H %d\n"
                        "#define Y %d\n"
-                       "#define Y_REAL %d\n"
                        "#define BATCH %d\n\n" %
                        ("#define WEIGHTS_TRANSPOSED"
                         if self.weights_transposed else "",
                         config.cl_defines[config.c_dtype], self.s_activation,
                         self.device.info.BLOCK_SIZE[config.c_dtype],
-                        self.weights.aligned_.size // output_size, output_size,
-                        self.output.v.size // self.output.v.shape[0],
-                        self.output.aligned_.shape[0]))
+                        self.weights.v.size // output_size, output_size,
+                        self.output.v.shape[0]))
             self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
                 self.input.v.size // self.input.v.shape[0],
                 self.output.v.size // self.output.v.shape[0]))
@@ -181,11 +179,12 @@ class All2All(units.OpenCLUnit):
         self.input.sync(formats.GPU)
         self.weights.sync(formats.GPU)
         self.bias.sync(formats.GPU)
-        output_size = int(self.output.aligned_.size //
-                          self.output.aligned_.shape[0])
-        global_size = [output_size, self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+        output_size = int(self.output.v.size //
+                          self.output.v.shape[0])
+        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        global_size = [formats.roundup(output_size, block_size),
+                       formats.roundup(self.output.v.shape[0], block_size)]
+        local_size = [block_size, block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         event.wait()
@@ -311,13 +310,11 @@ class All2AllSoftmax(All2All):
 
     def gpu_apply_exp(self):
         self.output.sync(formats.GPU)
-        global_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                       self.output.aligned_.shape[0]]
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype],
-                      self.device.info.BLOCK_SIZE[config.c_dtype]]
+        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        global_size = [self.output.v.shape[0] * block_size]
+        local_size = [block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_sm_,
-                                                 global_size, local_size)
+            self.krn_sm_, global_size, local_size)
         event.wait()
         self.output.update(formats.GPU)
         self.max_idx.update(formats.GPU)
