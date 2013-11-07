@@ -34,9 +34,17 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define B_COL
   #endif
 
-  #define ELEMENTS_PER_SAMPLE (KX * KY * N_CHANNELS * (SX - KX + 1) * (SY - KY + 1))
-  #define SAMPLE_SIZE (SX * SY * N_CHANNELS)
-  #define A_REAL_OFFS ((a_offs / ELEMENTS_PER_SAMPLE) * SAMPLE_SIZE + (a_offs % ELEMENTS_PER_SAMPLE))
+  #define ELEMENTS_PER_BLOCK (N_CHANNELS * KX * KY)
+  #define BLOCK_NUMBER (a_offs / ELEMENTS_PER_BLOCK)
+  #define OFFS_IN_BLOCK (a_offs % ELEMENTS_PER_BLOCK)
+  #define ROW_IN_BLOCK (OFFS_IN_BLOCK / (N_CHANNELS * KX))
+  #define COL_IN_BLOCK (OFFS_IN_BLOCK % (N_CHANNELS * KX))
+  #define BLOCKS_PER_SAMPLE ((SX - KX + 1) * (SY - KY + 1))
+  #define SAMPLE_NUMBER (BLOCK_NUMBER / BLOCKS_PER_SAMPLE)
+  #define BLOCK_IN_SAMPLE (BLOCK_NUMBER % BLOCKS_PER_SAMPLE)
+  #define ROW_IN_SAMPLE (BLOCK_IN_SAMPLE / (SX - KX + 1))
+  #define COL_IN_SAMPLE ((BLOCK_IN_SAMPLE % (SX - KX + 1)) * N_CHANNELS)
+  #define A_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
 
   MX_MUL
 

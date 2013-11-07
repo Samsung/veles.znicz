@@ -72,8 +72,8 @@ class Conv(units.OpenCLUnit):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        n_channels = (self.input.size // (self.input.shape[0] *
-                      self.input.shape[1] * self.input.shape[2]))
+        n_channels = (self.input.v.size // (self.input.v.shape[0] *
+                      self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / self.input.supposed_maxvle /
                 (self.kx * self.ky * n_channels))
@@ -90,7 +90,7 @@ class Conv(units.OpenCLUnit):
         sy = self.input.v.shape[1]
         sx = self.input.v.shape[2]
         n_channels = (self.input.v.size // (batch_size * sx * sy))
-        n_weights = self.n_kernels * n_channels
+        n_weights = self.n_kernels * self.kx * self.ky * n_channels
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros([n_weights], dtype=self.input.v.dtype)
@@ -221,8 +221,8 @@ class ConvTanh(Conv):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        n_channels = (self.input.size // (self.input.shape[0] *
-                      self.input.shape[1] * self.input.shape[2]))
+        n_channels = (self.input.v.size // (self.input.v.shape[0] *
+                      self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / (self.input.supposed_maxvle * 0.6666) /
                 (self.kx * self.ky * n_channels))
