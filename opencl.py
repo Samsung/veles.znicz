@@ -396,7 +396,7 @@ class DeviceList(units.Pickleable):
 
         prg = cl.Program(device.context_, s).build()
 
-        krn = cl.Kernel(prg, "FEED_LAYER")
+        krn = cl.Kernel(prg, "feed_layer")
         krn.set_arg(0, a_buf)
         krn.set_arg(1, b_buf)
         krn.set_arg(2, c_buf)

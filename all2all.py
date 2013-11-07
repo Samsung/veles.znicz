@@ -27,20 +27,16 @@ class All2All(units.OpenCLUnit):
     Creates within initialize():
         weights
         bias
+        output
 
     Attributes:
-        input: input as Batch.
-        output: output as Batch.
-        weights: weights as Vector.
-        bias: bias as Vector.
+        input: input as batch of samples.
+        output: output as batch of samples.
+        weights: matrix of weights.
+        bias: bias.
         output_shape: shape of the output layer.
         weights_amplitude: amplitude of the random distribution of weights.
         rand: rnd.Rand() object for initial weights generation.
-        input_maxvle: supposed maximum value of the input value
-            (used for weights generation when weights_amplitude is None).
-            For better performance should be 1.0 for an input layer
-            and 1.7159 for other layers if scaled tanh activation is used,
-            while values of an input should be normalized to -1, 1.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
@@ -95,12 +91,8 @@ class All2All(units.OpenCLUnit):
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
-                a = a.reshape(a.size)
-                self.weights.v = self.weights.v.reshape(self.weights.v.size)
+                self.weights.v.shape = a.shape
                 self.weights.v[:] = a[:]
-                self.weights.v = self.weights.v.reshape([
-                    self.input.v.size // self.input.v.shape[0],
-                    numpy.prod(self.output_shape)])
         if (self.bias.v == None or
             self.bias.v.size != numpy.prod(self.output_shape)):
             self.bias.reset()
@@ -144,7 +136,7 @@ class All2All(units.OpenCLUnit):
                 self.input.v.size // self.input.v.shape[0],
                 self.output.v.size // self.output.v.shape[0]))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "FEED_LAYER")
+            self.krn_ = pyopencl.Kernel(self.prg_, "feed_layer")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.weights.v_)
             self.krn_.set_arg(2, self.output.v_)

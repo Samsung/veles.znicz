@@ -14,7 +14,7 @@
 ///          H - input size,
 ///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void FEED_LAYER(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
+void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
                 __global c_dtype /*OUT*/ *y, __global c_dtype /*IN*/ *bias) {
   #define A_WIDTH BATCH
   #define B_WIDTH Y
