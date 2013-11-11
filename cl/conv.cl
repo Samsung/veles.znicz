@@ -19,6 +19,8 @@
 ///          KX - kernel width,
 ///          KY - kernel height,
 ///          N_KERNELS - number of kernels (i.e. neurons).
+///          The process we are doing here equal to the convolution with reflected weights matrix,
+///          and it is so in favor of the nature of the process of applying neurons (i.e. kernels) to each point of the input image.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
                 __global c_dtype /*OUT*/ *y, __global c_dtype /*IN*/ *bias) {
@@ -47,6 +49,8 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define A_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
 
   MX_MUL
+
+  #undef A_REAL_OFFS
 
   #undef A_WIDTH
   #undef B_WIDTH

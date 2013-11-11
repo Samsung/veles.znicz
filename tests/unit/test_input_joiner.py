@@ -8,6 +8,7 @@ import input_joiner
 import opencl
 import formats
 import numpy
+import units
 
 
 class TestInputJoiner(unittest.TestCase):
@@ -33,6 +34,7 @@ class TestInputJoiner(unittest.TestCase):
         for i in range(len(c.v)):
             self.assertEqual(c.v[i],
                 obj.output.v[a.v.size + b.v.size + i], "Failed")
+        units.pool.shutdown()
 
     def do_test2(self, device):
         a = formats.Vector()

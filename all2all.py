@@ -82,7 +82,7 @@ class All2All(units.OpenCLUnit):
                      numpy.prod(self.output_shape))
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()
-            self.weights.v = numpy.zeros([n_weights], dtype=self.input.v.dtype)
+            self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
             self.weights.v = self.weights.v.reshape([

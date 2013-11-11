@@ -45,9 +45,6 @@
 #else
 #define N_BLOCKS (AB_COMMON / BLOCK_SIZE + 1)
 #endif
-#ifdef N_SUM
-#undef N_SUM
-#endif
 #if N_BLOCKS <= 4
 #define N_SUM 2
 #endif
@@ -57,17 +54,11 @@
 #if (N_BLOCKS > 8) && (N_BLOCKS <= 16)
 #define N_SUM 8
 #endif
-#if (N_BLOCKS > 16) && (N_BLOCKS <= 32)
+#if (N_BLOCKS > 16) && ((N_BLOCKS <= 32) || (sizeof_c_dtype > 8))
 #define N_SUM 16
 #endif
-#if (N_BLOCKS > 32) && ((N_BLOCKS <= 64) || (sizeof_c_dtype > 8))
+#ifndef N_SUM
 #define N_SUM 32
-#endif
-#if (sizeof_c_dtype <= 8) && (N_BLOCKS > 64) && ((N_BLOCKS <= 128) || (sizeof_c_dtype > 4))
-#define N_SUM 64
-#endif
-#if (sizeof_c_dtype <= 4) && (N_BLOCKS > 128)
-#define N_SUM 128
 #endif
 #ifndef A_REAL_OFFS
 #define A_REAL_OFFS a_offs
@@ -174,4 +165,14 @@
 
   #undef A_OFFS
   #undef B_OFFS
+  #undef A_LIMIT
+  #undef A_LIMIT_X
+  #undef A_INC_X
+  #undef A_OFFS
+  #undef B_LIMIT
+  #undef B_LIMIT_X
+  #undef B_INC_X
+  #undef B_OFFS
+  #undef N_BLOCKS
+
 // The source for matrix multiplication ends here.
