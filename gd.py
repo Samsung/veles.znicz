@@ -50,9 +50,12 @@ class GD(units.OpenCLUnit):
         krn_bias_: OpenCL kernel for bias update.
         batch_size: effective batch size (if None, get it from y).
         weights_transposed: assume weights matrix as a transposed one.
+        store_gradient: will save gradient as separate Vector().
+        apply_gradient: will apply gradient.
     """
     def __init__(self, device=None, global_alpha=0.01, global_lambda=0.00005,
-                 weights_transposed=False, store_gradient=False):
+                 weights_transposed=False, store_gradient=False,
+                 apply_gradient=True):
         super(GD, self).__init__(device=device)
         self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector(device)
@@ -67,6 +70,7 @@ class GD(units.OpenCLUnit):
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
         self.store_gradient = store_gradient
+        self.apply_gradient = apply_gradient
         self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
 
     def init_unpickled(self):
@@ -109,7 +113,7 @@ class GD(units.OpenCLUnit):
             return
 
         if self.prg_ == None:
-            defines = ("#define APPLY_GRADIENT\n"
+            defines = ("%s\n"
                        "%s\n"
                        "%s\n"
                        "%s\n"
@@ -117,6 +121,8 @@ class GD(units.OpenCLUnit):
                        "#define BATCH %d\n"
                        "#define H %d\n"
                        "#define Y %d\n\n") % (
+                    "#define APPLY_GRADIENT"
+                    if self.apply_gradient else "",
                     "#define WEIGHTS_TRANSPOSED"
                     if self.weights_transposed else "",
                     "#define STORE_GRADIENT"
