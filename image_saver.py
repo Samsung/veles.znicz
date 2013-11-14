@@ -75,13 +75,13 @@ class ImageSaver(units.Unit):
         return x.ravel()
 
     def run(self):
-        self.input.sync()
+        self.input.map_read()
         if self.output != None:
-            self.output.sync()
-        self.indexes.sync()
-        self.labels.sync()
+            self.output.map_read()
+        self.indexes.map_read()
+        self.labels.map_read()
         if self.max_idx != None:
-            self.max_idx.sync()
+            self.max_idx.map_read()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
             for i in range(len(self.n_saved)):

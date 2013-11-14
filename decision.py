@@ -218,8 +218,8 @@ class Decision(units.Unit):
         weights = []
         bias = []
         for forward in self.workflow.forward:
-            forward.weights.sync()
-            forward.bias.sync()
+            forward.weights.map_read()
+            forward.bias.map_read()
             weights.append(forward.weights.v)
             bias.append(forward.bias.v)
             if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
@@ -298,28 +298,30 @@ class Decision(units.Unit):
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
         if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+            self.minibatch_n_err.map_invalidate()
             self.minibatch_n_err.v[:] = 0
-            self.minibatch_n_err.update()
         if (self.minibatch_metrics != None and
             self.minibatch_metrics.v != None):
+            self.minibatch_metrics.map_invalidate()
             self.minibatch_metrics.v[:] = 0
             self.minibatch_metrics.v[2] = 1.0e30
-            self.minibatch_metrics.update()
         if (len(self.epoch_samples_mse) > minibatch_class and
             self.epoch_samples_mse[minibatch_class] != None and
             self.epoch_samples_mse[minibatch_class].v != None):
+            self.epoch_samples_mse[minibatch_class].map_invalidate()
+            self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.epoch_samples_mse[minibatch_class].v[:] = (
                 self.tmp_epoch_samples_mse[minibatch_class].v[:])
             self.tmp_epoch_samples_mse[minibatch_class].v[:] = 0
         if (self.minibatch_max_err_y_sum != None and
             self.minibatch_max_err_y_sum.v != None):
+            self.minibatch_max_err_y_sum.map_invalidate()
             self.minibatch_max_err_y_sum.v[:] = 0
-            self.minibatch_max_err_y_sum.update()
         # Reset confusion matrix
         if (self.minibatch_confusion_matrix != None and
             self.minibatch_confusion_matrix.v != None):
+            self.minibatch_confusion_matrix.map_invalidate()
             self.minibatch_confusion_matrix.v[:] = 0
-            self.minibatch_confusion_matrix.update()
 
     def on_training_processed(self, minibatch_class):
         if self.use_dynamic_alpha:
@@ -356,7 +358,7 @@ class Decision(units.Unit):
             self.epoch_n_err[i] = 0
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
-            vector.sync()
+            vector.map_read()
         if self.sample_input != None:
             self.sample_input[:] = self.workflow.forward[0].input.v[0]
         if self.sample_output != None:
@@ -371,13 +373,13 @@ class Decision(units.Unit):
         # Copy confusion matrix
         if (self.minibatch_confusion_matrix != None and
             self.minibatch_confusion_matrix.v != None):
-            self.minibatch_confusion_matrix.sync()
+            self.minibatch_confusion_matrix.map_read()
             self.confusion_matrixes[minibatch_class][:] = (
                 self.minibatch_confusion_matrix.v[:])
 
         if (self.minibatch_metrics != None and
             self.minibatch_metrics.v != None):
-            self.minibatch_metrics.sync()
+            self.minibatch_metrics.map_read()
             self.epoch_min_mse[minibatch_class] = (
                 min(self.minibatch_metrics.v[0] /
                     self.class_samples[minibatch_class],
@@ -392,7 +394,7 @@ class Decision(units.Unit):
 
         if (self.minibatch_n_err != None and
             self.minibatch_n_err.v != None):
-            self.minibatch_n_err.sync()
+            self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err.v[0]
             # Compute error in percents
             if self.class_samples[minibatch_class]:
@@ -403,7 +405,7 @@ class Decision(units.Unit):
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum != None and
             self.minibatch_max_err_y_sum.v != None):
-            self.minibatch_max_err_y_sum.sync()
+            self.minibatch_max_err_y_sum.map_read()
             self.max_err_y_sums[minibatch_class] = (
                 self.minibatch_max_err_y_sum.v[0])
 
@@ -433,11 +435,12 @@ class Decision(units.Unit):
 
         # Copy minibatch mse
         if self.minibatch_mse != None and len(self.epoch_samples_mse):
-            self.minibatch_mse.sync()
+            self.minibatch_mse.map_read()
             offs = self.minibatch_offs[0]
             for i in range(0, minibatch_class):
                 offs -= self.class_samples[i]
                 size = self.minibatch_size[0]
+            self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.tmp_epoch_samples_mse[minibatch_class].v[
                 offs:offs + size] = self.minibatch_mse.v[:size]
 

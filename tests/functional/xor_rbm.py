@@ -365,10 +365,10 @@ def main():
         w = Workflow2(layers=layers, device=device)
         w.initialize(global_alpha=0.001, global_lambda=0.00005)
         for i in range(0, len(w0.forward) - 1):
+            w.forward[i].weights.map_invalidate()
             w.forward[i].weights.v[:] = w0.forward[i].weights.v[:]
-            w.forward[i].weights.update()
+            w.forward[i].bias.map_invalidate()
             w.forward[i].bias.v[:] = w0.forward[i].bias.v[:]
-            w.forward[i].bias.update()
         w.run()
     except FileNotFoundError:
         w = Workflow(layers=[8, 3], device=device)

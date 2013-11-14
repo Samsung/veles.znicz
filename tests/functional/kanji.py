@@ -237,12 +237,12 @@ class Workflow(workflow.NNWorkflow):
     def run(self, weights, bias):
         if weights != None:
             for i, forward in enumerate(self.forward):
+                forward.weights.map_invalidate()
                 forward.weights.v[:] = weights[i][:]
-                forward.weights.update()
         if bias != None:
             for i, forward in enumerate(self.forward):
+                forward.bias.map_invalidate()
                 forward.bias.v[:] = bias[i][:]
-                forward.bias.update()
         return super(Workflow, self).run()
 
 

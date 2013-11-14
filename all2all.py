@@ -148,7 +148,7 @@ class All2All(units.OpenCLUnit):
         log = self.log()
         if not log.isEnabledFor(logging.DEBUG):
             return
-        self.output.sync()
+        self.output.map_read()
         y = self.output.v
         if y.dtype in (numpy.complex64, numpy.complex128):
             self.log().debug("%s: %d samples with %d weights in %.2f sec: "
@@ -168,9 +168,10 @@ class All2All(units.OpenCLUnit):
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.input.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
-        self.bias.sync(formats.GPU)
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
@@ -180,14 +181,14 @@ class All2All(units.OpenCLUnit):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         event.wait()
-        self.output.update(formats.GPU)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        self.input.sync()
-        self.weights.sync()
-        self.bias.sync()
+        self.output.map_invalidate()
+        self.input.map_read()
+        self.weights.map_read()
+        self.bias.map_read()
         a = formats.reshape(self.input.v,
             [self.input.v.shape[0],
              self.input.v.size // self.input.v.shape[0]])
@@ -197,7 +198,6 @@ class All2All(units.OpenCLUnit):
         v = numpy.dot(a, b)
         v += self.bias.v
         self.output.v[:] = v[:]
-        self.output.update()
 
     def run(self):
         t1 = time.time()
@@ -228,13 +228,12 @@ class All2AllTanh(All2All):
         retval = super(All2AllTanh, self).cpu_run()
         if retval:
             return retval
-        self.output.sync()
+        self.output.map_write()
         v = self.output.v.copy()
         v *= 0.6666
         numpy.tanh(v, v)
         v *= 1.7159
         self.output.v[:] = v[:]
-        self.output.update()
 
 
 class All2AllSoftmax(All2All):
@@ -287,7 +286,8 @@ class All2AllSoftmax(All2All):
         self.krn_sm_.set_arg(1, self.max_idx.v_)
 
     def cpu_apply_exp(self):
-        self.output.sync()
+        self.output.map_write()
+        self.max_idx.map_invalidate()
         for i in range(0, self.output.v.shape[0]):
             sample = self.output.v[i]
             im = sample.argmax()
@@ -297,19 +297,16 @@ class All2AllSoftmax(All2All):
             numpy.exp(sample, sample)
             smm = sample.sum()
             sample /= smm
-        self.output.update()
-        self.max_idx.update()
 
     def gpu_apply_exp(self):
-        self.output.sync(formats.GPU)
+        self.output.unmap()
+        self.max_idx.unmap()
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_sm_, global_size, local_size)
         event.wait()
-        self.output.update(formats.GPU)
-        self.max_idx.update(formats.GPU)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

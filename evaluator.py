@@ -97,6 +97,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.max_err_y_sum.v = numpy.zeros(1,
                 dtype=config.dtypes[config.dtype])
 
+        self.y.initialize(self.device)
         self.err_y.initialize(self.device)
         self.confusion_matrix.initialize(self.device)
         self.n_err.initialize(self.device)
@@ -131,12 +132,13 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_.set_arg(6, self.max_err_y_sum.v_)
 
     def gpu_run(self):
-        self.y.sync(formats.GPU)
-        self.max_idx.sync(formats.GPU)
-        self.labels.sync(formats.GPU)
-        self.n_err.sync(formats.GPU)
-        self.confusion_matrix.sync(formats.GPU)
-        self.max_err_y_sum.sync(formats.GPU)
+        self.err_y.unmap()
+        self.y.unmap()
+        self.max_idx.unmap()
+        self.labels.unmap()
+        self.n_err.unmap()
+        self.confusion_matrix.unmap()
+        self.max_err_y_sum.unmap()
 
         self.krn_constants_i_[0] = self.batch_size[0]
         self.krn_.set_arg(7, self.krn_constants_i_[0])
@@ -147,18 +149,14 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_, global_size, local_size)
         event.wait()
 
-        self.err_y.update(formats.GPU)
-        self.confusion_matrix.update(formats.GPU)
-        self.n_err.update(formats.GPU)
-        self.max_err_y_sum.update(formats.GPU)
-
     def cpu_run(self):
-        self.y.sync()
-        self.max_idx.sync()
-        self.labels.sync()
-        self.n_err.sync()
-        self.confusion_matrix.sync()
-        self.max_err_y_sum.sync()
+        self.err_y.map_invalidate()
+        self.y.map_read()
+        self.max_idx.map_read()
+        self.labels.map_read()
+        self.n_err.map_write()
+        self.confusion_matrix.map_write()
+        self.max_err_y_sum.map_write()
 
         batch_size = self.batch_size[0]
         labels = self.labels.v
@@ -187,11 +185,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if batch_size < self.err_y.v.shape[0]:
             self.err_y.v[batch_size:] = 0.0
         self.n_err.v[0] += batch_size - n_ok
-
-        self.err_y.update()
-        self.confusion_matrix.update()
-        self.n_err.update()
-        self.max_err_y_sum.update()
 
 
 class EvaluatorMSE(units.OpenCLUnit):
@@ -276,11 +269,11 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.n_err.reset()
             self.n_err.v = numpy.zeros(2, dtype=config.itypes[itype2])
 
+        self.y.initialize(self.device)
         self.err_y.initialize(self.device)
         self.target.initialize(self.device)
         self.metrics.initialize(self.device)
         self.mse.initialize(self.device)
-        self.n_err.initialize(self.device)
 
         if not self.device:
             return
@@ -307,9 +300,11 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(4, self.mse.v_)
 
     def gpu_run(self):
-        self.y.sync(formats.GPU)
-        self.target.sync(formats.GPU)
-        self.metrics.sync(formats.GPU)
+        self.err_y.unmap()
+        self.y.unmap()
+        self.target.unmap()
+        self.metrics.unmap()
+        self.mse.unmap()
 
         self.krn_constants_i_[0] = self.batch_size[0]
         self.krn_.set_arg(5, self.krn_constants_i_[0])
@@ -321,13 +316,12 @@ class EvaluatorMSE(units.OpenCLUnit):
                                                  global_size, local_size)
         event.wait()
 
-        self.err_y.update(formats.GPU)
-        self.metrics.update(formats.GPU)
-        self.mse.update(formats.GPU)
-
+        # Do the following part on CPU (GPU version not implemented currently)
         if self.labels != None and self.class_target != None:
-            self.y.sync()
-            self.n_err.sync()
+            self.y.map_read()
+            self.n_err.map_write()
+            self.class_target.map_read()
+            self.labels.map_read()
             t = self.class_target.v
             y = self.y.v
             n_err = 0
@@ -342,7 +336,6 @@ class EvaluatorMSE(units.OpenCLUnit):
                 if mi != self.labels.v[i]:
                     n_err += 1
             self.n_err.v[0] += n_err
-            self.n_err.update()
 
     def cpu_run(self):
-        return self.gpu_run()
+        raise error.ErrNotImplemented()

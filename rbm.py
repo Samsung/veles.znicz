@@ -11,6 +11,7 @@ import numpy
 import pyopencl
 import rnd
 import config
+import error
 
 
 class RBMTanh(all2all.All2AllTanh):
@@ -51,9 +52,10 @@ class RBMTanh(all2all.All2AllTanh):
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.input.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
-        self.bias.sync(formats.GPU)
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
@@ -62,9 +64,9 @@ class RBMTanh(all2all.All2AllTanh):
         local_size = [block_size, block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
+        self.output_rand.map_invalidate()
         self.rand.fill(self.output_rand.v, -1.7159, 1.7159)
-        self.output_rand.update()
-        self.output_rand.sync(formats.GPU)
+        self.output_rand.unmap()
         event.wait()
         self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
         self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
@@ -73,7 +75,6 @@ class RBMTanh(all2all.All2AllTanh):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_apply_rand_, global_size, None)
         event.wait()
-        self.output.update(formats.GPU)
 
     def cpu_run(self):
-        return self.gpu_run()
+        raise error.ErrNotImplemented()

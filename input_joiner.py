@@ -82,25 +82,26 @@ class InputJoiner(units.OpenCLUnit):
             self.krn_.set_arg(0, self.output.v_)
 
     def cpu_run(self):
+        self.output.map_invalidate()  # we will update output on CPU
         low = 0
         output_size = self.output.v.size
         for inp in self.inputs:
-            inp.sync()
+            inp.map_read()
             high = min(low + inp.v.size, output_size)
             if low >= high:
                 break
             self.output.v[low:high] = inp[:high - low]
             low = high
-        self.output.update()
 
     def gpu_run(self):
+        self.output.unmap()  # we will update output on GPU
         low = 0
         output_size = self.output.v.size
         a = None
         a_size = 0
         b = None
         for inp in self.inputs:
-            inp.sync(formats.GPU)
+            inp.unmap()  # we will use input on GPU
             if a == None:
                 a = inp
                 a_size = a.v.size
@@ -137,4 +138,3 @@ class InputJoiner(units.OpenCLUnit):
                 event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                     self.krn_, global_size, None)
                 event.wait()
-        self.output.update(formats.GPU)

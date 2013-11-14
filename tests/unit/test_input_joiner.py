@@ -25,7 +25,7 @@ class TestInputJoiner(unittest.TestCase):
         obj = input_joiner.InputJoiner(inputs=[a, b, c], device=device)
         obj.initialize()
         obj.run()
-        obj.output.sync()
+        obj.output.map_read()
         for i in range(len(a.v)):
             self.assertEqual(a.v[i], obj.output.v[i], "Failed")
         for i in range(len(b.v)):
@@ -50,7 +50,7 @@ class TestInputJoiner(unittest.TestCase):
                                        device=device)
         obj.initialize()
         obj.run()
-        obj.output.sync()
+        obj.output.map_read()
         for i in range(len(a.v)):
             self.assertEqual(a.v[i], obj.output.v[i], "Failed")
         for i in range(len(b.v)):
@@ -77,7 +77,7 @@ class TestInputJoiner(unittest.TestCase):
                                        device=device)
         obj.initialize()
         obj.run()
-        obj.output.sync()
+        obj.output.map_read()
         for i in range(len(a.v)):
             self.assertEqual(a.v[i], obj.output.v[i], "Failed")
         for i in range(len(b.v)):

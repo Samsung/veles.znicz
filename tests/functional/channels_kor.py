@@ -772,7 +772,7 @@ class Saver(units.Unit):
 
     def run(self):
         for name, vector in self.vectors_to_save.items():
-            vector.sync()
+            vector.map_read()
             if name not in self.vectors_.keys():
                 self.vectors_[name] = []
             if self.minibatch_size != None:

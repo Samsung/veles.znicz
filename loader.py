@@ -173,6 +173,10 @@ class Loader(units.Unit):
         self.minibatch_size[0] = minibatch_size
 
         # Fill minibatch according to current random shuffle and offset.
+        self.minibatch_data.map_invalidate()
+        self.minibatch_target.map_invalidate()
+        self.minibatch_labels.map_invalidate()
+        self.minibatch_indexes.map_invalidate()
         self.fill_minibatch()
 
         # Fill excessive indexes.
@@ -184,12 +188,6 @@ class Loader(units.Unit):
                 self.minibatch_labels.v[minibatch_size:] = -1
             if self.minibatch_indexes != None:
                 self.minibatch_indexes.v[minibatch_size:] = -1
-
-        # Set update flag for GPU operation.
-        self.minibatch_data.update()
-        self.minibatch_target.update()
-        self.minibatch_indexes.update()
-        self.minibatch_labels.update()
 
         self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
@@ -254,19 +252,19 @@ class FullBatchLoader(Loader):
         minibatch_size = self.minibatch_size[0]
 
         idxs = self.minibatch_indexes.v
-        idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:\
+        idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_data.v[0:minibatch_size] = \
-            self.original_data[idxs[0:minibatch_size]]
+        self.minibatch_data.v[0:minibatch_size] = self.original_data[
+                                                        idxs[0:minibatch_size]]
 
         if self.original_labels != None:
-            self.minibatch_labels.v[0:minibatch_size] = \
-                self.original_labels[idxs[0:minibatch_size]]
+            self.minibatch_labels.v[0:minibatch_size] = self.original_labels[
+                                                        idxs[0:minibatch_size]]
 
         if self.original_target != None:
-            self.minibatch_target.v[0:minibatch_size] = \
-                self.original_target[idxs[0:minibatch_size]]
+            self.minibatch_target.v[0:minibatch_size] = self.original_target[
+                                                        idxs[0:minibatch_size]]
 
     def extract_validation_from_train(self, amount=0.15):
         """Extracts validation dataset from train dataset randomly.

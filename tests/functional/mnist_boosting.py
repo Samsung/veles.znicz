@@ -164,10 +164,10 @@ class Workflow(workflow.NNWorkflow):
 
     def run(self, weights, bias):
         for i in range(0, len(weights)):
+            self.forward[i].weights.map_invalidate()
             self.forward[i].weights.v[:] = weights[i][:]
-            self.forward[i].weights.update()
+            self.forward[i].bias.map_invalidate()
             self.forward[i].bias.v[:] = bias[i][:]
-            self.forward[i].bias.update()
         super(Workflow, self).run()
 
 
@@ -197,8 +197,8 @@ def main():
         if ii < N - 1:
             logging.info("Adding another layer")
             for i in range(0, len(w.forward) - 1):
-                w.forward[i].weights.sync()
-                w.forward[i].bias.sync()
+                w.forward[i].weights.map_read()
+                w.forward[i].bias.map_read()
                 weights.append(w.forward[i].weights.v)
                 bias.append(w.forward[i].bias.v)
             layers.insert(len(layers) - 1, layers[-2])

@@ -37,7 +37,6 @@ class Device(units.Pickleable):
     def __init__(self, info=None):
         super(Device, self).__init__()
         self.info = info
-        self.prefer_mmap = False
 
     def init_unpickled(self):
         super(Device, self).init_unpickled()
@@ -53,6 +52,7 @@ class DeviceInfo(object):
         guid: "GUID" of the device.
         memsize: "available" size of the memory on the device.
         memalign: best alignment for device buffers.
+        version: OpenCL version.
         rating: in [0, 1] interval (1 - fastest, 0.5 - 50% slower than fastest,
                 0 - unrated).
         dt: time of rating test pass.
@@ -63,6 +63,7 @@ class DeviceInfo(object):
         self.guid = guid
         self.memsize = 0
         self.memalign = 32
+        self.version = 1.1
         self.rating = {}
         for dtype in config.dtypes.keys():
             self.rating[dtype] = 0.0
@@ -118,6 +119,10 @@ class DeviceList(units.Pickleable):
                 info.memsize = self._get_memsize(device)
                 info.memalign = device.get_info(
                     cl.device_info.MEM_BASE_ADDR_ALIGN)
+                s = device.get_info(cl.device_info.VERSION)
+                n = s.find(" ") + 1
+                m = s.find(" ", n)
+                info.version = float(s[n:m])
                 dev = Device(info=info)
                 dev.context_ = context
                 dev.queue_ = cl.CommandQueue(context,

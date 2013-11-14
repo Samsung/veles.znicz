@@ -197,10 +197,10 @@ def main():
     device = cl.get_device()
     w = Workflow(layers=[weights.shape[0], 250, 10], device=device)
     w.initialize(global_alpha=0.001 * 20, global_lambda=0.00005)
+    w.forward[0].weights.map_invalidate()
     w.forward[0].weights.v[:] = weights[:]
-    w.forward[0].weights.update()
+    w.forward[0].bias.map_invalidate()
     w.forward[0].bias.v[:] = bias[:]
-    w.forward[0].bias.update()
     w.run()
 
     plotters.Graphics().wait_finish()

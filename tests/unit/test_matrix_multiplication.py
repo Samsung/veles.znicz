@@ -18,16 +18,16 @@ class TestMatrixMultiplication(unittest.TestCase):
     def do_cpu_test(self):
         """Pure single core CPU test
         """
-        dtype = (numpy.complex128 if self.a.dtype in (
+        dtype = (numpy.complex128 if self.a.v.dtype in (
                     numpy.complex64, numpy.complex128) else numpy.float64)
-        a = numpy.empty(self.a.shape, dtype=dtype)
-        a[:] = self.a[:]
-        bt = self.b.transpose()
+        a = numpy.empty(self.a.v.shape, dtype=dtype)
+        a[:] = self.a.v[:]
+        bt = self.b.v.transpose()
         b = numpy.empty(bt.shape, dtype=dtype)
         b[:] = bt[:]
-        bias = numpy.empty(self.bias.shape, dtype=dtype)
-        bias[:] = self.bias[:]
-        c = numpy.empty(self.c[0].shape, dtype=dtype)
+        bias = numpy.empty(self.bias.v.shape, dtype=dtype)
+        bias[:] = self.bias.v[:]
+        c = numpy.empty(self.c.v[0].shape, dtype=dtype)
         numpy.dot(a, b, c)
         c[:] += bias
         c *= 0.6666
@@ -41,22 +41,22 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.B_HEIGHT = B_HEIGHT
         self.A_HEIGHT = A_HEIGHT
 
-        self.a = formats.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
-                                       dtype=dtype)
-        rnd.default.fill(self.a, -0.1, 0.1)
-        self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
+        self.a = formats.Vector()
+        self.a.v = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH], dtype=dtype)
+        rnd.default.fill(self.a.v, -0.1, 0.1)
+        self.a.v = self.a.v.reshape([self.A_HEIGHT, self.AB_WIDTH])
 
-        self.b = formats.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH],
-                                       dtype=dtype)
-        rnd.default.fill(self.b, -0.1, 0.1)
-        self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
+        self.b = formats.Vector()
+        self.b.v = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH], dtype=dtype)
+        rnd.default.fill(self.b.v, -0.1, 0.1)
+        self.b.v = self.b.v.reshape([self.B_HEIGHT, self.AB_WIDTH])
 
-        self.bias = formats.aligned_zeros([self.B_HEIGHT],
-                                          dtype=dtype)
-        rnd.default.fill(self.bias, -0.1, 0.1)
+        self.bias = formats.Vector()
+        self.bias.v = numpy.zeros([self.B_HEIGHT], dtype=dtype)
+        rnd.default.fill(self.bias.v, -0.1, 0.1)
 
-        self.c = formats.aligned_zeros([2, self.A_HEIGHT, self.B_HEIGHT],
-                                       dtype=dtype)
+        self.c = formats.Vector()
+        self.c.v = numpy.zeros([2, self.A_HEIGHT, self.B_HEIGHT], dtype=dtype)
 
     def cleanup_after_tests(self):
         del(self.c)
@@ -92,20 +92,19 @@ class TestMatrixMultiplication(unittest.TestCase):
         fout.write(s)
         fout.close()
 
-        mf = cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR
-        a_buf = cl.Buffer(device.context_, mf, hostbuf=self.a)
-        b_buf = cl.Buffer(device.context_, mf, hostbuf=self.b)
+        self.a.initialize(device)
+        self.b.initialize(device)
         self.c[:] = 0
-        c_buf = cl.Buffer(device.context_, mf, hostbuf=self.c)
-        bias_buf = cl.Buffer(device.context_, mf, hostbuf=self.bias)
+        self.c.initialize(device)
+        self.bias.initialize(device)
 
         prg = cl.Program(device.context_, s).build()
 
         krn = cl.Kernel(prg, "feed_layer")
-        krn.set_arg(0, a_buf)
-        krn.set_arg(1, b_buf)
-        krn.set_arg(2, c_buf)
-        krn.set_arg(3, bias_buf)
+        krn.set_arg(0, self.a.v_)
+        krn.set_arg(1, self.b.v_)
+        krn.set_arg(2, self.c.v_)
+        krn.set_arg(3, self.bias.v_)
 
         global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
@@ -115,9 +114,7 @@ class TestMatrixMultiplication(unittest.TestCase):
                                            local_size)
         event.wait()
 
-        event = cl.enqueue_copy(device.queue_, self.c, c_buf,
-                                wait_for=None, is_blocking=False)
-        event.wait()
+        self.c.map_read()
 
     def test(self):
         self.rnd = rnd.Rand()
@@ -141,10 +138,10 @@ class TestMatrixMultiplication(unittest.TestCase):
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self.do_cpu_test()
             self.do_test(device, block_size)
-            max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
+            max_diff = numpy.fabs(c.ravel() - self.c.v[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
-            num_nz = numpy.count_nonzero(self.c[1].ravel())
+            num_nz = numpy.count_nonzero(self.c.v[1].ravel())
             self.assertEqual(num_nz, 0,
                 "Written some values outside of the target array bounds")
             self.cleanup_after_tests()

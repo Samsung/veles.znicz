@@ -24,14 +24,12 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
 import numpy
 import config
 import rnd
 import opencl
 import plotters
 import pickle
-import time
 import logging
 import loader
 import decision
@@ -220,10 +218,10 @@ class Workflow(workflow.NNWorkflow):
 
 
 def main():
-    if __debug__:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    #if __debug__:
+    #    logging.basicConfig(level=logging.DEBUG)
+    #else:
+    logging.basicConfig(level=logging.INFO)
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),

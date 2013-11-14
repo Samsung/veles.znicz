@@ -14,8 +14,9 @@ import error
 import logging
 
 
-CPU = 1
-GPU = 2
+MAP_READ = pyopencl.map_flags.READ
+MAP_WRITE = pyopencl.map_flags.WRITE
+MAP_INVALIDATE = pyopencl.map_flags.WRITE_INVALIDATE_REGION
 
 
 def roundup(num, align):
@@ -156,15 +157,16 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
     return b
 
 
-class Vector(units.Connector):
+class Vector(units.Pickleable):
     """Container class for numpy array backed by OpenCL buffer.
 
     Attributes:
         device: OpenCL device.
-        what_changed: what buffer has changed (CPU or GPU).
         v: numpy array.
         v_: OpenCL buffer mapped to v.
         supposed_maxvle: supposed maximum element value.
+        map_arr: pyopencl map object.
+        map_flags: flags of the current map.
 
     Example of how to use:
         1. Construct an object:
@@ -186,15 +188,15 @@ class Vector(units.Connector):
 
     def init_unpickled(self):
         super(Vector, self).init_unpickled()
-        self.what_changed = CPU
         self.v_ = None
+        self.map_arr = None
+        self.map_flags = 0
 
     def __getstate__(self):
         """Get data from OpenCL device before pickling.
         """
-        if (self.device and (self.what_changed & GPU) and
-            self.device.pid_ == os.getpid()):
-            self.gpu_2_cpu()
+        if (self.device != None and self.device.pid_ == os.getpid()):
+            self.map_read()
         return super(Vector, self).__getstate__()
 
     def initialize(self, device=None):
@@ -211,41 +213,40 @@ class Vector(units.Connector):
         self.v = realign(self.v, self.device.info.memalign)
         mf = pyopencl.mem_flags
         self.v_ = pyopencl.Buffer(self.device.context_,
-            mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.v)
-        self.what_changed = 0
+            mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=ravel(self.v))
 
-    def update(self, what_changed=CPU):
-        """Sets where the data has been changed (on CPU or GPU).
-
-        Parameters:
-            what_changed: what buffer has changed (CPU or GPU).
-        """
-        self.what_changed = what_changed
-        super(Vector, self).update()
-
-    def sync(self, what_will_use=CPU):
-        """Gets data from GPU to CPU or vice versa if neccessary.
-        """
-        if not self.device:
+    def _map(self, flags):
+        if self.device == None:
             return
-        if (what_will_use & CPU) and (self.what_changed & GPU):
-            self.gpu_2_cpu()
-            return
-        if (what_will_use & GPU) and (self.what_changed & CPU):
-            self.cpu_2_gpu()
-            return
+        if self.map_arr != None:
+            # already mapped properly, nothing to do
+            if self.map_flags != MAP_READ or flags == MAP_READ:
+                return
+            self.unmap()
+        if flags == MAP_INVALIDATE and self.device.info.version < 1.1999:
+            flags = MAP_WRITE  # 'cause available only starting with 1.2
+        self.map_arr, event = pyopencl.enqueue_map_buffer(
+            queue=self.device.queue_, buf=self.v_, flags=flags, offset=0,
+            shape=(self.v.size,), dtype=self.v.dtype, order="C",
+            wait_for=None, is_blocking=False)
+        event.wait()
+        self.map_flags = flags
 
-    def gpu_2_cpu(self):
-        ev = pyopencl.enqueue_copy(self.device.queue_, self.v, self.v_,
-                                   wait_for=None, is_blocking=False)
-        ev.wait()
-        self.what_changed = 0
+    def map_read(self):
+        return self._map(MAP_READ)
 
-    def cpu_2_gpu(self):
-        ev = pyopencl.enqueue_copy(self.device.queue_, self.v_, self.v,
-                                   wait_for=None, is_blocking=False)
-        ev.wait()
-        self.what_changed = 0
+    def map_write(self):
+        return self._map(MAP_WRITE)
+
+    def map_invalidate(self):
+        return self._map(MAP_INVALIDATE)
+
+    def unmap(self):
+        if self.map_arr == None:
+            return
+        self.map_arr.base.release(queue=self.device.queue_, wait_for=None)
+        self.map_arr = None
+        self.map_flags = 0
 
     def __len__(self):
         """To enable [] operator.
@@ -265,6 +266,7 @@ class Vector(units.Connector):
     def reset(self):
         """Sets buffers to None
         """
-        self.what_changed = CPU
+        self.unmap()
         self.v = None
         self.v_ = None
+        self.map_flags = 0

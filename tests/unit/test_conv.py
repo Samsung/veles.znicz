@@ -45,13 +45,13 @@ class TestConv(unittest.TestCase):
 
         c.initialize()
 
+        c.weights.map_invalidate()  # rewrite weights
         c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
-        c.weights.update()
+        c.bias.map_invalidate()  # rewrite bias
         c.bias.v[:] = bias[:]
-        c.bias.update()
 
         c.run()
-        c.output.sync()
+        c.output.map_read()  # get results back
 
         y = c.output.v.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
@@ -114,15 +114,15 @@ class TestConv(unittest.TestCase):
 
         weights = c.weights.v.reshape(c.n_kernels, c.ky, c.kx)
 
+        c.bias.map_invalidate()  # rewrite bias
         c.bias.v[:] = 0
-        c.bias.update()
 
         t0 = time.time()
         c.run()
         dt0 = time.time() - t0
         print("OpenCL convolved in %.2f seconds" % (dt0))
 
-        c.output.sync()
+        c.output.map_read()  # get results back
 
         print("Numpy")
         t0 = time.time()
@@ -173,22 +173,20 @@ class TestConv(unittest.TestCase):
             "%s/512.2.png" % (config.test_dataset_root)).astype(dtype)
         formats.normalize(inp.v[2])
 
-        bias = numpy.array([0, 0, 0, 0], dtype=dtype)
-
         c = conv.Conv(n_kernels=4, kx=3, ky=3, device=device)
         c.input = inp
 
         c.initialize()
 
-        c.bias.v[:] = bias[:]
-        c.bias.update()
+        c.bias.map_invalidate()  # rewrite bias
+        c.bias.v[:] = 0
 
         t0 = time.time()
         c.run()
         dt0 = time.time() - t0
         print("OpenCL convolved in %.2f seconds" % (dt0))
 
-        c.output.sync()
+        c.output.map_read()  # get results back
 
         print("Numpy with FFT")
         t0 = time.time()

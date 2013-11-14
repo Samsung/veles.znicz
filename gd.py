@@ -147,10 +147,10 @@ class GD(units.OpenCLUnit):
             self.krn_bias_.set_arg(2, self.gradient_bias.v_)
 
     def cpu_weights_update(self):
-        self.h.sync()
-        self.err_y.sync()
-        self.weights.sync()
-        self.bias.sync()
+        self.h.map_read()
+        self.err_y.map_read()
+        self.weights.map_write()
+        self.bias.map_write()
 
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])
@@ -179,14 +179,11 @@ class GD(units.OpenCLUnit):
             self.gradient_bias.v[:] = gradient[:]
         self.bias.v += gradient
 
-        self.weights.update()
-        self.bias.update()
-
     def gpu_weights_update(self):
-        self.h.sync(formats.GPU)
-        self.err_y.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
-        self.bias.sync(formats.GPU)
+        self.h.unmap()
+        self.err_y.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
 
         batch_size = self.y.v.shape[0] if self.batch_size == None \
                                            else self.batch_size[0]
@@ -222,14 +219,12 @@ class GD(units.OpenCLUnit):
         ev1.wait()
         ev2.wait()
 
-        self.weights.update(formats.GPU)
-        self.bias.update(formats.GPU)
-
     def cpu_err_h_update(self):
         """Backpropagate error (will compute err_h).
         """
-        self.err_y.sync()
-        self.weights.sync()
+        self.err_h.map_invalidate()
+        self.err_y.map_read()
+        self.weights.map_read()
         err_y = formats.reshape(self.err_y.v,
             [self.err_y.v.shape[0],
              self.err_y.v.size // self.err_y.v.shape[0]])
@@ -240,13 +235,13 @@ class GD(units.OpenCLUnit):
             err_h[:] = numpy.dot(err_y, self.weights.v.transpose())[:]
         else:
             err_h[:] = numpy.dot(err_y, self.weights.v)[:]
-        self.err_h.update()
 
     def gpu_err_h_update(self):
         """Backpropagate error (will compute err_h).
         """
-        self.err_y.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
+        self.err_h.unmap()
+        self.err_y.unmap()
+        self.weights.unmap()
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
         global_size = [formats.roundup(self.err_h.v.size //
                        self.err_h.v.shape[0], block_size),
@@ -256,14 +251,13 @@ class GD(units.OpenCLUnit):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_err_h_, global_size, local_size)
         event.wait()
-        self.err_h.update(formats.GPU)
 
     def print_times(self, t_start):
         log = self.log()
         if not log.isEnabledFor(logging.DEBUG):
             return
-        self.weights.sync()
-        self.bias.sync()
+        self.weights.map_read()
+        self.bias.map_read()
         weights = self.weights.v
         bias = self.bias.v
         if weights.dtype in (numpy.complex64, numpy.complex128):
@@ -302,15 +296,14 @@ class GD(units.OpenCLUnit):
         """
         if self.krn_err_y_ == None:
             return
-        self.y.sync(formats.GPU)
-        self.err_y.sync(formats.GPU)
+        self.y.unmap()
+        self.err_y.unmap()
         global_size = [self.err_y.v.size // self.err_y.v.shape[0],
                        self.err_y.v.shape[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_err_y_, global_size,
                                                  None)
         event.wait()
-        self.err_y.update(formats.GPU)
 
     def cpu_run(self):
         """Do gradient descent.
@@ -353,11 +346,10 @@ class GDTanh(GD):
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
         """
-        self.y.sync()
-        self.err_y.sync()
+        self.y.map_read()
+        self.err_y.map_write()
         y = self.y.v
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
-        self.err_y.update()
 
     def initialize(self):
         self.cl_sources_["%s/gradient_descent_tanh.cl" % (config.cl_dir)] = ""

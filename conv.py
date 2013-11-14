@@ -161,7 +161,7 @@ class Conv(units.OpenCLUnit):
         log = self.log()
         if not log.isEnabledFor(logging.DEBUG):
             return
-        self.output.sync()
+        self.output.map_read()
         y = self.output.v
         if y.dtype in (numpy.complex64, numpy.complex128):
             self.log().debug("%s: %d samples with %d weights in %.2f sec: "
@@ -181,9 +181,10 @@ class Conv(units.OpenCLUnit):
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.input.sync(formats.GPU)
-        self.weights.sync(formats.GPU)
-        self.bias.sync(formats.GPU)
+        self.output.unmap()  # we will be updating output
+        self.input.unmap()  # we will use input
+        self.weights.unmap()  # we will use weights
+        self.bias.unmap()  # we will use bias
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
         global_size = [formats.roundup(self.n_kernels, block_size),
                        formats.roundup(self.output.v.size // self.n_kernels,
@@ -192,7 +193,6 @@ class Conv(units.OpenCLUnit):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         event.wait()
-        self.output.update(formats.GPU)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
