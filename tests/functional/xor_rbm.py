@@ -33,7 +33,6 @@ import pickle
 import rbm
 import loader
 import decision
-import image_saver
 
 
 class Loader(loader.FullBatchLoader):
@@ -351,8 +350,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     try:
         fin = open("%s/xor_rbm.pickle" % (config.snapshot_dir), "rb")
         w0 = pickle.load(fin)

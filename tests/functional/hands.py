@@ -177,8 +177,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     w = Workflow(layers=[30, 2], device=device)
     w.initialize(global_alpha=0.05, global_lambda=0.0)
     w.run()

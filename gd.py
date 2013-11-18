@@ -37,8 +37,8 @@ class GD(units.OpenCLUnit):
     Attributes:
         weights: weights of the current layer.
         bias: bias of the current layer.
-        y: outputs of the current layer.
-        h: outputs of the hidden layer.
+        y: output of the current layer as batch of 1D samples.
+        h: input of the current layer as batch of 1D samples.
         err_y: backpropagation errors for y.
         err_h: backpropagation errors for h (will compute its).
         global_alpha: gradient descent speed (positive).
@@ -84,20 +84,21 @@ class GD(units.OpenCLUnit):
     def initialize(self):
         if (self.err_h.v == None or
             self.err_h.v.size != self.h.v.size):
-            self.err_h.v = numpy.zeros(self.h.v.shape, dtype=self.h.v.dtype)
-            self.err_h.v_ = None
+            self.err_h.reset()
+            self.err_h.v = numpy.zeros(self.h.v.shape,
+                                       dtype=self.err_y.v.dtype)
 
         if (self.store_gradient and
             (self.gradient_weights.v == None or
              self.gradient_weights.v.size != self.weights.v.size)):
+            self.gradient_weights.reset()
             self.gradient_weights.v = numpy.zeros_like(self.weights.v)
-            self.gradient_weights.v_ = None
 
         if (self.store_gradient and
             (self.gradient_bias.v == None or
              self.gradient_bias.v.size != self.bias.v.size)):
+            self.gradient_bias.reset()
             self.gradient_bias.v = numpy.zeros_like(self.bias.v)
-            self.gradient_bias.v_ = None
 
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)

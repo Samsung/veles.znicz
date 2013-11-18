@@ -44,7 +44,6 @@ class model_WF_wine(units.Pickleable):
     """UUseCaseTxt.
 
     Attributes:
-        device_list: list of an OpenCL devices as DeviceList object.
         start_point: Filter.
         end_point: EndPoint.
         t: t.
@@ -63,8 +62,7 @@ class model_WF_wine(units.Pickleable):
         numpy.random.seed(numpy.fromfile("scripts/seed", numpy.integer))
         dev = None
         if not cpu:
-            self.device_list = opencl.DeviceList()
-            dev = self.device_list.get_device()
+            dev = opencl.Device()
 
         # Setup notification flow
         self.start_point = units.Unit()

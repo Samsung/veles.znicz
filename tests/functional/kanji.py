@@ -32,7 +32,6 @@ import plotters
 import pickle
 import loader
 import decision
-import image_saver
 import all2all
 import evaluator
 import gd
@@ -256,8 +255,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     fnme = "%s/kanji.pickle" % (config.snapshot_dir)
     fin = None
     try:

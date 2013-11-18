@@ -25,14 +25,10 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
 import numpy
-import config
 import rnd
 import opencl
 import plotters
-import pickle
-import time
 import logging
 import mnist
 import all2all
@@ -206,8 +202,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     w = Workflow(layers=[500, 784], device=device)
     w.initialize(global_alpha=0.001, global_lambda=0.0001)
     w.run()

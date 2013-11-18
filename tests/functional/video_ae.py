@@ -227,8 +227,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     fnme = "%s/video_ae.pickle" % (config.cache_dir)
     fin = None
     try:

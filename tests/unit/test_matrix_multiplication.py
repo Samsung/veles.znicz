@@ -11,7 +11,7 @@ import numpy
 import config
 import formats
 import rnd
-import pyopencl as cl
+import pyopencl
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -98,9 +98,9 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        prg = cl.Program(device.context_, s).build()
+        prg = pyopencl.Program(device.context_, s).build()
 
-        krn = cl.Kernel(prg, "feed_layer")
+        krn = pyopencl.Kernel(prg, "feed_layer")
         krn.set_arg(0, self.a.v_)
         krn.set_arg(1, self.b.v_)
         krn.set_arg(2, self.c.v_)
@@ -110,8 +110,8 @@ class TestMatrixMultiplication(unittest.TestCase):
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
 
-        event = cl.enqueue_nd_range_kernel(device.queue_, krn, global_size,
-                                           local_size)
+        event = pyopencl.enqueue_nd_range_kernel(device.queue_, krn,
+                                                 global_size, local_size)
         event.wait()
 
         self.c.map_read()
@@ -120,8 +120,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.rnd = rnd.Rand()
         self.rnd.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                      count=1024))
-        cl = opencl.DeviceList()
-        device = cl.get_device()
+        device = opencl.Device()
         self.assertNotEqual(device, None, "Could not get OpenCL device.")
         block_size = device.info.BLOCK_SIZE[config.dtype]
         N = 1000

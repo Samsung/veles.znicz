@@ -5,44 +5,18 @@ OpenCL helper classes.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import pyopencl as cl
+import pyopencl
 import time
 import numpy
 import pickle
 import units
 import os
 import config
-import logging
 import formats
 import rnd
 import traceback
 import sys
-
-
-CL_MAP_READ = 1
-CL_MAP_WRITE = 2
-CL_MAP_WRITE_INVALIDATE_REGION = 4
-
-
-class Device(units.Pickleable):
-    """OpenCL device helper class.
-
-    Attributes:
-        info: DeviceInfo object.
-        context_: OpenCL context handle.
-        queue_: OpenCL device queue.
-        pid_: process id.
-        prefer_mmap: use map/unmap instead of read/write.
-    """
-    def __init__(self, info=None):
-        super(Device, self).__init__()
-        self.info = info
-
-    def init_unpickled(self):
-        super(Device, self).init_unpickled()
-        self.context_ = None
-        self.queue_ = None
-        self.pid_ = os.getpid()
+import error
 
 
 class DeviceInfo(object):
@@ -59,11 +33,11 @@ class DeviceInfo(object):
         min_dt: minimum time of rating test pass of all tests.
         BLOCK_SIZE: best block size for matrix multiplication for the device.
     """
-    def __init__(self, guid=""):
+    def __init__(self, guid, memsize, memalign, version):
         self.guid = guid
-        self.memsize = 0
-        self.memalign = 32
-        self.version = 1.1
+        self.memsize = memsize
+        self.memalign = memalign
+        self.version = version
         self.rating = {}
         for dtype in config.dtypes.keys():
             self.rating[dtype] = 0.0
@@ -75,252 +49,165 @@ class DeviceInfo(object):
             self.min_dt[dtype] = 86400
         self.BLOCK_SIZE = {}
         for dtype in config.dtypes.keys():
-            self.BLOCK_SIZE[dtype] = 8
+            self.BLOCK_SIZE[dtype] = 16
 
 
-class DeviceList(units.Pickleable):
-    """Contains list of devices sorted by rating.
+class Device(units.Pickleable):
+    """OpenCL device helper class.
 
     Attributes:
-        device_infos: dictionary of device infos by guid.
-        devices_available: list of devices available at the time of run
-                           sorted by ratings.
-        devices_in_use: list of device objects currently in use.
-        last_index: index of the last device returned by get_device()
-                    in the devices_available list.
+        info: DeviceInfo object.
+        context_: OpenCL context handle.
+        queue_: OpenCL device queue.
+        pid_: process id.
     """
     def __init__(self):
-        super(DeviceList, self).__init__()
+        super(Device, self).__init__()
+        self._get_some_device()
+        self._fill_device_info_performance_values()
+        self.log().info("Will use the following device "
+                        "(guid: dtype, rating, BLOCK_SIZE, memalign):")
+        for dtype in sorted(config.dtypes.keys()):
+            self.log().info("%s: %s, %.2f, %d, %d" % (
+                self.info.guid, dtype, self.info.rating[dtype],
+                self.info.BLOCK_SIZE[dtype], self.info.memalign))
 
     def init_unpickled(self):
-        super(DeviceList, self).init_unpickled()
-        self.device_infos = {}
+        super(Device, self).init_unpickled()
+        self.context_ = None
+        self.queue_ = None
+        self.pid_ = os.getpid()
+
+    def _get_some_device(self):
+        """Gets some device from the available OpenCL devices.
+        """
+        self.context_ = pyopencl.create_some_context()
+        if self.context_ == None:
+            raise error.ErrNotExists("Could not create OpenCL context.")
+        device = self.context_.devices[0]
+        s = device.get_info(pyopencl.device_info.VERSION)
+        n = s.find(" ") + 1
+        m = s.find(" ", n)
+        self.info = DeviceInfo(guid="%s/%s/%s" % (
+            device.get_info(pyopencl.device_info.VENDOR).strip(),
+            device.get_info(pyopencl.device_info.NAME).strip(),
+            str(device.get_info(pyopencl.device_info.VENDOR_ID))),
+            memsize=device.get_info(pyopencl.device_info.GLOBAL_MEM_SIZE),
+            memalign=device.get_info(pyopencl.device_info.MEM_BASE_ADDR_ALIGN),
+            version=float(s[n:m]))
+        self.queue_ = pyopencl.CommandQueue(self.context_,
+            properties=pyopencl.command_queue_properties.\
+            OUT_OF_ORDER_EXEC_MODE_ENABLE)
+
+    def _fill_device_info_performance_values(self):
+        device_infos = {}
         try:
             fin = open("%s/device_infos.pickle" % (config.cache_dir), "rb")
-            self.device_infos = pickle.load(fin)
+            device_infos = pickle.load(fin)
             fin.close()
         except IOError:
-            self.log().info("%s/device_infos.pickle was not found, "
-                "will one-time test available devices performance" % (
+            self.log().info("%s/device_infos.pickle was not found" % (
                                                         config.cache_dir))
-
-        self.devices_available = []
-        platforms = cl.get_platforms()
-        for platform in platforms:
-            devices = platform.get_devices()
-            logging.debug(devices)
-            for device in devices:
-                context = cl.Context([device])
-                guid = self._get_device_guid(device)
-                if guid not in self.device_infos.keys():
-                    info = DeviceInfo(guid=guid)
-                    self.device_infos[guid] = info
-                info = self.device_infos[guid]
-                info.memsize = self._get_memsize(device)
-                info.memalign = device.get_info(
-                    cl.device_info.MEM_BASE_ADDR_ALIGN)
-                s = device.get_info(cl.device_info.VERSION)
-                n = s.find(" ") + 1
-                m = s.find(" ", n)
-                info.version = float(s[n:m])
-                dev = Device(info=info)
-                dev.context_ = context
-                dev.queue_ = cl.CommandQueue(context,
-                    properties=cl.command_queue_properties.\
-                        OUT_OF_ORDER_EXEC_MODE_ENABLE)
-                self.devices_available.append(dev)
-
-        if self._do_tests():
-            logging.info("Saving test results to %s/device_infos.pickle..." % (
-                                                        config.cache_dir))
-            fout = open("%s/device_infos.pickle" % (config.cache_dir), "wb")
-            pickle.dump(self.device_infos, fout)
-            fout.close()
-            logging.info("Done")
-
-        self.devices_available.sort(
-            key=lambda device: device.info.rating[config.dtype],
-            reverse=True)
-
-        logging.info("Found the following devices "
-              "(guid: dtype, rating, BLOCK_SIZE, memalign):")
-        for device in self.devices_available:
-            for dtype in device.info.rating.keys():
-                logging.info("%s: %s, %.4f, %s, %d" % (device.info.guid, dtype,
-                    device.info.rating[dtype], device.info.BLOCK_SIZE[dtype],
-                    device.info.memalign))
-
-        if not hasattr(self, "devices_in_use"):
-            self.devices_in_use = []
-
-        for self.last_index in range(0, len(self.devices_in_use)):
-            self.devices_in_use[self.last_index].__dict__.\
-            update(self.devices_available[self.last_index %
-                   len(self.devices_available)].__dict__)
-        self.last_index = len(self.devices_in_use)
-
-    def get_device(self):
-        """Gets device from the available list.
-        """
-        dev = Device()
-        dev.__dict__.update(self.devices_available[self.last_index %
-                            len(self.devices_available)].__dict__)
-        self.devices_in_use.append(dev)
-        self.last_index += 1
-        return dev
-
-    def return_device(self, dev):
-        """Returns device to the available list.
-        """
-        idx = 0
-        for i in range(0, len(self.devices_available)):
-            if self.devices_available[i].context_ == dev.context_:
-                idx = i
-                break
-        else:
+        if (not config.test_known_device and
+            self.info.guid in device_infos.keys()):
+            info = device_infos[self.info.guid]
+            self.info.rating.update(info.rating)
+            self.info.BLOCK_SIZE.update(info.BLOCK_SIZE)
+            self.info.dt.update(info.dt)
+            self.info.min_dt.update(info.min_dt)
             return
-        self.devices_available.insert((self.last_index - 1) %
-                                      len(self.devices_available),
-                                      self.devices_available.pop(idx))
-        self.devices_in_use.remove(dev)
+        if not config.test_unknown_device:
+            return
+        self._do_tests(device_infos)
+        self.log().info("Saving found device performance values into "
+                        "%s/device_infos.pickle" % (config.cache_dir))
+        fout = open("%s/device_infos.pickle" % (config.cache_dir), "wb")
+        pickle.dump(device_infos, fout)
+        fout.close()
+        self.log().info("Saved")
 
-    def _get_device_guid(self, device):
-        return ("%s/%s/%s" % (device.get_info(cl.device_info.VENDOR).strip(),
-                device.get_info(cl.device_info.NAME).strip(),
-                str(device.get_info(cl.device_info.VENDOR_ID))))
-
-    def _get_memsize(self, device):
-        # MAX_MEM_ALLOC_SIZE usually incorrectly returns only 25%
-        # of the device RAM, we will return slightly less amount
-        # than the total device RAM.
-        return device.get_info(cl.device_info.GLOBAL_MEM_SIZE) * 9 // 10
-
-    def _do_cpu_test(self, cc, key):
-        """Pure single core CPU test
-        """
-        dtype = (numpy.complex128 if self.a.dtype in (
-                    numpy.complex64, numpy.complex128) else numpy.float64)
-        a = numpy.empty(self.a.shape, dtype=dtype)
-        a[:] = self.a[:]
-        bt = self.b.transpose()
-        b = numpy.empty(bt.shape, dtype=dtype)
-        b[:] = bt[:]
-        bias = numpy.empty(self.bias.shape, dtype=dtype)
-        bias[:] = self.bias[:]
-        c = numpy.empty(self.c.shape, dtype=dtype)
-        t1 = time.time()
-        numpy.dot(a, b, c)
-        c[:] += bias
-        c *= 0.6666
-        numpy.tanh(c, c)
-        c *= 1.7159
-        dt = time.time() - t1
-        cc[key] = c
-        return dt
-
-    def _do_tests(self):
+    def _do_tests(self, device_infos):
         """Measure relative device performance.
         """
-        for device in self.devices_available:
-            for dtype in config.dtypes.keys():
-                if not device.info.rating[dtype]:
-                    break
-            else:
-                continue
-            break
-        else:
-            if not config.retest_devices:
-                return 0
-
-        self.log().info("Untested devices found, "
-                        "will one-time test that devices performance")
+        self.log().info("Will test device performance.\n"
+            "Results of the test will be saved to %s/device_infos.pickle, "
+            "so this is one time process usually." % (config.cache_dir))
 
         min_dt = {}
         for dtype in config.dtypes.keys():
             min_dt[dtype] = 86400
         dt_numpy = 86400
-        for info in self.device_infos.values():
+        for info in device_infos.values():
             for dtype in info.min_dt.keys():
                 min_dt[dtype] = info.min_dt[dtype]
             break
 
-        inf_processed = set()
         cc = {}
-        for device in self.devices_available:
-            if device.info in inf_processed:
-                continue
-            for dtype in config.dtypes.keys():
-                if not device.info.rating[dtype] or config.retest_devices:
-                    break
-            else:
-                continue
-            inf_processed.add(device.info)
-            for dtype in device.info.dt.keys():
-                device.info.dt[dtype] = 86400
-            for BLOCK_SIZE in range(32, 3, -1):
-                for dtype in sorted(config.dtypes.keys()):
-                    try:
-                        self._prepare_tests(BLOCK_SIZE, dtype)
-                        key = "%s_%d_%d_%d" % (
-                            "double2" if dtype[-1] == "2"
-                                      else "double", self.AB_WIDTH,
-                            self.B_HEIGHT, self.A_HEIGHT)
-                        if not key in cc.keys():
-                            logging.info("Numpy double precision "
-                                         "for dtype=%s" % (dtype))
-                            dt = self._do_cpu_test(cc, key)
-                            logging.info("Done in %.2f seconds" % (dt))
-                            if dt < dt_numpy:
-                                dt_numpy = dt
+        for dtype in self.info.dt.keys():
+            self.info.dt[dtype] = 86400
+        for BLOCK_SIZE in range(32, 3, -1):
+            for dtype in sorted(config.dtypes.keys()):
+                try:
+                    self._prepare_tests(BLOCK_SIZE, dtype)
+                    key = "%s_%d_%d_%d" % (
+                        "double2" if dtype[-1] == "2"
+                        else "double", self.AB_WIDTH,
+                        self.B_HEIGHT, self.A_HEIGHT)
+                    if not key in cc.keys():
+                        self.log().info("Numpy double precision "
+                                        "for dtype=%s" % (dtype))
+                        dt = self._do_cpu_test(cc, key)
+                        self.log().info("Done in %.2f seconds" % (dt))
+                        if dt < dt_numpy:
+                            dt_numpy = dt
                         if dt_numpy < min_dt[dtype]:
                             min_dt[dtype] = dt_numpy
-                        logging.info("Testing %s with BLOCK_SIZE = %d "
-                              "and dtype = %s" % \
-                              (device.info.guid, BLOCK_SIZE, dtype))
-                        dt = self._do_test(device, BLOCK_SIZE, dtype, 3)
-                        if dt < device.info.dt[dtype]:
-                            device.info.dt[dtype] = dt
-                            device.info.BLOCK_SIZE[dtype] = BLOCK_SIZE
-                        if dt < min_dt[dtype]:
-                            min_dt[dtype] = dt
-                        c = cc[key].copy()
-                        c -= self.c
-                        c = numpy.sqrt(numpy.square(numpy.real(c)) +
-                                       numpy.square(numpy.imag(c)))
-                        logging.info("Avg is %.2f seconds, MSE = %.6f, "
-                                     "max_diff = %.6f" %
-                                     (dt, numpy.sum(c) / c.size, c.max()))
-                        self._cleanup_after_tests()
-                    except (cl.LogicError, cl.RuntimeError, cl.MemoryError):
-                        a, b, c = sys.exc_info()
-                        logging.info("Program compilation or run failed for "
-                              "BLOCK_SIZE = %d and dtype = %s "
-                              "(details in stderr)" % (BLOCK_SIZE, dtype))
-                        traceback.print_exception(a, b, c)
-                        self._cleanup_after_tests()
+                    self.log().info("Testing %s with BLOCK_SIZE = %d "
+                        "and dtype = %s" % (self.info.guid, BLOCK_SIZE, dtype))
+                    dt = self._do_test(BLOCK_SIZE, dtype, 3)
+                    if dt < self.info.dt[dtype]:
+                        self.info.dt[dtype] = dt
+                        self.info.BLOCK_SIZE[dtype] = BLOCK_SIZE
+                    if dt < min_dt[dtype]:
+                        min_dt[dtype] = dt
+                    c = cc[key].copy()
+                    c -= self.c.v
+                    c = numpy.sqrt(numpy.square(numpy.real(c)) +
+                                   numpy.square(numpy.imag(c)))
+                    self.log().info("Avg is %.2f seconds, MSE = %.6f, "
+                                    "max_diff = %.6f" % (
+                                    dt, numpy.sum(c) / c.size, c.max()))
+                    self._cleanup_after_tests()
+                except (pyopencl.LogicError, pyopencl.RuntimeError,
+                        pyopencl.MemoryError):
+                    a, b, c = sys.exc_info()
+                    self.log().info("Program compilation or run failed for "
+                        "BLOCK_SIZE = %d and dtype = %s "
+                        "(details in stderr)" % (BLOCK_SIZE, dtype))
+                    traceback.print_exception(a, b, c)
+                    self._cleanup_after_tests()
 
         del cc
 
-        logging.info("\nRating(numpy double precision): %.4f" % \
-              (min_dt[config.dtype] / dt_numpy))
-        for info in self.device_infos.values():
-            for dtype in config.dtypes.keys():
-                logging.info("")
-                logging.info(dtype)
+        self.log().info("\nRating(numpy double precision): %.4f" % (
+            min_dt[config.dtype] / dt_numpy))
+        for info in device_infos.values():
+            for dtype in sorted(config.dtypes.keys()):
+                self.log().info("================")
+                self.log().info(dtype)
                 rating = min_dt[dtype] / info.dt[dtype]
                 if info.rating[dtype] != rating:
                     if info.rating[dtype]:
-                        logging.info("UPD Rating(%s): %.4f" % (info.guid,
-                                                               rating))
+                        self.log().info("UPD Rating(%s): %.4f" % (info.guid,
+                                                                  rating))
                     else:
-                        logging.info("NEW Rating(%s): %.4f" % (info.guid,
-                                                               rating))
+                        self.log().info("NEW Rating(%s): %.4f" % (info.guid,
+                                                                  rating))
                 else:
-                    logging.info("Rating(%s): %.4f" % (info.guid, rating))
+                    self.log().info("Rating(%s): %.4f" % (info.guid, rating))
                 info.rating[dtype] = rating
                 info.min_dt[dtype] = min_dt[dtype]
-        logging.info("")
-        return 1
+        self.log().info("================")
 
     def _prepare_tests(self, BLOCK_SIZE, dtype):
         self.AB_WIDTH = 65537
@@ -330,27 +217,29 @@ class DeviceList(units.Pickleable):
             self.AB_WIDTH = formats.roundup(self.AB_WIDTH, BLOCK_SIZE)
             self.B_HEIGHT = formats.roundup(self.B_HEIGHT, BLOCK_SIZE)
             self.A_HEIGHT = formats.roundup(self.A_HEIGHT, BLOCK_SIZE)
-        logging.info("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (
+        self.log().info("Matricies are: [%d, %d] * [%d, %d] = [%d, %d]" % (
             self.AB_WIDTH, self.A_HEIGHT, self.B_HEIGHT, self.AB_WIDTH,
             self.A_HEIGHT, self.B_HEIGHT))
         self.rnd_state = rnd.default.state
 
-        self.a = formats.aligned_zeros([self.A_HEIGHT * self.AB_WIDTH],
-                                     dtype=config.dtypes[dtype])
-        rnd.default.fill(self.a, -0.1, 0.1)
-        self.a = self.a.reshape([self.A_HEIGHT, self.AB_WIDTH])
+        self.a = formats.Vector()
+        self.a.v = numpy.zeros([self.A_HEIGHT, self.AB_WIDTH],
+                               dtype=config.dtypes[dtype])
+        rnd.default.fill(self.a.v, -0.1, 0.1)
 
-        self.b = formats.aligned_zeros([self.B_HEIGHT * self.AB_WIDTH],
-                                     dtype=config.dtypes[dtype])
-        rnd.default.fill(self.b, -0.1, 0.1)
-        self.b = self.b.reshape([self.B_HEIGHT, self.AB_WIDTH])
+        self.b = formats.Vector()
+        self.b.v = numpy.zeros([self.B_HEIGHT, self.AB_WIDTH],
+                               dtype=config.dtypes[dtype])
+        rnd.default.fill(self.b.v, -0.1, 0.1)
 
-        self.bias = formats.aligned_zeros([self.B_HEIGHT],
-                                        dtype=config.dtypes[dtype])
-        rnd.default.fill(self.bias, -0.1, 0.1)
+        self.bias = formats.Vector()
+        self.bias.v = numpy.zeros(self.B_HEIGHT,
+                                  dtype=config.dtypes[dtype])
+        rnd.default.fill(self.bias.v, -0.1, 0.1)
 
-        self.c = formats.aligned_zeros([self.A_HEIGHT, self.B_HEIGHT],
-                                     dtype=config.dtypes[dtype])
+        self.c = formats.Vector()
+        self.c.v = numpy.zeros([self.A_HEIGHT, self.B_HEIGHT],
+                               dtype=config.dtypes[dtype])
 
     def _cleanup_after_tests(self):
         del(self.c)
@@ -363,7 +252,30 @@ class DeviceList(units.Pickleable):
         del(self.B_HEIGHT)
         del(self.AB_WIDTH)
 
-    def _do_test(self, device, BLOCK_SIZE, dtype, iters):
+    def _do_cpu_test(self, cc, key):
+        """Pure single core CPU test
+        """
+        dtype = (numpy.complex128 if self.a.v.dtype in (
+                    numpy.complex64, numpy.complex128) else numpy.float64)
+        a = numpy.empty(self.a.v.shape, dtype=dtype)
+        a[:] = self.a.v[:]
+        bt = self.b.v.transpose()
+        b = numpy.empty(bt.shape, dtype=dtype)
+        b[:] = bt[:]
+        bias = numpy.empty(self.bias.v.shape, dtype=dtype)
+        bias[:] = self.bias.v[:]
+        c = numpy.empty(self.c.v.shape, dtype=dtype)
+        t1 = time.time()
+        numpy.dot(a, b, c)
+        c[:] += bias
+        c *= 0.6666
+        numpy.tanh(c, c)
+        c *= 1.7159
+        dt = time.time() - t1
+        cc[key] = c
+        return dt
+
+    def _do_test(self, BLOCK_SIZE, dtype, iters):
         """Do test for specific context
         """
         defines = ("%s\n"
@@ -388,24 +300,18 @@ class DeviceList(units.Pickleable):
         fout.write(s)
         fout.close()
 
-        mf = cl.mem_flags
-        a_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
-                          hostbuf=self.a)
-        b_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
-                          hostbuf=self.b)
-        self.c[:] = 0
-        c_buf = cl.Buffer(device.context_, mf.WRITE_ONLY | mf.USE_HOST_PTR,
-                          hostbuf=self.c)
-        bias_buf = cl.Buffer(device.context_, mf.READ_ONLY | mf.USE_HOST_PTR,
-                             hostbuf=self.bias)
+        self.a.initialize(self)
+        self.b.initialize(self)
+        self.c.initialize(self)
+        self.bias.initialize(self)
 
-        prg = cl.Program(device.context_, s).build()
+        prg = pyopencl.Program(self.context_, s).build()
 
-        krn = cl.Kernel(prg, "feed_layer")
-        krn.set_arg(0, a_buf)
-        krn.set_arg(1, b_buf)
-        krn.set_arg(2, c_buf)
-        krn.set_arg(3, bias_buf)
+        krn = pyopencl.Kernel(prg, "feed_layer")
+        krn.set_arg(0, self.a.v_)
+        krn.set_arg(1, self.b.v_)
+        krn.set_arg(2, self.c.v_)
+        krn.set_arg(3, self.bias.v_)
 
         global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
@@ -415,14 +321,10 @@ class DeviceList(units.Pickleable):
         for i in range(0, iters + 1):
             if i == 1:
                 t1 = time.time()
-            event = cl.enqueue_nd_range_kernel(device.queue_, krn, global_size,
-                                               local_size)
+            event = pyopencl.enqueue_nd_range_kernel(self.queue_, krn,
+                                            global_size, local_size)
             event.wait()
         dt = time.time() - t1
         # Get results back
-        arr, event = cl.enqueue_map_buffer(queue=device.queue_, buf=c_buf,
-            flags=CL_MAP_READ, offset=0, shape=self.c.shape,
-            dtype=self.c.dtype, order="C", wait_for=None, is_blocking=False)
-        event.wait()
-        arr.base.release(queue=device.queue_, wait_for=None)
+        self.c.map_read()
         return dt / iters

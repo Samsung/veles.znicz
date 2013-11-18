@@ -240,8 +240,7 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     try:
         fin = open("%s/cifar.pickle" % (config.snapshot_dir), "rb")
         w = pickle.load(fin)

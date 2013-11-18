@@ -89,7 +89,7 @@ class Conv(units.OpenCLUnit):
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
         sx = self.input.v.shape[2]
-        n_channels = (self.input.v.size // (batch_size * sx * sy))
+        n_channels = self.input.v.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()

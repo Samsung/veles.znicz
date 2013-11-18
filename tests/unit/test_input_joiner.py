@@ -91,9 +91,7 @@ class TestInputJoiner(unittest.TestCase):
 
     def testGPU(self):
         print("Will test InputJoiner() on GPU.")
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        self.do_test(device)
+        self.do_test(opencl.Device())
 
     def testCPU(self):
         print("Will test InputJoiner() on CPU.")
@@ -102,9 +100,7 @@ class TestInputJoiner(unittest.TestCase):
     def testGPU2(self):
         print("Will test InputJoiner() on GPU "
               "with output size greater than inputs.")
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        self.do_test2(device)
+        self.do_test2(opencl.Device())
 
     def testCPU2(self):
         print("Will test InputJoiner() on CPU "
@@ -114,9 +110,7 @@ class TestInputJoiner(unittest.TestCase):
     def testGPU3(self):
         print("Will test InputJoiner() on GPU "
               "with output size less than inputs.")
-        cl = opencl.DeviceList()
-        device = cl.get_device()
-        self.do_test3(device)
+        self.do_test3(opencl.Device())
 
     def testCPU3(self):
         print("Will test InputJoiner() on CPU "

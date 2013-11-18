@@ -20,9 +20,7 @@ import units
 class TestConv(unittest.TestCase):
     def test(self):
         print("Will test convolutional layer forward propagation")
-
-        cl = opencl.DeviceList()
-        device = cl.get_device()
+        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
@@ -91,8 +89,7 @@ class TestConv(unittest.TestCase):
         print("Will test convolutional layer vs python on image")
 
         print("OpenCL")
-        cl = opencl.DeviceList()
-        device = cl.get_device()
+        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
@@ -157,8 +154,7 @@ class TestConv(unittest.TestCase):
         print("Will test convolutional layer vs python on color image")
 
         print("OpenCL")
-        cl = opencl.DeviceList()
-        device = cl.get_device()
+        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]

@@ -4,8 +4,7 @@ import config
 import opencl
 
 from config import Config, sconfig
-cl = opencl.DeviceList()
-sconfig.device = cl.get_device()
+sconfig.device = opencl.Device()
 
 sconfig.name_data = 'wine';
 this_dir = os.path.dirname(__file__)
@@ -58,15 +57,15 @@ sconfig.wf_nn_train.fail_iterations = 10
 
 sconfig.compute_confusion_matrix = 1;
 """ 0 - not use 1 - use () ||
-   -(use Evaluator and self.decision.minibatch_confusion_matrix)  
-   - enable/disable plotter confusion_matrix     
-    
-  (not work for plotter)  
+   -(use Evaluator and self.decision.minibatch_confusion_matrix)
+   - enable/disable plotter confusion_matrix
+
+  (not work for plotter)
 """
 
 """
-   - enable/disable others plotter 
-     (not work for plotter)  
+   - enable/disable others plotter
+     (not work for plotter)
 """
 
 

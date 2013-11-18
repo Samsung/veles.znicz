@@ -193,8 +193,7 @@ def main():
         sys.exit(1)
     weights = w.forward[0].weights.v
     bias = w.forward[0].bias.v
-    cl = opencl.DeviceList()
-    device = cl.get_device()
+    device = opencl.Device()
     w = Workflow(layers=[weights.shape[0], 250, 10], device=device)
     w.initialize(global_alpha=0.001 * 20, global_lambda=0.00005)
     w.forward[0].weights.map_invalidate()
