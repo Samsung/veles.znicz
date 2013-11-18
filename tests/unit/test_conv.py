@@ -11,10 +11,10 @@ import opencl
 import formats
 import numpy
 import config
-import scipy.misc
 import scipy.signal
 import time
 import units
+import rnd
 
 
 class TestConv(unittest.TestCase):
@@ -94,15 +94,7 @@ class TestConv(unittest.TestCase):
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
         inp.v = numpy.zeros([3, 512, 512], dtype=dtype)
-        inp.v[0] = scipy.misc.imread(
-            "%s/512.png" % (config.test_dataset_root), True).astype(dtype)
-        formats.normalize(inp.v[0])
-        inp.v[1] = scipy.misc.imread(
-            "%s/512.1.png" % (config.test_dataset_root), True).astype(dtype)
-        formats.normalize(inp.v[1])
-        inp.v[2] = scipy.misc.imread(
-            "%s/512.2.png" % (config.test_dataset_root), True).astype(dtype)
-        formats.normalize(inp.v[2])
+        rnd.default.fill(inp.v)
 
         c = conv.Conv(n_kernels=7, kx=3, ky=3, device=device)
         c.input = inp
@@ -159,15 +151,7 @@ class TestConv(unittest.TestCase):
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
         inp.v = numpy.zeros([3, 512, 512, 3], dtype=dtype)
-        inp.v[0] = scipy.misc.imread(
-            "%s/512.png" % (config.test_dataset_root)).astype(dtype)
-        formats.normalize(inp.v[0])
-        inp.v[1] = scipy.misc.imread(
-            "%s/512.1.png" % (config.test_dataset_root)).astype(dtype)
-        formats.normalize(inp.v[1])
-        inp.v[2] = scipy.misc.imread(
-            "%s/512.2.png" % (config.test_dataset_root)).astype(dtype)
-        formats.normalize(inp.v[2])
+        rnd.default.fill(inp.v)
 
         c = conv.Conv(n_kernels=4, kx=3, ky=3, device=device)
         c.input = inp
