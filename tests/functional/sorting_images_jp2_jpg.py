@@ -19,7 +19,7 @@ class MyWindow(QtGui.QWidget):
     def __init__(self, parent=None):
         super(MyWindow, self).__init__(parent)
 
-        self.resize(1160, 760)
+        self.resize(1175, 650)
 
         self.current_index = 0
 
@@ -29,6 +29,10 @@ class MyWindow(QtGui.QWidget):
         self.max_cache = 0
         self.last_files = {}
         self.last_actions = []
+        self.scaleFactor = 1.0
+        self.current_label_size = [940, 540]
+        self.current_image_size = [960, 540]
+        self.should_stuck = False
 
         thumbs_path = "/data/veles/channels/test"
         thumbs_none = "thumbs_none"
@@ -111,6 +115,25 @@ class MyWindow(QtGui.QWidget):
             self.button8.setStyleSheet('font-size: 18pt; font-family: Courier;\
                             color: red; background-color: rgb(230,186,142)')
 
+            self.button9 = QtGui.QPushButton(self)
+            self.button9.setText('Zoom in')
+            self.button9.setToolTip('Zoom in current image')
+            self.button9.setStyleSheet('font-size: 18pt; font-family: Courier;\
+                            color: black; background-color: rgb(230,186,142)')
+
+            self.button10 = QtGui.QPushButton(self)
+            self.button10.setText('Zoom out')
+            self.button10.setToolTip('Zoom out current image')
+            self.button10.setStyleSheet('font-size: 18pt; font-family:\
+                                        Courier; color: black;\
+                                        background-color: rgb(230,186,142)')
+            self.button11 = QtGui.QPushButton(self)
+            self.button11.setText('Zoom fix')
+            self.button11.setToolTip('Fix a previous zoom')
+            self.button11.setStyleSheet('font-size: 18pt; font-family:\
+                                        Courier; color: black;\
+                                        background-color: rgb(230,186,142)')
+
             self.hor_layout = QtGui.QHBoxLayout(self)
             self.ver_layout3 = QtGui.QVBoxLayout(self)
             self.grid_layout = QtGui.QGridLayout(self)
@@ -137,8 +160,12 @@ class MyWindow(QtGui.QWidget):
             self.ver_layout3.addWidget(self.label2)
 
             self.label = QtGui.QLabel(self)
-            self.label.resize(960, 540)
-            self.grid_layout.addWidget(self.label, 0, 0, 1, 1)
+            self.label.resize(940, 540)
+            self.scrollArea = QtGui.QScrollArea()
+            self.scrollArea.setWidget(self.label)
+            self.scrollArea.setWidgetResizable(True)
+            self.scrollArea.setAlignment
+            self.grid_layout.addWidget(self.scrollArea, 0, 0, 1, 1)
 
             self.ver_layout = QtGui.QVBoxLayout(self)
             self.ver_layout.addWidget(self.button4)
@@ -146,6 +173,9 @@ class MyWindow(QtGui.QWidget):
             self.ver_layout.addWidget(self.button6)
             self.ver_layout.addWidget(self.button7)
             self.ver_layout.addWidget(self.button8)
+            self.ver_layout.addWidget(self.button9)
+            self.ver_layout.addWidget(self.button10)
+            self.ver_layout.addWidget(self.button11)
 
             self.grid_layout.addLayout(self.ver_layout, 0, 2, 1, 1)
             self.ver_spacer = QtGui.QSpacerItem(20, 40)
@@ -167,11 +197,36 @@ class MyWindow(QtGui.QWidget):
             self.button7.clicked.connect(lambda: self.PassLeft())
             self.button8.clicked.connect(lambda: self.cancelLastMove(\
                                                         self.last_action))
+            self.button9.clicked.connect(lambda: self.scaleImage(1.25))
+            self.button10.clicked.connect(lambda: self.scaleImage(0.8))
+            self.button11.clicked.connect(lambda: self.stuck())
 
             self.total_images = len(self.thumbs)
             self.passed_images = 0
             self.left_images = self.total_images
             self.nextImage(self.thumbs)
+
+    def stuck(self):
+        if self.should_stuck == False:
+            self.should_stuck = True
+        else:
+            self.should_stuck = False
+
+    def scaleImage(self, factor):
+        self.scaleFactor *= factor
+        self.label.resize(self.scaleFactor * 940, self.scaleFactor * 540)
+        self.current_image = self.current_image.scaled(self.scaleFactor * \
+                                              960, self.scaleFactor * 540)
+        self.label.setPixmap(self.current_image)
+        self.adjustScrollBar(self.scrollArea.horizontalScrollBar(), factor)
+        self.adjustScrollBar(self.scrollArea.verticalScrollBar(), factor)
+
+    def normalSize(self, current_image):
+        self.label.resize(940, 540)
+        self.current_image = self.current_image.scaled(960, 540)
+        self.label.setPixmap(self.current_image)
+        self.adjustScrollBar(self.scrollArea.horizontalScrollBar(), 1)
+        self.adjustScrollBar(self.scrollArea.verticalScrollBar(), 1)
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
@@ -179,6 +234,10 @@ class MyWindow(QtGui.QWidget):
         if j2.box[2].box[1].colorspace != 16:
             return self.yuv_to_rgb(a2)
         return a2
+
+    def adjustScrollBar(self, scrollBar, factor):
+        scrollBar.setValue(int(factor * scrollBar.value()
+                                + ((factor - 1) * scrollBar.pageStep() / 2)))
 
     def numpyToQImage(self, path_name):
         bgra = self.from_jp2(path_name)
@@ -218,14 +277,28 @@ class MyWindow(QtGui.QWidget):
         if file_name.endswith(".JPEG") or file_name.endswith(".png") or\
                     file_name.endswith(".jpg") or file_name.endswith(".bmp"):
             pixmap = QtGui.QPixmap(self.path_to_current_image)
-            pixmap = pixmap.scaled(960, 540, QtCore.Qt.KeepAspectRatio)
-            self.label.setPixmap(pixmap)
-            print("Change image ", self.current_index)
+            if self.should_stuck == False:
+                self.scaleFactor = 1
+                pixmap = pixmap.scaled(960, 540, QtCore.Qt.KeepAspectRatio)
+                self.current_image = pixmap
+                self.label.setPixmap(pixmap)
+                self.normalSize(self.current_image)
+            else:
+                self.current_image = pixmap
+                self.label.setPixmap(pixmap)
         if file_name.endswith(".jp2"):
             img = self.numpyToQImage(self.path_to_current_image)
             pixmap = QtGui.QPixmap.fromImage(img)
-            pixmap = pixmap.scaled(960, 540, QtCore.Qt.KeepAspectRatio)
-            self.label.setPixmap(pixmap)
+            if self.should_stuck == False:
+                self.scaleFactor = 1
+                pixmap = pixmap.scaled(960, 540, QtCore.Qt.KeepAspectRatio)
+                self.current_image = pixmap
+                self.label.setPixmap(pixmap)
+                self.normalSize(self.current_image)
+            else:
+                self.current_image = pixmap
+                self.label.setPixmap(pixmap)
+        print("Change image ", self.current_index)
 
     def changeImage(self, file_name):
         if self.comboBox2.currentIndexChanged[str]:
@@ -251,6 +324,7 @@ class MyWindow(QtGui.QWidget):
             ind_path = thumbs[self.current_index].rfind("/")
             self.path_to_current_image = thumbs[self.current_index]
             file_name = self.path_to_current_image[ind_path + 1:]
+            #self.scaleFactor = 1
             self.current_index += 1
             self.setImage(file_name)
             self.index = self.comboBox2.currentIndex()
@@ -266,6 +340,7 @@ class MyWindow(QtGui.QWidget):
             ind_path = thumbs[self.current_index].rfind("/")
             self.path_to_current_image = thumbs[self.current_index]
             file_name = self.path_to_current_image[ind_path + 1:]
+            #self.scaleFactor = 1
             self.current_index -= 1
             self.setImage(file_name)
             self.index = self.comboBox2.currentIndex()
