@@ -2,6 +2,9 @@
  * General definitions.
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
+
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 #ifdef COMPLEX
 
 inline dtype c_re(c_dtype a) {

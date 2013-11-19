@@ -3,8 +3,6 @@
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
 
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
 /// @brief Computes softmax and finds element with maximum real part.
 /// @details For each sample from batch of y:
 ///          1. Find m = max().

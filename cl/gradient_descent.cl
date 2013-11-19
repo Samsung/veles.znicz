@@ -142,7 +142,7 @@ void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
     sum = AS[0];
   
     #pragma unroll
-    for (int k = 1; k < BLOCK_SIZE; k++)
+    for (int k = 1; k < MIN(BATCH, BLOCK_SIZE); k++)
       sum += AS[k];
 
     c_dtype gd = sum * alpha_batch;

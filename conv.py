@@ -138,13 +138,13 @@ class Conv(units.OpenCLUnit):
                        "#define KX %d\n"
                        "#define KY %d\n"
                        "#define N_KERNELS %d\n"
-                       "\n" %
-                       ("#define WEIGHTS_TRANSPOSED"
-                        if self.weights_transposed else "",
-                        config.cl_defines[config.c_dtype], self.s_activation,
-                        self.device.info.BLOCK_SIZE[config.c_dtype],
-                        batch_size, sx, sy, n_channels, self.kx, self.ky,
-                        self.n_kernels))
+                       "\n" % (
+                       "#define WEIGHTS_TRANSPOSED"
+                       if self.weights_transposed else "",
+                       config.cl_defines[config.c_dtype], self.s_activation,
+                       self.device.info.BLOCK_SIZE[config.c_dtype],
+                       batch_size, sx, sy, n_channels, self.kx, self.ky,
+                       self.n_kernels))
             self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky,
                 self.n_kernels))

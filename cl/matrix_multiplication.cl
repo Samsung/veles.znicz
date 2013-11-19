@@ -174,5 +174,6 @@
   #undef B_INC_X
   #undef B_OFFS
   #undef N_BLOCKS
+  #undef N_SUM
 
 // The source for matrix multiplication ends here.
