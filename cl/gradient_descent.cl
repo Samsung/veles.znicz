@@ -110,41 +110,28 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 /// @param alpha_batch (-global_alpha / batch_size)
 /// @details gradient = sum(err_y) * alpha_batch
 ///          Should be defined externally:
-///          BLOCK_SIZE - size of the block for matrix multiplication,
+///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          BATCH - minibatch size,
-///          H - input size,
 ///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
+__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
                  __global c_dtype /*OUT*/ *gradient, const dtype alpha_batch) {
-  __local c_dtype AS[BLOCK_SIZE];
  
-  int bx = get_group_id(0); // from 0 to Y / BLOCK_SIZE - 1
-  int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
+  #define A err_y
+  #define A_WIDTH Y
+  #define A_HEIGHT BATCH
+  #define A_COL
 
-  c_dtype sum = c_from_re(0);
- 
-  int offs = bx + tx * Y;
-  for (int i = 0; i < BATCH / BLOCK_SIZE; i++, offs += Y * BLOCK_SIZE) {
-    sum += err_y[offs];
-  }
-  // Sum the remaining part
-  #if (BATCH % BLOCK_SIZE) != 0
-  if (tx < BATCH % BLOCK_SIZE)
-    sum += err_y[offs];
-  #endif
- 
-  AS[tx] = sum;
-  // ensure all shared loaded
-  barrier(CLK_LOCAL_MEM_FENCE);
- 
+  MX_REDUCE
+
+  #undef A_COL
+  #undef A_HEIGHT
+  #undef A_WIDTH
+  #undef A
+
   if (!tx) {
-    sum = AS[0];
+    sum += AS[0];
   
-    #pragma unroll
-    for (int k = 1; k < MIN(BATCH, BLOCK_SIZE); k++)
-      sum += AS[k];
-
     c_dtype gd = sum * alpha_batch;
     #ifdef STORE_GRADIENT
     gradient[bx] = gd;

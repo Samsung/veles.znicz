@@ -3,7 +3,7 @@ Created on Nov 8, 2013
 
 Will test correctness of OpenCL matrix multiplication.
 
-@author: ajk
+@author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import unittest
 import opencl

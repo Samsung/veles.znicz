@@ -72,6 +72,7 @@ class GD(units.OpenCLUnit):
         self.store_gradient = store_gradient
         self.apply_gradient = apply_gradient
         self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
+        self.reduce_size = 64
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
@@ -114,6 +115,8 @@ class GD(units.OpenCLUnit):
             return
 
         if self.prg_ == None:
+            block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+            self.reduce_size = min(self.reduce_size, self.bias.v.size)
             defines = ("%s\n"
                        "%s\n"
                        "%s\n"
@@ -121,7 +124,8 @@ class GD(units.OpenCLUnit):
                        "#define BLOCK_SIZE %d\n"
                        "#define BATCH %d\n"
                        "#define H %d\n"
-                       "#define Y %d\n\n") % (
+                       "#define Y %d\n"
+                       "#define REDUCE_SIZE %d\n") % (
                     "#define APPLY_GRADIENT"
                     if self.apply_gradient else "",
                     "#define WEIGHTS_TRANSPOSED"
@@ -129,10 +133,10 @@ class GD(units.OpenCLUnit):
                     "#define STORE_GRADIENT"
                     if self.store_gradient else "",
                     config.cl_defines[config.c_dtype],
-                    self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_h.v.shape[0],
+                    block_size, self.err_h.v.shape[0],
                     self.err_h.v.size // self.err_h.v.shape[0],
-                    self.err_y.v.size // self.err_y.v.shape[0])
+                    self.err_y.v.size // self.err_y.v.shape[0],
+                    self.reduce_size)
             self.build_program(defines, "%s/gd_%d_%d.cl" % (config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
@@ -192,8 +196,8 @@ class GD(units.OpenCLUnit):
         self.weights.unmap()
         self.bias.unmap()
 
-        batch_size = self.y.v.shape[0] if self.batch_size == None \
-                                           else self.batch_size[0]
+        batch_size = (self.y.v.shape[0] if self.batch_size == None
+                                        else self.batch_size[0])
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
@@ -217,8 +221,8 @@ class GD(units.OpenCLUnit):
 
         self.krn_bias_.set_arg(3, self.cl_const[0])
         global_size = [(self.err_y.v.size // self.err_y.v.shape[0]) *
-                       block_size]
-        local_size = [block_size]
+                       self.reduce_size]
+        local_size = [self.reduce_size]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_, global_size,
                                                local_size)

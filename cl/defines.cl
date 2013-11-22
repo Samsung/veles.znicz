@@ -3,9 +3,20 @@
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
 
+
+/// @brief Pragmas for features.
+#if sizeof_dtype == 8
+#pragma OPENCL EXTENSION cl_khr_fp64: enable
+#endif
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
+
+
+/// @brief Minimum of the two values.
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-#ifdef COMPLEX
+
+/// Definitions for complex numbers
+#if sizeof_c_dtype == sizeof_dtype * 2
 
 inline dtype c_re(c_dtype a) {
   return a.x;
@@ -43,10 +54,10 @@ inline dtype c_norm2(c_dtype a) {
 }
 
 inline dtype c_norm(c_dtype a) {
-  return sqrt(a.x * a.x + a.y * a.y);
+  return length(a);
 }
 
-#else
+#elif sizeof_c_dtype == sizeof_dtype
 
 #define c_re(a) (a)
 #define c_from_re(re) (re)
@@ -56,5 +67,86 @@ inline dtype c_norm(c_dtype a) {
 #define c_tanh(a) tanh(a)
 #define c_norm2(a) ((a) * (a))
 #define c_norm(a) fabs(a)
+
+#else
+
+#error Unsupported number type.
+
+#endif
+
+
+/// @brief atom_add for float.
+inline float atom_add_float(__global float *addr, float vle) {
+  float sum = *addr;
+  float oldsum;
+  do {
+    oldsum = sum;
+    float vle = oldsum + vle;
+    int v = *(int*)&oldsum;
+    int w = *(int*)&vle;
+    int u = atom_cmpxchg((__global volatile int *)addr, v, w);
+    sum = *(c_dtype*)&u;
+  }
+  while (sum != oldsum);
+  return sum;
+}
+
+
+/// @brief atom_add for double.
+#if sizeof_dtype == 8
+inline double atom_add_double(__global double *addr, double vle) {
+  double sum = *addr;
+  double oldsum;
+  do {
+    oldsum = sum;
+    double vle = oldsum + vle;
+    long v = *(long*)&oldsum;
+    long w = *(long*)&vle;
+    long u = atom_cmpxchg((__global volatile long *)addr, v, w);
+    sum = *(c_dtype*)&u;
+  }
+  while (sum != oldsum);
+  return sum;
+}
+#endif
+
+
+/// @brief atom_add for float2.
+inline float2 atom_add_float2(__global float2 *addr, float2 vle) {
+  return (float2)(atom_add_float(&addr[0], vle.x), atom_add_float(&addr[1], vle.y));
+}
+
+
+/// @brief atom_add for double2.
+#if sizeof_dtype == 8
+inline double2 atom_add_double2(__global double2 *addr, double2 vle) {
+  return (double2)(atom_add_double(&addr[0], vle.x), atom_add_double(&addr[1], vle.y));
+}
+#endif
+
+
+#if sizeof_c_dtype == sizeof_dtype * 2
+
+#if sizeof_dtype == 4
+#define ATOM_ADD(addr, vle) atom_add_float2(addr, vle)
+#elif sizeof_dtype == 8
+#define ATOM_ADD(addr, vle) atom_add_double2(addr, vle)
+#else
+#error Unsupported number type.
+#endif
+
+#elif sizeof_c_dtype == sizeof_dtype
+
+#if sizeof_dtype == 4
+#define ATOM_ADD(addr, vle) atom_add_float(addr, vle)
+#elif sizeof_dtype == 8
+#define ATOM_ADD(addr, vle) atom_add_double(addr, vle)
+#else
+#error Unsupported number type.
+#endif
+
+#else
+
+#error Unsupported number type.
 
 #endif

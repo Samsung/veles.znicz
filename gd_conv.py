@@ -44,12 +44,11 @@ class GD(units.OpenCLUnit):
            2D samples.
         err_y: backpropagation errors for y.
         err_h: backpropagation errors for h (will compute its).
-        err_h_tmp_: temporary array for holding values
-                    which later will be summed into err_h.
         global_alpha: gradient descent speed (positive).
         global_lambda: coefficient (positive or zero) for weights
                        regularization term (lambda/2 * sum(weights^2)).
-        krn_err_h_: OpenCL kernel for matrix multiplication.
+        krn_err_h_clear_: OpenCL kernel for setting err_h with zeros.
+        krn_err_h_: OpenCL kernel for computing err_h.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
@@ -84,12 +83,13 @@ class GD(units.OpenCLUnit):
         self.store_gradient = store_gradient
         self.apply_gradient = apply_gradient
         self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
+        self.reduce_size = 64
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
         self.cl_sources_["%s/gradient_descent_conv.cl" % (config.cl_dir)] = ""
+        self.krn_err_h_clear_ = None
         self.krn_err_h_ = None
-        self.krn_err_h_tmp_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
         self.krn_bias_ = None
@@ -116,15 +116,6 @@ class GD(units.OpenCLUnit):
             self.err_h.v = numpy.zeros(self.h.v.shape,
                                        dtype=self.err_y.v.dtype)
 
-        self.err_h_tmp_.reset()
-        kernel_size = self.kx * self.ky * n_channels
-        pixel_count = sx * sy * batch_size
-        # Limit size of the temporary array up to 256M elements
-        while pixel_count > 256 and pixel_count * kernel_size > 268435456:
-            pixel_count >>= 1
-        self.err_h_tmp_.v = numpy.zeros([pixel_count, kernel_size],
-                                        dtype=self.err_h.v.dtype)
-
         if (self.store_gradient and
             (self.gradient_weights.v == None or
              self.gradient_weights.v.size != self.weights.v.size)):
@@ -143,7 +134,6 @@ class GD(units.OpenCLUnit):
         self.h.initialize(self.device)
         self.err_y.initialize(self.device)
         self.err_h.initialize(self.device)
-        self.err_h_tmp_.initialize(self.device)
         if self.store_gradient:
             self.gradient_weights.initialize(self.device)
             self.gradient_bias.initialize(self.device)
@@ -152,6 +142,9 @@ class GD(units.OpenCLUnit):
             return
 
         if self.prg_ == None:
+            block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+            self.reduce_size = min(self.reduce_size,
+                                   self.kx * self.ky * n_channels)
             defines = ("%s\n"
                        "%s\n"
                        "%s\n"
@@ -164,7 +157,7 @@ class GD(units.OpenCLUnit):
                        "#define KX %d\n"
                        "#define KY %d\n"
                        "#define N_KERNELS %d\n"
-                       "\n" % (
+                       "#define REDUCE_SIZE %d\n" % (
                        "#define APPLY_GRADIENT"
                        if self.apply_gradient else "",
                        "#define WEIGHTS_TRANSPOSED"
@@ -172,22 +165,21 @@ class GD(units.OpenCLUnit):
                        "#define STORE_GRADIENT"
                        if self.store_gradient else "",
                        config.cl_defines[config.c_dtype],
-                       self.device.info.BLOCK_SIZE[config.c_dtype],
-                       batch_size, sx, sy, n_channels, self.kx, self.ky,
-                       self.n_kernels))
+                       block_size, batch_size, sx, sy, n_channels,
+                       self.kx, self.ky, self.n_kernels,
+                       self.reduce_size))
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
                 config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
+            self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "err_h_clear")
+            self.krn_err_h_clear_.set_arg(0, self.err_h_.v_)
+
             self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.weights.v_)
-            self.krn_err_h_.set_arg(2, self.err_h_tmp_.v_)
-
-            self.krn_err_h_tmp_ = pyopencl.Kernel(self.prg_, "err_h_reduce")
-            self.krn_err_h_tmp_.set_arg(0, self.err_h_tmp_.v_)
-            self.krn_err_h_tmp_.set_arg(1, self.err_h.v_)
+            self.krn_err_h_.set_arg(2, self.err_h_.v_)
 
             self.krn_weights_ = pyopencl.Kernel(self.prg_, "weights_update")
             self.krn_weights_.set_arg(0, self.err_y.v_)
@@ -206,8 +198,8 @@ class GD(units.OpenCLUnit):
         self.weights.unmap()
         self.bias.unmap()
 
-        batch_size = self.y.v.shape[0] if self.batch_size == None \
-                                           else self.batch_size[0]
+        batch_size = (self.y.v.shape[0] if self.batch_size == None
+                                        else self.batch_size[0])
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
@@ -243,23 +235,26 @@ class GD(units.OpenCLUnit):
     def gpu_err_h_update(self):
         """Backpropagate error (will compute err_h).
         """
-        self.err_h_tmp_.unmap()
+        self.err_h.unmap()
         self.err_y.unmap()
         self.weights.unmap()
+
+        # Clear the resulting matrix
+        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+            self.krn_err_h_clear_, [self.err_h_.v.size], None)
+        event.wait()
+
+        batch_size = self.h.v.shape[0]
+        sy = self.h.v.shape[1]
+        sx = self.h.v.shape[2]
+        n_channels = self.h.v.size // (batch_size * sx * sy)
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
-        global_size = [formats.roundup(self.err_h.v.size //
-                       self.err_h.v.shape[0], block_size),
-                       formats.roundup(self.err_h.v.shape[0],
-                                       block_size)]
+        kernel_size = self.kx * self.ky * n_channels
+        global_size = [formats.roundup(kernel_size, block_size),
+            formats.roundup(self.h.v.size // kernel_size, block_size)]
         local_size = [block_size, block_size]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_err_h_, global_size, local_size)
-        event.wait()
-
-        raise Exception("TODO(a.kazantsev): implement missing logic here.")
-
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_tmp_, global_size, local_size)
         event.wait()
 
     def print_times(self, t_start):

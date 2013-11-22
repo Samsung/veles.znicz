@@ -163,16 +163,16 @@
   bool valid = (get_global_id(1) < A_WIDTH) && (get_global_id(0) < B_WIDTH);
 #endif
 
-  #undef A_OFFS
-  #undef B_OFFS
   #undef A_LIMIT
   #undef A_LIMIT_X
   #undef A_INC_X
   #undef A_OFFS
+  #undef A_REAL_OFFS
   #undef B_LIMIT
   #undef B_LIMIT_X
   #undef B_INC_X
   #undef B_OFFS
+  #undef B_REAL_OFFS
   #undef N_BLOCKS
   #undef N_SUM
 
