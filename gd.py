@@ -309,12 +309,9 @@ class GD(units.OpenCLUnit):
             return
         self.y.unmap()
         self.err_y.unmap()
-        global_size = [self.err_y.v.size // self.err_y.v.shape[0],
-                       self.err_y.v.shape[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_err_y_, global_size,
-                                                 None)
-        event.wait()
+        ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+            self.krn_err_y_, [self.err_y.v.size], None)
+        ev.wait()
 
     def cpu_run(self):
         """Do gradient descent.

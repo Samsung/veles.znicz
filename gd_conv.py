@@ -198,8 +198,14 @@ class GD(units.OpenCLUnit):
         self.weights.unmap()
         self.bias.unmap()
 
+        # TODO(a.kazantsev): continue here.
+
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])
+        sy = self.h.v.shape[1]
+        sx = self.h.v.shape[2]
+        n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)
+        batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
@@ -207,24 +213,21 @@ class GD(units.OpenCLUnit):
         block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
         if self.weights_transposed:
             global_size = [
-                formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
-                                block_size),
-                formats.roundup(self.h.v.size // self.h.v.shape[0],
+                formats.roundup(self.n_kernels, block_size),
+                formats.roundup(self.kx * self.ky * n_channels,
                                 block_size)]
         else:
             global_size = [
-                formats.roundup(self.h.v.size // self.h.v.shape[0],
+                formats.roundup(self.kx * self.ky * n_channels,
                                 block_size),
-                formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
-                                block_size)]
+                formats.roundup(self.n_kernels, block_size)]
         local_size = [block_size, block_size]
         ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0])
-        global_size = [(self.err_y.v.size // self.err_y.v.shape[0]) *
-                       block_size]
-        local_size = [block_size]
+        global_size = [self.n_kernels * self.reduce_size]
+        local_size = [self.reduce_size]
         ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                self.krn_bias_, global_size,
                                                local_size)
@@ -298,12 +301,9 @@ class GD(units.OpenCLUnit):
             return
         self.y.unmap()
         self.err_y.unmap()
-        global_size = [self.err_y.v.size // self.err_y.v.shape[0],
-                       self.err_y.v.shape[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_err_y_, global_size,
-                                                 None)
-        event.wait()
+        ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+            self.krn_err_y_, [self.err_y.v.size], None)
+        ev.wait()
 
     def gpu_run(self):
         """Do gradient descent.
