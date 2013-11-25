@@ -93,7 +93,6 @@ class GD(units.OpenCLUnit):
         self.krn_weights_ = None
         self.krn_err_y_ = None
         self.krn_bias_ = None
-        self.err_h_tmp_ = formats.Vector()
 
     def initialize(self):
         batch_size = self.h.v.shape[0]
@@ -106,7 +105,7 @@ class GD(units.OpenCLUnit):
                 "input, n_kernels, kx, ky parameters")
         if self.bias.v.size != self.n_kernels:
             raise error.ErrBadFormat("Expected bias to match n_kernels")
-        if self.h.size != batch_size * sy * sx * n_channels:
+        if self.h.v.size != batch_size * sy * sx * n_channels:
             raise error.ErrBadFormat("Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
@@ -174,12 +173,12 @@ class GD(units.OpenCLUnit):
                 self.y.v.size // self.y.v.shape[0]))
 
             self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "err_h_clear")
-            self.krn_err_h_clear_.set_arg(0, self.err_h_.v_)
+            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
 
             self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.weights.v_)
-            self.krn_err_h_.set_arg(2, self.err_h_.v_)
+            self.krn_err_h_.set_arg(2, self.err_h.v_)
 
             self.krn_weights_ = pyopencl.Kernel(self.prg_, "weights_update")
             self.krn_weights_.set_arg(0, self.err_y.v_)
@@ -198,14 +197,12 @@ class GD(units.OpenCLUnit):
         self.weights.unmap()
         self.bias.unmap()
 
-        # TODO(a.kazantsev): continue here.
-
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)
-        batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
+        #batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
@@ -244,7 +241,7 @@ class GD(units.OpenCLUnit):
 
         # Clear the resulting matrix
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_clear_, [self.err_h_.v.size], None)
+            self.krn_err_h_clear_, [self.err_h.v.size], None)
         event.wait()
 
         batch_size = self.h.v.shape[0]
