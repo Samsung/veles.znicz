@@ -87,21 +87,10 @@ class ImageSaver(units.Unit):
             for i in range(len(self.n_saved)):
                 self.n_saved[i] = 0
             for dirnme in self.out_dirs:
-                i = 1
-                while True:
-                    j = dirnme[i:].find("/")
-                    if j <= 0:
-                        d = dirnme
-                    else:
-                        d = dirnme[:i + j]
-                    try:
-                        #print("To mkdir:", d)
-                        os.mkdir(d)
-                    except OSError:
-                        pass
-                    if j <= 0:
-                        break
-                    i += j + 1
+                try:
+                    os.makedirs(dirnme, mode=0o775, exist_ok=True)
+                except OSError:
+                    pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
                     try:
@@ -179,7 +168,10 @@ class ImageSaver(units.Unit):
             img = xyt
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
-            scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
+            try:
+                scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
+            except OSError:
+                self.log().error("Could not save image to %s" % (fnme))
             self.n_saved[self.minibatch_class[0]] += 1
             if self.n_saved[self.minibatch_class[0]] >= self.limit:
                 return
