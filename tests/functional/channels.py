@@ -76,11 +76,9 @@ class Loader(loader.FullBatchLoader):
             "class_samples", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
 
-    def from_jp2(self, fnme, rot):
+    def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
         a2 = j2.read()  # returns interleaved yuv444
-        if rot:
-            a2 = numpy.rot90(a2, 2)
         if self.grayscale:
             a = numpy.empty([a2.shape[0], a2.shape[1], 1], dtype=numpy.uint8)
             a[:, :, 0:1] = a2[:, :, 0:1]
@@ -135,7 +133,7 @@ class Loader(loader.FullBatchLoader):
                        negative_data, negative_file_map, rand):
         """Loads, crops and normalizes image in the parallel thread.
         """
-        a = self.from_jp2(fnme, fnme.find("norotate") < 0)
+        a = self.from_jp2(fnme)
 
         self.original_labels[i_sample] = lbl
         self.original_data[i_sample] = self.sample_rect(a, pos, sz)
