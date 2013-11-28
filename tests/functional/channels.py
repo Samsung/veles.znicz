@@ -53,9 +53,8 @@ class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
-                 channels_dir="%s/channels/korean_960_540/train" % (
-                                                config.test_dataset_root),
-                 rect=(176, 96), grayscale=False):
+                 channels_dir="", rect=(176, 96), grayscale=False,
+                 cache_fnme=""):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         #: Top-level configuration from channels_dir/conf.py
@@ -63,6 +62,7 @@ class Loader(loader.FullBatchLoader):
         #: Configuration from channels_dir/subdirectory/conf.py
         self.subdir_conf_ = {}
         self.channels_dir = channels_dir
+        self.cache_fnme = cache_fnme
         self.rect = rect
         self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
@@ -73,7 +73,7 @@ class Loader(loader.FullBatchLoader):
         self.file_map = {}  # sample index to its file name map
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale", "file_map"]
+            "class_samples", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
 
     def from_jp2(self, fnme, rot):
@@ -174,9 +174,10 @@ class Loader(loader.FullBatchLoader):
         old_negative_data = []  # old negative set from previous snapshot
         old_file_map = []
 
-        cached_data_fnme = "%s/%s_%s.pickle" % (
+        cached_data_fnme = ("%s/%s_%s.pickle" % (
             config.cache_dir, os.path.basename(__file__),
-                self.__class__.__name__)
+                self.__class__.__name__) if not len(self.cache_fnme)
+            else self.cache_fnme)
         self.log().info("Will try to load previously cached data from "
                         "%s" % (cached_data_fnme))
         save_to_cache = True
@@ -710,14 +711,16 @@ class Workflow(workflow.NNWorkflow):
             j += 1
         self.gd[-1].link_from(self.plt_mx[-1])
 
-    def initialize(self, global_alpha, global_lambda,
-                   minibatch_maxsize, dirnme, dump,
-                   snapshot_prefix, w_neg, find_negative, device):
+    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+                   dirnme, dump, snapshot_prefix, w_neg, find_negative,
+                   grayscale, cache_fnme, device):
         self.decision.snapshot_prefix = snapshot_prefix
         self.loader.channels_dir = dirnme
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         self.loader.w_neg = w_neg
         self.loader.find_negative = find_negative
+        self.loader.grayscale = grayscale
+        self.loader.cache_fnme = cache_fnme
         self.ev.device = device
         for gd in self.gd:
             gd.device = device
@@ -813,84 +816,42 @@ import argparse
 
 
 def main():
-    """Some visualization
-    import matplotlib.pyplot as pp
-    cached_data_fnme = "%s/%s_Loader.pickle" % (
-        config.cache_dir, os.path.basename(__file__))
-    fin = open(cached_data_fnme, "rb")
-    pickle.load(fin)
-    original_labels = pickle.load(fin)
-    a = pickle.load(fin)
-    sh = [original_labels.shape[0]]
-    sh.extend(a.shape)
-    original_data = numpy.zeros(sh, dtype=numpy.float32)
-    original_data[0] = a
-    for i in range(1, original_data.shape[0]):
-        a = pickle.load(fin)
-        original_data[i] = a
-    fin.close()
-    fig = pp.figure()
-    for i in range(49):
-        ax = fig.add_subplot(7, 7, i + 1)
-        ax.axis('off')
-
-        ii = numpy.random.randint(original_data.shape[0])
-        a = original_data[ii]
-
-        aa = numpy.zeros([a.shape[1], a.shape[2], 3], dtype=numpy.float32)
-        aa[:, :, 0:1] = a[0:1, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
-                                                                        0:1]
-        aa[:, :, 1:2] = a[1:2, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
-                                                                        0:1]
-        aa[:, :, 2:3] = a[2:3, :, :].reshape(a.shape[1], a.shape[2], 1)[:, :,
-                                                                        0:1]
-        aa -= aa.min()
-        m = aa.max()
-        if m:
-            aa /= m
-            aa *= 255.0
-
-        ax.imshow(aa.astype(numpy.uint8), interpolation="nearest")
-        ax.text(0.5, 0.5, str(original_labels[ii]),
-                horizontalalignment='center',
-                verticalalignment='center')
-    pp.show()
-    sys.exit(0)
-    """
     #if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
     #else:
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-snapshot", type=str,
-        help="Snapshot with trained network",
-        default="%s/channels_kor.pickle" % (config.snapshot_dir))
+    parser.add_argument("-snapshot", type=str, default="",
+        help="Snapshot with trained network (default empty)")
     parser.add_argument("-export", type=bool,
-        help="Export trained network to C",
+        help="Export trained network to C (default False)",
         default=False)
     parser.add_argument("-dump", type=str,
-        help="Dump trained network output to .mat",
+        help="Dump trained network output to .mat (default empty)",
         default="")
-    parser.add_argument("-dir", type=str,
-        help="Directory with channels",
-        default="%s/channels/korean_960_540/train" % (
-                                    config.test_dataset_root))
-    parser.add_argument("-snapshot_prefix", type=str,
-        help="Snapshot prefix.", default="108_24")
-    parser.add_argument("-layers", type=str,
-        help="NN layer sizes, separated by any separator.",
-        default="108_24")
+    parser.add_argument("-dir", type=str, required=True,
+        help="Directory with channels")
+    parser.add_argument("-snapshot_prefix", type=str, required=True,
+        help="Snapshot prefix (Ex.: 108_24)")
+    parser.add_argument("-layers", type=str, required=True,
+        help="NN layer sizes, separated by any separator (Ex.: 108_24)")
     parser.add_argument("-minibatch_size", type=int,
-        help="Minibatch size.", default=81)
+        help="Minibatch size (default 81)", default=81)
     parser.add_argument("-global_alpha", type=float,
-        help="Global Alpha.", default=0.01)
+        help="Global Alpha (default 0.01)", default=0.01)
     parser.add_argument("-global_lambda", type=float,
-        help="Global Lambda.", default=0.00005)
+        help="Global Lambda (default 0.00005)", default=0.00005)
     parser.add_argument("-find_negative", type=int,
         help="Extend negative dataset by at most this number of negative "
-             "samples per image. -snapshot should be provided.",
+             "samples per image. -snapshot should be provided (default 0)",
         default=0)
+    parser.add_argument("-grayscale", type=bool,
+        help="Use grayscale input (default False)", default=False)
+    parser.add_argument("-cache_fnme", type=str, default="",
+        help="Filename for saving preprocessed data for training for "
+        "later multipasses, if empty - will use hardcoded filename "
+        "in the cache dir (default empty)")
     args = parser.parse_args()
 
     s_layers = re.split("\D+", args.layers)
@@ -912,10 +873,10 @@ def main():
         fin.close()
         if args.export:
             tm = time.localtime()
-            s = "%d.%02d.%02d_%02d.%02d.%02d" % (
+            s = "%d.%02d.%02d_%02d.%02d.%02d.tar.gz" % (
                 tm.tm_year, tm.tm_mon, tm.tm_mday,
                 tm.tm_hour, tm.tm_min, tm.tm_sec)
-            fnme = "%s/kor_channels_workflow_%s" % (config.snapshot_dir, s)
+            fnme = "%s/channels_workflow_%s" % (config.snapshot_dir, s)
             try:
                 w.export(fnme)
                 logging.info("Exported successfully to %s" % (fnme))
@@ -938,7 +899,8 @@ def main():
                  global_lambda=args.global_lambda,
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
                  dump=args.dump, snapshot_prefix=args.snapshot_prefix,
-                 w_neg=w_neg, find_negative=args.find_negative, device=device)
+                 w_neg=w_neg, find_negative=args.find_negative, device=device,
+                 grayscale=args.grayscale, cache_fnme=args.cache_fnme)
     fnme = "%s/%s.txt" % (config.cache_dir, args.snapshot_prefix)
     logging.info("Dumping file map to %s" % (fnme))
     fout = open(fnme, "w")

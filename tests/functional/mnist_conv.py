@@ -197,13 +197,13 @@ def main():
         logging.basicConfig(level=logging.INFO)
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
-                                    numpy.int32, 1024))
-    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
+    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[{"n_kernels": 25, "kx": 5, "ky": 5}, 100, 10],
+    w = Workflow(layers=[{"n_kernels": 25, "kx": 9, "ky": 9}, 100, 10],
                  device=device)
-    w.initialize(global_alpha=0.01, global_lambda=0.00005, minibatch_maxsize=27)
+    w.initialize(global_alpha=0.01, global_lambda=0.00005,
+                 minibatch_maxsize=27)
     w.run()
 
     plotters.Graphics().wait_finish()
