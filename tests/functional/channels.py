@@ -78,20 +78,58 @@ class Loader(loader.FullBatchLoader):
 
     def from_jp2(self, fnme):
         j2 = glymur.Jp2k(fnme)
-        a2 = j2.read()  # returns interleaved yuv444
-        if self.grayscale:
-            a = numpy.empty([a2.shape[0], a2.shape[1], 1], dtype=numpy.uint8)
-            a[:, :, 0:1] = a2[:, :, 0:1]
-            a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
+        a2 = j2.read()
+        if j2.box[2].box[1].colorspace == 16:  # RGB
+            if self.grayscale:
+                # Get Y component from RGB
+                a = numpy.empty([a2.shape[0], a2.shape[1], 1],
+                                dtype=numpy.uint8)
+                a[:, :, 0:1] = numpy.clip(
+                    0.299 * a2[:, :, 0:1] +
+                    0.587 * a2[:, :, 1:2] +
+                    0.114 * a2[:, :, 2:3], 0, 255)
+                a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
+            else:
+                # Convert to YUV
+                # Y = 0.299 * R + 0.587 * G + 0.114 * B;
+                # U = -0.14713 * R - 0.28886 * G + 0.436 * B + 128;
+                # V = 0.615 * R - 0.51499 * G - 0.10001 * B + 128;
+                # and transform to different planes
+                a = numpy.empty([3, a2.shape[0], a2.shape[1]],
+                                dtype=numpy.uint8)
+                a[0:1, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = numpy.clip(
+                    0.299 * a2[:, :, 0:1] +
+                    0.587 * a2[:, :, 1:2] +
+                    0.114 * a2[:, :, 2:3], 0, 255)
+                a[1:2, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = numpy.clip(
+                    (-0.14713) * a2[:, :, 0:1] +
+                    (-0.28886) * a2[:, :, 1:2] +
+                    0.436 * a2[:, :, 2:3] + 128, 0, 255)
+                a[2:3, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = numpy.clip(
+                    0.615 * a2[:, :, 0:1] +
+                    (-0.51499) * a2[:, :, 1:2] +
+                    (-0.10001) * a2[:, :, 2:3] + 128, 0, 255)
+        elif j2.box[2].box[1].colorspace == 18:  # YUV
+            if self.grayscale:
+                a = numpy.empty([a2.shape[0], a2.shape[1], 1],
+                                dtype=numpy.uint8)
+                a[:, :, 0:1] = a2[:, :, 0:1]
+                a = formats.reshape(a, [a2.shape[0], a2.shape[1]])
+            else:
+                # transform to different yuv planes
+                a = numpy.empty([3, a2.shape[0], a2.shape[1]],
+                                dtype=numpy.uint8)
+                a[0:1, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
+                a[1:2, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 1:2]
+                a[2:3, :, :].reshape(
+                    a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         else:
-            # transform to different yuv planes
-            a = numpy.empty([3, a2.shape[0], a2.shape[1]], dtype=numpy.uint8)
-            a[0:1, :, :].reshape(
-                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 0:1]
-            a[1:2, :, :].reshape(
-                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 1:2]
-            a[2:3, :, :].reshape(
-                a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
+            raise error.ErrBadFormat("Unknown colorspace in %s" % (fnme))
         return a
 
     def sample_rect(self, a, pos, sz):
@@ -592,10 +630,7 @@ class Workflow(workflow.NNWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(out_dirs=[
-            "/tmp/tmpimg/test",
-            "/tmp/tmpimg/validation",
-            "/tmp/tmpimg/train"], yuv=True)
+        self.image_saver = image_saver.ImageSaver(yuv=True)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -615,8 +650,7 @@ class Workflow(workflow.NNWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="channels_kor",
-                                          use_dynamic_alpha=False)
+        self.decision = decision.Decision(use_dynamic_alpha=False)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
