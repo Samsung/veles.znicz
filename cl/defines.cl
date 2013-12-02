@@ -84,11 +84,11 @@ inline float atom_add_float(__global float *addr, float vle) {
   float oldsum;
   do {
     oldsum = sum;
-    float vle = oldsum + vle;
+    sum += vle;
     int v = *(int*)&oldsum;
-    int w = *(int*)&vle;
+    int w = *(int*)&sum;
     int u = atom_cmpxchg((__global volatile int *)addr, v, w);
-    sum = *(c_dtype*)&u;
+    sum = *(float*)&u;
   }
   while (sum != oldsum);
   return sum;
@@ -102,11 +102,11 @@ inline double atom_add_double(__global double *addr, double vle) {
   double oldsum;
   do {
     oldsum = sum;
-    double vle = oldsum + vle;
+    sum += vle;
     long v = *(long*)&oldsum;
-    long w = *(long*)&vle;
+    long w = *(long*)&sum;
     long u = atom_cmpxchg((__global volatile long *)addr, v, w);
-    sum = *(c_dtype*)&u;
+    sum = *(double*)&u;
   }
   while (sum != oldsum);
   return sum;

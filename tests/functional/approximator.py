@@ -154,9 +154,6 @@ class Workflow(workflow.NNWorkflow):
     """
     def __init__(self, layers=None, device=None):
         super(Workflow, self).__init__(device=device)
-        self.start_point = units.Unit()
-
-        self.rpt = units.Repeater()
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(
@@ -220,7 +217,6 @@ class Workflow(workflow.NNWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point = units.EndPoint()
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
