@@ -8,7 +8,6 @@
 #if sizeof_dtype == 8
 #pragma OPENCL EXTENSION cl_khr_fp64: enable
 #endif
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
 
 
 /// @brief Minimum of the two values.
@@ -74,6 +73,10 @@ inline dtype c_norm(c_dtype a) {
 
 #endif
 
+
+#ifdef USE_ATOMICS
+
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
 
 /// @brief atom_add for float.
 inline float atom_add_float(__global float *addr, float vle) {
@@ -148,5 +151,7 @@ inline double2 atom_add_double2(__global double2 *addr, double2 vle) {
 #else
 
 #error Unsupported number type.
+
+#endif
 
 #endif

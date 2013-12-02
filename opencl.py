@@ -119,6 +119,7 @@ class Device(units.Pickleable):
         if not config.test_unknown_device:
             return
         self._do_tests(device_infos)
+        device_infos[self.info.guid] = self.info
         self.log().info("Saving found device performance values into "
                         "%s/device_infos.pickle" % (config.cache_dir))
         fout = open("%s/device_infos.pickle" % (config.cache_dir), "wb")

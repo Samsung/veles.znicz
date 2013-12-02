@@ -144,7 +144,8 @@ class GD(units.OpenCLUnit):
             block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
-            defines = ("%s\n"
+            defines = ("#define USE_ATOMICS\n"
+                       "%s\n"
                        "%s\n"
                        "%s\n"
                        "%s\n"
