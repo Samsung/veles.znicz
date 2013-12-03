@@ -96,6 +96,7 @@ class TestGDConv(unittest.TestCase):
                         "Result differs by %.6f" % (max_diff))
         print("Bias is right")
 
+
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

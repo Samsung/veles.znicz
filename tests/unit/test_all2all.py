@@ -4,7 +4,6 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
-
 import unittest
 import all2all
 import opencl
@@ -16,7 +15,7 @@ import rnd
 
 
 class TestAll2All(unittest.TestCase):
-    def testWithFixedInput(self):
+    def test_with_fixed_input(self):
         print("Will test all2all unit")
         device = opencl.Device()
 
