@@ -4,7 +4,6 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
-
 import unittest
 import gd
 import opencl
@@ -15,8 +14,7 @@ import units
 import rnd
 
 
-class Test_Gd(unittest.TestCase):
-
+class TestGD(unittest.TestCase):
     def do_test(self, device):
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
