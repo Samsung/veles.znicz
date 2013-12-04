@@ -36,6 +36,8 @@ import gd
 import workflow
 import conv
 import gd_conv
+import pooling
+import gd_pooling
 import error
 
 
@@ -60,11 +62,19 @@ class Workflow(workflow.NNWorkflow):
                 else:
                     aa = all2all.All2AllTanh([layer], device=device)
             elif type(layer) == dict:
-                aa = conv.ConvTanh(n_kernels=layer["n_kernels"],
-                    kx=layer["kx"], ky=layer["ky"], device=device)
+                if layer["type"] == "conv":
+                    aa = conv.ConvTanh(n_kernels=layer["n_kernels"],
+                        kx=layer["kx"], ky=layer["ky"], device=device)
+                elif layer["type"] == "max_pooling":
+                    aa = pooling.MaxPooling(kx=layer["kx"], ky=layer["ky"],
+                                            device=device)
+                else:
+                    raise error.ErrBadFormat("Unsupported layer type %s" % (
+                                                                layer["type"]))
             else:
                 raise error.ErrBadFormat("layers element type should be int "
-                    "for all-to-all or dictionary for convolutional")
+                    "for all-to-all or dictionary for "
+                    "convolutional or pooling")
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -109,6 +119,9 @@ class Workflow(workflow.NNWorkflow):
             if isinstance(self.forward[i], conv.Conv):
                 obj = gd_conv.GDTanh(self.forward[i].n_kernels,
                     self.forward[i].kx, self.forward[i].ky, device=device)
+            elif isinstance(self.forward[i], pooling.MaxPooling):
+                obj = gd_pooling.GDMaxPooling(device=device)
+                obj.h_offs = self.forward[i].input_offs
             else:
                 obj = gd.GDTanh(device=device)
             self.gd[i] = obj
@@ -200,8 +213,11 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[{"n_kernels": 25, "kx": 9, "ky": 9}, 100, 10],
-                 device=device)
+    #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+    #                     100, 10], device=device)  # 0.99% errors
+    w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+                         {"type": "max_pooling", "kx": 2, "ky": 2},
+                         100, 10], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
                  minibatch_maxsize=27)
     w.run()

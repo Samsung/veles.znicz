@@ -60,7 +60,7 @@ class MaxPooling(units.Forward):
 
         out_sx = (sx // self.kx) + (0 if sx % self.kx == 0 else 1)
         out_sy = (sy // self.ky) + (0 if sy % self.ky == 0 else 1)
-        output_size = out_sx * out_sy * batch_size
+        output_size = n_channels * out_sx * out_sy * batch_size
         if self.output.v == None or self.output.v.size != output_size:
             self.output.reset()
             self.output.v = numpy.zeros([batch_size, out_sy, out_sx,
@@ -117,7 +117,7 @@ class MaxPooling(units.Forward):
         self.output.unmap()  # we will be updating output
         self.input.unmap()  # we will use input
         y = self.output.v
-        global_size = [y.shape[2], y.shape[0] * y.shape[1]]
+        global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, None)
         event.wait()

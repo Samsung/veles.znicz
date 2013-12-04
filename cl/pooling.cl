@@ -27,12 +27,14 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
   int max_offs = 0;
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
-  int start_x = target_x * KX * N_CHANNELS,
+  #define TARGET_PIXEL (target_x / N_CHANNELS)
+  #define TARGET_CHANNEL (target_x % N_CHANNELS)
+  int start_x = TARGET_PIXEL * N_CHANNELS * KX + TARGET_CHANNEL,
       start_y = target_y % OUT_SY * KY;
-  int offs = ((target_y / OUT_SY) * SY + start_y) * SX;
+  int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX) {
-    for (int j = 0, x = start_x; (j < KX) && (x < SX); j++, x += N_CHANNELS) {
+  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
+    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
       c_dtype vle = h[offs + x];
       dtype absvle = c_norm(vle);
       if (absvle > max_absvle) {
@@ -43,7 +45,7 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
     }
   }
 
-  int idx = target_y * OUT_SX + target_x;
+  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   y[idx] = max_vle;
   h_offs[idx] = max_offs;
 }

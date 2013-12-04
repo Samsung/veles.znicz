@@ -218,10 +218,18 @@ class Decision(units.Unit):
         weights = []
         bias = []
         for forward in self.workflow.forward:
-            forward.weights.map_read()
-            forward.bias.map_read()
-            weights.append(forward.weights.v)
-            bias.append(forward.bias.v)
+            if forward.weights != None:
+                forward.weights.map_read()
+                weights.append(forward.weights.v)
+            else:
+                weights.append(None)
+            if forward.bias != None:
+                forward.bias.map_read()
+                bias.append(forward.bias.v)
+            else:
+                bias.append(None)
+            if forward.weights == None or forward.bias == None:
+                continue
             if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
                 self.log().info("%f %f %f %f" % (
                     min(forward.weights.v.real.min(),
