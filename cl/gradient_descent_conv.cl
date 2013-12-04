@@ -26,14 +26,6 @@
 #define IN_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
 
 
-/// @brief Sets all elements of err_h to zero.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
-__kernel
-void err_h_clear(__global c_dtype /*OUT*/ *err_h) {
-  err_h[get_global_id(0)] = c_from_re(0);
-}
-
-
 /// @brief Computes backprogated error for previous layer.
 /// @param err_y backpropagated error of the output layer.
 /// @param weights weights.

@@ -14,7 +14,7 @@ import config
 import logging
 
 
-class GD(units.OpenCLUnit):
+class GD(units.GD):
     """Gradient Descent.
 
     Should be assigned before initialize():

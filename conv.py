@@ -16,7 +16,7 @@ import logging
 import error
 
 
-class Conv(units.OpenCLUnit):
+class Conv(units.Forward):
     """Convolutional forward propagation with linear activation f(x) = x.
 
     Should be assigned before initialize():
@@ -59,7 +59,7 @@ class Conv(units.OpenCLUnit):
         self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
         self.weights_transposed = weights_transposed
-        self.exports = ["weights", "bias"]
+        self.exports.extend(("s_activation", "kx", "ky", "n_kernels"))
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()

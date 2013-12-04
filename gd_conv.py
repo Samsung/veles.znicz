@@ -15,7 +15,7 @@ import logging
 import error
 
 
-class GD(units.OpenCLUnit):
+class GD(units.GD):
     """Gradient Descent.
 
     Should be assigned before initialize():
@@ -173,7 +173,7 @@ class GD(units.OpenCLUnit):
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
-            self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "err_h_clear")
+            self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "array_clear")
             self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
 
             self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
