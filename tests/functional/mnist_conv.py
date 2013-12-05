@@ -68,6 +68,9 @@ class Workflow(workflow.NNWorkflow):
                 elif layer["type"] == "max_pooling":
                     aa = pooling.MaxPooling(kx=layer["kx"], ky=layer["ky"],
                                             device=device)
+                elif layer["type"] == "avg_pooling":
+                    aa = pooling.AvgPooling(kx=layer["kx"], ky=layer["ky"],
+                                            device=device)
                 else:
                     raise error.ErrBadFormat("Unsupported layer type %s" % (
                                                                 layer["type"]))
@@ -120,8 +123,12 @@ class Workflow(workflow.NNWorkflow):
                 obj = gd_conv.GDTanh(self.forward[i].n_kernels,
                     self.forward[i].kx, self.forward[i].ky, device=device)
             elif isinstance(self.forward[i], pooling.MaxPooling):
-                obj = gd_pooling.GDMaxPooling(device=device)
+                obj = gd_pooling.GDMaxPooling(
+                    self.forward[i].kx, self.forward[i].ky, device=device)
                 obj.h_offs = self.forward[i].input_offs
+            elif isinstance(self.forward[i], pooling.AvgPooling):
+                obj = gd_pooling.GDAvgPooling(
+                    self.forward[i].kx, self.forward[i].ky, device=device)
             else:
                 obj = gd.GDTanh(device=device)
             self.gd[i] = obj
@@ -216,7 +223,7 @@ def main():
     #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
     #                     100, 10], device=device)  # 0.99% errors
     w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
-                         {"type": "max_pooling", "kx": 2, "ky": 2},
+                         {"type": "avg_pooling", "kx": 2, "ky": 2},
                          100, 10], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
                  minibatch_maxsize=27)

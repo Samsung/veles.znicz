@@ -15,7 +15,7 @@ import logging
 import error
 
 
-class MaxPooling(units.Forward):
+class Pooling(units.Forward):
     """Pooling forward propagation.
 
     Should be assigned before initialize():
@@ -23,11 +23,9 @@ class MaxPooling(units.Forward):
 
     Updates after run():
         output
-        input_offs
 
     Creates within initialize():
         output
-        input_offs
 
     Attributes:
         input: input as batch of multichannel interleaved images.
@@ -37,21 +35,20 @@ class MaxPooling(units.Forward):
         krn_: OpenCL kernel.
     """
     def __init__(self, kx=5, ky=5, device=None):
-        super(MaxPooling, self).__init__(device=device)
+        super(Pooling, self).__init__(device=device)
         self.input = None  # formats.Vector(device)
         self.output = formats.Vector(device)
-        self.input_offs = formats.Vector(device)
         self.kx = kx
         self.ky = ky
         self.exports.extend(("kx", "ky"))
 
     def init_unpickled(self):
-        super(MaxPooling, self).init_unpickled()
+        super(Pooling, self).init_unpickled()
         self.cl_sources_["%s/pooling.cl" % (config.cl_dir)] = ""
         self.krn_ = None
 
     def initialize(self):
-        super(MaxPooling, self).initialize()
+        super(Pooling, self).initialize()
 
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
@@ -66,15 +63,8 @@ class MaxPooling(units.Forward):
             self.output.v = numpy.zeros([batch_size, out_sy, out_sx,
                 n_channels], dtype=self.input.v.dtype)
 
-        if (self.input_offs.v == None or
-            self.input_offs.v.size != self.output.v.size):
-            self.input_offs.reset()
-            self.input_offs.v = numpy.zeros(self.output.v.shape,
-                                            dtype=numpy.int32)
-
         self.input.initialize(self.device)
         self.output.initialize(self.device)
-        self.input_offs.initialize(self.device)
 
         if self.device == None:
             return
@@ -90,13 +80,8 @@ class MaxPooling(units.Forward):
                        config.cl_defines[config.c_dtype],
                        sx, sy, n_channels, self.kx, self.ky))
             self.build_program(defines,
-                "%s/max_pooling_%dx%dx%d_%dx%d.cl" % (
+                "%s/pooling_%dx%dx%d_%dx%d.cl" % (
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky))
-
-            self.krn_ = pyopencl.Kernel(self.prg_, "do_max_pooling")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.output.v_)
-            self.krn_.set_arg(2, self.input_offs.v_)
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -113,7 +98,6 @@ class MaxPooling(units.Forward):
     def gpu_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.input_offs.unmap()  # we will be updating input_offs
         self.output.unmap()  # we will be updating output
         self.input.unmap()  # we will use input
         y = self.output.v
@@ -129,7 +113,72 @@ class MaxPooling(units.Forward):
 
     def run(self):
         t1 = time.time()
-        retval = super(MaxPooling, self).run()
+        retval = super(Pooling, self).run()
         if retval:
             return retval
         self.print_times(t1)
+
+
+class MaxPooling(Pooling):
+    """MaxPooling forward propagation.
+
+    Should be assigned before initialize():
+
+    Updates after run():
+        input_offs
+
+    Creates within initialize():
+        input_offs
+
+    Attributes:
+        input_offs: offsets in the input where maximum elements were found.
+    """
+    def __init__(self, kx=5, ky=5, device=None):
+        super(MaxPooling, self).__init__(kx=kx, ky=ky, device=device)
+        self.input_offs = formats.Vector(device)
+
+    def initialize(self):
+        super(MaxPooling, self).initialize()
+
+        if (self.input_offs.v == None or
+            self.input_offs.v.size != self.output.v.size):
+            self.input_offs.reset()
+            self.input_offs.v = numpy.zeros(self.output.v.shape,
+                                            dtype=numpy.int32)
+
+        self.input_offs.initialize(self.device)
+
+        if self.device == None:
+            return
+
+        if self.krn_ == None:
+            self.krn_ = pyopencl.Kernel(self.prg_, "do_max_pooling")
+            self.krn_.set_arg(0, self.input.v_)
+            self.krn_.set_arg(1, self.output.v_)
+            self.krn_.set_arg(2, self.input_offs.v_)
+
+    def gpu_run(self):
+        self.input_offs.unmap()  # we will be updating input_offs
+        return super(MaxPooling, self).gpu_run()
+
+
+class AvgPooling(Pooling):
+    """AvgPooling forward propagation.
+
+    Should be assigned before initialize():
+
+    Updates after run():
+
+    Creates within initialize():
+
+    """
+    def initialize(self):
+        super(AvgPooling, self).initialize()
+
+        if self.device == None:
+            return
+
+        if self.krn_ == None:
+            self.krn_ = pyopencl.Kernel(self.prg_, "do_avg_pooling")
+            self.krn_.set_arg(0, self.input.v_)
+            self.krn_.set_arg(1, self.output.v_)
