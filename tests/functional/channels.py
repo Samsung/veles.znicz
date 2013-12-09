@@ -905,13 +905,13 @@ def main():
         fin.close()
         if args.export:
             tm = time.localtime()
-            s = "%d.%02d.%02d_%02d.%02d.%02d.tar.gz" % (
+            s = "%d.%02d.%02d_%02d.%02d.%02d" % (
                 tm.tm_year, tm.tm_mon, tm.tm_mday,
                 tm.tm_hour, tm.tm_min, tm.tm_sec)
             fnme = "%s/channels_workflow_%s" % (config.snapshot_dir, s)
             try:
                 w.export(fnme)
-                logging.info("Exported successfully to %s" % (fnme))
+                logging.info("Exported successfully to %s.tar.gz" % (fnme))
             except:
                 a, b, c = sys.exc_info()
                 traceback.print_exception(a, b, c)

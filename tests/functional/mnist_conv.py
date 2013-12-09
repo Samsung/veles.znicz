@@ -192,7 +192,7 @@ class Workflow(workflow.NNWorkflow):
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
-                                         limit=25)
+                                         limit=64)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = ([self.forward[0].kx, self.forward[0].ky]
@@ -221,9 +221,16 @@ def main():
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
-    #                     100, 10], device=device)  # 0.99% errors
-    w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
-                         {"type": "avg_pooling", "kx": 2, "ky": 2},
+    #                     100, 10], device=device)  # 0.99%
+    #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+    #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 0.98%
+    #                     100, 10], device=device)
+    w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},  # 20
+                         {"type": "avg_pooling", "kx": 2, "ky": 2},  # 10
+                         {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},  # 8
+                         {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
+                         #{"type": "conv", "n_kernels": 800, "kx": 3, "ky": 3},  # 2
+                         #{"type": "avg_pooling", "kx": 2, "ky": 2},  # 1
                          100, 10], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
                  minibatch_maxsize=27)
