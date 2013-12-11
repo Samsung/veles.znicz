@@ -23,7 +23,7 @@ class TestMatrixReduce(unittest.TestCase):
         del self.device
         units.pool.shutdown()
 
-    def build_program(self, a, b, A_WIDTH, A_HEIGHT, A_COL, REDUCE_SIZE):
+    def _build_program(self, a, b, A_WIDTH, A_HEIGHT, A_COL, REDUCE_SIZE):
         defines = ("%s\n"
                    "#define A_WIDTH %d\n"
                    "#define A_HEIGHT %d\n"
@@ -77,8 +77,8 @@ class TestMatrixReduce(unittest.TestCase):
         b.initialize(self.device)
 
         for reduce_size in range(1, 11):
-            krn = self.build_program(a, b, a.v.shape[1], a.v.shape[0], True,
-                                     reduce_size)
+            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], True,
+                                      reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
             ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
@@ -112,8 +112,8 @@ class TestMatrixReduce(unittest.TestCase):
         b.initialize(self.device)
 
         for reduce_size in range(4, 65, 4):
-            krn = self.build_program(a, b, a.v.shape[1], a.v.shape[0], True,
-                                     reduce_size)
+            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], True,
+                                      reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
             ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
@@ -128,8 +128,8 @@ class TestMatrixReduce(unittest.TestCase):
             b.v[:] = 0
             b.unmap()
 
-            krn = self.build_program(a, b, a.v.shape[1], a.v.shape[0], False,
-                                     reduce_size)
+            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], False,
+                                      reduce_size)
             global_size = [a.v.shape[0] * reduce_size]
             local_size = [reduce_size]
             ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,

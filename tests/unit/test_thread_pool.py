@@ -13,7 +13,7 @@ import threading
 
 
 class TestThreadPool(unittest.TestCase):
-    def job(self, n_jobs, data_lock):
+    def _job(self, n_jobs, data_lock):
         time.sleep(numpy.random.rand() * 2 + 1)
         data_lock.acquire()
         n_jobs[0] -= 1
@@ -30,7 +30,7 @@ class TestThreadPool(unittest.TestCase):
             data_lock.acquire()
             n_jobs[0] += 1
             data_lock.release()
-            pool.request(self.job, (n_jobs, data_lock))
+            pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
         self.assertEqual(n_jobs[0], 0,
             "ThreadPool::shutdown(execute_remaining=True) is not working "
@@ -47,7 +47,7 @@ class TestThreadPool(unittest.TestCase):
             data_lock.acquire()
             n_jobs[0] += 1
             data_lock.release()
-            pool.request(self.job, (n_jobs, data_lock))
+            pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
         self.assertEqual(n_jobs[0], 0,
             "ThreadPool::shutdown(execute_remaining=True) is not working "
@@ -64,7 +64,7 @@ class TestThreadPool(unittest.TestCase):
             data_lock.acquire()
             n_jobs[0] += 1
             data_lock.release()
-            pool.request(self.job, (n_jobs, data_lock))
+            pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=False)
         self.assertEqual(n_jobs[0], 10,
             "ThreadPool::shutdown(execute_remaining=False) is not working "
@@ -81,7 +81,7 @@ class TestThreadPool(unittest.TestCase):
             data_lock.acquire()
             n_jobs[0] += 1
             data_lock.release()
-            pool.request(self.job, (n_jobs, data_lock))
+            pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
         self.assertEqual(n_jobs[0], 0,
             "ThreadPool::shutdown(execute_remaining=True) is not working "

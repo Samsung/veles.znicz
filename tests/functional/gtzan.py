@@ -45,7 +45,7 @@ class Loader(loader.Loader):
     """Loads GTZAN dataset.
     """
     def __init__(self, pickle_fnme="", minibatch_max_size=100,
-                 minibatches_in_epoch=1000, window_size=20, rnd=rnd.default):
+                 minibatches_in_epoch=1000, window_size=100, rnd=rnd.default2):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
         self.pickle_fnme = pickle_fnme
@@ -307,6 +307,7 @@ class Workflow(workflow.NNWorkflow):
     def initialize(self, device, args):
         self.loader.pickle_fnme = args.pickle_fnme
         self.loader.minibatch_maxsize[0] = args.minibatch_size
+        self.loader.window_size = args.window_size
         self.decision.snapshot_prefix = args.snapshot_prefix
         for gd in self.gd:
             gd.global_alpha = args.global_alpha
@@ -341,6 +342,8 @@ def main():
         help="Global Alpha (default 0.01)", default=0.01)
     parser.add_argument("-global_lambda", type=float,
         help="Global Lambda (default 0.00005)", default=0.00005)
+    parser.add_argument("-window_size", type=int,
+        help="Window size (default 20)", default=20)
     args = parser.parse_args()
 
     s_layers = re.split("\D+", args.layers)
@@ -352,6 +355,8 @@ def main():
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
+                                    numpy.int32, 1024))
+    rnd.default2.seed(numpy.fromfile("%s/seed2" % (this_dir),
                                     numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()

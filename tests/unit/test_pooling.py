@@ -104,6 +104,7 @@ class TestPooling(unittest.TestCase):
                               [-1, 1, -4, -4, 2, 2, 1],
                               [1, -4, 1, -3, -4, -1, -1],
                               [-1, 4, 2, -2, 3, 3, 4]]], dtype=dtype)
+        inp.v = inp.v.reshape(3, 5, 7, 1)
 
         c = gd_pooling.GDMaxPooling(kx=2, ky=2, device=self.device)
         c.h = inp

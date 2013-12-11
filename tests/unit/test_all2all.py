@@ -56,7 +56,7 @@ class TestAll2All(unittest.TestCase):
         print("All Ok")
         units.pool.shutdown()
 
-    def do_test(self, device):
+    def _do_tst(self, device):
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
         inp.v = numpy.empty([75, 150], dtype=dtype)
@@ -75,9 +75,9 @@ class TestAll2All(unittest.TestCase):
         print("Will test all2all unit for gpu/cpu correctness")
         s = rnd.default.state
         device = opencl.Device()
-        y_gpu = self.do_test(device)
+        y_gpu = self._do_tst(device)
         rnd.default.state = s
-        y_cpu = self.do_test(None)
+        y_cpu = self._do_tst(None)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))

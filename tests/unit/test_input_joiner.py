@@ -12,7 +12,7 @@ import units
 
 
 class TestInputJoiner(unittest.TestCase):
-    def do_test(self, device):
+    def _do_tst(self, device):
         a = formats.Vector()
         a.v = numpy.arange(25, dtype=numpy.float32)
         b = formats.Vector()
@@ -36,7 +36,7 @@ class TestInputJoiner(unittest.TestCase):
                 obj.output.v[a.v.size + b.v.size + i], "Failed")
         units.pool.shutdown()
 
-    def do_test2(self, device):
+    def _do_tst2(self, device):
         a = formats.Vector()
         a.v = numpy.arange(25, dtype=numpy.float32)
         b = formats.Vector()
@@ -63,7 +63,7 @@ class TestInputJoiner(unittest.TestCase):
             self.assertEqual(0,
                 obj.output.v[a.v.size + b.v.size + c.v.size + i], "Failed")
 
-    def do_test3(self, device):
+    def _do_tst3(self, device):
         a = formats.Vector()
         a.v = numpy.arange(25, dtype=numpy.float32)
         b = formats.Vector()
@@ -91,31 +91,31 @@ class TestInputJoiner(unittest.TestCase):
 
     def testGPU(self):
         print("Will test InputJoiner() on GPU.")
-        self.do_test(opencl.Device())
+        self._do_tst(opencl.Device())
 
     def testCPU(self):
         print("Will test InputJoiner() on CPU.")
-        self.do_test(None)
+        self._do_tst(None)
 
     def testGPU2(self):
         print("Will test InputJoiner() on GPU "
               "with output size greater than inputs.")
-        self.do_test2(opencl.Device())
+        self._do_tst2(opencl.Device())
 
     def testCPU2(self):
         print("Will test InputJoiner() on CPU "
               "with output size greater than inputs.")
-        self.do_test2(None)
+        self._do_tst2(None)
 
     def testGPU3(self):
         print("Will test InputJoiner() on GPU "
               "with output size less than inputs.")
-        self.do_test3(opencl.Device())
+        self._do_tst3(opencl.Device())
 
     def testCPU3(self):
         print("Will test InputJoiner() on CPU "
               "with output size less than inputs.")
-        self.do_test3(None)
+        self._do_tst3(None)
 
 
 if __name__ == "__main__":

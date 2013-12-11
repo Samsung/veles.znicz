@@ -75,6 +75,18 @@ def normalize(a):
     return real_normalize(a)
 
 
+def normalize_mean_disp(a):
+    if a.dtype in (numpy.complex64, numpy.complex128):
+        return complex_normalize(a)
+    mean = numpy.mean(a)
+    mi = numpy.min(a)
+    mx = numpy.max(a)
+    ds = max(mean - mi, mx - mean)
+    a -= mean
+    if ds:
+        a /= ds
+
+
 def normalize_pointwise(a):
     """Normalizes dataset pointwise.
     """

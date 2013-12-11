@@ -15,7 +15,7 @@ import pyopencl
 
 
 class TestMatrixMultiplication(unittest.TestCase):
-    def do_cpu_test(self):
+    def _do_cpu_tst(self):
         """Pure single core CPU test
         """
         dtype = (numpy.complex128 if self.a.v.dtype in (
@@ -35,7 +35,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         c *= 1.7159
         return c
 
-    def prepare_tests(self, BLOCK_SIZE, dtype=config.dtypes[config.dtype],
+    def _prepare_tsts(self, BLOCK_SIZE, dtype=config.dtypes[config.dtype],
                       AB_WIDTH=1371, B_HEIGHT=11735, A_HEIGHT=171):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
@@ -58,7 +58,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c = formats.Vector()
         self.c.v = numpy.zeros([2, self.A_HEIGHT, self.B_HEIGHT], dtype=dtype)
 
-    def cleanup_after_tests(self):
+    def _cleanup_after_tsts(self):
         del(self.c)
         del(self.bias)
         del(self.b)
@@ -67,7 +67,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         del(self.B_HEIGHT)
         del(self.AB_WIDTH)
 
-    def do_test(self, device, BLOCK_SIZE):
+    def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
         defines = ("%s\n"
@@ -126,24 +126,24 @@ class TestMatrixMultiplication(unittest.TestCase):
         N = 1000
         print("Will test %d matrix multiplications "
               "with BLOCK_SIZE = %d" % (N, block_size))
-        for i in range(N):
+        for i in range(0, N, 47):
             AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
             B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             print("%d: [%d, %d] * [%d, %d] = [%d, %d]" % (i,
                 AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
                 A_HEIGHT, B_HEIGHT))
-            self.prepare_tests(block_size, AB_WIDTH=AB_WIDTH,
+            self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
-            c = self.do_cpu_test()
-            self.do_test(device, block_size)
+            c = self._do_cpu_tst()
+            self._do_tst(device, block_size)
             max_diff = numpy.fabs(c.ravel() - self.c.v[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
             num_nz = numpy.count_nonzero(self.c.v[1].ravel())
             self.assertEqual(num_nz, 0,
                 "Written some values outside of the target array bounds")
-            self.cleanup_after_tests()
+            self._cleanup_after_tsts()
 
 
 if __name__ == "__main__":
