@@ -4,4 +4,5 @@
 	url = ssh://alserver.rnd.samsung.ru:29418/Simd.git
 [submodule "libZnicz/OCLAlgo"]
 	path = libZnicz/OCLAlgo
+        branch = master
 	url = ssh://alserver.rnd.samsung.ru:29418/OCLAlgo.git
