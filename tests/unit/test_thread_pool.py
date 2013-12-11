@@ -19,7 +19,7 @@ class TestThreadPool(unittest.TestCase):
         n_jobs[0] -= 1
         data_lock.release()
 
-    def test(self):
+    def test_32_threads(self):
         print("Will test ThreadPool with 32 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
@@ -36,7 +36,7 @@ class TestThreadPool(unittest.TestCase):
             "ThreadPool::shutdown(execute_remaining=True) is not working "
             "as expected.")
 
-    def test2(self):
+    def test_320_threads(self):
         print("Will test ThreadPool with 320 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
@@ -53,7 +53,7 @@ class TestThreadPool(unittest.TestCase):
             "ThreadPool::shutdown(execute_remaining=True) is not working "
             "as expected.")
 
-    def test3(self):
+    def test_0_threads(self):
         print("Will test ThreadPool with max_free_threads=0.")
         n_jobs = [0]
         data_lock = threading.Lock()
@@ -70,7 +70,7 @@ class TestThreadPool(unittest.TestCase):
             "ThreadPool::shutdown(execute_remaining=False) is not working "
             "as expected.")
 
-    def test4(self):
+    def test_double_shutdown(self):
         print("Will test ThreadPool for double shutdown().")
         n_jobs = [0]
         data_lock = threading.Lock()
