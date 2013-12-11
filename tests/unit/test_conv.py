@@ -18,7 +18,7 @@ import rnd
 
 
 class TestConv(unittest.TestCase):
-    def test(self):
+    def test_fixed(self):
         print("Will test convolutional layer forward propagation")
         device = opencl.Device()
 

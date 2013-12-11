@@ -116,7 +116,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.c.map_read()
 
-    def test(self):
+    def test_matrix_multiplication(self):
         self.rnd = rnd.Rand()
         self.rnd.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                      count=1024))

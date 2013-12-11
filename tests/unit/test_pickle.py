@@ -27,7 +27,7 @@ class PickleTest(units.Pickleable):
 
 
 class TestPickle(unittest.TestCase):
-    def test(self):
+    def test_pickle(self):
         # Test for correct behavior of units.Pickleable
         pt = PickleTest(a="AA", c="CC")
         self.assertEqual(g_pt, 1, "Pickle test failed.")

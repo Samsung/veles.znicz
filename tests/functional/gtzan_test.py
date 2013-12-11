@@ -18,7 +18,7 @@ def main():
     (W, b) = pickle.load(fin)
     fin.close()
 
-    print("Sanpshot loaded, will load dataset...")
+    print("Snapshot loaded, will load dataset...")
 
     fin = open("/data/veles/music/GTZAN/gtzan.pickle", "rb")
     data = pickle.load(fin)
