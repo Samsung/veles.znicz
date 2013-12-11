@@ -110,7 +110,7 @@ def main():
             n_ok += 1
         else:
             n_fail += 1
-        print("FAIL: %s as %s" % (fnme, i_labels[mx]))
+            print("FAIL: %s as %s" % (fnme, i_labels[mx]))
 
     print("")
     print("n_ok: %d" % (n_ok))
