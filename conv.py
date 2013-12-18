@@ -110,6 +110,8 @@ class Conv(units.Forward):
             self.rand.fill(self.bias.v, -self.weights_amplitude,
                            self.weights_amplitude)
 
+        if config.unit_test:
+            batch_size <<= 1  # check for overflow
         output_size = batch_size * (self.n_kernels *
             (sx - self.kx + 1) * (sy - self.ky + 1))
         if self.output.v == None or self.output.v.size != output_size:
@@ -117,11 +119,18 @@ class Conv(units.Forward):
             self.output.v = numpy.zeros([batch_size,
                 sy - self.ky + 1, sx - self.kx + 1, self.n_kernels],
                 dtype=self.input.v.dtype)
+        del output_size
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
+
+        if config.unit_test:
+            batch_size >>= 1
+            self.output.vv = self.output.v
+            self.output.v = self.output.v[:batch_size]
+            formats.assert_addr(self.output.v, self.output.vv)
 
         if self.device == None:
             return

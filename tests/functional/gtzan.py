@@ -364,6 +364,9 @@ def main():
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
         fin.close()
+        #print(w.loader.norm_add)
+        #print(w.loader.norm_mul)
+        #sys.exit(0)
         if args.export:
             tm = time.localtime()
             s = "%d.%02d.%02d_%02d.%02d.%02d" % (

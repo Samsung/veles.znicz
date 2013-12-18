@@ -202,12 +202,21 @@ class Workflow(workflow.NNWorkflow):
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize):
+    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+                   device):
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
+        for f in self.forward:
+            f.device = device
+        self.ev.device = device
         for gd in self.gd:
+            gd.device = device
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
         return self.start_point.initialize_dependent()
+
+
+import argparse
+import pickle
 
 
 def main():
@@ -216,24 +225,44 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-snapshot", type=str, default="",
+                        help="Snapshot with trained network.")
+    args = parser.parse_args()
+
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
     #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
-    #                     100, 10], device=device)  # 0.99%
+    if len(args.snapshot):
+        fin = open(args.snapshot, "rb")
+        w = pickle.load(fin)
+        fin.close()
+        """
+        W = []
+        b = []
+        for f in w.forward:
+            W.append(f.weights.v)
+            b.append(f.bias.v)
+        fout = open("/tmp/Wb.pickle", "wb")
+        pickle.dump((W, b), fout)
+        fout.close()
+        sys.exit(0)
+        """
+    else:
+        w = Workflow(layers=[
+                     {"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+                     100, 10], device=device)  # 0.99%
     #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 0.98%
     #                     100, 10], device=device)
-    w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},  # 20
-                         {"type": "avg_pooling", "kx": 2, "ky": 2},  # 10
-                         {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},  # 8
-                         {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
-                         #{"type": "conv", "n_kernels": 800, "kx": 3, "ky": 3},  # 2
-                         #{"type": "avg_pooling", "kx": 2, "ky": 2},  # 1
-                         100, 10], device=device)
+    #w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},
+    #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 10
+    #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
+    #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
+    #                     100, 10], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
-                 minibatch_maxsize=27)
+                 minibatch_maxsize=27, device=device)
     w.run()
 
     plotters.Graphics().wait_finish()

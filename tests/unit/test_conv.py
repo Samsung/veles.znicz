@@ -18,9 +18,17 @@ import rnd
 
 
 class TestConv(unittest.TestCase):
+    def setUp(self):
+        self.config_unit_test = config.unit_test
+        config.unit_test = True
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        config.unit_test = self.config_unit_test
+        units.pool.shutdown()
+
     def test_fixed(self):
         print("Will test convolutional layer forward propagation")
-        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
@@ -38,7 +46,7 @@ class TestConv(unittest.TestCase):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = conv.Conv(n_kernels=2, kx=3, ky=3, device=device)
+        c = conv.Conv(n_kernels=2, kx=3, ky=3, device=self.device)
         c.input = inp
 
         c.initialize()
@@ -50,6 +58,8 @@ class TestConv(unittest.TestCase):
 
         c.run()
         c.output.map_read()  # get results back
+        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        self.assertEqual(nz, 0, "Overflow occured")
 
         y = c.output.v.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
@@ -83,28 +93,24 @@ class TestConv(unittest.TestCase):
                 offs += 1
 
         print("All Ok")
-        units.pool.shutdown()
 
     def test_vs_python(self):
         print("Will test convolutional layer vs python on image")
 
         print("OpenCL")
-        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
-        inp.v = numpy.zeros([3, 512, 512], dtype=dtype)
+        inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.Conv(n_kernels=7, kx=3, ky=3, device=device)
+        c = conv.ConvTanh(n_kernels=25, kx=9, ky=9, device=self.device)
         c.input = inp
 
         c.initialize()
 
         weights = c.weights.v.reshape(c.n_kernels, c.ky, c.kx)
-
-        c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = 0
+        bias = c.bias.v
 
         t0 = time.time()
         c.run()
@@ -112,19 +118,26 @@ class TestConv(unittest.TestCase):
         print("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
+        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        self.assertEqual(nz, 0, "Overflow occured")
 
         print("Numpy")
         t0 = time.time()
         pp = []
         for v in inp.v:
-            for w in weights:
+            for j, w in enumerate(weights):
                 ww = w.copy()
                 for i in range(w.shape[0]):
                     ww[-(i + 1)] = w[i]
                 www = ww.copy()
                 for i in range(w.shape[1]):
                     www[:, -(i + 1)] = ww[:, i]
-                pp.append(scipy.signal.convolve2d(v, www, "valid"))
+                out = scipy.signal.convolve2d(v, www, "valid")
+                out += bias[j]
+                out *= 0.6666
+                numpy.tanh(out, out)
+                out *= 1.7159
+                pp.append(out)
         dt1 = time.time() - t0
         print("Numpy convolved in %.2f seconds" % (dt1))
         print("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
@@ -140,20 +153,18 @@ class TestConv(unittest.TestCase):
                 offs += 1
 
         print("All Ok")
-        units.pool.shutdown()
 
     def test_vs_python_rgb(self):
         print("Will test convolutional layer vs python on color image")
 
         print("OpenCL")
-        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = config.dtypes[config.dtype]
-        inp.v = numpy.zeros([3, 512, 512, 3], dtype=dtype)
+        inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.Conv(n_kernels=4, kx=3, ky=3, device=device)
+        c = conv.Conv(n_kernels=4, kx=3, ky=3, device=self.device)
         c.input = inp
 
         c.initialize()
@@ -167,6 +178,8 @@ class TestConv(unittest.TestCase):
         print("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
+        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        self.assertEqual(nz, 0, "Overflow occured")
 
         print("Numpy with FFT")
         t0 = time.time()
