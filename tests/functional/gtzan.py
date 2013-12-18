@@ -333,17 +333,17 @@ def main():
         help="Pickle with input data (default %s)." % (pickle_fnme),
         default=pickle_fnme)
     parser.add_argument("-snapshot_prefix", type=str, required=True,
-        help="Snapshot prefix (Ex.: gtzan_100_10)")
+        help="Snapshot prefix (Ex.: gtzan_1000_500)")
     parser.add_argument("-layers", type=str, required=True,
-        help="NN layer sizes, separated by any separator (Ex.: 100_10)")
+        help="NN layer sizes, separated by any separator (Ex.: 1000_500_10)")
     parser.add_argument("-minibatch_size", type=int,
-        help="Minibatch size (default 81)", default=81)
+        help="Minibatch size (default 108)", default=108)
     parser.add_argument("-global_alpha", type=float,
         help="Global Alpha (default 0.01)", default=0.01)
     parser.add_argument("-global_lambda", type=float,
         help="Global Lambda (default 0.00005)", default=0.00005)
     parser.add_argument("-window_size", type=int,
-        help="Window size (default 20)", default=20)
+        help="Window size (default 100)", default=100)
     args = parser.parse_args()
 
     s_layers = re.split("\D+", args.layers)
