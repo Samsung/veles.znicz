@@ -6,6 +6,8 @@ File for GTZAN dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import logging
 import sys
 import os
@@ -23,22 +25,24 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import numpy
-import rnd
-import opencl
-import plotters
-import all2all
-import evaluator
-import gd
-import loader
-import decision
-import config
-import pickle
 import argparse
+import numpy
+import pickle
 import re
 import time
 import traceback
+
+import all2all
+import config
+import decision
 import error
+import evaluator
+import gd
+import loader
+import opencl
+import plotters
+import rnd
+import workflow
 
 
 class Loader(loader.Loader):
@@ -183,9 +187,6 @@ class Loader(loader.Loader):
                 j = jj
 
 
-import workflow
-
-
 class Workflow(workflow.NNWorkflow):
     """Sample workflow for MNIST dataset.
     """
@@ -317,9 +318,9 @@ class Workflow(workflow.NNWorkflow):
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
@@ -358,15 +359,15 @@ def main():
                                     numpy.int32, 1024))
     rnd.default2.seed(numpy.fromfile("%s/seed2" % (this_dir),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     try:
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
         fin.close()
-        #print(w.loader.norm_add)
-        #print(w.loader.norm_mul)
-        #sys.exit(0)
+        # print(w.loader.norm_add)
+        # print(w.loader.norm_mul)
+        # sys.exit(0)
         if args.export:
             tm = time.localtime()
             s = "%d.%02d.%02d_%02d.%02d.%02d" % (
