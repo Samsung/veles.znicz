@@ -29,18 +29,23 @@ def evaluate_dataset(dataset, window_size, W, b):
     for k, v in labels.items():
         i_labels[v] = k
 
-    features = ["Energy", "Centroid", "Flux", "Rolloff", "ZeroCrossings"]
+    features = ["Energy", "Centroid", "Flux", "Rolloff", "ZeroCrossings",
+                "MainBeat", "MainBeatStdDev"]
 
     norm_add = {'Rolloff': (-4194.1295584643221),
                 'Centroid': (-2029.2263010288816),
                 'ZeroCrossings': (-55.22063408843276),
                 'Flux': (-0.91969947921678419),
-                'Energy': (-10533447.118792284)}
+                'Energy': (-10533447.118792284),
+                'MainBeat': (-120.24087716595626),
+                'MainBeatStdDev': (-114.50613587032061)}
     norm_mul = {'Rolloff': 0.00016505213410177407,
                 'Centroid': 0.00014461928143403359,
                 'ZeroCrossings': 0.0025266602711760356,
                 'Flux': 0.066174679965212244,
-                'Energy': 3.2792848503777384e-09}
+                'Energy': 3.2792848503777384e-09,
+                'MainBeat': 0.0085719832965125958,
+                'MainBeatStdDev': 0.008197133578267516}
 
     inp = numpy.zeros(len(features) * window_size, dtype=numpy.float64)
 

@@ -57,7 +57,7 @@ class Loader(loader.Loader):
         self.data = None
         self.window_size = window_size
         self.features = ["Energy", "Centroid", "Flux", "Rolloff",
-                         "ZeroCrossings"]
+                         "ZeroCrossings", "MainBeat", "MainBeatStdDev"]
         self.norm_add = {}
         self.norm_mul = {}
         self.labels = {"blues": 0,
@@ -365,9 +365,6 @@ def main():
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
         fin.close()
-        # print(w.loader.norm_add)
-        # print(w.loader.norm_mul)
-        # sys.exit(0)
         if args.export:
             tm = time.localtime()
             s = "%d.%02d.%02d_%02d.%02d.%02d" % (
@@ -385,6 +382,8 @@ def main():
     except IOError:
         w = Workflow(layers=layers, device=device)
     w.initialize(device=device, args=args)
+    logging.info(w.loader.norm_add)
+    logging.info(w.loader.norm_mul)
     w.run()
 
     plotters.Graphics().wait_finish()
