@@ -203,16 +203,16 @@ class Decision(units.Unit):
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
         if self.minibatch_n_err != None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        self.fnme = ("%s/%s_%s.pickle" %
-            (config.snapshot_dir, self.snapshot_prefix,
-             "_".join(ss)))
+        self.fnme = os.path.join(config.snapshot_dir,
+                                 "%s_%s.pickle" % (self.snapshot_prefix,
+                                                   "_".join(ss)))
         self.log().info("Snapshotting to %s" % (self.fnme))
         fout = open(self.fnme, "wb")
         pickle.dump(self.workflow, fout)
         fout.close()
-        self.fnmeWb = ("%s/%s_%s_Wb.pickle" %
-            (config.snapshot_dir, self.snapshot_prefix,
-             "_".join(ss)))
+        self.fnmeWb = os.path.join(config.snapshot_dir,
+                                   "%s_%s_Wb.pickle" % (self.snapshot_prefix,
+                                                        "_".join(ss)))
         self.log().info("Exporting weights to %s" % (self.fnmeWb))
         fout = open(self.fnmeWb, "wb")
         weights = []
@@ -251,6 +251,22 @@ class Decision(units.Unit):
                 os.unlink(fnme)
             except OSError:
                 pass
+        fnme_link = os.path.join(config.snapshot_dir,
+                                 "%s_current_Wb.pickle" % self.snapshot_prefix)
+        try:
+            os.remove(fnme_link)
+        except:
+            pass
+        os.symlink("%s_%s_Wb.pickle" % (self.snapshot_prefix, "_".join(ss)),
+                   fnme_link)
+        fnme_link = os.path.join(config.snapshot_dir,
+                                 "%s_current.pickle" % self.snapshot_prefix)
+        try:
+            os.remove(fnme_link)
+        except:
+            pass
+        os.symlink("%s_%s.pickle" % (self.snapshot_prefix, "_".join(ss)),
+                   fnme_link)
         self.just_snapshotted[0] = 1
         self.snapshot_time[0] = time.time()
 
