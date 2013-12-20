@@ -43,6 +43,7 @@ import opencl
 import plotters
 import rnd
 import workflow
+import formats
 
 
 class Loader(loader.Loader):
@@ -57,7 +58,9 @@ class Loader(loader.Loader):
         self.data = None
         self.window_size = window_size
         self.features = ["Energy", "Centroid", "Flux", "Rolloff",
-                         "ZeroCrossings", "MainBeat", "MainBeatStdDev"]
+                         "ZeroCrossings"]
+        #                "MainBeat", "MainBeatStdDev", "CRP"
+        self.features_shape = {"CRP": 12}
         self.norm_add = {}
         self.norm_mul = {}
         self.labels = {"blues": 0,
@@ -94,33 +97,48 @@ class Loader(loader.Loader):
         counts = {}
         mins = {}
         maxs = {}
-        for k in self.features:
-            sums[k] = 0
-            counts[k] = 0
-            mins[k] = 1.0e30
-            maxs[k] = -1.0e30
-        for v in self.data["files"].values():
+        train = self.data["files"]
+        for fnme in sorted(train.keys()):
+            v = train[fnme]
             features = v["features"]
             nn = 2000000000
             for k in self.features:
+                vles = features[k]["value"]
+                n = numpy.count_nonzero(numpy.isnan(vles))
+                if n:
+                    raise error.ErrBadFormat("%d NaNs occured for feature %s "
+                        "at index %d in file %s" % (n, k,
+                        numpy.isnan(vles).argmax(), fnme))
+                sh = self.features_shape.get(k, 1)
+                if sh != 1:
+                    vles = vles.reshape(vles.size // sh, sh)
+                features[k]["value"] = formats.max_type(vles)
                 vles = features[k]["value"]
                 nn = min(len(vles), nn)
                 if nn < self.window_size:
                     raise error.ErrBadFormat("window_size=%d is too large "
                         "for feature %s with size %d in file %s" % (
-                        self.window_size, k, nn, v))
+                        self.window_size, k, nn, fnme))
             v["limit"] = nn - self.window_size + 1
             for k in self.features:
                 vles = features[k]["value"][:nn]
-                sums[k] += vles.sum()
-                counts[k] += vles.size
-                mins[k] = min(vles.min(), mins[k])
-                maxs[k] = max(vles.max(), maxs[k])
+                if k in sums.keys():
+                    sums[k] += vles.sum(axis=0)
+                    counts[k] += vles.shape[0]
+                    mins[k] = numpy.minimum(vles.min(axis=0), mins[k])
+                    maxs[k] = numpy.maximum(vles.max(axis=0), maxs[k])
+                else:
+                    sums[k] = vles.sum(axis=0)
+                    counts[k] = vles.shape[0]
+                    mins[k] = vles.min(axis=0)
+                    maxs[k] = vles.max(axis=0)
+
         for k in self.features:
             mean = sums[k] / counts[k]
             self.norm_add[k] = -mean
             df = max(mean - mins[k], maxs[k] - mean)
             self.norm_mul[k] = 1.0 / df if df else 0
+
         for v in self.data["files"].values():
             features = v["features"]
             for k in self.features:
@@ -382,8 +400,8 @@ def main():
     except IOError:
         w = Workflow(layers=layers, device=device)
     w.initialize(device=device, args=args)
-    logging.info(w.loader.norm_add)
-    logging.info(w.loader.norm_mul)
+    logging.info("norm_add: %s" % (str(w.loader.norm_add)))
+    logging.info("norm_mul: %s" % (str(w.loader.norm_mul)))
     w.run()
 
     plotters.Graphics().wait_finish()

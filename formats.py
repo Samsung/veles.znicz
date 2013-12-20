@@ -16,7 +16,7 @@ import logging
 
 MAP_READ = pyopencl.map_flags.READ
 MAP_WRITE = pyopencl.map_flags.WRITE
-MAP_INVALIDATE = pyopencl.map_flags.WRITE_INVALIDATE_REGION
+MAP_INVALIDATE = 4  # pyopencl.map_flags.WRITE_INVALIDATE_REGION
 
 
 def roundup(num, align):
@@ -24,6 +24,14 @@ def roundup(num, align):
     if d == 0:
         return num
     return num + (align - d)
+
+
+def max_type(num):
+    """Returns array converted to supported type with maximum precision.
+    """
+    if num.dtype in [numpy.complex64, numpy.complex128]:
+        return num.astype(numpy.complex128)
+    return num.astype(numpy.float64)
 
 
 def assert_addr(a, b):

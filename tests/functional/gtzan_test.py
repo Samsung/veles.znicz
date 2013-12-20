@@ -29,23 +29,19 @@ def evaluate_dataset(dataset, window_size, W, b):
     for k, v in labels.items():
         i_labels[v] = k
 
-    features = ["Energy", "Centroid", "Flux", "Rolloff", "ZeroCrossings",
-                "MainBeat", "MainBeatStdDev"]
+    features = ["Energy", "Centroid", "Flux", "Rolloff",
+                "ZeroCrossings"]
 
-    norm_add = {'Rolloff': (-4194.1295584643221),
-                'Centroid': (-2029.2263010288816),
-                'ZeroCrossings': (-55.22063408843276),
-                'Flux': (-0.91969947921678419),
-                'Energy': (-10533447.118792284),
-                'MainBeat': (-120.24087716595626),
-                'MainBeatStdDev': (-114.50613587032061)}
-    norm_mul = {'Rolloff': 0.00016505213410177407,
-                'Centroid': 0.00014461928143403359,
-                'ZeroCrossings': 0.0025266602711760356,
-                'Flux': 0.066174679965212244,
-                'Energy': 3.2792848503777384e-09,
-                'MainBeat': 0.0085719832965125958,
-                'MainBeatStdDev': 0.008197133578267516}
+    norm_add = {'Centroid': (-2029.2262731600895),
+                'Energy': (-10533446.715802385),
+                'Flux': (-0.91969949785961735),
+                'Rolloff': (-4194.1299697454906),
+                'ZeroCrossings': (-55.22063408843276)}
+    norm_mul = {'Centroid': 0.00014461928085116515,
+                'Energy': 3.2792848460441024e-09,
+                'Flux': 0.066174680046850856,
+                'Rolloff': 0.00016505214530598153,
+                'ZeroCrossings': 0.0025266602711760356}
 
     inp = numpy.zeros(len(features) * window_size, dtype=numpy.float64)
 
@@ -62,6 +58,8 @@ def evaluate_dataset(dataset, window_size, W, b):
         outs[:] = 0
         for k in features:
             v = ff[k]["value"]
+            ff[k]["value"] = v.astype(numpy.float64)
+            v = ff[k]["value"]
             limit = min(len(v), limit)
             v += norm_add[k]
             v *= norm_mul[k]
@@ -73,9 +71,9 @@ def evaluate_dataset(dataset, window_size, W, b):
                 jj = j + window_size
                 inp[j:jj] = v[offs:offs2]
                 j = jj
-            if inp.min() < -1:
+            if inp.min() < -1.0001:
                 logging.info("input is out of range: %.6f" % (inp.min()))
-            if inp.max() > 1:
+            if inp.max() > 1.0001:
                 logging.info("input is out of range: %.6f" % (inp.max()))
             a = inp
             for i in range(len(W) - 1):
@@ -119,6 +117,9 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("-pickle", type=str,
+                        default="/data/veles/music/GTZAN/gtzan.pickle",
+                        help="Snapshot with trained network weights and bias.")
     parser.add_argument("-snapshot", type=str, required=True,
                         help="Snapshot with trained network weights and bias.")
     parser.add_argument("-window_size", type=int, required=True,
@@ -132,7 +133,7 @@ def main():
     logging.info("Done")
 
     logging.info("Loading dataset")
-    fin = open("/data/veles/music/GTZAN/gtzan.pickle", "rb")
+    fin = open(args.pickle, "rb")
     data = pickle.load(fin)
     fin.close()
     logging.info("Done")
