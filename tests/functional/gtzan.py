@@ -58,8 +58,8 @@ class Loader(loader.Loader):
         self.data = None
         self.window_size = window_size
         self.features = ["Energy", "Centroid", "Flux", "Rolloff",
-                         "ZeroCrossings"]
-        #                "MainBeat", "MainBeatStdDev", "CRP"
+                         "ZeroCrossings", "CRP"]
+        #                "MainBeat", "MainBeatStdDev"
         self.features_shape = {"CRP": 12}
         self.norm_add = {}
         self.norm_mul = {}
@@ -98,6 +98,7 @@ class Loader(loader.Loader):
         mins = {}
         maxs = {}
         train = self.data["files"]
+        was_nans = False
         for fnme in sorted(train.keys()):
             v = train[fnme]
             features = v["features"]
@@ -106,7 +107,8 @@ class Loader(loader.Loader):
                 vles = features[k]["value"]
                 n = numpy.count_nonzero(numpy.isnan(vles))
                 if n:
-                    raise error.ErrBadFormat("%d NaNs occured for feature %s "
+                    was_nans = True
+                    self.log().error("%d NaNs occured for feature %s "
                         "at index %d in file %s" % (n, k,
                         numpy.isnan(vles).argmax(), fnme))
                 sh = self.features_shape.get(k, 1)
@@ -132,6 +134,8 @@ class Loader(loader.Loader):
                     counts[k] = vles.shape[0]
                     mins[k] = vles.min(axis=0)
                     maxs[k] = vles.max(axis=0)
+        if was_nans:
+            raise error.ErrBadFormat("There were NaNs.")
 
         for k in self.features:
             mean = sums[k] / counts[k]
@@ -152,8 +156,12 @@ class Loader(loader.Loader):
                                  self.minibatches_in_epoch)
 
     def create_minibatches(self):
+        nn = 0
+        for k in self.features:
+            nn += self.norm_add[k].size
+
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize[0], len(self.features) * self.window_size]
+        sh = [self.minibatch_maxsize[0], nn * self.window_size]
         self.minibatch_data.v = numpy.zeros(sh,
             dtype=config.dtypes[config.c_dtype])
 
@@ -199,9 +207,9 @@ class Loader(loader.Loader):
             offs2 = offs + self.window_size
             j = 0
             for k in self.features:
-                jj = j + self.window_size
+                jj = j + self.norm_add[k].size * self.window_size
                 self.minibatch_data.v[i, j:jj] = features[k]["value"][
-                                                            offs:offs2]
+                                                            offs:offs2].ravel()
                 j = jj
 
 
