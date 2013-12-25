@@ -34,7 +34,7 @@ class All2All(units.Forward):
         output: output as batch of samples.
         weights: matrix of weights.
         bias: bias.
-        output_shape: shape of the output layer.
+        output_shape: shape of the output layer (may be Vector).
         weights_amplitude: amplitude of the random distribution of weights.
         rand: rnd.Rand() object for initial weights generation.
         krn_: OpenCL kernel.
@@ -78,8 +78,11 @@ class All2All(units.Forward):
         if self.weights_amplitude == None:
             # Get weights amplitude and cap it to 0.05
             self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
-        n_weights = (self.input.v.size // self.input.v.shape[0] *
-                     numpy.prod(self.output_shape))
+        output_shape = (self.output_shape.v.shape[1:]
+                        if isinstance(self.output_shape, formats.Vector)
+                        else self.output_shape)
+        output_size = int(numpy.prod(output_shape))
+        n_weights = (self.input.v.size // self.input.v.shape[0] * output_size)
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
@@ -93,19 +96,16 @@ class All2All(units.Forward):
                 a = self.weights.v.transpose().copy()
                 self.weights.v.shape = a.shape
                 self.weights.v[:] = a[:]
-        if (self.bias.v == None or
-            self.bias.v.size != numpy.prod(self.output_shape)):
+        if (self.bias.v == None or self.bias.v.size != output_size):
             self.bias.reset()
-            self.bias.v = numpy.zeros([numpy.prod(self.output_shape)],
-                                      dtype=self.input.v.dtype)
+            self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
             self.rand.fill(self.bias.v, -self.weights_amplitude,
                            self.weights_amplitude)
 
-        output_size = self.input.v.shape[0] * numpy.prod(self.output_shape)
-        if self.output.v == None or self.output.v.size != output_size:
+        if (self.output.v == None or
+            self.output.v.size != self.input.v.shape[0] * output_size):
             self.output.reset()
-            self.output.v = numpy.zeros([self.input.v.shape[0],
-                                        numpy.prod(self.output_shape)],
+            self.output.v = numpy.zeros([self.input.v.shape[0], output_size],
                                         dtype=self.input.v.dtype)
 
         self.input.initialize(self.device)
@@ -117,8 +117,6 @@ class All2All(units.Forward):
             return
 
         if self.krn_ == None:
-            output_size = (self.output.v.size //
-                           self.output.v.shape[0])
             defines = ("%s\n"
                        "%s\n"
                        "#define %s\n"
@@ -133,8 +131,7 @@ class All2All(units.Forward):
                         self.weights.v.size // output_size, output_size,
                         self.output.v.shape[0]))
             self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
-                self.input.v.size // self.input.v.shape[0],
-                self.output.v.size // self.output.v.shape[0]))
+                self.input.v.size // self.input.v.shape[0], output_size))
 
             self.krn_ = pyopencl.Kernel(self.prg_, "feed_layer")
             self.krn_.set_arg(0, self.input.v_)

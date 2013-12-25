@@ -65,7 +65,7 @@ class RBMTanh(all2all.All2AllTanh):
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
                                                  global_size, local_size)
         self.output_rand.map_invalidate()
-        self.rand.fill(self.output_rand.v, -1.7159, 1.7159)
+        self.rand.fill_normal(self.output_rand.v, -1.7159, 1.7159)
         self.output_rand.unmap()
         event.wait()
         self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
