@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3 -O
+#!/usr/bin/python3.3
 """
 Created on Dec 20, 2013.
 
@@ -31,6 +31,7 @@ import argparse
 import workflow
 from sound_feature_extraction.features_xml import FeaturesXml
 import pickle
+import matplotlib.pyplot as pp
 
 
 class Workflow(workflow.Workflow):
@@ -66,7 +67,6 @@ class Workflow(workflow.Workflow):
 
 
 class Forward(units.Unit):
-
     def __init__(self, ff=None, W=None, b=None, window_size=None,
                  shift_size=None):
         super(Forward, self).__init__()
@@ -78,7 +78,6 @@ class Forward(units.Unit):
         self.outs = None
 
     def run(self):
-
         ff = self.ff.__dict__[self.ff_key]
         ff = ff[0][0]
 
@@ -92,9 +91,9 @@ class Forward(units.Unit):
                   "hiphop": 7,
                   "metal": 8,
                   "reggae": 9}
-        i_labels = {}
+        self.i_labels = {}
         for k, v in labels.items():
-            i_labels[v] = k
+            self.i_labels[v] = k
         features = ["Energy", "Centroid", "Flux", "Rolloff", "ZeroCrossings"]
         norm_add = {'Rolloff': (-4194.1299697454906),
                     'Centroid': (-2029.2262731600895),
@@ -108,8 +107,19 @@ class Forward(units.Unit):
                     'Flux': 0.066174680046850856,
                     'Energy': 3.2792848460441024e-09}
 
+        limit = 2000000000
+        for k in features:
+            v = ff[k]
+            limit = min(len(v), limit)
+
         inp = numpy.zeros(len(features) * self.window_size,
                           dtype=numpy.float64)
+        self.x = numpy.arange(0, limit - self.window_size + 1, self.shift_size,
+                     dtype=numpy.float64)
+        self.x *= 0.01
+        self.y = numpy.zeros([len(labels), len(self.x)], dtype=numpy.float64)
+        self.yy = numpy.zeros([len(labels), len(self.x)], dtype=numpy.float64)
+        i_shift = 0
         self.outs = numpy.zeros(len(labels), dtype=numpy.float64)
         self.outs_index = numpy.zeros(len(labels), dtype=numpy.float64)
         window_offs = 0
@@ -158,19 +168,66 @@ class Forward(units.Unit):
             # Sum totals
             self.outs += out
             logging.info("Out: %s" % (out))
+            self.y[0, i_shift] = out[0]
+            self.yy[0, i_shift] = self.outs[0]
+            for j in range(1, len(out)):
+                self.y[j, i_shift] = out[j] + self.y[j - 1, i_shift]
+                self.yy[j, i_shift] = self.outs[j] + self.yy[j - 1, i_shift]
+            i_shift += 1
+
         logging.info("Out_final: %s" % (self.outs))
         #self.outs_index = self.outs
         self.outs_index = self.outs.argsort()
-        genre = i_labels[self.outs_index[9]]
+        genre = self.i_labels[self.outs_index[9]]
         procent = self.outs[self.outs_index[9]]
         logging.info("Best genre: %s (%s)" % (genre, procent))
         logging.info("Best 3 genre: %s (%s), %s (%s), %s (%s)" % \
-                             (i_labels[self.outs_index[9]], \
+                             (self.i_labels[self.outs_index[9]], \
                               self.outs[self.outs_index[9]], \
-                              i_labels[self.outs_index[8]], \
+                              self.i_labels[self.outs_index[8]], \
                               self.outs[self.outs_index[8]], \
-                              i_labels[self.outs_index[7]], \
+                              self.i_labels[self.outs_index[7]], \
                               self.outs[self.outs_index[7]]))
+
+
+def draw_plot(figure_label, x, y, i_labels, fnme, name, left_legend=False):
+    """
+        "blues": 0,
+        "country": 1,
+        "jazz": 2,
+        "pop": 3,
+        "rock": 4,
+        "classical": 5,
+        "disco": 6,
+        "hiphop": 7,
+        "metal": 8,
+        "reggae": 9
+    """
+    colors = ["blue",
+              "pink",
+              "green",
+              "brown",
+              "gold",
+              "white",
+              "red",
+              "black",
+              "gray",
+              "orange"]
+
+    fig = pp.figure(figure_label)
+    ax = fig.add_subplot(111)
+    #ax.set_ylim(0, 1)
+    ax.set_title(name if len(name) else fnme, fontsize=23)
+    for i in range(len(y)):
+        ax.plot(x, y[i], color=colors[i], label=i_labels[i], linewidth=4)
+    ax.fill_between(x, y[0], 0, color=colors[0])
+    for i in range(1, len(y)):
+        ax.fill_between(x, y[i], y[i - 1], color=colors[i])
+
+    if left_legend:
+        ax.legend(ncol=3, loc=2)
+    else:
+        ax.legend(ncol=3)
 
 
 def main():
@@ -182,6 +239,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-window_size", type=float,
         help="Window size (default 100)", default=100)
+    parser.add_argument("-name", type=str,
+        help="Name of the plotter window", default="")
     parser.add_argument("-shift_size", type=float,
         help="Shift size", default=50)
     parser.add_argument("-f", "--features", dest="features",
@@ -189,6 +248,8 @@ def main():
                         "descriptions [default: %(default)s]",
                         metavar="path", required=True)
     parser.add_argument("-file", type=str, required=True, help="File name")
+    parser.add_argument("-graphics", type=int, required=True,
+                        help="Visualization (0 - no, 1 - yes)")
     parser.add_argument("-snapshot", type=str, required=True,
         help="Snapshot with trained weights and bias.")
     args = parser.parse_args()
@@ -202,6 +263,15 @@ def main():
                  W=W, b=b, window_size=args.window_size,
                  shift_size=args.shift_size)
     w.run()
+
+    if args.graphics:
+        draw_plot("Points", w.forward.x, w.forward.y, w.forward.i_labels,
+                  args.file, args.name)
+        draw_plot("Incremental", w.forward.x, w.forward.yy, w.forward.i_labels,
+                  args.file, args.name, True)
+
+        pp.show()
+
 
 if __name__ == "__main__":
     main()
