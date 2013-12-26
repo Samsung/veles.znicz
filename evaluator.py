@@ -163,7 +163,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         confusion_matrix = self.confusion_matrix.v
 
         n_ok = 0
-        for i in range(0, batch_size):  # loop by batch
+        for i in range(batch_size):  # loop by batch
             y = formats.ravel(self.y.v[i])
             err_y = formats.ravel(self.err_y.v[i])
 
@@ -325,11 +325,12 @@ class EvaluatorMSE(units.OpenCLUnit):
             t = self.class_target.v
             y = self.y.v
             n_err = 0
-            for i in range(0, y.shape[0]):
+            for i in range(y.shape[0]):
                 md = 1.0e30
                 mi = 0
-                for j in range(0, t.shape[0]):
-                    d = numpy.linalg.norm(t[j] - y[i])
+                yy = y[i].ravel()[:t.size // t.shape[0]]
+                for j in range(t.shape[0]):
+                    d = numpy.linalg.norm(t[j].ravel() - yy)
                     if d < md:
                         md = d
                         mi = j

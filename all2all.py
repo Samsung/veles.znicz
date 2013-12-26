@@ -89,8 +89,7 @@ class All2All(units.Forward):
             self.rand.fill(self.weights.v, -self.weights_amplitude,
                            self.weights_amplitude)
             self.weights.v = self.weights.v.reshape([
-                numpy.prod(self.output_shape),
-                self.input.v.size // self.input.v.shape[0]])
+                output_size, self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
@@ -261,7 +260,11 @@ class All2AllSoftmax(All2All):
         self.krn_sm_ = None
 
     def initialize(self):
-        itype = config.get_itype_from_size(numpy.prod(self.output_shape))
+        output_shape = (self.output_shape.v.shape[1:]
+                        if isinstance(self.output_shape, formats.Vector)
+                        else self.output_shape)
+        output_size = int(numpy.prod(output_shape))
+        itype = config.get_itype_from_size(output_size)
         global this_dir
         self.cl_sources_["%s/softmax.cl" % (config.cl_dir)] = (
             "#define itype %s" % (itype))

@@ -99,7 +99,7 @@ class Workflow(workflow.NNWorkflow):
         self.image_saver.minibatch_class = self.loader.minibatch_class
         self.image_saver.minibatch_size = self.loader.minibatch_size
         self.image_saver.this_save_date = self.decision.snapshot_time
-        self.image_saver.gate_skip = self.decision.just_snapshotted
+        self.image_saver.gate_skip = [0]  # self.decision.just_snapshotted
         self.image_saver.gate_skip_not = [1]
 
         # Add gradient descent units
@@ -163,7 +163,6 @@ class Workflow(workflow.NNWorkflow):
             plotters.Weights2D(figure_label="Last Layer Weights", limit=16))
         self.plt_mx[-1].input = self.gd[-1].weights
         self.plt_mx[-1].input_field = "v"
-        self.plt_mx[-1].transposed = True
         self.plt_mx[-1].get_shape_from = self.forward[0].input
         self.plt_mx[-1].link_from(self.plt_mx[-2])
         # Max plotter
@@ -230,7 +229,7 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     w = Workflow(layers=[500, 784], device=device)
-    w.initialize(global_alpha=0.001, global_lambda=0.00005)
+    w.initialize(global_alpha=0.0001, global_lambda=0.00005)
     w.run()
 
     plotters.Graphics().wait_finish()

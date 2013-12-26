@@ -36,6 +36,75 @@ import gd
 import decision
 import workflow
 import config
+import formats
+
+
+no_random = True
+autoencoder = False
+
+
+add_path("/usr/local/lib/python3.3/dist-packages/freetype")
+add_path("/usr/local/lib/python3.3/dist-packages/freetype/ft_enums")
+from freetype import *
+
+
+def do_plot(fontPath, text, size, angle, sx, sy,
+            randomizePosition, SX, SY):
+    face = Face(bytes(fontPath, 'UTF-8'))
+    #face.set_char_size(48 * 64)
+    face.set_pixel_sizes(0, size)
+
+    c = text[0]
+
+    angle = (angle / 180.0) * numpy.pi
+
+    mx_r = numpy.array([[numpy.cos(angle), -numpy.sin(angle)],
+                        [numpy.sin(angle), numpy.cos(angle)]],
+                       dtype=numpy.double)
+    mx_s = numpy.array([[sx, 0.0],
+                        [0.0, sy]], dtype=numpy.double)
+
+    mx = numpy.dot(mx_s, mx_r)
+
+    matrix = FT_Matrix((int)(mx[0, 0] * 0x10000),
+                       (int)(mx[0, 1] * 0x10000),
+                       (int)(mx[1, 0] * 0x10000),
+                       (int)(mx[1, 1] * 0x10000))
+    flags = FT_LOAD_RENDER
+    pen = FT_Vector(0, 0)
+    FT_Set_Transform(face._FT_Face, byref(matrix), byref(pen))
+
+    j = 0
+    while True:
+        slot = face.glyph
+        if not face.get_char_index(c):
+            return None
+        face.load_char(c, flags)
+        bitmap = slot.bitmap
+        width = bitmap.width
+        height = bitmap.rows
+        if width > SX or height > SY:
+            j = j + 1
+            face.set_pixel_sizes(0, size - j)
+            #logging.info("Set pixel size for font %s to %d" % (
+            #    fontPath, size - j))
+            continue
+        break
+
+    if randomizePosition:
+        x = int(numpy.floor(numpy.random.rand() * (SX - width)))
+        y = int(numpy.floor(numpy.random.rand() * (SY - height)))
+    else:
+        x = int(numpy.floor((SX - width) * 0.5))
+        y = int(numpy.floor((SY - height) * 0.5))
+
+    img = numpy.zeros([SY, SX], dtype=numpy.uint8)
+    img[y:y + height, x: x + width] = numpy.array(bitmap.buffer,
+        dtype=numpy.uint8).reshape(height, width)
+    if img.max() == img.min():
+        logging.info("Font %s returned empty glyph" % (fontPath))
+        return None
+    return img
 
 
 class Loader(mnist.Loader):
@@ -47,11 +116,20 @@ class Loader(mnist.Loader):
         super(Loader, self).load_data()
 
         self.class_target.reset()
-        self.class_target.v = numpy.zeros([10, 10],
+        #self.class_target.v = numpy.zeros([10, 10],
+        #    dtype=config.dtypes[config.dtype])
+        self.class_target.v = numpy.zeros([10, 784],
             dtype=config.dtypes[config.dtype])
+
         for i in range(10):
-            self.class_target.v[i, :] = -1
-            self.class_target.v[i, i] = 1
+            #self.class_target.v[i, :] = -1
+            #self.class_target.v[i, i] = 1
+            img = do_plot("%s/packages/arial.ttf" % (config.test_dataset_root),
+                          "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
+            self.class_target.v[i] = img.ravel().astype(
+                                config.dtypes[config.dtype])
+            formats.normalize(self.class_target.v[i])
+
         self.original_target = numpy.zeros([self.original_labels.shape[0],
                                             self.class_target.v.shape[1]],
             dtype=self.original_data.dtype)
@@ -59,13 +137,13 @@ class Loader(mnist.Loader):
             label = self.original_labels[i]
             self.original_target[i] = self.class_target.v[label]
 
-        # At the beginning, initialize values to be found with zeros.
+        # At the beginning, initialize "values to be found" with zeros.
         # NN should be trained in the same way as it will be tested.
-        v = self.original_data
-        v = v.reshape(v.shape[0], v.size // v.shape[0])
-        self.original_data = numpy.zeros([v.shape[0],
-            v.shape[1] + self.class_target.v.shape[1]], dtype=v.dtype)
-        self.original_data[:, :v.shape[1]] = v[:, :]
+        #v = self.original_data
+        #v = v.reshape(v.shape[0], v.size // v.shape[0])
+        #self.original_data = numpy.zeros([v.shape[0],
+        #    self.class_target.v.shape[1] + v.shape[1]], dtype=v.dtype)
+        #self.original_data[:, self.class_target.v.shape[1]:] = v[:, :]
 
 
 class Workflow(workflow.NNWorkflow):
@@ -80,7 +158,11 @@ class Workflow(workflow.NNWorkflow):
 
         self.recursion_depth = recursion_depth
         for i in range(recursion_depth):
-            aa = rbm.RBMTanh(output_shape=[layers[-1]], device=device)
+            if no_random:
+                aa = all2all.All2AllTanh(output_shape=[layers[-1]],
+                                         device=device)
+            else:
+                aa = rbm.RBMTanh(output_shape=[layers[-1]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[-1].link_from(self.forward[-2])
@@ -92,11 +174,12 @@ class Workflow(workflow.NNWorkflow):
                 self.forward[-1].input = self.loader.minibatch_data
 
             aa = all2all.All2AllTanh(output_shape=self.forward[-1].input,
-                                     device=device, weights_transposed=True)
+                device=device, weights_transposed=autoencoder)
             self.forward.append(aa)
             self.forward[-1].link_from(self.forward[-2])
             self.forward[-1].input = self.forward[-2].output
-            self.forward[-1].weights = self.forward[-2].weights
+            if autoencoder:
+                self.forward[-1].weights = self.forward[-2].weights
             if i:
                 self.forward[-1].weights = self.forward[-3].weights
                 self.forward[-1].bias = self.forward[-3].bias
@@ -106,12 +189,14 @@ class Workflow(workflow.NNWorkflow):
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
-        self.ev.target = self.forward[0].output
+        self.ev.target = self.loader.minibatch_target
         self.ev.max_samples_per_epoch = self.loader.total_samples
         self.ev.class_target = self.loader.class_target
+        self.ev.labels = self.loader.minibatch_labels
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="mnist_dbn")
+        self.decision = decision.Decision(snapshot_prefix="mnist_dbn",
+                                          store_samples_mse=True)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -119,11 +204,15 @@ class Workflow(workflow.NNWorkflow):
         self.decision.minibatch_n_err = self.ev.n_err
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
+        self.decision.minibatch_mse = self.ev.mse
+        self.decision.minibatch_offs = self.loader.minibatch_offs
+        self.decision.minibatch_size = self.loader.minibatch_size
 
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(len(self.forward)))
-        self.gd[-1] = gd.GDTanh(device=device, weights_transposed=True)
+        self.gd[-1] = gd.GDTanh(device=device,
+                                weights_transposed=autoencoder)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -134,7 +223,7 @@ class Workflow(workflow.NNWorkflow):
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(device=device,
-                                   weights_transposed=((i & 1) != 0))
+                weights_transposed=(autoencoder and (i & 1)))
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -151,7 +240,83 @@ class Workflow(workflow.NNWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
+        # MSE plotter
+        self.plt = []
+        styles = ["r-", "b-", "k-"]
+        for i in range(0, 3):
+            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+                                                   plot_style=styles[i]))
+            self.plt[-1].input = self.decision.epoch_metrics
+            self.plt[-1].input_field = i
+            self.plt[-1].link_from(self.decision if not i else
+                                   self.plt[-2])
+            self.plt[-1].gate_block = (self.decision.epoch_ended if not i
+                                       else [1])
+            self.plt[-1].gate_block_not = [1]
+        self.plt[0].clear_plot = True
+        # Weights plotter
+        self.decision.vectors_to_sync[self.gd[0].weights] = 1
+        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
+                                         limit=100)
+        self.plt_mx.input = self.gd[0].weights
+        self.plt_mx.input_field = "v"
+        self.plt_mx.get_shape_from = self.forward[0].input
+        self.plt_mx.link_from(self.decision)
+        self.plt_mx.gate_block = self.decision.epoch_ended
+        self.plt_mx.gate_block_not = [1]
+        # Image plotter
+        self.decision.vectors_to_sync[self.forward[0].input] = 1
+        self.decision.vectors_to_sync[self.forward[-1].output] = 1
+        self.decision.vectors_to_sync[self.ev.target] = 1
+        self.plt_img = plotters.Image(figure_label="output sample")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_input")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_output")
+        self.plt_img.inputs.append(self.decision)
+        self.plt_img.input_fields.append("sample_target")
+        self.plt_img.link_from(self.decision)
+        self.plt_img.gate_block = self.decision.epoch_ended
+        self.plt_img.gate_block_not = [1]
+        # Max plotter
+        self.plt_max = []
+        styles = ["r--", "b--", "k--"]
+        for i in range(0, 3):
+            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
+            self.plt_max[-1].input = self.decision.epoch_metrics
+            self.plt_max[-1].input_field = i
+            self.plt_max[-1].input_offs = 1
+            self.plt_max[-1].link_from(self.plt[-1] if not i else
+                                       self.plt_max[-2])
+        # Min plotter
+        self.plt_min = []
+        styles = ["r:", "b:", "k:"]
+        for i in range(0, 3):
+            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+                                                       plot_style=styles[i]))
+            self.plt_min[-1].input = self.decision.epoch_metrics
+            self.plt_min[-1].input_field = i
+            self.plt_min[-1].input_offs = 2
+            self.plt_min[-1].link_from(self.plt_max[-1] if not i else
+                                       self.plt_min[-2])
+        self.plt_min[-1].redraw_plot = True
+        # Histogram plotter
+        self.plt_hist = [None,
+            plotters.MSEHistogram(figure_label="Histogram Validation"),
+            plotters.MSEHistogram(figure_label="Histogram Train")]
+        self.plt_hist[1].link_from(self.decision)
+        self.plt_hist[1].mse = self.decision.epoch_samples_mse[1]
+        self.plt_hist[1].gate_block = self.decision.epoch_ended
+        self.plt_hist[1].gate_block_not = [1]
+        self.plt_hist[2].link_from(self.plt_hist[1])
+        self.plt_hist[2].mse = self.decision.epoch_samples_mse[2]
+
     def initialize(self, device, args):
+        self.decision.snapshot_prefix = args.snapshot_prefix
+        for gd in self.gd:
+            gd.global_alpha = args.global_alpha
+            gd.global_lambda = args.global_lambda
         super(Workflow, self).initialize(device=device)
         return self.start_point.initialize_dependent()
 
@@ -179,7 +344,7 @@ def main():
     parser.add_argument("-recursion_depth", type=int,
         help="Depth of the RBM's recursive pass (default 1)", default=1)
     parser.add_argument("-global_alpha", type=float,
-        help="Global Alpha (default 0.01)", default=0.01)
+        help="Global Alpha (default 0.001)", default=0.001)
     parser.add_argument("-global_lambda", type=float,
         help="Global Lambda (default 0.00005)", default=0.00005)
     args = parser.parse_args()
