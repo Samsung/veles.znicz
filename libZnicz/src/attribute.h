@@ -36,10 +36,10 @@ class Attribute {
    *  @param data Variable, setter for which is constructed
    */
   template<class T>
-  static std::function<void (std::shared_ptr<void>)>
+  static std::function<void (std::shared_ptr<const void>)>
   GetSetter(T* data) {
-    return [data](std::shared_ptr<void> value) {
-      *data = *std::static_pointer_cast<T>(value);
+    return [data](std::shared_ptr<const void> value) {
+      *data = *std::static_pointer_cast<const T>(value);
     };
   }
 
@@ -48,10 +48,10 @@ class Attribute {
    *  @param data Variable of shared_ptr type, setter for which is constructed.
    */
   template<class T>
-  static std::function<void (std::shared_ptr<void>)>
-  GetSetter(std::shared_ptr<T>* data) {
-    return [data](std::shared_ptr<void> value) {
-      *data = std::static_pointer_cast<T>(value);
+  static std::function<void (std::shared_ptr<const void>)>
+  GetSetter(std::shared_ptr<const T>* data) {
+    return [data](std::shared_ptr<const void> value) {
+      *data = std::static_pointer_cast<const T>(value);
     };
   }
 
@@ -61,10 +61,11 @@ class Attribute {
    *  @param data Variable, setter for which is constructed
    */
   template<class T>
-  static std::function<void (std::shared_ptr<void>)>
+  static std::function<void (std::shared_ptr<const void>)>
   GetSetterString(T* data) {
-    return [data](std::shared_ptr<void> value) {
-      *data = lexical_cast<T>(*std::static_pointer_cast<std::string>(value));
+    return [data](std::shared_ptr<const void> value) {
+      *data = lexical_cast<T>(
+          *std::static_pointer_cast<const std::string>(value));
     };
   }
 
