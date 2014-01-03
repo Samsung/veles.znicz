@@ -101,7 +101,8 @@ AC_CONFIG_COMMANDS([Creating workflow_files directory in tests],
 
 AM_COND_IF([TESTS], [
     AC_CONFIG_LINKS([tests/workflow_files/workflow.tar.gz:tests/workflow_files/workflow.tar.gz
-        tests/workflow_files/workflow2.tar.gz:tests/workflow_files/workflow2.tar.gz])
+        tests/workflow_files/workflow2.tar.gz:tests/workflow_files/workflow2.tar.gz
+        tests/workflow_files/channels_workflow.tar.gz:tests/workflow_files/channels_workflow.tar.gz])
 ])
 
 AC_OUTPUT
