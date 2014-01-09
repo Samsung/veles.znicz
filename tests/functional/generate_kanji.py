@@ -33,6 +33,7 @@ import sqlite3
 import xml.etree.ElementTree as et
 import glob
 import config
+import znicz_config
 import scipy.misc
 
 

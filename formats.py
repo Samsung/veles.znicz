@@ -10,6 +10,7 @@ import units
 import pyopencl
 import os
 import config
+import znicz_config
 import error
 import logging
 

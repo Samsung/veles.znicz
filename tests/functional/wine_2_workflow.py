@@ -7,6 +7,7 @@ import decision
 import formats
 import numpy
 import config
+import znicz_config
 import workflow
 import rnd
 from config import getConfig, sconfig

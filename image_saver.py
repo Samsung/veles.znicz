@@ -12,6 +12,7 @@ import os
 import glob
 import formats
 import config
+import znicz_config
 
 
 class ImageSaver(units.Unit):

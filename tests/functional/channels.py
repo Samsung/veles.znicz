@@ -28,6 +28,7 @@ import units
 import formats
 import numpy
 import config
+import znicz_config
 import rnd
 import opencl
 import plotters
@@ -851,7 +852,7 @@ def main():
     #if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
     #else:
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)    
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-snapshot", type=str, default="",

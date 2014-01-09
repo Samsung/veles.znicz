@@ -12,6 +12,7 @@ import pyopencl
 import time
 import rnd
 import config
+import znicz_config
 import logging
 
 
@@ -57,7 +58,7 @@ class All2All(units.Forward):
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.cl_sources_["%s/forward.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["forward.cl"] = ""
         self.krn_ = None
 
     def get_weights_amplitude(self):
@@ -266,7 +267,7 @@ class All2AllSoftmax(All2All):
         output_size = int(numpy.prod(output_shape))
         itype = config.get_itype_from_size(output_size)
         global this_dir
-        self.cl_sources_["%s/softmax.cl" % (config.cl_dir)] = (
+        self.cl_sources_["softmax.cl"] = (
             "#define itype %s" % (itype))
         super(All2AllSoftmax, self).initialize()
 

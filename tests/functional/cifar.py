@@ -26,6 +26,7 @@ add_path("%s/../../../src" % (this_dir))
 import numpy
 import formats
 import config
+import znicz_config
 import rnd
 import opencl
 import plotters

@@ -9,6 +9,7 @@ import numpy
 import units
 import formats
 import config
+import znicz_config
 import time
 import os
 import pickle

@@ -1,6 +1,7 @@
 #!/usr/bin/python3.3 -O
 import os
 import config
+import znicz_config
 import opencl
 
 from config import Config, sconfig

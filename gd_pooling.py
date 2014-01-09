@@ -9,6 +9,7 @@ import units
 import time
 import pyopencl
 import config
+import znicz_config
 import logging
 import formats
 import numpy
@@ -46,8 +47,7 @@ class GDPooling(units.GD):
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
-        self.cl_sources_["%s/gradient_descent_pooling.cl" % (
-                                                config.cl_dir)] = ""
+        self.cl_sources_["gradient_descent_pooling.cl"] = ""
         self.krn_err_h_ = None
 
     def initialize(self):

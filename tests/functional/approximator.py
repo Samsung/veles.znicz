@@ -38,6 +38,7 @@ import scipy.io
 import workflow
 import error
 import config
+import znicz_config
 
 
 class Loader(loader.ImageLoader):

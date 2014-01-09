@@ -10,6 +10,7 @@ import opencl
 import formats
 import numpy
 import config
+import znicz_config
 import units
 import rnd
 

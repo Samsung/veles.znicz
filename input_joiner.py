@@ -10,6 +10,7 @@ import formats
 import numpy
 import error
 import config
+import znicz_config
 import pyopencl
 
 
@@ -39,7 +40,7 @@ class InputJoiner(units.OpenCLUnit):
 
     def init_unpickled(self):
         super(InputJoiner, self).init_unpickled()
-        self.cl_sources_["%s/join.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["join.cl"] = ""
         self.krn_ = None
 
     def initialize(self):

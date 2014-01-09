@@ -11,6 +11,7 @@ import numpy
 import pyopencl
 import time
 import config
+import znicz_config
 import logging
 import error
 
@@ -44,7 +45,7 @@ class Pooling(units.Forward):
 
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
-        self.cl_sources_["%s/pooling.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["pooling.cl"] = ""
         self.krn_ = None
 
     def initialize(self):

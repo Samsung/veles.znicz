@@ -36,6 +36,7 @@ import gd
 import decision
 import workflow
 import config
+import znicz_config
 import formats
 
 

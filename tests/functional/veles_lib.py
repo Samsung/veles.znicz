@@ -19,6 +19,7 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import config
+import znicz_config
 from config import sconfig
 class veles(object):
 

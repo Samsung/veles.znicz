@@ -11,6 +11,7 @@ import numpy
 import time
 import pyopencl
 import config
+import znicz_config
 import logging
 
 
@@ -76,7 +77,7 @@ class GD(units.GD):
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
-        self.cl_sources_["%s/gradient_descent.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["gradient_descent.cl"] = ""
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
@@ -360,7 +361,7 @@ class GDTanh(GD):
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
 
     def initialize(self):
-        self.cl_sources_["%s/gradient_descent_tanh.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["gradient_descent_tanh.cl"] = ""
         super(GDTanh, self).initialize()
         if self.device == None:
             return

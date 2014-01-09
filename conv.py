@@ -12,6 +12,7 @@ import pyopencl
 import time
 import rnd
 import config
+import znicz_config
 import logging
 import error
 
@@ -63,7 +64,7 @@ class Conv(units.Forward):
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
-        self.cl_sources_["%s/conv.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["conv.cl"] = ""
         self.krn_ = None
 
     def get_weights_amplitude(self):

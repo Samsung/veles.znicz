@@ -11,6 +11,7 @@ import opencl
 import formats
 import numpy
 import config
+import znicz_config
 
 
 class TestGDConv(unittest.TestCase):

@@ -11,6 +11,7 @@ import formats
 import opencl
 import pyopencl
 import config
+import znicz_config
 import numpy
 import rnd
 

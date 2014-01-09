@@ -12,6 +12,7 @@ import pickle
 import units
 import os
 import config
+import znicz_config
 import formats
 import rnd
 import traceback
@@ -287,17 +288,11 @@ class Device(units.Pickleable):
         "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
                                   self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
         s = defines
-        fin = open("%s/defines.cl" % (config.cl_dir), "r")
-        s += fin.read()
-        fin.close()
-        fin = open("%s/matrix_multiplication.cl" % (config.cl_dir), "r")
-        s_mx_mul = fin.read()
-        fin.close()
-        fin = open("%s/forward.cl" % (config.cl_dir), "r")
-        s += fin.read()
-        fin.close()
+        s += OpenCLUnit.read_ocl_file("defines.cl")
+        s_mx_mul = OpenCLUnit.read_ocl_file("matrix_multiplication.cl")
+        s += OpenCLUnit.read_ocl_file("forward.cl")
         s = s.replace("MX_MUL", s_mx_mul)
-        fout = open("%s/test.cl" % (config.cache_dir), "w")
+        fout = open(os.path.join(config.cache_dir, "test.cl"), "w")
         fout.write(s)
         fout.close()
 

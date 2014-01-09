@@ -7,6 +7,7 @@ Loader base class.
 """
 import units
 import config
+import znicz_config
 import rnd
 import formats
 import time

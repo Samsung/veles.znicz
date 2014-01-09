@@ -7,6 +7,7 @@ import units
 import formats
 import numpy
 import config
+import znicz_config
 import pyopencl
 import error
 
@@ -70,7 +71,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                                      "(probably in Loader).")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
-        self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
+        self.cl_sources_["evaluator.cl"] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.v == None or
@@ -244,7 +245,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         itype = config.get_itype_from_size((self.y.v.size //
                                             self.y.v.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
-        self.cl_sources_["%s/evaluator.cl" % (config.cl_dir)] = (
+        self.cl_sources_["evaluator.cl"] = (
             "#define itype %s\n#define itype2 %s" % (itype, itype2))
 
         if (self.err_y.v == None or

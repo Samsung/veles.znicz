@@ -34,6 +34,7 @@ import traceback
 
 import all2all
 import config
+import znicz_config
 import decision
 import error
 import evaluator

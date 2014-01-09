@@ -36,6 +36,7 @@ import gd
 import loader
 import decision
 import config
+import znicz_config
 
 
 class Loader(loader.FullBatchLoader):

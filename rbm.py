@@ -11,6 +11,7 @@ import numpy
 import pyopencl
 import rnd
 import config
+import znicz_config
 import error
 
 
@@ -33,7 +34,7 @@ class RBMTanh(all2all.All2AllTanh):
     def init_unpickled(self):
         super(RBMTanh, self).init_unpickled()
         self.krn_apply_rand_ = None
-        self.cl_sources_["%s/rbm.cl" % (config.cl_dir)] = ""
+        self.cl_sources_["rbm.cl"] = ""
 
     def initialize(self):
         super(RBMTanh, self).initialize()
