@@ -17,7 +17,7 @@ template<class T>
 class AttributeTest : public ::testing::Test {
  protected:
   T variable_;
-  std::shared_ptr<T> variable_ptr_;
+  std::shared_ptr<const T> variable_ptr_;
 };
 
 typedef ::testing::Types<int, float> TestTypes;

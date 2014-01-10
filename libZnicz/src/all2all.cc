@@ -31,7 +31,7 @@ All2All::All2All() : setters_ {
 }
 
 void All2All::SetParameter(const std::string& name,
-                           std::shared_ptr<void> value) {
+                           std::shared_ptr<const void> value) {
   auto it = setters_.find(name);
   if(it != setters_.end()) {
     it->second(value);

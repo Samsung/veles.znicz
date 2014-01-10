@@ -81,8 +81,8 @@ class WorkflowLoaderTest : public ::testing::Test, public WorkflowLoader {
     time_t tt1 = time(0);
     float resultFromExecute[outputNumber];
     for (size_t i = 0; i < imgNumber; ++i) {
-      auto begin = static_cast<float*>(
-          this->workflow_desc_.Units.at(0).Properties.at("input").get());
+      auto begin = static_pointer_cast<const float>(
+          this->workflow_desc_.Units.at(0).Properties.at("input")).get();
       float array[pxNumber];
       for (size_t j = 0; j < pxNumber; ++j) {
         array[j] = begin[j + pxNumber*i];
@@ -175,18 +175,18 @@ TEST_F(WorkflowLoaderTest, MainTest) {
   ASSERT_EQ(string("All2AllTanh"), testUnitAll2AllTanh.Name);
   // Check size of All2AllTanh input
   // (60 images * 28px * 28px * float( 4 bytes) = 188160 bytes)
-  ASSERT_EQ(size_t(188160/4), *std::static_pointer_cast<size_t>(
+  ASSERT_EQ(size_t(188160/4), *std::static_pointer_cast<const size_t>(
       testUnitAll2AllTanh.Properties.at("input_length")));
 
-  ASSERT_EQ(*std::static_pointer_cast<size_t>(
+  ASSERT_EQ(*std::static_pointer_cast<const size_t>(
       testUnitAll2AllTanh.Properties.at("output_length")),
-            (*std::static_pointer_cast<size_t>(
+            (*std::static_pointer_cast<const size_t>(
                 testUnitAll2All.Properties.at("input_length"))));
   // Check unit All2All name, that unit is exist
   ASSERT_EQ(string("All2All"), testUnitAll2All.Name);
   // Check size of All2All output
   // (60 images * 10 floats(4 bytes)= 2400 bytes)
-  ASSERT_EQ(size_t(2400/4), *std::static_pointer_cast<size_t>(
+  ASSERT_EQ(size_t(2400/4), *std::static_pointer_cast<const size_t>(
       testUnitAll2All.Properties.at("output_length")));
 
   DBG("Before znicz::Execute.\n\n");
@@ -195,15 +195,15 @@ TEST_F(WorkflowLoaderTest, MainTest) {
   const size_t digitNumber = 10;  // Number of digits
 
   for (size_t i = 0; i < imgNumber; ++i) {
-    auto begin = static_cast<float*>(
-            testUnitAll2AllTanh.Properties.at("input").get());
+    auto begin = std::static_pointer_cast<const float>(
+            testUnitAll2AllTanh.Properties.at("input")).get();
     float array[pxNumber];
     for (size_t j = 0; j < pxNumber; ++j) {
       array[j] = begin[j + pxNumber*i];
     }
 
-    auto resultBegin = static_cast<float*>(
-        testUnitAll2All.Properties.at("output").get());// + i*digitNumber;
+    auto resultBegin = static_pointer_cast<const float>(
+        testUnitAll2All.Properties.at("output")).get();// + i*digitNumber;
     float result[digitNumber];
     for (size_t j = 0; j < digitNumber; ++j) {
       result[j] = resultBegin[j + digitNumber*i];

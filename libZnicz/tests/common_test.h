@@ -33,7 +33,7 @@ class CommonTest
   static std::shared_ptr<float> CreateFloatArray(
       size_t count, float initializer = kValueZero) {
     auto ptr = std::shared_ptr<float>(mallocf(count), std::free);
-    memsetf(ptr.get(), count, initializer);
+    memsetf(ptr.get(), initializer, count);
     return ptr;
   }
 

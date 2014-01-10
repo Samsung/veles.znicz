@@ -30,7 +30,7 @@ class All2All : public Unit {
  public:
   All2All();
   virtual void SetParameter(const std::string& name,
-                            std::shared_ptr<void> value) override final;
+                            std::shared_ptr<const void> value) override final;
   virtual void Execute(const float* in, float* out) const override final;
   virtual size_t InputCount() const noexcept override final {
     size_t outputs = OutputCount();
@@ -50,14 +50,14 @@ class All2All : public Unit {
  private:
   /** @brief Weights matrix
    */
-  std::shared_ptr<float> weights_;
+  std::shared_ptr<const float> weights_;
   /** @brief Bias vector
    */
-  std::shared_ptr<float> bias_;
+  std::shared_ptr<const float> bias_;
   /** @brief Parameter name to Parameter setter map
    */
-  std::unordered_map<std::string, std::function<void (std::shared_ptr<void>)>>
-    setters_;
+  std::unordered_map<std::string, std::function<
+    void (std::shared_ptr<const void>)>> setters_;
   /** @brief Number of elements in the weights matrix.
    *  @details Number of inputs is computed using this length and outputs count.
    */
