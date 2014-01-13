@@ -24,6 +24,7 @@
 ##  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 include $(top_srcdir)/Makefile.common
+include Sources.make
 
 lib_LTLIBRARIES = libZnicz.la
 
@@ -31,8 +32,7 @@ lib_LTLIBRARIES = libZnicz.la
 # Build information for libZnicz.la
 
 # Source files
-libZnicz_la_SOURCES = all2all.cc all2all_tanh.cc all2all_linear.cc \
-	all2all_softmax.cc
+libZnicz_la_SOURCES = $(SOURCES)
 
 # Used libraries
 libZnicz_la_LIBADD = @VELES_LIBS@ @SIMD_LIBS@

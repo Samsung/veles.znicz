@@ -11,6 +11,7 @@
  */
 
 #include <cmath>
+#include <cstdlib>
 #include <memory>
 #include <functional>
 #include <veles/make_unique.h>

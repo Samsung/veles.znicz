@@ -1,0 +1,1 @@
+SOURCES := all2all.cc all2all_tanh.cc all2all_linear.cc all2all_softmax.cc
