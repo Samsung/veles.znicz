@@ -12,6 +12,7 @@
 
 
 #include <cmath>
+#include <cstdlib>
 #include <simd/memory.h>
 #include <simd/arithmetic-inl.h>
 #include <veles/make_unique.h>
