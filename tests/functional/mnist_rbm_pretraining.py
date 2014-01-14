@@ -34,7 +34,6 @@ import all2all
 import evaluator
 import gd
 import decision
-import image_saver
 import workflow
 
 
@@ -51,13 +50,13 @@ class Workflow(workflow.NNWorkflow):
 
         # Add forward units
         self.forward.clear()
-        for i in range(0, len(layers)):
-            if not i:
+        for i in range(len(layers)):
+            if i < len(layers) - 1:
                 aa = rbm.RBMTanh([layers[i]], device=device)
             else:
                 aa = all2all.All2AllTanh([layers[i]], device=device,
                              weights_transposed=True)
-                aa.weights = self.forward[0].weights
+                aa.weights = self.forward[-1].weights
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -71,7 +70,7 @@ class Workflow(workflow.NNWorkflow):
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
-        self.ev.target = self.loader.minibatch_data
+        self.ev.target = self.forward[-2].input
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -88,25 +87,11 @@ class Workflow(workflow.NNWorkflow):
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
-        # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver()
-        self.image_saver.link_from(self.decision)
-        self.image_saver.input = self.loader.minibatch_data
-        self.image_saver.output = self.forward[-1].output
-        self.image_saver.target = self.image_saver.input
-        self.image_saver.indexes = self.loader.minibatch_indexes
-        self.image_saver.labels = self.loader.minibatch_labels
-        self.image_saver.minibatch_class = self.loader.minibatch_class
-        self.image_saver.minibatch_size = self.loader.minibatch_size
-        self.image_saver.this_save_date = self.decision.snapshot_time
-        self.image_saver.gate_skip = [0]  # self.decision.just_snapshotted
-        self.image_saver.gate_skip_not = [1]
-
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GD(device=device, weights_transposed=True)
-        self.gd[-1].link_from(self.decision)
+        self.gd[-1] = gd.GDTanh(device=device, weights_transposed=True)
+        #self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -114,7 +99,8 @@ class Workflow(workflow.NNWorkflow):
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
-        for i in range(len(self.forward) - 2, -1, -1):
+        last_gd = self.gd[-1]
+        for i in range(len(self.forward) - 2, len(self.forward) - 3, -1):
             self.gd[i] = gd.GDTanh(device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
@@ -124,7 +110,8 @@ class Workflow(workflow.NNWorkflow):
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
-        self.rpt.link_from(self.gd[0])
+            last_gd = self.gd[i]
+        self.rpt.link_from(last_gd)
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
@@ -147,24 +134,16 @@ class Workflow(workflow.NNWorkflow):
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         # Weights plotter
-        self.decision.vectors_to_sync[self.gd[0].weights] = 1
+        self.decision.vectors_to_sync[self.gd[-1].weights] = 1
         self.plt_mx = []
         self.plt_mx.append(
-            plotters.Weights2D(figure_label="First Layer Weights", limit=16))
-        self.plt_mx[-1].input = self.gd[0].weights
+            plotters.Weights2D(figure_label="Last Layer Weights", limit=64))
+        self.plt_mx[-1].input = self.gd[-1].weights
         self.plt_mx[-1].input_field = "v"
-        self.plt_mx[-1].get_shape_from = self.forward[0].input
+        #self.plt_mx[-1].get_shape_from = self.forward[0].input
         self.plt_mx[-1].link_from(self.decision)
         self.plt_mx[-1].gate_block = self.decision.epoch_ended
         self.plt_mx[-1].gate_block_not = [1]
-        # Weights plotter
-        self.decision.vectors_to_sync[self.gd[-1].weights] = 1
-        self.plt_mx.append(
-            plotters.Weights2D(figure_label="Last Layer Weights", limit=16))
-        self.plt_mx[-1].input = self.gd[-1].weights
-        self.plt_mx[-1].input_field = "v"
-        self.plt_mx[-1].get_shape_from = self.forward[0].input
-        self.plt_mx[-1].link_from(self.plt_mx[-2])
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
@@ -189,16 +168,17 @@ class Workflow(workflow.NNWorkflow):
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
         # Image plotter
-        self.decision.vectors_to_sync[self.forward[0].input] = 1
+        self.decision.vectors_to_sync[self.forward[-2].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
-        self.plt_img = plotters.Image(figure_label="output sample")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_input")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_output")
+        self.plt_img = plotters.Image(figure_label="sample")
+        self.plt_img.inputs.append(self.forward[-2].input)
+        self.plt_img.input_fields.append("v")
+        self.plt_img.inputs.append(self.forward[-1].output)
+        self.plt_img.input_fields.append("v")
         self.plt_img.link_from(self.decision)
-        self.plt_img.gate_block = self.decision.epoch_ended
-        self.plt_img.gate_block_not = [1]
+        self.plt_img.gate_skip = self.decision.epoch_ended
+        self.plt_img.gate_skip_not = [1]
+        self.gd[-1].link_from(self.plt_img)
         # Histogram plotter
         self.plt_hist = [None,
             plotters.MSEHistogram(figure_label="Histogram Validation"),
@@ -210,11 +190,18 @@ class Workflow(workflow.NNWorkflow):
         self.plt_hist[2].link_from(self.plt_hist[1])
         self.plt_hist[2].mse = self.decision.epoch_samples_mse[2]
 
-    def initialize(self, global_alpha, global_lambda):
+    def initialize(self, device, args):
         for gd in self.gd:
-            gd.global_alpha = global_alpha
-            gd.global_lambda = global_lambda
+            if gd == None:
+                continue
+            gd.global_alpha = args.global_alpha
+            gd.global_lambda = args.global_lambda
+        super(Workflow, self).initialize(device=device)
         return self.start_point.initialize_dependent()
+
+
+import argparse
+import pickle
 
 
 def main():
@@ -223,13 +210,47 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-snapshot", type=str, default="",
+        help="Snapshot with trained network (default empty)")
+    parser.add_argument("-global_alpha", type=float,
+        help="Global Alpha (default 0.0001)", default=0.0001)
+    parser.add_argument("-global_lambda", type=float,
+        help="Global Lambda (default 0.00005)", default=0.00005)
+    args = parser.parse_args()
+
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    W = []
+    b = []
     device = opencl.Device()
-    w = Workflow(layers=[500, 784], device=device)
-    w.initialize(global_alpha=0.0001, global_lambda=0.00005)
+    try:
+        fin = open(args.snapshot, "rb")
+        W, b = pickle.load(fin)
+        fin.close()
+    except IOError:
+        pass
+    layers = []
+    for i in range(len(W) - 1):
+        layers.append(len(b[i]))
+    layers.append(529)
+    if len(layers) == 1:
+        layers.append(784)
+    else:
+        layers.append(layers[-2])
+    logging.info("Will train with layers: %s" % (str(layers)))
+    w = Workflow(layers=layers, device=device)
+    w.initialize(device=device, args=args)
+    if len(W):
+        logging.info("Will set weights to pretrained ones")
+        for i in range(len(W) - 1):
+            w.forward[i].weights.map_invalidate()
+            w.forward[i].weights.v[:] = W[i][:]
+            w.forward[i].bias.map_invalidate()
+            w.forward[i].bias.v[:] = b[i][:]
+        logging.info("Done")
     w.run()
 
     plotters.Graphics().wait_finish()

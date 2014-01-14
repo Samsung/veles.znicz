@@ -55,7 +55,7 @@ class Workflow(workflow.NNWorkflow):
         self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                if not i:
+                if i < len(layers) - 2:
                     aa = rbm.RBMTanh([layers[i]], device=device)
                 else:
                     aa = all2all.All2AllTanh([layers[i]], device=device)
@@ -79,8 +79,7 @@ class Workflow(workflow.NNWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(fail_iterations=25,
-                                          snapshot_prefix="mnist_rbm")
+        self.decision = decision.Decision(snapshot_prefix="mnist_rbm")
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -102,7 +101,8 @@ class Workflow(workflow.NNWorkflow):
         self.gd[-1].bias = self.forward[-1].bias
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
-        for i in range(len(self.forward) - 2, 0, -1):
+        last_gd = self.gd[-1]
+        for i in range(len(self.forward) - 2, len(self.forward) - 3, -1):
             self.gd[i] = gd.GDTanh(device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
@@ -112,7 +112,8 @@ class Workflow(workflow.NNWorkflow):
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
-        self.rpt.link_from(self.gd[1])
+            last_gd = self.gd[i]
+        self.rpt.link_from(last_gd)
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = self.decision.complete
@@ -183,7 +184,7 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     try:
         fin = open("%s/mnist_rbm.pickle" % (config.snapshot_dir), "rb")
-        w = pickle.load(fin)
+        W, b = pickle.load(fin)
         fin.close()
     except Exception:
         logging.error("Could not load %s/mnist_rbm.pickle "
@@ -192,15 +193,19 @@ def main():
                       "then rename best snapshot to mnist_rbm.pickle" % (
                                                         config.snapshot_dir))
         sys.exit(1)
-    weights = w.forward[0].weights.v
-    bias = w.forward[0].bias.v
     device = opencl.Device()
-    w = Workflow(layers=[weights.shape[0], 250, 10], device=device)
-    w.initialize(global_alpha=0.001 * 20, global_lambda=0.00005)
-    w.forward[0].weights.map_invalidate()
-    w.forward[0].weights.v[:] = weights[:]
-    w.forward[0].bias.map_invalidate()
-    w.forward[0].bias.v[:] = bias[:]
+    layers = []
+    for i in range(len(W) - 1):
+        layers.append(len(b[i]))
+    layers.append(2025)
+    layers.append(10)
+    w = Workflow(layers=layers, device=device)
+    w.initialize(global_alpha=0.001, global_lambda=0.00005)
+    for i in range(len(W) - 1):
+        w.forward[i].weights.map_invalidate()
+        w.forward[i].weights.v[:] = W[i][:]
+        w.forward[i].bias.map_invalidate()
+        w.forward[i].bias.v[:] = b[i][:]
     w.run()
 
     plotters.Graphics().wait_finish()
