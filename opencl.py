@@ -288,9 +288,9 @@ class Device(units.Pickleable):
         "#define BATCH %d\n\n" % (config.cl_defines[dtype], BLOCK_SIZE,
                                   self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
         s = defines
-        s += OpenCLUnit.read_ocl_file("defines.cl")
-        s_mx_mul = OpenCLUnit.read_ocl_file("matrix_multiplication.cl")
-        s += OpenCLUnit.read_ocl_file("forward.cl")
+        s += units.OpenCLUnit.read_ocl_file("defines.cl")
+        s_mx_mul = units.OpenCLUnit.read_ocl_file("matrix_multiplication.cl")
+        s += units.OpenCLUnit.read_ocl_file("forward.cl")
         s = s.replace("MX_MUL", s_mx_mul)
         fout = open(os.path.join(config.cache_dir, "test.cl"), "w")
         fout.write(s)

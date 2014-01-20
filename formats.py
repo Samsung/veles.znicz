@@ -96,6 +96,15 @@ def normalize_mean_disp(a):
         a /= ds
 
 
+def normalize_exp(a):
+    if a.dtype in (numpy.complex64, numpy.complex128):
+        raise error.ErrNotImplemented()
+    a -= a.max()
+    numpy.exp(a, a)
+    smm = a.sum()
+    a /= smm
+
+
 def normalize_pointwise(a):
     """Normalizes dataset pointwise.
     """

@@ -9,7 +9,6 @@ import numpy
 import units
 import formats
 import config
-import znicz_config
 import time
 import os
 import pickle
@@ -113,6 +112,7 @@ class Decision(units.Unit):
         self.sample_label = None
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
+        self.ev = None
 
     def initialize(self):
         # Reset errors
@@ -162,18 +162,18 @@ class Decision(units.Unit):
                 self.tmp_epoch_samples_mse[i].v[:] = 0
                 self.epoch_samples_mse[i].v[:] = 0
 
-        # Initialize sample_input, sample_output, sample_target if neccessary
+        # Initialize sample_input, sample_output, sample_target if necessary
         if self.workflow.forward[0].input in self.vectors_to_sync:
             self.sample_input = numpy.zeros_like(
                 self.workflow.forward[0].input.v[0])
         if self.workflow.forward[-1].output in self.vectors_to_sync:
             self.sample_output = numpy.zeros_like(
                 self.workflow.forward[-1].output.v[0])
-        if (self.workflow.ev.__dict__.get("target") != None
-            and self.workflow.ev.target in self.vectors_to_sync
-            and self.workflow.ev.target.v != None):
-            self.sample_target = numpy.zeros_like(
-                self.workflow.ev.target.v[0])
+        ev = self.ev if self.ev != None else self.workflow.ev
+        if (ev.__dict__.get("target") != None
+            and ev.target in self.vectors_to_sync
+            and ev.target.v != None):
+            self.sample_target = numpy.zeros_like(ev.target.v[0])
 
     def on_snapshot(self, minibatch_class):
         if self.workflow == None:
@@ -388,11 +388,12 @@ class Decision(units.Unit):
             self.sample_input[:] = self.workflow.forward[0].input.v[0]
         if self.sample_output != None:
             self.sample_output[:] = self.workflow.forward[-1].output.v[0]
+        ev = self.ev if self.ev != None else self.workflow.ev
         if self.sample_target != None:
-            self.sample_target[:] = self.workflow.ev.target.v[0]
-        if (self.workflow.ev.__dict__.get("labels") in
+            self.sample_target[:] = ev.target.v[0]
+        if (ev.__dict__.get("labels") in
             self.vectors_to_sync.keys()):
-            self.sample_label = self.workflow.ev.labels.v[0]
+            self.sample_label = ev.labels.v[0]
 
     def on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
