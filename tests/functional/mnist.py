@@ -265,11 +265,12 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+    logging.info("Logging level: %s", str(logging.root.level))
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     w = Workflow(layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
