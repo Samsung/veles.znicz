@@ -23,8 +23,8 @@ class TestThreadPool(unittest.TestCase):
         print("Will test ThreadPool with 32 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
-        pool = thread_pool.ThreadPool(max_free_threads=32, max_threads=32,
-                                      max_enqueued_tasks=32)
+        pool = thread_pool.ThreadPool(minthreads=32, maxthreads=32,
+                                      queue_size=32)
         n = 100
         for i in range(n):
             data_lock.acquire()
@@ -40,8 +40,8 @@ class TestThreadPool(unittest.TestCase):
         print("Will test ThreadPool with 320 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
-        pool = thread_pool.ThreadPool(max_free_threads=32, max_threads=320,
-                                      max_enqueued_tasks=320)
+        pool = thread_pool.ThreadPool(minthreads=32, maxthreads=320,
+                                      queue_size=320)
         n = 100
         for i in range(n):
             data_lock.acquire()
@@ -54,18 +54,23 @@ class TestThreadPool(unittest.TestCase):
             "as expected.")
 
     def test_0_threads(self):
-        print("Will test ThreadPool with max_free_threads=0.")
+        print("Will test ThreadPool with minthreads=0.")
         n_jobs = [0]
         data_lock = threading.Lock()
-        pool = thread_pool.ThreadPool(max_free_threads=0, max_threads=32,
-                                      max_enqueued_tasks=32)
+        pool = thread_pool.ThreadPool(minthreads=0, maxthreads=32,
+                                      queue_size=32)
         n = 10
+        t0 = time.time()
         for i in range(n):
             data_lock.acquire()
             n_jobs[0] += 1
             data_lock.release()
             pool.request(self._job, (n_jobs, data_lock))
-        pool.shutdown(execute_remaining=False)
+        t1 = time.time()
+        pool.shutdown(execute_remaining=False, force=True, timeout=0)
+        t2 = time.time()
+        print("Added to queue in %.3f seconds, Shutdowned in %.3f seconds." % (
+            t1 - t0, t2 - t1))
         self.assertEqual(n_jobs[0], 10,
             "ThreadPool::shutdown(execute_remaining=False) is not working "
             "as expected.")
@@ -74,8 +79,8 @@ class TestThreadPool(unittest.TestCase):
         print("Will test ThreadPool for double shutdown().")
         n_jobs = [0]
         data_lock = threading.Lock()
-        pool = thread_pool.ThreadPool(max_free_threads=1, max_threads=32,
-                                      max_enqueued_tasks=32)
+        pool = thread_pool.ThreadPool(minthreads=1, maxthreads=32,
+                                      queue_size=32)
         n = 10
         for i in range(n):
             data_lock.acquire()
@@ -90,6 +95,7 @@ class TestThreadPool(unittest.TestCase):
         self.assertEqual(n_jobs[0], 0,
             "ThreadPool::shutdown(execute_remaining=True) is not working "
             "as expected.")
+
 
 if __name__ == "__main__":
     # import sys;sys.argv = ['', 'Test.test']

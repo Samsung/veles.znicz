@@ -54,7 +54,7 @@ class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
-                 channels_dir="", rect=(176, 96), grayscale=False,
+                 channels_dir="", rect=(68, 30), grayscale=False,
                  cache_fnme=""):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
@@ -203,6 +203,12 @@ class Loader(loader.FullBatchLoader):
             self.log().info("Read %d files (%.2f%%)" % (
                 n_files[0], 100.0 * n_files[0] / total_files))
         data_lock.release()
+
+    def get_label(self, dirnme):
+        lbl = self.channel_map[dirnme].get("lbl")
+        if lbl == None:
+            lbl = int(dirnme)
+        return lbl
 
     def load_data(self):
         if self.original_data != None and self.original_labels != None:
@@ -378,7 +384,7 @@ class Loader(loader.FullBatchLoader):
         jp2 = re.compile("\.jp2$", re.IGNORECASE)
         for subdir, subdir_conf in self.subdir_conf_.items():
             for dirnme in subdir_conf["channel_map"].keys():
-                max_lbl = max(max_lbl, int(dirnme))
+                max_lbl = max(max_lbl, self.get_label(dirnme))
                 relpath = "%s/%s" % (subdir, dirnme)
                 found_files = []
                 fordel = []
@@ -414,8 +420,8 @@ class Loader(loader.FullBatchLoader):
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
         n_threads = 32
-        pool = thread_pool.ThreadPool(max_threads=n_threads,
-                                      max_enqueued_tasks=n_threads)
+        pool = thread_pool.ThreadPool(maxthreads=n_threads,
+                                      queue_size=n_threads)
         data_lock = threading.Lock()
         n_files = [0]
         i_sample = 0
@@ -426,7 +432,7 @@ class Loader(loader.FullBatchLoader):
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
                 relpath = "%s/%s" % (subdir, dirnme)
                 self.log().info("Will load from %s" % (relpath))
-                lbl = int(dirnme)
+                lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, ("%s" % (fnme),
                         pos[subdir], sz, data_lock,
@@ -852,7 +858,7 @@ def main():
     #if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
     #else:
-    logging.basicConfig(level=logging.INFO)    
+    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-snapshot", type=str, default="",
