@@ -45,7 +45,7 @@ class Pooling(units.Forward):
 
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
-        self.cl_sources_["pooling.cl"] = ""
+        self.cl_sources_["pooling.cl"] = {}
         self.krn_ = None
 
     def initialize(self):
@@ -71,15 +71,14 @@ class Pooling(units.Forward):
             return
 
         if self.krn_ == None:
-            defines = ("%s\n"
-                       "#define SX %d\n"
-                       "#define SY %d\n"
-                       "#define N_CHANNELS %d\n"
-                       "#define KX %d\n"
-                       "#define KY %d\n"
-                       "\n" % (
-                       config.cl_defines[config.c_dtype],
-                       sx, sy, n_channels, self.kx, self.ky))
+            defines = {
+                self.s_activation: 1,
+                'SX': sx,
+                'SY': sy,
+                'N_CHANNELS': n_channels,
+                'KX': self.kx,
+                'KY': self.ky,
+            }
             self.build_program(defines,
                 "%s/pooling_%dx%dx%d_%dx%d.cl" % (
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky))

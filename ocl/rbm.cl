@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Applies rand() over output (makes sense for real numbers only).
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the layer.

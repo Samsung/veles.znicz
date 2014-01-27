@@ -88,7 +88,7 @@ class GD(units.GD):
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
-        self.cl_sources_["gradient_descent_conv.cl"] = ""
+        self.cl_sources_["gradient_descent_conv.cl"] = {}
         self.krn_err_h_clear_ = None
         self.krn_err_h_ = None
         self.krn_weights_ = None
@@ -145,30 +145,26 @@ class GD(units.GD):
             block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
-            defines = ("#define USE_ATOMICS\n"
-                       "%s\n"
-                       "%s\n"
-                       "%s\n"
-                       "%s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define BATCH %d\n"
-                       "#define SX %d\n"
-                       "#define SY %d\n"
-                       "#define N_CHANNELS %d\n"
-                       "#define KX %d\n"
-                       "#define KY %d\n"
-                       "#define N_KERNELS %d\n"
-                       "#define REDUCE_SIZE %d\n" % (
-                       "#define APPLY_GRADIENT"
-                       if self.apply_gradient else "",
-                       "#define WEIGHTS_TRANSPOSED"
-                       if self.weights_transposed else "",
-                       "#define STORE_GRADIENT"
-                       if self.store_gradient else "",
-                       config.cl_defines[config.c_dtype],
-                       block_size, batch_size, sx, sy, n_channels,
-                       self.kx, self.ky, self.n_kernels,
-                       self.reduce_size))
+
+            defines = {
+                'USE_ATOMICS': 1,
+                self.s_activation: 1,
+                'BLOCK_SIZE': block_size,
+                'BATCH': batch_size,
+                'SX': sx,
+                'SY': sy,
+                'N_CHANNELS': n_channels,
+                'KX': self.kx,
+                'KY': self.ky,
+                'N_KERNELS': self.n_kernels,
+                'REDUCE_SIZE': self.reduce_size
+            }
+            if self.apply_gradient:
+                defines['APPLY_GRADIENT'] = 1
+            if self.weights_transposed:
+                defines['WEIGHTS_TRANSPOSED'] = 1
+            if self.store_gradient:
+                defines['STORE_GRADIENT'] = 1
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
                 config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
@@ -204,7 +200,7 @@ class GD(units.GD):
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)
-        #batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
+        # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
@@ -337,7 +333,7 @@ class GDTanh(GD):
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
 
     def initialize(self):
-        self.cl_sources_["gradient_descent_tanh.cl"] = ""
+        self.cl_sources_["gradient_descent_tanh.cl"] = {}
         super(GDTanh, self).initialize()
         if self.device == None:
             return

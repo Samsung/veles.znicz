@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Joins two minibatch inputs into one.
 /// @param output Output.
 /// @param a First input.

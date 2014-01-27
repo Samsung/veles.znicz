@@ -58,7 +58,7 @@ class All2All(units.Forward):
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.cl_sources_["forward.cl"] = ""
+        self.cl_sources_["forward.cl"] = {}
         self.krn_ = None
 
     def get_weights_amplitude(self):
@@ -117,19 +117,15 @@ class All2All(units.Forward):
             return
 
         if self.krn_ == None:
-            defines = ("%s\n"
-                       "%s\n"
-                       "#define %s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define H %d\n"
-                       "#define Y %d\n"
-                       "#define BATCH %d\n\n" %
-                       ("#define WEIGHTS_TRANSPOSED"
-                        if self.weights_transposed else "",
-                        config.cl_defines[config.c_dtype], self.s_activation,
-                        self.device.info.BLOCK_SIZE[config.c_dtype],
-                        self.weights.v.size // output_size, output_size,
-                        self.output.v.shape[0]))
+            defines = {
+                self.s_activation: 1,
+                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'H': self.weights.v.size // output_size,
+                'Y': output_size,
+                'BATCH': self.output.v.shape[0],
+            }
+            if self.weights_transposed:
+                defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
                 self.input.v.size // self.input.v.shape[0], output_size))
 
@@ -267,8 +263,7 @@ class All2AllSoftmax(All2All):
         output_size = int(numpy.prod(output_shape))
         itype = config.get_itype_from_size(output_size)
         global this_dir
-        self.cl_sources_["softmax.cl"] = (
-            "#define itype %s" % (itype))
+        self.cl_sources_["softmax.cl"] = {"itype": itype}
         super(All2AllSoftmax, self).initialize()
 
         if (self.max_idx.v == None or

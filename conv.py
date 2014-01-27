@@ -64,7 +64,7 @@ class Conv(units.Forward):
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
-        self.cl_sources_["conv.cl"] = ""
+        self.cl_sources_["conv.cl"] = {}
         self.krn_ = None
 
     def get_weights_amplitude(self):
@@ -137,24 +137,19 @@ class Conv(units.Forward):
             return
 
         if self.krn_ == None:
-            defines = ("%s\n"
-                       "%s\n"
-                       "#define %s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define BATCH %d\n"
-                       "#define SX %d\n"
-                       "#define SY %d\n"
-                       "#define N_CHANNELS %d\n"
-                       "#define KX %d\n"
-                       "#define KY %d\n"
-                       "#define N_KERNELS %d\n"
-                       "\n" % (
-                       "#define WEIGHTS_TRANSPOSED"
-                       if self.weights_transposed else "",
-                       config.cl_defines[config.c_dtype], self.s_activation,
-                       self.device.info.BLOCK_SIZE[config.c_dtype],
-                       batch_size, sx, sy, n_channels, self.kx, self.ky,
-                       self.n_kernels))
+            defines = {
+                self.s_activation: 1,
+                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BATCH': batch_size,
+                'SX': sx,
+                'SY': sy,
+                'N_CHANNELS': n_channels,
+                'KX': self.kx,
+                'KY': self.ky,
+                'N_KERNELS': self.n_kernels
+            }
+            if self.weights_transposed:
+                defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky,
                 self.n_kernels))

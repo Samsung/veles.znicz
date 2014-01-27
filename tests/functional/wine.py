@@ -65,7 +65,7 @@ class Loader(loader.FullBatchLoader):
         for i, a in enumerate(aa):
             self.original_data[i] = a[1:]
             self.original_labels[i] = int(a[0]) - 1
-            #formats.normalize(self.original_data[i])
+            # formats.normalize(self.original_data[i])
 
         IMul, IAdd = formats.normalize_pointwise(self.original_data)
         self.original_data[:] *= IMul
@@ -136,7 +136,7 @@ class Workflow(workflow.NNWorkflow):
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(device=device)
-        #self.gd[-1].link_from(self.decision)
+        # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -188,7 +188,7 @@ def main():
     w.run()
 
     plotters.Graphics().wait_finish()
-    logging.debug("End of job")
+    logging.info("End of job")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Does max pooling over convolutional layer output.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param h batch of input multichannel interleaved images.

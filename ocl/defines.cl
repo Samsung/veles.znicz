@@ -3,6 +3,8 @@
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
 
+#ifndef _DEFINES_
+#define _DEFINES_
 
 /// @brief Pragmas for features.
 #if sizeof_dtype == 8
@@ -163,3 +165,5 @@ __kernel
 void array_clear(__global c_dtype /*OUT*/ *arr) {
   arr[get_global_id(0)] = c_from_re(0);
 }
+
+#endif  // _DEFINES_

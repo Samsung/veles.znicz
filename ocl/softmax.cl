@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /*
  * Applies softmax exponent.
  * @author: Kazantsev Alexey <a.kazantsev@samsung.com>

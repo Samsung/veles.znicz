@@ -47,7 +47,7 @@ class GDPooling(units.GD):
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
-        self.cl_sources_["gradient_descent_pooling.cl"] = ""
+        self.cl_sources_["gradient_descent_pooling.cl"] = {}
         self.krn_err_h_ = None
 
     def initialize(self):
@@ -75,15 +75,13 @@ class GDPooling(units.GD):
             return
 
         if self.prg_ == None:
-            defines = ("%s\n"
-                       "#define SX %d\n"
-                       "#define SY %d\n"
-                       "#define N_CHANNELS %d\n"
-                       "#define KX %d\n"
-                       "#define KY %d\n"
-                       "\n" % (
-                       config.cl_defines[config.c_dtype],
-                       sx, sy, n_channels, self.kx, self.ky))
+            defines = {
+                'SX': sx,
+                'SY': sy,
+                'N_CHANNELS': n_channels,
+                'KX': self.kx,
+                'KY': self.ky,
+            }
             self.build_program(defines,
                 "%s/gd_pooling_%dx%dx%d_%dx%d.cl" % (
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky))

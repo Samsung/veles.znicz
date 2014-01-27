@@ -77,7 +77,7 @@ class GD(units.GD):
 
     def init_unpickled(self):
         super(GD, self).init_unpickled()
-        self.cl_sources_["gradient_descent.cl"] = ""
+        self.cl_sources_["gradient_descent.cl"] = {}
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
@@ -118,26 +118,20 @@ class GD(units.GD):
         if self.prg_ == None:
             block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)
-            defines = ("%s\n"
-                       "%s\n"
-                       "%s\n"
-                       "%s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define BATCH %d\n"
-                       "#define H %d\n"
-                       "#define Y %d\n"
-                       "#define REDUCE_SIZE %d\n") % (
-                    "#define APPLY_GRADIENT"
-                    if self.apply_gradient else "",
-                    "#define WEIGHTS_TRANSPOSED"
-                    if self.weights_transposed else "",
-                    "#define STORE_GRADIENT"
-                    if self.store_gradient else "",
-                    config.cl_defines[config.c_dtype],
-                    block_size, self.err_h.v.shape[0],
-                    self.err_h.v.size // self.err_h.v.shape[0],
-                    self.err_y.v.size // self.err_y.v.shape[0],
-                    self.reduce_size)
+
+            defines = {
+                'BLOCK_SIZE': block_size,
+                'BATCH': self.err_h.v.shape[0],
+                'H': self.err_h.v.size // self.err_h.v.shape[0],
+                'Y': self.err_y.v.size // self.err_y.v.shape[0],
+                'REDUCE_SIZE': self.reduce_size
+            }
+            if self.apply_gradient:
+                defines['APPLY_GRADIENT'] = 1
+            if self.weights_transposed:
+                defines['WEIGHTS_TRANSPOSED'] = 1
+            if self.store_gradient:
+                defines['STORE_GRADIENT'] = 1
             self.build_program(defines, "%s/gd_%d_%d.cl" % (config.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
@@ -361,7 +355,7 @@ class GDTanh(GD):
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
 
     def initialize(self):
-        self.cl_sources_["gradient_descent_tanh.cl"] = ""
+        self.cl_sources_["gradient_descent_tanh.cl"] = {}
         super(GDTanh, self).initialize()
         if self.device == None:
             return

@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Evaluate softmax.
 /// @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the last layer with applied softmax.

@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Feeds all-to-all layer with activation function:
 ///        linear activation: x;
 ///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
@@ -28,7 +30,7 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define B_COL
   #endif
 
-  MX_MUL
+  #include "matrix_multiplication.cl"
 
   #undef A_WIDTH
   #undef B_WIDTH

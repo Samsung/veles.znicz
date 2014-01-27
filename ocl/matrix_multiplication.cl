@@ -1,9 +1,11 @@
+#include "defines.cl"
+
 /// @brief Define for matrix multiplication.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @details Example of how to use:
 ///          1. Read this file to variable s_mx_mul.
 ///          2. Read your other source files to variable s.
-///          3. Replace all occurencies of MX_MUL within s with s_mx_mul.
+///          3. Replace all occurencies of #include "matrix_multiplication.cl" within s with s_mx_mul.
 ///
 ///          Kernel should be defined as:
 ///          __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
@@ -34,6 +36,17 @@
 ///          The resulting sum will be in "sum[0]",
 ///          index in the resulting matrix will be in "idx",
 ///          "valid" will be set to true if "idx" is valid.
+#ifdef PREPROCESSOR
+#define BLOCK_SIZE 16
+#define A_WIDTH 512
+#define B_WIDTH 256
+#define AB_COMMON 131072
+#define A err_y
+#define B h
+#define C weights
+#endif
+
+
 #ifdef ALIGNED
 #undef ALIGNED
 #endif

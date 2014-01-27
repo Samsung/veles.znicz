@@ -44,7 +44,7 @@ class InputJoiner(units.OpenCLUnit):
 
     def init_unpickled(self):
         super(InputJoiner, self).init_unpickled()
-        self.cl_sources_["join.cl"] = ""
+        self.cl_sources_["join.cl"] = {}
         self.krn_ = None
 
     def initialize(self):
@@ -85,10 +85,9 @@ class InputJoiner(units.OpenCLUnit):
             return
 
         if self.krn_ == None:
-            defines = ("%s\n"
-                       "#define etype %s\n\n" % (
-                       config.cl_defines[config.c_dtype],
-                       config.numpy_dtype_to_opencl(self.output.v.dtype)))
+            defines = {
+                'etype': config.numpy_dtype_to_opencl(self.output.v.dtype)
+            }
             self.build_program(defines, "%s/join_%s.cl" % (config.cache_dir,
                 "_".join(str(x) for x in self.output_sample_shape)))
 

@@ -36,7 +36,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
     Attributes:
         labels: labels for Batch.
-        y: output of the network as Batch.
+        y: output of the network_common as Batch.
         err_y: backpropagation errors based on labels.
         batch_size: number of elements in y to evaluate.
         max_samples_per_epoch: maximum number of samples per epoch,
@@ -71,8 +71,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                                      "(probably in Loader).")
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
-        self.cl_sources_["evaluator.cl"] = (
-            "#define itype %s\n#define itype2 %s" % (itype, itype2))
+        self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v == None or
             self.err_y.v.size != self.y.v.size):
@@ -112,14 +111,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_i_ = numpy.zeros(1, config.itypes[itype2])
 
         if self.prg_ == None:
-            defines = ("%s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define BATCH %d\n"
-                       "#define Y %d\n\n") % \
-                   (config.cl_defines[config.c_dtype],
-                    self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_y.v.shape[0],
-                    self.err_y.v.size // self.err_y.v.shape[0])
+            defines = {
+                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BATCH': self.err_y.v.shape[0],
+                'Y': self.err_y.v.size // self.err_y.v.shape[0],
+            }
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 
@@ -211,7 +207,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         max_err_y_sum
 
     Attributes:
-        y: output of the network as Batch.
+        y: output of the network_common as Batch.
         target: target for the current Batch.
         err_y: backpropagation errors.
         batch_size: number of elements in y to evaluate.
@@ -245,8 +241,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         itype = config.get_itype_from_size((self.y.v.size //
                                             self.y.v.shape[0]))
         itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
-        self.cl_sources_["evaluator.cl"] = (
-            "#define itype %s\n#define itype2 %s" % (itype, itype2))
+        self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v == None or
             self.err_y.v.size != self.y.v.size):
@@ -282,14 +277,11 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_constants_i_ = numpy.zeros(1, config.itypes[itype2])
 
         if self.prg_ == None:
-            defines = ("%s\n"
-                       "#define BLOCK_SIZE %d\n"
-                       "#define BATCH %d\n"
-                       "#define Y %d\n\n") % \
-                   (config.cl_defines[config.c_dtype],
-                    self.device.info.BLOCK_SIZE[config.c_dtype],
-                    self.err_y.v.shape[0],
-                    self.err_y.v.size // self.err_y.v.shape[0])
+            defines = {
+                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BATCH': self.err_y.v.shape[0],
+                'Y': self.err_y.v.size // self.err_y.v.shape[0],
+            }
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 

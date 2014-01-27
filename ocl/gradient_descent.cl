@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Computes backprogated error for previous layer:
 ///        err_h = err_y * weights
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
@@ -21,7 +23,7 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
   #define B_COL
   #endif
 
-  MX_MUL
+  #include "matrix_multiplication.cl"
 
   #ifndef WEIGHTS_TRANSPOSED
   #undef B_COL
@@ -76,7 +78,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
   #define A_COL
   #define B_COL
 
-  MX_MUL
+  #include "matrix_multiplication.cl"
 
   #undef A_COL
   #undef B_COL
@@ -122,7 +124,7 @@ void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
   #define A_HEIGHT BATCH
   #define A_COL
 
-  MX_REDUCE
+  #include "matrix_reduce.cl"
 
   #undef A_COL
   #undef A_HEIGHT

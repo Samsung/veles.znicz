@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Feeds 2D multichannel convolutional layer with activation function:
 ///        linear activation: x;
 ///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
@@ -48,7 +50,7 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define COL_IN_SAMPLE ((BLOCK_IN_SAMPLE % (SX - KX + 1)) * N_CHANNELS)
   #define A_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
 
-  MX_MUL
+  #include "matrix_multiplication.cl"
 
   #undef A_REAL_OFFS
 

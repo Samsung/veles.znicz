@@ -1,3 +1,5 @@
+#include "defines.cl"
+
 /// @brief Backpropagates max pooling.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y error on current level.
