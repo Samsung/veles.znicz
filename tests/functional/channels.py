@@ -54,7 +54,7 @@ class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, minibatch_max_size=100, rnd=rnd.default,
-                 channels_dir="", rect=(68, 30), grayscale=False,
+                 channels_dir="", rect=(192, 96), grayscale=False,
                  cache_fnme=""):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
@@ -70,7 +70,7 @@ class Loader(loader.FullBatchLoader):
         self.find_negative = 0
         self.channel_map = None
         self.pos = {}
-        self.sz = [0, 0]
+        self.sz = {}
         self.file_map = {}  # sample index to its file name map
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
@@ -251,9 +251,9 @@ class Loader(loader.FullBatchLoader):
                     self.__dict__[k] = v
 
             for k in self.pos.keys():
-                self.log().info("%s: pos: (%.6f, %.6f)" % (
-                    k, self.pos[k][0], self.pos[k][1]))
-            self.log().info("sz: (%.6f, %.6f)" % (self.sz[0], self.sz[1]))
+                self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (
+                    k, self.pos[k][0], self.pos[k][1],
+                    self.sz[k][0], self.sz[k][1]))
             self.log().info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
             self.shuffled_indexes = pickle.load(fin)
@@ -331,6 +331,7 @@ class Loader(loader.FullBatchLoader):
         self.channel_map = self.top_conf_["channel_map"]
         pos = {}
         rpos = {}
+        sz = {}
         for subdir, subdir_conf in self.subdir_conf_.items():
             frame = subdir_conf["frame"]
             if subdir not in pos.keys():
@@ -348,29 +349,25 @@ class Loader(loader.FullBatchLoader):
             pos[subdir][1] /= frame[1]
             rpos[subdir][0] /= frame[0]
             rpos[subdir][1] /= frame[1]
+            sz[subdir] = [rpos[k][0] - pos[k][0], rpos[k][1] - pos[k][1]]
 
         self.log().info("Found rectangles:")
-        sz = [0, 0]
         for k in pos.keys():
-            sz[0] = max(sz[0], rpos[k][0] - pos[k][0])
-            sz[1] = max(sz[1], rpos[k][1] - pos[k][1])
-            self.log().info("%s: pos: (%.6f, %.6f)" % (k, pos[k][0],
-                                                       pos[k][1]))
-        self.log().info("sz: (%.6f, %.6f)" % (sz[0], sz[1]))
+            self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
+                pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
 
         self.log().info("Adjusted rectangles:")
-        sz[0] *= 1.02
-        sz[1] *= 1.02
-        self.log().info("sz: (%.6f, %.6f)" % (sz[0], sz[1]))
         for k in pos.keys():
-            pos[k][0] += (rpos[k][0] - pos[k][0] - sz[0]) * 0.5
-            pos[k][1] += (rpos[k][1] - pos[k][1] - sz[1]) * 0.5
-            pos[k][0] = min(pos[k][0], 1.0 - sz[0])
-            pos[k][1] = min(pos[k][1], 1.0 - sz[1])
+            sz[k][0] *= 1.01
+            sz[k][1] *= 1.01
+            pos[k][0] += (rpos[k][0] - pos[k][0] - sz[k][0]) * 0.5
+            pos[k][1] += (rpos[k][1] - pos[k][1] - sz[k][1]) * 0.5
+            pos[k][0] = min(pos[k][0], 1.0 - sz[k][0])
+            pos[k][1] = min(pos[k][1], 1.0 - sz[k][1])
             pos[k][0] = max(pos[k][0], 0.0)
             pos[k][1] = max(pos[k][1], 0.0)
-            self.log().info("%s: pos: (%.6f, %.6f)" % (k, pos[k][0],
-                                                       pos[k][1]))
+            self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
+                pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
 
         self.pos.clear()
         self.pos.update(pos)
@@ -435,7 +432,7 @@ class Loader(loader.FullBatchLoader):
                 lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, ("%s" % (fnme),
-                        pos[subdir], sz, data_lock,
+                        pos[subdir], sz[subdir], data_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
                         negative_data, negative_file_map, rand))
                     i_sample += 1
@@ -501,7 +498,7 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[2] = self.original_data.shape[0]
 
         # Randomly generate validation set from train.
-        self.extract_validation_from_train()
+        self.extract_validation_from_train(amount=0.0)
 
         # Saving all the samples
         self.log().info("Dumping all the samples to %s" % (config.cache_dir))
@@ -648,7 +645,8 @@ class Workflow(workflow.OpenCLWorkflow):
         self.image_saver.minibatch_size = self.loader.minibatch_size
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(device=device)
+        self.ev = evaluator.EvaluatorSoftmax(device=device,
+                                             compute_confusion_matrix=False)
         self.ev.link_from(self.image_saver)
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -657,12 +655,13 @@ class Workflow(workflow.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(use_dynamic_alpha=False)
+        self.decision = decision.Decision(use_dynamic_alpha=False,
+                                          fail_iterations=1000)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err
-        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
+        #self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
@@ -737,6 +736,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_i.gate_skip = self.decision.epoch_ended
         self.plt_i.gate_skip_not = [1]
         # Confusion matrix plotter
+        """
         self.plt_mx = []
         j = 0
         for i in range(1, 3):
@@ -749,6 +749,8 @@ class Workflow(workflow.OpenCLWorkflow):
             self.plt_mx[-1].gate_skip_not = [1]
             j += 1
         self.gd[-1].link_from(self.plt_mx[-1])
+        """
+        self.gd[-1].link_from(self.plt_i)
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    dirnme, dump, snapshot_prefix, w_neg, find_negative,

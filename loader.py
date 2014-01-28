@@ -279,6 +279,11 @@ class FullBatchLoader(Loader):
         if amount <= 0:  # Dispose of validation set
             self.class_samples[2] += self.class_samples[1]
             self.class_samples[1] = 0
+            if self.shuffled_indexes == None:
+                total_samples = numpy.sum(self.class_samples)
+                self.shuffled_indexes = numpy.arange(total_samples,
+                    dtype=config.itypes[
+                        config.get_itype_from_size(total_samples)])
             return
         offs0 = self.class_samples[0]
         offs = offs0
