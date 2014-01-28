@@ -27,7 +27,7 @@ class RBMTanh(all2all.All2AllTanh):
         super(RBMTanh, self).__init__(output_shape=output_shape, device=device,
             weights_amplitude=weights_amplitude, rand=rand,
             weights_transposed=weights_transposed)
-        self.output_rand = formats.Vector(device)
+        self.output_rand = formats.Vector()
         self.y_low_high = numpy.array([-1.0, 1.0],
                                       dtype=config.dtypes[config.dtype])
 

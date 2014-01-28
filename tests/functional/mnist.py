@@ -132,7 +132,7 @@ class Loader(loader.FullBatchLoader):
 import workflow
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def __init__(self, layers=None, device=None):

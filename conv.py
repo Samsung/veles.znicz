@@ -5,7 +5,7 @@ Convolutional layers.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import formats
 import numpy
 import pyopencl
@@ -17,7 +17,7 @@ import logging
 import error
 
 
-class Conv(units.Forward):
+class Conv(nn_units.Forward):
     """Convolutional forward propagation with linear activation f(x) = x.
 
     Should be assigned before initialize():
@@ -49,10 +49,10 @@ class Conv(units.Forward):
                  weights_amplitude=None, rand=rnd.default,
                  weights_transposed=False):
         super(Conv, self).__init__(device=device)
-        self.input = None  # formats.Vector(device)
-        self.output = formats.Vector(device)
-        self.weights = formats.Vector(device)
-        self.bias = formats.Vector(device)
+        self.input = None
+        self.output = formats.Vector()
+        self.weights = formats.Vector()
+        self.bias = formats.Vector()
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky

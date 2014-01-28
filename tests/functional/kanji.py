@@ -60,7 +60,7 @@ class Loader(loader.ImageLoader):
 import workflow
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
 
     Attributes:

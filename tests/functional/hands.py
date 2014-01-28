@@ -56,7 +56,7 @@ import gd
 import workflow
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for Hands dataset.
     """
     def __init__(self, layers=None, device=None):

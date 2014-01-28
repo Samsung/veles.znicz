@@ -5,7 +5,7 @@ Pooling layer.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import formats
 import numpy
 import pyopencl
@@ -16,7 +16,7 @@ import logging
 import error
 
 
-class Pooling(units.Forward):
+class Pooling(nn_units.Forward):
     """Pooling forward propagation.
 
     Should be assigned before initialize():
@@ -37,8 +37,8 @@ class Pooling(units.Forward):
     """
     def __init__(self, kx=5, ky=5, device=None):
         super(Pooling, self).__init__(device=device)
-        self.input = None  # formats.Vector(device)
-        self.output = formats.Vector(device)
+        self.input = None
+        self.output = formats.Vector()
         self.kx = kx
         self.ky = ky
         self.exports.extend(("kx", "ky"))
@@ -135,7 +135,7 @@ class MaxPooling(Pooling):
     """
     def __init__(self, kx=5, ky=5, device=None):
         super(MaxPooling, self).__init__(kx=kx, ky=ky, device=device)
-        self.input_offs = formats.Vector(device)
+        self.input_offs = formats.Vector()
 
     def initialize(self):
         super(MaxPooling, self).initialize()

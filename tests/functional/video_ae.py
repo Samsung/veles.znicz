@@ -62,7 +62,7 @@ class Loader(loader.ImageLoader):
 import workflow
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow.
     """
     def __init__(self, layers=None, device=None):

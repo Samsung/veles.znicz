@@ -210,9 +210,9 @@ class Vector(units.Pickleable):
         5. Set OpenCL buffer as kernel parameter:
             krn.set_arg(0, a.v_)
     """
-    def __init__(self, device=None):
+    def __init__(self):
         super(Vector, self).__init__()
-        self.device = device
+        self.device = None
         self.v = None
         self.supposed_maxvle = 1.0
 

@@ -80,7 +80,7 @@ class Loader(loader.FullBatchLoader):
         self.total_samples[0] = self.original_data.shape[0]
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def wait_finish(self):

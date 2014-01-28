@@ -5,7 +5,7 @@ All2All units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import formats
 import numpy
 import pyopencl
@@ -16,7 +16,7 @@ import znicz_config
 import logging
 
 
-class All2All(units.Forward):
+class All2All(nn_units.Forward):
     """All2All with linear activation f(x) = x.
 
     Should be assigned before initialize():
@@ -45,10 +45,10 @@ class All2All(units.Forward):
     def __init__(self, output_shape=None, device=None, weights_amplitude=None,
                  rand=rnd.default, weights_transposed=False):
         super(All2All, self).__init__(device=device)
-        self.input = None  # formats.Vector(device)
-        self.output = formats.Vector(device)
-        self.weights = formats.Vector(device)
-        self.bias = formats.Vector(device)
+        self.input = None
+        self.output = formats.Vector()
+        self.weights = formats.Vector()
+        self.bias = formats.Vector()
         self.output_shape = output_shape
         self.weights_amplitude = weights_amplitude
         self.rand = rand
@@ -129,7 +129,7 @@ class All2All(units.Forward):
             self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
                 self.input.v.size // self.input.v.shape[0], output_size))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "feed_layer")
+            self.krn_ = self.get_kernel("feed_layer")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.weights.v_)
             self.krn_.set_arg(2, self.output.v_)
@@ -277,7 +277,7 @@ class All2AllSoftmax(All2All):
         if self.device == None:
             return
 
-        self.krn_sm_ = pyopencl.Kernel(self.prg_, "apply_exp")
+        self.krn_sm_ = self.get_kernel("apply_exp")
         self.krn_sm_.set_arg(0, self.output.v_)
         self.krn_sm_.set_arg(1, self.max_idx.v_)
 

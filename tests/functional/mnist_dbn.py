@@ -147,7 +147,7 @@ class Loader(mnist.Loader):
         #self.original_data[:, self.class_target.v.shape[1]:] = v[:, :]
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow.
     """
     def __init__(self, layers, recursion_depth, device):

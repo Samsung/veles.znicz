@@ -5,7 +5,7 @@ Gradient Descent Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import formats
 import numpy
 import time
@@ -15,7 +15,7 @@ import znicz_config
 import logging
 
 
-class GD(units.GD):
+class GD(nn_units.GD):
     """Gradient Descent.
 
     Should be assigned before initialize():

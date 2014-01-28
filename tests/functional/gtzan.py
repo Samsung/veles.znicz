@@ -214,7 +214,7 @@ class Loader(loader.Loader):
                 j = jj
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def __init__(self, layers=None, device=None):

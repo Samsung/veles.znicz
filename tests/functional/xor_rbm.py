@@ -77,7 +77,7 @@ import gd
 import workflow
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow.
     """
     def __init__(self, layers=None, device=None):
@@ -211,7 +211,7 @@ class Workflow(workflow.NNWorkflow):
         return self.start_point.initialize_dependent()
 
 
-class Workflow2(workflow.NNWorkflow):
+class Workflow2(workflow.OpenCLWorkflow):
     """Sample workflow.
     """
     def __init__(self, layers=None, device=None):

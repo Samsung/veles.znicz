@@ -41,7 +41,7 @@ import gd_pooling
 import error
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow.
     """
     def __init__(self, layers=None, device=None):

@@ -608,7 +608,7 @@ class Loader(loader.FullBatchLoader):
         return formats.norm_image(x, True)
 
 
-class Workflow(workflow.NNWorkflow):
+class Workflow(workflow.OpenCLWorkflow):
     """Workflow.
     """
     def __init__(self, layers=None, device=None):
