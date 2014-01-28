@@ -78,7 +78,11 @@ class Loader(loader.FullBatchLoader):
         self.exports = ["rect", "pos", "sz"]
 
     def from_jp2(self, fnme):
-        j2 = glymur.Jp2k(fnme)
+        try:
+            j2 = glymur.Jp2k(fnme)
+        except:
+            self.log().error("glymur.Jp2k() failed for %s" % (fnme))
+            raise
         a2 = j2.read()
         if j2.box[2].box[1].colorspace == 16:  # RGB
             if self.grayscale:
