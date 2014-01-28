@@ -349,7 +349,8 @@ class Loader(loader.FullBatchLoader):
             pos[subdir][1] /= frame[1]
             rpos[subdir][0] /= frame[0]
             rpos[subdir][1] /= frame[1]
-            sz[subdir] = [rpos[k][0] - pos[k][0], rpos[k][1] - pos[k][1]]
+            sz[subdir] = [rpos[subdir][0] - pos[subdir][0],
+                          rpos[subdir][1] - pos[subdir][1]]
 
         self.log().info("Found rectangles:")
         for k in pos.keys():
@@ -372,7 +373,7 @@ class Loader(loader.FullBatchLoader):
         self.pos.clear()
         self.pos.update(pos)
         self.sz.clear()
-        self.sz.extend(sz)
+        self.sz.update(sz)
 
         max_lbl = 0
         files = {}
