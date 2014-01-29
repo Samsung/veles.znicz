@@ -23,6 +23,7 @@ class Forward(OpenCLUnit):
         self.weights = None
         self.bias = None
         self.exports = ["weights", "bias"]
+        self.view_group = "WORKER"
 
 
 class GD(OpenCLUnit):
@@ -46,3 +47,4 @@ class GD(OpenCLUnit):
         self.weights = None
         self.bias = None
         self.batch_size = None
+        self.view_group = "TRAINER"

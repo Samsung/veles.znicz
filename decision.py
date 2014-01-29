@@ -113,6 +113,7 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
+        self.view_group = "TRAINER"
 
     def initialize(self):
         # Reset errors

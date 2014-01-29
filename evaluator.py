@@ -62,6 +62,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_d_ = None
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
+        self.view_group = "EVALUATOR"
 
     def initialize(self):
         itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])

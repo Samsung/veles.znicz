@@ -72,6 +72,7 @@ class Loader(units.Unit):
         self.minibatch_maxsize = [minibatch_max_size]
 
         self.shuffled_indexes = None
+        self.view_group = "LOADER"
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
