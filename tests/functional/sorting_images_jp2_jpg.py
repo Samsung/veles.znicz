@@ -34,7 +34,7 @@ class MyWindow(QtGui.QWidget):
         self.current_image_size = [960, 540]
         self.should_stuck = False
 
-        thumbs_path = "/data/veles/channels/test"
+        thumbs_path = "/data/veles/channels/usa_stb/new/new"
         thumbs_none = "thumbs_none"
         self.thumbs = []
         self.thumbs.append("%s/%s" % (thumbs_path, thumbs_none))
@@ -42,11 +42,15 @@ class MyWindow(QtGui.QWidget):
         baddir = re.compile("bad", re.IGNORECASE)
         gooddir = re.compile("good", re.IGNORECASE)
         diffdir = re.compile("diff", re.IGNORECASE)
+        deldir = re.compile("delete", re.IGNORECASE)
+        wrongdir = re.compile("wrong", re.IGNORECASE)
         no_channeldir = re.compile("no channel", re.IGNORECASE)
         for root, dirs, files in os.walk(thumbs_path):
             for i, nme in enumerate(dirs):
                 if baddir.search(nme) != None or gooddir.search(nme) != None\
-                                           or diffdir.search(nme) != None or\
+                                           or diffdir.search(nme) != None\
+                                           or deldir.search(nme) != None\
+                                           or wrongdir.search(nme) != None or\
                                            no_channeldir.search(nme) != None:
                         fordel.append(i)
             while len(fordel) > 0:
@@ -59,6 +63,7 @@ class MyWindow(QtGui.QWidget):
                     self.thumbs.append(fullurl)
                     print("Loading other format", fn)
         self.thumbs.append("%s/%s" % (thumbs_path, thumbs_none))
+        self.thumbs.sort()
 
         if len(self.thumbs) == 2:
             print("Error: No image")
@@ -133,6 +138,19 @@ class MyWindow(QtGui.QWidget):
             self.button11.setStyleSheet('font-size: 18pt; font-family:\
                                         Courier; color: black;\
                                         background-color: rgb(230,186,142)')
+            self.button12 = QtGui.QPushButton(self)
+            self.button12.setText('Wrong channel')
+            self.button12.setToolTip('Number of channel don t match\
+                                     to the logo')
+            self.button12.setStyleSheet('font-size: 18pt; font-family:\
+                                        Courier; color: black;\
+                                        background-color: rgb(230,186,142)')
+
+            self.button13 = QtGui.QPushButton(self)
+            self.button13.setText('Delete')
+            self.button13.setStyleSheet('font-size: 18pt; font-family:\
+                                        Courier; color: black;\
+                                        background-color: rgb(230,186,142)')
 
             self.hor_layout = QtGui.QHBoxLayout(self)
             self.ver_layout3 = QtGui.QVBoxLayout(self)
@@ -172,6 +190,8 @@ class MyWindow(QtGui.QWidget):
             self.ver_layout.addWidget(self.button5)
             self.ver_layout.addWidget(self.button6)
             self.ver_layout.addWidget(self.button7)
+            self.ver_layout.addWidget(self.button12)
+            self.ver_layout.addWidget(self.button13)
             self.ver_layout.addWidget(self.button8)
             self.ver_layout.addWidget(self.button9)
             self.ver_layout.addWidget(self.button10)
@@ -200,6 +220,12 @@ class MyWindow(QtGui.QWidget):
             self.button9.clicked.connect(lambda: self.scaleImage(1.25))
             self.button10.clicked.connect(lambda: self.scaleImage(0.8))
             self.button11.clicked.connect(lambda: self.stuck())
+            self.button12.clicked.connect(lambda:\
+                                        self.wrongImage(self.thumbs))
+            self.button13.clicked.connect(lambda:\
+                                        self.deleteImage(self.thumbs))
+            self.button12.clicked.connect(lambda: self.PassLeft())
+            self.button13.clicked.connect(lambda: self.PassLeft())
 
             self.total_images = len(self.thumbs)
             self.passed_images = 0
@@ -390,6 +416,9 @@ class MyWindow(QtGui.QWidget):
     def goodImage(self, thumbs):
         self.moveImage(thumbs, "Good")
 
+    def wrongImage(self, thumbs):
+        self.moveImage(thumbs, "Wrong")
+
     def badImage(self, thumbs):
         self.moveImage(thumbs, "Bad")
 
@@ -398,6 +427,9 @@ class MyWindow(QtGui.QWidget):
 
     def no_channelImage(self, thumbs):
         self.moveImage(thumbs, "No channel")
+
+    def deleteImage(self, thumbs):
+        self.moveImage(thumbs, "Delete")
 
     def moveImageBack(self, dirnme):
         current_dir = self.last_files[dirnme]
