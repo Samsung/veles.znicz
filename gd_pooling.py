@@ -5,7 +5,7 @@ Gradient Descent for Pooling units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import time
 import pyopencl
 import config
@@ -16,7 +16,7 @@ import numpy
 import error
 
 
-class GDPooling(units.GD):
+class GDPooling(nn_units.GD):
     """Gradient Descent for pooling unit.
 
     Should be assigned before initialize():

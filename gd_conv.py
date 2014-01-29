@@ -5,7 +5,7 @@ Gradient Descent for Convolutional Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
+import nn_units
 import formats
 import numpy
 import time
@@ -16,7 +16,7 @@ import logging
 import error
 
 
-class GD(units.GD):
+class GD(nn_units.GD):
     """Gradient Descent.
 
     Should be assigned before initialize():
@@ -148,7 +148,6 @@ class GD(units.GD):
 
             defines = {
                 'USE_ATOMICS': 1,
-                self.s_activation: 1,
                 'BLOCK_SIZE': block_size,
                 'BATCH': batch_size,
                 'SX': sx,
