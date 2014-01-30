@@ -199,6 +199,22 @@ class All2All(nn_units.Forward):
             return retval
         self.print_times(t1)
 
+    def generate_data_for_master(self):
+        # TODO(v.markovtsev): how to get the gradient?
+        pass
+
+    def generate_data_for_slave(self):
+        self.weights.map_read()
+        return (self.weights.v)
+
+    def apply_data_from_master(self, data):
+        self.weights.v_ = data[0]
+        self.weights.map_write()
+
+    def apply_data_from_slave(self, data):
+        self.weights.v_ += data[0]
+        self.weights.map_write()
+
 
 class All2AllTanh(All2All):
     """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
