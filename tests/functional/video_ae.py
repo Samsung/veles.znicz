@@ -154,7 +154,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt.append(plotters.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
@@ -164,7 +164,7 @@ class Workflow(workflow.OpenCLWorkflow):
         """
         # Matrix plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights")
+        self.plt_mx = plotters.Weights2D(self, name="First Layer Weights")
         self.plt_mx.get_shape_from = self.forward[0].input
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
@@ -176,7 +176,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(0, 3):
-            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -188,7 +188,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(0, 3):
-            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -197,7 +197,7 @@ class Workflow(workflow.OpenCLWorkflow):
             self.plt_min[-1].gate_block = self.decision.epoch_ended
             self.plt_min[-1].gate_block_not = [1]
         # Image plotter
-        self.plt_img = plotters.Image(figure_label="output sample")
+        self.plt_img = plotters.Image(self, name="output sample")
         self.plt_img.inputs.append(self.decision)
         self.plt_img.input_fields.append("sample_output")
         self.plt_img.inputs.append(self.decision)

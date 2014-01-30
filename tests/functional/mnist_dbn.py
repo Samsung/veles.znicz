@@ -245,7 +245,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt.append(plotters.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
@@ -257,7 +257,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt[0].clear_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
+        self.plt_mx = plotters.Weights2D(self, name="First Layer Weights",
                                          limit=100)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
@@ -269,7 +269,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
-        self.plt_img = plotters.Image(figure_label="output sample")
+        self.plt_img = plotters.Image(self, name="output sample")
         self.plt_img.inputs.append(self.decision)
         self.plt_img.input_fields.append("sample_input")
         self.plt_img.inputs.append(self.decision)
@@ -283,7 +283,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(0, 3):
-            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -294,7 +294,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(0, 3):
-            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -304,8 +304,8 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_min[-1].redraw_plot = True
         # Histogram plotter
         self.plt_hist = [None,
-            plotters.MSEHistogram(figure_label="Histogram Validation"),
-            plotters.MSEHistogram(figure_label="Histogram Train")]
+            plotters.MSEHistogram(self, name="Histogram Validation"),
+            plotters.MSEHistogram(self, name="Histogram Train")]
         self.plt_hist[1].link_from(self.decision)
         self.plt_hist[1].mse = self.decision.epoch_samples_mse[1]
         self.plt_hist[1].gate_block = self.decision.epoch_ended

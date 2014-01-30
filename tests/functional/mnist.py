@@ -42,6 +42,10 @@ import znicz_config
 class Loader(loader.FullBatchLoader):
     """Loads MNIST dataset.
     """
+    def __init__(self, workflow, name=None, minibatch_max_size=60):
+        super(Loader, self).__init__(workflow=workflow, name=name,
+                                     minibatch_max_size=minibatch_max_size)
+
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
@@ -140,7 +144,8 @@ class Workflow(workflow.OpenCLWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(minibatch_max_size=60)
+        self.loader = Loader(self, name="Mnist fullbatch loader",
+                             minibatch_max_size=60)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -214,7 +219,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+            self.plt.append(plotters.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -228,7 +233,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotters.MatrixPlotter(
-                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
+                self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision if not i
@@ -240,7 +245,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_err_y = []
         for i in range(0, 3):
             self.plt_err_y.append(plotters.SimplePlotter(
-                figure_label="Last layer max gradient sum",
+                self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
             self.plt_err_y[-1].input_field = i

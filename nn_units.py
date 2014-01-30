@@ -16,8 +16,9 @@ class Forward(OpenCLUnit):
         weights: weights.
         bias: bias.
     """
-    def __init__(self, device=None):
-        super(Forward, self).__init__(device=device)
+    def __init__(self, workflow=None, device=None, name=None, view_group=None):
+        super(Forward, self).__init__(workflow=workflow, device=device,
+                                      name=name, view_group=view_group)
         self.input = None
         self.output = None
         self.weights = None
@@ -38,8 +39,9 @@ class GD(OpenCLUnit):
         bias: bias.
         batch_size: current minibatch size.
     """
-    def __init__(self, device=None):
-        super(GD, self).__init__(device=device)
+    def __init__(self, workflow=None, device=None, name=None, view_group=None):
+        super(GD, self).__init__(workflow=workflow, device=device,
+                                 name=name, view_group=view_group)
         self.h = None
         self.y = None
         self.err_y = None

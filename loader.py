@@ -5,14 +5,16 @@ Loader base class.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
-import config
-import znicz_config
-import rnd
-import formats
-import time
-import error
+import glob
 import numpy
+import scipy.ndimage
+import time
+
+import config
+import error
+import formats
+import rnd
+import units
 
 
 class Loader(units.Unit):
@@ -49,8 +51,10 @@ class Loader(units.Unit):
         create_minibatches()
         fill_minibatch()
     """
-    def __init__(self, minibatch_max_size=100, rnd=rnd.default):
-        super(Loader, self).__init__()
+    def __init__(self, workflow, name=None,
+                 minibatch_max_size=100, rnd=rnd.default):
+        super(Loader, self).__init__(workflow=workflow, name=name,
+                                     view_group="LOADER")
 
         self.rnd = [rnd]
 
@@ -72,7 +76,6 @@ class Loader(units.Unit):
         self.minibatch_maxsize = [minibatch_max_size]
 
         self.shuffled_indexes = None
-        self.view_group = "LOADER"
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
@@ -208,6 +211,10 @@ class FullBatchLoader(Loader):
     Should be overriden in child class:
         load_data()
     """
+    def __init__(self, workflow, name=None, minibatch_max_size=60):
+        super(FullBatchLoader, self).__init__(workflow=workflow, name=name,
+                                              minibatch_max_size=60)
+
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
         self.original_data = None
@@ -351,10 +358,6 @@ class FullBatchLoader(Loader):
         self.class_samples[2] = (total_samples - self.class_samples[1] - offs0)
 
 
-import glob
-import scipy.ndimage
-
-
 class ImageLoader(FullBatchLoader):
     """Loads images from multiple folders as full batch.
 
@@ -372,10 +375,11 @@ class ImageLoader(FullBatchLoader):
     Should be overriden in child class:
         get_label_from_filename()
     """
-    def __init__(self, minibatch_max_size=100,
+    def __init__(self, workflow, name=None,
+                 minibatch_max_size=100,
                  test_paths=None, validation_paths=None, train_paths=None,
                  target_paths=None, grayscale=True, rnd=rnd.default):
-        super(ImageLoader, self).__init__(
+        super(ImageLoader, self).__init__(workflow=workflow, name=name,
             minibatch_max_size=minibatch_max_size, rnd=rnd)
         self.test_paths = test_paths
         self.validation_paths = validation_paths

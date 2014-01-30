@@ -708,7 +708,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+            self.plt.append(plotters.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i],
                                                    ylim=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
@@ -721,7 +721,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_w = plotters.Weights2D(figure_label="First Layer Weights",
+        self.plt_w = plotters.Weights2D(self, name="First Layer Weights",
                                         limit=16, yuv=True)
         self.plt_w.input = self.gd[0].weights
         self.plt_w.get_shape_from = self.forward[0].input
@@ -732,7 +732,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
-        self.plt_i = plotters.Image(figure_label="Input", yuv=True)
+        self.plt_i = plotters.Image(self, name="Input", yuv=True)
         self.plt_i.inputs.append(self.decision)
         self.plt_i.input_fields.append("sample_label")
         self.plt_i.inputs.append(self.decision)
@@ -746,7 +746,7 @@ class Workflow(workflow.OpenCLWorkflow):
         j = 0
         for i in range(1, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
-                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
+                self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt_mx[-2] if j else self.plt_i)

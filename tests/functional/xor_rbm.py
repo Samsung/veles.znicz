@@ -161,7 +161,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(2, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt.append(plotters.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
@@ -175,7 +175,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(2, 3):
-            self.plt_max.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -186,7 +186,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(2, 3):
-            self.plt_min.append(plotters.SimplePlotter(figure_label="mse",
+            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -197,7 +197,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_min[-1].redraw_plot = True
         # Histogram plotter
         self.plt_hist = [None, None, plotters.MSEHistogram(
-                                        figure_label="Histogram Train")]
+                                        self, name="Histogram Train")]
         self.plt_hist[2].link_from(self.plt_min[-1])
         self.plt_hist[2].mse = self.decision.epoch_samples_mse[2]
         self.plt_hist[2].gate_skip = self.decision.epoch_ended
@@ -298,7 +298,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(2, 3):
-            self.plt.append(plotters.SimplePlotter(figure_label="num errors",
+            self.plt.append(plotters.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -312,7 +312,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         self.plt_mx = []
         for i in range(2, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
-                figure_label=(("Test", "Validation", "Train")[i] + " matrix")))
+                self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1] if len(self.plt_mx) == 1
@@ -321,7 +321,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         self.plt_err_y = []
         for i in range(2, 3):
             self.plt_err_y.append(plotters.SimplePlotter(
-                figure_label="Last layer max gradient sum",
+                self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
             self.plt_err_y[-1].input_field = i
