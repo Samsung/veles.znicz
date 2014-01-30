@@ -308,7 +308,7 @@ class Workflow(workflow.OpenCLWorkflow):
             forward.device = device
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 def main():

@@ -215,13 +215,13 @@ class Workflow(workflow.OpenCLWorkflow):
         for forward in self.forward:
             forward.device = device
         self.ev.device = device
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize(device=device)
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
 
     global this_dir

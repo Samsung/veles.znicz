@@ -1,4 +1,4 @@
-#import plotters
+# import plotters
 import all2all
 import evaluator
 import gd
@@ -19,7 +19,7 @@ class Loader(loader.FullBatchLoader):
     def __init__(self,):
 
         self.loader_input = getConfig(sconfig.loader.input, "")
-        #read names file dataset
+        # read names file dataset
         self.loader_use_seed = getConfig(sconfig.loader.use_seed, 0)
         self.loader_rnd_seed = getConfig(sconfig.loader.rnd_seed, "")
         self.loader_minibatch_size = getConfig(sconfig.loader.minibatch_size,
@@ -39,7 +39,7 @@ class Loader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        #global this_dir
+        # global this_dir
 
         fin = open(self.loader_input, "r")
         aa = []
@@ -63,7 +63,7 @@ class Loader(loader.FullBatchLoader):
         for i, a in enumerate(aa):
             self.original_data[i] = a[1:]
             self.original_labels[i] = int(a[0]) - 1
-            #formats.normalize(self.original_data[i])
+            # formats.normalize(self.original_data[i])
 
         IMul, IAdd = formats.normalize_pointwise(self.original_data)
         self.original_data[:] *= IMul
@@ -85,7 +85,7 @@ class Workflow(workflow.OpenCLWorkflow):
     """
     def wait_finish(self):
         # if use plotters
-        #plotters.Graphics().wait_finish()
+        # plotters.Graphics().wait_finish()
         print('plotters.Graphics().wait_finish()   XZ!')
 
     def __init__(self):
@@ -148,8 +148,8 @@ class Workflow(workflow.OpenCLWorkflow):
             self.rnd.seed(numpy.fromfile(
                         "/dev/urandom", numpy.int32, 1024))
 
-        #self.device = args.device
-        #self.args.snapshot_prefix =args.snapshot_prefix; #'wine'
+        # self.device = args.device
+        # self.args.snapshot_prefix =args.snapshot_prefix; #'wine'
 
         super(Workflow, self).__init__(device=self.device)
 
@@ -208,7 +208,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(device=self.device)
-        #self.gd[-1].link_from(self.decision)
+        # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -241,4 +241,4 @@ class Workflow(workflow.OpenCLWorkflow):
             gd.global_alpha = self.train_global_alpha
             gd.global_lambda = self.train_global_lambda
         super(Workflow, self).initialize(device=self.device)
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()

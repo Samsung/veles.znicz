@@ -169,7 +169,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 continue
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 def main():

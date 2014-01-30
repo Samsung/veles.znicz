@@ -91,7 +91,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDTanh(device=device, weights_transposed=True)
-        #self.gd[-1].link_from(self.decision)
+        # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -140,7 +140,7 @@ class Workflow(workflow.OpenCLWorkflow):
             plotters.Weights2D(figure_label="Last Layer Weights", limit=64))
         self.plt_mx[-1].input = self.gd[-1].weights
         self.plt_mx[-1].input_field = "v"
-        #self.plt_mx[-1].get_shape_from = self.forward[0].input
+        # self.plt_mx[-1].get_shape_from = self.forward[0].input
         self.plt_mx[-1].link_from(self.decision)
         self.plt_mx[-1].gate_block = self.decision.epoch_ended
         self.plt_mx[-1].gate_block_not = [1]
@@ -196,8 +196,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 continue
             gd.global_alpha = args.global_alpha
             gd.global_lambda = args.global_lambda
-        super(Workflow, self).initialize(device=device)
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize(device=device)
 
 
 import argparse

@@ -131,7 +131,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GD(device=device, weights_transposed=True)
-        #self.gd[-1].link_from(self.decision)
+        # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
@@ -208,7 +208,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 class Workflow2(workflow.OpenCLWorkflow):
@@ -338,7 +338,7 @@ class Workflow2(workflow.OpenCLWorkflow):
                 continue
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 def main():

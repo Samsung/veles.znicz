@@ -340,8 +340,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = args.global_alpha
             gd.global_lambda = args.global_lambda
-        super(Workflow, self).initialize(device=device)
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize(device=device)
 
 
 def main():

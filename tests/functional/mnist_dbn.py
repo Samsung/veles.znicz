@@ -52,7 +52,7 @@ from freetype import *
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
     face = Face(bytes(fontPath, 'UTF-8'))
-    #face.set_char_size(48 * 64)
+    # face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
     c = text[0]
@@ -87,7 +87,7 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
-            #logging.info("Set pixel size for font %s to %d" % (
+            # logging.info("Set pixel size for font %s to %d" % (
             #    fontPath, size - j))
             continue
         break
@@ -117,14 +117,14 @@ class Loader(mnist.Loader):
         super(Loader, self).load_data()
 
         self.class_target.reset()
-        #self.class_target.v = numpy.zeros([10, 10],
+        # self.class_target.v = numpy.zeros([10, 10],
         #    dtype=config.dtypes[config.dtype])
         self.class_target.v = numpy.zeros([10, 784],
             dtype=config.dtypes[config.dtype])
 
         for i in range(10):
-            #self.class_target.v[i, :] = -1
-            #self.class_target.v[i, i] = 1
+            # self.class_target.v[i, :] = -1
+            # self.class_target.v[i, i] = 1
             img = do_plot("%s/packages/arial.ttf" % (config.test_dataset_root),
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_target.v[i] = img.ravel().astype(
@@ -140,11 +140,11 @@ class Loader(mnist.Loader):
 
         # At the beginning, initialize "values to be found" with zeros.
         # NN should be trained in the same way as it will be tested.
-        #v = self.original_data
-        #v = v.reshape(v.shape[0], v.size // v.shape[0])
-        #self.original_data = numpy.zeros([v.shape[0],
+        # v = self.original_data
+        # v = v.reshape(v.shape[0], v.size // v.shape[0])
+        # self.original_data = numpy.zeros([v.shape[0],
         #    self.class_target.v.shape[1] + v.shape[1]], dtype=v.dtype)
-        #self.original_data[:, self.class_target.v.shape[1]:] = v[:, :]
+        # self.original_data[:, self.class_target.v.shape[1]:] = v[:, :]
 
 
 class Workflow(workflow.OpenCLWorkflow):
@@ -318,8 +318,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = args.global_alpha
             gd.global_lambda = args.global_lambda
-        super(Workflow, self).initialize(device=device)
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize(device=device)
 
 
 import argparse

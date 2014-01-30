@@ -139,7 +139,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Weights plotter
-        #"""
+        # """
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
                                          limit=16)
@@ -149,7 +149,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
-        #"""
+        # """
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
@@ -187,9 +187,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        retval = self.start_point.initialize_dependent()
-        if retval:
-            return retval
+        return super(Workflow, self).initialize()
 
 
 def main():

@@ -58,9 +58,9 @@ class Loader(loader.FullBatchLoader):
                  cache_fnme=""):
         super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
                                      rnd=rnd)
-        #: Top-level configuration from channels_dir/conf.py
+        # : Top-level configuration from channels_dir/conf.py
         self.top_conf_ = None
-        #: Configuration from channels_dir/subdirectory/conf.py
+        # : Configuration from channels_dir/subdirectory/conf.py
         self.subdir_conf_ = {}
         self.channels_dir = channels_dir
         self.cache_fnme = cache_fnme
@@ -666,7 +666,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
         self.decision.minibatch_n_err = self.ev.n_err
-        #self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
+        # self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
 
@@ -783,8 +783,8 @@ class Workflow(workflow.OpenCLWorkflow):
             self.loader.shuffle = self.loader.nothing
             self.loader.shuffle_train = self.loader.nothing
             self.loader.shuffle_validation_train = self.loader.nothing
-            #self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
-            #self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
+            # self.forward[-1].gpu_apply_exp = self.forward[-1].nothing
+            # self.forward[-1].cpu_apply_exp = self.forward[-1].nothing
             self.decision.on_snapshot = self.decision.nothing
             self.saver.vectors_to_save["y"] = self.forward[-1].output
             self.saver.vectors_to_save["l"] = self.loader.minibatch_labels
@@ -798,7 +798,7 @@ class Workflow(workflow.OpenCLWorkflow):
             self.end_point.link_from(self.plt_mx[-1])
             for gd in self.gd:
                 gd.unlink_from_all()
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 class Saver(units.Unit):
@@ -862,9 +862,9 @@ import argparse
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()

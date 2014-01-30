@@ -63,7 +63,7 @@ class Workflow(workflow.Workflow):
         self.forward.shift_size = shift_size
         features = FeaturesXml.parse(feature_file)
         self.extr.add_features(features)
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 class Forward(units.Unit):
@@ -176,7 +176,7 @@ class Forward(units.Unit):
             i_shift += 1
 
         logging.info("Out_final: %s" % (self.outs))
-        #self.outs_index = self.outs
+        # self.outs_index = self.outs
         self.outs_index = self.outs.argsort()
         genre = self.i_labels[self.outs_index[9]]
         procent = self.outs[self.outs_index[9]]
@@ -216,7 +216,7 @@ def draw_plot(figure_label, x, y, i_labels, fnme, name, left_legend=False):
 
     fig = pp.figure(figure_label)
     ax = fig.add_subplot(111)
-    #ax.set_ylim(0, 1)
+    # ax.set_ylim(0, 1)
     ax.set_title(name if len(name) else fnme, fontsize=23)
     for i in range(len(y)):
         ax.plot(x, y[i], color=colors[i], label=i_labels[i], linewidth=4)
@@ -231,9 +231,9 @@ def draw_plot(figure_label, x, y, i_labels, fnme, name, left_legend=False):
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()

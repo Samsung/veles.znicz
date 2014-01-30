@@ -6,8 +6,27 @@ MNIST with Convolutional layer.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import sys
+import argparse
+import logging
+import numpy
 import os
+import pickle
+import sys
+
+import all2all
+import conv
+import decision
+import error
+import evaluator
+import gd
+import gd_conv
+import gd_pooling
+import mnist
+import opencl
+import plotters
+import pooling
+import rnd
+import workflow
 
 
 def add_path(path):
@@ -23,22 +42,6 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import numpy
-import rnd
-import opencl
-import plotters
-import logging
-import mnist
-import decision
-import all2all
-import evaluator
-import gd
-import workflow
-import conv
-import gd_conv
-import pooling
-import gd_pooling
-import error
 
 
 class Workflow(workflow.OpenCLWorkflow):
@@ -212,11 +215,7 @@ class Workflow(workflow.OpenCLWorkflow):
             gd.device = device
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
-
-
-import argparse
-import pickle
+        return super(Workflow, self).initialize(device=device)
 
 
 def main():
@@ -232,7 +231,7 @@ def main():
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     if len(args.snapshot):
         fin = open(args.snapshot, "rb")
@@ -253,10 +252,10 @@ def main():
         w = Workflow(layers=[
                      {"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
                      100, 10], device=device)  # 0.99%
-    #w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+    # w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 0.98%
     #                     100, 10], device=device)
-    #w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},
+    # w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 10
     #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4

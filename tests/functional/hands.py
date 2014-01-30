@@ -165,7 +165,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 def main():
@@ -177,7 +177,7 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir,),
                                     numpy.int32, 1024))
-    #rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     w = Workflow(layers=[30, 2], device=device)
     w.initialize(global_alpha=0.05, global_lambda=0.0)

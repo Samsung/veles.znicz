@@ -47,7 +47,7 @@ from freetype import *
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
     face = Face(bytes(fontPath, 'UTF-8'))
-    #face.set_char_size(48 * 64)
+    # face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
     c = text[0]
@@ -82,7 +82,7 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
-            #logging.info("Set pixel size for font %s to %d" % (
+            # logging.info("Set pixel size for font %s to %d" % (
             #    fontPath, size - j))
             continue
         break
@@ -232,7 +232,7 @@ class Workflow(workflow.OpenCLWorkflow):
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         # Weights plotter
-        #"""
+        # """
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(figure_label="First Layer Weights",
                                          limit=16)
@@ -242,7 +242,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
-        #"""
+        # """
         # Image plotter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
@@ -285,7 +285,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return self.start_point.initialize_dependent()
+        return super(Workflow, self).initialize()
 
 
 def main():
