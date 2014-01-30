@@ -58,9 +58,11 @@ class Decision(units.Unit):
                        if the later is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
-    def __init__(self, fail_iterations=100, snapshot_prefix="",
-                 store_samples_mse=False, use_dynamic_alpha=False):
-        super(Decision, self).__init__()
+    def __init__(self, workflow, name=None, fail_iterations=100,
+                 snapshot_prefix="", store_samples_mse=False,
+                 use_dynamic_alpha=False):
+        super(Decision, self).__init__(workflow=workflow, name=name,
+                                       view_group="TRAINER")
         self.minibatch_class = None  # [0]
         self.minibatch_last = None  # [0]
         self.class_samples = None  # [0, 0, 0]
@@ -113,7 +115,6 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
-        self.view_group = "TRAINER"
 
     def initialize(self):
         # Reset errors

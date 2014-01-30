@@ -54,10 +54,10 @@ class GD(nn_units.GD):
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
     """
-    def __init__(self, device=None, global_alpha=0.01, global_lambda=0.00005,
-                 weights_transposed=False, store_gradient=False,
-                 apply_gradient=True):
-        super(GD, self).__init__(device=device)
+    def __init__(self, workflow, name=None, device=None, global_alpha=0.01,
+                 global_lambda=0.00005, weights_transposed=False,
+                 store_gradient=False, apply_gradient=True):
+        super(GD, self).__init__(workflow=workflow, name=name, device=device)
         self.weights_transposed = weights_transposed
         self.weights = None  # formats.Vector()
         self.bias = None  # formats.Vector()

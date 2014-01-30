@@ -137,7 +137,7 @@ class model_WF_wine(units.Pickleable):
         ev.link_from(out)
         """
 
-        gdsm = gd.GDSM(device=dev)
+        gdsm = gd.GDSM(self, device=dev)
         gdsm.weights = out.weights
         gdsm.bias = out.bias
         gdsm.h = out.input
@@ -145,7 +145,7 @@ class model_WF_wine(units.Pickleable):
         gdsm.L = ev.L
         gdsm.err_y = ev.err_y
 
-        gd1 = gd.GDTanh(device=dev)
+        gd1 = gd.GDTanh(self, device=dev)
         gd1.weights = aa1.weights
         gd1.bias = aa1.bias
         gd1.h = aa1.input

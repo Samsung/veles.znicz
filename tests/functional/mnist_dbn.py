@@ -196,7 +196,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.ev.labels = self.loader.minibatch_labels
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="mnist_dbn",
+        self.decision = decision.Decision(self, snapshot_prefix="mnist_dbn",
                                           store_samples_mse=True)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
@@ -212,7 +212,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(len(self.forward)))
-        self.gd[-1] = gd.GDTanh(device=device,
+        self.gd[-1] = gd.GDTanh(self, device=device,
                                 weights_transposed=autoencoder)
         self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
@@ -223,7 +223,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device,
+            self.gd[i] = gd.GDTanh(self, device=device,
                 weights_transposed=(autoencoder and (i & 1)))
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h

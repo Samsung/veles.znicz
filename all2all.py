@@ -42,9 +42,11 @@ class All2All(nn_units.Forward):
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 rand=rnd.default, weights_transposed=False):
-        super(All2All, self).__init__(device=device)
+    def __init__(self, workflow, name=None, output_shape=None, device=None,
+                 weights_amplitude=None, rand=rnd.default,
+                 weights_transposed=False):
+        super(All2All, self).__init__(workflow=workflow, name=name,
+                                      device=device)
         self.input = None
         self.output = formats.Vector()
         self.weights = formats.Vector()
@@ -260,9 +262,11 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
         max_idx: indexes of element with maximum value for each sample.
     """
-    def __init__(self, output_shape=None, device=None, weights_amplitude=None,
-                 rand=rnd.default, weights_transposed=False):
+    def __init__(self, workflow, name=None, output_shape=None, device=None,
+                 weights_amplitude=None, rand=rnd.default,
+                 weights_transposed=False):
         super(All2AllSoftmax, self).__init__(
+            workflow=workflow, name=name,
             output_shape=output_shape, device=device,
             weights_amplitude=weights_amplitude, rand=rand,
             weights_transposed=weights_transposed)

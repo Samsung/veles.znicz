@@ -144,7 +144,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh([layers[i]], device=device)
+            aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -164,7 +164,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision()
+        self.decision = decision.Decision(self, )
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -190,7 +190,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GDTanh(device=device)
+        self.gd[-1] = gd.GDTanh(self, device=device)
         self.gd[-1].link_from(self.image_saver)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -200,7 +200,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device)
+            self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output

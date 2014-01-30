@@ -48,8 +48,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
-    def __init__(self, device=None, compute_confusion_matrix=True):
-        super(EvaluatorSoftmax, self).__init__(device=device)
+    def __init__(self, workflow, name=None, device=None,
+                 compute_confusion_matrix=True):
+        super(EvaluatorSoftmax, self).__init__(workflow=workflow,
+                                               device=device, name=name,
+                                               view_group="EVALUATOR")
         self.labels = None  # formats.Vector()
         self.y = None  # formats.Vector()
         self.err_y = formats.Vector()
@@ -62,7 +65,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_d_ = None
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
-        self.view_group = "EVALUATOR"
 
     def initialize(self):
         itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
@@ -224,8 +226,10 @@ class EvaluatorMSE(units.OpenCLUnit):
         max_samples_per_epoch: maximum number of samples per epoch,
             will choose n_err element type based on it.
     """
-    def __init__(self, device=None):
-        super(EvaluatorMSE, self).__init__(device=device)
+    def __init__(self, workflow, name=None, device=None):
+        super(EvaluatorMSE, self).__init__(workflow=workflow,
+                                           device=device, name=name,
+                                           view_group="EVALUATOR")
         self.y = None  # formats.Vector()
         self.target = None  # formats.Vector()
         self.err_y = formats.Vector()

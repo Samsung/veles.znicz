@@ -37,8 +37,10 @@ class GDPooling(nn_units.GD):
         err_h: backpropagation errors for h (will compute its).
         krn_err_h_: OpenCL kernel for computing err_h.
     """
-    def __init__(self, kx, ky, device=None):
-        super(GDPooling, self).__init__(device=device)
+    def __init__(self, workflow, name=None, kx, ky, device=None):
+        super(GDPooling, self).__init__(workflow=workflow,
+                                        name=name,
+                                        device=device)
         self.kx = kx
         self.ky = ky
         self.err_y = None  # formats.Vector()
@@ -129,8 +131,9 @@ class GDMaxPooling(GDPooling):
         h_offs: offsets in err_h where to copy err_y.
         krn_err_h_clear_: OpenCL kernel for setting err_h with zeros.
     """
-    def __init__(self, kx, ky, device=None):
-        super(GDMaxPooling, self).__init__(kx=kx, ky=ky, device=device)
+    def __init__(self, workflow, name=None, kx, ky, device=None):
+        super(GDMaxPooling, self).__init__(workflow=workflow, name=name,
+                                           kx=kx, ky=ky, device=device)
         self.h_offs = None  # formats.Vector()
 
     def init_unpickled(self):

@@ -94,7 +94,7 @@ class Workflow(workflow.OpenCLWorkflow):
             if not i:
                 aa = rbm.RBMTanh([layers[i]], device=device)
             else:
-                aa = all2all.All2AllTanh([layers[i]], device=device,
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device,
                              weights_transposed=True)
                 aa.weights = self.forward[0].weights
             self.forward.append(aa)
@@ -114,7 +114,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="xor_rbm",
+        self.decision = decision.Decision(self, snapshot_prefix="xor_rbm",
                                           store_samples_mse=True,
                                           use_dynamic_alpha=True)
         self.decision.link_from(self.ev)
@@ -140,7 +140,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device)
+            self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -229,9 +229,9 @@ class Workflow2(workflow.OpenCLWorkflow):
                 if not i:
                     aa = rbm.RBMTanh([layers[i]], device=device)
                 else:
-                    aa = all2all.All2AllTanh([layers[i]], device=device)
+                    aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
             else:
-                aa = all2all.All2AllSoftmax([layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -241,7 +241,7 @@ class Workflow2(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(device=device)
+        self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -250,7 +250,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(snapshot_prefix="xor_rbm",
+        self.decision = decision.Decision(self, snapshot_prefix="xor_rbm",
                                           store_samples_mse=False,
                                           use_dynamic_alpha=True)
         self.decision.link_from(self.ev)
@@ -265,7 +265,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GDSM(device=device)
+        self.gd[-1] = gd.GDSM(self, device=device)
         # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -276,7 +276,7 @@ class Workflow2(workflow.OpenCLWorkflow):
         self.gd[-1].batch_size = self.loader.minibatch_size
         """
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(device=device)
+            self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
