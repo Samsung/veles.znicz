@@ -275,7 +275,7 @@ class FullBatchLoader(Loader):
             self.minibatch_target.v[0:minibatch_size] = self.original_target[
                                                         idxs[0:minibatch_size]]
 
-    def extract_validation_from_train(self, amount=0.15):
+    def extract_validation_from_train(self, amount=0.15, rand=None):
         """Extracts validation dataset from train dataset randomly.
 
         We will rearrange indexes only.
@@ -283,7 +283,10 @@ class FullBatchLoader(Loader):
         Parameters:
             amount: how many samples move from train dataset
                     relative to the entire samples count for each class.
+            rand: rnd.Rand(), if None - will use self.rnd.
         """
+        if rand == None:
+            rand = self.rnd[0]
         if amount <= 0:  # Dispose of validation set
             self.class_samples[2] += self.class_samples[1]
             self.class_samples[1] = 0
@@ -305,7 +308,6 @@ class FullBatchLoader(Loader):
                     config.get_itype_from_size(total_samples)])
         shuffled_indexes = self.shuffled_indexes
 
-        rand = self.rnd[0]
         # If there are no labels
         if original_labels == None:
             n = int(numpy.round(amount * train_samples))
@@ -330,7 +332,11 @@ class FullBatchLoader(Loader):
             nn[l] = nn.get(l, 0) + 1
         n = 0
         for l in nn.keys():
-            nn[l] = int(numpy.round(amount * nn[l]))
+            n_train = nn[l]
+            nn[l] = max(int(numpy.round(amount * nn[l])), 1)
+            if nn[l] >= n_train:
+                raise error.ErrNotExists("There are too few labels "
+                                         "for class %d" % (l))
             n += nn[l]
         while n > 0:
             i = rand.randint(offs, offs0 + train_samples)

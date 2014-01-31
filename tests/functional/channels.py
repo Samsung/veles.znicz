@@ -503,7 +503,7 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[2] = self.original_data.shape[0]
 
         # Randomly generate validation set from train.
-        self.extract_validation_from_train(amount=0.0)
+        self.extract_validation_from_train(rand=rnd.default2)
 
         # Saving all the samples
         self.log().info("Dumping all the samples to %s" % (config.cache_dir))
@@ -910,7 +910,10 @@ def main():
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
+    rnd.default2.seed(numpy.fromfile("%s/seed2" % (this_dir),
+                                    numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    # rnd.default2.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
     w_neg = None
     try:
