@@ -10,7 +10,6 @@ import formats
 import numpy
 import pyopencl
 import time
-import rnd
 import config
 import znicz_config
 import logging
@@ -36,26 +35,20 @@ class All2All(nn_units.Forward):
         weights: matrix of weights.
         bias: bias.
         output_shape: shape of the output layer (may be Vector).
-        weights_amplitude: amplitude of the random distribution of weights.
-        rand: rnd.Rand() object for initial weights generation.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
-    def __init__(self, workflow, name=None, output_shape=None, device=None,
-                 weights_amplitude=None, rand=rnd.default,
-                 weights_transposed=False):
-        super(All2All, self).__init__(workflow=workflow, name=name,
-                                      device=device)
+    def __init__(self, workflow, **kwargs):
+        output_shape = kwargs.get("output_shape")
+        kwargs["output_shape"] = output_shape
+        super(All2All, self).__init__(workflow, **kwargs)
         self.input = None
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
         self.output_shape = output_shape
-        self.weights_amplitude = weights_amplitude
-        self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
-        self.weights_transposed = weights_transposed
         self.exports.append("s_activation")
 
     def init_unpickled(self):
@@ -63,7 +56,7 @@ class All2All(nn_units.Forward):
         self.cl_sources_["forward.cl"] = {}
         self.krn_ = None
 
-    def get_weights_amplitude(self):
+    def get_weights_magnitude(self):
         """
         Returns: weights amplitude for initial random distribution,
                  such that activation function will be near maximum
@@ -78,9 +71,9 @@ class All2All(nn_units.Forward):
     def initialize(self):
         super(All2All, self).initialize()
 
-        if self.weights_amplitude == None:
-            # Get weights amplitude and cap it to 0.05
-            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
+        if self.weights_magnitude == None:
+            # Get weights magnitude and cap it to 0.05
+            self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
         output_shape = (self.output_shape.v.shape[1:]
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
@@ -89,8 +82,8 @@ class All2All(nn_units.Forward):
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
-            self.rand.fill(self.weights.v, -self.weights_amplitude,
-                           self.weights_amplitude)
+            self.rand.fill(self.weights.v, -self.weights_magnitude,
+                           self.weights_magnitude)
             self.weights.v = self.weights.v.reshape([
                 output_size, self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
@@ -101,8 +94,8 @@ class All2All(nn_units.Forward):
         if (self.bias.v == None or self.bias.v.size != output_size):
             self.bias.reset()
             self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
-            self.rand.fill(self.bias.v, -self.weights_amplitude,
-                           self.weights_amplitude)
+            self.rand.fill(self.bias.v, -self.weights_magnitude,
+                           self.weights_magnitude)
 
         if (self.output.v == None or
             self.output.v.size != self.input.v.shape[0] * output_size):
@@ -201,22 +194,6 @@ class All2All(nn_units.Forward):
             return retval
         self.print_times(t1)
 
-    def generate_data_for_master(self):
-        # TODO(v.markovtsev): how to get the gradient?
-        pass
-
-    def generate_data_for_slave(self):
-        self.weights.map_read()
-        return (self.weights.v)
-
-    def apply_data_from_master(self, data):
-        self.weights.v_ = data[0]
-        self.weights.map_write()
-
-    def apply_data_from_slave(self, data):
-        self.weights.v_ += data[0]
-        self.weights.map_write()
-
 
 class All2AllTanh(All2All):
     """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
@@ -226,7 +203,7 @@ class All2AllTanh(All2All):
         super(All2AllTanh, self).initialize()
         self.output.supposed_maxvle = 1.7159
 
-    def get_weights_amplitude(self):
+    def get_weights_magnitude(self):
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / (self.input.supposed_maxvle * 0.6666) /
                     (self.input.v.size // self.input.v.shape[0]))
@@ -262,14 +239,8 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
         max_idx: indexes of element with maximum value for each sample.
     """
-    def __init__(self, workflow, name=None, output_shape=None, device=None,
-                 weights_amplitude=None, rand=rnd.default,
-                 weights_transposed=False):
-        super(All2AllSoftmax, self).__init__(
-            workflow=workflow, name=name,
-            output_shape=output_shape, device=device,
-            weights_amplitude=weights_amplitude, rand=rand,
-            weights_transposed=weights_transposed)
+    def __init__(self, workflow, **kwargs):
+        super(All2AllSoftmax, self).__init__(workflow, **kwargs)
         self.max_idx = formats.Vector()
 
     def init_unpickled(self):

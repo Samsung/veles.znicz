@@ -42,36 +42,19 @@ class GD(nn_units.GD):
         h: input of the current layer as batch of 1D samples.
         err_y: backpropagation errors for y.
         err_h: backpropagation errors for h (will compute its).
-        global_alpha: gradient descent speed (positive).
-        global_lambda: coefficient (positive or zero) for weights
-                       regularization term (lambda/2 * sum(weights^2)).
         krn_err_h_: OpenCL kernel for matrix multiplication.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
-        batch_size: effective batch size (if None, get it from y).
-        weights_transposed: assume weights matrix as a transposed one.
-        store_gradient: will save gradient as separate Vector().
-        apply_gradient: will apply gradient.
     """
-    def __init__(self, workflow, name=None, device=None, global_alpha=0.01,
-                 global_lambda=0.00005, weights_transposed=False,
-                 store_gradient=False, apply_gradient=True):
-        super(GD, self).__init__(workflow=workflow, name=name, device=device)
-        self.weights_transposed = weights_transposed
+    def __init__(self, workflow, **kwargs):
+        super(GD, self).__init__(workflow, **kwargs)
         self.weights = None  # formats.Vector()
         self.bias = None  # formats.Vector()
         self.y = None  # formats.Vector()
         self.h = None  # formats.Vector()
         self.err_y = None  # formats.Vector()
         self.err_h = formats.Vector()
-        self.global_alpha = global_alpha
-        self.global_lambda = global_lambda
-        self.batch_size = None  # [0]
-        self.gradient_weights = formats.Vector()
-        self.gradient_bias = formats.Vector()
-        self.store_gradient = store_gradient
-        self.apply_gradient = apply_gradient
         self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
         self.reduce_size = 64
 

@@ -37,52 +37,20 @@ class GD(nn_units.GD):
         err_h
 
     Attributes:
-        weights: weights of the current layer.
-        bias: bias of the current layer.
-        y: output of the current layer as batch of multichannel interleaved
-           2D samples.
-        h: input of the current layer as batch of multichannel interleaved
-           2D samples.
-        err_y: backpropagation errors for y.
-        err_h: backpropagation errors for h (will compute its).
-        global_alpha: gradient descent speed (positive).
-        global_lambda: coefficient (positive or zero) for weights
-                       regularization term (lambda/2 * sum(weights^2)).
         krn_err_h_clear_: OpenCL kernel for setting err_h with zeros.
         krn_err_h_: OpenCL kernel for computing err_h.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
         krn_bias_: OpenCL kernel for bias update.
-        batch_size: effective batch size (if None, get it from y).
-        weights_transposed: assume weights matrix as a transposed one.
-        store_gradient: will save gradient as separate Vector().
-        apply_gradient: will apply gradient.
         n_kernels: number of convolutional kernels.
         kx: kernel width.
         ky: kernel height.
     """
-    def __init__(self, workflow, name=None, n_kernels, kx, ky, device=None,
-                 global_alpha=0.01, global_lambda=0.00005,
-                 weights_transposed=False, store_gradient=False,
-                 apply_gradient=True):
-        super(GD, self).__init__(workflow=workflow, device=device, name=name)
-        self.weights_transposed = weights_transposed
-        self.weights = None  # formats.Vector()
-        self.bias = None  # formats.Vector()
-        self.y = None  # formats.Vector()
-        self.h = None  # formats.Vector()
-        self.err_y = None  # formats.Vector()
-        self.err_h = formats.Vector()
-        self.n_kernels = n_kernels
-        self.kx = kx
-        self.ky = ky
-        self.global_alpha = global_alpha
-        self.global_lambda = global_lambda
-        self.batch_size = None  # [0]
-        self.gradient_weights = formats.Vector()
-        self.gradient_bias = formats.Vector()
-        self.store_gradient = store_gradient
-        self.apply_gradient = apply_gradient
+    def __init__(self, workflow, **kwargs):
+        super(GD, self).__init__(workflow, **kwargs)
+        self.n_kernels = kwargs["n_kernels"]
+        self.kx = kwargs["kx"]
+        self.ky = kwargs["ky"]
         self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
         self.reduce_size = 64
 

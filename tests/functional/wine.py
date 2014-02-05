@@ -28,7 +28,6 @@ import config
 import znicz_config
 import rnd
 import opencl
-import plotters
 import all2all
 import evaluator
 import gd
@@ -86,12 +85,16 @@ class Loader(loader.FullBatchLoader):
 class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(workflow=self, name="Wine loader")
+        self.loader = Loader(self, name="Wine loader")
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -182,11 +185,10 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[8, 3], device=device)
+    w = Workflow(None, layers=[8, 3], device=device)
     w.initialize(global_alpha=0.5, global_lambda=0.0, device=device)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

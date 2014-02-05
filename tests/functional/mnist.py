@@ -42,10 +42,6 @@ import znicz_config
 class Loader(loader.FullBatchLoader):
     """Loads MNIST dataset.
     """
-    def __init__(self, workflow, name=None, minibatch_max_size=60):
-        super(Loader, self).__init__(workflow=workflow, name=name,
-                                     minibatch_max_size=minibatch_max_size)
-
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
@@ -139,8 +135,12 @@ import workflow
 class Workflow(workflow.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
@@ -154,11 +154,11 @@ class Workflow(workflow.OpenCLWorkflow):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
                                          device=device,
-                                         weights_amplitude=0.05)
+                                         weights_magnitude=0.05)
             else:
                 aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
                                             device=device,
-                                            weights_amplitude=0.05)
+                                            weights_magnitude=0.05)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -200,7 +200,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(self, device=device, weights_transposed=False)
+            self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -278,12 +278,11 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[100, 10], device=device)
+    w = Workflow(None, layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
     w.run()
 
-    plotters.Graphics().wait_finish()
-    logging.debug("End of job")
+    logging.info("End of job")
 
 
 if __name__ == "__main__":

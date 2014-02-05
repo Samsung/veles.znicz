@@ -6,7 +6,7 @@ Data formats for connectors.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import units
+import logger
 import pyopencl
 import os
 import config
@@ -187,7 +187,7 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
     return b
 
 
-class Vector(units.Pickleable):
+class Vector(logger.Pickleable):
     """Container class for numpy array backed by OpenCL buffer.
 
     Attributes:
@@ -195,7 +195,7 @@ class Vector(units.Pickleable):
         v: numpy array.
         v_: OpenCL buffer mapped to v.
         supposed_maxvle: supposed maximum element value.
-        map_arr: pyopencl map object.
+        map_arr_: pyopencl map object.
         map_flags: flags of the current map.
 
     Example of how to use:
@@ -209,6 +209,11 @@ class Vector(units.Pickleable):
             a.initialize(device)
         5. Set OpenCL buffer as kernel parameter:
             krn.set_arg(0, a.v_)
+
+    Example of how to update vector:
+        1. Call a.map_write() or a.map_invalidate()
+        2. Update a.v
+        3. Call a.unmap() before executing OpenCL kernel
     """
     def __init__(self):
         super(Vector, self).__init__()
@@ -219,7 +224,7 @@ class Vector(units.Pickleable):
     def init_unpickled(self):
         super(Vector, self).init_unpickled()
         self.v_ = None
-        self.map_arr = None
+        self.map_arr_ = None
         self.map_flags = 0
 
     def __getstate__(self):
@@ -248,14 +253,14 @@ class Vector(units.Pickleable):
     def _map(self, flags):
         if self.device == None:
             return
-        if self.map_arr != None:
+        if self.map_arr_ != None:
             # already mapped properly, nothing to do
             if self.map_flags != MAP_READ or flags == MAP_READ:
                 return
             self.unmap()
         if flags == MAP_INVALIDATE and self.device.info.version < 1.1999:
             flags = MAP_WRITE  # 'cause available only starting with 1.2
-        self.map_arr, event = pyopencl.enqueue_map_buffer(
+        self.map_arr_, event = pyopencl.enqueue_map_buffer(
             queue=self.device.queue_, buf=self.v_, flags=flags, offset=0,
             shape=(self.v.size,), dtype=self.v.dtype, order="C",
             wait_for=None, is_blocking=False)
@@ -272,10 +277,10 @@ class Vector(units.Pickleable):
         return self._map(MAP_INVALIDATE)
 
     def unmap(self):
-        if self.map_arr == None:
+        if self.map_arr_ == None:
             return
-        self.map_arr.base.release(queue=self.device.queue_, wait_for=None)
-        self.map_arr = None
+        self.map_arr_.base.release(queue=self.device.queue_, wait_for=None)
+        self.map_arr_ = None
         self.map_flags = 0
 
     def __len__(self):

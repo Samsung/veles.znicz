@@ -11,7 +11,6 @@ import pyopencl
 import config
 import znicz_config
 import logging
-import formats
 import numpy
 import error
 
@@ -37,15 +36,10 @@ class GDPooling(nn_units.GD):
         err_h: backpropagation errors for h (will compute its).
         krn_err_h_: OpenCL kernel for computing err_h.
     """
-    def __init__(self, workflow, name=None, kx, ky, device=None):
-        super(GDPooling, self).__init__(workflow=workflow,
-                                        name=name,
-                                        device=device)
-        self.kx = kx
-        self.ky = ky
-        self.err_y = None  # formats.Vector()
-        self.h = None  # formats.Vector()
-        self.err_h = formats.Vector()
+    def __init__(self, workflow, **kwargs):
+        super(GDPooling, self).__init__(workflow, **kwargs)
+        self.kx = kwargs["kx"]
+        self.ky = kwargs["ky"]
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
@@ -131,9 +125,8 @@ class GDMaxPooling(GDPooling):
         h_offs: offsets in err_h where to copy err_y.
         krn_err_h_clear_: OpenCL kernel for setting err_h with zeros.
     """
-    def __init__(self, workflow, name=None, kx, ky, device=None):
-        super(GDMaxPooling, self).__init__(workflow=workflow, name=name,
-                                           kx=kx, ky=ky, device=device)
+    def __init__(self, workflow, **kwargs):
+        super(GDMaxPooling, self).__init__(workflow, **kwargs)
         self.h_offs = None  # formats.Vector()
 
     def init_unpickled(self):

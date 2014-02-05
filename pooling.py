@@ -35,10 +35,12 @@ class Pooling(nn_units.Forward):
         ky: pooling kernel height.
         krn_: OpenCL kernel.
     """
-    def __init__(self, kx=5, ky=5, device=None):
-        super(Pooling, self).__init__(device=device)
-        self.input = None
-        self.output = formats.Vector()
+    def __init__(self, workflow, **kwargs):
+        kx = kwargs.get("kx", 2)
+        ky = kwargs.get("ky", 2)
+        kwargs["kx"] = kx
+        kwargs["ky"] = ky
+        super(Pooling, self).__init__(workflow, **kwargs)
         self.kx = kx
         self.ky = ky
         self.exports.extend(("kx", "ky"))
@@ -133,8 +135,8 @@ class MaxPooling(Pooling):
     Attributes:
         input_offs: offsets in the input where maximum elements were found.
     """
-    def __init__(self, kx=5, ky=5, device=None):
-        super(MaxPooling, self).__init__(kx=kx, ky=ky, device=device)
+    def __init__(self, workflow, **kwargs):
+        super(MaxPooling, self).__init__(workflow, **kwargs)
         self.input_offs = formats.Vector()
 
     def initialize(self):

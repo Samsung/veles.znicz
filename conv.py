@@ -10,7 +10,6 @@ import formats
 import numpy
 import pyopencl
 import time
-import rnd
 import config
 import znicz_config
 import logging
@@ -45,21 +44,18 @@ class Conv(nn_units.Forward):
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
-    def __init__(self, n_kernels=5, kx=5, ky=5, device=None,
-                 weights_amplitude=None, rand=rnd.default,
-                 weights_transposed=False):
-        super(Conv, self).__init__(device=device)
-        self.input = None
-        self.output = formats.Vector()
-        self.weights = formats.Vector()
-        self.bias = formats.Vector()
+    def __init__(self, workflow, **kwargs):
+        n_kernels = kwargs.get("n_kernels", 5)
+        kx = kwargs.get("kx", 5)
+        ky = kwargs.get("ky", 5)
+        kwargs["n_kernels"] = n_kernels
+        kwargs["kx"] = kx
+        kwargs["ky"] = ky
+        super(Conv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
-        self.weights_amplitude = weights_amplitude
-        self.rand = rand
         self.s_activation = "ACTIVATION_LINEAR"
-        self.weights_transposed = weights_transposed
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels"))
 
     def init_unpickled(self):
@@ -67,7 +63,7 @@ class Conv(nn_units.Forward):
         self.cl_sources_["conv.cl"] = {}
         self.krn_ = None
 
-    def get_weights_amplitude(self):
+    def get_weights_magnitude(self):
         """
         Returns: weights amplitude for initial random distribution,
                  such that activation function will be near maximum
@@ -220,7 +216,7 @@ class ConvTanh(Conv):
         super(ConvTanh, self).initialize()
         self.output.supposed_maxvle = 1.7159
 
-    def get_weights_amplitude(self):
+    def get_weights_magnitude(self):
         """
         Returns: weights amplitude for initial random distribution,
                  such that activation function will be near maximum

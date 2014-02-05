@@ -51,12 +51,15 @@ class Loader(units.Unit):
         create_minibatches()
         fill_minibatch()
     """
-    def __init__(self, workflow, name=None,
-                 minibatch_max_size=100, rnd=rnd.default):
-        super(Loader, self).__init__(workflow=workflow, name=name,
-                                     view_group="LOADER")
+    def __init__(self, workflow, **kwargs):
+        minibatch_max_size = kwargs.get("minibatch_max_size", 100)
+        rnd_ = kwargs.get("rnd", rnd.default)
+        kwargs["minibatch_max_size"] = minibatch_max_size
+        kwargs["rnd"] = rnd_
+        kwargs["view_group"] = kwargs.get("view_group", "LOADER")
+        super(Loader, self).__init__(workflow, **kwargs)
 
-        self.rnd = [rnd]
+        self.rnd = [rnd_]
 
         self.minibatch_data = formats.Vector()
         self.minibatch_target = formats.Vector()
@@ -211,10 +214,6 @@ class FullBatchLoader(Loader):
     Should be overriden in child class:
         load_data()
     """
-    def __init__(self, workflow, name=None, minibatch_max_size=60):
-        super(FullBatchLoader, self).__init__(workflow=workflow, name=name,
-                                              minibatch_max_size=60)
-
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
         self.original_data = None
@@ -381,12 +380,18 @@ class ImageLoader(FullBatchLoader):
     Should be overriden in child class:
         get_label_from_filename()
     """
-    def __init__(self, workflow, name=None,
-                 minibatch_max_size=100,
-                 test_paths=None, validation_paths=None, train_paths=None,
-                 target_paths=None, grayscale=True, rnd=rnd.default):
-        super(ImageLoader, self).__init__(workflow=workflow, name=name,
-            minibatch_max_size=minibatch_max_size, rnd=rnd)
+    def __init__(self, workflow, **kwargs):
+        test_paths = kwargs.get("test_paths")
+        validation_paths = kwargs.get("validation_paths")
+        train_paths = kwargs.get("train_paths")
+        target_paths = kwargs.get("target_paths")
+        grayscale = kwargs.get("grayscale", True)
+        kwargs["test_paths"] = test_paths
+        kwargs["validation_paths"] = validation_paths
+        kwargs["train_paths"] = train_paths
+        kwargs["target_paths"] = target_paths
+        kwargs["grayscale"] = grayscale
+        super(ImageLoader, self).__init__(workflow, **kwargs)
         self.test_paths = test_paths
         self.validation_paths = validation_paths
         self.train_paths = train_paths

@@ -37,11 +37,18 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, out_dirs=["%s/tmpimg/test" % (config.cache_dir),
-                                 "%s/tmpimg/validation" % (config.cache_dir),
-                                 "%s/tmpimg/train" % (config.cache_dir)],
-                 limit=100, yuv=False):
-        super(ImageSaver, self).__init__()
+    def __init__(self, workflow, **kwargs):
+        out_dirs = kwargs.get("out_dirs")
+        limit = kwargs.get("limit", 100)
+        yuv = kwargs.get("yuv", False)
+        if out_dirs == None:
+            out_dirs = ["%s/tmpimg/test" % (config.cache_dir),
+                        "%s/tmpimg/validation" % (config.cache_dir),
+                        "%s/tmpimg/train" % (config.cache_dir)]
+        kwargs["out_dirs"] = out_dirs
+        kwargs["limit"] = limit
+        kwargs["yuv"] = yuv
+        super(ImageSaver, self).__init__(workflow, **kwargs)
         self.out_dirs = out_dirs
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()

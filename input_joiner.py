@@ -34,8 +34,12 @@ class InputJoiner(units.OpenCLUnit):
                         of the first shapes from the inputs
                         if not provided prior to the initialize)
     """
-    def __init__(self, output_sample_shape=None, inputs=None, device=None):
-        super(InputJoiner, self).__init__(device)
+    def __init__(self, workflow, **kwargs):
+        output_sample_shape = kwargs.get("output_sample_shape")
+        inputs = kwargs.get("inputs")
+        kwargs["output_sample_shape"] = output_sample_shape
+        kwargs["inputs"] = inputs
+        super(InputJoiner, self).__init__(workflow, **kwargs)
         self.inputs = [] if inputs == None else inputs
         self.output = formats.Vector()
         self.output_sample_shape = output_sample_shape
