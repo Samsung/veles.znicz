@@ -38,7 +38,7 @@ class Conv(nn_units.Forward):
         n_kernels: number of convolutional kernels.
         kx: kernel width.
         ky: kernel height.
-        weights_amplitude: amplitude of the random distribution of weights.
+        weights_magnitude: magnitude of the random distribution of weights.
         rand: rnd.Rand() object for initial weights generation.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
@@ -65,7 +65,7 @@ class Conv(nn_units.Forward):
 
     def get_weights_magnitude(self):
         """
-        Returns: weights amplitude for initial random distribution,
+        Returns: weights magnitude for initial random distribution,
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
@@ -80,9 +80,9 @@ class Conv(nn_units.Forward):
     def initialize(self):
         super(Conv, self).initialize()
 
-        if self.weights_amplitude == None:
-            # Get weights amplitude and cap it to 0.05
-            self.weights_amplitude = min(self.get_weights_amplitude(), 0.05)
+        if self.weights_magnitude == None:
+            # Get weights magnitude and cap it to 0.05
+            self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
         sx = self.input.v.shape[2]
@@ -91,8 +91,8 @@ class Conv(nn_units.Forward):
         if self.weights.v == None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
-            self.rand.fill(self.weights.v, -self.weights_amplitude,
-                           self.weights_amplitude)
+            self.rand.fill(self.weights.v, -self.weights_magnitude,
+                           self.weights_magnitude)
             self.weights.v = self.weights.v.reshape(self.n_kernels,
                 self.kx * self.ky * n_channels)
             # Reshape weights as a matrix:
@@ -104,8 +104,8 @@ class Conv(nn_units.Forward):
             self.bias.v.size != self.n_kernels):
             self.bias.reset()
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
-            self.rand.fill(self.bias.v, -self.weights_amplitude,
-                           self.weights_amplitude)
+            self.rand.fill(self.bias.v, -self.weights_magnitude,
+                           self.weights_magnitude)
 
         if config.unit_test:
             batch_size <<= 1  # check for overflow
@@ -218,7 +218,7 @@ class ConvTanh(Conv):
 
     def get_weights_magnitude(self):
         """
-        Returns: weights amplitude for initial random distribution,
+        Returns: weights magnitude for initial random distribution,
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """

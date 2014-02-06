@@ -22,7 +22,7 @@ class TestGD(unittest.TestCase):
         inp.v = numpy.empty([5, 5], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = gd.GD(device=device)
+        c = gd.GD(None, device=device)
         c.h = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],
@@ -63,7 +63,6 @@ class TestGD(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         print("All Ok")
-        units.pool.shutdown()
 
 
 if __name__ == "__main__":

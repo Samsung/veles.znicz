@@ -114,10 +114,10 @@ class Decision(units.Unit):
         self.max_err_y_sums = [0, 0, 0]
         self.minibatch_max_err_y_sum = None  # formats.Vector()
         self.vectors_to_sync = {}
-        self.sample_input = None
-        self.sample_output = None
-        self.sample_target = None
-        self.sample_label = None
+        self.sample_input = [None]
+        self.sample_output = [None]
+        self.sample_target = [None]
+        self.sample_label = [None]
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
@@ -172,16 +172,16 @@ class Decision(units.Unit):
 
         # Initialize sample_input, sample_output, sample_target if necessary
         if self.workflow.forward[0].input in self.vectors_to_sync:
-            self.sample_input = numpy.zeros_like(
+            self.sample_input[0] = numpy.zeros_like(
                 self.workflow.forward[0].input.v[0])
         if self.workflow.forward[-1].output in self.vectors_to_sync:
-            self.sample_output = numpy.zeros_like(
+            self.sample_output[0] = numpy.zeros_like(
                 self.workflow.forward[-1].output.v[0])
         ev = self.ev if self.ev != None else self.workflow.ev
         if (ev.__dict__.get("target") != None
             and ev.target in self.vectors_to_sync
             and ev.target.v != None):
-            self.sample_target = numpy.zeros_like(ev.target.v[0])
+            self.sample_target[0] = numpy.zeros_like(ev.target.v[0])
 
     def on_snapshot(self, minibatch_class):
         if self.workflow == None:
@@ -392,16 +392,16 @@ class Decision(units.Unit):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
-        if self.sample_input != None:
-            self.sample_input[:] = self.workflow.forward[0].input.v[0]
-        if self.sample_output != None:
-            self.sample_output[:] = self.workflow.forward[-1].output.v[0]
+        if self.sample_input[0] != None:
+            self.sample_input[0][:] = self.workflow.forward[0].input.v[0]
+        if self.sample_output[0] != None:
+            self.sample_output[0][:] = self.workflow.forward[-1].output.v[0]
         ev = self.ev if self.ev != None else self.workflow.ev
-        if self.sample_target != None:
-            self.sample_target[:] = ev.target.v[0]
+        if self.sample_target[0] != None:
+            self.sample_target[0][:] = ev.target.v[0]
         if (ev.__dict__.get("labels") in
             self.vectors_to_sync.keys()):
-            self.sample_label = ev.labels.v[0]
+            self.sample_label[0] = ev.labels.v[0]
 
     def on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix

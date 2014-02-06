@@ -32,8 +32,8 @@ class Forward(OpenCLUnit):
         super(Forward, self).__init__(workflow, **kwargs)
         self.input = None
         self.output = formats.Vector()
-        self.weights = None
-        self.bias = None
+        self.weights = formats.Vector()
+        self.bias = formats.Vector()
         self.weights_magnitude = weights_magnitude
         self.rand = rand
         self.weights_transposed = weights_transposed

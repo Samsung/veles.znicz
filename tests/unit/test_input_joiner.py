@@ -8,7 +8,6 @@ import input_joiner
 import opencl
 import formats
 import numpy
-import units
 
 
 class TestInputJoiner(unittest.TestCase):
@@ -17,7 +16,6 @@ class TestInputJoiner(unittest.TestCase):
 
     def tearDown(self):
         del self.device
-        units.pool.shutdown()
 
     def _do_tst(self, device):
         a = formats.Vector()
@@ -29,7 +27,7 @@ class TestInputJoiner(unittest.TestCase):
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
-        obj = input_joiner.InputJoiner(inputs=[a, b, c], device=device)
+        obj = input_joiner.InputJoiner(None, inputs=[a, b, c], device=device)
         obj.initialize()
         obj.run()
         obj.output.map_read()
@@ -53,7 +51,7 @@ class TestInputJoiner(unittest.TestCase):
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
-        obj = input_joiner.InputJoiner(inputs=[a, b, c],
+        obj = input_joiner.InputJoiner(None, inputs=[a, b, c],
                                        output_sample_shape=[80],
                                        device=device)
         obj.initialize()
@@ -83,7 +81,7 @@ class TestInputJoiner(unittest.TestCase):
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
-        obj = input_joiner.InputJoiner(inputs=[a, b, c],
+        obj = input_joiner.InputJoiner(None, inputs=[a, b, c],
                                        output_sample_shape=[50],
                                        device=device)
         obj.initialize()

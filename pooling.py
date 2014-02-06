@@ -74,7 +74,6 @@ class Pooling(nn_units.Forward):
 
         if self.krn_ == None:
             defines = {
-                self.s_activation: 1,
                 'SX': sx,
                 'SY': sy,
                 'N_CHANNELS': n_channels,

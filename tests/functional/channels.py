@@ -53,11 +53,16 @@ import re
 class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
-    def __init__(self, minibatch_max_size=100, rnd=rnd.default,
-                 channels_dir="", rect=(192, 96), grayscale=False,
-                 cache_fnme=""):
-        super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
-                                     rnd=rnd)
+    def __init__(self, workflow, **kwargs):
+        channels_dir = kwargs.get("channels_dir", "")
+        rect = kwargs.get("rect", (192, 96))
+        grayscale = kwargs.get("grayscale", False)
+        cache_fnme = kwargs.get("cache_fnme", "")
+        kwargs["channels_dir"] = channels_dir
+        kwargs["rect"] = rect
+        kwargs["grayscale"] = grayscale
+        kwargs["cache_fnme"] = cache_fnme
+        super(Loader, self).__init__(workflow, **kwargs)
         # : Top-level configuration from channels_dir/conf.py
         self.top_conf_ = None
         # : Configuration from channels_dir/subdirectory/conf.py
@@ -613,14 +618,18 @@ class Loader(loader.FullBatchLoader):
 class Workflow(workflow.OpenCLWorkflow):
     """Workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.saver = None
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -639,7 +648,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(yuv=True)
+        self.image_saver = image_saver.ImageSaver(self, yuv=True)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -733,10 +742,10 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
         self.plt_i = plotters.Image(self, name="Input", yuv=True)
-        self.plt_i.inputs.append(self.decision)
-        self.plt_i.input_fields.append("sample_label")
-        self.plt_i.inputs.append(self.decision)
-        self.plt_i.input_fields.append("sample_input")
+        self.plt_i.inputs.append(self.decision.sample_label)
+        self.plt_i.input_fields.append(0)
+        self.plt_i.inputs.append(self.decision.sample_input)
+        self.plt_i.input_fields.append(0)
         self.plt_i.link_from(self.plt_w)
         self.plt_i.gate_skip = self.decision.epoch_ended
         self.plt_i.gate_skip_not = [1]
@@ -811,8 +820,10 @@ class Saver(units.Unit):
         flush: if [1] - flushes vectors_ to fnme.
         fnme: filename to save vectors_ to.
     """
-    def __init__(self, fnme=None):
-        super(Saver, self).__init__()
+    def __init__(self, workflow, **kwargs):
+        fnme = kwargs.get("fnme")
+        kwargs["fnme"] = fnme
+        super(Saver, self).__init__(workflow, **kwargs)
         self.vectors_to_save = {}
         self.vectors_ = {}
         self.flush = [0]
@@ -943,7 +954,7 @@ def main():
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return
-        w = Workflow(layers=layers, device=device)
+        w = Workflow(None, layers=layers, device=device)
     w.initialize(global_alpha=args.global_alpha,
                  global_lambda=args.global_lambda,
                  minibatch_maxsize=args.minibatch_size, dirnme=args.dir,
@@ -960,7 +971,6 @@ def main():
     logging.info("Done")
     logging.info("Will execute workflow now")
     w.run()
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 
