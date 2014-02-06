@@ -950,6 +950,10 @@ def main():
             w_neg.device = device
             raise IOError()
     except IOError:
+        if args.export:
+            logging.error("Valid snapshot should be provided if "
+                          "export is True. Will now exit.")
+            return
         if (args.find_negative > 0 and w_neg == None):
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")

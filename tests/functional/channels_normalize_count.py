@@ -50,7 +50,7 @@ def main():
         for i in range(args.at_least - n):
             ii = numpy.random.randint(n)
             nme = found_files[ii]
-            shutil.copy(nme, "%s_replica%d.jp2" % (nme[:-4], i))
+            shutil.copy(nme, "%s_%d.jp2" % (nme[:-4], i))
 
     print("End of job")
 
