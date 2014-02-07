@@ -55,7 +55,7 @@ class Loader(loader.FullBatchLoader):
     """
     def __init__(self, workflow, **kwargs):
         channels_dir = kwargs.get("channels_dir", "")
-        rect = kwargs.get("rect", (192, 96))
+        rect = kwargs.get("rect", (264, 129))
         grayscale = kwargs.get("grayscale", False)
         cache_fnme = kwargs.get("cache_fnme", "")
         kwargs["channels_dir"] = channels_dir
@@ -368,8 +368,8 @@ class Loader(loader.FullBatchLoader):
 
         self.log().info("Adjusted rectangles:")
         for k in pos.keys():
-            sz[k][0] *= 1.01
-            sz[k][1] *= 1.01
+            #sz[k][0] *= 1.01
+            #sz[k][1] *= 1.01
             pos[k][0] += (rpos[k][0] - pos[k][0] - sz[k][0]) * 0.5
             pos[k][1] += (rpos[k][1] - pos[k][1] - sz[k][1]) * 0.5
             pos[k][0] = min(pos[k][0], 1.0 - sz[k][0])
@@ -447,6 +447,9 @@ class Loader(loader.FullBatchLoader):
                         negative_data, negative_file_map, rand))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
+
+        self.log().info("resize_count=%d asitis_count=%d" % (
+                        image.resize_count, image.asitis_count))
 
         # Fill the negative data from previous pickle
         for i in range(len(old_negative_data)):
@@ -636,9 +639,11 @@ class Workflow(workflow.OpenCLWorkflow):
         self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                         device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
