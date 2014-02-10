@@ -727,22 +727,21 @@ class Workflow(workflow.OpenCLWorkflow):
                                                    ylim=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision if len(self.plt) == 1
-                                   else self.plt[-2])
-            self.plt[-1].gate_skip = self.decision.epoch_ended
-            self.plt[-1].gate_skip_not = [1]
+            self.plt[-1].link_from(self.decision)
+            self.plt[-1].gate_block = self.decision.epoch_ended
+            self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_w = plotters.Weights2D(self, name="First Layer Weights",
                                         limit=16, yuv=True)
-        self.plt_w.input = self.gd[0].weights
+        self.plt_w.input = [self.gd[0].weights.v]
         self.plt_w.get_shape_from = self.forward[0].input
-        self.plt_w.input_field = "v"
-        self.plt_w.link_from(self.plt[-1])
-        self.plt_w.gate_skip = self.decision.epoch_ended
-        self.plt_w.gate_skip_not = [1]
+        self.plt_w.input_field = 0
+        self.plt_w.link_from(self.decision)
+        self.plt_w.gate_block = self.decision.epoch_ended
+        self.plt_w.gate_block_not = [1]
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
@@ -751,25 +750,23 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_i.input_fields.append(0)
         self.plt_i.inputs.append(self.decision.sample_input)
         self.plt_i.input_fields.append(0)
-        self.plt_i.link_from(self.plt_w)
-        self.plt_i.gate_skip = self.decision.epoch_ended
-        self.plt_i.gate_skip_not = [1]
+        self.plt_i.link_from(self.decision)
+        self.plt_i.gate_block = self.decision.epoch_ended
+        self.plt_i.gate_block_not = [1]
         # Confusion matrix plotter
         """
         self.plt_mx = []
-        j = 0
         for i in range(1, 3):
             self.plt_mx.append(plotters.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.plt_mx[-2] if j else self.plt_i)
-            self.plt_mx[-1].gate_skip = self.decision.epoch_ended
-            self.plt_mx[-1].gate_skip_not = [1]
-            j += 1
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = self.decision.epoch_ended
+            self.plt_mx[-1].gate_block_not = [1]
         self.gd[-1].link_from(self.plt_mx[-1])
         """
-        self.gd[-1].link_from(self.plt_i)
+        self.gd[-1].link_from(self.decision)
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    dirnme, dump, snapshot_prefix, w_neg, find_negative,
