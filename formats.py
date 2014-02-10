@@ -13,6 +13,7 @@ import config
 import znicz_config
 import error
 import logging
+import threading
 
 
 MAP_READ = pyopencl.map_flags.READ
@@ -226,6 +227,7 @@ class Vector(logger.Pickleable):
         self.v_ = None
         self.map_arr_ = None
         self.map_flags = 0
+        self.lock_ = threading.Lock()
 
     def __getstate__(self):
         """Get data from OpenCL device before pickling.
@@ -234,7 +236,7 @@ class Vector(logger.Pickleable):
             self.map_read()
         return super(Vector, self).__getstate__()
 
-    def initialize(self, device=None):
+    def _initialize(self, device):
         if self.v == None or self.v_ != None:
             return
         if device != None:
@@ -250,6 +252,11 @@ class Vector(logger.Pickleable):
         self.v_ = pyopencl.Buffer(self.device.context_,
             mf.READ_WRITE | mf.USE_HOST_PTR, hostbuf=ravel(self.v))
 
+    def initialize(self, device=None):
+        self.lock_.acquire()
+        self._initialize(device)
+        self.lock_.release()
+
     def _map(self, flags):
         if self.device == None:
             return
@@ -257,7 +264,7 @@ class Vector(logger.Pickleable):
             # already mapped properly, nothing to do
             if self.map_flags != MAP_READ or flags == MAP_READ:
                 return
-            self.unmap()
+            self._unmap()
         if flags == MAP_INVALIDATE and self.device.info.version < 1.1999:
             flags = MAP_WRITE  # 'cause available only starting with 1.2
         self.map_arr_, event = pyopencl.enqueue_map_buffer(
@@ -267,21 +274,32 @@ class Vector(logger.Pickleable):
         event.wait()
         self.map_flags = flags
 
-    def map_read(self):
-        return self._map(MAP_READ)
-
-    def map_write(self):
-        return self._map(MAP_WRITE)
-
-    def map_invalidate(self):
-        return self._map(MAP_INVALIDATE)
-
-    def unmap(self):
+    def _unmap(self):
         if self.map_arr_ == None:
             return
         self.map_arr_.base.release(queue=self.device.queue_, wait_for=None)
         self.map_arr_ = None
         self.map_flags = 0
+
+    def map_read(self):
+        self.lock_.acquire()
+        self._map(MAP_READ)
+        self.lock_.release()
+
+    def map_write(self):
+        self.lock_.acquire()
+        self._map(MAP_WRITE)
+        self.lock_.release()
+
+    def map_invalidate(self):
+        self.lock_.acquire()
+        self._map(MAP_INVALIDATE)
+        self.lock_.release()
+
+    def unmap(self):
+        self.lock_.acquire()
+        self._unmap()
+        self.lock_.release()
 
     def __len__(self):
         """To enable [] operator.
@@ -301,7 +319,9 @@ class Vector(logger.Pickleable):
     def reset(self):
         """Sets buffers to None
         """
-        self.unmap()
+        self.lock_.acquire()
+        self._unmap()
         self.v = None
         self.v_ = None
         self.map_flags = 0
+        self.lock_.release()
