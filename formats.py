@@ -14,7 +14,7 @@ import config
 import error
 import opencl_types
 import units
-
+import threading
 
 MAP_READ = pyopencl.map_flags.READ
 MAP_WRITE = pyopencl.map_flags.WRITE
