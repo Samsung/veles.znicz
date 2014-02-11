@@ -245,7 +245,7 @@ class FullBatchLoader(Loader):
 
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize[0]]
-        sh.extend(self.original_data.shape[1:])
+        sh.extend(self.original_data[0].shape)
         self.minibatch_data.v = numpy.zeros(sh,
                 dtype=opencl_types.dtypes[config.c_dtype])
 
