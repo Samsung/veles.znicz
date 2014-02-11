@@ -56,7 +56,7 @@ class Loader(loader.FullBatchLoader):
                 [1, 0, 0],
                 [0, 1, 0],
                 [0, 0, 1]],
-                dtype=config.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[config.dtype])
 
         self.original_data[:] = numpy.where(self.original_data == 0, -1.0,
                                             1.0)[:]

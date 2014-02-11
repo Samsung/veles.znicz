@@ -57,9 +57,9 @@ class Loader(mnist.Loader):
              [1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 7
              [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 8
              [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
-            dtype=config.dtypes[config.dtype])
+            dtype=opencl_types.dtypes[config.dtype])
         self.original_target = numpy.zeros([self.original_labels.shape[0], 7],
-            dtype=config.dtypes[config.dtype])
+            dtype=opencl_types.dtypes[config.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
             self.original_target[i] = self.class_target.v[label]

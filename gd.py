@@ -11,6 +11,7 @@ import numpy
 import time
 import pyopencl
 import config
+import opencl_types
 import znicz_config
 import logging
 
@@ -55,7 +56,7 @@ class GD(nn_units.GD):
         self.h = None  # formats.Vector()
         self.err_y = None  # formats.Vector()
         self.err_h = formats.Vector()
-        self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
+        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[config.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):

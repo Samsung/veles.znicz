@@ -164,7 +164,7 @@ class Loader(loader.Loader):
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize[0], nn * self.window_size]
         self.minibatch_data.v = numpy.zeros(sh,
-            dtype=config.dtypes[config.c_dtype])
+            dtype=opencl_types.dtypes[config.c_dtype])
 
         self.minibatch_target.reset()
 
@@ -176,7 +176,7 @@ class Loader(loader.Loader):
         self.minibatch_indexes.reset()
         sh = [self.minibatch_maxsize[0]]
         self.minibatch_indexes.v = numpy.zeros(sh,
-            dtype=config.itypes[config.get_itype_from_size(
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
                                 len(self.data["files"]))])
 
     def shuffle_validation_train(self):

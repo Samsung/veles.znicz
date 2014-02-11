@@ -5,14 +5,15 @@ Unit test for pooling layer forward propagation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import numpy
 import unittest
-import pooling
+
+import config
+import formats
 import gd_pooling
 import opencl
-import formats
-import numpy
-import config
-import znicz_config
+import opencl_types
+import pooling
 import units
 
 
@@ -27,7 +28,7 @@ class TestPooling(unittest.TestCase):
         print("Will test max pooling layer forward propagation")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -88,7 +89,7 @@ class TestPooling(unittest.TestCase):
         print("Will test max pooling layer gradient descent")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([[[3, 3, -1, 1, 2, 3, 4],
                               [-2, 4, -2, 3, -3, 1, -2],
                               [-3, -1, 2, -3, 1, -4, 0],
@@ -149,7 +150,7 @@ class TestPooling(unittest.TestCase):
         print("Will test avg pooling layer forward propagation")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -196,7 +197,7 @@ class TestPooling(unittest.TestCase):
         print("Will test avg pooling layer gradient descent")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([
             [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
              [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
@@ -277,5 +278,5 @@ class TestPooling(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

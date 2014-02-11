@@ -5,16 +5,17 @@ Will test correctness of OpenCL matrix multiplication.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import unittest
-import opencl
 import numpy
-import config
-import znicz_config
-import formats
-import rnd
-import pyopencl
-import units
 import os
+import pyopencl
+import unittest
+
+import config
+import formats
+import opencl
+import opencl_types
+import rnd
+import units
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -38,7 +39,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         c *= 1.7159
         return c
 
-    def _prepare_tsts(self, BLOCK_SIZE, dtype=config.dtypes[config.dtype],
+    def _prepare_tsts(self, BLOCK_SIZE, dtype=opencl_types.dtypes[config.dtype],
                       AB_WIDTH=1371, B_HEIGHT=11735, A_HEIGHT=171):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
@@ -144,5 +145,5 @@ class TestMatrixMultiplication(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

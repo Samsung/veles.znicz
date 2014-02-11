@@ -3,10 +3,12 @@ Created on May 21, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import unittest
-import units
 import os
 import pickle
+import unittest
+
+import opencl_types
+import units
 
 
 g_pt = 0

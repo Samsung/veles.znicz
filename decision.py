@@ -6,12 +6,14 @@ Decision unit.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import units
-import formats
-import config
-import time
 import os
 import pickle
+import time
+
+import config
+import formats
+import opencl_types
+import units
 
 
 class Decision(units.Unit):
@@ -162,10 +164,10 @@ class Decision(units.Unit):
                 self.tmp_epoch_samples_mse[i].v.size != self.class_samples[i]):
                 self.tmp_epoch_samples_mse[i].v = (
                     numpy.zeros(self.class_samples[i],
-                    dtype=config.dtypes[config.dtype]))
+                    dtype=opencl_types.dtypes[config.dtype]))
                 self.epoch_samples_mse[i].v = (
                     numpy.zeros(self.class_samples[i],
-                    dtype=config.dtypes[config.dtype]))
+                    dtype=opencl_types.dtypes[config.dtype]))
             else:
                 self.tmp_epoch_samples_mse[i].v[:] = 0
                 self.epoch_samples_mse[i].v[:] = 0

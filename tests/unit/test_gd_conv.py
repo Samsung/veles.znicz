@@ -5,12 +5,13 @@ Unit test for convolutional layer back propagation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import numpy
 import unittest
+
+import config
+import formats
 import gd_conv
 import opencl
-import formats
-import numpy
-import config
 import znicz_config
 
 
@@ -20,7 +21,7 @@ class TestGDConv(unittest.TestCase):
         device = opencl.Device()
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],
@@ -99,5 +100,5 @@ class TestGDConv(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

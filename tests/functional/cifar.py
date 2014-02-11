@@ -49,7 +49,7 @@ class Loader(loader.FullBatchLoader):
         self.original_data = numpy.zeros([60000, 3, 32, 32],
                                          dtype=numpy.float32)
         self.original_labels = numpy.zeros(60000,
-            dtype=config.itypes[config.get_itype_from_size(n_classes)])
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n_classes)])
 
         # Load Validation
         fin = open("%s/cifar/10/test_batch" % (config.test_dataset_root),

@@ -5,14 +5,16 @@ All2All units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import nn_units
-import formats
+import logging
 import numpy
 import pyopencl
 import time
+
 import config
-import znicz_config
-import logging
+import formats
+import nn_units
+import opencl_types
+import rnd
 
 
 class All2All(nn_units.Forward):
@@ -252,7 +254,7 @@ class All2AllSoftmax(All2All):
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
-        itype = config.get_itype_from_size(output_size)
+        itype = opencl_types.get_itype_from_size(output_size)
         global this_dir
         self.cl_sources_["softmax.cl"] = {"itype": itype}
         super(All2AllSoftmax, self).initialize()
@@ -260,7 +262,7 @@ class All2AllSoftmax(All2All):
         if (self.max_idx.v == None or
             self.max_idx.v.size != self.output.v.shape[0]):
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
-                dtype=config.itypes[itype])
+                dtype=opencl_types.itypes[itype])
             self.max_idx.v_ = None
 
         self.max_idx.initialize(self.device)

@@ -5,15 +5,17 @@ Convolutional layers.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import nn_units
-import formats
+import logging
 import numpy
 import pyopencl
 import time
+
 import config
-import znicz_config
-import logging
 import error
+import formats
+import nn_units
+import opencl_types
+import rnd
 
 
 class Conv(nn_units.Forward):

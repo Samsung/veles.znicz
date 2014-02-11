@@ -5,14 +5,15 @@ Gradient Descent for Pooling units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import nn_units
-import time
-import pyopencl
-import config
-import znicz_config
 import logging
 import numpy
+import pyopencl
+import time
+
+import config
 import error
+import formats
+import nn_units
 
 
 class GDPooling(nn_units.GD):

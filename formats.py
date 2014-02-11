@@ -5,15 +5,15 @@ Data formats for connectors.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import numpy
-import logger
-import pyopencl
-import os
-import config
-import znicz_config
-import error
 import logging
-import threading
+import numpy
+import os
+import pyopencl
+
+import config
+import error
+import opencl_types
+import units
 
 
 MAP_READ = pyopencl.map_flags.READ
@@ -243,10 +243,10 @@ class Vector(logger.Pickleable):
             self.device = device
         if self.device == None:
             return
-        if (self.v.dtype in config.convert_map.keys() and
-            config.convert_map[self.v.dtype] in [
-                config.dtypes[config.dtype], config.dtypes[config.c_dtype]]):
-            self.v = self.v.astype(config.convert_map[self.v.dtype])
+        if (self.v.dtype in opencl_types.convert_map.keys() and
+            opencl_types.convert_map[self.v.dtype] in [
+                opencl_types.dtypes[config.dtype], opencl_types.dtypes[config.c_dtype]]):
+            self.v = self.v.astype(opencl_types.convert_map[self.v.dtype])
         self.v = realign(self.v, self.device.info.memalign)
         mf = pyopencl.mem_flags
         self.v_ = pyopencl.Buffer(self.device.context_,

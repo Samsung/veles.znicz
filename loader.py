@@ -13,6 +13,7 @@ import time
 import config
 import error
 import formats
+import opencl_types
 import rnd
 import units
 
@@ -127,8 +128,8 @@ class Loader(units.Unit):
         # Initial shuffle.
         if self.shuffled_indexes == None:
             self.shuffled_indexes = numpy.arange(self.total_samples[0],
-                dtype=config.itypes[
-                    config.get_itype_from_size(self.total_samples[0])])
+                dtype=opencl_types.itypes[
+                    opencl_types.get_itype_from_size(self.total_samples[0])])
 
         if self.class_samples[0]:
             self.shuffle_validation_train()
@@ -234,14 +235,14 @@ class FullBatchLoader(Loader):
         sh = [self.minibatch_maxsize[0]]
         sh.extend(self.original_data.shape[1:])
         self.minibatch_data.v = numpy.zeros(sh,
-                dtype=config.dtypes[config.c_dtype])
+                dtype=opencl_types.dtypes[config.c_dtype])
 
         self.minibatch_target.reset()
         if self.original_target != None:
             sh = [self.minibatch_maxsize[0]]
             sh.extend(self.original_target.shape[1:])
             self.minibatch_target.v = numpy.zeros(sh,
-                dtype=config.dtypes[config.c_dtype])
+                dtype=opencl_types.dtypes[config.c_dtype])
 
         self.minibatch_labels.reset()
         if self.original_labels != None:
@@ -251,7 +252,7 @@ class FullBatchLoader(Loader):
 
         self.minibatch_indexes.reset()
         self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
-            dtype=config.itypes[config.get_itype_from_size(
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
                                 len(self.original_data))])
 
     def fill_minibatch(self):
@@ -292,8 +293,8 @@ class FullBatchLoader(Loader):
             if self.shuffled_indexes == None:
                 total_samples = numpy.sum(self.class_samples)
                 self.shuffled_indexes = numpy.arange(total_samples,
-                    dtype=config.itypes[
-                        config.get_itype_from_size(total_samples)])
+                    dtype=opencl_types.itypes[
+                        opencl_types.get_itype_from_size(total_samples)])
             return
         offs0 = self.class_samples[0]
         offs = offs0
@@ -303,8 +304,8 @@ class FullBatchLoader(Loader):
 
         if self.shuffled_indexes == None:
             self.shuffled_indexes = numpy.arange(total_samples,
-                dtype=config.itypes[
-                    config.get_itype_from_size(total_samples)])
+                dtype=opencl_types.itypes[
+                    opencl_types.get_itype_from_size(total_samples)])
         shuffled_indexes = self.shuffled_indexes
 
         # If there are no labels
@@ -517,7 +518,7 @@ class ImageLoader(FullBatchLoader):
             self.log().info("Labels are indexed from-to: %d %d" % (
                             min(labels), max_ll))
             self.original_labels = numpy.array(labels,
-                dtype=config.itypes[config.get_itype_from_size(max_ll)])
+                dtype=opencl_types.itypes[opencl_types.get_itype_from_size(max_ll)])
 
         # Loading target data and labels.
         if self.target_paths != None:
@@ -536,7 +537,7 @@ class ImageLoader(FullBatchLoader):
                     raise error.ErrBadFormat("Target samples count differs "
                                              "from data samples count.")
                 self.original_labels = numpy.arange(n,
-                    dtype=config.itypes[config.get_itype_from_size(n)])
+                    dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n)])
 
         self.original_data = data
 

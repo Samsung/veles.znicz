@@ -6,9 +6,37 @@ File for korean channels recognition.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import sys
-import os
+import argparse
 import logging
+import numpy
+import os
+import pickle
+import re
+import scipy.io
+import scipy.misc
+import sys
+import threading
+import time
+import traceback
+
+import all2all
+import decision
+import error
+import evaluator
+import formats
+import gd
+import glymur
+import image
+import image_saver
+import loader
+import opencl
+import opencl_types
+import plotters
+import rnd
+import thread_pool
+import units
+import workflow
+import znicz_config
 
 
 def add_path(path):
@@ -24,30 +52,7 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import units
-import formats
-import numpy
-import config
-import znicz_config
-import rnd
-import opencl
-import plotters
-import pickle
-import image
-import loader
-import decision
-import image_saver
-import error
-import all2all
-import evaluator
-import gd
-import glymur
-import workflow
-import scipy.io
-import scipy.misc
-import thread_pool
-import threading
-import re
+i
 
 
 class Loader(loader.FullBatchLoader):
@@ -412,7 +417,7 @@ class Loader(loader.FullBatchLoader):
 
         self.original_labels = numpy.zeros(
             total_files + len(old_negative_data),
-            dtype=config.itypes[config.get_itype_from_size(max_lbl + 1)])
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(max_lbl + 1)])
         if self.grayscale:
             self.original_data = numpy.zeros([
                 total_files + len(old_negative_data),
@@ -479,7 +484,7 @@ class Loader(loader.FullBatchLoader):
             del(negative_file_map)
             lbls = numpy.zeros(n, dtype=numpy.int8)
             idxs = numpy.arange(n,
-                dtype=config.itypes[config.get_itype_from_size(n)])
+                dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n)])
             n = self.filter_negative(data, lbls, idxs)
             self.w_neg.loader.original_data = None
             self.w_neg.loader.original_labels = None
@@ -847,7 +852,7 @@ class Saver(units.Unit):
             to_save = {}
             for name, vectors in self.vectors_.items():
                 sh = [0]
-                dtype = config.dtypes[config.dtype]
+                dtype = opencl_types.dtypes[config.dtype]
                 for vector in vectors:
                     if len(sh) == 1:
                         dtype = vector.dtype
@@ -869,9 +874,6 @@ class Saver(units.Unit):
             time.sleep(86400)
 
 
-import time
-import traceback
-import argparse
 
 
 def main():

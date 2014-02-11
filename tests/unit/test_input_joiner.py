@@ -3,11 +3,14 @@ Created on Oct 29, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import numpy
 import unittest
+
+import formats
 import input_joiner
 import opencl
-import formats
-import numpy
+import opencl_types
+import units
 
 
 class TestInputJoiner(unittest.TestCase):
@@ -129,5 +132,5 @@ class TestInputJoiner(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

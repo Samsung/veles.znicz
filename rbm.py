@@ -5,13 +5,14 @@ RBM unit.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import all2all
-import formats
 import numpy
 import pyopencl
+
+import all2all
 import config
-import znicz_config
 import error
+import formats
+import opencl_types
 
 
 class RBMTanh(all2all.All2AllTanh):
@@ -25,7 +26,7 @@ class RBMTanh(all2all.All2AllTanh):
         super(RBMTanh, self).__init__(workflow, **kwargs)
         self.output_rand = formats.Vector()
         self.y_low_high = numpy.array([-1.0, 1.0],
-                                      dtype=config.dtypes[config.dtype])
+                                      dtype=opencl_types.dtypes[config.dtype])
 
     def init_unpickled(self):
         super(RBMTanh, self).init_unpickled()
@@ -37,7 +38,7 @@ class RBMTanh(all2all.All2AllTanh):
         if (self.output_rand.v == None or
             self.output_rand.v.size != self.output.v.size):
             self.output_rand.v = numpy.zeros(self.output.v.shape,
-                                             dtype=config.dtypes[config.dtype])
+                                             dtype=opencl_types.dtypes[config.dtype])
             self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
         if not self.device:

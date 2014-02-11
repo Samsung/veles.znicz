@@ -5,12 +5,14 @@ Joins several inpus into one continuous output.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
-import formats
 import numpy
-import error
-import config
 import pyopencl
+
+import config
+import error
+import formats
+import opencl_types
+import units
 
 
 class InputJoiner(units.OpenCLUnit):
@@ -90,7 +92,7 @@ class InputJoiner(units.OpenCLUnit):
 
         if self.krn_ == None:
             defines = {
-                'etype': config.numpy_dtype_to_opencl(self.output.v.dtype)
+                'etype': opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
             }
             self.build_program(defines, "%s/join_%s.cl" % (config.cache_dir,
                 "_".join(str(x) for x in self.output_sample_shape)))

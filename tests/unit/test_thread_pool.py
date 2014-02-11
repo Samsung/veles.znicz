@@ -5,11 +5,13 @@ Unit test for ThreadPool().
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import unittest
-import thread_pool
 import numpy.random
-import time
 import threading
+import time
+import unittest
+
+import opencl_types
+import thread_pool
 
 
 class TestThreadPool(unittest.TestCase):

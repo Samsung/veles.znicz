@@ -3,13 +3,14 @@ Created on Apr 1, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import units
-import formats
 import numpy
-import config
-import znicz_config
 import pyopencl
+
+import config
 import error
+import formats
+import opencl_types
+import units
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -67,12 +68,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
-        itype = config.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
-        if (self.labels.v.dtype != config.itypes[itype] or
+        itype = opencl_types.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
+        if (self.labels.v.dtype != opencl_types.itypes[itype] or
             self.labels.v.dtype != self.max_idx.v.dtype):
             raise error.ErrBadFormat("Incorrectly set labels.dtype "
                                      "(probably in Loader).")
-        itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
+        itype2 = opencl_types.get_itype_from_size(self.max_samples_per_epoch[0])
         global this_dir
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
@@ -83,7 +84,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         if self.n_err.v == None or self.n_err.v.size < 2:
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=config.itypes[itype2])
+            self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
 
         out_size = self.y.v.size // self.y.v.shape[0]
         if self.compute_confusion_matrix:
@@ -91,14 +92,14 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                 self.confusion_matrix.v.size != out_size * out_size):
                 self.confusion_matrix.reset()
                 self.confusion_matrix.v = numpy.zeros([out_size, out_size],
-                    dtype=config.itypes[itype2])
+                    dtype=opencl_types.itypes[itype2])
         else:
             self.confusion_matrix.reset()
 
         if self.max_err_y_sum.v == None or self.max_err_y_sum.v.size < 1:
             self.max_err_y_sum.reset()
             self.max_err_y_sum.v = numpy.zeros(1,
-                dtype=config.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[config.dtype])
 
         self.y.initialize(self.device)
         self.err_y.initialize(self.device)
@@ -111,7 +112,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if self.device == None:
             return
 
-        self.krn_constants_i_ = numpy.zeros(1, config.itypes[itype2])
+        self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
         if self.prg_ == None:
             defines = {
@@ -242,9 +243,9 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.n_err = formats.Vector()
 
     def initialize(self):
-        itype = config.get_itype_from_size((self.y.v.size //
+        itype = opencl_types.get_itype_from_size((self.y.v.size //
                                             self.y.v.shape[0]))
-        itype2 = config.get_itype_from_size(self.max_samples_per_epoch[0])
+        itype2 = opencl_types.get_itype_from_size(self.max_samples_per_epoch[0])
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v == None or
@@ -255,19 +256,19 @@ class EvaluatorMSE(units.OpenCLUnit):
         if self.metrics.v == None or self.metrics.v.size < 3:
             self.metrics.reset()
             self.metrics.v = numpy.zeros(3,
-                dtype=config.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[config.dtype])
             self.metrics.v[2] = 1.0e30  # mse_min
 
         if (self.mse.v == None or
             self.mse.v.size != self.err_y.v.shape[0]):
             self.mse.reset()
             self.mse.v = numpy.zeros(self.err_y.v.shape[0],
-                dtype=config.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[config.dtype])
 
         if (self.labels != None and self.class_target != None and
             (self.n_err.v == None or self.n_err.v.size < 2)):
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=config.itypes[itype2])
+            self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
 
         self.y.initialize(self.device)
         self.err_y.initialize(self.device)
@@ -278,7 +279,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         if not self.device:
             return
 
-        self.krn_constants_i_ = numpy.zeros(1, config.itypes[itype2])
+        self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
         if self.prg_ == None:
             defines = {

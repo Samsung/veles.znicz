@@ -5,17 +5,18 @@ Unit test for convolutional layer forward propagation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import unittest
-import conv
-import opencl
-import formats
 import numpy
-import config
-import znicz_config
 import scipy.signal
 import time
-import units
+import unittest
+
+import config
+import conv
+import formats
+import opencl
+import opencl_types
 import rnd
+import units
 
 
 class TestConv(unittest.TestCase):
@@ -31,7 +32,7 @@ class TestConv(unittest.TestCase):
         print("Will test convolutional layer forward propagation")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
@@ -100,7 +101,7 @@ class TestConv(unittest.TestCase):
         print("OpenCL")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
@@ -160,7 +161,7 @@ class TestConv(unittest.TestCase):
         print("OpenCL")
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
@@ -218,5 +219,5 @@ class TestConv(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

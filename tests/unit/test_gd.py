@@ -4,21 +4,22 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
+import numpy
 import unittest
+
+import config
+import formats
 import gd
 import opencl
-import formats
-import numpy
-import config
-import znicz_config
-import units
+import opencl_types
 import rnd
+import units
 
 
 class TestGD(unittest.TestCase):
     def _do_tst(self, device):
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.empty([5, 5], dtype=dtype)
         rnd.default.fill(inp.v)
 
@@ -66,5 +67,5 @@ class TestGD(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

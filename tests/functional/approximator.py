@@ -6,9 +6,25 @@ File for function approximation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import sys
-import os
 import logging
+import numpy
+import os
+import scipy.io
+import sys
+
+import all2all
+import decision
+import error
+import evaluator
+import gd
+import loader
+import opencl
+import opencl_types
+import plotters
+import rnd
+import units
+import workflow
+import znicz_config
 
 
 def add_path(path):
@@ -21,24 +37,10 @@ if not this_dir:
     this_dir = "."
 add_path("%s/../src" % (this_dir))
 add_path("%s/../.." % (this_dir))
-add_path("%s/../../../src" % (this_dir))
+add_path("%s/../../../src" % (dir))
 
 
-import units
-import numpy
-import rnd
-import opencl
-import plotters
-import loader
-import decision
-import all2all
-import evaluator
-import gd
-import scipy.io
-import workflow
-import error
-import config
-import znicz_config
+i
 
 
 class Loader(loader.ImageLoader):
@@ -51,7 +53,7 @@ class Loader(loader.ImageLoader):
         else:
             raise error.ErrBadFormat("Could not find variable to import "
                                      "in %s" % (fnme))
-        aa = numpy.zeros(a.shape, dtype=config.dtypes[config.dtype])
+        aa = numpy.zeros(a.shape, dtype=opencl_types.dtypes[config.dtype])
         aa[:] = a[:]
         return (aa, [])
 

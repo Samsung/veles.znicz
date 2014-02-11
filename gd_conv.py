@@ -5,15 +5,16 @@ Gradient Descent for Convolutional Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import nn_units
-import formats
-import numpy
-import time
-import pyopencl
-import config
-import znicz_config
 import logging
+import numpy
+import pyopencl
+import time
+
+import config
 import error
+import formats
+import nn_units
+import opencl_types
 
 
 class GD(nn_units.GD):
@@ -51,7 +52,7 @@ class GD(nn_units.GD):
         self.n_kernels = kwargs["n_kernels"]
         self.kx = kwargs["kx"]
         self.ky = kwargs["ky"]
-        self.cl_const = numpy.zeros(2, dtype=config.dtypes[config.dtype])
+        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[config.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):

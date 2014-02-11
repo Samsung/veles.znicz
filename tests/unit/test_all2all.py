@@ -4,15 +4,16 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
-import unittest
-import all2all
-import opencl
-import formats
 import numpy
+import unittest
+
+import all2all
 import config
-import znicz_config
-import units
+import formats
+import opencl
 import rnd
+import units
+import znicz_config
 
 
 class TestAll2All(unittest.TestCase):
@@ -21,7 +22,7 @@ class TestAll2All(unittest.TestCase):
         device = opencl.Device()
 
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([[1, 2, 3, 2, 1],
                              [0, 1, 2, 1, 0],
                              [0, 1, 0, 1, 0],
@@ -59,7 +60,7 @@ class TestAll2All(unittest.TestCase):
 
     def _do_tst(self, device):
         inp = formats.Vector()
-        dtype = config.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.empty([75, 150], dtype=dtype)
         rnd.default.fill(inp.v)
 
@@ -87,5 +88,5 @@ class TestAll2All(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

@@ -118,9 +118,9 @@ class Loader(mnist.Loader):
 
         self.class_target.reset()
         # self.class_target.v = numpy.zeros([10, 10],
-        #    dtype=config.dtypes[config.dtype])
+        #    dtype=opencl_types.dtypes[config.dtype])
         self.class_target.v = numpy.zeros([10, 784],
-            dtype=config.dtypes[config.dtype])
+            dtype=opencl_types.dtypes[config.dtype])
 
         for i in range(10):
             # self.class_target.v[i, :] = -1
@@ -128,7 +128,7 @@ class Loader(mnist.Loader):
             img = do_plot("%s/packages/arial.ttf" % (config.test_dataset_root),
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_target.v[i] = img.ravel().astype(
-                                config.dtypes[config.dtype])
+                                opencl_types.dtypes[config.dtype])
             formats.normalize(self.class_target.v[i])
 
         self.original_target = numpy.zeros([self.original_labels.shape[0],

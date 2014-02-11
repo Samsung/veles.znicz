@@ -5,15 +5,16 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import numpy
+import pyopencl
 import unittest
-import units
+
+import config
 import formats
 import opencl
-import pyopencl
-import config
-import znicz_config
-import numpy
+import opencl_types
 import rnd
+import units
 
 
 class TestMatrixReduce(unittest.TestCase):
@@ -60,7 +61,7 @@ class TestMatrixReduce(unittest.TestCase):
     def test_fixed(self):
         """Test with fixed input.
         """
-        dtype = config.dtypes[config.c_dtype]
+        dtype = opencl_types.dtypes[config.c_dtype]
 
         a = formats.Vector()
         a.v = numpy.array([[1, 2, 3],
@@ -97,7 +98,7 @@ class TestMatrixReduce(unittest.TestCase):
     def test_random(self):
         """Test with random input vs numpy.
         """
-        dtype = config.dtypes[config.c_dtype]
+        dtype = opencl_types.dtypes[config.c_dtype]
 
         a = formats.Vector()
         a.v = numpy.zeros([3337, 775], dtype=dtype)
@@ -147,5 +148,5 @@ class TestMatrixReduce(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

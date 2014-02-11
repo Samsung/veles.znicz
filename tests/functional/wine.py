@@ -52,15 +52,15 @@ class Loader(loader.FullBatchLoader):
             if not len(s):
                 break
             aa.append(numpy.fromstring(s, sep=",",
-                dtype=config.dtypes[config.dtype]))
+                dtype=opencl_types.dtypes[config.dtype]))
             max_lbl = max(max_lbl, int(aa[-1][0]))
         fin.close()
 
         self.original_data = numpy.zeros([len(aa), aa[0].shape[0] - 1],
                                          dtype=numpy.float32)
         self.original_labels = numpy.zeros([self.original_data.shape[0]],
-            dtype=config.itypes[
-                config.get_itype_from_size(max_lbl)])
+            dtype=opencl_types.itypes[
+                opencl_types.get_itype_from_size(max_lbl)])
 
         for i, a in enumerate(aa):
             self.original_data[i] = a[1:]
