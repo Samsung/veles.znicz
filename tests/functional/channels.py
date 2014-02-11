@@ -47,6 +47,8 @@ import plotters
 import rnd
 import thread_pool
 import workflow
+import config
+import znicz_config
 
 
 class Loader(loader.FullBatchLoader):
@@ -179,10 +181,12 @@ class Loader(loader.FullBatchLoader):
         data_lock.acquire()
         self.original_data.append(sample)
         self.original_labels.append(lbl)
-        self.file_map[len(self.original_data) - 1] = fnme
+        ii = len(self.original_data) - 1
+        self.file_map[ii] = fnme
         if n_negative != None:
             n_negative[0] += 1
         data_lock.release()
+        return ii
 
     def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock,
                        i_sample, lbl, n_files, total_files,
@@ -211,8 +215,16 @@ class Loader(loader.FullBatchLoader):
                     continue
                 sample = self.sample_rect(a, p, sz)
                 l = self.get_label_from_sample(sample)
-                if l != sample:  # negative found
-                    self.append_sample(sample, 0, fnme, n_negative, data_lock)
+                if l != 0:  # negative found
+                    ii = self.append_sample(sample, 0, fnme, n_negative,
+                                            data_lock)
+                    dirnme = "%s/found_negative_images" % (config.cache_dir)
+                    try:
+                        os.mkdir(dirnme)
+                    except OSError:
+                        pass
+                    fnme = "%s/0_as_%d.%d.png" % (dirnme, l, ii)
+                    scipy.misc.imsave(fnme, self.as_image(sample))
 
         stat_lock.acquire()
         n_files[0] += 1
