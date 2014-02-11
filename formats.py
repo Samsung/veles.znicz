@@ -188,7 +188,7 @@ def aligned_zeros(shape, boundary=4096, dtype=numpy.float32):
     return b
 
 
-class Vector(logger.Pickleable):
+class Vector(units.Pickleable):
     """Container class for numpy array backed by OpenCL buffer.
 
     Attributes:
