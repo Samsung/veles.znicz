@@ -190,7 +190,7 @@ class Loader(loader.FullBatchLoader):
         data_lock.release()
         return ii
 
-    def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock,
+    def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock, dot_lock,
                        i_sample, lbl, n_files, total_files,
                        n_negative, rand):
         """Loads, crops and normalizes image in the parallel thread.
@@ -216,7 +216,7 @@ class Loader(loader.FullBatchLoader):
                 else:
                     continue
                 sample = self.sample_rect(a, p, sz)
-                l = self.get_label_from_sample(sample)
+                l = self.get_label_from_sample(sample, dot_lock)
                 if l != 0:  # negative found
                     ii = self.append_sample(sample, 0, fnme, n_negative,
                                             data_lock)
@@ -235,18 +235,23 @@ class Loader(loader.FullBatchLoader):
                 n_files[0], 100.0 * n_files[0] / total_files))
         stat_lock.release()
 
-    def get_label_from_sample(self, sample):
+    def get_label_from_sample(self, sample, lock):
         weights = self.w_neg[0]
         bias = self.w_neg[1]
         n = len(weights)
-        a = sample.ravel()
+        dtype = weights[0].dtype
+        a = sample.ravel().astype(dtype)
         for i in range(n):
-            a = numpy.dot(a, weights[i].transpose())
-            a += bias[i]
+            b = numpy.zeros_like(bias[i])
+            lock.acquire()
+            numpy.dot(a, weights[i], b)
+            lock.release()
+            b += bias[i]
             if i < n - 1:
-                a *= 0.6666
-                numpy.tanh(a, a)
-                a *= 1.7159
+                b *= 0.6666
+                numpy.tanh(b, b)
+                b *= 1.7159
+            a = b
         return a.argmax()
 
     def get_label(self, dirnme):
@@ -453,11 +458,12 @@ class Loader(loader.FullBatchLoader):
         rand = rnd.Rand()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
-        n_threads = 48
+        n_threads = 64
         pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
                                       queue_size=n_threads)
         data_lock = threading.Lock()
         stat_lock = threading.Lock()
+        dot_lock = threading.Lock()
         n_files = [0]
         n_negative = [0]
         i_sample = 0
@@ -469,7 +475,8 @@ class Loader(loader.FullBatchLoader):
                 lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, (fnme,
-                        pos[subdir], sz[subdir], data_lock, stat_lock,
+                        pos[subdir], sz[subdir],
+                        data_lock, stat_lock, dot_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
                         n_negative, rand))
                     i_sample += 1
@@ -478,6 +485,11 @@ class Loader(loader.FullBatchLoader):
         if (len(self.original_data) != len(self.original_labels) or
             len(self.file_map) != len(self.original_labels)):
             raise Exception("Logic error")
+
+        if self.w_neg != None and self.find_negative > 0:
+            n_positive = numpy.count_nonzero(self.original_labels)
+            self.log().info("Found %d negative samples (%.2f%%)" % (
+                n_negative[0], 100.0 * n_negative[0] / n_positive))
 
         self.log().info("Loaded %d samples with resize and %d without" % (
                         image.resize_count, image.asitis_count))
@@ -796,6 +808,12 @@ def main():
                     "should be provided when find_negative is supplied. "
                     "Will now exit.")
                 return
+            weights = w[0]
+            for i in range(len(weights)):
+                wt = numpy.zeros([weights[i].shape[1], weights[i].shape[0]],
+                                 dtype=weights[i].dtype)
+                wt[:] = weights[i].transpose()[:]
+                weights[i] = wt
             w_neg = w
             raise IOError()
     except IOError:
