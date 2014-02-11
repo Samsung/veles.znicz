@@ -6,15 +6,17 @@ Created on Oct 29, 2013
 import numpy
 import unittest
 
+import config
+import znicz_config
 import formats
 import input_joiner
 import opencl
-import opencl_types
-import units
 
 
 class TestInputJoiner(unittest.TestCase):
     def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

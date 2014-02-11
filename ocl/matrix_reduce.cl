@@ -1,5 +1,3 @@
-#include "defines.cl"
-
 /// @brief Define for reduce operation on matrix rows or columns.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @details Example of how to use:

@@ -28,6 +28,7 @@ import config
 import znicz_config
 import rnd
 import opencl
+import opencl_types
 import all2all
 import evaluator
 import gd

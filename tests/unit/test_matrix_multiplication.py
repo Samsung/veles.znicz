@@ -11,6 +11,7 @@ import pyopencl
 import unittest
 
 import config
+import znicz_config
 import formats
 import opencl
 import opencl_types
@@ -19,6 +20,14 @@ import units
 
 
 class TestMatrixMultiplication(unittest.TestCase):
+    def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        del self.device
+
     def _do_cpu_tst(self):
         """Pure single core CPU test
         """
@@ -74,31 +83,23 @@ class TestMatrixMultiplication(unittest.TestCase):
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
-        defines = ("%s\n"
-        "#define ACTIVATION_TANH\n"
-        "#define BLOCK_SIZE %d\n"
-        "#define H %d\n"
-        "#define Y %d\n"
-        "#define BATCH %d\n\n" % (config.cl_defines[config.dtype], BLOCK_SIZE,
-                                  self.AB_WIDTH, self.B_HEIGHT, self.A_HEIGHT))
-        s = defines
-        s += units.OpenCLUnit.read_ocl_file("defines.cl")
-        s_mx_mul = units.OpenCLUnit.read_ocl_file("matrix_multiplication.cl")
-        s += units.OpenCLUnit.read_ocl_file("forward.cl")
-        s = s.replace("MX_MUL", s_mx_mul)
-        fout = open(os.path.join(config.cache_dir, "test.cl"), "w")
-        fout.write(s)
-        fout.close()
-
         self.a.initialize(device)
         self.b.initialize(device)
         self.c[:] = 0
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        prg = pyopencl.Program(device.context_, s).build()
+        obj = units.OpenCLUnit(None, device=device)
+        obj.cl_sources_["forward.cl"] = {}
+        defines = {
+            "ACTIVATION_TANH": 1,
+            "BLOCK_SIZE": BLOCK_SIZE,
+            "H": self.AB_WIDTH,
+            "Y": self.B_HEIGHT,
+            "BATCH": self.A_HEIGHT}
+        obj.build_program(defines, os.path.join(config.cache_dir, "test.cl"))
 
-        krn = pyopencl.Kernel(prg, "feed_layer")
+        krn = obj.get_kernel("feed_layer")
         krn.set_arg(0, self.a.v_)
         krn.set_arg(1, self.b.v_)
         krn.set_arg(2, self.c.v_)
@@ -118,9 +119,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.rnd = rnd.Rand()
         self.rnd.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                      count=1024))
-        device = opencl.Device()
-        self.assertNotEqual(device, None, "Could not get OpenCL device.")
-        block_size = device.info.BLOCK_SIZE[config.dtype]
+        block_size = self.device.info.BLOCK_SIZE[config.dtype]
         N = 1000
         print("Will test %d matrix multiplications "
               "with BLOCK_SIZE = %d" % (N, block_size))
@@ -134,7 +133,7 @@ class TestMatrixMultiplication(unittest.TestCase):
             self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self._do_cpu_tst()
-            self._do_tst(device, block_size)
+            self._do_tst(self.device, block_size)
             max_diff = numpy.fabs(c.ravel() - self.c.v[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))

@@ -9,16 +9,24 @@ import numpy
 import unittest
 
 import config
+import znicz_config
 import formats
 import gd_conv
 import opencl
-import znicz_config
+import opencl_types
 
 
 class TestGDConv(unittest.TestCase):
+    def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        del self.device
+
     def test_err_h(self):
         print("Will test convolutional layer back propagation")
-        device = opencl.Device()
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[config.dtype]
@@ -43,7 +51,7 @@ class TestGDConv(unittest.TestCase):
 
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = gd_conv.GD(None, n_kernels=2, kx=3, ky=3, device=device)
+        c = gd_conv.GD(None, n_kernels=2, kx=3, ky=3, device=self.device)
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[[-1, 3],
                                [8, 2],

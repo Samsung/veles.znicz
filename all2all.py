@@ -14,7 +14,6 @@ import config
 import formats
 import nn_units
 import opencl_types
-import rnd
 
 
 class All2All(nn_units.Forward):

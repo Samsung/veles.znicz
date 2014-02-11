@@ -11,22 +11,22 @@ import time
 import unittest
 
 import config
+import znicz_config
 import conv
 import formats
 import opencl
 import opencl_types
 import rnd
-import units
 
 
 class TestConv(unittest.TestCase):
     def setUp(self):
-        self.config_unit_test = config.unit_test
         config.unit_test = True
+        config.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
-        config.unit_test = self.config_unit_test
+        del self.device
 
     def test_fixed(self):
         print("Will test convolutional layer forward propagation")

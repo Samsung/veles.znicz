@@ -11,16 +11,22 @@ import all2all
 import config
 import formats
 import opencl
+import opencl_types
 import rnd
-import units
 import znicz_config
 
 
 class TestAll2All(unittest.TestCase):
+    def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        del self.device
+
     def test_with_fixed_input(self):
         print("Will test all2all unit")
-        device = opencl.Device()
-
         inp = formats.Vector()
         dtype = opencl_types.dtypes[config.dtype]
         inp.v = numpy.array([[1, 2, 3, 2, 1],
@@ -34,7 +40,8 @@ class TestAll2All(unittest.TestCase):
                               [-1, 2, 0, 1, 3]], dtype=dtype)
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
-        c = all2all.All2All([3], device=device, weights_amplitude=0.05)
+        c = all2all.All2All(None, output_shape=[3], device=self.device,
+                            weights_amplitude=0.05)
         c.input = inp
 
         c.initialize()
@@ -56,7 +63,6 @@ class TestAll2All(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         print("All Ok")
-        units.pool.shutdown()
 
     def _do_tst(self, device):
         inp = formats.Vector()
@@ -64,7 +70,7 @@ class TestAll2All(unittest.TestCase):
         inp.v = numpy.empty([75, 150], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = all2all.All2All([93], device=device)
+        c = all2all.All2All(None, output_shape=[93], device=device)
         c.input = inp
 
         c.initialize()
@@ -76,15 +82,13 @@ class TestAll2All(unittest.TestCase):
     def test_gpu_cpu(self):
         print("Will test all2all unit for gpu/cpu correctness")
         s = rnd.default.state
-        device = opencl.Device()
-        y_gpu = self._do_tst(device)
+        y_gpu = self._do_tst(self.device)
         rnd.default.state = s
         y_cpu = self._do_tst(None)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         print("All Ok")
-        units.pool.shutdown()
 
 
 if __name__ == "__main__":

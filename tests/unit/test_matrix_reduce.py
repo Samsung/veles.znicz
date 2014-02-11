@@ -10,6 +10,7 @@ import pyopencl
 import unittest
 
 import config
+import znicz_config
 import formats
 import opencl
 import opencl_types
@@ -19,27 +20,25 @@ import units
 
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
         del self.device
-        units.pool.shutdown()
 
     def _build_program(self, a, b, A_WIDTH, A_HEIGHT, A_COL, REDUCE_SIZE):
-        defines = ("%s\n"
-                   "#define A_WIDTH %d\n"
-                   "#define A_HEIGHT %d\n"
-                   "%s\n"
-                   "#define REDUCE_SIZE %d\n" % (
-                   config.cl_defines[config.c_dtype],
-                   A_WIDTH, A_HEIGHT,
-                   "#define A_COL" if A_COL else "",
-                   REDUCE_SIZE))
+        defines = {"A_WIDTH": A_WIDTH,
+                   "A_HEIGHT": A_HEIGHT,
+                   "REDUCE_SIZE": REDUCE_SIZE}
+        if A_COL:
+            defines["A_COL"] = 1
 
         src = (
+        "#include \"defines.cl\"\n"
         "__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
         "void test(__global c_dtype *A, __global c_dtype *b) {\n"
-        "MX_REDUCE\n"
+        "#include \"matrix_reduce.cl\"\n"
         "if (!tx) {\n"
         "  sum += AS[0];\n"
         "  b[bx] = sum;\n"
@@ -49,11 +48,11 @@ class TestMatrixReduce(unittest.TestCase):
         fout.write(src)
         fout.close()
 
-        tmp = units.OpenCLUnit(self.device)
-        tmp.cl_sources_[fnme] = ""
+        tmp = units.OpenCLUnit(None, device=self.device)
+        tmp.cl_sources_[fnme] = {}
         tmp.build_program(defines, fnme)
 
-        krn = pyopencl.Kernel(tmp.prg_, "test")
+        krn = tmp.get_kernel("test")
         krn.set_arg(0, a.v_)
         krn.set_arg(1, b.v_)
         return krn

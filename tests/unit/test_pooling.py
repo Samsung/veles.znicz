@@ -9,16 +9,18 @@ import numpy
 import unittest
 
 import config
+import znicz_config
 import formats
 import gd_pooling
 import opencl
 import opencl_types
 import pooling
-import units
 
 
 class TestPooling(unittest.TestCase):
     def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

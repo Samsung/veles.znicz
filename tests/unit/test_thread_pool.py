@@ -9,8 +9,6 @@ import numpy.random
 import threading
 import time
 import unittest
-
-import opencl_types
 import thread_pool
 
 

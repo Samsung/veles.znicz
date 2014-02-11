@@ -6,8 +6,6 @@ Created on May 21, 2013
 import os
 import pickle
 import unittest
-
-import opencl_types
 import units
 
 

@@ -8,15 +8,23 @@ import numpy
 import unittest
 
 import config
+import znicz_config
 import formats
 import gd
 import opencl
 import opencl_types
 import rnd
-import units
 
 
 class TestGD(unittest.TestCase):
+    def setUp(self):
+        config.unit_test = True
+        config.plotters_disabled = True
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        del self.device
+
     def _do_tst(self, device):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[config.dtype]
@@ -56,8 +64,7 @@ class TestGD(unittest.TestCase):
     def test_gpu_cpu(self):
         print("Will test all2all unit for gpu/cpu correctness")
         s = rnd.default.state
-        device = opencl.Device()
-        y_gpu = self._do_tst(device)
+        y_gpu = self._do_tst(self.device)
         rnd.default.state = s
         y_cpu = self._do_tst(None)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()

@@ -415,7 +415,8 @@ class Loader(loader.FullBatchLoader):
 
         self.original_labels = numpy.zeros(
             total_files + len(old_negative_data),
-            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(max_lbl + 1)])
+            dtype=opencl_types.itypes[
+                opencl_types.get_itype_from_size(max_lbl + 1)])
         if self.grayscale:
             self.original_data = numpy.zeros([
                 total_files + len(old_negative_data),
@@ -480,7 +481,7 @@ class Loader(loader.FullBatchLoader):
                 negative_data[i].clear()
             del(negative_data)
             del(negative_file_map)
-            lbls = numpy.zeros(n, dtype=numpy.int8)
+            lbls = numpy.zeros(n, dtype=self.original_labels.dtype)
             idxs = numpy.arange(n,
                 dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n)])
             n = self.filter_negative(data, lbls, idxs)
@@ -517,6 +518,7 @@ class Loader(loader.FullBatchLoader):
         self.extract_validation_from_train(rand=rnd.default2)
 
         # Saving all the samples
+        """
         self.log().info("Dumping all the samples to %s" % (config.cache_dir))
         for i in self.shuffled_indexes:
             l = self.original_labels[i]
@@ -528,7 +530,7 @@ class Loader(loader.FullBatchLoader):
             fnme = "%s/%d.png" % (dirnme, i)
             scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
         self.log().info("Done")
-        #
+        """
 
         self.log().info("class_samples=[%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
@@ -567,7 +569,7 @@ class Loader(loader.FullBatchLoader):
         for f in w_neg.forward:
             f.device = w_neg.device
         w_neg.ev.device = w_neg.device
-        w_neg.saver = Saver(self)
+        w_neg.saver = Saver(w_neg)
         w_neg.saver.vectors_to_save["m"] = w_neg.forward[-1].max_idx
         w_neg.saver.link_from(w_neg.decision)
         w_neg.loader.shuffle = w_neg.loader.nothing
@@ -870,8 +872,6 @@ class Saver(units.Unit):
             self.log().info("Saved")
             to_save.clear()
             time.sleep(86400)
-
-
 
 
 def main():
