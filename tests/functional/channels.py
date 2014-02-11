@@ -144,8 +144,8 @@ class Loader(loader.FullBatchLoader):
         return a
 
     def sample_rect(self, a, pos, sz):
-        aa = numpy.empty_like(self.original_data[0])
         if self.grayscale:
+            aa = numpy.empty([self.rect[1], self.rect[0]], dtype=numpy.float32)
             x = a
             left = int(numpy.round(pos[0] * x.shape[1]))
             top = int(numpy.round(pos[1] * x.shape[0]))
@@ -156,6 +156,8 @@ class Loader(loader.FullBatchLoader):
             x = image.resize(x, self.rect[0], self.rect[1])
             aa[:] = x[:]
         else:
+            aa = numpy.empty([3, self.rect[1], self.rect[0]],
+                             dtype=numpy.float32)
             # Loop by color planes.
             for j in range(0, a.shape[0]):
                 x = a[j]
@@ -237,8 +239,9 @@ class Loader(loader.FullBatchLoader):
         weights = self.w_neg[0]
         bias = self.w_neg[1]
         n = len(weights)
+        a = sample.ravel()
         for i in range(n):
-            a = numpy.dot(sample, weights[i].transpose())
+            a = numpy.dot(a, weights[i].transpose())
             a += bias[i]
             if i < n - 1:
                 a *= 0.6666
@@ -302,40 +305,39 @@ class Loader(loader.FullBatchLoader):
             n = int(numpy.prod(sh))
             # Get raw array from file
             self.original_data = []
+            store_negative = self.w_neg != None and self.find_negative > 0
+            old_file_map = []
+            n_not_exists_anymore = 0
             for i in range(len(self.original_labels)):
-                self.original_data.append(numpy.fromfile(
-                    fin, dtype=numpy.float32, count=n).reshape(sh))
+                a = numpy.fromfile(fin, dtype=numpy.float32, count=n)
+                if store_negative:
+                    if self.original_labels[i]:
+                        del a
+                        continue
+                    if not os.path.isfile(self.file_map[i]):
+                        n_not_exists_anymore += 1
+                        del a
+                        continue
+                    old_file_map.append(self.file_map[i])
+                self.original_data.append(a.reshape(sh))
             self.rnd[0].state = pickle.load(fin)
             fin.close()
             self.log().info("Succeeded")
             self.log().info("class_samples=[%s]" % (
                 ", ".join(str(x) for x in self.class_samples)))
-            if self.w_neg == None or self.find_negative <= 0:
+            if not store_negative:
                 return
-            self.log().info("Will search for a negative set")
+            self.log().info("Will search for a negative set at most %d "
+                            "samples per image" % (self.find_negative))
             # Saving the old negative set
             self.log().info("Extracting the old negative set")
-            old_negative_data = []
-            old_file_map = []
-            n_not_exists_anymore = 0
-            for i in self.shuffled_indexes:
-                l = self.original_labels[i]
-                if l:
-                    continue
-                if not os.path.isfile(self.file_map[i]):
-                    n_not_exists_anymore += 1
-                    continue
-                old_negative_data.append(self.original_data[i])
-                old_file_map.append(self.file_map[i])
-            self.original_data = old_negative_data
-            n = len(old_negative_data)
-            self.original_labels = list(0 for i in range(n))
-            self.shuffled_indexes = None
             self.file_map.clear()
             for i, fnme in enumerate(old_file_map):
                 self.file_map[i] = fnme
             del old_file_map
-            del old_negative_data
+            n = len(self.original_data)
+            self.original_labels = list(0 for i in range(n))
+            self.shuffled_indexes = None
             self.log().info("Done (%d extracted, %d not exists anymore)" % (
                 n, n_not_exists_anymore))
         except FileNotFoundError:
@@ -447,15 +449,12 @@ class Loader(loader.FullBatchLoader):
                 total_files += len(found_files)
         self.log().info("Found %d files" % (total_files))
 
-        self.original_labels = []
-        self.original_data = []
-
         # Read samples in parallel
         rand = rnd.Rand()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
         n_threads = 48
-        pool = thread_pool.ThreadPool(maxthreads=n_threads,
+        pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
                                       queue_size=n_threads)
         data_lock = threading.Lock()
         stat_lock = threading.Lock()
@@ -475,6 +474,10 @@ class Loader(loader.FullBatchLoader):
                         n_negative, rand))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
+
+        if (len(self.original_data) != len(self.original_labels) or
+            len(self.file_map) != len(self.original_labels)):
+            raise Exception("Logic error")
 
         self.log().info("Loaded %d samples with resize and %d without" % (
                         image.resize_count, image.asitis_count))
