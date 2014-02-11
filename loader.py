@@ -273,19 +273,19 @@ class FullBatchLoader(Loader):
         minibatch_size = self.minibatch_size[0]
 
         idxs = self.minibatch_indexes.v
-        idxs[0:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
+        idxs[:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
             self.minibatch_offs[0] + minibatch_size]
 
-        self.minibatch_data.v[0:minibatch_size] = self.original_data[
-                                                        idxs[0:minibatch_size]]
+        for i, ii in enumerate(idxs[:minibatch_size]):
+            self.minibatch_data.v[i] = self.original_data[ii]
 
         if self.original_labels != None:
-            self.minibatch_labels.v[0:minibatch_size] = self.original_labels[
-                                                        idxs[0:minibatch_size]]
+            for i, ii in enumerate(idxs[:minibatch_size]):
+                self.minibatch_labels.v[i] = self.original_labels[ii]
 
         if self.original_target != None:
-            self.minibatch_target.v[0:minibatch_size] = self.original_target[
-                                                        idxs[0:minibatch_size]]
+            for i, ii in enumerate(idxs[:minibatch_size]):
+                self.minibatch_target.v[i] = self.original_target[ii]
 
     def extract_validation_from_train(self, amount=0.15, rand=None):
         """Extracts validation dataset from train dataset randomly.

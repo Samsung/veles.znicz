@@ -458,7 +458,7 @@ class Loader(loader.FullBatchLoader):
         rand = rnd.Rand()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
-        n_threads = 64
+        n_threads = 128
         pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
                                       queue_size=n_threads)
         data_lock = threading.Lock()
