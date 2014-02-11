@@ -6,19 +6,33 @@ File for korean channels recognition.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+import sys
+import os
+
+
+def add_path(path):
+    if path not in sys.path:
+        sys.path.append(path)
+
+
+this_dir = os.path.dirname(__file__)
+if not this_dir:
+    this_dir = "."
+add_path("%s" % (this_dir))
+add_path("%s/../.." % (this_dir))
+add_path("%s/../../../src" % (this_dir))
+
+
 import argparse
 import logging
 import numpy
-import os
 import pickle
 import re
 import scipy.io
 import scipy.misc
-import sys
 import threading
 import time
 import traceback
-
 import all2all
 import decision
 import error
@@ -37,22 +51,6 @@ import thread_pool
 import units
 import workflow
 import znicz_config
-
-
-def add_path(path):
-    if path not in sys.path:
-        sys.path.append(path)
-
-
-this_dir = os.path.dirname(__file__)
-if not this_dir:
-    this_dir = "."
-add_path("%s" % (this_dir))
-add_path("%s/../.." % (this_dir))
-add_path("%s/../../../src" % (this_dir))
-
-
-i
 
 
 class Loader(loader.FullBatchLoader):
