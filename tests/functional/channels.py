@@ -569,7 +569,7 @@ class Loader(loader.FullBatchLoader):
         for f in w_neg.forward:
             f.device = w_neg.device
         w_neg.ev.device = w_neg.device
-        w_neg.saver = Saver()
+        w_neg.saver = Saver(self)
         w_neg.saver.vectors_to_save["m"] = w_neg.forward[-1].max_idx
         w_neg.saver.link_from(w_neg.decision)
         w_neg.loader.shuffle = w_neg.loader.nothing
@@ -794,7 +794,7 @@ class Workflow(workflow.OpenCLWorkflow):
             self.saver.unlink_from_all()
             self.saver = None
         if len(dump):
-            self.saver = Saver(fnme=dump)
+            self.saver = Saver(self, fnme=dump)
             self.saver.link_from(self.decision)
             self.loader.shuffle = self.loader.nothing
             self.loader.shuffle_train = self.loader.nothing
