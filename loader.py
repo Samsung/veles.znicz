@@ -211,10 +211,15 @@ class FullBatchLoader(Loader):
                          (in case of classification).
         original_target: numpy array of original target
                          (in case of MSE).
+        label_dtype: numpy dtype for label.
 
     Should be overriden in child class:
         load_data()
     """
+    def __init__(self, workflow, **kwargs):
+        super(FullBatchLoader, self).__init__(workflow, **kwargs)
+        self.label_dtype = None
+
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
         self.original_data = None
@@ -231,6 +236,13 @@ class FullBatchLoader(Loader):
         return state
 
     def create_minibatches(self):
+        if type(self.original_labels) == list:
+            self.label_dtype = opencl_types.itypes[
+                opencl_types.get_itype_from_size(
+                    numpy.max(self.original_labels))]
+        else:
+            self.label_dtype = self.original_labels.dtype
+
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize[0]]
         sh.extend(self.original_data.shape[1:])
@@ -240,7 +252,7 @@ class FullBatchLoader(Loader):
         self.minibatch_target.reset()
         if self.original_target != None:
             sh = [self.minibatch_maxsize[0]]
-            sh.extend(self.original_target.shape[1:])
+            sh.extend(self.original_target[0].shape)
             self.minibatch_target.v = numpy.zeros(sh,
                 dtype=opencl_types.dtypes[config.c_dtype])
 
@@ -248,7 +260,7 @@ class FullBatchLoader(Loader):
         if self.original_labels != None:
             sh = [self.minibatch_maxsize[0]]
             self.minibatch_labels.v = numpy.zeros(sh,
-                dtype=self.original_labels.dtype)
+                dtype=self.label_dtype)
 
         self.minibatch_indexes.reset()
         self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
