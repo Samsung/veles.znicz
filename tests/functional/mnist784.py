@@ -28,6 +28,7 @@ import config
 import znicz_config
 import rnd
 import opencl
+import opencl_types
 import plotters
 import logging
 import mnist
@@ -39,8 +40,6 @@ import evaluator
 import gd
 
 
-add_path("/usr/local/lib/python3.3/dist-packages/freetype")
-add_path("/usr/local/lib/python3.3/dist-packages/freetype/ft_enums")
 from freetype import *
 
 
@@ -127,24 +126,29 @@ class Loader(mnist.Loader):
             self.original_target[i] = self.class_target.v[label]
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                     device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -154,7 +158,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -164,7 +168,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(self, )
+        self.decision = decision.Decision(self)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -174,7 +178,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver()
+        self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.ev.y
@@ -248,12 +252,12 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
         self.plt_img = plotters.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_input")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_output")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_target")
+        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_output)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_target)
+        self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
@@ -299,11 +303,10 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[784, 784], device=device)
+    w = Workflow(None, layers=[784, 784], device=device)
     w.initialize(global_alpha=0.001, global_lambda=0.00005)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

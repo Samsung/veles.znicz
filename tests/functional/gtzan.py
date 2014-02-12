@@ -43,17 +43,25 @@ import loader
 import opencl
 import plotters
 import rnd
-import workflow
+import workflows
 import formats
 
 
 class Loader(loader.Loader):
     """Loads GTZAN dataset.
     """
-    def __init__(self, pickle_fnme="", minibatch_max_size=100,
-                 minibatches_in_epoch=1000, window_size=100, rnd=rnd.default2):
-        super(Loader, self).__init__(minibatch_max_size=minibatch_max_size,
-                                     rnd=rnd)
+    def __init__(self, workflow, **kwargs):
+        pickle_fnme = kwargs.get("pickle_fnme", "")
+        minibatch_max_size = kwargs.get("minibatch_max_size", 100)
+        minibatches_in_epoch = kwargs.get("minibatches_in_epoch", 1000)
+        window_size = kwargs.get("window_size", 100)
+        rnd_ = kwargs.get("rnd", rnd.default2)
+        kwargs["pickle_fnme"] = pickle_fnme
+        kwargs["minibatch_max_size"] = minibatch_max_size
+        kwargs["minibatches_in_epoch"] = minibatches_in_epoch
+        kwargs["window_size"] = window_size
+        kwargs["rnd"] = rnd_
+        super(Loader, self).__init__(workflow, **kwargs)
         self.pickle_fnme = pickle_fnme
         self.minibatches_in_epoch = minibatches_in_epoch
         self.data = None
@@ -214,24 +222,30 @@ class Loader(loader.Loader):
                 j = jj
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                         device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -273,7 +287,8 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(self, device=device, weights_transposed=False)
+            self.gd[i] = gd.GDTanh(self, device=device,
+                                   weights_transposed=False)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
             self.gd[i].y = self.forward[i].output
@@ -406,13 +421,12 @@ def main():
                 logging.error("Error while exporting.")
             sys.exit(0)
     except IOError:
-        w = Workflow(layers=layers, device=device)
+        w = Workflow(None, layers=layers, device=device)
     w.initialize(device=device, args=args)
     logging.info("norm_add: %s" % (str(w.loader.norm_add)))
     logging.info("norm_mul: %s" % (str(w.loader.norm_mul)))
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

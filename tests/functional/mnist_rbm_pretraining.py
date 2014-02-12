@@ -34,28 +34,32 @@ import all2all
 import evaluator
 import gd
 import decision
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = mnist.Loader()
+        self.loader = mnist.Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward.clear()
         for i in range(len(layers)):
             if i < len(layers) - 1:
-                aa = rbm.RBMTanh([layers[i]], device=device)
+                aa = rbm.RBMTanh(self, output_shape=[layers[i]], device=device)
             else:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device,
-                             weights_transposed=True)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                    device=device, weights_transposed=True)
                 aa.weights = self.forward[-1].weights
             self.forward.append(aa)
             if i:
@@ -66,7 +70,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -240,7 +244,7 @@ def main():
     else:
         layers.append(layers[-2])
     logging.info("Will train with layers: %s" % (str(layers)))
-    w = Workflow(layers=layers, device=device)
+    w = Workflow(None, layers=layers, device=device)
     w.initialize(device=device, args=args)
     if len(W):
         logging.info("Will set weights to pretrained ones")
@@ -252,7 +256,6 @@ def main():
         logging.info("Done")
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

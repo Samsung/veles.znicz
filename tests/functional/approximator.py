@@ -6,25 +6,8 @@ File for function approximation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import logging
-import numpy
-import os
-import scipy.io
 import sys
-
-import all2all
-import decision
-import error
-import evaluator
-import gd
-import loader
-import opencl
-import opencl_types
-import plotters
-import rnd
-import units
-import workflow
-import znicz_config
+import os
 
 
 def add_path(path):
@@ -35,12 +18,25 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../src" % (this_dir))
+add_path("%s/../../../src" % (this_dir))
 add_path("%s/../.." % (this_dir))
-add_path("%s/../../../src" % (dir))
 
 
-i
+import logging
+import numpy
+import scipy.io
+import all2all
+import decision
+import error
+import evaluator
+import gd
+import loader
+import opencl
+import opencl_types
+import plotters
+import rnd
+import workflows
+import config
 
 
 class Loader(loader.ImageLoader):
@@ -152,14 +148,18 @@ class Loader(loader.ImageLoader):
         """
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(
+        self.loader = Loader(self,
             train_paths=["/data/veles/approximator/all_dec_appertures.mat"],
             target_paths=["/data/veles/approximator/all_org_appertures.mat"])
         self.loader.link_from(self.rpt)
@@ -167,7 +167,8 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                     device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -177,7 +178,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -324,15 +325,14 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     device = opencl.Device()
-    w = Workflow(layers=[810, 9], device=device)
+    w = Workflow(None, layers=[810, 9], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
                  minibatch_maxsize=81, device=device)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 
 if __name__ == "__main__":
     main()
-    sys.exit()
+    sys.exit(0)

@@ -6,27 +6,8 @@ MNIST with Convolutional layer.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import argparse
-import logging
-import numpy
-import os
-import pickle
 import sys
-
-import all2all
-import conv
-import decision
-import error
-import evaluator
-import gd
-import gd_conv
-import gd_pooling
-import mnist
-import opencl
-import plotters
-import pooling
-import rnd
-import workflow
+import os
 
 
 def add_path(path):
@@ -42,17 +23,39 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import argparse
+import logging
+import numpy
+import pickle
+import all2all
+import conv
+import decision
+import error
+import evaluator
+import gd
+import gd_conv
+import gd_pooling
+import mnist
+import opencl
+import plotters
+import pooling
+import rnd
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = mnist.Loader()
+        self.loader = mnist.Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -61,19 +64,21 @@ class Workflow(workflow.OpenCLWorkflow):
             layer = layers[i]
             if type(layer) == int:
                 if i == len(layers) - 1:
-                    aa = all2all.All2AllSoftmax([layer], device=device)
+                    aa = all2all.All2AllSoftmax(self, output_shape=[layer],
+                                                device=device)
                 else:
-                    aa = all2all.All2AllTanh([layer], device=device)
+                    aa = all2all.All2AllTanh(self, output_shape=[layer],
+                                             device=device)
             elif type(layer) == dict:
                 if layer["type"] == "conv":
-                    aa = conv.ConvTanh(n_kernels=layer["n_kernels"],
+                    aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
                         kx=layer["kx"], ky=layer["ky"], device=device)
                 elif layer["type"] == "max_pooling":
-                    aa = pooling.MaxPooling(kx=layer["kx"], ky=layer["ky"],
-                                            device=device)
+                    aa = pooling.MaxPooling(self,
+                        kx=layer["kx"], ky=layer["ky"], device=device)
                 elif layer["type"] == "avg_pooling":
-                    aa = pooling.AvgPooling(kx=layer["kx"], ky=layer["ky"],
-                                            device=device)
+                    aa = pooling.AvgPooling(self,
+                        kx=layer["kx"], ky=layer["ky"], device=device)
                 else:
                     raise error.ErrBadFormat("Unsupported layer type %s" % (
                                                                 layer["type"]))
@@ -123,15 +128,18 @@ class Workflow(workflow.OpenCLWorkflow):
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             if isinstance(self.forward[i], conv.Conv):
-                obj = gd_conv.GDTanh(self.forward[i].n_kernels,
-                    self.forward[i].kx, self.forward[i].ky, device=device)
+                obj = gd_conv.GDTanh(self, n_kernels=self.forward[i].n_kernels,
+                    kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    device=device)
             elif isinstance(self.forward[i], pooling.MaxPooling):
-                obj = gd_pooling.GDMaxPooling(
-                    self.forward[i].kx, self.forward[i].ky, device=device)
+                obj = gd_pooling.GDMaxPooling(self,
+                    kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    device=device)
                 obj.h_offs = self.forward[i].input_offs
             elif isinstance(self.forward[i], pooling.AvgPooling):
-                obj = gd_pooling.GDAvgPooling(
-                    self.forward[i].kx, self.forward[i].ky, device=device)
+                obj = gd_pooling.GDAvgPooling(self,
+                    kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    device=device)
             else:
                 obj = gd.GDTanh(self, device=device)
             self.gd[i] = obj
@@ -249,13 +257,15 @@ def main():
         sys.exit(0)
         """
     else:
-        w = Workflow(layers=[
+        w = Workflow(None, layers=[
                      {"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
                      100, 10], device=device)  # 0.99%
-    # w = Workflow(layers=[{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
+    # w = Workflow(None, layers=[
+    #                     {"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 0.98%
     #                     100, 10], device=device)
-    # w = Workflow(layers=[{"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},
+    # w = Workflow(None, layers=[
+    #                     {"type": "conv", "n_kernels": 50, "kx": 9, "ky": 9},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 10
     #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
@@ -264,7 +274,6 @@ def main():
                  minibatch_maxsize=27, device=device)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

@@ -28,6 +28,7 @@ import config
 import znicz_config
 import rnd
 import opencl
+import opencl_types
 import plotters
 import logging
 import mnist
@@ -65,18 +66,22 @@ class Loader(mnist.Loader):
             self.original_target[i] = self.class_target.v[label]
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -92,7 +97,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -113,7 +118,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.workflow = self
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver()
+        self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.decision)
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.ev.y
@@ -210,7 +215,7 @@ class Workflow(workflow.OpenCLWorkflow):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return super(Workflow, self).initialize())
+        return super(Workflow, self).initialize()
 
 
 def main():
@@ -224,11 +229,10 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[100, 100, 7], device=device)
+    w = Workflow(None, layers=[100, 100, 7], device=device)
     w.initialize(global_alpha=0.0001, global_lambda=0.00005)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

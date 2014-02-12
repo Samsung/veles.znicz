@@ -53,18 +53,22 @@ class Loader(loader.ImageLoader):
 import all2all
 import evaluator
 import gd
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow for Hands dataset.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(validation_paths=[
+        self.loader = Loader(self, validation_paths=[
             "%s/hands/Positive/Testing/*.raw" % (config.test_dataset_root,),
             "%s/hands/Negative/Testing/*.raw" % (config.test_dataset_root,)],
                              train_paths=[
@@ -76,9 +80,11 @@ class Workflow(workflow.OpenCLWorkflow):
         self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                         device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -179,11 +185,10 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(layers=[30, 2], device=device)
+    w = Workflow(None, layers=[30, 2], device=device)
     w.initialize(global_alpha=0.05, global_lambda=0.0)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

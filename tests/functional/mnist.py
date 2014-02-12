@@ -129,10 +129,10 @@ class Loader(loader.FullBatchLoader):
         self.total_samples[0] = 70000
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def __init__(self, workflow, **kwargs):
@@ -278,7 +278,8 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     device = opencl.Device()
-    w = Workflow(None, layers=[100, 10], device=device)
+    import launcher
+    w = launcher.Launcher(Workflow(None, layers=[100, 10], device=device))
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
     w.run()
 

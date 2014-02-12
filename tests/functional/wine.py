@@ -35,7 +35,7 @@ import gd
 import loader
 import decision
 import formats
-import workflow
+import workflows
 
 
 class Loader(loader.FullBatchLoader):
@@ -83,7 +83,7 @@ class Loader(loader.FullBatchLoader):
         self.total_samples[0] = self.original_data.shape[0]
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def __init__(self, workflow, **kwargs):

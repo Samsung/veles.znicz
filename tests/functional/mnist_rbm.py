@@ -37,18 +37,22 @@ import all2all
 import evaluator
 import gd
 import decision
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = mnist.Loader()
+        self.loader = mnist.Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -56,11 +60,14 @@ class Workflow(workflow.OpenCLWorkflow):
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 if i < len(layers) - 2:
-                    aa = rbm.RBMTanh([layers[i]], device=device)
+                    aa = rbm.RBMTanh(self, output_shape=[layers[i]],
+                                     device=device)
                 else:
-                    aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                    aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                             device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -190,8 +197,8 @@ def main():
         logging.error("Could not load %s/mnist_rbm.pickle "
                       "- it should exist and be valid, "
                       "run mnist_rbm_pretraining.py first, "
-                      "then rename best snapshot to mnist_rbm.pickle" % (
-                                                        config.snapshot_dir))
+                      "then rename best snapshot (with Weights and biases) "
+                      "to mnist_rbm.pickle" % (config.snapshot_dir))
         sys.exit(1)
     device = opencl.Device()
     layers = []
@@ -199,7 +206,7 @@ def main():
         layers.append(len(b[i]))
     layers.append(2025)
     layers.append(10)
-    w = Workflow(layers=layers, device=device)
+    w = Workflow(None, layers=layers, device=device)
     w.initialize(global_alpha=0.001, global_lambda=0.00005)
     for i in range(len(W) - 1):
         w.forward[i].weights.map_invalidate()
@@ -208,7 +215,6 @@ def main():
         w.forward[i].bias.v[:] = b[i][:]
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

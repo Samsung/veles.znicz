@@ -27,6 +27,7 @@ add_path("%s/../../../src" % (this_dir))
 import numpy
 import rnd
 import opencl
+import opencl_types
 import plotters
 import mnist
 import rbm
@@ -34,7 +35,7 @@ import all2all
 import evaluator
 import gd
 import decision
-import workflow
+import workflows
 import config
 import znicz_config
 import formats
@@ -44,8 +45,6 @@ no_random = True
 autoencoder = False
 
 
-add_path("/usr/local/lib/python3.3/dist-packages/freetype")
-add_path("/usr/local/lib/python3.3/dist-packages/freetype/ft_enums")
 from freetype import *
 
 
@@ -147,23 +146,30 @@ class Loader(mnist.Loader):
         # self.original_data[:, self.class_target.v.shape[1]:] = v[:, :]
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers, recursion_depth, device):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        recursion_depth = kwargs.get("recursion_depth")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["recursion_depth"] = recursion_depth
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         self.recursion_depth = recursion_depth
         for i in range(recursion_depth):
             if no_random:
-                aa = all2all.All2AllTanh(output_shape=[layers[-1]],
+                aa = all2all.All2AllTanh(self, output_shape=[layers[-1]],
                                          device=device)
             else:
-                aa = rbm.RBMTanh(output_shape=[layers[-1]], device=device)
+                aa = rbm.RBMTanh(self, output_shape=[layers[-1]],
+                                 device=device)
             self.forward.append(aa)
             if i:
                 self.forward[-1].link_from(self.forward[-2])
@@ -174,7 +180,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[-1].link_from(self.loader)
                 self.forward[-1].input = self.loader.minibatch_data
 
-            aa = all2all.All2AllTanh(output_shape=self.forward[-1].input,
+            aa = all2all.All2AllTanh(self, output_shape=self.forward[-1].input,
                 device=device, weights_transposed=autoencoder)
             self.forward.append(aa)
             self.forward[-1].link_from(self.forward[-2])
@@ -186,7 +192,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[-1].bias = self.forward[-3].bias
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -270,12 +276,12 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
         self.plt_img = plotters.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_input")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_output")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_target")
+        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_output)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_target)
+        self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
@@ -367,12 +373,11 @@ def main():
         w = pickle.load(fin)
         fin.close()
     except IOError:
-        w = Workflow(layers=layers, recursion_depth=args.recursion_depth,
+        w = Workflow(None, layers=layers, recursion_depth=args.recursion_depth,
                      device=device)
     w.initialize(device=device, args=args)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

@@ -26,7 +26,7 @@ add_path("%s/../../../src" % (this_dir))
 import numpy
 import formats
 import config
-import znicz_config
+import opencl_types
 import rnd
 import opencl
 import plotters
@@ -49,7 +49,8 @@ class Loader(loader.FullBatchLoader):
         self.original_data = numpy.zeros([60000, 3, 32, 32],
                                          dtype=numpy.float32)
         self.original_labels = numpy.zeros(60000,
-            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n_classes)])
+            dtype=opencl_types.itypes[
+                opencl_types.get_itype_from_size(n_classes)])
 
         # Load Validation
         fin = open("%s/cifar/10/test_batch" % (config.test_dataset_root),
@@ -86,27 +87,33 @@ class Loader(loader.FullBatchLoader):
             formats.normalize(sample)
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                         device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -116,7 +123,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(out_dirs=[
+        self.image_saver = image_saver.ImageSaver(self, out_dirs=[
             "/data/veles/cifar/tmpimg/test",
             "/data/veles/cifar/tmpimg/validation",
             "/data/veles/cifar/tmpimg/train"])
@@ -247,12 +254,11 @@ def main():
         w = pickle.load(fin)
         fin.close()
     except IOError:
-        w = Workflow(layers=[100, 10], device=device)
+        w = Workflow(None, layers=[100, 10], device=device)
     w.initialize(global_alpha=0.1, global_lambda=0.00005,
                  minibatch_maxsize=180, device=device)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

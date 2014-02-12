@@ -57,10 +57,10 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow for MNIST dataset.
 
     Attributes:
@@ -72,12 +72,14 @@ class Workflow(workflow.OpenCLWorkflow):
         decision: Decision.
         gd: list of gradient descent units.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(train_paths=[
+        self.loader = Loader(self, train_paths=[
             "%s/kanji/train/*.png" % (config.test_dataset_root)],
                              target_paths=[
             "%s/kanji/target/*.png" % (config.test_dataset_root)])
@@ -86,7 +88,8 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                     device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -96,7 +99,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -206,12 +209,12 @@ class Workflow(workflow.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
         self.plt_img = plotters.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_input")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_output")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_target")
+        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_output)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_target)
+        self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
@@ -223,7 +226,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt_hist.gate_block_not = [1]
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
-                   device):
+                   device, weights, bias):
         for gd in self.gd:
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
@@ -232,9 +235,7 @@ class Workflow(workflow.OpenCLWorkflow):
             forward.device = device
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
-        return super(Workflow, self).initialize()
-
-    def run(self, weights, bias):
+        super(Workflow, self).initialize()
         if weights != None:
             for i, forward in enumerate(self.forward):
                 forward.weights.map_invalidate()
@@ -243,7 +244,6 @@ class Workflow(workflow.OpenCLWorkflow):
             for i, forward in enumerate(self.forward):
                 forward.bias.map_invalidate()
                 forward.bias.v[:] = bias[i][:]
-        return super(Workflow, self).run()
 
 
 def main():
@@ -282,12 +282,12 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin == None:
-        w = Workflow(layers=[3969, 3481, 24 * 24], device=device)
+        w = Workflow(None, layers=[3969, 3481, 24 * 24], device=device)
     w.initialize(global_alpha=0.001, global_lambda=0.00005,
-                 minibatch_maxsize=1485, device=device)
-    w.run(weights=weights, bias=bias)
+                 minibatch_maxsize=1485, device=device,
+                 weights=weights, bias=bias)
+    w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

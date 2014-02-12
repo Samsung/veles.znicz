@@ -29,6 +29,7 @@ import config
 import znicz_config
 import rnd
 import opencl
+import opencl_types
 import plotters
 import pickle
 import rbm
@@ -74,28 +75,33 @@ class Loader(loader.FullBatchLoader):
 import all2all
 import evaluator
 import gd
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
         self.forward.clear()
         for i in range(0, len(layers)):
             if not i:
-                aa = rbm.RBMTanh([layers[i]], device=device)
+                aa = rbm.RBMTanh(self, output_shape=[layers[i]],
+                                 device=device)
             else:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device,
-                             weights_transposed=True)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                    device=device, weights_transposed=True)
                 aa.weights = self.forward[0].weights
             self.forward.append(aa)
             if i:
@@ -106,7 +112,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -130,7 +136,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add gradient descent units
         self.gd.clear()
         self.gd.extend(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GD(device=device, weights_transposed=True)
+        self.gd[-1] = gd.GD(self, device=device, weights_transposed=True)
         # self.gd[-1].link_from(self.decision)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
@@ -211,15 +217,19 @@ class Workflow(workflow.OpenCLWorkflow):
         return super(Workflow, self).initialize()
 
 
-class Workflow2(workflow.OpenCLWorkflow):
+class Workflow2(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow2, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow2, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader()
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -227,11 +237,14 @@ class Workflow2(workflow.OpenCLWorkflow):
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 if not i:
-                    aa = rbm.RBMTanh([layers[i]], device=device)
+                    aa = rbm.RBMTanh(self, output_shape=[layers[i]],
+                                     device=device)
                 else:
-                    aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+                    aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                             device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]], device=device)
+                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -338,7 +351,7 @@ class Workflow2(workflow.OpenCLWorkflow):
                 continue
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda
-        return super(Workflow, self).initialize()
+        return super(Workflow2, self).initialize()
 
 
 def main():
@@ -361,7 +374,7 @@ def main():
             layers.append(w0.forward[i].output.v.size //
                           w0.forward[i].output.v.shape[0])
         layers.append(2)
-        w = Workflow2(layers=layers, device=device)
+        w = Workflow2(None, layers=layers, device=device)
         w.initialize(global_alpha=0.001, global_lambda=0.00005)
         for i in range(0, len(w0.forward) - 1):
             w.forward[i].weights.map_invalidate()
@@ -370,11 +383,10 @@ def main():
             w.forward[i].bias.v[:] = w0.forward[i].bias.v[:]
         w.run()
     except FileNotFoundError:
-        w = Workflow(layers=[8, 3], device=device)
+        w = Workflow(None, layers=[8, 3], device=device)
         w.initialize(global_alpha=0.001, global_lambda=0.00005)
         w.run()
 
-    plotters.Graphics().wait_finish()
     logging.debug("End of job")
 
 

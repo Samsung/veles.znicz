@@ -59,19 +59,23 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-import workflow
+import workflows
 
 
-class Workflow(workflow.OpenCLWorkflow):
+class Workflow(workflows.OpenCLWorkflow):
     """Sample workflow.
     """
-    def __init__(self, layers=None, device=None):
-        super(Workflow, self).__init__(device=device)
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers")
+        device = kwargs.get("device")
+        kwargs["layers"] = layers
+        kwargs["device"] = device
+        super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(
-            train_paths=["%s/video_ae/img/*.png" % (
+        self.loader = Loader(self,
+            train_paths=["%s/video/video_ae/img/*.png" % (
                                 config.test_dataset_root)],
             minibatch_max_size=50)
         self.loader.link_from(self.rpt)
@@ -79,7 +83,8 @@ class Workflow(workflow.OpenCLWorkflow):
         # Add forward units
         self.forward = []
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]], device=device)
+            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                     device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -89,7 +94,7 @@ class Workflow(workflow.OpenCLWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver()
+        self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -100,7 +105,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.image_saver.minibatch_size = self.loader.minibatch_size
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorMSE(device=device)
+        self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.image_saver)
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
@@ -198,10 +203,10 @@ class Workflow(workflow.OpenCLWorkflow):
             self.plt_min[-1].gate_block_not = [1]
         # Image plotter
         self.plt_img = plotters.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_output")
-        self.plt_img.inputs.append(self.decision)
-        self.plt_img.input_fields.append("sample_input")
+        self.plt_img.inputs.append(self.decision.sample_output)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
@@ -243,11 +248,10 @@ def main():
                          forward.bias.v.min(), forward.bias.v.max())
         w.decision.just_snapshotted[0] = 1
     else:
-        w = Workflow(layers=[9, 14400], device=device)
+        w = Workflow(None, layers=[9, 14400], device=device)
     w.initialize(global_alpha=0.0002, global_lambda=0.00005, device=device)
     w.run()
 
-    plotters.Graphics().wait_finish()
     logging.info("End of job")
 
 

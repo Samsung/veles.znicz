@@ -19,12 +19,8 @@ def add_path(path):
 this_dir = os.path.dirname(__file__)
 if not this_dir:
     this_dir = "."
-add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
-
-
-add_path("/usr/local/lib/python3.3/dist-packages/freetype")
-add_path("/usr/local/lib/python3.3/dist-packages/freetype/ft_enums")
+add_path("%s/../.." % (this_dir))
 
 
 from freetype import *
