@@ -198,7 +198,7 @@ class Loader(units.Unit):
             if self.minibatch_indexes != None:
                 self.minibatch_indexes.v[minibatch_size:] = -1
 
-        self.log().debug("%s in %.2f sec" % (self.__class__.__name__,
+        self.debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
 
 
@@ -437,12 +437,12 @@ class ImageLoader(FullBatchLoader):
     def load_original(self, pathname):
         """Loads data from original files.
         """
-        self.log().info("Loading from %s..." % (pathname))
+        self.info("Loading from %s..." % (pathname))
         files = glob.glob(pathname)
         files.sort()
         n_files = len(files)
         if not n_files:
-            self.log().warning("No files fetched as %s" % (pathname))
+            self.warning("No files fetched as %s" % (pathname))
             return
 
         aa = None
@@ -527,7 +527,7 @@ class ImageLoader(FullBatchLoader):
 
         if len(labels):
             max_ll = max(labels)
-            self.log().info("Labels are indexed from-to: %d %d" % (
+            self.info("Labels are indexed from-to: %d %d" % (
                             min(labels), max_ll))
             self.original_labels = numpy.array(labels,
                 dtype=opencl_types.itypes[opencl_types.get_itype_from_size(max_ll)])

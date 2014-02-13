@@ -88,7 +88,7 @@ class GDPooling(nn_units.GD):
         if not log.isEnabledFor(logging.DEBUG):
             return
         y = self.err_h.v
-        self.log().debug("%s: %d samples of size %dx%dx%d in %.2f sec" % (
+        self.debug("%s: %d samples of size %dx%dx%d in %.2f sec" % (
             self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
             y.shape[3], time.time() - t_start))
 

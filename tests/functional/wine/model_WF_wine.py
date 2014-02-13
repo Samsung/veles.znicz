@@ -67,16 +67,16 @@ class model_WF_wine(units.Pickleable):
         # Setup notification flow
         self.start_point = units.Unit()
 
-        # self.log().debug(self.config_data_seta)
-        # self.log().debug(self.config_datasa)
-        # self.log().debug(self.data_set)
+        # self.debug(self.config_data_seta)
+        # self.debug(self.config_datasa)
+        # self.debug(self.data_set)
         t = loader.TXTLoader(self.data_set, self.param)
         self.t = t
         # sys.exit()
-        self.log().debug("1")
-        self.log().debug(t)
+        self.debug("1")
+        self.debug(t)
         t.link_from(self.start_point)
-        self.log().debug("2")
+        self.debug("2")
 
         rpt = repeater.Repeater()
         rpt.link_from(t)
@@ -166,7 +166,7 @@ class model_WF_wine(units.Pickleable):
         self.sm = out  # ?
         self.gdsm = gdsm  # ?
         self.gd1 = gd1  # ?
-        self.log().debug("ok_init ")
+        self.debug("ok_init ")
 
     def do_log(self, out, gdsm, gd1):
         return
@@ -264,7 +264,7 @@ class model_WF_wine(units.Pickleable):
         self.start_point.initialize_dependent()
         self.end_point.wait()
         # for l in self.t.labels.batch:
-        #    self.log().debug(l)
+        #    self.debug(l)
         # sys.exit()
         logging.info()
         logging.info("Running...")

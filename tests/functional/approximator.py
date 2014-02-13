@@ -64,7 +64,7 @@ class Loader(loader.ImageLoader):
     def initialize(self):
         super(Loader, self).initialize()
         self.shuffle_validation_train()
-        self.log().info("data range: (%.6f, %.6f), "
+        self.info("data range: (%.6f, %.6f), "
                         "target range: (%.6f, %.6f)" % (
             self.original_data.min(), self.original_data.max(),
             self.original_target.min(), self.original_target.max()))
@@ -82,7 +82,7 @@ class Loader(loader.ImageLoader):
             target -= m
             target *= 0.5
 
-        self.log().info("norm data range: (%.6f, %.6f), "
+        self.info("norm data range: (%.6f, %.6f), "
                         "norm target range: (%.6f, %.6f)" % (
             self.original_data.min(), self.original_data.max(),
             self.original_target.min(), self.original_target.max()))
@@ -107,9 +107,9 @@ class Loader(loader.ImageLoader):
         train_target = self.original_target[self.nextclass_offs[1]:
                                             self.nextclass_offs[2]]
 
-        self.log().info("train data normed range: (%.6f, %.6f)" % (
+        self.info("train data normed range: (%.6f, %.6f)" % (
             train_data.min(), train_data.max()))
-        self.log().info("train target normed range: (%.6f, %.6f)" % (
+        self.info("train target normed range: (%.6f, %.6f)" % (
             train_target.min(), train_target.max()))
 
         if self.class_samples[0]:
@@ -123,9 +123,9 @@ class Loader(loader.ImageLoader):
             test_target *= self.target_IMul
             test_target += self.target_IAdd
 
-            self.log().info("test data normed range: (%.6f, %.6f)" % (
+            self.info("test data normed range: (%.6f, %.6f)" % (
                 test_data.min(), test_data.max()))
-            self.log().info("test target normed range: (%.6f, %.6f)" % (
+            self.info("test target normed range: (%.6f, %.6f)" % (
                 test_target.min(), test_target.max()))
 
         if self.class_samples[1]:
@@ -141,9 +141,9 @@ class Loader(loader.ImageLoader):
             validation_target *= self.target_IMul
             validation_target += self.target_IAdd
 
-            self.log().info("validation data normed range: (%.6f, %.6f)" % (
+            self.info("validation data normed range: (%.6f, %.6f)" % (
                 validation_data.min(), validation_data.max()))
-            self.log().info("validation target normed range: (%.6f, %.6f)" % (
+            self.info("validation target normed range: (%.6f, %.6f)" % (
                 validation_target.min(), validation_target.max()))
         """
 

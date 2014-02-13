@@ -45,7 +45,7 @@ class Loader(loader.FullBatchLoader):
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
-        self.log().info("Loading from original MNIST files...")
+        self.info("Loading from original MNIST files...")
 
         # Reading labels:
         fin = open(labels_fnme, "rb")
@@ -95,14 +95,14 @@ class Loader(loader.FullBatchLoader):
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.log().info("Original range: [%.1f, %.1f]" % (images.min(),
+        self.info("Original range: [%.1f, %.1f]" % (images.min(),
                                                           images.max()))
         for image in images:
             formats.normalize(image)
-        self.log().info("Range after normalization: [%.1f, %.1f]" % (
+        self.info("Range after normalization: [%.1f, %.1f]" % (
                                             images.min(), images.max()))
         self.original_data[offs:offs + n_images] = images[:]
-        self.log().info("Done")
+        self.info("Done")
 
     def load_data(self):
         """Here we will load MNIST data.

@@ -217,14 +217,14 @@ class Decision(units.Unit):
         self.fnme = os.path.join(config.snapshot_dir,
                                  "%s_%s.pickle" % (self.snapshot_prefix,
                                                    "_".join(ss)))
-        self.log().info("Snapshotting to %s" % (self.fnme))
+        self.info("Snapshotting to %s" % (self.fnme))
         fout = open(self.fnme, "wb")
         pickle.dump(self.workflow, fout)
         fout.close()
         self.fnmeWb = os.path.join(config.snapshot_dir,
                                    "%s_%s_Wb.pickle" % (self.snapshot_prefix,
                                                         "_".join(ss)))
-        self.log().info("Exporting weights to %s" % (self.fnmeWb))
+        self.info("Exporting weights to %s" % (self.fnmeWb))
         fout = open(self.fnmeWb, "wb")
         weights = []
         bias = []
@@ -242,7 +242,7 @@ class Decision(units.Unit):
             if forward.weights == None or forward.bias == None:
                 continue
             if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
-                self.log().info("%f %f %f %f" % (
+                self.info("%f %f %f %f" % (
                     min(forward.weights.v.real.min(),
                         forward.weights.v.imag.min()),
                     max(forward.weights.v.real.max(),
@@ -252,7 +252,7 @@ class Decision(units.Unit):
                     max(forward.bias.v.real.max(),
                         forward.bias.v.imag.max())))
             else:
-                self.log().info("%f %f %f %f" % (
+                self.info("%f %f %f %f" % (
                     forward.weights.v.min(), forward.weights.v.max(),
                     forward.bias.v.min(), forward.bias.v.max()))
         pickle.dump((weights, bias), fout)
@@ -326,7 +326,7 @@ class Decision(units.Unit):
             ss.append("n_err %d (%.2f%%)" % (
                       self.epoch_n_err[minibatch_class],
                       self.epoch_n_err_pt[minibatch_class]))
-        self.log().info("Epoch %d Class %d %s in %.2f sec" % (
+        self.info("Epoch %d Class %d %s in %.2f sec" % (
                         self.epoch_number[0], minibatch_class,
                         " ".join(ss), dt))
 
@@ -385,7 +385,7 @@ class Decision(units.Unit):
                                              0.00001, 0.75)
                 if not alpha:
                     alpha = gd.global_alpha
-            self.log().info("new global_alpha: %.6f" % (alpha))
+            self.info("new global_alpha: %.6f" % (alpha))
         self.epoch_ended[0] = 1
         self.epoch_number[0] += 1
         # Reset n_err

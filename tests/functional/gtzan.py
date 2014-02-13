@@ -117,7 +117,7 @@ class Loader(loader.Loader):
                 n = numpy.count_nonzero(numpy.isnan(vles))
                 if n:
                     was_nans = True
-                    self.log().error("%d NaNs occured for feature %s "
+                    self.error("%d NaNs occured for feature %s "
                         "at index %d in file %s" % (n, k,
                         numpy.isnan(vles).argmax(), fnme))
                 sh = self.features_shape.get(k, 1)

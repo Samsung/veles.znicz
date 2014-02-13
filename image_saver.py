@@ -179,7 +179,7 @@ class ImageSaver(units.Unit):
             try:
                 scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
             except OSError:
-                self.log().error("Could not save image to %s" % (fnme))
+                self.error("Could not save image to %s" % (fnme))
             self.n_saved[self.minibatch_class[0]] += 1
             if self.n_saved[self.minibatch_class[0]] >= self.limit:
                 return

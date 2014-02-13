@@ -87,7 +87,7 @@ class Loader(loader.FullBatchLoader):
         try:
             j2 = glymur.Jp2k(fnme)
         except:
-            self.log().error("glymur.Jp2k() failed for %s" % (fnme))
+            self.error("glymur.Jp2k() failed for %s" % (fnme))
             raise
         a2 = j2.read()
         if j2.box[2].box[1].colorspace == 16:  # RGB
@@ -231,7 +231,7 @@ class Loader(loader.FullBatchLoader):
         stat_lock.acquire()
         n_files[0] += 1
         if n_files[0] % 10 == 0:
-            self.log().info("Read %d files (%.2f%%)" % (
+            self.info("Read %d files (%.2f%%)" % (
                 n_files[0], 100.0 * n_files[0] / total_files))
         stat_lock.release()
 
@@ -268,7 +268,7 @@ class Loader(loader.FullBatchLoader):
             config.cache_dir, os.path.basename(__file__),
                 self.__class__.__name__) if not len(self.cache_fnme)
             else self.cache_fnme)
-        self.log().info("Will try to load previously cached data from "
+        self.info("Will try to load previously cached data from "
                         "%s" % (cached_data_fnme))
         save_to_cache = True
         try:
@@ -276,7 +276,7 @@ class Loader(loader.FullBatchLoader):
             obj = pickle.load(fin)
             if obj["channels_dir"] != self.channels_dir:
                 save_to_cache = False
-                self.log().info("different dir found in cached data: %s" % (
+                self.info("different dir found in cached data: %s" % (
                                                         obj["channels_dir"]))
                 fin.close()
                 raise FileNotFoundError()
@@ -298,10 +298,10 @@ class Loader(loader.FullBatchLoader):
                     self.__dict__[k] = v
 
             for k in self.pos.keys():
-                self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (
+                self.info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (
                     k, self.pos[k][0], self.pos[k][1],
                     self.sz[k][0], self.sz[k][1]))
-            self.log().info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
+            self.info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
             self.shuffled_indexes = pickle.load(fin)
             self.original_labels = pickle.load(fin)
@@ -327,15 +327,15 @@ class Loader(loader.FullBatchLoader):
                 self.original_data.append(a.reshape(sh))
             self.rnd[0].state = pickle.load(fin)
             fin.close()
-            self.log().info("Succeeded")
-            self.log().info("class_samples=[%s]" % (
+            self.info("Succeeded")
+            self.info("class_samples=[%s]" % (
                 ", ".join(str(x) for x in self.class_samples)))
             if not store_negative:
                 return
-            self.log().info("Will search for a negative set at most %d "
+            self.info("Will search for a negative set at most %d "
                             "samples per image" % (self.find_negative))
             # Saving the old negative set
-            self.log().info("Extracting the old negative set")
+            self.info("Extracting the old negative set")
             self.file_map.clear()
             for i, fnme in enumerate(old_file_map):
                 self.file_map[i] = fnme
@@ -343,16 +343,16 @@ class Loader(loader.FullBatchLoader):
             n = len(self.original_data)
             self.original_labels = list(0 for i in range(n))
             self.shuffled_indexes = None
-            self.log().info("Done (%d extracted, %d not exists anymore)" % (
+            self.info("Done (%d extracted, %d not exists anymore)" % (
                 n, n_not_exists_anymore))
         except FileNotFoundError:
-            self.log().info("Failed")
+            self.info("Failed")
             self.original_labels = []
             self.original_data = []
             self.shuffled_indexes = None
             self.file_map.clear()
 
-        self.log().info("Will load data from original jp2 files")
+        self.info("Will load data from original jp2 files")
 
         # Read top-level configuration
         try:
@@ -362,7 +362,7 @@ class Loader(loader.FullBatchLoader):
             self.top_conf_ = {}
             exec(s, self.top_conf_, self.top_conf_)
         except:
-            self.log().error("Error while executing %s/conf.py" % (
+            self.error("Error while executing %s/conf.py" % (
                 self.channels_dir))
             raise
 
@@ -376,7 +376,7 @@ class Loader(loader.FullBatchLoader):
                 self.subdir_conf_[subdir] = {}
                 exec(s, self.subdir_conf_[subdir], self.subdir_conf_[subdir])
             except:
-                self.log().error("Error while executing %s/%s/conf.py" % (
+                self.error("Error while executing %s/%s/conf.py" % (
                     self.channels_dir, subdir))
                 raise
 
@@ -405,12 +405,12 @@ class Loader(loader.FullBatchLoader):
             sz[subdir] = [rpos[subdir][0] - pos[subdir][0],
                           rpos[subdir][1] - pos[subdir][1]]
 
-        self.log().info("Found rectangles:")
+        self.info("Found rectangles:")
         for k in pos.keys():
-            self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
+            self.info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
                 pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
 
-        self.log().info("Adjusted rectangles:")
+        self.info("Adjusted rectangles:")
         for k in pos.keys():
             #sz[k][0] *= 1.01
             #sz[k][1] *= 1.01
@@ -420,7 +420,7 @@ class Loader(loader.FullBatchLoader):
             pos[k][1] = min(pos[k][1], 1.0 - sz[k][1])
             pos[k][0] = max(pos[k][0], 0.0)
             pos[k][1] = max(pos[k][1], 0.0)
-            self.log().info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
+            self.info("%s: pos=(%.6f, %.6f) sz=(%.6f, %.6f)" % (k,
                 pos[k][0], pos[k][1], sz[k][0], sz[k][1]))
 
         self.pos.clear()
@@ -452,7 +452,7 @@ class Loader(loader.FullBatchLoader):
                 found_files.sort()
                 files[relpath] = found_files
                 total_files += len(found_files)
-        self.log().info("Found %d files" % (total_files))
+        self.info("Found %d files" % (total_files))
 
         # Read samples in parallel
         rand = rnd.Rand()
@@ -472,7 +472,7 @@ class Loader(loader.FullBatchLoader):
             subdir_conf = self.subdir_conf_[subdir]
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
                 relpath = "%s/%s" % (subdir, dirnme)
-                self.log().info("Will load from %s" % (relpath))
+                self.info("Will load from %s" % (relpath))
                 lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, (fnme,
@@ -489,10 +489,10 @@ class Loader(loader.FullBatchLoader):
 
         if self.w_neg != None and self.find_negative > 0:
             n_positive = numpy.count_nonzero(self.original_labels)
-            self.log().info("Found %d negative samples (%.2f%%)" % (
+            self.info("Found %d negative samples (%.2f%%)" % (
                 n_negative[0], 100.0 * n_negative[0] / n_positive))
 
-        self.log().info("Loaded %d samples with resize and %d without" % (
+        self.info("Loaded %d samples with resize and %d without" % (
                         image.resize_count, image.asitis_count))
 
         self.class_samples[0] = 0
@@ -500,12 +500,12 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[2] = len(self.original_data)
 
         # Randomly generate validation set from train.
-        self.log().info("Will extract validation set from train")
+        self.info("Will extract validation set from train")
         self.extract_validation_from_train(rand=rnd.default2)
 
         # Saving all the samples
         """
-        self.log().info("Dumping all the samples to %s" % (config.cache_dir))
+        self.info("Dumping all the samples to %s" % (config.cache_dir))
         for i in self.shuffled_indexes:
             l = self.original_labels[i]
             dirnme = "%s/%03d" % (config.cache_dir, l)
@@ -515,15 +515,15 @@ class Loader(loader.FullBatchLoader):
                 pass
             fnme = "%s/%d.png" % (dirnme, i)
             scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
-        self.log().info("Done")
+        self.info("Done")
         """
 
-        self.log().info("class_samples=[%s]" % (
+        self.info("class_samples=[%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
 
         if not save_to_cache:
             return
-        self.log().info("Saving loaded data for later faster load to "
+        self.info("Saving loaded data for later faster load to "
                         "%s" % (cached_data_fnme))
         fout = open(cached_data_fnme, "wb")
         obj = {}
@@ -538,7 +538,7 @@ class Loader(loader.FullBatchLoader):
         # Save random state
         pickle.dump(self.rnd[0].state, fout)
         fout.close()
-        self.log().info("Done")
+        self.info("Done")
 
     def as_image(self, x):
         if len(x.shape) == 2:

@@ -167,7 +167,7 @@ class Conv(nn_units.Forward):
         self.output.map_read()
         y = self.output.v
         if y.dtype in (numpy.complex64, numpy.complex128):
-            self.log().debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug("%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,
@@ -175,7 +175,7 @@ class Conv(nn_units.Forward):
                  (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
                  max(y.real.max(), y.imag.max())))
         else:
-            self.log().debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug("%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,

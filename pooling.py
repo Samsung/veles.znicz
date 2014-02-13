@@ -91,7 +91,7 @@ class Pooling(nn_units.Forward):
         if not log.isEnabledFor(logging.DEBUG):
             return
         y = self.input.v
-        self.log().debug("%s: %d samples of size %dx%dx%d vs "
+        self.debug("%s: %d samples of size %dx%dx%d vs "
                          "pooling window of size %dx%d in %.2f sec" % (
             self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
             y.shape[3], self.kx, self.ky, time.time() - t_start))

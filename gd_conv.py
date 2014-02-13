@@ -232,7 +232,7 @@ class GD(nn_units.GD):
         weights = self.weights.v
         bias = self.bias.v
         if weights.dtype in (numpy.complex64, numpy.complex128):
-            self.log().debug("BP %d_%d in %.2f sec: min avg max: "
+            self.debug("BP %d_%d in %.2f sec: min avg max: "
                          "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
                   (self.h.v.size // self.h.v.shape[0],
                    self.y.v.size // self.y.v.shape[0],
@@ -245,7 +245,7 @@ class GD(nn_units.GD):
                    (numpy.average(bias.real) + numpy.average(bias.imag)) * 0.5,
                    max(bias.real.max(), bias.imag.max())))
         else:
-            self.log().debug("BP %d_%d in %.2f sec: min avg max: "
+            self.debug("BP %d_%d in %.2f sec: min avg max: "
                          "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
                   (self.h.v.size // self.h.v.shape[0],
                    self.y.v.size // self.y.v.shape[0],
