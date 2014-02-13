@@ -38,7 +38,7 @@ class RBMTanh(all2all.All2AllTanh):
         if (self.output_rand.v == None or
             self.output_rand.v.size != self.output.v.size):
             self.output_rand.v = numpy.zeros(self.output.v.shape,
-                                             dtype=opencl_types.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[config.dtype])
             self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
         if not self.device:
@@ -56,7 +56,7 @@ class RBMTanh(all2all.All2AllTanh):
         self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]

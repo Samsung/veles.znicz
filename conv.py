@@ -14,8 +14,6 @@ import config
 import error
 import formats
 import nn_units
-import opencl_types
-import rnd
 
 
 class Conv(nn_units.Forward):
@@ -137,7 +135,7 @@ class Conv(nn_units.Forward):
         if self.krn_ == None:
             defines = {
                 self.s_activation: 1,
-                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -188,7 +186,7 @@ class Conv(nn_units.Forward):
         self.input.unmap()  # we will use input
         self.weights.unmap()  # we will use weights
         self.bias.unmap()  # we will use bias
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         global_size = [formats.roundup(self.n_kernels, block_size),
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]

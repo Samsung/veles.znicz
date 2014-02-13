@@ -100,7 +100,7 @@ class GD(nn_units.GD):
             return
 
         if self.prg_ == None:
-            block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+            block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)
 
             defines = {
@@ -181,7 +181,7 @@ class GD(nn_units.GD):
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
         self.krn_weights_.set_arg(5, self.cl_const[1])
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
@@ -232,7 +232,7 @@ class GD(nn_units.GD):
         self.err_h.unmap()
         self.err_y.unmap()
         self.weights.unmap()
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         global_size = [formats.roundup(self.err_h.v.size //
                        self.err_h.v.shape[0], block_size),
                        formats.roundup(self.err_h.v.shape[0],

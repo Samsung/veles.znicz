@@ -12,7 +12,6 @@ import time
 
 import config
 import error
-import formats
 import nn_units
 
 

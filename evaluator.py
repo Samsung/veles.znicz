@@ -116,7 +116,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = {
-                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }
@@ -144,7 +144,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_i_[0] = self.batch_size[0]
         self.krn_.set_arg(7, self.krn_constants_i_[0])
 
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype]]
+        local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
             self.krn_, global_size, local_size)
@@ -283,7 +283,7 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = {
-                'BLOCK_SIZE': self.device.info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }
@@ -307,7 +307,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_constants_i_[0] = self.batch_size[0]
         self.krn_.set_arg(5, self.krn_constants_i_[0])
 
-        local_size = [self.device.info.BLOCK_SIZE[config.c_dtype]]
+        local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
         event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
                                                  self.krn_,

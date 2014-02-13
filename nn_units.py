@@ -39,11 +39,7 @@ class Forward(OpenCLUnit):
         self.weights_transposed = weights_transposed
         self.exports = ["weights", "bias", "weights_transposed"]
 
-    def generate_data_for_master(self):
-        # Gradients are stored in GD units.
-        return None
-
-    def generate_data_for_slave(self):
+    def generate_data_for_slave(self, slave=None):
         self.weights.map_read()
         return self.weights.v
 
@@ -115,15 +111,3 @@ class GD(OpenCLUnit):
         self.gradient_weights.map_read()
         self.gradient_bias.map_read()
         return (self.gradient_weights.v, self.gradient_bias.v)
-
-    def generate_data_for_slave(self):
-        # Nothing to do here.
-        return None
-
-    def apply_data_from_master(self, data):
-        # Nothing to do here.
-        pass
-
-    def apply_data_from_slave(self, data):
-        # Nothing to do here.
-        pass

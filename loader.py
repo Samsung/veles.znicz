@@ -201,6 +201,16 @@ class Loader(units.Unit):
         self.debug("%s in %.2f sec" % (self.__class__.__name__,
                                       time.time() - t1))
 
+    def generate_data_for_slave(self, slave=None):
+        """TODO(a.kazantsev): implement.
+        """
+        return None
+
+    def apply_data_from_master(self, data):
+        """TODO(a.kazantsev): implement.
+        """
+        pass
+
 
 class FullBatchLoader(Loader):
     """Loads data entire in memory.

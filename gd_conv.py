@@ -111,7 +111,7 @@ class GD(nn_units.GD):
             return
 
         if self.prg_ == None:
-            block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+            block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
@@ -173,7 +173,7 @@ class GD(nn_units.GD):
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0])
         self.krn_weights_.set_arg(5, self.cl_const[1])
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.n_kernels, block_size),
@@ -214,7 +214,7 @@ class GD(nn_units.GD):
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (batch_size * sx * sy)
-        block_size = self.device.info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         kernel_size = self.kx * self.ky * n_channels
         global_size = [formats.roundup(kernel_size, block_size),
             formats.roundup(self.h.v.size // kernel_size, block_size)]
