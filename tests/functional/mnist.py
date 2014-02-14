@@ -277,11 +277,12 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    launcher.Launcher.parse_args()
+    l = launcher.Launcher()
     device = opencl.Device()
-    w = launcher.Launcher(Workflow(None, layers=[100, 10], device=device))
+    w = Workflow(None, layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
-    w.run()
+    l.initialize(w)
+    l.run()
 
     logging.info("End of job")
 
