@@ -74,7 +74,7 @@ class GD(OpenCLUnit):
         global_alpha = kwargs.get("global_alpha", 0.01)
         global_lambda = kwargs.get("global_lambda", 0.00005)
         weights_transposed = kwargs.get("weights_transposed", False)
-        store_gradient = kwargs.get("store_gradient")
+        store_gradient = kwargs.get("store_gradient", config.is_slave)
         apply_gradient = kwargs.get("apply_gradient", True)
         if store_gradient == None:
             store_gradient = config.is_slave

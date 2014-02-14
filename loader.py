@@ -224,14 +224,16 @@ class Loader(units.Unit):
         minibatch_size = len(idxs)
         if minibatch_size > self.minibatch_maxsize[0]:
             raise error.ErrBadFormat("Received too many indexes from master")
-        self.minibatch_indexes[:minibatch_size] = idxs[:]
+        self.shuffled_indexes[:minibatch_size] = idxs[:]
         self.minibatch_size[0] = minibatch_size
-        self.minibatch_offs[0] = 0
+        self.minibatch_offs[0] = -minibatch_size  # will be incremented in run
         self.total_samples[0] = minibatch_size
         self.minibatch_class[0] = cls
         self.minibatch_last[0] = 1
-        self.nextclass_offs[:cls] = 0
-        self.nextclass_offs[cls:] = minibatch_size
+        for i in range(cls):
+            self.nextclass_offs[i] = 0
+        for i in range(cls, len(self.nextclass_offs)):
+            self.nextclass_offs[i] = minibatch_size
 
 
 class FullBatchLoader(Loader):

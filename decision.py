@@ -287,10 +287,12 @@ class Decision(units.Unit):
         self.snapshot_time[0] = time.time()
 
     def on_stop_condition(self, minibatch_class):
-        if (self.epoch_number[0] - self.min_validation_mse_epoch_number >
-            self.fail_iterations[0] and
-            self.epoch_number[0] - self.min_validation_n_err_epoch_number >
-            self.fail_iterations[0]) or self.min_validation_n_err == 0:
+        if ((self.epoch_number[0] - self.min_validation_mse_epoch_number >
+             self.fail_iterations[0] and
+             self.epoch_number[0] - self.min_validation_n_err_epoch_number >
+             self.fail_iterations[0]) or
+            self.min_validation_n_err <= 0 or
+            self.min_validation_mse <= 0):
             self.complete[0] = 1
 
     def on_test_validation_processed(self, minibatch_class):
@@ -308,7 +310,7 @@ class Decision(units.Unit):
         if (self.minibatch_n_err != None and
             (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
              (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
-              and self.epoch_n_err[2] == self.min_train_n_err))):
+              and self.epoch_n_err[2] < self.min_train_n_err))):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
             self.min_validation_n_err_epoch_number = self.epoch_number[0]
             self.min_train_n_err = self.epoch_n_err[2]
@@ -498,7 +500,8 @@ class Decision(units.Unit):
         data = {}
         minibatch_class = self.minibatch_class[0]
         data["minibatch_class"] = minibatch_class
-        data["minibatch_size"] = self.minibatch_size[0]
+        if self.minibatch_size != None:
+            data["minibatch_size"] = self.minibatch_size[0]
         data["minibatch_offs"] = self.master_minibatch_offs
         if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
             self.minibatch_n_err.map_read()
@@ -535,14 +538,23 @@ class Decision(units.Unit):
     def apply_data_from_master(self, data):
         minibatch_class = data[0]
         self.master_minibatch_offs = data[1]
-        self.on_reset_statistics(minibatch_class)
+        if self.__dict__.get("_on_reset_statistics_") == None:
+            self._on_reset_statistics_ = self.on_reset_statistics
+            self.on_reset_statistics = self.nothing
+        self._on_reset_statistics_(minibatch_class)
+        # Prevent doing snapshot and set complete imeediately
+        self.min_validation_n_err = 0
+        self.min_train_n_err = 0
+        self.min_validation_mse = 0
+        self.min_train_mse = 0
 
     def apply_data_from_slave(self, data, slave=None):
         self.master_lock_.acquire()
         minibatch_class = data["minibatch_class"]
         self.minibatch_class[0] = minibatch_class
-        self.minibatch_size[0] = data["minibatch_size"]
-        if data["minibatch_offs"] != None:
+        if self.minibatch_size != None and data.get("minibatch_size") != None:
+            self.minibatch_size[0] = data["minibatch_size"]
+        if self.minibatch_offs != None and data.get("minibatch_offs") != None:
             self.minibatch_offs[0] = data["minibatch_offs"]
         if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
             self.minibatch_n_err.map_write()
