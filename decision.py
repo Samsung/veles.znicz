@@ -14,6 +14,7 @@ import config
 import formats
 import opencl_types
 import units
+import threading
 
 
 class Decision(units.Unit):
@@ -123,6 +124,10 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
+
+    def init_unpickled(self):
+        super(Decision, self).init_unpickled()
+        self.master_lock_ = threading.Lock()
 
     def initialize(self):
         # Reset errors
@@ -488,3 +493,91 @@ class Decision(units.Unit):
 
         if self.minibatch_last[0]:
             self.on_last_minibatch(minibatch_class)
+
+    def generate_data_for_master(self):
+        data = {}
+        minibatch_class = self.minibatch_class[0]
+        data["minibatch_class"] = minibatch_class
+        data["minibatch_size"] = self.minibatch_size[0]
+        data["minibatch_offs"] = self.master_minibatch_offs
+        if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+            self.minibatch_n_err.map_read()
+            data["minibatch_n_err"] = self.minibatch_n_err.v
+        if (self.minibatch_metrics != None and
+            self.minibatch_metrics.v != None):
+            self.minibatch_metrics.map_read()
+            data["minibatch_metrics"] = self.minibatch_metrics.v
+        if (self.minibatch_mse != None and
+            self.minibatch_mse.v != None):
+            self.minibatch_mse.map_read()
+            data["minibatch_mse"] = self.minibatch_mse.v
+        if (self.minibatch_max_err_y_sum != None and
+            self.minibatch_max_err_y_sum.v != None):
+            self.minibatch_max_err_y_sum.map_read()
+            data["minibatch_max_err_y_sum"] = self.minibatch_max_err_y_sum.v
+        if (self.minibatch_confusion_matrix != None and
+            self.minibatch_confusion_matrix.v != None):
+            self.minibatch_confusion_matrix.map_read()
+            data["minibatch_confusion_matrix"] = (
+                    self.minibatch_confusion_matrix.v)
+        return data
+
+    def generate_data_for_slave(self, slave=None):
+        self.master_lock_.acquire()
+        self.samples_served = self.__dict__.get("samples_served", 0) + 1
+        if self.minibatch_last[0]:
+            self.sample_serving_ended = True
+        data = (self.minibatch_class[0], self.minibatch_offs[0] if
+                self.minibatch_offs != None else None)
+        self.master_lock_.release()
+        return data
+
+    def apply_data_from_master(self, data):
+        minibatch_class = data[0]
+        self.master_minibatch_offs = data[1]
+        self.on_reset_statistics(minibatch_class)
+
+    def apply_data_from_slave(self, data, slave=None):
+        self.master_lock_.acquire()
+        minibatch_class = data["minibatch_class"]
+        self.minibatch_class[0] = minibatch_class
+        self.minibatch_size[0] = data["minibatch_size"]
+        if data["minibatch_offs"] != None:
+            self.minibatch_offs[0] = data["minibatch_offs"]
+        if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+            self.minibatch_n_err.map_write()
+            self.minibatch_n_err.v += data["minibatch_n_err"]
+        if (self.minibatch_metrics != None and
+            self.minibatch_metrics.v != None):
+            self.minibatch_metrics.map_write()
+            self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
+            self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
+                                              data["minibatch_metrics"][1])
+        if (self.minibatch_mse != None and
+            self.minibatch_mse.v != None):
+            self.minibatch_mse.map_write()
+            self.minibatch_mse.v = data["minibatch_mse"]
+        if (self.minibatch_max_err_y_sum != None and
+            self.minibatch_max_err_y_sum.v != None):
+            self.minibatch_max_err_y_sum.map_write()
+            numpy.maximum(self.minibatch_max_err_y_sum.v,
+                          data["minibatch_max_err_y_sum"],
+                          self.minibatch_max_err_y_sum.v)
+        if (self.minibatch_confusion_matrix != None and
+            self.minibatch_confusion_matrix.v != None):
+            self.minibatch_confusion_matrix.map_write()
+            self.minibatch_confusion_matrix.v += data[
+                            "minibatch_confusion_matrix"]
+        self.run()
+        self.samples_served -= 1
+        if self.samples_served < 0:
+            self.error("There is an error somewhere (samples_served=%d",
+                       self.samples_served)
+        unlock = False
+        if (self.__dict__.get("sample_serving_ended", False) and
+            self.samples_served <= 0):
+            self.sample_serving_ended = False
+            unlock = True
+        self.master_lock_.release()
+        if unlock:
+            self.workflow.unlock_pipeline()

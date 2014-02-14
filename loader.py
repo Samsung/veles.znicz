@@ -154,12 +154,8 @@ class Loader(units.Unit):
         """
         pass
 
-    def run(self):
-        """Prepare the minibatch.
-        """
-        t1 = time.time()
-
-        self.minibatch_offs[0] += self.minibatch_size[0]
+    def get_next_minibatch(self, minibatch_size):
+        self.minibatch_offs[0] += minibatch_size
         # Reshuffle when end of data reached.
         if self.minibatch_offs[0] >= self.total_samples[0]:
             self.shuffle()
@@ -180,6 +176,14 @@ class Loader(units.Unit):
         else:
             raise error.ErrNotExists("Could not determine minibatch class.")
         self.minibatch_size[0] = minibatch_size
+
+    def run(self):
+        """Prepare the minibatch.
+        """
+        t1 = time.time()
+
+        self.get_next_minibatch(self.minibatch_maxsize[0])
+        minibatch_size = self.minibatch_size[0]
 
         # Fill minibatch according to current random shuffle and offset.
         self.minibatch_data.map_invalidate()
@@ -202,14 +206,32 @@ class Loader(units.Unit):
                                       time.time() - t1))
 
     def generate_data_for_slave(self, slave=None):
-        """TODO(a.kazantsev): implement.
-        """
-        return None
+        self.get_next_minibatch(self.minibatch_maxsize[0])
+        idxs = self.shuffled_indexes[self.minibatch_offs[0]:
+                                     self.minibatch_offs[0] +
+                                     self.minibatch_size[0]].copy()
+        cls = self.minibatch_class[0]
+
+        if not self.minibatch_last[0]:
+            self.workflow.unlock_pipeline()
+
+        return (idxs, cls)
 
     def apply_data_from_master(self, data):
-        """TODO(a.kazantsev): implement.
-        """
-        pass
+        # Just feed single minibatch
+        idxs = data[0]
+        cls = data[1]
+        minibatch_size = len(idxs)
+        if minibatch_size > self.minibatch_maxsize[0]:
+            raise error.ErrBadFormat("Received too many indexes from master")
+        self.minibatch_indexes[:minibatch_size] = idxs[:]
+        self.minibatch_size[0] = minibatch_size
+        self.minibatch_offs[0] = 0
+        self.total_samples[0] = minibatch_size
+        self.minibatch_class[0] = cls
+        self.minibatch_last[0] = 1
+        self.nextclass_offs[:cls] = 0
+        self.nextclass_offs[cls:] = minibatch_size
 
 
 class FullBatchLoader(Loader):

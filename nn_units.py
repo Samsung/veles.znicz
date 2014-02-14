@@ -41,19 +41,14 @@ class Forward(OpenCLUnit):
 
     def generate_data_for_slave(self, slave=None):
         self.weights.map_read()
-        return self.weights.v
+        self.bias.map_read()
+        return (self.weights.v, self.bias.v)
 
     def apply_data_from_master(self, data):
         self.weights.map_invalidate()
         self.bias.map_invalidate()
         numpy.copyto(self.weights.v, data[0])
         numpy.copyto(self.bias.v, data[1])
-
-    def apply_data_from_slave(self, data):
-        self.weights.map_invalidate()
-        self.bias.map_invalidate()
-        self.weights.v += data[0]
-        self.bias.v += data[1]
 
 
 class GD(OpenCLUnit):
@@ -106,8 +101,16 @@ class GD(OpenCLUnit):
         self.gradient_bias = formats.Vector()
 
     def generate_data_for_master(self):
-        if self.gradient_weights.v == None or self.gradient_bias.v == None:
+        if (not self.run_executed or
+            self.gradient_weights.v == None or self.gradient_bias.v == None):
             return None
+        self.run_executed = False
         self.gradient_weights.map_read()
         self.gradient_bias.map_read()
         return (self.gradient_weights.v, self.gradient_bias.v)
+
+    def apply_data_from_slave(self, data, slave=None):
+        self.weights.map_invalidate()
+        self.bias.map_invalidate()
+        self.weights.v += data[0]
+        self.bias.v += data[1]

@@ -6,7 +6,6 @@ File for MNIST dataset.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import logging
 import sys
 import os
 
@@ -23,6 +22,7 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import launcher
 import formats
 import struct
 import error
@@ -36,7 +36,7 @@ import gd
 import loader
 import decision
 import config
-import znicz_config
+import logging
 
 
 class Loader(loader.FullBatchLoader):
@@ -211,7 +211,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
 
@@ -277,8 +277,8 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    launcher.Launcher.parse_args()
     device = opencl.Device()
-    import launcher
     w = launcher.Launcher(Workflow(None, layers=[100, 10], device=device))
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
     w.run()

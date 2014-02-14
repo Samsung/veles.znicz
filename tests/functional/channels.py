@@ -6,8 +6,10 @@ File for korean channels recognition.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import sys
 import os
+# FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+import sys
 
 
 def add_path(path):
@@ -190,7 +192,7 @@ class Loader(loader.FullBatchLoader):
         data_lock.release()
         return ii
 
-    def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock, dot_lock,
+    def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock,
                        i_sample, lbl, n_files, total_files,
                        n_negative, rand):
         """Loads, crops and normalizes image in the parallel thread.
@@ -203,6 +205,8 @@ class Loader(loader.FullBatchLoader):
         # Collect negative dataset from positive samples only
         if lbl and self.w_neg != None and self.find_negative > 0:
             # Sample pictures at random positions
+            samples = numpy.zeros([self.find_negative, sample.size],
+                                  dtype=self.w_neg[0][0].dtype)
             for i in range(self.find_negative):
                 t = rand.randint(2)
                 if t == 0:
@@ -215,18 +219,21 @@ class Loader(loader.FullBatchLoader):
                          pos[1] + (1 if pos[1] < 0.5 else -1) * sz[1]]
                 else:
                     continue
-                sample = self.sample_rect(a, p, sz)
-                l = self.get_label_from_sample(sample, dot_lock)
-                if l != 0:  # negative found
-                    ii = self.append_sample(sample, 0, fnme, n_negative,
-                                            data_lock)
-                    dirnme = "%s/found_negative_images" % (config.cache_dir)
-                    try:
-                        os.mkdir(dirnme)
-                    except OSError:
-                        pass
-                    fnme = "%s/0_as_%d.%d.png" % (dirnme, l, ii)
-                    scipy.misc.imsave(fnme, self.as_image(sample))
+                samples[i][:] = self.sample_rect(a, p, sz).ravel()[:]
+            ll = self.get_labels_from_samples(samples)
+            for i, l in enumerate(ll):
+                if l == 0:
+                    continue
+                # negative found
+                s = samples[i].reshape(sample.shape)
+                ii = self.append_sample(s, 0, fnme, n_negative, data_lock)
+                dirnme = "%s/found_negative_images" % (config.cache_dir)
+                try:
+                    os.mkdir(dirnme)
+                except OSError:
+                    pass
+                fnme = "%s/0_as_%d.%d.png" % (dirnme, l, ii)
+                scipy.misc.imsave(fnme, self.as_image(s))
 
         stat_lock.acquire()
         n_files[0] += 1
@@ -235,24 +242,19 @@ class Loader(loader.FullBatchLoader):
                 n_files[0], 100.0 * n_files[0] / total_files))
         stat_lock.release()
 
-    def get_label_from_sample(self, sample, lock):
+    def get_labels_from_samples(self, samples):
         weights = self.w_neg[0]
         bias = self.w_neg[1]
         n = len(weights)
-        dtype = weights[0].dtype
-        a = sample.ravel().astype(dtype)
+        a = samples
         for i in range(n):
-            b = numpy.zeros_like(bias[i])
-            lock.acquire()
-            numpy.dot(a, weights[i], b)
-            lock.release()
-            b += bias[i]
+            a = numpy.dot(a, weights[i].transpose())
+            a += bias[i]
             if i < n - 1:
-                b *= 0.6666
-                numpy.tanh(b, b)
-                b *= 1.7159
-            a = b
-        return a.argmax()
+                a *= 0.6666
+                numpy.tanh(a, a)
+                a *= 1.7159
+        return a.argmax(axis=1)
 
     def get_label(self, dirnme):
         lbl = self.channel_map[dirnme].get("lbl")
@@ -458,13 +460,13 @@ class Loader(loader.FullBatchLoader):
         rand = rnd.Rand()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
-        n_threads = (128 if self.w_neg != None and self.find_negative > 0
-                     else 48)
+        # FIXME(a.kazantsev): numpy.dot is thread-safe with this value
+        # on ubuntu 13.10 (due to the static number of buffers in libopenblas)
+        n_threads = 32
         pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
                                       queue_size=n_threads)
         data_lock = threading.Lock()
         stat_lock = threading.Lock()
-        dot_lock = threading.Lock()
         n_files = [0]
         n_negative = [0]
         i_sample = 0
@@ -477,7 +479,7 @@ class Loader(loader.FullBatchLoader):
                 for fnme in files[relpath]:
                     pool.request(self.from_jp2_async, (fnme,
                         pos[subdir], sz[subdir],
-                        data_lock, stat_lock, dot_lock,
+                        data_lock, stat_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
                         n_negative, rand))
                     i_sample += 1
@@ -809,12 +811,6 @@ def main():
                     "should be provided when find_negative is supplied. "
                     "Will now exit.")
                 return
-            weights = w[0]
-            for i in range(len(weights)):
-                wt = numpy.zeros([weights[i].shape[1], weights[i].shape[0]],
-                                 dtype=weights[i].dtype)
-                wt[:] = weights[i].transpose()[:]
-                weights[i] = wt
             w_neg = w
             raise IOError()
     except IOError:
