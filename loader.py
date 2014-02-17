@@ -218,7 +218,7 @@ class Loader(units.Unit):
         if not self.minibatch_last[0]:
             self.workflow.unlock_pipeline()
         else:
-            self.info("Dataset of class %d served", cls)
+            self.debug("Dataset of class %d served", cls)
 
         return (idxs, cls)
 

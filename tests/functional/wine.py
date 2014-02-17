@@ -36,6 +36,7 @@ import loader
 import decision
 import formats
 import workflows
+import launcher
 
 
 class Loader(loader.FullBatchLoader):
@@ -160,7 +161,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
 
@@ -186,10 +187,12 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     config.plotters_disabled = True
-    device = opencl.Device()
+    l = launcher.Launcher()
+    device = None if l.is_master() else opencl.Device()
     w = Workflow(None, layers=[8, 3], device=device)
     w.initialize(global_alpha=0.5, global_lambda=0.0, device=device)
-    w.run()
+    l.initialize(w)
+    l.run()
 
     logging.info("End of job")
 
