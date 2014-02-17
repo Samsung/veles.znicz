@@ -190,6 +190,8 @@ class Decision(units.Unit):
             and ev.target.v != None):
             self.sample_target[0] = numpy.zeros_like(ev.target.v[0])
 
+        self.t1 = time.time()
+
     def on_snapshot(self, minibatch_class):
         if self.workflow == None:
             return
@@ -468,12 +470,7 @@ class Decision(units.Unit):
 
         self.on_reset_statistics(minibatch_class)
 
-    def run(self):
-        if self.t1 == None:
-            self.t1 = time.time()
-        self.complete[0] = 0
-        self.epoch_ended[0] = 0
-
+    def copy_minibatch_mse(self):
         minibatch_class = self.minibatch_class[0]
 
         # Copy minibatch mse
@@ -487,6 +484,12 @@ class Decision(units.Unit):
             self.tmp_epoch_samples_mse[minibatch_class].v[
                 offs:offs + size] = self.minibatch_mse.v[:size]
 
+    def run(self):
+        self.complete[0] = 0
+        self.epoch_ended[0] = 0
+
+        self.copy_minibatch_mse()
+
         # Check skip gradient descent or not
         if self.minibatch_class[0] < 2:
             self.gd_skip[0] = 1
@@ -494,7 +497,7 @@ class Decision(units.Unit):
             self.gd_skip[0] = 0
 
         if self.minibatch_last[0]:
-            self.on_last_minibatch(minibatch_class)
+            self.on_last_minibatch(self.minibatch_class[0])
 
     def generate_data_for_master(self):
         data = {}
@@ -528,11 +531,14 @@ class Decision(units.Unit):
     def generate_data_for_slave(self, slave=None):
         self.master_lock_.acquire()
         self.samples_served = self.__dict__.get("samples_served", 0) + 1
-        if self.minibatch_last[0]:
+        minibatch_last = self.minibatch_last[0]
+        if minibatch_last:
             self.sample_serving_ended = True
         data = (self.minibatch_class[0], self.minibatch_offs[0] if
                 self.minibatch_offs != None else None)
         self.master_lock_.release()
+        if not minibatch_last:
+            self.workflow.unlock_pipeline()
         return data
 
     def apply_data_from_master(self, data):
@@ -583,7 +589,7 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.map_write()
             self.minibatch_confusion_matrix.v += data[
                             "minibatch_confusion_matrix"]
-        self.run()
+        self.copy_minibatch_mse()
         self.samples_served -= 1
         if self.samples_served < 0:
             self.error("There is an error somewhere (samples_served=%d",
@@ -593,6 +599,7 @@ class Decision(units.Unit):
             self.samples_served <= 0):
             self.sample_serving_ended = False
             unlock = True
+            self.run()
         self.master_lock_.release()
         if unlock:
             self.workflow.unlock_pipeline()

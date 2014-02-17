@@ -214,12 +214,6 @@ class Loader(units.Unit):
                                      self.minibatch_offs[0] +
                                      self.minibatch_size[0]].copy()
         cls = self.minibatch_class[0]
-
-        if not self.minibatch_last[0]:
-            self.workflow.unlock_pipeline()
-        else:
-            self.debug("Dataset of class %d served", cls)
-
         return (idxs, cls)
 
     def apply_data_from_master(self, data):
