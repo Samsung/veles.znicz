@@ -540,9 +540,12 @@ class Decision(units.Unit):
         self.master_minibatch_offs = data[1]
         if self.__dict__.get("_on_reset_statistics_") == None:
             self._on_reset_statistics_ = self.on_reset_statistics
+            self._on_training_processed_ = self.on_training_processed
             self.on_reset_statistics = self.nothing
+            self.on_training_processed = self.nothing
         self._on_reset_statistics_(minibatch_class)
-        # Prevent doing snapshot and set complete imeediately
+        # Prevent doing snapshot and set complete after one epoch
+        self.complete[0] = 0
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
         self.min_validation_mse = 0

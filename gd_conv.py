@@ -162,6 +162,8 @@ class GD(nn_units.GD):
         self.err_y.unmap()
         self.weights.unmap()
         self.bias.unmap()
+        self.gradient_weights.unmap()
+        self.gradient_bias.unmap()
 
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])

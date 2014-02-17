@@ -217,6 +217,7 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
+        """
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
@@ -253,6 +254,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_err_y[-1].gate_block_not = [1]
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
+        """
 
     def initialize(self, global_alpha, global_lambda, device=None):
         for gd in self.gd:
@@ -273,7 +275,7 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
     l = launcher.Launcher()
-    device = opencl.Device()
+    device = None if l.is_master() else opencl.Device()
     w = Workflow(None, layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.1, global_lambda=0.0)
     l.initialize(w)

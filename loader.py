@@ -99,19 +99,21 @@ class Loader(units.Unit):
         """
         pass
 
-    def initialize(self):
-        res = self.load_data()
-        if res:
-            return res
-
+    def recompute_total_samples(self):
         total_samples = 0
         for i, n in enumerate(self.class_samples):
             total_samples += n
             self.nextclass_offs[i] = total_samples
         self.total_samples[0] = total_samples
         if total_samples == 0:
-            raise error.ErrBadFormat("class_samples should be filled in "
-                                     "load_data()")
+            raise error.ErrBadFormat("class_samples should be filled")
+
+    def initialize(self):
+        res = self.load_data()
+        if res:
+            return res
+
+        self.recompute_total_samples()
 
         # Adjust minibatch_maxsize.
         self.minibatch_maxsize[0] = min(self.minibatch_maxsize[0],
@@ -154,14 +156,15 @@ class Loader(units.Unit):
         """
         pass
 
-    def get_next_minibatch(self, minibatch_size):
-        self.minibatch_offs[0] += minibatch_size
+    def get_next_minibatch(self):
+        # Adjust offset according to previous minibatch size.
+        self.minibatch_offs[0] += self.minibatch_size[0]
         # Reshuffle when end of data reached.
         if self.minibatch_offs[0] >= self.total_samples[0]:
             self.shuffle()
             self.minibatch_offs[0] = 0
 
-        # Compute minibatch size and it's class.
+        # Compute next minibatch size and it's class.
         for i in range(0, len(self.nextclass_offs)):
             if self.minibatch_offs[0] < self.nextclass_offs[i]:
                 self.minibatch_class[0] = i
@@ -182,7 +185,7 @@ class Loader(units.Unit):
         """
         t1 = time.time()
 
-        self.get_next_minibatch(self.minibatch_maxsize[0])
+        self.get_next_minibatch()
         minibatch_size = self.minibatch_size[0]
 
         # Fill minibatch according to current random shuffle and offset.
@@ -206,7 +209,7 @@ class Loader(units.Unit):
                                       time.time() - t1))
 
     def generate_data_for_slave(self, slave=None):
-        self.get_next_minibatch(self.minibatch_maxsize[0])
+        self.get_next_minibatch()
         idxs = self.shuffled_indexes[self.minibatch_offs[0]:
                                      self.minibatch_offs[0] +
                                      self.minibatch_size[0]].copy()
@@ -214,6 +217,8 @@ class Loader(units.Unit):
 
         if not self.minibatch_last[0]:
             self.workflow.unlock_pipeline()
+        else:
+            self.info("Dataset of class %d served", cls)
 
         return (idxs, cls)
 
@@ -231,9 +236,11 @@ class Loader(units.Unit):
         self.minibatch_class[0] = cls
         self.minibatch_last[0] = 1
         for i in range(cls):
-            self.nextclass_offs[i] = 0
-        for i in range(cls, len(self.nextclass_offs)):
-            self.nextclass_offs[i] = minibatch_size
+            self.class_samples[i] = 0
+        self.class_samples[cls] = minibatch_size
+        for i in range(cls + 1, len(self.class_samples)):
+            self.class_samples[i] = 0
+        self.recompute_total_samples()
 
 
 class FullBatchLoader(Loader):
@@ -564,7 +571,8 @@ class ImageLoader(FullBatchLoader):
             self.info("Labels are indexed from-to: %d %d" % (
                             min(labels), max_ll))
             self.original_labels = numpy.array(labels,
-                dtype=opencl_types.itypes[opencl_types.get_itype_from_size(max_ll)])
+                dtype=opencl_types.itypes[
+                    opencl_types.get_itype_from_size(max_ll)])
 
         # Loading target data and labels.
         if self.target_paths != None:
@@ -583,7 +591,8 @@ class ImageLoader(FullBatchLoader):
                     raise error.ErrBadFormat("Target samples count differs "
                                              "from data samples count.")
                 self.original_labels = numpy.arange(n,
-                    dtype=opencl_types.itypes[opencl_types.get_itype_from_size(n)])
+                    dtype=opencl_types.itypes[
+                        opencl_types.get_itype_from_size(n)])
 
         self.original_data = data
 

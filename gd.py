@@ -141,6 +141,8 @@ class GD(nn_units.GD):
         self.err_y.map_read()
         self.weights.map_write()
         self.bias.map_write()
+        self.gradient_weights.map_invalidate()
+        self.gradient_bias.map_invalidate()
 
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])
@@ -174,6 +176,8 @@ class GD(nn_units.GD):
         self.err_y.unmap()
         self.weights.unmap()
         self.bias.unmap()
+        self.gradient_weights.unmap()
+        self.gradient_bias.unmap()
 
         batch_size = (self.y.v.shape[0] if self.batch_size == None
                                         else self.batch_size[0])
