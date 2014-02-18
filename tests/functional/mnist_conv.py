@@ -41,6 +41,7 @@ import plotters
 import pooling
 import rnd
 import workflows
+import launcher
 
 
 class Workflow(workflows.OpenCLWorkflow):
@@ -153,12 +154,13 @@ class Workflow(workflows.OpenCLWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
 
         self.loader.gate_block = self.decision.complete
 
+        """
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
@@ -212,6 +214,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
+        """
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
@@ -235,12 +238,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-snapshot", type=str, default="",
                         help="Snapshot with trained network.")
-    args = parser.parse_args()
+    l = launcher.Launcher(parser=parser)
+    args = l.args
 
     global this_dir
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
-    device = opencl.Device()
+
+    device = None if l.is_master() else opencl.Device()
     if len(args.snapshot):
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
@@ -271,8 +276,9 @@ def main():
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
     #                     100, 10], device=device)
     w.initialize(global_alpha=0.01, global_lambda=0.00005,
-                 minibatch_maxsize=27, device=device)
-    w.run()
+                 minibatch_maxsize=270, device=device)
+    l.initialize(w)
+    l.run()
 
     logging.info("End of job")
 
