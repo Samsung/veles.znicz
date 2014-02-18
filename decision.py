@@ -221,6 +221,7 @@ class Decision(units.Unit):
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
         if self.minibatch_n_err != None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
+        """
         self.fnme = os.path.join(config.snapshot_dir,
                                  "%s_%s.pickle" % (self.snapshot_prefix,
                                                    "_".join(ss)))
@@ -228,6 +229,7 @@ class Decision(units.Unit):
         fout = open(self.fnme, "wb")
         pickle.dump(self.workflow, fout)
         fout.close()
+        """
         self.fnmeWb = os.path.join(config.snapshot_dir,
                                    "%s_%s_Wb.pickle" % (self.snapshot_prefix,
                                                         "_".join(ss)))

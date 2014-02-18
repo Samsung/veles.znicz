@@ -29,16 +29,20 @@ import sqlite3
 import xml.etree.ElementTree as et
 import glob
 import config
-import znicz_config
 import scipy.misc
+import formats
+import pickle
+import time
 
 
 SX = 32
 SY = 32
 TARGET_SX = 24
 TARGET_SY = 24
-N_TRANSFORMS = 150
-KANJI_COUNT = 5
+N_TRANSFORMS = 200
+ANGLE = 17.5
+SCALE = 0.61
+KANJI_COUNT = 1023
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,
@@ -76,6 +80,10 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         bitmap = slot.bitmap
         width = bitmap.width
         height = bitmap.rows
+        if width < 1 or height < 1:
+            logging.warning("strange (width, height) = (%d, %d), skipping" % (
+                                                                width, height))
+            return None
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
@@ -92,8 +100,14 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         y = int(numpy.floor((SY - height) * 0.5))
 
     img = numpy.zeros([SY, SX], dtype=numpy.uint8)
-    img[y:y + height, x: x + width] = numpy.array(bitmap.buffer,
-        dtype=numpy.uint8).reshape(height, width)
+    try:
+        img[y:y + height, x: x + width] = numpy.array(bitmap.buffer,
+            dtype=numpy.uint8).reshape(height, width)
+    except ValueError:
+        logging.warning("Strange bitmap was generated: width=%d, height=%d, "
+            "len=%d but should be %d, skipping" % (bitmap.width, bitmap.rows,
+            len(bitmap.buffer), bitmap.width * bitmap.rows))
+        return None
     if img.max() == img.min():
         logging.info("Font %s returned empty glyph" % (fontPath))
         return None
@@ -182,6 +196,8 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
+    numpy.random.seed(numpy.fromfile("seed", dtype=numpy.int32, count=1024))
+
     db = sqlite3.connect("%s/kanji/kanji.db" % (config.test_dataset_root))
 
     try:
@@ -192,9 +208,12 @@ if __name__ == '__main__':
     n_kanji = rs.fetchone()[0]
     if not n_kanji:
         fill_tables(db)
-    query = ("select idx, literal from kanji where grade <> 0 "
-             "order by grade asc, freq desc, idx asc limit %d" % (
-                                                        KANJI_COUNT))
+    #query = ("select idx, literal from kanji where grade <> 0 "
+    #         "order by grade asc, freq desc, idx asc limit %d" % (
+    #                                                    KANJI_COUNT))
+    query = ("select idx, literal from kanji where jlpt >= 2 "
+             "order by grade asc, freq desc, jlpt desc, idx asc limit %d" % (
+                                                                KANJI_COUNT))
     rs = db.execute("select count(*) from (%s)" % (query))
     n_kanji = rs.fetchone()[0]
     logging.info("Kanji count: %d" % (n_kanji))
@@ -211,43 +230,44 @@ if __name__ == '__main__':
     rs = db.execute(query)
 
     dirnme = "%s/kanji/train" % (config.test_dataset_root)
-    target_dirnme = "/%s/kanji/target" % (config.test_dataset_root)
-    files = glob.glob("%s/*.png" % (dirnme))
-    i = 0
-    for file in files:
-        try:
-            os.unlink(file)
-            i += 1
-        except FileNotFoundError:
-            pass
-    if i:
-        logging.info("Unlinked %d files" % (i))
-    files = glob.glob("%s/*.png" % (target_dirnme))
-    i = 0
-    for file in files:
-        try:
-            os.unlink(file)
-            i += 1
-        except FileNotFoundError:
-            pass
-    if i:
-        logging.info("Unlinked %d files" % (i))
-    del files
+    target_dirnme = "%s/kanji/target" % (config.test_dataset_root)
 
-    ii = 0
+    logging.info("Be shure that %s and %s are empty" % (dirnme, target_dirnme))
+    logging.info("Will continue in 15 seconds")
+    time.sleep(5)
+    logging.info("Will continue in 10 seconds")
+    time.sleep(5)
+    logging.info("Will continue in 5 seconds")
+    time.sleep(2)
+    logging.info("Will continue in 3 seconds")
+    time.sleep(1)
+    logging.info("Will continue in 2 seconds")
+    time.sleep(1)
+    logging.info("Will continue in 1 second")
+    time.sleep(1)
+
+    fout = open("%s/label_dbindex" % (dirnme), "w")
+    fout.write("Folders are named as label_dbindex.\n")
+    fout.close()
+
+    lbl = -1
     n_dups = 0
+    index_map = []
+    targets = []
     for row in rs:
-        ii += 1
-        logging.info("%d: %d %s" % (ii, row[0], row[1]))
+        lbl += 1
+        db_idx = row[0]
+        character = row[1]
+        logging.info("lbl=%d: db_idx=%d %s" % (lbl, db_idx, character))
         exists = False
-        for idx, font in enumerate(fonts):
+        for font_idx, font in enumerate(fonts):
             font_ok = False
             transforms = set()
             for i in range(0, N_TRANSFORMS):
                 while True:
-                    angle = -14.9 + numpy.random.rand() * 29.8001
-                    sx = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
-                    sy = 0.65 + numpy.random.rand() * (1.0 / 0.65 - 0.65)
+                    angle = -ANGLE + numpy.random.rand() * (ANGLE * 2)
+                    sx = SCALE + numpy.random.rand() * (1.0 / SCALE - SCALE)
+                    sy = SCALE + numpy.random.rand() * (1.0 / SCALE - SCALE)
                     key = "%.1f_%.2f_%.2f" % (angle, sx, sy)
                     if key in transforms:
                         n_dups += 1
@@ -255,29 +275,59 @@ if __name__ == '__main__':
                         continue
                     transforms.add(key)
                     break
-                img = do_plot(font, row[1], SY, angle, sx, sy, True,
+                img = do_plot(font, character, SY, angle, sx, sy, True,
                               SX, SY)
                 if img == None:
                     #logging.info("Not found for font %s" % (font))
                     continue
-                fnme = "%s/%05d.%.1fx%.1f_%.0f.%02d.png" % (dirnme,
-                    row[0], sx, sy, angle, idx)
-                scipy.misc.imsave(fnme, img)
+                a = img.astype(numpy.float32)
+                formats.normalize(a)
+                outdir = "%s/%05d_%05d" % (dirnme, lbl, db_idx)
+                try:
+                    os.mkdir(outdir)
+                except OSError:
+                    pass
+                sample_number = len(index_map)
+                fnme = "%s/%07d" % (outdir, sample_number)
+                scipy.misc.imsave("%s.png" % (fnme), img)
+                pickle_fnme = "%s.pickle" % (fnme)
+                fout = open(pickle_fnme, "wb")
+                pickle.dump({"angle": angle,
+                             "lbl": lbl,
+                             "data": a,
+                             "db_idx": db_idx,
+                             "sample_number": sample_number,
+                             "sx": sx,
+                             "sy": sy}, fout)
+                fout.close()
                 if not font_ok:
-                    if not idx:  # writing to target
-                        img = do_plot(font, row[1], TARGET_SY, 0, 1.0, 1.0,
+                    if not font_idx:  # writing to target
+                        img = do_plot(font, character, TARGET_SY, 0, 1.0, 1.0,
                                       False, TARGET_SX, TARGET_SY)
-                        fnme = "%s/%05d.png" % (target_dirnme, row[0])
+                        fnme = "%s/%05d.png" % (target_dirnme, lbl)
                         scipy.misc.imsave(fnme, img)
+                        targets.append(a)
                     font_ok = True
+                index_map.append(pickle_fnme[len(dirnme) + 1:])
             if font_ok:
                 ok[font] += 1
                 exists = True
         if not exists:
             raise Exception("Glyph does not exists in the supplied fonts")
 
+    fout = open("%s/targets.pickle" % (target_dirnme), "wb")
+    pickle.dump(targets, fout)
+    fout.close()
+
+    fout = open("%s/index_map.pickle" % (dirnme), "wb")
+    pickle.dump(index_map, fout)
+    fout.close()
+
     for font, n in ok.items():
         logging.info("%s: %d (%.2f%%)" % (font, n, 100.0 * n / n_kanji))
 
     logging.info("Retried transforms %d times" % (n_dups))
+    logging.info("Generated %d samples" % (len(index_map)))
+
+    logging.info("End of job")
     sys.exit(0)

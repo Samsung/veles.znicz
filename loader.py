@@ -99,6 +99,11 @@ class Loader(units.Unit):
         """
         pass
 
+    def fill_minibatch(self):
+        """Fill minibatch data labels and indexes according to current shuffle.
+        """
+        pass
+
     def recompute_total_samples(self):
         total_samples = 0
         for i, n in enumerate(self.class_samples):
@@ -150,11 +155,6 @@ class Loader(units.Unit):
         """Shuffle the dataset after one epoch.
         """
         self.shuffle_train()
-
-    def fill_minibatch(self):
-        """Fill minibatch data labels and indexes according to current shuffle.
-        """
-        pass
 
     def get_next_minibatch(self):
         # Adjust offset according to previous minibatch size.

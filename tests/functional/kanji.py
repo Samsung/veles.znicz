@@ -26,35 +26,109 @@ add_path("%s/../../../src" % (this_dir))
 
 import numpy
 import config
-import znicz_config
 import rnd
 import opencl
-import plotters
+#import plotters
 import pickle
 import loader
 import decision
 import all2all
 import evaluator
 import gd
-import re
+import launcher
+import opencl_types
+import formats
 
 
-class Loader(loader.ImageLoader):
+class Loader(loader.Loader):
     """Loads dataset.
-
-    Attributes:
-        lbl_re_: regular expression for extracting label from filename.
     """
-    def init_unpickled(self):
-        super(Loader, self).init_unpickled()
-        self.lbl_re_ = re.compile("/(\d+)\.[\w.-]+$")
+    def __init__(self, workflow, **kwargs):
+        self.train_path = kwargs["train_path"]
+        self.target_path = kwargs["target_path"]
+        super(Loader, self).__init__(workflow, **kwargs)
+        self.class_target = formats.Vector()
 
-    def get_label_from_filename(self, filename):
-        res = self.lbl_re_.search(filename)
-        if res == None:
-            return
-        lbl = int(res.group(1))
-        return lbl
+    def __getstate__(self):
+        state = super(Loader, self).__getstate__()
+        state["index_map"] = None
+        return state
+
+    def load_data(self):
+        """Load the data here.
+
+        Should be filled here:
+            class_samples[].
+        """
+        fin = open("%s/index_map.pickle" % (self.train_path), "rb")
+        self.index_map = pickle.load(fin)
+        fin.close()
+
+        fin = open("%s/%s" % (self.train_path, self.index_map[0]), "rb")
+        self.first_sample = pickle.load(fin)["data"]
+        fin.close()
+
+        fin = open(self.target_path, "rb")
+        targets = pickle.load(fin)
+        fin.close()
+        self.class_target.reset()
+        sh = [len(targets)]
+        sh.extend(targets[0].shape)
+        self.class_target.v = numpy.empty(sh,
+            dtype=opencl_types.dtypes[config.c_dtype])
+        for i, target in enumerate(targets):
+            self.class_target.v[i] = target
+
+        self.label_dtype = opencl_types.itypes[
+            opencl_types.get_itype_from_size(len(targets))]
+
+        self.class_samples[0] = 0
+        self.class_samples[1] = 0
+        self.class_samples[2] = len(self.index_map)
+
+    def create_minibatches(self):
+        """Allocate arrays for minibatch_data etc. here.
+        """
+        self.minibatch_data.reset()
+        sh = [self.minibatch_maxsize[0]]
+        sh.extend(self.first_sample.shape)
+        self.minibatch_data.v = numpy.zeros(sh,
+                dtype=opencl_types.dtypes[config.c_dtype])
+
+        self.minibatch_target.reset()
+        sh = [self.minibatch_maxsize[0]]
+        sh.extend(self.class_target.v[0].shape)
+        self.minibatch_target.v = numpy.zeros(sh,
+            dtype=opencl_types.dtypes[config.c_dtype])
+
+        self.minibatch_labels.reset()
+        sh = [self.minibatch_maxsize[0]]
+        self.minibatch_labels.v = numpy.zeros(sh, dtype=self.label_dtype)
+
+        self.minibatch_indexes.reset()
+        self.minibatch_indexes.v = numpy.zeros(len(self.index_map),
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
+                                                        len(self.index_map))])
+
+    def fill_minibatch(self):
+        """Fill minibatch data labels and indexes according to current shuffle.
+        """
+        minibatch_size = self.minibatch_size[0]
+
+        idxs = self.minibatch_indexes.v
+        idxs[:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
+            self.minibatch_offs[0] + minibatch_size]
+
+        for i, ii in enumerate(idxs[:minibatch_size]):
+            fnme = "%s/%s" % (self.train_path, self.index_map[ii])
+            fin = open(fnme, "rb")
+            sample = pickle.load(fin)
+            data = sample["data"]
+            lbl = sample["lbl"]
+            fin.close()
+            self.minibatch_data.v[i] = data
+            self.minibatch_labels.v[i] = lbl
+            self.minibatch_target.v[i] = self.class_target[lbl]
 
 
 import workflows
@@ -79,10 +153,10 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self, train_paths=[
-            "%s/kanji/train/*.png" % (config.test_dataset_root)],
-                             target_paths=[
-            "%s/kanji/target/*.png" % (config.test_dataset_root)])
+        self.loader = Loader(self,
+            train_path="%s/kanji/train" % (config.test_dataset_root),
+            target_path="%s/kanji/target/targets.pickle" % (
+                                            config.test_dataset_root))
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -104,6 +178,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.ev.y = self.forward[-1].output
         self.ev.batch_size = self.loader.minibatch_size
         self.ev.target = self.loader.minibatch_target
+        self.ev.class_target = self.loader.class_target
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -143,12 +218,13 @@ class Workflow(workflows.OpenCLWorkflow):
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = self.decision.complete
         self.end_point.gate_block_not = [1]
 
         self.loader.gate_block = self.decision.complete
 
+        """
         # MSE plotter
         self.plt = []
         styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
@@ -224,6 +300,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
+        """
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device, weights, bias):
@@ -256,7 +333,8 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
-    device = opencl.Device()
+    l = launcher.Launcher()
+    device = None if l.is_master() else opencl.Device()
     fnme = "%s/kanji.pickle" % (config.snapshot_dir)
     fin = None
     try:
@@ -282,11 +360,12 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin == None:
-        w = Workflow(None, layers=[3969, 3481, 24 * 24], device=device)
+        w = Workflow(None, layers=[4077, 3051, 24 * 24], device=device)
     w.initialize(global_alpha=0.001, global_lambda=0.00005,
-                 minibatch_maxsize=1485, device=device,
+                 minibatch_maxsize=2970, device=device,
                  weights=weights, bias=bias)
-    w.run()
+    l.initialize(w)
+    l.run()
 
     logging.info("End of job")
 
