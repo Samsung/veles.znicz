@@ -86,6 +86,8 @@ class Loader(loader.Loader):
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
+        self.info("Found %d samples" % (len(self.index_map)))
+
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
         """
