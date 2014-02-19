@@ -217,7 +217,6 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
-        """
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
@@ -254,7 +253,6 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_err_y[-1].gate_block_not = [1]
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
-        """
 
     def initialize(self, global_alpha, global_lambda, device=None):
         for gd in self.gd:
