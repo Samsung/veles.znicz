@@ -116,6 +116,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
+        self.decision.should_unlock_pipeline = False
 
         # Add gradient descent units
         self.gd.clear()
@@ -210,6 +211,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
+        self.plt_mx.should_unlock_pipeline = True
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
@@ -270,8 +272,8 @@ def main():
     #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
     #                     100, 10], device=device)
-    w.initialize(global_alpha=0.01, global_lambda=0.00005,
-                 minibatch_maxsize=270, device=device)
+    w.initialize(global_alpha=0.005, global_lambda=0.00005,
+                 minibatch_maxsize=540, device=device)
     l.initialize(w)
     l.run()
 
