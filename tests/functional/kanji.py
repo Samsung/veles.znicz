@@ -38,6 +38,7 @@ import gd
 import launcher
 import opencl_types
 import formats
+import error
 
 
 class Loader(loader.Loader):
@@ -86,10 +87,27 @@ class Loader(loader.Loader):
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
-        self.extract_validation_from_train(0.15, rnd.default2)
+        self.original_labels = numpy.empty(len(self.index_map),
+                                           dtype=self.label_dtype)
+        import re
+        lbl_re = re.compile("^(\d+)_\d+/(\d+)\.pickle$")
+        for i, fnme in enumerate(self.index_map):
+            res = lbl_re.search(fnme)
+            if res == None:
+                raise error.ErrBadFormat("Incorrectly formatted filename "
+                                         "found: %s" % (fnme))
+            lbl = int(res.group(1))
+            self.original_labels[i] = lbl
+            idx = int(res.group(2))
+            if idx != i:
+                raise error.ErrBadFormat("Incorrect sample index extracted "
+                                         "from filename: %s " % (fnme))
 
-        self.info("Found %d samples: [%s]" % (len(self.index_map)),
-            ", ".join(str(x) for x in self.class_samples))
+        self.info("Found %d samples. Extracting 15%% for validation..." % (
+                                                        len(self.index_map)))
+        self.extract_validation_from_train(0.15, rnd.default2)
+        self.info("Extracted, resulting datasets are: [%s]" % (
+            ", ".join(str(x) for x in self.class_samples)))
 
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
