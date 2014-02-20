@@ -1,11 +1,6 @@
 /// @brief Define for reduce operation on matrix rows or columns.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
-/// @details Example of how to use:
-///          1. Read this file to variable s_reduce.
-///          2. Read your other source files to variable s.
-///          3. Replace all occurencies of #include "matrix_reduce.cl" within s with s_reduce.
-///
-///          Kernel should be defined as:
+/// @details Kernel should be defined as:
 ///          __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 ///
 ///          Sizes should be declared externally (values are given for example):
