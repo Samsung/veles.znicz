@@ -188,9 +188,11 @@ class Loader(units.Unit):
             t = time.time()
             if t - self.t_minibatch >= 10:
                 self.t_minibatch = t
-                self.info("Served %d samples (%.1f%%)" % (
+                num, den = divmod(self.samples_served[0],
+                                  self.total_samples[0])
+                self.info("Served %d samples (%d epochs, %.1f%% current)" % (
                     self.samples_served[0],
-                    100.0 * self.samples_served[0] / self.total_samples[0]))
+                    num, 100.0 * den / self.total_samples[0]))
 
     def run(self):
         """Prepare the minibatch.
