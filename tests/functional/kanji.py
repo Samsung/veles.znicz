@@ -246,7 +246,7 @@ class Workflow(workflows.OpenCLWorkflow):
 
         # MSE plotter
         self.plt = []
-        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
@@ -268,7 +268,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.gate_block_not = [1]
         # Max plotter
         self.plt_max = []
-        styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
+        styles = ["", "b--", "k--"]  # ["r--", "b--", "k--"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -282,7 +282,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_max[-1].gate_block_not = [1]
         # Min plotter
         self.plt_min = []
-        styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
+        styles = ["", "b:", "k:"]  # ["r:", "b:", "k:"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -297,7 +297,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_min[-1].redraw_plot = True
         # Error plotter
         self.plt_n_err = []
-        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
