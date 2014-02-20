@@ -143,19 +143,11 @@ class Workflow(workflows.OpenCLWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
     1023 classes to recognize, 3 million 32x32 images dataset size.
-
-    Attributes:
-        start_point: start point.
-        rpt: repeater.
-        loader: loader.
-        forward: list of all-to-all forward units.
-        ev: evaluator softmax.
-        decision: Decision.
-        gd: list of gradient descent units.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
+        kwargs["name"] = kwargs.get("name", "Kanji")
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)

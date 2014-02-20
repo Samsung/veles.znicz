@@ -133,13 +133,14 @@ import workflows
 
 
 class Workflow(workflows.OpenCLWorkflow):
-    """Sample workflow for MNIST dataset.
+    """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
+        kwargs["name"] = kwargs.get("name", "MNIST")
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
