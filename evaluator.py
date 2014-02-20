@@ -271,8 +271,16 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         if (self.labels != None and self.class_target != None and
             (self.n_err.v == None or self.n_err.v.size < 2)):
+            itype0 = opencl_types.get_itype_from_size(len(self.class_target.v))
+            if self.labels.v.dtype != opencl_types.itypes[itype0]:
+                raise error.ErrBadFormat("Incorrectly set labels.dtype "
+                                         "(probably in Loader).")
             self.n_err.reset()
             self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
+            self.cl_sources_["mse_find_closest.cl"] = {"itype0": itype0}
+            self.class_target.initialize(self.device)
+            self.labels.initialize(self.device)
+            self.n_err.initialize(self.device)
 
         self.y.initialize(self.device)
         self.err_y.initialize(self.device)
@@ -291,6 +299,9 @@ class EvaluatorMSE(units.OpenCLUnit):
                                                     config.c_dtype],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
+                'SAMPLE_SIZE': 'Y',
+                'N_TARGETS': (self.class_target.v.shape[0]
+                              if self.class_target != None else 0)
             }
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
@@ -302,6 +313,14 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(3, self.metrics.v_)
             self.krn_.set_arg(4, self.mse.v_)
 
+            if self.labels != None and self.class_target != None:
+                self.krn_find_closest_ = pyopencl.Kernel(self.prg_,
+                                                         "mse_find_closest")
+                self.krn_find_closest_.set_arg(0, self.y.v_)
+                self.krn_find_closest_.set_arg(1, self.class_target.v_)
+                self.krn_find_closest_.set_arg(2, self.labels.v_)
+                self.krn_find_closest_.set_arg(3, self.n_err.v_)
+
     def gpu_run(self):
         self.err_y.unmap()
         self.y.unmap()
@@ -309,7 +328,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.metrics.unmap()
         self.mse.unmap()
 
-        self.krn_constants_i_[0] = self.batch_size[0]
+        batch_size = self.batch_size[0]
+        self.krn_constants_i_[0] = batch_size
         self.krn_.set_arg(5, self.krn_constants_i_[0])
 
         local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
@@ -321,25 +341,13 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         # Do the following part on CPU (GPU version not implemented currently)
         if self.labels != None and self.class_target != None:
-            self.y.map_read()
-            self.n_err.map_write()
-            self.class_target.map_read()
-            self.labels.map_read()
-            t = self.class_target.v
-            y = self.y.v
-            n_err = 0
-            for i in range(y.shape[0]):
-                md = 1.0e30
-                mi = 0
-                yy = y[i].ravel()[:t.size // t.shape[0]]
-                for j in range(t.shape[0]):
-                    d = numpy.linalg.norm(t[j].ravel() - yy)
-                    if d < md:
-                        md = d
-                        mi = j
-                if mi != self.labels.v[i]:
-                    n_err += 1
-            self.n_err.v[0] += n_err
+            self.class_target.unmap()
+            self.labels.unmap()
+            self.n_err.unmap()
+            event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
+                                                     self.krn_find_closest_,
+                                                     [batch_size], None)
+            event.wait()
 
     def cpu_run(self):
         raise error.ErrNotImplemented()

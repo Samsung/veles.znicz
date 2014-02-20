@@ -199,7 +199,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.minibatch_size = self.loader.minibatch_size
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
-        self.decision.unlock_pipeline = False
+        self.decision.should_unlock_pipeline = False
 
         # Add gradient descent units
         self.gd.clear()
@@ -241,12 +241,8 @@ class Workflow(workflows.OpenCLWorkflow):
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision
-                                   if len(self.plt) == 1
-                                   else self.plt[-2])
-            self.plt[-1].gate_block = (self.decision.epoch_ended
-                                       if len(self.plt) == 1
-                                       else [1])
+            self.plt[-1].link_from(self.decision)
+            self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         # Weights plotter
@@ -260,7 +256,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Max plotter
         self.plt_max = []
         styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
-        for i in range(0, len(styles)):
+        for i in range(len(styles)):
             if not len(styles[i]):
                 continue
             self.plt_max.append(plotters.SimplePlotter(self, name="mse",
@@ -268,13 +264,13 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
-            self.plt_max[-1].link_from(self.plt[-1]
-                                       if len(self.plt_max) == 1
-                                       else self.plt_max[-2])
+            self.plt_max[-1].link_from(self.decision)
+            self.plt_max[-1].gate_block = self.decision.epoch_ended
+            self.plt_max[-1].gate_block_not = [1]
         # Min plotter
         self.plt_min = []
         styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
-        for i in range(0, len(styles)):
+        for i in range(len(styles)):
             if not len(styles[i]):
                 continue
             self.plt_min.append(plotters.SimplePlotter(self, name="mse",
@@ -282,10 +278,25 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
-            self.plt_min[-1].link_from(self.plt_max[-1]
-                                       if len(self.plt_min) == 1
-                                       else self.plt_min[-2])
+            self.plt_min[-1].link_from(self.decision)
+            self.plt_min[-1].gate_block = self.decision.epoch_ended
+            self.plt_min[-1].gate_block_not = [1]
         self.plt_min[-1].redraw_plot = True
+        # Error plotter
+        self.plt_n_err = []
+        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        for i in range(len(styles)):
+            if not len(styles[i]):
+                continue
+            self.plt_n_err.append(plotters.SimplePlotter(self,
+                                name="num errors", plot_style=styles[i]))
+            self.plt_n_err[-1].input = self.decision.epoch_n_err_pt
+            self.plt_n_err[-1].input_field = i
+            self.plt_n_err[-1].link_from(self.decision)
+            self.plt_n_err[-1].gate_block = self.decision.epoch_ended
+            self.plt_n_err[-1].gate_block_not = [1]
+        self.plt_n_err[0].clear_plot = True
+        self.plt_n_err[-1].redraw_plot = True
         # Image plotter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
@@ -306,7 +317,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
-        self.plt_hist.unlock_pipeline = True
+        self.plt_hist.should_unlock_pipeline = True
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device, weights, bias):

@@ -607,5 +607,6 @@ class Decision(units.Unit):
             unlock = True
             self.run()
         self.master_lock_.release()
-        if unlock and self.unlock_pipeline:
+        if unlock and (self.should_unlock_pipeline or
+                       self.minibatch_class[0] != 2):
             self.workflow.unlock_pipeline()
