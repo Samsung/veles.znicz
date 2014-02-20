@@ -160,45 +160,39 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
-        """
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(0, 3):
+        for i in range(1, 3):
             self.plt.append(plotters.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision if not i else self.plt[-2])
-            self.plt[-1].gate_block = (self.decision.epoch_ended if not i
-                                       else [1])
+            self.plt[-1].link_from(self.decision)
+            self.plt[-1].gate_block = self.decision.epoch_ended
             self.plt[-1].gate_block_not = [1]
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Confusion matrix plotter
         self.plt_mx = []
-        for i in range(0, len(self.decision.confusion_matrixes)):
+        for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotters.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.decision if not i
-                                      else self.plt_mx[-2])
-            self.plt_mx[-1].gate_block = (self.decision.epoch_ended if not i
-                                          else [1])
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = self.decision.epoch_ended
             self.plt_mx[-1].gate_block_not = [1]
         # err_y plotter
         self.plt_err_y = []
-        for i in range(0, 3):
+        for i in range(1, 3):
             self.plt_err_y.append(plotters.SimplePlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
             self.plt_err_y[-1].input_field = i
-            self.plt_err_y[-1].link_from(self.decision if not i
-                                         else self.plt_err_y[-2])
-            self.plt_err_y[-1].gate_block = (self.decision.epoch_ended if not i
-                                             else [1])
+            self.plt_err_y[-1].link_from(self.decision)
+            self.plt_err_y[-1].gate_block = self.decision.epoch_ended
             self.plt_err_y[-1].gate_block_not = [1]
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
@@ -214,7 +208,6 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = self.decision.epoch_ended
         self.plt_mx.gate_block_not = [1]
-        """
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):

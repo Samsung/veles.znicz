@@ -81,6 +81,9 @@ class Loader(units.Unit):
 
         self.shuffled_indexes = None
 
+        self.t_minibatch = 0
+        self.samples_served = [0]
+
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
         state["shuffled_indexes"] = None
@@ -180,6 +183,15 @@ class Loader(units.Unit):
             raise error.ErrNotExists("Could not determine minibatch class.")
         self.minibatch_size[0] = minibatch_size
 
+        self.samples_served[0] += minibatch_size
+        if not config.is_slave:
+            t = time.time()
+            if t - self.t_minibatch >= 10:
+                self.t_minibatch = t
+                self.info("Served %d samples (%.1f%%)" % (
+                    self.samples_served[0],
+                    100.0 * self.samples_served[0] / self.total_samples[0]))
+
     def run(self):
         """Prepare the minibatch.
         """
@@ -235,92 +247,6 @@ class Loader(units.Unit):
         for i in range(cls + 1, len(self.class_samples)):
             self.class_samples[i] = 0
         self.recompute_total_samples()
-
-
-class FullBatchLoader(Loader):
-    """Loads data entire in memory.
-
-    Attributes:
-        original_data: numpy array of original data.
-        original_labels: numpy array of original labels
-                         (in case of classification).
-        original_target: numpy array of original target
-                         (in case of MSE).
-        label_dtype: numpy dtype for label.
-
-    Should be overriden in child class:
-        load_data()
-    """
-    def __init__(self, workflow, **kwargs):
-        super(FullBatchLoader, self).__init__(workflow, **kwargs)
-        self.label_dtype = None
-
-    def init_unpickled(self):
-        super(FullBatchLoader, self).init_unpickled()
-        self.original_data = None
-        self.original_labels = None
-        self.original_target = None
-        self.shuffled_indexes = None
-
-    def __getstate__(self):
-        state = super(FullBatchLoader, self).__getstate__()
-        state["original_data"] = None
-        state["original_labels"] = None
-        state["original_target"] = None
-        state["shuffled_indexes"] = None
-        return state
-
-    def create_minibatches(self):
-        if type(self.original_labels) == list:
-            self.label_dtype = opencl_types.itypes[
-                opencl_types.get_itype_from_size(
-                    numpy.max(self.original_labels))]
-        else:
-            self.label_dtype = self.original_labels.dtype
-
-        self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize[0]]
-        sh.extend(self.original_data[0].shape)
-        self.minibatch_data.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[config.c_dtype])
-
-        self.minibatch_target.reset()
-        if self.original_target != None:
-            sh = [self.minibatch_maxsize[0]]
-            sh.extend(self.original_target[0].shape)
-            self.minibatch_target.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[config.c_dtype])
-
-        self.minibatch_labels.reset()
-        if self.original_labels != None:
-            sh = [self.minibatch_maxsize[0]]
-            self.minibatch_labels.v = numpy.zeros(sh,
-                dtype=self.label_dtype)
-
-        self.minibatch_indexes.reset()
-        self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
-            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
-                                len(self.original_data))])
-
-    def fill_minibatch(self):
-        super(FullBatchLoader, self).fill_minibatch()
-
-        minibatch_size = self.minibatch_size[0]
-
-        idxs = self.minibatch_indexes.v
-        idxs[:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
-            self.minibatch_offs[0] + minibatch_size]
-
-        for i, ii in enumerate(idxs[:minibatch_size]):
-            self.minibatch_data.v[i] = self.original_data[ii]
-
-        if self.original_labels != None:
-            for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_labels.v[i] = self.original_labels[ii]
-
-        if self.original_target != None:
-            for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_target.v[i] = self.original_target[ii]
 
     def extract_validation_from_train(self, amount=0.15, rand=None):
         """Extracts validation dataset from train dataset randomly.
@@ -409,6 +335,92 @@ class FullBatchLoader(Loader):
             offs += 1
         self.class_samples[1] = offs - offs0
         self.class_samples[2] = (total_samples - self.class_samples[1] - offs0)
+
+
+class FullBatchLoader(Loader):
+    """Loads data entire in memory.
+
+    Attributes:
+        original_data: numpy array of original data.
+        original_labels: numpy array of original labels
+                         (in case of classification).
+        original_target: numpy array of original target
+                         (in case of MSE).
+        label_dtype: numpy dtype for label.
+
+    Should be overriden in child class:
+        load_data()
+    """
+    def __init__(self, workflow, **kwargs):
+        super(FullBatchLoader, self).__init__(workflow, **kwargs)
+        self.label_dtype = None
+
+    def init_unpickled(self):
+        super(FullBatchLoader, self).init_unpickled()
+        self.original_data = None
+        self.original_labels = None
+        self.original_target = None
+        self.shuffled_indexes = None
+
+    def __getstate__(self):
+        state = super(FullBatchLoader, self).__getstate__()
+        state["original_data"] = None
+        state["original_labels"] = None
+        state["original_target"] = None
+        state["shuffled_indexes"] = None
+        return state
+
+    def create_minibatches(self):
+        if type(self.original_labels) == list:
+            self.label_dtype = opencl_types.itypes[
+                opencl_types.get_itype_from_size(
+                    numpy.max(self.original_labels))]
+        else:
+            self.label_dtype = self.original_labels.dtype
+
+        self.minibatch_data.reset()
+        sh = [self.minibatch_maxsize[0]]
+        sh.extend(self.original_data[0].shape)
+        self.minibatch_data.v = numpy.zeros(sh,
+                dtype=opencl_types.dtypes[config.c_dtype])
+
+        self.minibatch_target.reset()
+        if self.original_target != None:
+            sh = [self.minibatch_maxsize[0]]
+            sh.extend(self.original_target[0].shape)
+            self.minibatch_target.v = numpy.zeros(sh,
+                dtype=opencl_types.dtypes[config.c_dtype])
+
+        self.minibatch_labels.reset()
+        if self.original_labels != None:
+            sh = [self.minibatch_maxsize[0]]
+            self.minibatch_labels.v = numpy.zeros(sh,
+                dtype=self.label_dtype)
+
+        self.minibatch_indexes.reset()
+        self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
+            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
+                                len(self.original_data))])
+
+    def fill_minibatch(self):
+        super(FullBatchLoader, self).fill_minibatch()
+
+        minibatch_size = self.minibatch_size[0]
+
+        idxs = self.minibatch_indexes.v
+        idxs[:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
+            self.minibatch_offs[0] + minibatch_size]
+
+        for i, ii in enumerate(idxs[:minibatch_size]):
+            self.minibatch_data.v[i] = self.original_data[ii]
+
+        if self.original_labels != None:
+            for i, ii in enumerate(idxs[:minibatch_size]):
+                self.minibatch_labels.v[i] = self.original_labels[ii]
+
+        if self.original_target != None:
+            for i, ii in enumerate(idxs[:minibatch_size]):
+                self.minibatch_target.v[i] = self.original_target[ii]
 
 
 class ImageLoader(FullBatchLoader):

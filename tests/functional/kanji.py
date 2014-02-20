@@ -86,7 +86,10 @@ class Loader(loader.Loader):
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
-        self.info("Found %d samples" % (len(self.index_map)))
+        self.extract_validation_from_train(0.15, rnd.default2)
+
+        self.info("Found %d samples: [%s]" % (len(self.index_map)),
+            ", ".join(str(x) for x in self.class_samples))
 
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
@@ -378,8 +381,8 @@ def main():
             w.decision.just_snapshotted[0] = 1
     if fin == None:
         w = Workflow(None, layers=[3996, 2997, 24 * 24], device=device)
-    w.initialize(global_alpha=0.0003, global_lambda=0.00005,
-                 minibatch_maxsize=3996, device=device,
+    w.initialize(global_alpha=0.0005, global_lambda=0.00005,
+                 minibatch_maxsize=7992, device=device,
                  weights=weights, bias=bias)
     l.initialize(w)
     l.run()
