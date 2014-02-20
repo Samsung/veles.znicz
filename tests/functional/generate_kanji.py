@@ -306,6 +306,8 @@ if __name__ == '__main__':
                                       False, TARGET_SX, TARGET_SY)
                         fnme = "%s/%05d.png" % (target_dirnme, lbl)
                         scipy.misc.imsave(fnme, img)
+                        a = img.astype(numpy.float32)
+                        formats.normalize(a)
                         targets.append(a)
                     font_ok = True
                 index_map.append(pickle_fnme[len(dirnme) + 1:])

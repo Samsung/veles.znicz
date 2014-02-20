@@ -68,12 +68,14 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
-        itype = opencl_types.get_itype_from_size(self.y.v.size // self.y.v.shape[0])
+        itype = opencl_types.get_itype_from_size(
+                self.y.v.size // self.y.v.shape[0])
         if (self.labels.v.dtype != opencl_types.itypes[itype] or
             self.labels.v.dtype != self.max_idx.v.dtype):
             raise error.ErrBadFormat("Incorrectly set labels.dtype "
                                      "(probably in Loader).")
-        itype2 = opencl_types.get_itype_from_size(self.max_samples_per_epoch[0])
+        itype2 = opencl_types.get_itype_from_size(
+                        self.max_samples_per_epoch[0])
         global this_dir
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
@@ -116,7 +118,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = {
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                                                    config.c_dtype],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }
@@ -245,7 +248,8 @@ class EvaluatorMSE(units.OpenCLUnit):
     def initialize(self):
         itype = opencl_types.get_itype_from_size((self.y.v.size //
                                             self.y.v.shape[0]))
-        itype2 = opencl_types.get_itype_from_size(self.max_samples_per_epoch[0])
+        itype2 = opencl_types.get_itype_from_size(
+                        self.max_samples_per_epoch[0])
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v == None or
@@ -283,7 +287,8 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         if self.prg_ == None:
             defines = {
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                                                    config.c_dtype],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }

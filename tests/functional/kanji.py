@@ -28,7 +28,7 @@ import numpy
 import config
 import rnd
 import opencl
-#import plotters
+import plotters
 import pickle
 import loader
 import decision
@@ -137,7 +137,9 @@ import workflows
 
 
 class Workflow(workflows.OpenCLWorkflow):
-    """Sample workflow for MNIST dataset.
+    """Workflow for training network which will be able to recognize
+    drawn kanji characters; training done using only TrueType fonts;
+    1023 classes to recognize, 3 million 32x32 images dataset size.
 
     Attributes:
         start_point: start point.
@@ -181,6 +183,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.ev.batch_size = self.loader.minibatch_size
         self.ev.target = self.loader.minibatch_target
         self.ev.class_target = self.loader.class_target
+        self.ev.labels = self.loader.minibatch_labels
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
@@ -189,12 +192,14 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
+        self.decision.minibatch_n_err = self.ev.n_err
         self.decision.minibatch_metrics = self.ev.metrics
         self.decision.minibatch_mse = self.ev.mse
         self.decision.minibatch_offs = self.loader.minibatch_offs
         self.decision.minibatch_size = self.loader.minibatch_size
         self.decision.class_samples = self.loader.class_samples
         self.decision.workflow = self
+        self.decision.unlock_pipeline = False
 
         # Add gradient descent units
         self.gd.clear()
@@ -226,7 +231,6 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
-        """
         # MSE plotter
         self.plt = []
         styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
@@ -302,7 +306,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
-        """
+        self.plt_hist.unlock_pipeline = True
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device, weights, bias):
@@ -362,9 +366,9 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin == None:
-        w = Workflow(None, layers=[4077, 3051, 24 * 24], device=device)
-    w.initialize(global_alpha=0.001, global_lambda=0.00005,
-                 minibatch_maxsize=2970, device=device,
+        w = Workflow(None, layers=[3996, 2997, 24 * 24], device=device)
+    w.initialize(global_alpha=0.0003, global_lambda=0.00005,
+                 minibatch_maxsize=3996, device=device,
                  weights=weights, bias=bias)
     l.initialize(w)
     l.run()

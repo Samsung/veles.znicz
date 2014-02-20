@@ -103,6 +103,13 @@ class GD(OpenCLUnit):
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
 
+    def generate_data_for_slave(self, slave=None):
+        return (self.global_alpha, self.global_lambda)
+
+    def apply_data_from_master(self, data):
+        self.global_alpha = data[0]
+        self.global_lambda = data[1]
+
     def generate_data_for_master(self):
         if (not self.run_executed or
             self.gradient_weights.v == None or self.gradient_bias.v == None):

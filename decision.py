@@ -124,6 +124,7 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
+        self.unlock_pipeline = True
 
     def init_unpickled(self):
         super(Decision, self).init_unpickled()
@@ -576,6 +577,8 @@ class Decision(units.Unit):
             self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
             self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
                                               data["minibatch_metrics"][1])
+            self.minibatch_metrics.v[2] = min(self.minibatch_metrics.v[2],
+                                              data["minibatch_metrics"][2])
         if (self.minibatch_mse != None and
             self.minibatch_mse.v != None):
             self.minibatch_mse.map_write()
@@ -592,6 +595,7 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.v += data[
                             "minibatch_confusion_matrix"]
         self.copy_minibatch_mse()
+        self.epoch_ended[0] = False
         self.samples_served -= 1
         if self.samples_served < 0:
             self.error("There is an error somewhere (samples_served=%d",
@@ -603,5 +607,5 @@ class Decision(units.Unit):
             unlock = True
             self.run()
         self.master_lock_.release()
-        if unlock:
+        if unlock and self.unlock_pipeline:
             self.workflow.unlock_pipeline()
