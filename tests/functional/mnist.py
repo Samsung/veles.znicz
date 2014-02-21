@@ -22,6 +22,7 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import graphics
 import launcher
 import formats
 import struct
