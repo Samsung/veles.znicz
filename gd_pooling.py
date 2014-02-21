@@ -7,12 +7,11 @@ Gradient Descent for Pooling units.
 """
 import logging
 import numpy
-import pyopencl
 import time
-
 import config
 import error
 import nn_units
+import znicz_config
 
 
 class GDPooling(nn_units.GD):
@@ -96,8 +95,8 @@ class GDPooling(nn_units.GD):
         """
         self.err_h.unmap()  # we will update err_h
         self.err_y.unmap()  # we will use err_y
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_, [self.err_y.v.size], None)
+        event = self.enqueue_nd_range_kernel(self.krn_err_h_,
+                                             [self.err_y.v.size], None)
         event.wait()
 
     def cpu_run(self):
@@ -146,11 +145,11 @@ class GDMaxPooling(GDPooling):
             return
 
         if self.krn_err_h_clear_ == None:
-            self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "array_clear")
+            self.krn_err_h_clear_ = self.get_kernel("array_clear")
             self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
 
         if self.krn_err_h_ == None:
-            self.krn_err_h_ = pyopencl.Kernel(self.prg_, "gd_max_pooling")
+            self.krn_err_h_ = self.get_kernel("gd_max_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)
             self.krn_err_h_.set_arg(2, self.h_offs.v_)
@@ -159,8 +158,8 @@ class GDMaxPooling(GDPooling):
         """Do gradient descent.
         """
         self.err_h.unmap()  # we will clear err_h here
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_clear_, [self.err_h.v.size], None)
+        event = self.enqueue_nd_range_kernel(self.krn_err_h_clear_,
+                                             [self.err_h.v.size], None)
         event.wait()
         self.h_offs.unmap()  # we will use h_offs
         return super(GDMaxPooling, self).gpu_run()
@@ -183,6 +182,6 @@ class GDAvgPooling(GDPooling):
             return
 
         if self.krn_err_h_ == None:
-            self.krn_err_h_ = pyopencl.Kernel(self.prg_, "gd_avg_pooling")
+            self.krn_err_h_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)

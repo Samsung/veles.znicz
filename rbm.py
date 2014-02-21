@@ -6,13 +6,12 @@ RBM unit.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import pyopencl
-
 import all2all
 import config
 import error
 import formats
 import opencl_types
+import znicz_config
 
 
 class RBMTanh(all2all.All2AllTanh):
@@ -43,7 +42,7 @@ class RBMTanh(all2all.All2AllTanh):
         self.output_rand.initialize(self.device)
         if not self.device:
             return
-        self.krn_apply_rand_ = pyopencl.Kernel(self.prg_, "apply_rand")
+        self.krn_apply_rand_ = self.get_kernel("apply_rand")
         self.krn_apply_rand_.set_arg(0, self.output.v_)
         self.krn_apply_rand_.set_arg(1, self.output_rand.v_)
 
@@ -60,8 +59,8 @@ class RBMTanh(all2all.All2AllTanh):
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
-                                                 global_size, local_size)
+        event = self.enqueue_nd_range_kernel(self.krn_,
+                                             global_size, local_size)
         self.output_rand.map_invalidate()
         self.rand.fill_normal(self.output_rand.v, -1.7159, 1.7159)
         self.output_rand.unmap()
@@ -70,8 +69,8 @@ class RBMTanh(all2all.All2AllTanh):
         self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
         global_size = [self.output.v.size // self.output.v.shape[0],
                        self.output.v.shape[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                    self.krn_apply_rand_, global_size, None)
+        event = self.enqueue_nd_range_kernel(self.krn_apply_rand_,
+                                             global_size, None)
         event.wait()
 
     def cpu_run(self):

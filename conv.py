@@ -7,9 +7,7 @@ Convolutional layers.
 """
 import logging
 import numpy
-import pyopencl
 import time
-
 import config
 import error
 import formats
@@ -135,7 +133,8 @@ class Conv(nn_units.Forward):
         if self.krn_ == None:
             defines = {
                 self.s_activation: 1,
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[config.c_dtype],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                                                    config.c_dtype],
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -150,7 +149,7 @@ class Conv(nn_units.Forward):
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky,
                 self.n_kernels))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "feed_layer")
+            self.krn_ = self.get_kernel("feed_layer")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.weights.v_)
             self.krn_.set_arg(2, self.output.v_)
@@ -191,8 +190,8 @@ class Conv(nn_units.Forward):
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]
         local_size = [block_size, block_size]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
-                                                 global_size, local_size)
+        event = self.enqueue_nd_range_kernel(self.krn_,
+                                             global_size, local_size)
         event.wait()
 
     def cpu_run(self):

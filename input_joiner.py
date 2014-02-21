@@ -6,13 +6,12 @@ Joins several inpus into one continuous output.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import pyopencl
-
 import config
 import error
 import formats
 import opencl_types
 import units
+import znicz_config
 
 
 class InputJoiner(units.OpenCLUnit):
@@ -92,12 +91,13 @@ class InputJoiner(units.OpenCLUnit):
 
         if self.krn_ == None:
             defines = {
-                'etype': opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
+                'etype': opencl_types.numpy_dtype_to_opencl(
+                                            self.output.v.dtype)
             }
             self.build_program(defines, "%s/join_%s.cl" % (config.cache_dir,
                 "_".join(str(x) for x in self.output_sample_shape)))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "join2")
+            self.krn_ = self.get_kernel("join2")
             self.krn_.set_arg(0, self.output.v_)
 
     def cpu_run(self):
@@ -145,8 +145,8 @@ class InputJoiner(units.OpenCLUnit):
             self.krn_.set_arg(4, self.cl_const[1])
             self.krn_.set_arg(5, self.cl_const[2])
             global_size = [high - low, minibatch_size]
-            event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                self.krn_, global_size, None)
+            event = self.enqueue_nd_range_kernel(self.krn_,
+                                                 global_size, None)
             event.wait()
             low = high
             a = None
@@ -166,6 +166,6 @@ class InputJoiner(units.OpenCLUnit):
                 self.krn_.set_arg(4, self.cl_const[1])
                 self.krn_.set_arg(5, self.cl_const[2])
                 global_size = [high - low, minibatch_size]
-                event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                    self.krn_, global_size, None)
+                event = self.enqueue_nd_range_kernel(self.krn_,
+                                                     global_size, None)
                 event.wait()

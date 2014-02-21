@@ -7,14 +7,13 @@ Gradient Descent for Convolutional Units.
 """
 import logging
 import numpy
-import pyopencl
 import time
-
 import config
 import error
 import formats
 import nn_units
 import opencl_types
+import znicz_config
 
 
 class GD(nn_units.GD):
@@ -138,21 +137,21 @@ class GD(nn_units.GD):
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
-            self.krn_err_h_clear_ = pyopencl.Kernel(self.prg_, "array_clear")
+            self.krn_err_h_clear_ = self.get_kernel("array_clear")
             self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
 
-            self.krn_err_h_ = pyopencl.Kernel(self.prg_, "err_h_update")
+            self.krn_err_h_ = self.get_kernel("err_h_update")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.weights.v_)
             self.krn_err_h_.set_arg(2, self.err_h.v_)
 
-            self.krn_weights_ = pyopencl.Kernel(self.prg_, "weights_update")
+            self.krn_weights_ = self.get_kernel("weights_update")
             self.krn_weights_.set_arg(0, self.err_y.v_)
             self.krn_weights_.set_arg(1, self.h.v_)
             self.krn_weights_.set_arg(2, self.weights.v_)
             self.krn_weights_.set_arg(3, self.gradient_weights.v_)
 
-            self.krn_bias_ = pyopencl.Kernel(self.prg_, "bias_update")
+            self.krn_bias_ = self.get_kernel("bias_update")
             self.krn_bias_.set_arg(0, self.err_y.v_)
             self.krn_bias_.set_arg(1, self.bias.v_)
             self.krn_bias_.set_arg(2, self.gradient_bias.v_)
@@ -187,15 +186,14 @@ class GD(nn_units.GD):
                                 block_size),
                 formats.roundup(self.n_kernels, block_size)]
         local_size = [block_size, block_size]
-        ev1 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_weights_, global_size, local_size)
+        ev1 = self.enqueue_nd_range_kernel(self.krn_weights_,
+                                           global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
-        ev2 = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                               self.krn_bias_, global_size,
-                                               local_size)
+        ev2 = self.enqueue_nd_range_kernel(self.krn_bias_,
+                                           global_size, local_size)
 
         ev1.wait()
         ev2.wait()
@@ -208,8 +206,8 @@ class GD(nn_units.GD):
         self.weights.unmap()
 
         # Clear the resulting matrix
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_clear_, [self.err_h.v.size], None)
+        event = self.enqueue_nd_range_kernel(self.krn_err_h_clear_,
+                                             [self.err_h.v.size], None)
         event.wait()
 
         batch_size = self.h.v.shape[0]
@@ -221,8 +219,8 @@ class GD(nn_units.GD):
         global_size = [formats.roundup(kernel_size, block_size),
             formats.roundup(self.h.v.size // kernel_size, block_size)]
         local_size = [block_size, block_size]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_h_, global_size, local_size)
+        event = self.enqueue_nd_range_kernel(self.krn_err_h_,
+                                             global_size, local_size)
         event.wait()
 
     def print_times(self, t_start):
@@ -266,8 +264,8 @@ class GD(nn_units.GD):
             return
         self.y.unmap()
         self.err_y.unmap()
-        ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_err_y_, [self.err_y.v.size], None)
+        ev = self.enqueue_nd_range_kernel(self.krn_err_y_,
+                                          [self.err_y.v.size], None)
         ev.wait()
 
     def gpu_run(self):
@@ -307,6 +305,6 @@ class GDTanh(GD):
         super(GDTanh, self).initialize()
         if self.device == None:
             return
-        self.krn_err_y_ = pyopencl.Kernel(self.prg_, "err_y_update")
+        self.krn_err_y_ = self.get_kernel("err_y_update")
         self.krn_err_y_.set_arg(0, self.err_y.v_)
         self.krn_err_y_.set_arg(1, self.y.v_)

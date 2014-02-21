@@ -8,4 +8,3 @@ import os
 
 
 config.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))
-

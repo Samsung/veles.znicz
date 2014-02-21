@@ -7,13 +7,12 @@ Pooling layer.
 """
 import logging
 import numpy
-import pyopencl
 import time
-
 import config
 import error
 import formats
 import nn_units
+import znicz_config
 
 
 class Pooling(nn_units.Forward):
@@ -103,8 +102,8 @@ class Pooling(nn_units.Forward):
         self.input.unmap()  # we will use input
         y = self.output.v
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_, self.krn_,
-                                                 global_size, None)
+        event = self.enqueue_nd_range_kernel(self.krn_,
+                                             global_size, None)
         event.wait()
 
     def cpu_run(self):
@@ -153,7 +152,7 @@ class MaxPooling(Pooling):
             return
 
         if self.krn_ == None:
-            self.krn_ = pyopencl.Kernel(self.prg_, "do_max_pooling")
+            self.krn_ = self.get_kernel("do_max_pooling")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.output.v_)
             self.krn_.set_arg(2, self.input_offs.v_)
@@ -180,6 +179,6 @@ class AvgPooling(Pooling):
             return
 
         if self.krn_ == None:
-            self.krn_ = pyopencl.Kernel(self.prg_, "do_avg_pooling")
+            self.krn_ = self.get_kernel("do_avg_pooling")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.output.v_)

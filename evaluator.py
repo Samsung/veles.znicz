@@ -4,13 +4,12 @@ Created on Apr 1, 2013
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import pyopencl
-
 import config
 import error
 import formats
 import opencl_types
 import units
+import znicz_config
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):
@@ -126,7 +125,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "ev_sm")
+            self.krn_ = self.get_kernel("ev_sm")
             self.krn_.set_arg(0, self.y.v_)
             self.krn_.set_arg(1, self.max_idx.v_)
             self.krn_.set_arg(2, self.labels.v_)
@@ -149,8 +148,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-            self.krn_, global_size, local_size)
+        event = self.enqueue_nd_range_kernel(self.krn_,
+                                             global_size, local_size)
         event.wait()
 
     def cpu_run(self):
@@ -306,7 +305,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 
-            self.krn_ = pyopencl.Kernel(self.prg_, "ev_mse")
+            self.krn_ = self.get_kernel("ev_mse")
             self.krn_.set_arg(0, self.y.v_)
             self.krn_.set_arg(1, self.target.v_)
             self.krn_.set_arg(2, self.err_y.v_)
@@ -314,8 +313,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(4, self.mse.v_)
 
             if self.labels != None and self.class_target != None:
-                self.krn_find_closest_ = pyopencl.Kernel(self.prg_,
-                                                         "mse_find_closest")
+                self.krn_find_closest_ = self.get_kernel("mse_find_closest")
                 self.krn_find_closest_.set_arg(0, self.y.v_)
                 self.krn_find_closest_.set_arg(1, self.class_target.v_)
                 self.krn_find_closest_.set_arg(2, self.labels.v_)
@@ -334,9 +332,8 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
-        event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                 self.krn_,
-                                                 global_size, local_size)
+        event = self.enqueue_nd_range_kernel(self.krn_,
+                                             global_size, local_size)
         event.wait()
 
         # Do the following part on CPU (GPU version not implemented currently)
@@ -344,9 +341,8 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.class_target.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            event = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                                                     self.krn_find_closest_,
-                                                     [batch_size], None)
+            event = self.enqueue_nd_range_kernel(self.krn_find_closest_,
+                                                 [batch_size], None)
             event.wait()
 
     def cpu_run(self):
