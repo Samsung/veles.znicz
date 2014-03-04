@@ -95,7 +95,7 @@ class GDPooling(nn_units.GD):
         """
         self.err_h.unmap()  # we will update err_h
         self.err_y.unmap()  # we will use err_y
-        event = self.enqueue_nd_range_kernel(self.krn_err_h_,
+        event = self.execute_kernel(self.krn_err_h_,
                                              [self.err_y.v.size], None)
         event.wait()
 
@@ -158,8 +158,8 @@ class GDMaxPooling(GDPooling):
         """Do gradient descent.
         """
         self.err_h.unmap()  # we will clear err_h here
-        event = self.enqueue_nd_range_kernel(self.krn_err_h_clear_,
-                                             [self.err_h.v.size], None)
+        event = self.execute_kernel(self.krn_err_h_clear_,
+                                    [self.err_h.v.size], None)
         event.wait()
         self.h_offs.unmap()  # we will use h_offs
         return super(GDMaxPooling, self).gpu_run()

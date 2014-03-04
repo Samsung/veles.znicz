@@ -59,18 +59,17 @@ class RBMTanh(all2all.All2AllTanh):
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
-        event = self.enqueue_nd_range_kernel(self.krn_,
+        event = self.execute_kernel(self.krn_,
                                              global_size, local_size)
         self.output_rand.map_invalidate()
         self.rand.fill_normal(self.output_rand.v, -1.7159, 1.7159)
         self.output_rand.unmap()
         event.wait()
-        self.krn_apply_rand_.set_arg(2, self.y_low_high[0])
-        self.krn_apply_rand_.set_arg(3, self.y_low_high[1])
+        self.krn_apply_rand_.set_arg(2, self.y_low_high[0:1])
+        self.krn_apply_rand_.set_arg(3, self.y_low_high[1:2])
         global_size = [self.output.v.size // self.output.v.shape[0],
                        self.output.v.shape[0]]
-        event = self.enqueue_nd_range_kernel(self.krn_apply_rand_,
-                                             global_size, None)
+        event = self.execute_kernel(self.krn_apply_rand_, global_size, None)
         event.wait()
 
     def cpu_run(self):

@@ -172,8 +172,8 @@ class GD(nn_units.GD):
         # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
-        self.krn_weights_.set_arg(4, self.cl_const[0])
-        self.krn_weights_.set_arg(5, self.cl_const[1])
+        self.krn_weights_.set_arg(4, self.cl_const[0:1])
+        self.krn_weights_.set_arg(5, self.cl_const[1:2])
         block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         if self.weights_transposed:
             global_size = [
@@ -186,13 +186,13 @@ class GD(nn_units.GD):
                                 block_size),
                 formats.roundup(self.n_kernels, block_size)]
         local_size = [block_size, block_size]
-        ev1 = self.enqueue_nd_range_kernel(self.krn_weights_,
+        ev1 = self.execute_kernel(self.krn_weights_,
                                            global_size, local_size)
 
-        self.krn_bias_.set_arg(3, self.cl_const[0])
+        self.krn_bias_.set_arg(3, self.cl_const[0:1])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
-        ev2 = self.enqueue_nd_range_kernel(self.krn_bias_,
+        ev2 = self.execute_kernel(self.krn_bias_,
                                            global_size, local_size)
 
         ev1.wait()
@@ -206,7 +206,7 @@ class GD(nn_units.GD):
         self.weights.unmap()
 
         # Clear the resulting matrix
-        event = self.enqueue_nd_range_kernel(self.krn_err_h_clear_,
+        event = self.execute_kernel(self.krn_err_h_clear_,
                                              [self.err_h.v.size], None)
         event.wait()
 
@@ -219,7 +219,7 @@ class GD(nn_units.GD):
         global_size = [formats.roundup(kernel_size, block_size),
             formats.roundup(self.h.v.size // kernel_size, block_size)]
         local_size = [block_size, block_size]
-        event = self.enqueue_nd_range_kernel(self.krn_err_h_,
+        event = self.execute_kernel(self.krn_err_h_,
                                              global_size, local_size)
         event.wait()
 
@@ -264,8 +264,8 @@ class GD(nn_units.GD):
             return
         self.y.unmap()
         self.err_y.unmap()
-        ev = self.enqueue_nd_range_kernel(self.krn_err_y_,
-                                          [self.err_y.v.size], None)
+        ev = self.execute_kernel(self.krn_err_y_,
+                                 [self.err_y.v.size], None)
         ev.wait()
 
     def gpu_run(self):

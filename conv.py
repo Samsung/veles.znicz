@@ -190,8 +190,7 @@ class Conv(nn_units.Forward):
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]
         local_size = [block_size, block_size]
-        event = self.enqueue_nd_range_kernel(self.krn_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()
 
     def cpu_run(self):

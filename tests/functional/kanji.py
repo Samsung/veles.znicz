@@ -24,9 +24,16 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
-import graphics
-import numpy
 import config
+for s in sys.argv:
+    if s == "-s" or s[:16] == "--server_address":
+        config.plotters_disabled = True
+        config.is_slave = True
+        break
+else:
+    import graphics
+import launcher
+import numpy
 import rnd
 import opencl
 import plotters
@@ -36,7 +43,6 @@ import decision
 import all2all
 import evaluator
 import gd
-import launcher
 import opencl_types
 import formats
 import error
@@ -88,6 +94,7 @@ class Loader(loader.Loader):
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
+        """
         self.original_labels = numpy.empty(len(self.index_map),
                                            dtype=self.label_dtype)
         import re
@@ -109,6 +116,7 @@ class Loader(loader.Loader):
         self.extract_validation_from_train(0.15, rnd.default2)
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
+        """
 
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
@@ -247,8 +255,8 @@ class Workflow(workflows.OpenCLWorkflow):
 
         # MSE plotter
         self.plt = []
-        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
-        for i in range(0, len(styles)):
+        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        for i in range(len(styles)):
             if not len(styles[i]):
                 continue
             self.plt.append(plotters.SimplePlotter(self, name="mse",
@@ -262,7 +270,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotters.Weights2D(self, name="First Layer Weights",
-                                         limit=25)
+                                         limit=16)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.link_from(self.decision)
@@ -270,7 +278,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.gate_block_not = [1]
         # Max plotter
         self.plt_max = []
-        styles = ["", "b--", "k--"]  # ["r--", "b--", "k--"]
+        styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -284,7 +292,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_max[-1].gate_block_not = [1]
         # Min plotter
         self.plt_min = []
-        styles = ["", "b:", "k:"]  # ["r:", "b:", "k:"]
+        styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -299,7 +307,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_min[-1].redraw_plot = True
         # Error plotter
         self.plt_n_err = []
-        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
+        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -313,6 +321,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_n_err[0].clear_plot = True
         self.plt_n_err[-1].redraw_plot = True
         # Image plotter
+        """
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
@@ -326,6 +335,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = self.decision.epoch_ended
         self.plt_img.gate_block_not = [1]
+        """
         # Histogram plotter
         self.plt_hist = plotters.MSEHistogram(self, name="Histogram")
         self.plt_hist.link_from(self.decision)
@@ -392,9 +402,9 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin == None:
-        w = Workflow(None, layers=[3996, 2997, 24 * 24], device=device)
-    w.initialize(global_alpha=0.0005, global_lambda=0.00005,
-                 minibatch_maxsize=7992, device=device,
+        w = Workflow(None, layers=[270, 270, 24 * 24], device=device)
+    w.initialize(global_alpha=0.0001, global_lambda=0.00005,
+                 minibatch_maxsize=270, device=device,
                  weights=weights, bias=bias)
     l.initialize(w)
     l.run()

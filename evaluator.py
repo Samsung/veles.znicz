@@ -45,7 +45,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         compute_confusion_matrix: compute confusion matrix or not.
         max_idx: indexes of element with maximum real value for each sample.
         max_err_y_sum: maximum of backpropagated error sum by sample.
-        krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
     def __init__(self, workflow, **kwargs):
@@ -62,7 +61,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()
         self.max_idx = None  # formats.Vector()
-        self.krn_constants_d_ = None
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
 
@@ -144,11 +142,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum.unmap()
 
         self.krn_constants_i_[0] = self.batch_size[0]
-        self.krn_.set_arg(7, self.krn_constants_i_[0])
+        self.krn_.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
-        event = self.enqueue_nd_range_kernel(self.krn_,
+        event = self.execute_kernel(self.krn_,
                                              global_size, local_size)
         event.wait()
 
@@ -220,7 +218,6 @@ class EvaluatorMSE(units.OpenCLUnit):
         metrics: [0] - sum of sample's mse, [1] - max of sample's mse,
                  [2] - min of sample's mse.
         mse: array of mse for each sample in minibatch.
-        krn_constants_d_: numpy array for constant arguments to kernel.
         krn_constants_i_: numpy array for constant arguments to kernel.
         labels: labels for a Batch (may be None).
         class_target: target for each class (may be None).
@@ -328,12 +325,11 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         batch_size = self.batch_size[0]
         self.krn_constants_i_[0] = batch_size
-        self.krn_.set_arg(5, self.krn_constants_i_[0])
+        self.krn_.set_arg(5, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
         global_size = [local_size[0]]
-        event = self.enqueue_nd_range_kernel(self.krn_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()
 
         # Do the following part on CPU (GPU version not implemented currently)
@@ -341,8 +337,8 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.class_target.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            event = self.enqueue_nd_range_kernel(self.krn_find_closest_,
-                                                 [batch_size], None)
+            event = self.execute_kernel(self.krn_find_closest_,
+                                        [batch_size], None)
             event.wait()
 
     def cpu_run(self):

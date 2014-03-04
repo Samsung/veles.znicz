@@ -7,9 +7,7 @@ Will test correctness of OpenCL matrix multiplication.
 """
 import numpy
 import os
-import pyopencl
 import unittest
-
 import config
 import znicz_config
 import formats
@@ -21,6 +19,8 @@ import units
 
 class TestMatrixMultiplication(unittest.TestCase):
     def setUp(self):
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
         config.unit_test = True
         config.plotters_disabled = True
         self.device = opencl.Device()
@@ -48,7 +48,8 @@ class TestMatrixMultiplication(unittest.TestCase):
         c *= 1.7159
         return c
 
-    def _prepare_tsts(self, BLOCK_SIZE, dtype=opencl_types.dtypes[config.dtype],
+    def _prepare_tsts(self, BLOCK_SIZE,
+                      dtype=opencl_types.dtypes[config.dtype],
                       AB_WIDTH=1371, B_HEIGHT=11735, A_HEIGHT=171):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
@@ -109,8 +110,7 @@ class TestMatrixMultiplication(unittest.TestCase):
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
 
-        event = pyopencl.enqueue_nd_range_kernel(device.queue_, krn,
-                                                 global_size, local_size)
+        event = self.device.queue_.execute_kernel(krn, global_size, local_size)
         event.wait()
 
         self.c.map_read()

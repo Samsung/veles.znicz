@@ -403,6 +403,9 @@ class Decision(units.Unit):
         # Reset n_err
         for i in range(0, len(self.epoch_n_err)):
             self.epoch_n_err[i] = 0
+        self.sync_vectors()
+
+    def sync_vectors(self):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
@@ -503,6 +506,7 @@ class Decision(units.Unit):
             self.on_last_minibatch(self.minibatch_class[0])
 
     def generate_data_for_master(self):
+        self.sync_vectors()
         data = {}
         minibatch_class = self.minibatch_class[0]
         data["minibatch_class"] = minibatch_class
@@ -529,6 +533,10 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.map_read()
             data["minibatch_confusion_matrix"] = (
                     self.minibatch_confusion_matrix.v)
+        data["sample_input"] = self.sample_input
+        data["sample_output"] = self.sample_output
+        data["sample_target"] = self.sample_target
+        data["sample_label"] = self.sample_label
         return data
 
     def generate_data_for_slave(self, slave=None):
@@ -597,6 +605,14 @@ class Decision(units.Unit):
                 self.minibatch_confusion_matrix.map_write()
                 self.minibatch_confusion_matrix.v += data[
                                 "minibatch_confusion_matrix"]
+            for i, d in enumerate(data["sample_input"]):
+                self.sample_input[i] = d
+            for i, d in enumerate(data["sample_output"]):
+                self.sample_output[i] = d
+            for i, d in enumerate(data["sample_target"]):
+                self.sample_target[i] = d
+            for i, d in enumerate(data["sample_label"]):
+                self.sample_label[i] = d
             self.copy_minibatch_mse()
             self.epoch_ended[0] = False
             self._finalize_job(slave)
@@ -607,7 +623,7 @@ class Decision(units.Unit):
         minibatch_class = self.minibatch_class[0]
         self.samples_served -= 1
         if self.samples_served < 0:
-            self.error("There is an error somewhere (samples_served=%d",
+            self.error("There is an error somewhere (samples_served=%d)",
                        self.samples_served)
         unlock = False
         if (self.__dict__.get("sample_serving_ended", False) and

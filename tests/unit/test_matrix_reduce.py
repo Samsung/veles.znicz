@@ -6,9 +6,7 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import pyopencl
 import unittest
-
 import config
 import znicz_config
 import formats
@@ -20,6 +18,8 @@ import units
 
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
+        import logging
+        logging.basicConfig(level=logging.DEBUG)
         config.unit_test = True
         config.plotters_disabled = True
         self.device = opencl.Device()
@@ -82,8 +82,8 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
-            ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                krn, global_size, local_size)
+            ev = self.device.queue_.execute_kernel(krn, global_size,
+                                                   local_size)
             ev.wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t).max()
@@ -93,6 +93,8 @@ class TestMatrixReduce(unittest.TestCase):
                 "Written some values outside of the target array bounds")
             b.v[:] = 0
             b.unmap()
+
+        print("test_fixed() succeeded")
 
     def test_random(self):
         """Test with random input vs numpy.
@@ -117,12 +119,12 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
-            ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                krn, global_size, local_size)
+            ev = self.device.queue_.execute_kernel(krn, global_size,
+                                                   local_size)
             ev.wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t_col).max()
-            self.assertLess(max_diff, 0.0001,
+            self.assertLess(max_diff, 0.0003,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
                 "Written some values outside of the target array bounds")
@@ -133,17 +135,19 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[0] * reduce_size]
             local_size = [reduce_size]
-            ev = pyopencl.enqueue_nd_range_kernel(self.device.queue_,
-                krn, global_size, local_size)
+            ev = self.device.queue_.execute_kernel(krn, global_size,
+                                                   local_size)
             ev.wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[0]] - t).max()
-            self.assertLess(max_diff, 0.0001,
+            self.assertLess(max_diff, 0.0003,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(numpy.count_nonzero(b.v[a.v.shape[0]:]), 0,
                 "Written some values outside of the target array bounds")
             b.v[:] = 0
             b.unmap()
+
+        print("test_random() succeeded")
 
 
 if __name__ == "__main__":

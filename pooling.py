@@ -102,8 +102,7 @@ class Pooling(nn_units.Forward):
         self.input.unmap()  # we will use input
         y = self.output.v
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
-        event = self.enqueue_nd_range_kernel(self.krn_,
-                                             global_size, None)
+        event = self.execute_kernel(self.krn_, global_size, None)
         event.wait()
 
     def cpu_run(self):

@@ -165,7 +165,7 @@ class All2All(nn_units.Forward):
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
-        event = self.enqueue_nd_range_kernel(self.krn_,
+        event = self.execute_kernel(self.krn_,
                                              global_size, local_size)
         event.wait()
 
@@ -290,8 +290,7 @@ class All2AllSoftmax(All2All):
         block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
-        event = self.enqueue_nd_range_kernel(self.krn_sm_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_sm_, global_size, local_size)
         event.wait()
 
     def cpu_run(self):

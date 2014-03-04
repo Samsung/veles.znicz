@@ -43,8 +43,6 @@ class Loader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
-        """Here we will load MNIST data.
-        """
         global this_dir
         fin = open("%s/wine/wine.data" % (this_dir), "r")
         aa = []
@@ -85,7 +83,7 @@ class Loader(loader.FullBatchLoader):
 
 
 class Workflow(workflows.OpenCLWorkflow):
-    """Sample workflow for MNIST dataset.
+    """Sample workflow for Wine dataset.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")

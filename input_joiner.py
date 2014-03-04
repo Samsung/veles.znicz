@@ -120,7 +120,7 @@ class InputJoiner(units.OpenCLUnit):
         low = 0
         output_sample_size = self.output.v.size // self.output.v.shape[0]
         self.cl_const[3] = output_sample_size
-        self.krn_.set_arg(6, self.cl_const[3])
+        self.krn_.set_arg(6, self.cl_const[3:4])
         a = None
         a_size = 0
         b = None
@@ -141,12 +141,11 @@ class InputJoiner(units.OpenCLUnit):
             self.cl_const[2] = low
             self.krn_.set_arg(1, a.v_)
             self.krn_.set_arg(2, b.v_)
-            self.krn_.set_arg(3, self.cl_const[0])
-            self.krn_.set_arg(4, self.cl_const[1])
-            self.krn_.set_arg(5, self.cl_const[2])
+            self.krn_.set_arg(3, self.cl_const[0:1])
+            self.krn_.set_arg(4, self.cl_const[1:2])
+            self.krn_.set_arg(5, self.cl_const[2:3])
             global_size = [high - low, minibatch_size]
-            event = self.enqueue_nd_range_kernel(self.krn_,
-                                                 global_size, None)
+            event = self.execute_kernel(self.krn_, global_size, None)
             event.wait()
             low = high
             a = None
@@ -162,10 +161,9 @@ class InputJoiner(units.OpenCLUnit):
                 self.cl_const[2] = low
                 self.krn_.set_arg(1, a.v_)
                 self.krn_.set_arg(2, b.v_ if b != None else None)
-                self.krn_.set_arg(3, self.cl_const[0])
-                self.krn_.set_arg(4, self.cl_const[1])
-                self.krn_.set_arg(5, self.cl_const[2])
+                self.krn_.set_arg(3, self.cl_const[0:1])
+                self.krn_.set_arg(4, self.cl_const[1:2])
+                self.krn_.set_arg(5, self.cl_const[2:3])
                 global_size = [high - low, minibatch_size]
-                event = self.enqueue_nd_range_kernel(self.krn_,
-                                                     global_size, None)
+                event = self.execute_kernel(self.krn_, global_size, None)
                 event.wait()
