@@ -7,7 +7,8 @@ Decision unit.
 """
 import numpy
 import os
-import pickle
+import six
+from six.moves import cPickle as pickle
 import time
 
 import config
@@ -231,9 +232,9 @@ class Decision(units.Unit):
         pickle.dump(self.workflow, fout)
         fout.close()
         """
-        self.fnmeWb = os.path.join(config.snapshot_dir,
-                                   "%s_%s_Wb.pickle" % (self.snapshot_prefix,
-                                                        "_".join(ss)))
+        self.fnmeWb = os.path.join(config.snapshot_dir, "%s_%s_Wb.%d.pickle" %
+                                   (self.snapshot_prefix, 3 if six.PY3 else 2,
+                                    "_".join(ss)))
         self.info("Exporting weights to %s" % (self.fnmeWb))
         fout = open(self.fnmeWb, "wb")
         weights = []
@@ -273,20 +274,26 @@ class Decision(units.Unit):
             except OSError:
                 pass
         fnme_link = os.path.join(config.snapshot_dir,
-                                 "%s_current_Wb.pickle" % self.snapshot_prefix)
+                                 "%s_current_Wb.%d.pickle" %
+                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
         try:
             os.remove(fnme_link)
         except:
             pass
-        os.symlink("%s_%s_Wb.pickle" % (self.snapshot_prefix, "_".join(ss)),
+        os.symlink("%s_%s_Wb.%d.pickle" % (self.snapshot_prefix,
+                                           3 if six.PY3 else 2,
+                                           "_".join(ss)),
                    fnme_link)
         fnme_link = os.path.join(config.snapshot_dir,
-                                 "%s_current.pickle" % self.snapshot_prefix)
+                                 "%s_current.%d.pickle" %
+                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
         try:
             os.remove(fnme_link)
         except:
             pass
-        os.symlink("%s_%s.pickle" % (self.snapshot_prefix, "_".join(ss)),
+        os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
+                                        3 if six.PY3 else 2,
+                                        "_".join(ss)),
                    fnme_link)
         self.just_snapshotted[0] = 1
         self.snapshot_time[0] = time.time()
