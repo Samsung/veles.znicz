@@ -98,7 +98,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward.clear()
+        del self.forward[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
@@ -136,7 +136,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.workflow = self
 
         # Add gradient descent units
-        self.gd.clear()
+        del self.gd[:]
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(self, device=device)
         # self.gd[-1].link_from(self.decision)
@@ -181,9 +181,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
-                                    numpy.int32, 1024))
-    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    rnd.default.seed("%s/seed" % (this_dir), numpy.int32, 1024)
     config.plotters_disabled = True
     l = launcher.Launcher()
     device = None if l.is_master() else opencl.Device()

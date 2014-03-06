@@ -76,18 +76,18 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         global this_dir
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
-        if (self.err_y.v == None or
+        if (self.err_y.v is None or
             self.err_y.v.size != self.y.v.size):
             self.err_y.reset()
             self.err_y.v = numpy.zeros(self.y.v.shape, dtype=self.y.v.dtype)
 
-        if self.n_err.v == None or self.n_err.v.size < 2:
+        if self.n_err.v is None or self.n_err.v.size < 2:
             self.n_err.reset()
             self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
 
         out_size = self.y.v.size // self.y.v.shape[0]
         if self.compute_confusion_matrix:
-            if (self.confusion_matrix.v == None or
+            if (self.confusion_matrix.v is None or
                 self.confusion_matrix.v.size != out_size * out_size):
                 self.confusion_matrix.reset()
                 self.confusion_matrix.v = numpy.zeros([out_size, out_size],
@@ -95,7 +95,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         else:
             self.confusion_matrix.reset()
 
-        if self.max_err_y_sum.v == None or self.max_err_y_sum.v.size < 1:
+        if self.max_err_y_sum.v is None or self.max_err_y_sum.v.size < 1:
             self.max_err_y_sum.reset()
             self.max_err_y_sum.v = numpy.zeros(1,
                 dtype=opencl_types.dtypes[config.dtype])
@@ -108,12 +108,12 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.labels.initialize(self.device)
         self.max_err_y_sum.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ == None:
+        if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                                                     config.c_dtype],
@@ -203,11 +203,11 @@ class EvaluatorMSE(units.OpenCLUnit):
         err_y
         confusion_matrix
         max_err_y_sum
-        n_err (only if labels and class_target != None)
+        n_err (only if labels and class_target is not None)
 
     Creates within initialize():
         err_y
-        n_err (only if labels and class_target != None)
+        n_err (only if labels and class_target is not None)
         max_err_y_sum
 
     Attributes:
@@ -222,7 +222,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         labels: labels for a Batch (may be None).
         class_target: target for each class (may be None).
         n_err: number of wrong recognized samples
-            (if labels and class_target != None).
+            (if labels and class_target is not None).
         max_samples_per_epoch: maximum number of samples per epoch,
             will choose n_err element type based on it.
     """
@@ -248,25 +248,25 @@ class EvaluatorMSE(units.OpenCLUnit):
                         self.max_samples_per_epoch[0])
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
-        if (self.err_y.v == None or
+        if (self.err_y.v is None or
             self.err_y.v.size != self.y.v.size):
             self.err_y.reset()
             self.err_y.v = numpy.zeros(self.y.v.shape, dtype=self.y.v.dtype)
 
-        if self.metrics.v == None or self.metrics.v.size < 3:
+        if self.metrics.v is None or self.metrics.v.size < 3:
             self.metrics.reset()
             self.metrics.v = numpy.zeros(3,
                 dtype=opencl_types.dtypes[config.dtype])
             self.metrics.v[2] = 1.0e30  # mse_min
 
-        if (self.mse.v == None or
+        if (self.mse.v is None or
             self.mse.v.size != self.err_y.v.shape[0]):
             self.mse.reset()
             self.mse.v = numpy.zeros(self.err_y.v.shape[0],
                 dtype=opencl_types.dtypes[config.dtype])
 
-        if (self.labels != None and self.class_target != None and
-            (self.n_err.v == None or self.n_err.v.size < 2)):
+        if (self.labels is not None and self.class_target is not None and
+            (self.n_err.v is None or self.n_err.v.size < 2)):
             itype0 = opencl_types.get_itype_from_size(len(self.class_target.v))
             if self.labels.v.dtype != opencl_types.itypes[itype0]:
                 raise error.ErrBadFormat("Incorrectly set labels.dtype "
@@ -289,7 +289,7 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ == None:
+        if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                                                     config.c_dtype],
@@ -297,7 +297,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
                 'SAMPLE_SIZE': 'Y',
                 'N_TARGETS': (self.class_target.v.shape[0]
-                              if self.class_target != None else 0)
+                              if self.class_target is not None else 0)
             }
             self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
@@ -309,7 +309,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.krn_.set_arg(3, self.metrics.v_)
             self.krn_.set_arg(4, self.mse.v_)
 
-            if self.labels != None and self.class_target != None:
+            if self.labels is not None and self.class_target is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
                 self.krn_find_closest_.set_arg(0, self.y.v_)
                 self.krn_find_closest_.set_arg(1, self.class_target.v_)
@@ -333,7 +333,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         event.wait()
 
         # Do the following part on CPU (GPU version not implemented currently)
-        if self.labels != None and self.class_target != None:
+        if self.labels is not None and self.class_target is not None:
             self.class_target.unmap()
             self.labels.unmap()
             self.n_err.unmap()

@@ -78,20 +78,20 @@ class GD(nn_units.GD):
             raise error.ErrBadFormat("Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
-        if (self.err_h.v == None or
+        if (self.err_h.v is None or
             self.err_h.v.size != self.h.v.size):
             self.err_h.reset()
             self.err_h.v = numpy.zeros(self.h.v.shape,
                                        dtype=self.err_y.v.dtype)
 
         if (self.store_gradient and
-            (self.gradient_weights.v == None or
+            (self.gradient_weights.v is None or
              self.gradient_weights.v.size != self.weights.v.size)):
             self.gradient_weights.reset()
             self.gradient_weights.v = numpy.zeros_like(self.weights.v)
 
         if (self.store_gradient and
-            (self.gradient_bias.v == None or
+            (self.gradient_bias.v is None or
              self.gradient_bias.v.size != self.bias.v.size)):
             self.gradient_bias.reset()
             self.gradient_bias.v = numpy.zeros_like(self.bias.v)
@@ -106,10 +106,10 @@ class GD(nn_units.GD):
             self.gradient_weights.initialize(self.device)
             self.gradient_bias.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.prg_ == None:
+        if self.prg_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
@@ -164,7 +164,7 @@ class GD(nn_units.GD):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = (self.y.v.shape[0] if self.batch_size == None
+        batch_size = (self.y.v.shape[0] if self.batch_size is None
                                         else self.batch_size[0])
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
@@ -260,7 +260,7 @@ class GD(nn_units.GD):
     def gpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
         """
-        if self.krn_err_y_ == None:
+        if self.krn_err_y_ is None:
             return
         self.y.unmap()
         self.err_y.unmap()
@@ -303,7 +303,7 @@ class GDTanh(GD):
     def initialize(self):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
         super(GDTanh, self).initialize()
-        if self.device == None:
+        if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")
         self.krn_err_y_.set_arg(0, self.err_y.v_)

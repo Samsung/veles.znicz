@@ -36,7 +36,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     """
-    First version - -config_file - one file with local parameters experiment 
+    First version - -config_file - one file with local parameters experiment
     (example wine [orighinal version format])
     """
     parser.add_argument("-config_file", type=str,
@@ -62,8 +62,8 @@ def main():
         try:
             fin = open(sconfig.snapshot, "rb")
             """
-            sconfig not pickle 
-            not working 
+            sconfig not pickle
+            not working
             """
             w = pickle.load(fin)
             fin.close()
@@ -79,7 +79,7 @@ def main():
             wflib = None
             print("not import wf -  [%s] " % (sconfig.wf))
             return -3
-        if not (wflib == None):
+        if not (wflib is None):
             try:
                 w = wflib.Workflow();
             except:

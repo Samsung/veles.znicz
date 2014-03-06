@@ -277,7 +277,7 @@ if __name__ == '__main__':
                     break
                 img = do_plot(font, character, SY, angle, sx, sy, True,
                               SX, SY)
-                if img == None:
+                if img is None:
                     #logging.info("Not found for font %s" % (font))
                     continue
                 a = img.astype(numpy.float32)

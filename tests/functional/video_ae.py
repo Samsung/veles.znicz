@@ -53,7 +53,7 @@ class Loader(loader.ImageLoader):
 
     def get_label_from_filename(self, filename):
         res = self.lbl_re_.search(filename)
-        if res == None:
+        if res is None:
             return
         lbl = int(res.group(1))
         return lbl
@@ -240,7 +240,7 @@ def main():
         fin = open(fnme, "rb")
     except IOError:
         pass
-    if fin != None:
+    if fin is not None:
         w = pickle.load(fin)
         fin.close()
         for forward in w.forward:

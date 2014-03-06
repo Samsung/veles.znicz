@@ -34,7 +34,7 @@ class RBMTanh(all2all.All2AllTanh):
 
     def initialize(self):
         super(RBMTanh, self).initialize()
-        if (self.output_rand.v == None or
+        if (self.output_rand.v is None or
             self.output_rand.v.size != self.output.v.size):
             self.output_rand.v = numpy.zeros(self.output.v.shape,
                 dtype=opencl_types.dtypes[config.dtype])

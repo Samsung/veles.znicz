@@ -41,7 +41,7 @@ class InputJoiner(units.OpenCLUnit):
         kwargs["output_sample_shape"] = output_sample_shape
         kwargs["inputs"] = inputs
         super(InputJoiner, self).__init__(workflow, **kwargs)
-        self.inputs = [] if inputs == None else inputs
+        self.inputs = [] if inputs is None else inputs
         self.output = formats.Vector()
         self.output_sample_shape = output_sample_shape
         self.cl_const = numpy.zeros(4, dtype=numpy.int32)
@@ -58,7 +58,7 @@ class InputJoiner(units.OpenCLUnit):
 
         super(InputJoiner, self).initialize()
 
-        if self.minibatch_size[0] == None:
+        if self.minibatch_size[0] is None:
             minibatch_size = self.inputs[0].v.shape[0]
             for i in range(1, len(self.inputs)):
                 minibatch_size = min(minibatch_size, self.inputs[i].v.shape[0])
@@ -66,10 +66,10 @@ class InputJoiner(units.OpenCLUnit):
         else:
             minibatch_size = self.minibatch_size[0]
 
-        if self.output_sample_shape == None:
+        if self.output_sample_shape is None:
             self.output_sample_shape = [0]
             for inp in self.inputs:
-                if inp.v == None:
+                if inp.v is None:
                     raise error.ErrBadFormat(
                         "output_sample_shape should be provided "
                         "if any of the inputs was not initialized "
@@ -78,7 +78,7 @@ class InputJoiner(units.OpenCLUnit):
 
         sh = [minibatch_size]
         sh.extend(self.output_sample_shape)
-        if (self.output.v == None or self.output.v.size != numpy.prod(sh)):
+        if (self.output.v is None or self.output.v.size != numpy.prod(sh)):
             self.output.reset()
             self.output.v = numpy.zeros(sh, dtype=self.inputs[0].v.dtype)
         else:
@@ -86,10 +86,10 @@ class InputJoiner(units.OpenCLUnit):
 
         self.output.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             defines = {
                 'etype': opencl_types.numpy_dtype_to_opencl(
                                             self.output.v.dtype)
@@ -126,7 +126,7 @@ class InputJoiner(units.OpenCLUnit):
         b = None
         for inp in self.inputs:
             inp.unmap()  # we will use input on GPU
-            if a == None:
+            if a is None:
                 a = inp
                 a_size = a.v.size // a.v.shape[0]
                 continue
@@ -151,8 +151,8 @@ class InputJoiner(units.OpenCLUnit):
             a = None
             a_size = 0
             b = None
-        if a != None:
-            b_size = (b.v.size // b.v.shape[0] if b != None else 0)
+        if a is not None:
+            b_size = (b.v.size // b.v.shape[0] if b is not None else 0)
             high = min(low + a_size + b_size,
                        output_sample_size)
             if low < high:
@@ -160,7 +160,7 @@ class InputJoiner(units.OpenCLUnit):
                 self.cl_const[1] = b_size
                 self.cl_const[2] = low
                 self.krn_.set_arg(1, a.v_)
-                self.krn_.set_arg(2, b.v_ if b != None else None)
+                self.krn_.set_arg(2, b.v_ if b is not None else None)
                 self.krn_.set_arg(3, self.cl_const[0:1])
                 self.krn_.set_arg(4, self.cl_const[1:2])
                 self.krn_.set_arg(5, self.cl_const[2:3])

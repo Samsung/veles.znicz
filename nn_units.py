@@ -79,7 +79,7 @@ class GD(OpenCLUnit):
         weights_transposed = kwargs.get("weights_transposed", False)
         store_gradient = kwargs.get("store_gradient", config.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not config.is_slave)
-        if store_gradient == None:
+        if store_gradient is None:
             store_gradient = config.is_slave
         kwargs["global_alpha"] = global_alpha
         kwargs["global_lambda"] = global_lambda
@@ -112,7 +112,7 @@ class GD(OpenCLUnit):
 
     def generate_data_for_master(self):
         if (not self.run_executed or
-            self.gradient_weights.v == None or self.gradient_bias.v == None):
+            self.gradient_weights.v is None or self.gradient_bias.v is None):
             return None
         self.run_executed = False
         self.gradient_weights.map_read()

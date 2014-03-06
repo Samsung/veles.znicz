@@ -33,7 +33,7 @@ def main():
     for basedir, dirlist, filelist in os.walk(args.dir, topdown=False):
         found_files = []
         for nme in filelist:
-            if jp2.search(nme) != None:
+            if jp2.search(nme) is not None:
                 found_files.append("%s/%s" % (basedir, nme))
         n = len(found_files)
         if n >= args.at_least or n == 0:

@@ -78,7 +78,7 @@ class Conv(nn_units.Forward):
     def initialize(self):
         super(Conv, self).initialize()
 
-        if self.weights_magnitude == None:
+        if self.weights_magnitude is None:
             # Get weights magnitude and cap it to 0.05
             self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
         batch_size = self.input.v.shape[0]
@@ -86,7 +86,7 @@ class Conv(nn_units.Forward):
         sx = self.input.v.shape[2]
         n_channels = self.input.v.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
-        if self.weights.v == None or self.weights.v.size != n_weights:
+        if self.weights.v is None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             self.rand.fill(self.weights.v, -self.weights_magnitude,
@@ -98,7 +98,7 @@ class Conv(nn_units.Forward):
                 a = self.weights.v.transpose().copy()
                 self.weights.v.shape = a.shape
                 self.weights.v[:] = a[:]
-        if (self.bias.v == None or
+        if (self.bias.v is None or
             self.bias.v.size != self.n_kernels):
             self.bias.reset()
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
@@ -109,7 +109,7 @@ class Conv(nn_units.Forward):
             batch_size <<= 1  # check for overflow
         output_size = batch_size * (self.n_kernels *
             (sx - self.kx + 1) * (sy - self.ky + 1))
-        if self.output.v == None or self.output.v.size != output_size:
+        if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
             self.output.v = numpy.zeros([batch_size,
                 sy - self.ky + 1, sx - self.kx + 1, self.n_kernels],
@@ -127,10 +127,10 @@ class Conv(nn_units.Forward):
             self.output.v = self.output.v[:batch_size]
             formats.assert_addr(self.output.v, self.output.vv)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[

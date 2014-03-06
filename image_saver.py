@@ -7,7 +7,6 @@ ImageSaver unit.
 """
 import numpy
 import units
-import scipy.misc
 import os
 import glob
 import formats
@@ -30,7 +29,7 @@ class ImageSaver(units.Unit):
         max_idx: indexes of element with maximum value for each sample.
 
     Remarks:
-        if max_idx != None:
+        if max_idx is not None:
             Softmax classifier is assumed and only failed samples
             will be saved.
         else:
@@ -41,7 +40,7 @@ class ImageSaver(units.Unit):
         out_dirs = kwargs.get("out_dirs")
         limit = kwargs.get("limit", 100)
         yuv = kwargs.get("yuv", False)
-        if out_dirs == None:
+        if out_dirs is None:
             out_dirs = ["%s/tmpimg/test" % (config.cache_dir),
                         "%s/tmpimg/validation" % (config.cache_dir),
                         "%s/tmpimg/train" % (config.cache_dir)]
@@ -83,12 +82,13 @@ class ImageSaver(units.Unit):
         return x.ravel()
 
     def run(self):
+        import scipy.misc
         self.input.map_read()
-        if self.output != None:
+        if self.output is not None:
             self.output.map_read()
         self.indexes.map_read()
         self.labels.map_read()
-        if self.max_idx != None:
+        if self.max_idx is not None:
             self.max_idx.map_read()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
@@ -116,25 +116,25 @@ class ImageSaver(units.Unit):
             x = self.as_image(self.input.v[i])
             idx = self.indexes.v[i]
             lbl = self.labels.v[i]
-            if self.max_idx != None:
+            if self.max_idx is not None:
                 im = self.max_idx[i]
                 if im == lbl:
                     continue
                 y = self.output.v[i]
-            if (self.max_idx == None and
-                self.output != None and self.target != None):
+            if (self.max_idx is None and
+                self.output is not None and self.target is not None):
                 y = self.as_image(self.output.v[i])
                 t = self.as_image(self.target.v[i])
                 y = y.reshape(t.shape)
-            if self.max_idx == None and y != None:
+            if self.max_idx is None and y is not None:
                 mse = numpy.linalg.norm(t - y) / x.size
-            if xyt == None:
+            if xyt is None:
                 n_rows = x.shape[0]
                 n_cols = x.shape[1]
-                if self.max_idx == None and y != None and len(y.shape) != 1:
+                if self.max_idx is None and y is not None and len(y.shape) != 1:
                     n_rows += y.shape[0]
                     n_cols = max(n_cols, y.shape[1])
-                if (self.max_idx == None and t != None and
+                if (self.max_idx is None and t is not None and
                     len(t.shape) != 1 and self.input != self.target):
                     n_rows += t.shape[0]
                     n_cols = max(n_cols, t.shape[1])
@@ -147,7 +147,7 @@ class ImageSaver(units.Unit):
             img += 1.0
             img *= 127.5
             numpy.clip(img, 0, 255, img)
-            if self.max_idx == None and y != None and len(y.shape) != 1:
+            if self.max_idx is None and y is not None and len(y.shape) != 1:
                 offs = (xyt.shape[1] - y.shape[1]) >> 1
                 xyt[x.shape[0]:x.shape[0] + y.shape[0],
                     offs:offs + y.shape[1]] = y[:, :]
@@ -157,7 +157,7 @@ class ImageSaver(units.Unit):
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
-            if (self.max_idx == None and t != None and
+            if (self.max_idx is None and t is not None and
                 len(t.shape) != 1 and self.input != self.target):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
@@ -166,7 +166,7 @@ class ImageSaver(units.Unit):
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
-            if self.max_idx == None:
+            if self.max_idx is None:
                 fnme = "%s/%.6f_%d_%d.png" % (
                     self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
             else:

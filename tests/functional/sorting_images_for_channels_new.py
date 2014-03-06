@@ -63,27 +63,27 @@ class MyWindow(QtGui.QWidget):
         no_channeldir = re.compile("no channel", re.IGNORECASE)
         for root, dirs, files in os.walk(thumbs_path):
             for i, nme in enumerate(dirs):
-                if cnndir.search(nme) != None or abcdir.search(nme) != None\
-                                        or baddir.search(nme) != None\
-                                        or gooddir.search(nme) != None\
-                                        or diffdir.search(nme) != None\
-                                        or deldir.search(nme) != None\
-                                        or wrongdir.search(nme) != None\
-                                        or no_channeldir.search(nme) != None\
-                                        or histdir.search(nme) != None\
-                                        or cbsdir.search(nme) != None\
-                                        or tntdir.search(nme) != None\
-                                        or espndir.search(nme) != None\
-                                        or cnbcdir.search(nme) != None\
-                                        or msnbcdir.search(nme) != None\
-                                        or weatherdir.search(nme) != None\
-                                        or foxdir.search(nme) != None\
-                                        or amcdir.search(nme) != None\
-                                        or hsndir.search(nme) != None\
-                                        or vh1dir.search(nme) != None\
-                                        or usadir.search(nme) != None\
-                                        or knbcdir.search(nme) != None or\
-                                        unidir.search(nme) != None:
+                if cnndir.search(nme) is not None or abcdir.search(nme) is not None\
+                                        or baddir.search(nme) is not None\
+                                        or gooddir.search(nme) is not None\
+                                        or diffdir.search(nme) is not None\
+                                        or deldir.search(nme) is not None\
+                                        or wrongdir.search(nme) is not None\
+                                        or no_channeldir.search(nme) is not None\
+                                        or histdir.search(nme) is not None\
+                                        or cbsdir.search(nme) is not None\
+                                        or tntdir.search(nme) is not None\
+                                        or espndir.search(nme) is not None\
+                                        or cnbcdir.search(nme) is not None\
+                                        or msnbcdir.search(nme) is not None\
+                                        or weatherdir.search(nme) is not None\
+                                        or foxdir.search(nme) is not None\
+                                        or amcdir.search(nme) is not None\
+                                        or hsndir.search(nme) is not None\
+                                        or vh1dir.search(nme) is not None\
+                                        or usadir.search(nme) is not None\
+                                        or knbcdir.search(nme) is not None or\
+                                        unidir.search(nme) is not None:
                         fordel.append(i)
             while len(fordel) > 0:
                 dirs.pop(fordel.pop())

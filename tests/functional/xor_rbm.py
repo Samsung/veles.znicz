@@ -347,7 +347,7 @@ class Workflow2(workflows.OpenCLWorkflow):
 
     def initialize(self, global_alpha, global_lambda):
         for gd in self.gd:
-            if gd == None:
+            if gd is None:
                 continue
             gd.global_alpha = global_alpha
             gd.global_lambda = global_lambda

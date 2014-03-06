@@ -53,7 +53,7 @@ class TestGD(unittest.TestCase):
         c.y = formats.Vector()
         c.y.v = c.err_y.v.copy()
         c.initialize()
-        if device == None:
+        if device is None:
             c.cpu_run()
         else:
             c.gpu_run()

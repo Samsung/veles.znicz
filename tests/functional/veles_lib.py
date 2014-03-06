@@ -31,7 +31,7 @@ class veles(object):
 
         parser = argparse.ArgumentParser()
         """
-        First version - -config_file - one file with local parameters experiment 
+        First version - -config_file - one file with local parameters experiment
         (example wine [orighinal version format])
         """
         parser.add_argument("-config_file", type=str,
@@ -55,8 +55,8 @@ class veles(object):
             try:
                 fin = open(sconfig.snapshot, "rb")
                 """
-                sconfig not pickle 
-                not working 
+                sconfig not pickle
+                not working
                 """
                 self.w = pickle.load(fin)
                 fin.close()
@@ -73,7 +73,7 @@ class veles(object):
                 wflib = None
                 print("not import wf -  [%s] " % (sconfig.wf))
                 return -3
-            if not (wflib == None):
+            if not (wflib is None):
                 try:
                     self.w = wflib.Workflow();
                 except:
@@ -87,7 +87,7 @@ class veles(object):
 
     def run(self):
         print(" %s.run " % (sconfig.wf))
-        if not (self.w == None):
+        if not (self.w is None):
             self.w.run()
             self.save_pikcle()
             self.save_result()

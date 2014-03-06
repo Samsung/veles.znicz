@@ -47,11 +47,11 @@ class MyWindow(QtGui.QWidget):
         no_channeldir = re.compile("no channel", re.IGNORECASE)
         for root, dirs, files in os.walk(thumbs_path):
             for i, nme in enumerate(dirs):
-                if baddir.search(nme) != None or gooddir.search(nme) != None\
-                                           or diffdir.search(nme) != None\
-                                           or deldir.search(nme) != None\
-                                           or wrongdir.search(nme) != None or\
-                                           no_channeldir.search(nme) != None:
+                if baddir.search(nme) is not None or gooddir.search(nme) is not None\
+                                           or diffdir.search(nme) is not None\
+                                           or deldir.search(nme) is not None\
+                                           or wrongdir.search(nme) is not None or\
+                                           no_channeldir.search(nme) is not None:
                         fordel.append(i)
             while len(fordel) > 0:
                 dirs.pop(fordel.pop())

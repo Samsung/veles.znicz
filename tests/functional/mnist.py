@@ -65,8 +65,9 @@ class Loader(loader.FullBatchLoader):
         if n_labels != labels_count:
             raise error.ErrBadFormat("Wrong number of labels in train-labels")
 
-        arr = numpy.fromfile(fin, dtype=numpy.byte, count=n_labels)
-        if arr.size != n_labels:
+        arr = numpy.zeros(n_labels, dtype=numpy.byte)
+        n = fin.readinto(arr)
+        if n != n_labels:
             raise error.ErrBadFormat("EOF reached while reading labels from "
                                      "train-labels")
         self.original_labels[offs:offs + labels_count] = arr[:]
@@ -92,9 +93,9 @@ class Loader(loader.FullBatchLoader):
                                      "should be 28*28")
 
         # 0 - white, 255 - black
-        pixels = numpy.fromfile(fin, dtype=numpy.ubyte,
-                                count=n_images * n_rows * n_cols)
-        if pixels.shape[0] != n_images * n_rows * n_cols:
+        pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
+        n = fin.readinto(pixels)
+        if n != n_images * n_rows * n_cols:
             raise error.ErrBadFormat("EOF reached while reading images "
                                      "from train-images")
 
@@ -157,7 +158,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward.clear()
+        del self.forward[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
@@ -197,7 +198,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.should_unlock_pipeline = False
 
         # Add gradient descent units
-        self.gd.clear()
+        del self.gd[:]
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(self, device=device)
         self.gd[-1].link_from(self.decision)
@@ -279,9 +280,7 @@ def main():
     logging.info("Logging level: %s", str(logging.root.level))
 
     global this_dir
-    rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir),
-                                    numpy.int32, 1024))
-    # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
+    rnd.default.seed("%s/seed" % (this_dir), numpy.int32, 1024)
     l = launcher.Launcher()
     device = None if l.is_master() else opencl.Device()
     w = Workflow(None, layers=[100, 10], device=device)

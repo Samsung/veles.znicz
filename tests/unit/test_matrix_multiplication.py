@@ -117,8 +117,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
     def test_matrix_multiplication(self):
         self.rnd = rnd.Rand()
-        self.rnd.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
-                                     count=1024))
+        self.rnd.seed("/dev/urandom", dtype=numpy.int32, count=1024)
         block_size = self.device.device_info.BLOCK_SIZE[config.dtype]
         N = 1000
         print("Will test %d matrix multiplications "

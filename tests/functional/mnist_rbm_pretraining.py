@@ -196,7 +196,7 @@ class Workflow(workflows.OpenCLWorkflow):
 
     def initialize(self, device, args):
         for gd in self.gd:
-            if gd == None:
+            if gd is None:
                 continue
             gd.global_alpha = args.global_alpha
             gd.global_lambda = args.global_lambda

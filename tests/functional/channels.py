@@ -187,7 +187,7 @@ class Loader(loader.FullBatchLoader):
         self.original_labels.append(lbl)
         ii = len(self.original_data) - 1
         self.file_map[ii] = fnme
-        if n_negative != None:
+        if n_negative is not None:
             n_negative[0] += 1
         data_lock.release()
         return ii
@@ -203,7 +203,7 @@ class Loader(loader.FullBatchLoader):
         self.append_sample(sample, lbl, fnme, None, data_lock)
 
         # Collect negative dataset from positive samples only
-        if lbl and self.w_neg != None and self.find_negative > 0:
+        if lbl and self.w_neg is not None and self.find_negative > 0:
             # Sample pictures at random positions
             samples = numpy.zeros([self.find_negative, sample.size],
                                   dtype=self.w_neg[0][0].dtype)
@@ -258,12 +258,12 @@ class Loader(loader.FullBatchLoader):
 
     def get_label(self, dirnme):
         lbl = self.channel_map[dirnme].get("lbl")
-        if lbl == None:
+        if lbl is None:
             lbl = int(dirnme)
         return lbl
 
     def load_data(self):
-        if self.original_data != None and self.original_labels != None:
+        if self.original_data is not None and self.original_labels is not None:
             return
 
         cached_data_fnme = ("%s/%s_%s.pickle" % (
@@ -285,14 +285,14 @@ class Loader(loader.FullBatchLoader):
             for k, v in obj.items():
                 if type(v) == list:
                     o = self.__dict__[k]
-                    if o == None:
+                    if o is None:
                         o = []
                         self.__dict__[k] = o
                     o.clear()
                     o.extend(v)
                 elif type(v) == dict:
                     o = self.__dict__[k]
-                    if o == None:
+                    if o is None:
                         o = {}
                         self.__dict__[k] = o
                     o.update(v)
@@ -312,7 +312,7 @@ class Loader(loader.FullBatchLoader):
             n = int(numpy.prod(sh))
             # Get raw array from file
             self.original_data = []
-            store_negative = self.w_neg != None and self.find_negative > 0
+            store_negative = self.w_neg is not None and self.find_negative > 0
             old_file_map = []
             n_not_exists_anymore = 0
             for i in range(len(self.original_labels)):
@@ -444,12 +444,12 @@ class Loader(loader.FullBatchLoader):
                 for basedir, dirlist, filelist in os.walk("%s/%s" % (
                     self.channels_dir, relpath)):
                     for i, nme in enumerate(dirlist):
-                        if baddir.search(nme) != None:
+                        if baddir.search(nme) is not None:
                             fordel.append(i)
                     while len(fordel) > 0:
                         dirlist.pop(fordel.pop())
                     for nme in filelist:
-                        if jp2.search(nme) != None:
+                        if jp2.search(nme) is not None:
                             found_files.append("%s/%s" % (basedir, nme))
                 found_files.sort()
                 files[relpath] = found_files
@@ -489,7 +489,7 @@ class Loader(loader.FullBatchLoader):
             len(self.file_map) != len(self.original_labels)):
             raise Exception("Logic error")
 
-        if self.w_neg != None and self.find_negative > 0:
+        if self.w_neg is not None and self.find_negative > 0:
             n_positive = numpy.count_nonzero(self.original_labels)
             self.info("Found %d negative samples (%.2f%%)" % (
                 n_negative[0], 100.0 * n_negative[0] / n_positive))
@@ -818,7 +818,7 @@ def main():
             logging.error("Valid snapshot should be provided if "
                           "export is True. Will now exit.")
             return
-        if (args.find_negative > 0 and w_neg == None):
+        if (args.find_negative > 0 and w_neg is None):
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return

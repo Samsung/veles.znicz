@@ -59,17 +59,17 @@ class GDPooling(nn_units.GD):
             raise error.ErrBadFormat("Size of err_y differs "
                 "from the size computed based on kx, ky, size of h.")
 
-        if self.err_h.v == None or self.err_h.v.size != self.h.v.size:
+        if self.err_h.v is None or self.err_h.v.size != self.h.v.size:
             self.err_h.reset()
             self.err_h.v = numpy.zeros_like(self.h.v)
 
         self.err_y.initialize(self.device)
         self.err_h.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.prg_ == None:
+        if self.prg_ is None:
             defines = {
                 'SX': sx,
                 'SY': sy,
@@ -141,14 +141,14 @@ class GDMaxPooling(GDPooling):
 
         self.h_offs.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_err_h_clear_ == None:
+        if self.krn_err_h_clear_ is None:
             self.krn_err_h_clear_ = self.get_kernel("array_clear")
             self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
 
-        if self.krn_err_h_ == None:
+        if self.krn_err_h_ is None:
             self.krn_err_h_ = self.get_kernel("gd_max_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)
@@ -178,10 +178,10 @@ class GDAvgPooling(GDPooling):
     def initialize(self):
         super(GDAvgPooling, self).initialize()
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_err_h_ == None:
+        if self.krn_err_h_ is None:
             self.krn_err_h_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)

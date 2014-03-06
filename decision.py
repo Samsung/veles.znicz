@@ -140,10 +140,10 @@ class Decision(units.Unit):
             self.on_reset_statistics(i)
 
         # Allocate arrays for confusion matrixes.
-        if (self.minibatch_confusion_matrix != None and
-            self.minibatch_confusion_matrix.v != None):
+        if (self.minibatch_confusion_matrix is not None and
+            self.minibatch_confusion_matrix.v is not None):
             for i in range(0, len(self.confusion_matrixes)):
-                if (self.confusion_matrixes[i] == None or
+                if (self.confusion_matrixes[i] is None or
                     self.confusion_matrixes[i].size !=
                     self.minibatch_confusion_matrix.v.size):
                     self.confusion_matrixes[i] = (
@@ -152,10 +152,10 @@ class Decision(units.Unit):
                     self.confusion_matrixes[i][:] = 0
 
         # Allocate arrays for epoch metrics.
-        if (self.minibatch_metrics != None and
-            self.minibatch_metrics.v != None):
+        if (self.minibatch_metrics is not None and
+            self.minibatch_metrics.v is not None):
             for i in range(0, len(self.epoch_metrics)):
-                if (self.epoch_metrics[i] == None or
+                if (self.epoch_metrics[i] is None or
                     self.epoch_metrics[i].size !=
                     self.minibatch_metrics.v.size):
                     self.epoch_metrics[i] = (
@@ -167,7 +167,7 @@ class Decision(units.Unit):
         for i in range(0, len(self.epoch_samples_mse)):
             if self.class_samples[i] <= 0:
                 continue
-            if (self.tmp_epoch_samples_mse[i].v == None or
+            if (self.tmp_epoch_samples_mse[i].v is None or
                 self.tmp_epoch_samples_mse[i].v.size != self.class_samples[i]):
                 self.tmp_epoch_samples_mse[i].v = (
                     numpy.zeros(self.class_samples[i],
@@ -186,19 +186,19 @@ class Decision(units.Unit):
         if self.workflow.forward[-1].output in self.vectors_to_sync:
             self.sample_output[0] = numpy.zeros_like(
                 self.workflow.forward[-1].output.v[0])
-        ev = self.ev if self.ev != None else self.workflow.ev
-        if (ev.__dict__.get("target") != None
+        ev = self.ev if self.ev is not None else self.workflow.ev
+        if (ev.__dict__.get("target") is not None
             and ev.target in self.vectors_to_sync
-            and ev.target.v != None):
+            and ev.target.v is not None):
             self.sample_target[0] = numpy.zeros_like(ev.target.v[0])
 
         self.t1 = time.time()
 
     def on_snapshot(self, minibatch_class):
-        if self.workflow == None:
+        if self.workflow is None:
             return
         to_rm = []
-        if self.fnme != None:
+        if self.fnme is not None:
             to_rm.append("%s.bak" % (self.fnme))
             try:
                 os.unlink(to_rm[-1])
@@ -208,7 +208,7 @@ class Decision(units.Unit):
                 os.rename(self.fnme, to_rm[-1])
             except OSError:
                 pass
-        if self.fnmeWb != None:
+        if self.fnmeWb is not None:
             to_rm.append("%s.bak" % (self.fnmeWb))
             try:
                 os.unlink(to_rm[-1])
@@ -219,9 +219,9 @@ class Decision(units.Unit):
             except FileNotFoundError:
                 pass
         ss = []
-        if self.minibatch_metrics != None:
+        if self.minibatch_metrics is not None:
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
-        if self.minibatch_n_err != None:
+        if self.minibatch_n_err is not None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
         """
         self.fnme = os.path.join(config.snapshot_dir,
@@ -233,24 +233,24 @@ class Decision(units.Unit):
         fout.close()
         """
         self.fnmeWb = os.path.join(config.snapshot_dir, "%s_%s_Wb.%d.pickle" %
-                                   (self.snapshot_prefix, 3 if six.PY3 else 2,
-                                    "_".join(ss)))
+                                   (self.snapshot_prefix, "_".join(ss),
+                                    3 if six.PY3 else 2))
         self.info("Exporting weights to %s" % (self.fnmeWb))
         fout = open(self.fnmeWb, "wb")
         weights = []
         bias = []
         for forward in self.workflow.forward:
-            if forward.weights != None:
+            if forward.weights is not None:
                 forward.weights.map_read()
                 weights.append(forward.weights.v)
             else:
                 weights.append(None)
-            if forward.bias != None:
+            if forward.bias is not None:
                 forward.bias.map_read()
                 bias.append(forward.bias.v)
             else:
                 bias.append(None)
-            if forward.weights == None or forward.bias == None:
+            if forward.weights is None or forward.bias is None:
                 continue
             if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
                 self.info("%f %f %f %f" % (
@@ -281,8 +281,7 @@ class Decision(units.Unit):
         except:
             pass
         os.symlink("%s_%s_Wb.%d.pickle" % (self.snapshot_prefix,
-                                           3 if six.PY3 else 2,
-                                           "_".join(ss)),
+                                           "_".join(ss), 3 if six.PY3 else 2),
                    fnme_link)
         fnme_link = os.path.join(config.snapshot_dir,
                                  "%s_current.%d.pickle" %
@@ -292,8 +291,7 @@ class Decision(units.Unit):
         except:
             pass
         os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
-                                        3 if six.PY3 else 2,
-                                        "_".join(ss)),
+                                        "_".join(ss), 3 if six.PY3 else 2),
                    fnme_link)
         self.just_snapshotted[0] = 1
         self.snapshot_time[0] = time.time()
@@ -311,7 +309,7 @@ class Decision(units.Unit):
         if self.just_snapshotted[0]:
             self.just_snapshotted[0] = 0
         do_snapshot = False
-        if (self.minibatch_metrics != None and
+        if (self.minibatch_metrics is not None and
             (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
              (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
               and self.epoch_min_mse[2] < self.min_train_mse))):
@@ -319,7 +317,7 @@ class Decision(units.Unit):
             self.min_validation_mse_epoch_number = self.epoch_number[0]
             self.min_train_mse = self.epoch_min_mse[2]
             do_snapshot = True
-        if (self.minibatch_n_err != None and
+        if (self.minibatch_n_err is not None and
             (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
              (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
               and self.epoch_n_err[2] < self.min_train_n_err))):
@@ -335,13 +333,13 @@ class Decision(units.Unit):
 
     def on_print_statistics(self, minibatch_class, dt):
         ss = []
-        if self.epoch_metrics[minibatch_class] != None:
+        if self.epoch_metrics[minibatch_class] is not None:
             ss.append("AvgMSE %.6f MaxMSE %.6f "
                       "MinMSE %.3e" % (
                       self.epoch_metrics[minibatch_class][0],
                       self.epoch_metrics[minibatch_class][1],
                       self.epoch_metrics[minibatch_class][2]))
-        if self.minibatch_n_err != None:
+        if self.minibatch_n_err is not None:
             ss.append("n_err %d (%.2f%%)" % (
                       self.epoch_n_err[minibatch_class],
                       self.epoch_n_err_pt[minibatch_class]))
@@ -351,39 +349,39 @@ class Decision(units.Unit):
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
-        if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+        if self.minibatch_n_err is not None and self.minibatch_n_err.v is not None:
             self.minibatch_n_err.map_invalidate()
             self.minibatch_n_err.v[:] = 0
-        if (self.minibatch_metrics != None and
-            self.minibatch_metrics.v != None):
+        if (self.minibatch_metrics is not None and
+            self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_invalidate()
             self.minibatch_metrics.v[:] = 0
             self.minibatch_metrics.v[2] = 1.0e30
         if (len(self.epoch_samples_mse) > minibatch_class and
-            self.epoch_samples_mse[minibatch_class] != None and
-            self.epoch_samples_mse[minibatch_class].v != None):
+            self.epoch_samples_mse[minibatch_class] is not None and
+            self.epoch_samples_mse[minibatch_class].v is not None):
             self.epoch_samples_mse[minibatch_class].map_invalidate()
             self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.epoch_samples_mse[minibatch_class].v[:] = (
                 self.tmp_epoch_samples_mse[minibatch_class].v[:])
             self.tmp_epoch_samples_mse[minibatch_class].v[:] = 0
-        if (self.minibatch_max_err_y_sum != None and
-            self.minibatch_max_err_y_sum.v != None):
+        if (self.minibatch_max_err_y_sum is not None and
+            self.minibatch_max_err_y_sum.v is not None):
             self.minibatch_max_err_y_sum.map_invalidate()
             self.minibatch_max_err_y_sum.v[:] = 0
         # Reset confusion matrix
-        if (self.minibatch_confusion_matrix != None and
-            self.minibatch_confusion_matrix.v != None):
+        if (self.minibatch_confusion_matrix is not None and
+            self.minibatch_confusion_matrix.v is not None):
             self.minibatch_confusion_matrix.map_invalidate()
             self.minibatch_confusion_matrix.v[:] = 0
 
     def on_training_processed(self, minibatch_class):
         if self.use_dynamic_alpha:
-            if (self.minibatch_metrics != None and
-                self.minibatch_metrics.v != None):
+            if (self.minibatch_metrics is not None and
+                self.minibatch_metrics.v is not None):
                 this_train_err = self.epoch_metrics[2][0]
-            elif (self.minibatch_n_err != None and
-                  self.minibatch_n_err.v != None):
+            elif (self.minibatch_n_err is not None and
+                  self.minibatch_n_err.v is not None):
                 this_train_err = self.epoch_n_err[2]
             else:
                 this_train_err = self.prev_train_err
@@ -398,7 +396,7 @@ class Decision(units.Unit):
             self.prev_train_err = this_train_err
             alpha = 0
             for gd in self.workflow.gd:
-                if gd == None:
+                if gd is None:
                     continue
                 gd.global_alpha = numpy.clip(ak * gd.global_alpha,
                                              0.00001, 0.75)
@@ -416,12 +414,12 @@ class Decision(units.Unit):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
-        if self.sample_input[0] != None:
+        if self.sample_input[0] is not None:
             self.sample_input[0][:] = self.workflow.forward[0].input.v[0]
-        if self.sample_output[0] != None:
+        if self.sample_output[0] is not None:
             self.sample_output[0][:] = self.workflow.forward[-1].output.v[0]
-        ev = self.ev if self.ev != None else self.workflow.ev
-        if self.sample_target[0] != None:
+        ev = self.ev if self.ev is not None else self.workflow.ev
+        if self.sample_target[0] is not None:
             self.sample_target[0][:] = ev.target.v[0]
         if (ev.__dict__.get("labels") in
             self.vectors_to_sync.keys()):
@@ -429,14 +427,14 @@ class Decision(units.Unit):
 
     def on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
-        if (self.minibatch_confusion_matrix != None and
-            self.minibatch_confusion_matrix.v != None):
+        if (self.minibatch_confusion_matrix is not None and
+            self.minibatch_confusion_matrix.v is not None):
             self.minibatch_confusion_matrix.map_read()
             self.confusion_matrixes[minibatch_class][:] = (
                 self.minibatch_confusion_matrix.v[:])
 
-        if (self.minibatch_metrics != None and
-            self.minibatch_metrics.v != None):
+        if (self.minibatch_metrics is not None and
+            self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_read()
             self.epoch_min_mse[minibatch_class] = (
                 min(self.minibatch_metrics.v[0] /
@@ -450,8 +448,8 @@ class Decision(units.Unit):
                 self.epoch_metrics[minibatch_class][0] /
                 self.class_samples[minibatch_class])
 
-        if (self.minibatch_n_err != None and
-            self.minibatch_n_err.v != None):
+        if (self.minibatch_n_err is not None and
+            self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err.v[0]
             # Compute error in percents
@@ -461,8 +459,8 @@ class Decision(units.Unit):
                     self.class_samples[minibatch_class])
 
         # Store maximum of backpropagated gradient
-        if (self.minibatch_max_err_y_sum != None and
-            self.minibatch_max_err_y_sum.v != None):
+        if (self.minibatch_max_err_y_sum is not None and
+            self.minibatch_max_err_y_sum.v is not None):
             self.minibatch_max_err_y_sum.map_read()
             self.max_err_y_sums[minibatch_class] = (
                 self.minibatch_max_err_y_sum.v[0])
@@ -487,7 +485,7 @@ class Decision(units.Unit):
         minibatch_class = self.minibatch_class[0]
 
         # Copy minibatch mse
-        if self.minibatch_mse != None and len(self.epoch_samples_mse):
+        if self.minibatch_mse is not None and len(self.epoch_samples_mse):
             self.minibatch_mse.map_read()
             offs = self.minibatch_offs[0]
             for i in range(0, minibatch_class):
@@ -517,26 +515,26 @@ class Decision(units.Unit):
         data = {}
         minibatch_class = self.minibatch_class[0]
         data["minibatch_class"] = minibatch_class
-        if self.minibatch_size != None:
+        if self.minibatch_size is not None:
             data["minibatch_size"] = self.minibatch_size[0]
         data["minibatch_offs"] = self.master_minibatch_offs
-        if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+        if self.minibatch_n_err is not None and self.minibatch_n_err.v is not None:
             self.minibatch_n_err.map_read()
             data["minibatch_n_err"] = self.minibatch_n_err.v
-        if (self.minibatch_metrics != None and
-            self.minibatch_metrics.v != None):
+        if (self.minibatch_metrics is not None and
+            self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_read()
             data["minibatch_metrics"] = self.minibatch_metrics.v
-        if (self.minibatch_mse != None and
-            self.minibatch_mse.v != None):
+        if (self.minibatch_mse is not None and
+            self.minibatch_mse.v is not None):
             self.minibatch_mse.map_read()
             data["minibatch_mse"] = self.minibatch_mse.v
-        if (self.minibatch_max_err_y_sum != None and
-            self.minibatch_max_err_y_sum.v != None):
+        if (self.minibatch_max_err_y_sum is not None and
+            self.minibatch_max_err_y_sum.v is not None):
             self.minibatch_max_err_y_sum.map_read()
             data["minibatch_max_err_y_sum"] = self.minibatch_max_err_y_sum.v
-        if (self.minibatch_confusion_matrix != None and
-            self.minibatch_confusion_matrix.v != None):
+        if (self.minibatch_confusion_matrix is not None and
+            self.minibatch_confusion_matrix.v is not None):
             self.minibatch_confusion_matrix.map_read()
             data["minibatch_confusion_matrix"] = (
                     self.minibatch_confusion_matrix.v)
@@ -553,7 +551,7 @@ class Decision(units.Unit):
         if minibatch_last:
             self.sample_serving_ended = True
         data = (self.minibatch_class[0], self.minibatch_offs[0] if
-                self.minibatch_offs != None else None)
+                self.minibatch_offs is not None else None)
         self.master_lock_.release()
         if not minibatch_last:
             self.workflow.unlock_pipeline()
@@ -562,7 +560,7 @@ class Decision(units.Unit):
     def apply_data_from_master(self, data):
         minibatch_class = data[0]
         self.master_minibatch_offs = data[1]
-        if self.__dict__.get("_on_reset_statistics_") == None:
+        if self.__dict__.get("_on_reset_statistics_") is None:
             self._on_reset_statistics_ = self.on_reset_statistics
             self._on_training_processed_ = self.on_training_processed
             self.on_reset_statistics = self.nothing
@@ -580,35 +578,35 @@ class Decision(units.Unit):
         try:
             minibatch_class = data["minibatch_class"]
             self.minibatch_class[0] = minibatch_class
-            if self.minibatch_size != None and \
-                data.get("minibatch_size") != None:
+            if self.minibatch_size is not None and \
+                data.get("minibatch_size") is not None:
                 self.minibatch_size[0] = data["minibatch_size"]
-            if self.minibatch_offs != None and \
-                data.get("minibatch_offs") != None:
+            if self.minibatch_offs is not None and \
+                data.get("minibatch_offs") is not None:
                 self.minibatch_offs[0] = data["minibatch_offs"]
-            if self.minibatch_n_err != None and self.minibatch_n_err.v != None:
+            if self.minibatch_n_err is not None and self.minibatch_n_err.v is not None:
                 self.minibatch_n_err.map_write()
                 self.minibatch_n_err.v += data["minibatch_n_err"]
-            if (self.minibatch_metrics != None and
-                self.minibatch_metrics.v != None):
+            if (self.minibatch_metrics is not None and
+                self.minibatch_metrics.v is not None):
                 self.minibatch_metrics.map_write()
                 self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
                 self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
                                                   data["minibatch_metrics"][1])
                 self.minibatch_metrics.v[2] = min(self.minibatch_metrics.v[2],
                                                   data["minibatch_metrics"][2])
-            if (self.minibatch_mse != None and
-                self.minibatch_mse.v != None):
+            if (self.minibatch_mse is not None and
+                self.minibatch_mse.v is not None):
                 self.minibatch_mse.map_write()
                 self.minibatch_mse.v = data["minibatch_mse"]
-            if (self.minibatch_max_err_y_sum != None and
-                self.minibatch_max_err_y_sum.v != None):
+            if (self.minibatch_max_err_y_sum is not None and
+                self.minibatch_max_err_y_sum.v is not None):
                 self.minibatch_max_err_y_sum.map_write()
                 numpy.maximum(self.minibatch_max_err_y_sum.v,
                               data["minibatch_max_err_y_sum"],
                               self.minibatch_max_err_y_sum.v)
-            if (self.minibatch_confusion_matrix != None and
-                self.minibatch_confusion_matrix.v != None):
+            if (self.minibatch_confusion_matrix is not None and
+                self.minibatch_confusion_matrix.v is not None):
                 self.minibatch_confusion_matrix.map_write()
                 self.minibatch_confusion_matrix.v += data[
                                 "minibatch_confusion_matrix"]

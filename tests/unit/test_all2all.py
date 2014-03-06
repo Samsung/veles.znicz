@@ -67,13 +67,27 @@ class TestAll2All(unittest.TestCase):
     def _do_tst(self, device):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[config.dtype]
-        inp.v = numpy.empty([75, 150], dtype=dtype)
+        inp.v = numpy.empty([101, 235], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = all2all.All2All(None, output_shape=[93], device=device)
-        c.input = inp
+        if device is not None:
+            self.x = inp.v.copy()
+        else:
+            inp.v[:] = self.x[:]
 
+        c = all2all.All2All(None, output_shape=[11, 77], device=device)
+        c.input = inp
         c.initialize()
+
+        if device is not None:
+            self.W = c.weights.v.copy()
+            self.b = c.bias.v.copy()
+        else:
+            c.weights.map_invalidate()
+            c.bias.map_invalidate()
+            c.weights.v[:] = self.W[:]
+            c.bias.v[:] = self.b[:]
+
         c.run()
         c.output.map_read()  # get results back
 
@@ -81,9 +95,7 @@ class TestAll2All(unittest.TestCase):
 
     def test_gpu_cpu(self):
         print("Will test all2all unit for gpu/cpu correctness")
-        s = rnd.default.state
         y_gpu = self._do_tst(self.device)
-        rnd.default.state = s
         y_cpu = self._do_tst(None)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,

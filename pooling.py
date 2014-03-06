@@ -60,7 +60,7 @@ class Pooling(nn_units.Forward):
         out_sx = (sx // self.kx) + (0 if sx % self.kx == 0 else 1)
         out_sy = (sy // self.ky) + (0 if sy % self.ky == 0 else 1)
         output_size = n_channels * out_sx * out_sy * batch_size
-        if self.output.v == None or self.output.v.size != output_size:
+        if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
             self.output.v = numpy.zeros([batch_size, out_sy, out_sx,
                 n_channels], dtype=self.input.v.dtype)
@@ -68,10 +68,10 @@ class Pooling(nn_units.Forward):
         self.input.initialize(self.device)
         self.output.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             defines = {
                 'SX': sx,
                 'SY': sy,
@@ -139,7 +139,7 @@ class MaxPooling(Pooling):
     def initialize(self):
         super(MaxPooling, self).initialize()
 
-        if (self.input_offs.v == None or
+        if (self.input_offs.v is None or
             self.input_offs.v.size != self.output.v.size):
             self.input_offs.reset()
             self.input_offs.v = numpy.zeros(self.output.v.shape,
@@ -147,10 +147,10 @@ class MaxPooling(Pooling):
 
         self.input_offs.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             self.krn_ = self.get_kernel("do_max_pooling")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.output.v_)
@@ -174,10 +174,10 @@ class AvgPooling(Pooling):
     def initialize(self):
         super(AvgPooling, self).initialize()
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             self.krn_ = self.get_kernel("do_avg_pooling")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.output.v_)

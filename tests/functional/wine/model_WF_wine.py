@@ -50,10 +50,10 @@ class model_WF_wine(units.Pickleable):
     """
     def __init__(self, data_set=None, param=None, cpu=True):
         super(model_WF_wine, self).__init__()
-        if data_set == None:
+        if data_set is None:
             data_set = {}
         self.data_set = data_set
-        if param == None:
+        if param is None:
             param = {}
         self.param = param
 

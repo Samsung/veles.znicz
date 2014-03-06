@@ -7,9 +7,7 @@ Loader base class.
 """
 import glob
 import numpy
-import scipy.ndimage
 import time
-
 import config
 import error
 import formats
@@ -129,14 +127,14 @@ class Loader(units.Unit):
                 self.class_samples[0]))
 
         self.create_minibatches()
-        if self.minibatch_data.v == None:
+        if self.minibatch_data.v is None:
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")
 
         self.minibatch_offs[0] = self.total_samples[0]
 
         # Initial shuffle.
-        if self.shuffled_indexes == None:
+        if self.shuffled_indexes is None:
             self.shuffled_indexes = numpy.arange(self.total_samples[0],
                 dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(self.total_samples[0])])
@@ -212,11 +210,11 @@ class Loader(units.Unit):
         # Fill excessive indexes.
         if minibatch_size < self.minibatch_maxsize[0]:
             self.minibatch_data.v[minibatch_size:] = 0.0
-            if self.minibatch_target.v != None:
+            if self.minibatch_target.v is not None:
                 self.minibatch_target.v[minibatch_size:] = 0.0
-            if self.minibatch_labels != None:
+            if self.minibatch_labels is not None:
                 self.minibatch_labels.v[minibatch_size:] = -1
-            if self.minibatch_indexes != None:
+            if self.minibatch_indexes is not None:
                 self.minibatch_indexes.v[minibatch_size:] = -1
 
         self.debug("%s in %.2f sec" % (self.__class__.__name__,
@@ -260,12 +258,12 @@ class Loader(units.Unit):
                     relative to the entire samples count for each class.
             rand: rnd.Rand(), if None - will use self.rnd.
         """
-        if rand == None:
+        if rand is None:
             rand = self.rnd[0]
         if amount <= 0:  # Dispose of validation set
             self.class_samples[2] += self.class_samples[1]
             self.class_samples[1] = 0
-            if self.shuffled_indexes == None:
+            if self.shuffled_indexes is None:
                 total_samples = numpy.sum(self.class_samples)
                 self.shuffled_indexes = numpy.arange(total_samples,
                     dtype=opencl_types.itypes[
@@ -277,14 +275,14 @@ class Loader(units.Unit):
         total_samples = train_samples + offs
         original_labels = self.original_labels
 
-        if self.shuffled_indexes == None:
+        if self.shuffled_indexes is None:
             self.shuffled_indexes = numpy.arange(total_samples,
                 dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(total_samples)])
         shuffled_indexes = self.shuffled_indexes
 
         # If there are no labels
-        if original_labels == None:
+        if original_labels is None:
             n = int(numpy.round(amount * train_samples))
             while n > 0:
                 i = rand.randint(offs, offs + train_samples)
@@ -387,14 +385,14 @@ class FullBatchLoader(Loader):
                 dtype=opencl_types.dtypes[config.c_dtype])
 
         self.minibatch_target.reset()
-        if self.original_target != None:
+        if self.original_target is not None:
             sh = [self.minibatch_maxsize[0]]
             sh.extend(self.original_target[0].shape)
             self.minibatch_target.v = numpy.zeros(sh,
                 dtype=opencl_types.dtypes[config.c_dtype])
 
         self.minibatch_labels.reset()
-        if self.original_labels != None:
+        if self.original_labels is not None:
             sh = [self.minibatch_maxsize[0]]
             self.minibatch_labels.v = numpy.zeros(sh,
                 dtype=self.label_dtype)
@@ -416,11 +414,11 @@ class FullBatchLoader(Loader):
         for i, ii in enumerate(idxs[:minibatch_size]):
             self.minibatch_data.v[i] = self.original_data[ii]
 
-        if self.original_labels != None:
+        if self.original_labels is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
                 self.minibatch_labels.v[i] = self.original_labels[ii]
 
-        if self.original_target != None:
+        if self.original_target is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
                 self.minibatch_target.v[i] = self.original_target[ii]
 
@@ -473,6 +471,7 @@ class ImageLoader(FullBatchLoader):
                 a - data
                 l - labels.
         """
+        import scipy.ndimage
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)
         a = a.astype(numpy.float32)
         formats.normalize(a)
@@ -510,12 +509,12 @@ class ImageLoader(FullBatchLoader):
                 else:
                     sz = a.size
                 lbl = self.get_label_from_filename(files[i])
-                if lbl != None:
+                if lbl is not None:
                     if type(lbl) != int:
                         raise error.ErrBadFormat("Found non-integer label "
                             "with type %s for %s" % (str(type(ll)), files[i]))
                     ll.append(lbl)
-                if aa == None:
+                if aa is None:
                     sh = [n_files]
                     sh.extend(a.shape)
                     aa = numpy.zeros(sh, dtype=a.dtype)
@@ -531,7 +530,7 @@ class ImageLoader(FullBatchLoader):
                 else:
                     sz = a[0].size
                 ll.extend(l)
-                if aa == None:
+                if aa is None:
                     sh = [n_files + len(l) - 1]
                     sh.extend(a[0].shape)
                     aa = numpy.zeros(sh, dtype=a[0].dtype)
@@ -552,7 +551,7 @@ class ImageLoader(FullBatchLoader):
         i = -1
         for t in (self.test_paths, self.validation_paths, self.train_paths):
             i += 1
-            if t == None or not len(t):
+            if t is None or not len(t):
                 continue
             for pathname in t:
                 (aa, ll) = self.load_original(pathname)
@@ -567,7 +566,7 @@ class ImageLoader(FullBatchLoader):
                 elif len(labels):
                     raise error.ErrBadFormat("Not labels found for %s" % (
                                                                     pathname))
-                if data == None:
+                if data is None:
                     data = aa
                 else:
                     data = numpy.append(data, aa, axis=0)
@@ -583,7 +582,7 @@ class ImageLoader(FullBatchLoader):
                     opencl_types.get_itype_from_size(max_ll)])
 
         # Loading target data and labels.
-        if self.target_paths != None:
+        if self.target_paths is not None:
             n = 0
             for pathname in self.target_paths:
                 (aa, ll) = self.load_original(pathname)
@@ -610,7 +609,7 @@ class ImageLoader(FullBatchLoader):
             sh.extend(aa.shape)
             target = numpy.zeros(sh, dtype=aa.dtype)
             break
-        if target != None:
+        if target is not None:
             for i, label in enumerate(self.original_labels):
                 target[i] = self.target_by_lbl[label]
             self.target_by_lbl.clear()

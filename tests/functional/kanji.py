@@ -101,7 +101,7 @@ class Loader(loader.Loader):
         lbl_re = re.compile("^(\d+)_\d+/(\d+)\.pickle$")
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
-            if res == None:
+            if res is None:
                 raise error.ErrBadFormat("Incorrectly formatted filename "
                                          "found: %s" % (fnme))
             lbl = int(res.group(1))
@@ -355,11 +355,11 @@ class Workflow(workflows.OpenCLWorkflow):
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         super(Workflow, self).initialize()
-        if weights != None:
+        if weights is not None:
             for i, forward in enumerate(self.forward):
                 forward.weights.map_invalidate()
                 forward.weights.v[:] = weights[i][:]
-        if bias != None:
+        if bias is not None:
             for i, forward in enumerate(self.forward):
                 forward.bias.map_invalidate()
                 forward.bias.v[:] = bias[i][:]
@@ -385,7 +385,7 @@ def main():
         pass
     weights = None
     bias = None
-    if fin != None:
+    if fin is not None:
         w = pickle.load(fin)
         fin.close()
         if type(w) == tuple:
@@ -401,7 +401,7 @@ def main():
                     forward.weights.v.min(), forward.weights.v.max(),
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
-    if fin == None:
+    if fin is None:
         w = Workflow(None, layers=[270, 270, 24 * 24], device=device)
     w.initialize(global_alpha=0.0001, global_lambda=0.00005,
                  minibatch_maxsize=270, device=device,

@@ -70,7 +70,7 @@ class All2All(nn_units.Forward):
     def initialize(self):
         super(All2All, self).initialize()
 
-        if self.weights_magnitude == None:
+        if self.weights_magnitude is None:
             # Get weights magnitude and cap it to 0.05
             self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
         output_shape = (self.output_shape.v.shape[1:]
@@ -78,7 +78,7 @@ class All2All(nn_units.Forward):
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
         n_weights = (self.input.v.size // self.input.v.shape[0] * output_size)
-        if self.weights.v == None or self.weights.v.size != n_weights:
+        if self.weights.v is None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             self.rand.fill(self.weights.v, -self.weights_magnitude,
@@ -90,13 +90,13 @@ class All2All(nn_units.Forward):
                 a = self.weights.v.transpose().copy()
                 self.weights.v.shape = a.shape
                 self.weights.v[:] = a[:]
-        if (self.bias.v == None or self.bias.v.size != output_size):
+        if (self.bias.v is None or self.bias.v.size != output_size):
             self.bias.reset()
             self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
             self.rand.fill(self.bias.v, -self.weights_magnitude,
                            self.weights_magnitude)
 
-        if (self.output.v == None or
+        if (self.output.v is None or
             self.output.v.size != self.input.v.shape[0] * output_size):
             self.output.reset()
             self.output.v = numpy.zeros([self.input.v.shape[0], output_size],
@@ -107,10 +107,10 @@ class All2All(nn_units.Forward):
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
-        if self.krn_ == None:
+        if self.krn_ is None:
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
@@ -256,7 +256,7 @@ class All2AllSoftmax(All2All):
         self.cl_sources_["softmax.cl"] = {"itype": itype}
         super(All2AllSoftmax, self).initialize()
 
-        if (self.max_idx.v == None or
+        if (self.max_idx.v is None or
             self.max_idx.v.size != self.output.v.shape[0]):
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
                 dtype=opencl_types.itypes[itype])
@@ -264,7 +264,7 @@ class All2AllSoftmax(All2All):
 
         self.max_idx.initialize(self.device)
 
-        if self.device == None:
+        if self.device is None:
             return
 
         self.krn_sm_ = self.get_kernel("apply_exp")
