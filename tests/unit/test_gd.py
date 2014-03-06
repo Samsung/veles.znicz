@@ -31,6 +31,11 @@ class TestGD(unittest.TestCase):
         inp.v = numpy.empty([5, 5], dtype=dtype)
         rnd.default.fill(inp.v)
 
+        if device is not None:
+            self.x = inp.v.copy()
+        else:
+            inp.v[:] = self.x[:]
+
         c = gd.GD(None, device=device)
         c.h = inp
 
@@ -53,9 +58,16 @@ class TestGD(unittest.TestCase):
         c.y = formats.Vector()
         c.y.v = c.err_y.v.copy()
         c.initialize()
+
         if device is None:
+            c.weights.map_invalidate()
+            c.bias.map_invalidate()
+            c.weights.v[:] = self.W[:]
+            c.bias.v[:] = self.b[:]
             c.cpu_run()
         else:
+            self.W = c.weights.v.copy()
+            self.b = c.bias.v.copy()
             c.gpu_run()
         c.err_h.map_read()  # get results back
 
@@ -63,9 +75,7 @@ class TestGD(unittest.TestCase):
 
     def test_gpu_cpu(self):
         print("Will test all2all unit for gpu/cpu correctness")
-        s = rnd.default.state
         y_gpu = self._do_tst(self.device)
-        rnd.default.state = s
         y_cpu = self._do_tst(None)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,

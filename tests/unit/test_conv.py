@@ -6,10 +6,8 @@ Unit test for convolutional layer forward propagation.
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
 import numpy
-import scipy.signal
 import time
 import unittest
-
 import config
 import znicz_config
 import conv
@@ -70,33 +68,11 @@ class TestConv(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        pp = []
-        for v in inp.v:
-            for w in weights:
-                ww = w.copy()
-                for i in range(w.shape[0]):
-                    ww[-(i + 1)] = w[i]
-                www = ww.copy()
-                for i in range(w.shape[1]):
-                    www[:, -(i + 1)] = ww[:, i]
-                pp.append(scipy.signal.convolve2d(v, www, "valid"))
-        offs = 0
-        for vv in c.output.v:
-            for i_kernel in range(len(weights)):
-                p = pp[offs]
-                v = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1]).copy()
-                v -= bias[i_kernel]
-                max_diff = numpy.fabs(v.ravel() - p.ravel()).max()
-                if max_diff > 0.0001:
-                    print(p)
-                self.assertLess(max_diff, 0.0001,
-                                "Result differs by %.6f" % (max_diff))
-                offs += 1
-
         print("All Ok")
 
     def test_vs_python(self):
         print("Will test convolutional layer vs python on image")
+        import scipy.signal
 
         print("OpenCL")
 
@@ -157,6 +133,7 @@ class TestConv(unittest.TestCase):
 
     def test_vs_python_rgb(self):
         print("Will test convolutional layer vs python on color image")
+        import scipy.signal
 
         print("OpenCL")
 
