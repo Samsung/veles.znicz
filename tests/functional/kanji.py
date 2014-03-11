@@ -94,7 +94,6 @@ class Loader(loader.Loader):
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
-        """
         self.original_labels = numpy.empty(len(self.index_map),
                                            dtype=self.label_dtype)
         import re
@@ -116,7 +115,6 @@ class Loader(loader.Loader):
         self.extract_validation_from_train(0.15, rnd.default2)
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
-        """
 
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
@@ -169,7 +167,7 @@ import workflows
 class Workflow(workflows.OpenCLWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
-    1023 classes to recognize, 3 million 32x32 images dataset size.
+    100 classes to recognize, 358400 32x32 images dataset size.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
@@ -402,9 +400,9 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin is None:
-        w = Workflow(None, layers=[270, 270, 24 * 24], device=device)
-    w.initialize(global_alpha=0.0001, global_lambda=0.00005,
-                 minibatch_maxsize=270, device=device,
+        w = Workflow(None, layers=[1080, 594, 24 * 24], device=device)
+    w.initialize(global_alpha=0.001, global_lambda=0.00005,
+                 minibatch_maxsize=1080, device=device,
                  weights=weights, bias=bias)
     l.initialize(w)
     l.run()

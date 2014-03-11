@@ -174,6 +174,8 @@ class Loader(units.Unit):
                 if self.minibatch_offs[0] + minibatch_size >= \
                    self.nextclass_offs[self.minibatch_class[0]]:
                     self.minibatch_last[0] = 1
+                    self.info("Last minibatch for class %d served",
+                              self.minibatch_class[0])
                 else:
                     self.minibatch_last[0] = 0
                 break
