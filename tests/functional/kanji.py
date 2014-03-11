@@ -30,13 +30,11 @@ for s in sys.argv:
         config.plotters_disabled = True
         config.is_slave = True
         break
-else:
-    import graphics
 import launcher
 import numpy
 import rnd
 import opencl
-import plotters
+import plotting_units
 import pickle
 import loader
 import decision
@@ -257,7 +255,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt.append(plotters.SimplePlotter(self, name="mse",
+            self.plt.append(plotting_units.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
@@ -267,7 +265,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt[0].clear_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_mx = plotters.Weights2D(self, name="First Layer Weights",
+        self.plt_mx = plotting_units.Weights2D(self, name="First Layer Weights",
                                          limit=16)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
@@ -280,7 +278,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_max.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -294,7 +292,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_min.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -309,7 +307,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_n_err.append(plotters.SimplePlotter(self,
+            self.plt_n_err.append(plotting_units.SimplePlotter(self,
                                 name="num errors", plot_style=styles[i]))
             self.plt_n_err[-1].input = self.decision.epoch_n_err_pt
             self.plt_n_err[-1].input_field = i
@@ -323,7 +321,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.forward[-1].output] = 1
         self.decision.vectors_to_sync[self.ev.target] = 1
-        self.plt_img = plotters.Image(self, name="output sample")
+        self.plt_img = plotting_units.Image(self, name="output sample")
         self.plt_img.inputs.append(self.decision.sample_input)
         self.plt_img.input_fields.append(0)
         self.plt_img.inputs.append(self.decision.sample_output)
@@ -335,7 +333,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_img.gate_block_not = [1]
         """
         # Histogram plotter
-        self.plt_hist = plotters.MSEHistogram(self, name="Histogram")
+        self.plt_hist = plotting_units.MSEHistogram(self, name="Histogram")
         self.plt_hist.link_from(self.decision)
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended

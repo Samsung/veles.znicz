@@ -29,7 +29,7 @@ import config
 import opencl_types
 import rnd
 import opencl
-import plotters
+import plotting_units
 import pickle
 import loader
 import decision
@@ -193,7 +193,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(0, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="num errors",
+            self.plt.append(plotting_units.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -206,7 +206,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Matrix plotter
         # """
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_w = plotters.Weights2D(self, name="First Layer Weights",
+        self.plt_w = plotting_units.Weights2D(self, name="First Layer Weights",
                                         limit=25)
         self.plt_w.input = self.gd[0].weights
         self.plt_w.get_shape_from = self.forward[0].input
@@ -218,7 +218,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i

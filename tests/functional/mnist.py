@@ -28,8 +28,6 @@ for s in sys.argv:
         config.plotters_disabled = True
         config.is_slave = True
         break
-else:
-    import graphics
 import launcher
 import formats
 import struct
@@ -37,7 +35,7 @@ import error
 import numpy
 import rnd
 import opencl
-import plotters
+import plotting_units
 import all2all
 import evaluator
 import gd
@@ -232,7 +230,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="num errors",
+            self.plt.append(plotting_units.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -244,7 +242,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -254,7 +252,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # err_y plotter
         self.plt_err_y = []
         for i in range(1, 3):
-            self.plt_err_y.append(plotters.SimplePlotter(
+            self.plt_err_y.append(plotting_units.SimplePlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
@@ -283,7 +281,7 @@ def main():
     global this_dir
     rnd.default.seed("%s/seed" % (this_dir), numpy.int32, 1024)
     l = launcher.Launcher()
-    device = None if l.is_master() else opencl.Device()
+    device = None if l.is_master else opencl.Device()
     w = Workflow(None, layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.01, global_lambda=0.0)
     l.initialize(w)

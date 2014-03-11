@@ -29,8 +29,6 @@ for s in sys.argv:
         config.plotters_disabled = True
         config.is_slave = True
         break
-else:
-    import graphics
 import argparse
 import logging
 import numpy
@@ -45,7 +43,7 @@ import gd_conv
 import gd_pooling
 import mnist
 import opencl
-import plotters
+import plotting_units
 import pooling
 import rnd
 import workflows
@@ -175,7 +173,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="num errors",
+            self.plt.append(plotting_units.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -187,7 +185,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -197,7 +195,7 @@ class Workflow(workflows.OpenCLWorkflow):
         # err_y plotter
         self.plt_err_y = []
         for i in range(1, 3):
-            self.plt_err_y.append(plotters.SimplePlotter(
+            self.plt_err_y.append(plotting_units.SimplePlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums
@@ -209,7 +207,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_err_y[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_mx = plotters.Weights2D(self, name="First Layer Weights",
+        self.plt_mx = plotting_units.Weights2D(self, name="First Layer Weights",
                                          limit=64)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
