@@ -92,7 +92,7 @@ def main():
     w.initialize();
     print(" %s.run " % (sconfig.wf))
     w.run()
-    w.wait_finish();  # plotters.Graphics().wait_finish()
+    w.wait_finish();  # plotting_units.Graphics().wait_finish()
 
     logging.debug("End of job")
     return 1

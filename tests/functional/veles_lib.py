@@ -91,7 +91,7 @@ class veles(object):
             self.w.run()
             self.save_pikcle()
             self.save_result()
-            self.w.wait_finish();  # plotters.Graphics().wait_finish()
+            self.w.wait_finish();  # plotting_units.Graphics().wait_finish()
         logging.debug("End of job")
         return 1
 

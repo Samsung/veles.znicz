@@ -1,4 +1,4 @@
-# import plotters
+# import plotting_units
 import all2all
 import evaluator
 import gd
@@ -85,8 +85,8 @@ class Workflow(workflow.OpenCLWorkflow):
     """
     def wait_finish(self):
         # if use plotters
-        # plotters.Graphics().wait_finish()
-        print('plotters.Graphics().wait_finish()   XZ!')
+        # plotting_units.Graphics().wait_finish()
+        print('plotting_units.Graphics().wait_finish()   XZ!')
 
     def __init__(self):
         """

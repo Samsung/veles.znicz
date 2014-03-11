@@ -33,7 +33,7 @@ import gd
 import loader
 import opencl
 import opencl_types
-import plotters
+import plotting_units
 import rnd
 import workflows
 import config
@@ -234,7 +234,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_avg.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_avg.append(plotting_units.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt_avg[-1].input = self.decision.epoch_metrics
             self.plt_avg[-1].input_field = i
@@ -252,7 +252,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_max.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -267,7 +267,7 @@ class Workflow(workflows.OpenCLWorkflow):
         for i in range(0, len(styles)):
             if not len(styles[i]):
                 continue
-            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_min.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -277,13 +277,13 @@ class Workflow(workflows.OpenCLWorkflow):
             j += 1
         self.plt_min[-1].redraw_plot = True
         # Histogram plotter
-        self.plt_hist = plotters.MSEHistogram(self, name="Histogram")
+        self.plt_hist = plotting_units.MSEHistogram(self, name="Histogram")
         self.plt_hist.link_from(self.decision)
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
         self.plt_hist.gate_block_not = [1]
         # Plot
-        self.plt = plotters.Plot(self, name="Plot", ylim=[-1.1, 1.1])
+        self.plt = plotting_units.Plot(self, name="Plot", ylim=[-1.1, 1.1])
         self.plt.inputs.clear()
         self.plt.inputs.append(self.loader.minibatch_data)
         self.plt.inputs.append(self.loader.minibatch_target)

@@ -30,7 +30,7 @@ import znicz_config
 import rnd
 import opencl
 import opencl_types
-import plotters
+import plotting_units
 import pickle
 import rbm
 import loader
@@ -167,7 +167,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(2, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="mse",
+            self.plt.append(plotting_units.SimplePlotter(self, name="mse",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_metrics
             self.plt[-1].input_field = i
@@ -181,7 +181,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(2, 3):
-            self.plt_max.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_max.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_max[-1].input = self.decision.epoch_metrics
             self.plt_max[-1].input_field = i
@@ -192,7 +192,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(2, 3):
-            self.plt_min.append(plotters.SimplePlotter(self, name="mse",
+            self.plt_min.append(plotting_units.SimplePlotter(self, name="mse",
                                                        plot_style=styles[i]))
             self.plt_min[-1].input = self.decision.epoch_metrics
             self.plt_min[-1].input_field = i
@@ -202,7 +202,7 @@ class Workflow(workflows.OpenCLWorkflow):
                                        else self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
         # Histogram plotter
-        self.plt_hist = [None, None, plotters.MSEHistogram(
+        self.plt_hist = [None, None, plotting_units.MSEHistogram(
                                         self, name="Histogram Train")]
         self.plt_hist[2].link_from(self.plt_min[-1])
         self.plt_hist[2].mse = self.decision.epoch_samples_mse[2]
@@ -311,7 +311,7 @@ class Workflow2(workflows.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(2, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="num errors",
+            self.plt.append(plotting_units.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
@@ -324,7 +324,7 @@ class Workflow2(workflows.OpenCLWorkflow):
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(2, 3):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
@@ -333,7 +333,7 @@ class Workflow2(workflows.OpenCLWorkflow):
         # err_y plotter
         self.plt_err_y = []
         for i in range(2, 3):
-            self.plt_err_y.append(plotters.SimplePlotter(
+            self.plt_err_y.append(plotting_units.SimplePlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
             self.plt_err_y[-1].input = self.decision.max_err_y_sums

@@ -45,7 +45,7 @@ import image
 import image_saver
 import loader
 import opencl
-import plotters
+import plotting_units
 import rnd
 import thread_pool
 import workflow
@@ -669,7 +669,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
-            self.plt.append(plotters.SimplePlotter(self, name="num errors",
+            self.plt.append(plotting_units.SimplePlotter(self, name="num errors",
                                                    plot_style=styles[i],
                                                    ylim=(0, 100)))
             self.plt[-1].input = self.decision.epoch_n_err_pt
@@ -681,7 +681,7 @@ class Workflow(workflow.OpenCLWorkflow):
         self.plt[-1].redraw_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_w = plotters.Weights2D(self, name="First Layer Weights",
+        self.plt_w = plotting_units.Weights2D(self, name="First Layer Weights",
                                         limit=16, yuv=True)
         self.plt_w.input = [self.gd[0].weights.v]
         self.plt_w.get_shape_from = self.forward[0].input
@@ -692,7 +692,7 @@ class Workflow(workflow.OpenCLWorkflow):
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
-        self.plt_i = plotters.Image(self, name="Input", yuv=True)
+        self.plt_i = plotting_units.Image(self, name="Input", yuv=True)
         self.plt_i.inputs.append(self.decision.sample_label)
         self.plt_i.input_fields.append(0)
         self.plt_i.inputs.append(self.decision.sample_input)
@@ -704,7 +704,7 @@ class Workflow(workflow.OpenCLWorkflow):
         """
         self.plt_mx = []
         for i in range(1, 3):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
