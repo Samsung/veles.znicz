@@ -186,7 +186,8 @@ class Workflow(workflows.OpenCLWorkflow):
         self.ev.max_samples_per_epoch = self.loader.total_samples
 
         # Add decision unit
-        self.decision = decision.Decision(self, snapshot_prefix="mnist")
+        self.decision = decision.Decision(self, snapshot_prefix="mnist",
+                                          fail_iterations=100)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
         self.decision.minibatch_last = self.loader.minibatch_last
@@ -273,10 +274,10 @@ class Workflow(workflows.OpenCLWorkflow):
 
 
 def main():
-    if __debug__:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    #if __debug__:
+    #    logging.basicConfig(level=logging.DEBUG)
+    #else:
+    logging.basicConfig(level=logging.INFO)
     logging.info("Logging level: %s", str(logging.root.level))
 
     global this_dir
@@ -294,5 +295,7 @@ def main():
 if __name__ == "__main__":
     main()
     if config.plotters_disabled:
+        sys.stderr.flush()
+        sys.stdout.flush()
         os._exit(0)
     sys.exit(0)

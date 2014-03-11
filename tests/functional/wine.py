@@ -181,7 +181,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
 
     global this_dir
-    rnd.default.seed("%s/seed" % (this_dir), numpy.int32, 1024)
+    rnd.default.seed("%s/seed" % (this_dir), dtype=numpy.int32, count=1024)
     config.plotters_disabled = True
     l = launcher.Launcher()
     device = None if l.is_master() else opencl.Device()
@@ -195,4 +195,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+    if config.plotters_disabled:
+        sys.stderr.flush()
+        sys.stdout.flush()
+        os._exit(0)
     sys.exit(0)

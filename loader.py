@@ -195,8 +195,6 @@ class Loader(units.Unit):
     def run(self):
         """Prepare the minibatch.
         """
-        t1 = time.time()
-
         self.get_next_minibatch()
         minibatch_size = self.minibatch_size[0]
 
@@ -205,6 +203,7 @@ class Loader(units.Unit):
         self.minibatch_target.map_invalidate()
         self.minibatch_labels.map_invalidate()
         self.minibatch_indexes.map_invalidate()
+
         self.fill_minibatch()
 
         # Fill excessive indexes.
@@ -216,9 +215,6 @@ class Loader(units.Unit):
                 self.minibatch_labels.v[minibatch_size:] = -1
             if self.minibatch_indexes is not None:
                 self.minibatch_indexes.v[minibatch_size:] = -1
-
-        self.debug("%s in %.2f sec" % (self.__class__.__name__,
-                                      time.time() - t1))
 
     def generate_data_for_slave(self, slave=None):
         self.get_next_minibatch()
@@ -408,19 +404,19 @@ class FullBatchLoader(Loader):
         minibatch_size = self.minibatch_size[0]
 
         idxs = self.minibatch_indexes.v
-        idxs[:minibatch_size] = self.shuffled_indexes[self.minibatch_offs[0]:
-            self.minibatch_offs[0] + minibatch_size]
+        idxs[:minibatch_size] = self.shuffled_indexes[
+            self.minibatch_offs[0]:self.minibatch_offs[0] + minibatch_size]
 
         for i, ii in enumerate(idxs[:minibatch_size]):
-            self.minibatch_data.v[i] = self.original_data[ii]
+            self.minibatch_data.v[i] = self.original_data[int(ii)]
 
         if self.original_labels is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_labels.v[i] = self.original_labels[ii]
+                self.minibatch_labels.v[i] = self.original_labels[int(ii)]
 
         if self.original_target is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_target.v[i] = self.original_target[ii]
+                self.minibatch_target.v[i] = self.original_target[int(ii)]
 
 
 class ImageLoader(FullBatchLoader):
