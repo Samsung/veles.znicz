@@ -350,7 +350,8 @@ class Decision(units.Unit):
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
-        if self.minibatch_n_err is not None and self.minibatch_n_err.v is not None:
+        if (self.minibatch_n_err is not None and
+            self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_invalidate()
             self.minibatch_n_err.v[:] = 0
         if (self.minibatch_metrics is not None and
@@ -484,9 +485,12 @@ class Decision(units.Unit):
 
     def copy_minibatch_mse(self):
         minibatch_offs = self.__dict__.get(
-            "mse_minibatch_offs", self.minibatch_offs[0]
+            "slave_minibatch_offs", self.minibatch_offs[0]
             if self.minibatch_offs is not None else None)
-        if minibatch_offs is None:
+        minibatch_size = self.__dict__.get(
+            "slave_minibatch_size", self.minibatch_size[0]
+            if self.minibatch_size is not None else None)
+        if minibatch_offs is None or minibatch_size is None:
             return
         minibatch_class = self.minibatch_class[0]
 
@@ -496,7 +500,7 @@ class Decision(units.Unit):
             offs = minibatch_offs
             for i in range(0, minibatch_class):
                 offs -= self.class_samples[i]
-                size = self.minibatch_size[0]
+                size = minibatch_size
             self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.tmp_epoch_samples_mse[minibatch_class].v[
                 offs:offs + size] = self.minibatch_mse.v[:size]
@@ -588,10 +592,10 @@ class Decision(units.Unit):
             self.mse_minibatch_offs = None
             if (self.minibatch_size is not None and
                 data.get("minibatch_size") is not None):
-                self.minibatch_size[0] = data["minibatch_size"]
+                self.slave_minibatch_size = data["minibatch_size"]
             if (self.minibatch_offs is not None and
                 data.get("minibatch_offs") is not None):
-                self.mse_minibatch_offs = data["minibatch_offs"]
+                self.slave_minibatch_offs = data["minibatch_offs"]
             if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.v is not None):
                 self.minibatch_n_err.map_write()
