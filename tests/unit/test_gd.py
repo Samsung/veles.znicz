@@ -65,10 +65,18 @@ class TestGD(unittest.TestCase):
             c.weights.v[:] = self.W[:]
             c.bias.v[:] = self.b[:]
             c.cpu_run()
+            c.weights.map_read()
+            self.W_cpu = c.weights.v.copy()
+            c.bias.map_read()
+            self.b_cpu = c.bias.v.copy()
         else:
             self.W = c.weights.v.copy()
             self.b = c.bias.v.copy()
             c.gpu_run()
+            c.weights.map_read()
+            self.W_gpu = c.weights.v.copy()
+            c.bias.map_read()
+            self.b_gpu = c.bias.v.copy()
         c.err_h.map_read()  # get results back
 
         return c.err_h.v
@@ -80,6 +88,9 @@ class TestGD(unittest.TestCase):
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
+        max_diff = numpy.fabs(self.W_gpu.ravel() - self.W_cpu.ravel()).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Weights differs by %.6f" % (max_diff))
         print("All Ok")
 
 

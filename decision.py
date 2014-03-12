@@ -483,16 +483,15 @@ class Decision(units.Unit):
 
         self.on_reset_statistics(minibatch_class)
 
-    def copy_minibatch_mse(self):
-        minibatch_offs = self.__dict__.get(
-            "slave_minibatch_offs", self.minibatch_offs[0]
-            if self.minibatch_offs is not None else None)
-        minibatch_size = self.__dict__.get(
-            "slave_minibatch_size", self.minibatch_size[0]
-            if self.minibatch_size is not None else None)
+    def copy_minibatch_mse(self, minibatch_class):
+        minibatch_offs = self.__dict__.get("slave_minibatch_offs")
+        if minibatch_offs is None and self.minibatch_offs is not None:
+            minibatch_offs = self.minibatch_offs[0]
+        minibatch_size = self.__dict__.get("slave_minibatch_size")
+        if minibatch_size is None and self.minibatch_size is not None:
+            minibatch_size = self.minibatch_size[0]
         if minibatch_offs is None or minibatch_size is None:
             return
-        minibatch_class = self.minibatch_class[0]
 
         # Copy minibatch mse
         if self.minibatch_mse is not None and len(self.epoch_samples_mse):
@@ -509,24 +508,26 @@ class Decision(units.Unit):
         self.complete[0] = 0
         self.epoch_ended[0] = 0
 
-        self.copy_minibatch_mse()
+        minibatch_class = self.__dict__.get("slave_minibatch_class")
+        if minibatch_class is None and self.minibatch_class is not None:
+            minibatch_class = self.minibatch_class[0]
+
+        self.copy_minibatch_mse(minibatch_class)
 
         # Check skip gradient descent or not
-        if self.minibatch_class[0] < 2:
+        if minibatch_class < 2:
             self.gd_skip[0] = 1
         else:
             self.gd_skip[0] = 0
 
         if self.minibatch_last[0]:
-            self.on_last_minibatch(self.minibatch_class[0])
+            self.on_last_minibatch(minibatch_class)
 
     def generate_data_for_master(self):
         self.sync_vectors()
         data = {}
-        minibatch_class = self.minibatch_class[0]
-        data["minibatch_class"] = minibatch_class
-        if self.minibatch_size is not None:
-            data["minibatch_size"] = self.minibatch_size[0]
+        data["minibatch_class"] = self.master_minibatch_class
+        data["minibatch_size"] = self.master_minibatch_size
         data["minibatch_offs"] = self.master_minibatch_offs
         if (self.minibatch_n_err is not None and
             self.minibatch_n_err.v is not None):
@@ -561,22 +562,26 @@ class Decision(units.Unit):
         minibatch_last = self.minibatch_last[0]
         if minibatch_last:
             self.sample_serving_ended = True
-        data = (self.minibatch_class[0], self.minibatch_offs[0] if
-                self.minibatch_offs is not None else None)
-        self.master_lock_.release()
+        data = {"minibatch_class": self.minibatch_class[0],
+                "minibatch_offs": self.minibatch_offs[0] if
+                                  self.minibatch_offs is not None else None,
+                "minibatch_size": self.minibatch_size[0] if
+                                  self.minibatch_size is not None else None}
         if not minibatch_last:
             self.workflow.unlock_pipeline()
+        self.master_lock_.release()
         return data
 
     def apply_data_from_master(self, data):
-        minibatch_class = data[0]
-        self.master_minibatch_offs = data[1]
+        self.master_minibatch_class = data["minibatch_class"]
+        self.master_minibatch_offs = data["minibatch_offs"]
+        self.master_minibatch_size = data["minibatch_size"]
         if self.__dict__.get("_on_reset_statistics_") is None:
             self._on_reset_statistics_ = self.on_reset_statistics
             self._on_training_processed_ = self.on_training_processed
             self.on_reset_statistics = self.nothing
             self.on_training_processed = self.nothing
-        self._on_reset_statistics_(minibatch_class)
+        self._on_reset_statistics_(self.master_minibatch_class)
         # Prevent doing snapshot and set complete after one epoch
         self.complete[0] = 0
         self.min_validation_n_err = 0
@@ -587,15 +592,9 @@ class Decision(units.Unit):
     def apply_data_from_slave(self, data, slave=None):
         self.master_lock_.acquire()
         try:
-            minibatch_class = data["minibatch_class"]
-            self.minibatch_class[0] = minibatch_class
-            self.mse_minibatch_offs = None
-            if (self.minibatch_size is not None and
-                data.get("minibatch_size") is not None):
-                self.slave_minibatch_size = data["minibatch_size"]
-            if (self.minibatch_offs is not None and
-                data.get("minibatch_offs") is not None):
-                self.slave_minibatch_offs = data["minibatch_offs"]
+            self.slave_minibatch_class = data["minibatch_class"]
+            self.slave_minibatch_size = data["minibatch_size"]
+            self.slave_minibatch_offs = data["minibatch_offs"]
             if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.v is not None):
                 self.minibatch_n_err.map_write()
@@ -631,18 +630,18 @@ class Decision(units.Unit):
                 self.sample_target[i] = d
             for i, d in enumerate(data["sample_label"]):
                 self.sample_label[i] = d
-            self.copy_minibatch_mse()
+            self.copy_minibatch_mse(self.slave_minibatch_class)
             self.epoch_ended[0] = False
             self._finalize_job(slave)
         finally:
             self.master_lock_.release()
 
-    def _finalize_job(self, slave=None, minibatch_offs=None):
-        minibatch_class = self.minibatch_class[0]
+    def _finalize_job(self, slave=None):
         self.samples_served -= 1
         if self.samples_served < 0:
             self.error("There is an error somewhere (samples_served=%d)",
                        self.samples_served)
+            self.samples_served = 0
         unlock = False
         if (self.__dict__.get("sample_serving_ended", False) and
             self.samples_served <= 0):
@@ -650,7 +649,8 @@ class Decision(units.Unit):
             unlock = True
             self.info("Will invoke run()")
             self.run()
-        if unlock and (self.should_unlock_pipeline or minibatch_class != 2):
+        if unlock and (self.should_unlock_pipeline or
+                       self.slave_minibatch_class != 2):
             self.info("Will unlock pipeline")
             self.workflow.unlock_pipeline()
 
