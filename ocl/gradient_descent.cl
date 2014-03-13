@@ -95,7 +95,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
     c_dtype weight = weights[idx];
     c_dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
     #ifdef STORE_GRADIENT
-    gradient[idx] = gd;
+    gradient[idx] += gd;
     #endif
     #ifdef APPLY_GRADIENT
     weights[idx] = weight + gd;
@@ -136,7 +136,7 @@ void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
   
     c_dtype gd = sum * alpha_batch;
     #ifdef STORE_GRADIENT
-    gradient[bx] = gd;
+    gradient[bx] += gd;
     #endif
     #ifdef APPLY_GRADIENT
     bias[bx] += gd;

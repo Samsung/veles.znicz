@@ -107,6 +107,12 @@ class GD(OpenCLUnit):
     def apply_data_from_master(self, data):
         self.global_alpha = data[0]
         self.global_lambda = data[1]
+        if self.gradient_weights.v is None or self.gradient_bias.v is None:
+            return
+        self.gradient_weights.map_invalidate()
+        self.gradient_weights.v[:] = 0
+        self.gradient_bias.map_invalidate()
+        self.gradient_bias.v[:] = 0
 
     def generate_data_for_master(self):
         if (not self.run_executed or

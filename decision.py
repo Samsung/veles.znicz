@@ -538,8 +538,9 @@ class Decision(units.Unit):
             data["minibatch_metrics"] = self.minibatch_metrics.v
         if (self.minibatch_mse is not None and
             self.minibatch_mse.v is not None):
-            self.minibatch_mse.map_read()
-            data["minibatch_mse"] = self.minibatch_mse.v
+            self.tmp_epoch_samples_mse[self.master_minibatch_class].map_read()
+            data["minibatch_mse"] = self.tmp_epoch_samples_mse[
+                self.master_minibatch_class].v[:self.master_minibatch_size]
         if (self.minibatch_max_err_y_sum is not None and
             self.minibatch_max_err_y_sum.v is not None):
             self.minibatch_max_err_y_sum.map_read()

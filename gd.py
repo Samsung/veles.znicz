@@ -160,7 +160,7 @@ class GD(nn_units.GD):
         gradient *= alpha_batch
         gradient += self.weights.v * alpha_lambda
         if self.store_gradient:
-            self.gradient_weights.v[:] = gradient[:]
+            self.gradient_weights.v += gradient
         if self.weights_transposed:
             self.weights.v += gradient.transpose()
         else:
@@ -168,7 +168,7 @@ class GD(nn_units.GD):
 
         gradient = err_y.sum(axis=0) * alpha_batch
         if self.store_gradient:
-            self.gradient_bias.v[:] = gradient[:]
+            self.gradient_bias.v += gradient
         self.bias.v += gradient
 
     def gpu_weights_update(self):
