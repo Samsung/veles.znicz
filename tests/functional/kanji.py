@@ -367,7 +367,7 @@ def main():
                                     numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     l = launcher.Launcher()
-    device = None if l.is_master() else opencl.Device()
+    device = None if l.is_master else opencl.Device()
     fnme = "%s/kanji.pickle" % (config.snapshot_dir)
     fin = None
     try:

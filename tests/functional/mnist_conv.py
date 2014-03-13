@@ -243,7 +243,7 @@ def main():
     rnd.default.seed(numpy.fromfile("%s/seed" % (this_dir), numpy.int32, 1024))
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 1024))
 
-    device = None if l.is_master() else opencl.Device()
+    device = None if l.is_master else opencl.Device()
     if len(args.snapshot):
         fin = open(args.snapshot, "rb")
         w = pickle.load(fin)
