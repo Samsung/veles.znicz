@@ -185,9 +185,8 @@ def main():
     config.plotters_disabled = True
     l = launcher.Launcher()
     device = None if l.is_master else opencl.Device()
-    w = Workflow(None, layers=[8, 3], device=device)
+    w = Workflow(l, layers=[8, 3], device=device)
     w.initialize(global_alpha=0.5, global_lambda=0.0, device=device)
-    l.initialize(w)
     l.run()
 
     logging.info("End of job")
