@@ -92,7 +92,6 @@ class Decision(units.Unit):
         self.min_validation_n_err = 1.0e30
         self.min_validation_n_err_epoch_number = -1
         self.min_train_n_err = 1.0e30
-        self.workflow = None
         self.snapshot_prefix = snapshot_prefix
         self.fnme = None
         self.fnmeWb = None
