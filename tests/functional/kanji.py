@@ -160,8 +160,9 @@ import workflows
 class Workflow(workflows.OpenCLWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
-    1023 classes to recognize, 3.6 million 32x32 images dataset size.
+    100 classes to recognize, 358400 32x32 images dataset size.
     """
+    # 1023 classes to recognize, 3.6 million 32x32 images dataset size.
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
@@ -246,7 +247,7 @@ class Workflow(workflows.OpenCLWorkflow):
 
         # MSE plotter
         self.plt = []
-        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -260,8 +261,8 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt[0].clear_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
-        self.plt_mx = plotting_units.Weights2D(self, name="First Layer Weights",
-                                         limit=16)
+        self.plt_mx = plotting_units.Weights2D(
+            self, name="First Layer Weights", limit=16)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.link_from(self.decision)
@@ -269,7 +270,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_mx.gate_block_not = [1]
         # Max plotter
         self.plt_max = []
-        styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
+        styles = ["", "b--", "k--"]  # ["r--", "b--", "k--"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -283,7 +284,7 @@ class Workflow(workflows.OpenCLWorkflow):
             self.plt_max[-1].gate_block_not = [1]
         # Min plotter
         self.plt_min = []
-        styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
+        styles = ["", "b:", "k:"]  # ["r:", "b:", "k:"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
@@ -298,7 +299,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.plt_min[-1].redraw_plot = True
         # Error plotter
         self.plt_n_err = []
-        styles = ["", "", "k-"]  # ["r-", "b-", "k-"]
+        styles = ["", "b-", "k-"]  # ["r-", "b-", "k-"]
         for i in range(len(styles)):
             if not len(styles[i]):
                 continue
