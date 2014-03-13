@@ -67,6 +67,7 @@ class GD(nn_units.GD):
         self.krn_bias_ = None
 
     def initialize(self):
+        super(GD, self).initialize()
         if (self.err_h.v is None or
             self.err_h.v.size != self.h.v.size):
             self.err_h.reset()

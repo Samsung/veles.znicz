@@ -77,10 +77,8 @@ class GD(OpenCLUnit):
         global_alpha = kwargs.get("global_alpha", 0.01)
         global_lambda = kwargs.get("global_lambda", 0.00005)
         weights_transposed = kwargs.get("weights_transposed", False)
-        store_gradient = kwargs.get("store_gradient", config.is_slave)
-        apply_gradient = kwargs.get("apply_gradient", not config.is_slave)
-        if store_gradient is None:
-            store_gradient = config.is_slave
+        store_gradient = kwargs.get("store_gradient")
+        apply_gradient = kwargs.get("apply_gradient")
         kwargs["global_alpha"] = global_alpha
         kwargs["global_lambda"] = global_lambda
         kwargs["weights_transposed"] = weights_transposed
@@ -102,6 +100,12 @@ class GD(OpenCLUnit):
         self.apply_gradient = apply_gradient
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
+
+    def initialize(self):
+        if self.store_gradient is None:
+            self.store_gradient = self.workflow.is_slave
+        if self.apply_gradient is None:
+            self.apply_gradient = not self.workflow.is_slave
 
     def generate_data_for_slave(self, slave=None):
         return (self.global_alpha, self.global_lambda)

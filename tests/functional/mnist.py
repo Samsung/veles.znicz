@@ -23,11 +23,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import config
-for s in sys.argv:
-    if s == "-s" or s[:16] == "--server_address":
-        config.plotters_disabled = True
-        config.is_slave = True
-        break
 import launcher
 import formats
 import struct
@@ -272,9 +267,9 @@ class Workflow(workflows.OpenCLWorkflow):
 
 
 def main():
-    #if __debug__:
+    # if __debug__:
     #    logging.basicConfig(level=logging.DEBUG)
-    #else:
+    # else:
     logging.basicConfig(level=logging.INFO)
     logging.info("Logging level: %s", str(logging.root.level))
 

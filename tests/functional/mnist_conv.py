@@ -24,11 +24,6 @@ add_path("%s/../../../src" % (this_dir))
 
 
 import config
-for s in sys.argv:
-    if s == "-s" or s[:16] == "--server_address":
-        config.plotters_disabled = True
-        config.is_slave = True
-        break
 import argparse
 import logging
 import numpy
