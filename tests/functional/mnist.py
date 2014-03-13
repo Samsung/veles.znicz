@@ -277,9 +277,8 @@ def main():
     rnd.default.seed("%s/seed" % (this_dir), numpy.int32, 1024)
     l = launcher.Launcher()
     device = None if l.is_master else opencl.Device()
-    w = Workflow(None, layers=[100, 10], device=device)
+    w = Workflow(l, layers=[100, 10], device=device)
     w.initialize(device=device, global_alpha=0.01, global_lambda=0.0)
-    l.initialize(w)
     l.run()
 
     logging.info("End of job")

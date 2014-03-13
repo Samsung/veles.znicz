@@ -184,7 +184,7 @@ class Loader(units.Unit):
         self.minibatch_size[0] = minibatch_size
 
         self.samples_served[0] += minibatch_size
-        if not self.workflow.is_slave:
+        if not self.is_slave:
             t = time.time()
             if t - self.t_minibatch >= 10:
                 self.t_minibatch = t
