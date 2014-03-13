@@ -14,6 +14,7 @@ import opencl
 import opencl_types
 import rnd
 import units
+from dummy_workflow import DummyWorkflow
 
 
 class TestMatrixReduce(unittest.TestCase):
@@ -48,7 +49,7 @@ class TestMatrixReduce(unittest.TestCase):
         fout.write(src)
         fout.close()
 
-        tmp = units.OpenCLUnit(None, device=self.device)
+        tmp = units.OpenCLUnit(DummyWorkflow(), device=self.device)
         tmp.cl_sources_[fnme] = {}
         tmp.build_program(defines, fnme)
 

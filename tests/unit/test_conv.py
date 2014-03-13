@@ -15,6 +15,7 @@ import formats
 import opencl
 import opencl_types
 import rnd
+from dummy_workflow import DummyWorkflow
 
 
 class TestConv(unittest.TestCase):
@@ -45,7 +46,8 @@ class TestConv(unittest.TestCase):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = conv.Conv(None, n_kernels=2, kx=3, ky=3, device=self.device)
+        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+                      device=self.device)
         c.input = inp
 
         c.initialize()
@@ -81,7 +83,8 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.ConvTanh(None, n_kernels=25, kx=9, ky=9, device=self.device)
+        c = conv.ConvTanh(DummyWorkflow(), n_kernels=25, kx=9, ky=9,
+                          device=self.device)
         c.input = inp
 
         c.initialize()
@@ -142,7 +145,8 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.Conv(None, n_kernels=4, kx=3, ky=3, device=self.device)
+        c = conv.Conv(DummyWorkflow(), n_kernels=4, kx=3, ky=3,
+                      device=self.device)
         c.input = inp
 
         c.initialize()

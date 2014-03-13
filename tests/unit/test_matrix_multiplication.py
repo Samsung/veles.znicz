@@ -15,6 +15,7 @@ import opencl
 import opencl_types
 import rnd
 import units
+from dummy_workflow import DummyWorkflow
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -90,7 +91,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        obj = units.OpenCLUnit(None, device=device)
+        obj = units.OpenCLUnit(DummyWorkflow(), device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
             "ACTIVATION_TANH": 1,

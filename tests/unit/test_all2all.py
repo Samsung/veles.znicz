@@ -14,6 +14,7 @@ import opencl
 import opencl_types
 import rnd
 import znicz_config
+from dummy_workflow import DummyWorkflow
 
 
 class TestAll2All(unittest.TestCase):
@@ -40,8 +41,8 @@ class TestAll2All(unittest.TestCase):
                               [-1, 2, 0, 1, 3]], dtype=dtype)
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
-        c = all2all.All2All(None, output_shape=[3], device=self.device,
-                            weights_amplitude=0.05)
+        c = all2all.All2All(DummyWorkflow(), output_shape=[3],
+                            device=self.device, weights_amplitude=0.05)
         c.input = inp
 
         c.initialize()
@@ -75,7 +76,8 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = all2all.All2All(None, output_shape=[11, 77], device=device)
+        c = all2all.All2All(DummyWorkflow(), output_shape=[11, 77],
+                            device=device)
         c.input = inp
         c.initialize()
 

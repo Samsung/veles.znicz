@@ -14,6 +14,7 @@ import gd
 import opencl
 import opencl_types
 import rnd
+from dummy_workflow import DummyWorkflow
 
 
 class TestGD(unittest.TestCase):
@@ -36,7 +37,7 @@ class TestGD(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = gd.GD(None, device=device)
+        c = gd.GD(DummyWorkflow(), device=device)
         c.h = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],

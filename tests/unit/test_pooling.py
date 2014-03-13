@@ -15,6 +15,7 @@ import gd_pooling
 import opencl
 import opencl_types
 import pooling
+from dummy_workflow import Dummyworkflow
 
 
 class TestPooling(unittest.TestCase):
@@ -49,7 +50,7 @@ class TestPooling(unittest.TestCase):
              (-1), -3, 4, 1, 2, -1, -2, -3, 3, 1, 3, -3, 4, -2],
             dtype=dtype).reshape(3, 5, 7, 2)
 
-        c = pooling.MaxPooling(None, kx=2, ky=2, device=self.device)
+        c = pooling.MaxPooling(DummyWorkflow(), kx=2, ky=2, device=self.device)
         c.input = inp
 
         c.initialize()
@@ -109,7 +110,8 @@ class TestPooling(unittest.TestCase):
                               [-1, 4, 2, -2, 3, 3, 4]]], dtype=dtype)
         inp.v = inp.v.reshape(3, 5, 7, 1)
 
-        c = gd_pooling.GDMaxPooling(None, kx=2, ky=2, device=self.device)
+        c = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=2, ky=2,
+                                    device=self.device)
         c.h = inp
         c.h_offs = formats.Vector()
         c.h_offs.v = numpy.array([8, 10, 5, 6, 14, 17, 19, 27, 29, 30, 33, 34,
@@ -171,7 +173,7 @@ class TestPooling(unittest.TestCase):
              (-1), -3, 4, 1, 2, -1, -2, -3, 3, 1, 3, -3, 4, -2],
             dtype=dtype).reshape(3, 5, 7, 2)
 
-        c = pooling.AvgPooling(None, kx=2, ky=2, device=self.device)
+        c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2, device=self.device)
         c.input = inp
 
         c.initialize()
@@ -220,7 +222,8 @@ class TestPooling(unittest.TestCase):
              [[-1, -2], [4, 8], [2, 2], [-2, -4], [3, 6], [3, 6], [4, 8]]]],
                             dtype=dtype)
 
-        c = gd_pooling.GDAvgPooling(None, kx=2, ky=2, device=self.device)
+        c = gd_pooling.GDAvgPooling(DummyWorkflow(), kx=2, ky=2,
+                                    device=self.device)
         c.h = inp
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[1, 2], [3, 6], [0.5, 1], [-4, -8],
