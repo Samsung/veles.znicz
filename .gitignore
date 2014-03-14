@@ -23,3 +23,5 @@ __pycache__
 !Znicz.pc.in
 !Application.mk.in
 !Android.mk.in
+*.pyc
+*.pyo
