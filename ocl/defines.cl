@@ -58,16 +58,22 @@ inline dtype c_norm(c_dtype a) {
   return length(a);
 }
 
+inline c_dtype c_relu(c_dtype a) {
+  // FIXME(a.kazantsev): add proper implementation.
+  return (c_dtype)(a.x > 15 ? a.x : log(exp(a.x) + 1), a.y)
+}
+
 #elif sizeof_c_dtype == sizeof_dtype
 
 #define c_re(a) (a)
-#define c_from_re(re) (re)
+#define c_from_re(re) ((dtype)(re))
 #define c_mul(a, b) ((a) * (b))
 #define c_div(a, b) ((a) / (b))
 #define c_exp(a) exp(a)
 #define c_tanh(a) tanh(a)
 #define c_norm2(a) ((a) * (a))
 #define c_norm(a) fabs(a)
+#define c_relu(a) ((a) > 15 ? (a) : log(exp(a) + 1))
 
 #else
 

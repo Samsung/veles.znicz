@@ -223,6 +223,26 @@ class All2AllTanh(All2All):
         self.output.v[:] = v[:]
 
 
+class All2AllRELU(All2All):
+    """All2All with RELU activation f(x) = log(1.0 + exp(x)).
+    """
+    def initialize(self):
+        self.s_activation = "ACTIVATION_RELU"
+        super(All2AllRELU, self).initialize()
+        self.output.supposed_maxvle = 10
+
+    def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
+        retval = super(All2AllRELU, self).cpu_run()
+        if retval:
+            return retval
+        self.output.map_write()
+        v = self.output.v.copy()
+        numpy.where(v > 15, v, numpy.log(numpy.exp(v) + 1))
+        self.output.v[:] = v[:]
+
+
 class All2AllSoftmax(All2All):
     """All2All with linear activation and softmax normalization.
 

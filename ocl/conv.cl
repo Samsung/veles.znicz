@@ -69,11 +69,14 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
 
   if (valid) {
     c_dtype s = sum[0] + AS[0][tx];
-    #ifdef ACTIVATION_LINEAR
+    #if ACTIVATION_LINEAR > 0
     y[idx] = s;
-    #endif
-    #ifdef ACTIVATION_TANH
+    #elif ACTIVATION_TANH > 0
     y[idx] = c_tanh(s * (dtype)0.6666) * (dtype)1.7159;
+    #elif ACTIVATION_RELU > 0
+    y[idx] = c_relu(s);
+    #else
+    #error "Activation function should be defined"
     #endif
   }
 }

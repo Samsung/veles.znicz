@@ -227,3 +227,12 @@ class ConvTanh(Conv):
                 (self.kx * self.ky * n_channels))
         return (9.0 / (self.input.supposed_maxvle * 0.6666) /
                 (self.kx * self.ky * n_channels))
+
+
+class ConvRELU(Conv):
+    """Conv with RELU activation f(x) = log(1.0 + exp(x)).
+    """
+    def initialize(self):
+        self.s_activation = "ACTIVATION_TANH"
+        super(ConvTanh, self).initialize()
+        self.output.supposed_maxvle = 10

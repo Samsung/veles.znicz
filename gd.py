@@ -334,7 +334,7 @@ class GDTanh(GD):
           = y * y * (-0.388484177) + 1.14381894
     """
     def cpu_err_y_update(self):
-        """Multiply err_y by activation derivative by y.
+        """Multiply err_y by activation derivative by s in terms of y.
         """
         self.y.map_read()
         self.err_y.map_write()
@@ -344,6 +344,30 @@ class GDTanh(GD):
     def initialize(self):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
         super(GDTanh, self).initialize()
+        if self.device is None:
+            return
+        self.krn_err_y_ = self.get_kernel("err_y_update")
+        self.krn_err_y_.set_arg(0, self.err_y.v_)
+        self.krn_err_y_.set_arg(1, self.y.v_)
+
+
+class GDRELU(GD):
+    """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
+       y = log(1.0 + exp(s)).
+
+    f'(s) = 1.0 / (1.0 + exp(-s)) = 1.0 - exp(-y)
+    """
+    def cpu_err_y_update(self):
+        """Multiply err_y by activation derivative by s in terms of y.
+        """
+        self.y.map_read()
+        self.err_y.map_write()
+        y = self.y.v
+        self.err_y.v *= 1.0 - numpy.exp(-y)
+
+    def initialize(self):
+        self.cl_sources_["gradient_descent_relu.cl"] = {}
+        super(GDRELU, self).initialize()
         if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")
