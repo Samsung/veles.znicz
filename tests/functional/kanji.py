@@ -24,13 +24,15 @@ add_path("%s/../.." % (this_dir))
 add_path("%s/../../../src" % (this_dir))
 
 
+import six
+from six.moves import xrange as range
+from six.moves import cPickle as pickle
 import config
 import launcher
 import numpy
 import rnd
 import opencl
 import plotting_units
-import pickle
 import loader
 import decision
 import all2all
@@ -61,7 +63,8 @@ class Loader(loader.Loader):
         Should be filled here:
             class_samples[].
         """
-        fin = open("%s/index_map.pickle" % (self.train_path), "rb")
+        fin = open("%s/index_map.%d.pickle" %
+                   (self.train_path, 3 if six.PY3 else 2), "rb")
         self.index_map = pickle.load(fin)
         fin.close()
 
@@ -90,7 +93,7 @@ class Loader(loader.Loader):
         self.original_labels = numpy.empty(len(self.index_map),
                                            dtype=self.label_dtype)
         import re
-        lbl_re = re.compile("^(\d+)_\d+/(\d+)\.pickle$")
+        lbl_re = re.compile("^(\d+)_\d+/(\d+)\.\d\.pickle$")
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
             if res is None:
@@ -173,12 +176,12 @@ class Workflow(workflows.OpenCLWorkflow):
 
         self.loader = Loader(self,
             train_path="%s/kanji/train" % (config.test_dataset_root),
-            target_path="%s/kanji/target/targets.pickle" % (
-                                            config.test_dataset_root))
+            target_path="%s/kanji/target/targets.%d.pickle" %
+            (config.test_dataset_root, 3 if six.PY3 else 2))
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward.clear()
+        del self.forward[:]
         for i in range(0, len(layers)):
             aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
                                      device=device)
@@ -216,7 +219,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.should_unlock_pipeline = False
 
         # Add gradient descent units
-        self.gd.clear()
+        del self.gd[:]
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDTanh(self, device=device)
         self.gd[-1].link_from(self.decision)
@@ -369,7 +372,7 @@ def main():
     # rnd.default.seed(numpy.fromfile("/dev/urandom", numpy.int32, 524288))
     l = launcher.Launcher()
     device = None if l.is_master else opencl.Device()
-    fnme = "%s/kanji.pickle" % (config.snapshot_dir)
+    fnme = "%s/kanji.%d.pickle" % (config.snapshot_dir, 3 if six.PY3 else 2)
     fin = None
     try:
         fin = open(fnme, "rb")
@@ -395,7 +398,7 @@ def main():
             w.decision.just_snapshotted[0] = 1
     if fin is None:
         w = Workflow(l, layers=[999, 999, 24 * 24], device=device)
-    w.initialize(global_alpha=0.0001, global_lambda=0.00005,
+    w.initialize(global_alpha=0.001, global_lambda=0.00005,
                  minibatch_maxsize=(270 if l.is_slave else 270),
                  device=device, weights=weights, bias=bias)
     l.run()
