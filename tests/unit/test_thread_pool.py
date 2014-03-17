@@ -5,11 +5,15 @@ Unit test for ThreadPool().
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import numpy.random
 import threading
 import time
 import unittest
-import thread_pool
+
+import veles.thread_pool as thread_pool
+import veles.znicz.znicz_config
 
 
 class TestThreadPool(unittest.TestCase):

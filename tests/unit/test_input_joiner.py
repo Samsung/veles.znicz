@@ -3,15 +3,17 @@ Created on Oct 29, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import numpy
 import unittest
 
-import config
-import znicz_config
-import formats
-import input_joiner
-import opencl
-from dummy_workflow import DummyWorkflow
+import veles.config as config
+import veles.formats as formats
+import veles.opencl as opencl
+import veles.znicz.input_joiner as input_joiner
+from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
+import veles.znicz.znicz_config as znicz_config
 
 
 class TestInputJoiner(unittest.TestCase):

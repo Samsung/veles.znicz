@@ -5,7 +5,7 @@ Created on Mar 13, 2014
 """
 
 
-from workflows import Workflow
+from veles.workflows import Workflow
 
 
 class DummyLauncher(object):

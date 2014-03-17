@@ -5,15 +5,18 @@ Loader base class.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import glob
 import numpy
 import time
-import config
-import error
-import formats
-import opencl_types
-import rnd
-import units
+
+import veles.config as config
+import veles.error as error
+import veles.formats as formats
+import veles.opencl_types as opencl_types
+import veles.rnd as rnd
+import veles.units as units
 
 
 class Loader(units.Unit):

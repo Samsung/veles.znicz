@@ -5,13 +5,16 @@ ImageSaver unit.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import numpy
-import units
-import os
+
+
 import glob
-import formats
-import config
-import znicz_config
+import numpy
+import os
+
+import veles.formats as formats
+import veles.config as config
+import veles.units as units
+import veles.znicz.znicz_config as znicz_config
 
 
 class ImageSaver(units.Unit):

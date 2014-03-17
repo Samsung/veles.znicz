@@ -3,11 +3,14 @@ Created on Jan 28, 2014
 
 @author: Vadim Markovtsev <v.markovtsev@samsung.com>
 """
+
+
 import numpy
-from units import OpenCLUnit
-import rnd
-import config
-import formats
+
+import veles.config as config
+import veles.formats as formats
+import veles.rnd as rnd
+from veles.units import OpenCLUnit
 
 
 class Forward(OpenCLUnit):

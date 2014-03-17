@@ -10,10 +10,11 @@ All2All units.
 import logging
 import numpy
 import time
-import config
-import formats
-import nn_units
-import opencl_types
+
+import veles.config as config
+import veles.formats as formats
+import veles.opencl_types as opencl_types
+import veles.znicz.nn_units as nn_units
 
 
 class All2All(nn_units.Forward):

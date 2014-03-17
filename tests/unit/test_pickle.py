@@ -3,10 +3,13 @@ Created on May 21, 2013
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import os
 import pickle
 import unittest
-import units
+
+import veles.units as units
 
 
 g_pt = 0

@@ -5,17 +5,19 @@ Unit test for pooling layer forward propagation.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import numpy
 import unittest
 
-import config
-import znicz_config
-import formats
-import gd_pooling
-import opencl
-import opencl_types
-import pooling
-from dummy_workflow import DummyWorkflow
+import veles.config as config
+import veles.formats as formats
+import veles.opencl as opencl
+import veles.opencl_types as opencl_types
+import veles.znicz.gd_pooling as gd_pooling
+import veles.znicz.pooling as pooling
+import veles.znicz.znicz_config as znicz_config
+from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 
 class TestPooling(unittest.TestCase):

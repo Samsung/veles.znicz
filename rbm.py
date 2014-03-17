@@ -5,13 +5,15 @@ RBM unit.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import numpy
-import all2all
-import config
-import error
-import formats
-import opencl_types
-import znicz_config
+
+import veles.config as config
+import veles.error as error
+import veles.formats as formats
+import veles.opencl_types as opencl_types
+import veles.znicz.all2all as all2all
 
 
 class RBMTanh(all2all.All2AllTanh):

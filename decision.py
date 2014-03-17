@@ -5,17 +5,19 @@ Decision unit.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import numpy
 import os
 import six
 from six.moves import cPickle as pickle
+import threading
 import time
 
-import config
-import formats
-import opencl_types
-import units
-import threading
+import veles.config as config
+import veles.formats as formats
+import veles.opencl_types as opencl_types
+import veles.units as units
 
 
 class Decision(units.Unit):

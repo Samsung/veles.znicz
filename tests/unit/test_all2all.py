@@ -4,17 +4,20 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
+
+
 import numpy
 import unittest
 
-import all2all
-import config
-import formats
-import opencl
-import opencl_types
-import rnd
-import znicz_config
-from dummy_workflow import DummyWorkflow
+import veles.config as config
+import veles.formats as formats
+import veles.opencl as opencl
+import veles.opencl_types as opencl_types
+import veles.rnd as rnd
+import veles.znicz.all2all as all2all
+import veles.znicz.znicz_config
+from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
+import veles.znicz.znicz_config as znicz_config
 
 
 class TestAll2All(unittest.TestCase):

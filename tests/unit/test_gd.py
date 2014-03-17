@@ -4,17 +4,19 @@ Created on November 18, 2013
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
+
+
 import numpy
 import unittest
 
-import config
-import znicz_config
-import formats
-import gd
-import opencl
-import opencl_types
-import rnd
-from dummy_workflow import DummyWorkflow
+import veles.config as config
+import veles.formats as formats
+import veles.opencl as opencl
+import veles.opencl_types as opencl_types
+import veles.rnd as rnd
+import veles.znicz.gd as gd
+from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
+import veles.znicz.znicz_config as znicz_config
 
 
 class TestGD(unittest.TestCase):

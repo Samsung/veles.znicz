@@ -5,14 +5,17 @@ Gradient Descent Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
-import nn_units
-import formats
+
+
 import numpy
-import time
-import config
-import opencl_types
-import znicz_config
 import logging
+import time
+
+import veles.config as config
+import veles.formats as formats
+import veles.opencl_types as opencl_types
+import veles.znicz.nn_units as nn_units
+import veles.znicz.znicz_config as znicz_config
 
 
 class GD(nn_units.GD):

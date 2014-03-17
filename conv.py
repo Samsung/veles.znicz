@@ -5,13 +5,16 @@ Convolutional layers.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import logging
 import numpy
 import time
-import config
-import error
-import formats
-import nn_units
+
+import veles.config as config
+import veles.error as error
+import veles.formats as formats
+import veles.znicz.nn_units as nn_units
 
 
 class Conv(nn_units.Forward):
@@ -157,7 +160,7 @@ class Conv(nn_units.Forward):
 
     def print_times(self, t_start):
         """Show some statistics.
-        """)
+        """
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.output.map_read()

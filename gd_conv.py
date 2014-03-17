@@ -5,15 +5,18 @@ Gradient Descent for Convolutional Units.
 
 @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 """
+
+
 import logging
 import numpy
 import time
-import config
-import error
-import formats
-import nn_units
-import opencl_types
-import znicz_config
+
+import veles.config as config
+import veles.error as error
+import veles.formats as formats
+import veles.znicz.nn_units as nn_units
+import veles.opencl_types as opencl_types
+import veles.znicz.znicz_config as znicz_config
 
 
 class GD(nn_units.GD):
