@@ -23,6 +23,9 @@ add_path("%s/../../../src" % (this_dir))
 add_path("%s/../.." % (this_dir))
 
 
+import six
+from six.moves import xrange as range
+from six.moves import cPickle as pickle
 from freetype import *
 import numpy
 import sqlite3
@@ -31,7 +34,6 @@ import glob
 import config
 import scipy.misc
 import formats
-import pickle
 import time
 
 
@@ -47,7 +49,7 @@ KANJI_COUNT = 100
 
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
-    face = Face(bytes(fontPath, 'UTF-8'))
+    face = Face(fontPath.encode("utf-8"))
     #face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
@@ -232,7 +234,7 @@ if __name__ == '__main__':
     dirnme = "%s/kanji/train" % (config.test_dataset_root)
     target_dirnme = "%s/kanji/target" % (config.test_dataset_root)
 
-    logging.info("Be shure that %s and %s are empty" % (dirnme, target_dirnme))
+    logging.info("Be sure that %s and %s are empty" % (dirnme, target_dirnme))
     logging.info("Will continue in 15 seconds")
     time.sleep(5)
     logging.info("Will continue in 10 seconds")
@@ -263,7 +265,7 @@ if __name__ == '__main__':
         for font_idx, font in enumerate(fonts):
             font_ok = False
             transforms = set()
-            for i in range(0, N_TRANSFORMS):
+            for i in range(N_TRANSFORMS):
                 while True:
                     angle = -ANGLE + numpy.random.rand() * (ANGLE * 2)
                     sx = SCALE + numpy.random.rand() * (1.0 / SCALE - SCALE)
@@ -290,7 +292,7 @@ if __name__ == '__main__':
                 sample_number = len(index_map)
                 fnme = "%s/%07d" % (outdir, sample_number)
                 scipy.misc.imsave("%s.png" % (fnme), img)
-                pickle_fnme = "%s.pickle" % (fnme)
+                pickle_fnme = "%s.%d.pickle" % (fnme, 3 if six.PY3 else 2)
                 fout = open(pickle_fnme, "wb")
                 pickle.dump({"angle": angle,
                              "lbl": lbl,
@@ -317,11 +319,12 @@ if __name__ == '__main__':
         if not exists:
             raise Exception("Glyph does not exists in the supplied fonts")
 
-    fout = open("%s/targets.pickle" % (target_dirnme), "wb")
+    fout = open("%s/targets.%d.pickle" % (target_dirnme, 3 if six.PY3 else 2),
+                "wb")
     pickle.dump(targets, fout)
     fout.close()
 
-    fout = open("%s/index_map.pickle" % (dirnme), "wb")
+    fout = open("%s/index_map.%d.pickle" % (dirnme, 3 if six.PY3 else 2), "wb")
     pickle.dump(index_map, fout)
     fout.close()
 
