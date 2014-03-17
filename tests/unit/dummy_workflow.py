@@ -21,6 +21,9 @@ class DummyLauncher(object):
     def is_standalone(self):
         return True
 
+    def add_ref(self, workflow):
+        pass
+
 
 class DummyWorkflow(Workflow):
     """
@@ -29,7 +32,6 @@ class DummyWorkflow(Workflow):
 
     def __init__(self):
         """
-        Sets self._launcher_ to DummyLauncher
+        Passes DummyLauncher as workflow parameter value.
         """
-        super(DummyWorkflow, self).__init__()
-        self.launcher = DummyLauncher()
+        super(DummyWorkflow, self).__init__(DummyLauncher())
