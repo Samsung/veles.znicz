@@ -157,9 +157,8 @@ class Conv(nn_units.Forward):
 
     def print_times(self, t_start):
         """Show some statistics.
-        """
-        log = self.log()
-        if not log.isEnabledFor(logging.DEBUG):
+        """)
+        if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.output.map_read()
         y = self.output.v

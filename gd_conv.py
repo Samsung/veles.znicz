@@ -224,8 +224,7 @@ class GD(nn_units.GD):
         event.wait()
 
     def print_times(self, t_start):
-        log = self.log()
-        if not log.isEnabledFor(logging.DEBUG):
+        if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.weights.map_read()
         self.bias.map_read()

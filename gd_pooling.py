@@ -82,8 +82,7 @@ class GDPooling(nn_units.GD):
                 config.cache_dir, sx, sy, n_channels, self.kx, self.ky))
 
     def print_times(self, t_start):
-        log = self.log()
-        if not log.isEnabledFor(logging.DEBUG):
+        if not self.log.isEnabledFor(logging.DEBUG):
             return
         y = self.err_h.v
         self.debug("%s: %d samples of size %dx%dx%d in %.2f sec" % (

@@ -86,8 +86,7 @@ class Pooling(nn_units.Forward):
     def print_times(self, t_start):
         """Show some statistics.
         """
-        log = self.log()
-        if not log.isEnabledFor(logging.DEBUG):
+        if not self.log.isEnabledFor(logging.DEBUG):
             return
         y = self.input.v
         self.debug("%s: %d samples of size %dx%dx%d vs "
