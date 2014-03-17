@@ -15,7 +15,7 @@ import gd_pooling
 import opencl
 import opencl_types
 import pooling
-from dummy_workflow import Dummyworkflow
+from dummy_workflow import DummyWorkflow
 
 
 class TestPooling(unittest.TestCase):
