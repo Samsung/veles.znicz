@@ -647,11 +647,11 @@ class Decision(units.Unit):
             self.samples_served <= 0):
             self.sample_serving_ended = False
             unlock = True
-            self.info("Will invoke run()")
+            self.debug("Will invoke run()")
             self.run()
         if unlock and (self.should_unlock_pipeline or
                        self.slave_minibatch_class != 2):
-            self.info("Will unlock pipeline")
+            self.debug("Will unlock pipeline")
             self.workflow.unlock_pipeline()
 
     def drop_slave(self, slave=None):
