@@ -163,10 +163,10 @@ import workflows
 class Workflow(workflows.OpenCLWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
-    100 classes to recognize, 358400 32x32 images dataset size.
+    %d classes to recognize, %d 32x32 images dataset size.
     """
-    # 1023 classes to recognize, 3.6 million 32x32 images dataset size.
     def __init__(self, workflow, **kwargs):
+        self.original_doc = self.__doc__
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["name"] = kwargs.get("name", "Kanji")
@@ -350,6 +350,8 @@ class Workflow(workflows.OpenCLWorkflow):
         self.ev.device = device
         self.loader.minibatch_maxsize[0] = minibatch_maxsize
         super(Workflow, self).initialize()
+        self.__doc__ = self.original_doc % (len(self.loader.original_labels),
+                                            self.loader.total_samples[0])
         if weights is not None:
             for i, forward in enumerate(self.forward):
                 forward.weights.map_invalidate()
@@ -397,9 +399,9 @@ def main():
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted[0] = 1
     if fin is None:
-        w = Workflow(l, layers=[999, 999, 24 * 24], device=device)
-    w.initialize(global_alpha=0.001, global_lambda=0.00005,
-                 minibatch_maxsize=(270 if l.is_slave else 270),
+        w = Workflow(l, layers=[4995, 4995, 24 * 24], device=device)
+    w.initialize(global_alpha=0.0005, global_lambda=0.0,
+                 minibatch_maxsize=(1350 if l.is_slave else 1350),
                  device=device, weights=weights, bias=bias)
     l.run()
 
