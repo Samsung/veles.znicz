@@ -15,7 +15,7 @@ import veles.config as config
 import veles.error as error
 import veles.formats as formats
 import veles.znicz.nn_units as nn_units
-import veles.znicz.znicz_config as znicz_config
+import veles.znicz.config as znicz_config
 
 
 class Pooling(nn_units.Forward):

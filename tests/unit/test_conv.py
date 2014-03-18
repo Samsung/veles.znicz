@@ -17,7 +17,7 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.znicz.conv as conv
-import veles.znicz.znicz_config
+import veles.znicz.config
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 

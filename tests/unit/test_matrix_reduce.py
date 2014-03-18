@@ -17,7 +17,7 @@ import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.units as units
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
-import veles.znicz.znicz_config as znicz_config
+import veles.znicz.config as znicz_config
 
 
 class TestMatrixReduce(unittest.TestCase):

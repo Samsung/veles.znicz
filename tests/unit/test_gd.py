@@ -16,7 +16,7 @@ import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.znicz.gd as gd
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
-import veles.znicz.znicz_config as znicz_config
+import veles.znicz.config as znicz_config
 
 
 class TestGD(unittest.TestCase):

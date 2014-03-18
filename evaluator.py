@@ -12,7 +12,7 @@ import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.units as units
-import veles.znicz.znicz_config as znicz_config
+import veles.znicz.config as znicz_config
 
 
 class EvaluatorSoftmax(units.OpenCLUnit):

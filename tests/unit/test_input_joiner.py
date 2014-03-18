@@ -13,7 +13,7 @@ import veles.formats as formats
 import veles.opencl as opencl
 import veles.znicz.input_joiner as input_joiner
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
-import veles.znicz.znicz_config as znicz_config
+import veles.znicz.config as znicz_config
 
 
 class TestInputJoiner(unittest.TestCase):
