@@ -9,7 +9,7 @@ RBM unit.
 
 import numpy
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -27,7 +27,7 @@ class RBMTanh(all2all.All2AllTanh):
         super(RBMTanh, self).__init__(workflow, **kwargs)
         self.output_rand = formats.Vector()
         self.y_low_high = numpy.array([-1.0, 1.0],
-                                      dtype=opencl_types.dtypes[config.dtype])
+                                      dtype=opencl_types.dtypes[root.common.dtype])
 
     def init_unpickled(self):
         super(RBMTanh, self).init_unpickled()
@@ -39,7 +39,7 @@ class RBMTanh(all2all.All2AllTanh):
         if (self.output_rand.v is None or
             self.output_rand.v.size != self.output.v.size):
             self.output_rand.v = numpy.zeros(self.output.v.shape,
-                dtype=opencl_types.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[root.common.dtype])
             self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
         if not self.device:
@@ -57,7 +57,7 @@ class RBMTanh(all2all.All2AllTanh):
         self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]

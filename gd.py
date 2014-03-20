@@ -11,7 +11,7 @@ import numpy
 import logging
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
@@ -58,7 +58,7 @@ class GD(nn_units.GD):
         self.h = None  # formats.Vector()
         self.err_y = None  # formats.Vector()
         self.err_h = formats.Vector()
-        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[config.dtype])
+        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[root.common.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -103,7 +103,7 @@ class GD(nn_units.GD):
             return
 
         if self.prg_ is None:
-            block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+            block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)
 
             defines = {
@@ -119,7 +119,7 @@ class GD(nn_units.GD):
                 defines['WEIGHTS_TRANSPOSED'] = 1
             if self.store_gradient:
                 defines['STORE_GRADIENT'] = 1
-            self.build_program(defines, "%s/gd_%d_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/gd_%d_%d.cl" % (root.common.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
@@ -188,7 +188,7 @@ class GD(nn_units.GD):
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
@@ -238,7 +238,7 @@ class GD(nn_units.GD):
         self.err_h.unmap()
         self.err_y.unmap()
         self.weights.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         global_size = [formats.roundup(self.err_h.v.size //
                        self.err_h.v.shape[0], block_size),
                        formats.roundup(self.err_h.v.shape[0],

@@ -9,7 +9,7 @@ Joins several inpus into one continuous output.
 
 import numpy
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -97,7 +97,7 @@ class InputJoiner(units.OpenCLUnit):
                 'etype': opencl_types.numpy_dtype_to_opencl(
                                             self.output.v.dtype)
             }
-            self.build_program(defines, "%s/join_%s.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/join_%s.cl" % (root.common.cache_dir,
                 "_".join(str(x) for x in self.output_sample_shape)))
 
             self.krn_ = self.get_kernel("join2")

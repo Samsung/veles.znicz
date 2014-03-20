@@ -11,7 +11,7 @@ import logging
 import numpy
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.znicz.nn_units as nn_units
@@ -108,7 +108,7 @@ class Conv(nn_units.Forward):
             self.rand.fill(self.bias.v, -self.weights_magnitude,
                            self.weights_magnitude)
 
-        if config.unit_test:
+        if root.common.unit_test:
             batch_size <<= 1  # check for overflow
         output_size = batch_size * (self.n_kernels *
             (sx - self.kx + 1) * (sy - self.ky + 1))
@@ -124,7 +124,7 @@ class Conv(nn_units.Forward):
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
 
-        if config.unit_test:
+        if root.common.unit_test:
             batch_size >>= 1
             self.output.vv = self.output.v
             self.output.v = self.output.v[:batch_size]
@@ -137,7 +137,7 @@ class Conv(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    config.c_dtype],
+                                                    root.common.precision_type],
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -149,7 +149,7 @@ class Conv(nn_units.Forward):
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
-                config.cache_dir, sx, sy, n_channels, self.kx, self.ky,
+                root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky,
                 self.n_kernels))
 
             self.krn_ = self.get_kernel("feed_layer")
@@ -187,7 +187,7 @@ class Conv(nn_units.Forward):
         self.input.unmap()  # we will use input
         self.weights.unmap()  # we will use weights
         self.bias.unmap()  # we will use bias
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         global_size = [formats.roundup(self.n_kernels, block_size),
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]

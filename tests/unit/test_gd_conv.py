@@ -10,7 +10,7 @@ Unit test for convolutional layer back propagation.
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -21,8 +21,8 @@ import veles.znicz.config as znicz_config
 
 class TestGDConv(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -32,7 +32,7 @@ class TestGDConv(unittest.TestCase):
         print("Will test convolutional layer back propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],

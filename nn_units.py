@@ -7,7 +7,6 @@ Created on Jan 28, 2014
 
 import numpy
 
-import veles.config as config
 import veles.formats as formats
 import veles.rnd as rnd
 from veles.units import OpenCLUnit

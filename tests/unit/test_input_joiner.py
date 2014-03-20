@@ -8,7 +8,7 @@ Created on Oct 29, 2013
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.znicz.input_joiner as input_joiner
@@ -18,8 +18,8 @@ import veles.znicz.config as znicz_config
 
 class TestInputJoiner(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

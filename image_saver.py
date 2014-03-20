@@ -12,7 +12,7 @@ import numpy
 import os
 
 import veles.formats as formats
-import veles.config as config
+from veles.config import root
 import veles.units as units
 import veles.znicz.config as znicz_config
 
@@ -44,9 +44,9 @@ class ImageSaver(units.Unit):
         limit = kwargs.get("limit", 100)
         yuv = kwargs.get("yuv", False)
         if out_dirs is None:
-            out_dirs = ["%s/tmpimg/test" % (config.cache_dir),
-                        "%s/tmpimg/validation" % (config.cache_dir),
-                        "%s/tmpimg/train" % (config.cache_dir)]
+            out_dirs = ["%s/tmpimg/test" % (root.common.cache_dir),
+                        "%s/tmpimg/validation" % (root.common.cache_dir),
+                        "%s/tmpimg/train" % (root.common.cache_dir)]
         kwargs["out_dirs"] = out_dirs
         kwargs["limit"] = limit
         kwargs["yuv"] = yuv

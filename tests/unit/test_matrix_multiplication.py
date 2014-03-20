@@ -11,7 +11,7 @@ import numpy
 import os
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -25,8 +25,8 @@ class TestMatrixMultiplication(unittest.TestCase):
     def setUp(self):
         import logging
         logging.basicConfig(level=logging.DEBUG)
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -53,7 +53,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         return c
 
     def _prepare_tsts(self, BLOCK_SIZE,
-                      dtype=opencl_types.dtypes[config.dtype],
+                      dtype=opencl_types.dtypes[root.common.dtype],
                       AB_WIDTH=1371, B_HEIGHT=11735, A_HEIGHT=171):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
@@ -102,7 +102,7 @@ class TestMatrixMultiplication(unittest.TestCase):
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
             "BATCH": self.A_HEIGHT}
-        obj.build_program(defines, os.path.join(config.cache_dir, "test.cl"))
+        obj.build_program(defines, os.path.join(root.common.cache_dir, "test.cl"))
 
         krn = obj.get_kernel("feed_layer")
         krn.set_arg(0, self.a.v_)
@@ -122,7 +122,7 @@ class TestMatrixMultiplication(unittest.TestCase):
     def test_matrix_multiplication(self):
         self.rnd = rnd.Rand()
         self.rnd.seed("/dev/urandom", dtype=numpy.int32, count=1024)
-        block_size = self.device.device_info.BLOCK_SIZE[config.dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         N = 1000
         print("Will test %d matrix multiplications "
               "with BLOCK_SIZE = %d" % (N, block_size))

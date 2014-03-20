@@ -11,7 +11,7 @@ import glob
 import numpy
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -383,14 +383,14 @@ class FullBatchLoader(Loader):
         sh = [self.minibatch_maxsize[0]]
         sh.extend(self.original_data[0].shape)
         self.minibatch_data.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[config.c_dtype])
+                dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
         if self.original_target is not None:
             sh = [self.minibatch_maxsize[0]]
             sh.extend(self.original_target[0].shape)
             self.minibatch_target.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[config.c_dtype])
+                dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
         if self.original_labels is not None:

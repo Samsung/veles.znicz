@@ -9,7 +9,7 @@ Created on November 18, 2013
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -21,8 +21,8 @@ import veles.znicz.config as znicz_config
 
 class TestAll2All(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -31,7 +31,7 @@ class TestAll2All(unittest.TestCase):
     def test_with_fixed_input(self):
         print("Will test all2all unit")
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([[1, 2, 3, 2, 1],
                              [0, 1, 2, 1, 0],
                              [0, 1, 0, 1, 0],
@@ -69,7 +69,7 @@ class TestAll2All(unittest.TestCase):
 
     def _do_tst(self, device):
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([101, 235], dtype=dtype)
         rnd.default.fill(inp.v)
 

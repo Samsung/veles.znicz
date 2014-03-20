@@ -11,7 +11,7 @@ import logging
 import numpy
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.znicz.nn_units as nn_units
@@ -84,7 +84,7 @@ class Pooling(nn_units.Forward):
             }
             self.build_program(defines,
                 "%s/pooling_%dx%dx%d_%dx%d.cl" % (
-                config.cache_dir, sx, sy, n_channels, self.kx, self.ky))
+                root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
 
     def print_times(self, t_start):
         """Show some statistics.

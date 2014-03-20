@@ -11,7 +11,7 @@ import logging
 import numpy
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
@@ -117,13 +117,13 @@ class All2All(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    config.c_dtype],
+                                                    root.common.precision_type],
                 'H': self.weights.v.size // output_size,
                 'Y': output_size,
                 'BATCH': self.output.v.shape[0]}
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/feed_%d_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/feed_%d_%d.cl" % (root.common.cache_dir,
                 self.input.v.size // self.input.v.shape[0], output_size))
 
             self.krn_ = self.get_kernel("feed_layer")
@@ -163,7 +163,7 @@ class All2All(nn_units.Forward):
         self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
@@ -274,7 +274,6 @@ class All2AllSoftmax(All2All):
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
         itype = opencl_types.get_itype_from_size(output_size)
-        global this_dir
         self.cl_sources_["softmax.cl"] = {"itype": itype}
         super(All2AllSoftmax, self).initialize()
 
@@ -309,7 +308,7 @@ class All2AllSoftmax(All2All):
     def gpu_apply_exp(self):
         self.output.unmap()
         self.max_idx.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
         event = self.execute_kernel(self.krn_sm_, global_size, local_size)

@@ -10,7 +10,7 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -24,8 +24,8 @@ class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
         import logging
         logging.basicConfig(level=logging.DEBUG)
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -41,13 +41,13 @@ class TestMatrixReduce(unittest.TestCase):
         src = (
         "#include \"defines.cl\"\n"
         "__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
-        "void test(__global c_dtype *A, __global c_dtype *b) {\n"
+        "void test(__global precision_type *A, __global precision_type *b) {\n"
         "#include \"matrix_reduce.cl\"\n"
         "if (!tx) {\n"
         "  sum += AS[0];\n"
         "  b[bx] = sum;\n"
         "}}")
-        fnme = "%s/test.cl" % (config.cache_dir)
+        fnme = "%s/test.cl" % (root.common.cache_dir)
         fout = open(fnme, "w")
         fout.write(src)
         fout.close()
@@ -64,7 +64,7 @@ class TestMatrixReduce(unittest.TestCase):
     def test_fixed(self):
         """Test with fixed input.
         """
-        dtype = opencl_types.dtypes[config.c_dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
 
         a = formats.Vector()
         a.v = numpy.array([[1, 2, 3],
@@ -103,7 +103,7 @@ class TestMatrixReduce(unittest.TestCase):
     def test_random(self):
         """Test with random input vs numpy.
         """
-        dtype = opencl_types.dtypes[config.c_dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
 
         a = formats.Vector()
         a.v = numpy.zeros([3337, 775], dtype=dtype)

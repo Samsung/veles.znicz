@@ -9,7 +9,7 @@ Created on November 18, 2013
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -21,8 +21,8 @@ import veles.znicz.config as znicz_config
 
 class TestGD(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -30,7 +30,7 @@ class TestGD(unittest.TestCase):
 
     def _do_tst(self, device):
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([5, 5], dtype=dtype)
         rnd.default.fill(inp.v)
 

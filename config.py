@@ -6,7 +6,7 @@ Created on Jan 9, 2014
 
 import os
 
-import veles.config as config
+from veles.config import root
 
 
-config.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))
+root.common.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))

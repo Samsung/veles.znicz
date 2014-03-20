@@ -7,7 +7,7 @@ Created on Apr 1, 2013
 
 import numpy
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -76,7 +76,6 @@ class EvaluatorSoftmax(units.OpenCLUnit):
                                      "(probably in Loader).")
         itype2 = opencl_types.get_itype_from_size(
                         self.max_samples_per_epoch[0])
-        global this_dir
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v is None or
@@ -101,7 +100,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if self.max_err_y_sum.v is None or self.max_err_y_sum.v.size < 1:
             self.max_err_y_sum.reset()
             self.max_err_y_sum.v = numpy.zeros(1,
-                dtype=opencl_types.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[root.common.dtype])
 
         self.y.initialize(self.device)
         self.err_y.initialize(self.device)
@@ -119,11 +118,11 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    config.c_dtype],
+                                                    root.common.precision_type],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }
-            self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/ev_%d.cl" % (root.common.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 
             self.krn_ = self.get_kernel("ev_sm")
@@ -147,7 +146,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_i_[0] = self.batch_size[0]
         self.krn_.set_arg(7, self.krn_constants_i_[0:1])
 
-        local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
+        local_size = [self.device.device_info.BLOCK_SIZE[root.common.precision_type]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_,
                                              global_size, local_size)
@@ -259,14 +258,14 @@ class EvaluatorMSE(units.OpenCLUnit):
         if self.metrics.v is None or self.metrics.v.size < 3:
             self.metrics.reset()
             self.metrics.v = numpy.zeros(3,
-                dtype=opencl_types.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[root.common.dtype])
             self.metrics.v[2] = 1.0e30  # mse_min
 
         if (self.mse.v is None or
             self.mse.v.size != self.err_y.v.shape[0]):
             self.mse.reset()
             self.mse.v = numpy.zeros(self.err_y.v.shape[0],
-                dtype=opencl_types.dtypes[config.dtype])
+                dtype=opencl_types.dtypes[root.common.dtype])
 
         if (self.labels is not None and self.class_target is not None and
             (self.n_err.v is None or self.n_err.v.size < 2)):
@@ -295,14 +294,14 @@ class EvaluatorMSE(units.OpenCLUnit):
         if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    config.c_dtype],
+                                                    root.common.precision_type],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
                 'SAMPLE_SIZE': 'Y',
                 'N_TARGETS': (self.class_target.v.shape[0]
                               if self.class_target is not None else 0)
             }
-            self.build_program(defines, "%s/ev_%d.cl" % (config.cache_dir,
+            self.build_program(defines, "%s/ev_%d.cl" % (root.common.cache_dir,
                 self.y.v.size // self.y.v.shape[0]))
 
             self.krn_ = self.get_kernel("ev_mse")
@@ -330,7 +329,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_constants_i_[0] = batch_size
         self.krn_.set_arg(5, self.krn_constants_i_[0:1])
 
-        local_size = [self.device.device_info.BLOCK_SIZE[config.c_dtype]]
+        local_size = [self.device.device_info.BLOCK_SIZE[root.common.precision_type]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()

@@ -10,7 +10,7 @@ Unit test for pooling layer forward propagation.
 import numpy
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
@@ -22,8 +22,8 @@ from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 class TestPooling(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -33,7 +33,7 @@ class TestPooling(unittest.TestCase):
         print("Will test max pooling layer forward propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -94,7 +94,7 @@ class TestPooling(unittest.TestCase):
         print("Will test max pooling layer gradient descent")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([[[3, 3, -1, 1, 2, 3, 4],
                               [-2, 4, -2, 3, -3, 1, -2],
                               [-3, -1, 2, -3, 1, -4, 0],
@@ -156,7 +156,7 @@ class TestPooling(unittest.TestCase):
         print("Will test avg pooling layer forward propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -203,7 +203,7 @@ class TestPooling(unittest.TestCase):
         print("Will test avg pooling layer gradient descent")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([
             [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
              [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
