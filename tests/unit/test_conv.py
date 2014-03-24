@@ -11,20 +11,19 @@ import numpy
 import time
 import unittest
 
-import veles.config as config
+from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.znicz.conv as conv
-import veles.znicz.config
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 
 class TestConv(unittest.TestCase):
     def setUp(self):
-        config.unit_test = True
-        config.plotters_disabled = True
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -34,7 +33,7 @@ class TestConv(unittest.TestCase):
         print("Will test convolutional layer forward propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
@@ -82,7 +81,7 @@ class TestConv(unittest.TestCase):
         print("OpenCL")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
@@ -144,7 +143,7 @@ class TestConv(unittest.TestCase):
         print("OpenCL")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[config.dtype]
+        dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 

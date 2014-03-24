@@ -14,7 +14,6 @@ import time
 from veles.config import root
 import veles.error as error
 import veles.znicz.nn_units as nn_units
-import veles.znicz.config as znicz_config
 
 
 class GDPooling(nn_units.GD):

@@ -249,7 +249,8 @@ class Loader(units.Unit):
             self.class_samples[i] = 0
         self.recompute_total_samples()
 
-    def extract_validation_from_train(self, amount=0.15, rand=None):
+    def extract_validation_from_train(self, amount=root.validation_procent,
+                                      rand=None):
         """Extracts validation dataset from train dataset randomly.
 
         We will rearrange indexes only.

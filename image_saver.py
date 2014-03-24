@@ -14,7 +14,6 @@ import os
 import veles.formats as formats
 from veles.config import root
 import veles.units as units
-import veles.znicz.config as znicz_config
 
 
 class ImageSaver(units.Unit):

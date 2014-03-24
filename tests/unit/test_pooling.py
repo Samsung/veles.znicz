@@ -16,7 +16,6 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
-import veles.znicz.config as znicz_config
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 

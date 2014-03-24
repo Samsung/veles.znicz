@@ -16,7 +16,6 @@ import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.znicz.all2all as all2all
 from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
-import veles.znicz.config as znicz_config
 
 
 class TestAll2All(unittest.TestCase):

@@ -13,7 +13,6 @@ import time
 import unittest
 
 import veles.thread_pool as thread_pool
-import veles.znicz.config
 
 
 class TestThreadPool(unittest.TestCase):

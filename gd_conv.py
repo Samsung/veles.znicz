@@ -11,12 +11,11 @@ import logging
 import numpy
 import time
 
-import veles.config as config
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
-import veles.znicz.nn_units as nn_units
 import veles.opencl_types as opencl_types
-import veles.znicz.config as znicz_config
+import veles.znicz.nn_units as nn_units
 
 
 class GD(nn_units.GD):
@@ -54,7 +53,7 @@ class GD(nn_units.GD):
         self.n_kernels = kwargs["n_kernels"]
         self.kx = kwargs["kx"]
         self.ky = kwargs["ky"]
-        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[config.dtype])
+        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[root.common.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -113,7 +112,7 @@ class GD(nn_units.GD):
             return
 
         if self.prg_ is None:
-            block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+            block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
@@ -136,7 +135,7 @@ class GD(nn_units.GD):
             if self.store_gradient:
                 defines['STORE_GRADIENT'] = 1
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
-                config.cache_dir,
+                root.common.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
@@ -177,7 +176,7 @@ class GD(nn_units.GD):
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.n_kernels, block_size),
@@ -217,7 +216,7 @@ class GD(nn_units.GD):
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (batch_size * sx * sy)
-        block_size = self.device.device_info.BLOCK_SIZE[config.c_dtype]
+        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
         kernel_size = self.kx * self.ky * n_channels
         global_size = [formats.roundup(kernel_size, block_size),
             formats.roundup(self.h.v.size // kernel_size, block_size)]
