@@ -60,7 +60,7 @@ inline dtype c_norm(c_dtype a) {
 
 inline c_dtype c_relu(c_dtype a) {
   // FIXME(a.kazantsev): add proper implementation.
-  return (c_dtype)(a.x > 15 ? a.x : log(exp(a.x) + 1), a.y)
+  return (c_dtype)(a.x > 15 ? a.x : log(exp(a.x) + 1), a.y);
 }
 
 #elif sizeof_c_dtype == sizeof_dtype

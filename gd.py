@@ -57,7 +57,8 @@ class GD(nn_units.GD):
         self.h = None  # formats.Vector()
         self.err_y = None  # formats.Vector()
         self.err_h = formats.Vector()
-        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[root.common.dtype])
+        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[
+            root.common.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -70,8 +71,7 @@ class GD(nn_units.GD):
 
     def initialize(self):
         super(GD, self).initialize()
-        if (self.err_h.v is None or
-            self.err_h.v.size != self.h.v.size):
+        if (self.err_h.v is None or self.err_h.v.size != self.h.v.size):
             self.err_h.reset()
             self.err_h.v = numpy.zeros(self.h.v.shape,
                                        dtype=self.err_y.v.dtype)
@@ -102,7 +102,8 @@ class GD(nn_units.GD):
             return
 
         if self.prg_ is None:
-            block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+            block_size = self.device.device_info.BLOCK_SIZE[
+                root.common.precision_type]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)
 
             defines = {
@@ -118,7 +119,8 @@ class GD(nn_units.GD):
                 defines['WEIGHTS_TRANSPOSED'] = 1
             if self.store_gradient:
                 defines['STORE_GRADIENT'] = 1
-            self.build_program(defines, "%s/gd_%d_%d.cl" % (root.common.cache_dir,
+            self.build_program(defines, "%s/gd_%d_%d.cl" % (
+                root.common.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
                 self.y.v.size // self.y.v.shape[0]))
 
@@ -146,18 +148,19 @@ class GD(nn_units.GD):
         self.gradient_weights.map_invalidate()
         self.gradient_bias.map_invalidate()
 
-        batch_size = (self.y.v.shape[0] if self.batch_size is None
-                                        else self.batch_size[0])
+        batch_size = (
+            self.y.v.shape[0] if self.batch_size is None else
+            self.batch_size[0])
 
         alpha_batch = -self.global_alpha / batch_size
         alpha_lambda = -self.global_alpha * self.global_lambda
 
-        err_y = formats.reshape(self.err_y.v,
-            [self.err_y.v.shape[0],
-             self.err_y.v.size // self.err_y.v.shape[0]])
-        h = formats.reshape(self.h.v,
-            [self.h.v.shape[0],
-             self.h.v.size // self.h.v.shape[0]])
+        err_y = formats.reshape(
+            self.err_y.v, [self.err_y.v.shape[0],
+                           self.err_y.v.size // self.err_y.v.shape[0]])
+        h = formats.reshape(
+            self.h.v, [self.h.v.shape[0],
+                       self.h.v.size // self.h.v.shape[0]])
         gradient = numpy.dot(err_y.transpose(), h)
         gradient *= alpha_batch
         gradient += self.weights.v * alpha_lambda
@@ -181,13 +184,15 @@ class GD(nn_units.GD):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = (self.y.v.shape[0] if self.batch_size is None
-                                        else self.batch_size[0])
+        batch_size = (
+            self.y.v.shape[0] if self.batch_size is None
+            else self.batch_size[0])
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
@@ -201,15 +206,13 @@ class GD(nn_units.GD):
                 formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
                                 block_size)]
         local_size = [block_size, block_size]
-        ev1 = self.execute_kernel(self.krn_weights_,
-                                           global_size, local_size)
+        ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0:1])
         global_size = [(self.err_y.v.size // self.err_y.v.shape[0]) *
                        self.reduce_size]
         local_size = [self.reduce_size]
-        ev2 = self.execute_kernel(self.krn_bias_,
-                                           global_size, local_size)
+        ev2 = self.execute_kernel(self.krn_bias_, global_size, local_size)
 
         ev1.wait()
         ev2.wait()
@@ -220,12 +223,12 @@ class GD(nn_units.GD):
         self.err_h.map_invalidate()
         self.err_y.map_read()
         self.weights.map_read()
-        err_y = formats.reshape(self.err_y.v,
-            [self.err_y.v.shape[0],
-             self.err_y.v.size // self.err_y.v.shape[0]])
-        err_h = formats.reshape(self.err_h.v,
-            [self.err_h.v.shape[0],
-             self.err_h.v.size // self.err_h.v.shape[0]])
+        err_y = formats.reshape(
+            self.err_y.v, [self.err_y.v.shape[0],
+                           self.err_y.v.size // self.err_y.v.shape[0]])
+        err_h = formats.reshape(
+            self.err_h.v, [self.err_h.v.shape[0],
+                           self.err_h.v.size // self.err_h.v.shape[0]])
         if self.weights_transposed:
             err_h[:] = numpy.dot(err_y, self.weights.v.transpose())[:]
         else:
@@ -237,14 +240,14 @@ class GD(nn_units.GD):
         self.err_h.unmap()
         self.err_y.unmap()
         self.weights.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         global_size = [formats.roundup(self.err_h.v.size //
                        self.err_h.v.shape[0], block_size),
                        formats.roundup(self.err_h.v.shape[0],
                                        block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_err_h_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_err_h_, global_size, local_size)
         event.wait()
 
     def print_times(self, t_start):
@@ -255,30 +258,32 @@ class GD(nn_units.GD):
         weights = self.weights.v
         bias = self.bias.v
         if weights.dtype in (numpy.complex64, numpy.complex128):
-            self.debug("BP %d_%d in %.2f sec: min avg max: "
-                         "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                  (self.h.v.size // self.h.v.shape[0],
-                   self.y.v.size // self.y.v.shape[0],
-                   time.time() - t_start,
-                   min(weights.real.min(), weights.imag.min()),
-                   (numpy.average(weights.real) +
-                    numpy.average(weights.imag)) * 0.5,
-                   max(weights.real.max(), weights.imag.max()),
-                   min(bias.real.min(), bias.imag.min()),
-                   (numpy.average(bias.real) + numpy.average(bias.imag)) * 0.5,
-                   max(bias.real.max(), bias.imag.max())))
+            self.debug(
+                "BP %d_%d in %.2f sec: min avg max: "
+                "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
+                (self.h.v.size // self.h.v.shape[0],
+                 self.y.v.size // self.y.v.shape[0],
+                 time.time() - t_start,
+                 min(weights.real.min(), weights.imag.min()),
+                 (numpy.average(weights.real) +
+                  numpy.average(weights.imag)) * 0.5,
+                 max(weights.real.max(), weights.imag.max()),
+                 min(bias.real.min(), bias.imag.min()),
+                 (numpy.average(bias.real) + numpy.average(bias.imag)) * 0.5,
+                 max(bias.real.max(), bias.imag.max())))
         else:
-            self.debug("BP %d_%d in %.2f sec: min avg max: "
-                         "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                  (self.h.v.size // self.h.v.shape[0],
-                   self.y.v.size // self.y.v.shape[0],
-                   time.time() - t_start,
-                   weights.min(),
-                   numpy.average(weights),
-                   weights.max(),
-                   bias.min(),
-                   numpy.average(bias),
-                   bias.max()))
+            self.debug(
+                "BP %d_%d in %.2f sec: min avg max: "
+                "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
+                (self.h.v.size // self.h.v.shape[0],
+                 self.y.v.size // self.y.v.shape[0],
+                 time.time() - t_start,
+                 weights.min(),
+                 numpy.average(weights),
+                 weights.max(),
+                 bias.min(),
+                 numpy.average(bias),
+                 bias.max()))
 
     def cpu_err_y_update(self):
         """Multiply err_y by activation derivative by y.
