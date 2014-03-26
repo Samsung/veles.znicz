@@ -16,6 +16,7 @@ import time
 
 from veles.config import root
 import veles.formats as formats
+from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.units as units
 
@@ -43,7 +44,7 @@ class Decision(units.Unit):
         snapshot_prefix: prefix for the snapshots.
         fnme: filename of the last snapshot.
         fnmeWb: filename of the last weights + bias snapshot.
-        just_snapshotted: 1 after snapshot.
+        just_snapshotted: True after snapshot.
         snapshot_time: time of the last snapshot.
         confusion_matrixes: confusion matrixes.
         minibatch_confusion_matrix: confusion matrix for a minibatch.
@@ -79,10 +80,10 @@ class Decision(units.Unit):
         self.minibatch_last = None  # [0]
         self.class_samples = None  # [0, 0, 0]
         self.fail_iterations = [fail_iterations]
-        self.complete = [0]
-        self.gd_skip = [0]
+        self.complete = Bool(False)
+        self.gd_skip = Bool(False)
         self.epoch_number = [0]
-        self.epoch_ended = [0]
+        self.epoch_ended = Bool(False)
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
@@ -99,7 +100,7 @@ class Decision(units.Unit):
         self.fnmeWb = None
         self.t1 = None
         self.epoch_metrics = [None, None, None]
-        self.just_snapshotted = [0]
+        self.just_snapshotted = Bool(False)
         self.snapshot_time = [0]
         self.minibatch_mse = None
         self.epoch_samples_mse = ([formats.Vector(),
@@ -134,6 +135,7 @@ class Decision(units.Unit):
         self.master_lock_ = threading.Lock()
 
     def initialize(self):
+        super(Decision, self).initialize()
         # Reset errors
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]
@@ -295,7 +297,7 @@ class Decision(units.Unit):
         os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
                                         "_".join(ss), 3 if six.PY3 else 2),
                    fnme_link)
-        self.just_snapshotted[0] = 1
+        self.just_snapshotted << True
         self.snapshot_time[0] = time.time()
 
     def on_stop_condition(self, minibatch_class):
@@ -305,11 +307,11 @@ class Decision(units.Unit):
              self.fail_iterations[0]) or
             self.min_validation_n_err <= 0 or
             self.min_validation_mse <= 0):
-            self.complete[0] = 1
+            self.complete << True
 
     def on_test_validation_processed(self, minibatch_class):
-        if self.just_snapshotted[0]:
-            self.just_snapshotted[0] = 0
+        if self.just_snapshotted:
+            self.just_snapshotted << False
         do_snapshot = False
         if (self.minibatch_metrics is not None and
             (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
@@ -406,7 +408,7 @@ class Decision(units.Unit):
                 if not alpha:
                     alpha = gd.global_alpha
             self.info("new global_alpha: %.6f" % (alpha))
-        self.epoch_ended[0] = 1
+        self.epoch_ended << True
         self.epoch_number[0] += 1
         # Reset n_err
         for i in range(0, len(self.epoch_n_err)):
@@ -506,8 +508,8 @@ class Decision(units.Unit):
                 offs:offs + size] = self.minibatch_mse.v[:size]
 
     def run(self):
-        self.complete[0] = 0
-        self.epoch_ended[0] = 0
+        self.complete << False
+        self.epoch_ended << False
 
         minibatch_class = self.__dict__.get("slave_minibatch_class")
         if minibatch_class is None and self.minibatch_class is not None:
@@ -516,10 +518,7 @@ class Decision(units.Unit):
         self.copy_minibatch_mse(minibatch_class)
 
         # Check skip gradient descent or not
-        if minibatch_class < 2:
-            self.gd_skip[0] = 1
-        else:
-            self.gd_skip[0] = 0
+        self.gd_skip << (True if minibatch_class < 2 else False)
 
         if self.minibatch_last[0]:
             self.on_last_minibatch(minibatch_class)
@@ -585,7 +584,7 @@ class Decision(units.Unit):
             self.on_training_processed = self.nothing
         self._on_reset_statistics_(self.master_minibatch_class)
         # Prevent doing snapshot and set complete after one epoch
-        self.complete[0] = 0
+        self.complete << False
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
         self.min_validation_mse = 0
@@ -633,7 +632,7 @@ class Decision(units.Unit):
             for i, d in enumerate(data["sample_label"]):
                 self.sample_label[i] = d
             self.copy_minibatch_mse(self.slave_minibatch_class)
-            self.epoch_ended[0] = False
+            self.epoch_ended << False
             self._finalize_job(slave)
         finally:
             self.master_lock_.release()

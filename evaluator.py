@@ -67,6 +67,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.max_err_y_sum = formats.Vector()
 
     def initialize(self):
+        super(EvaluatorSoftmax, self).initialize()
         itype = opencl_types.get_itype_from_size(
                 self.y.v.size // self.y.v.shape[0])
         if (self.labels.v.dtype != opencl_types.itypes[itype] or
@@ -243,6 +244,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.n_err = formats.Vector()
 
     def initialize(self):
+        super(EvaluatorMSE, self).initialize()
         itype = opencl_types.get_itype_from_size((self.y.v.size //
                                             self.y.v.shape[0]))
         itype2 = opencl_types.get_itype_from_size(

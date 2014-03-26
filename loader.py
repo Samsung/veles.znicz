@@ -118,6 +118,7 @@ class Loader(units.Unit):
             raise error.ErrBadFormat("class_samples should be filled")
 
     def initialize(self):
+        super(Loader, self).initialize()
         res = self.load_data()
         if res:
             return res
