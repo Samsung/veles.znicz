@@ -54,9 +54,9 @@ class Loader(units.Unit):
         fill_minibatch()
     """
     def __init__(self, workflow, **kwargs):
-        minibatch_max_size = kwargs.get("minibatch_max_size", 100)
+        minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
         rnd_ = kwargs.get("rnd", rnd.default)
-        kwargs["minibatch_max_size"] = minibatch_max_size
+        kwargs["minibatch_maxsize"] = minibatch_maxsize
         kwargs["rnd"] = rnd_
         kwargs["view_group"] = kwargs.get("view_group", "LOADER")
         super(Loader, self).__init__(workflow, **kwargs)
@@ -78,7 +78,7 @@ class Loader(units.Unit):
 
         self.minibatch_offs = [0]
         self.minibatch_size = [0]
-        self.minibatch_maxsize = [minibatch_max_size]
+        self.minibatch_maxsize = [minibatch_maxsize]
 
         self.shuffled_indexes = None
 
