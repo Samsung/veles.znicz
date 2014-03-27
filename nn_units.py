@@ -7,7 +7,7 @@ Created on Jan 28, 2014
 
 import numpy
 
-from veles.config import root
+from veles.config import root, get_config
 import veles.formats as formats
 import veles.rnd as rnd
 from veles.units import OpenCLUnit
@@ -77,8 +77,10 @@ class GD(OpenCLUnit):
         apply_gradient: will apply gradient.
     """
     def __init__(self, workflow, **kwargs):
-        global_alpha = kwargs.get("global_alpha", root.global_alpha)
-        global_lambda = kwargs.get("global_lambda", root.global_lambda)
+        global_alpha = kwargs.get("global_alpha",
+                                  get_config(root.global_alpha, 0.01))
+        global_lambda = kwargs.get("global_lambda",
+                                   get_config(root.global_lambda, 0.00005))
         weights_transposed = kwargs.get("weights_transposed", False)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)

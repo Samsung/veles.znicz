@@ -40,7 +40,7 @@ class TestMatrixReduce(unittest.TestCase):
         src = (
         "#include \"defines.cl\"\n"
         "__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
-        "void test(__global precision_type *A, __global precision_type *b) {\n"
+        "void test(__global c_dtype *A, __global c_dtype *b) {\n"
         "#include \"matrix_reduce.cl\"\n"
         "if (!tx) {\n"
         "  sum += AS[0];\n"
