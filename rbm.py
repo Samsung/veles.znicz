@@ -26,8 +26,8 @@ class RBMTanh(all2all.All2AllTanh):
     def __init__(self, workflow, **kwargs):
         super(RBMTanh, self).__init__(workflow, **kwargs)
         self.output_rand = formats.Vector()
-        self.y_low_high = numpy.array([-1.0, 1.0],
-                                      dtype=opencl_types.dtypes[root.common.dtype])
+        self.y_low_high = numpy.array(
+            [-1.0, 1.0], dtype=opencl_types.dtypes[root.common.dtype])
 
     def init_unpickled(self):
         super(RBMTanh, self).init_unpickled()
@@ -37,8 +37,9 @@ class RBMTanh(all2all.All2AllTanh):
     def initialize(self):
         super(RBMTanh, self).initialize()
         if (self.output_rand.v is None or
-            self.output_rand.v.size != self.output.v.size):
-            self.output_rand.v = numpy.zeros(self.output.v.shape,
+                self.output_rand.v.size != self.output.v.size):
+            self.output_rand.v = numpy.zeros(
+                self.output.v.shape,
                 dtype=opencl_types.dtypes[root.common.dtype])
             self.output_rand.v_ = None
         self.output_rand.initialize(self.device)
@@ -57,12 +58,12 @@ class RBMTanh(all2all.All2AllTanh):
         self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_, global_size, local_size)
         self.output_rand.map_invalidate()
         self.rand.fill_normal(self.output_rand.v, -1.7159, 1.7159)
         self.output_rand.unmap()

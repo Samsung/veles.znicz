@@ -126,9 +126,10 @@ class Loader(units.Unit):
         self.recompute_total_samples()
 
         # Adjust minibatch_maxsize.
-        self.minibatch_maxsize[0] = min(self.minibatch_maxsize[0],
-            max(self.class_samples[2], self.class_samples[1],
-                self.class_samples[0]))
+        self.minibatch_maxsize[0] = min(
+            self.minibatch_maxsize[0], max(self.class_samples[2],
+                                           self.class_samples[1],
+                                           self.class_samples[0]))
 
         self.create_minibatches()
         if self.minibatch_data.v is None:
@@ -139,8 +140,8 @@ class Loader(units.Unit):
 
         # Initial shuffle.
         if self.shuffled_indexes is None:
-            self.shuffled_indexes = numpy.arange(self.total_samples[0],
-                dtype=opencl_types.itypes[
+            self.shuffled_indexes = numpy.arange(
+                self.total_samples[0], dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(self.total_samples[0])])
 
         if self.class_samples[0]:
@@ -173,10 +174,11 @@ class Loader(units.Unit):
         for i in range(0, len(self.nextclass_offs)):
             if self.minibatch_offs[0] < self.nextclass_offs[i]:
                 self.minibatch_class[0] = i
-                minibatch_size = min(self.minibatch_maxsize[0],
+                minibatch_size = min(
+                    self.minibatch_maxsize[0],
                     self.nextclass_offs[i] - self.minibatch_offs[0])
-                if self.minibatch_offs[0] + minibatch_size >= \
-                   self.nextclass_offs[self.minibatch_class[0]]:
+                if (self.minibatch_offs[0] + minibatch_size >=
+                        self.nextclass_offs[self.minibatch_class[0]]):
                     self.minibatch_last[0] = 1
                     self.info("Last minibatch for class %d served",
                               self.minibatch_class[0])
@@ -268,8 +270,8 @@ class Loader(units.Unit):
             self.class_samples[1] = 0
             if self.shuffled_indexes is None:
                 total_samples = numpy.sum(self.class_samples)
-                self.shuffled_indexes = numpy.arange(total_samples,
-                    dtype=opencl_types.itypes[
+                self.shuffled_indexes = numpy.arange(
+                    total_samples, dtype=opencl_types.itypes[
                         opencl_types.get_itype_from_size(total_samples)])
             return
         offs0 = self.class_samples[0]
@@ -279,8 +281,8 @@ class Loader(units.Unit):
         original_labels = self.original_labels
 
         if self.shuffled_indexes is None:
-            self.shuffled_indexes = numpy.arange(total_samples,
-                dtype=opencl_types.itypes[
+            self.shuffled_indexes = numpy.arange(
+                total_samples, dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(total_samples)])
         shuffled_indexes = self.shuffled_indexes
 
@@ -384,26 +386,26 @@ class FullBatchLoader(Loader):
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize[0]]
         sh.extend(self.original_data[0].shape)
-        self.minibatch_data.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[root.common.precision_type])
+        self.minibatch_data.v = numpy.zeros(
+            sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
         if self.original_target is not None:
             sh = [self.minibatch_maxsize[0]]
             sh.extend(self.original_target[0].shape)
-            self.minibatch_target.v = numpy.zeros(sh,
-                dtype=opencl_types.dtypes[root.common.precision_type])
+            self.minibatch_target.v = numpy.zeros(
+                sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
         if self.original_labels is not None:
             sh = [self.minibatch_maxsize[0]]
-            self.minibatch_labels.v = numpy.zeros(sh,
-                dtype=self.label_dtype)
+            self.minibatch_labels.v = numpy.zeros(
+                sh, dtype=self.label_dtype)
 
         self.minibatch_indexes.reset()
-        self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
-            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
-                                len(self.original_data))])
+        self.minibatch_indexes.v = numpy.zeros(
+            len(self.original_data), dtype=opencl_types.itypes[
+                opencl_types.get_itype_from_size(len(self.original_data))])
 
     def fill_minibatch(self):
         super(FullBatchLoader, self).fill_minibatch()
@@ -514,7 +516,8 @@ class ImageLoader(FullBatchLoader):
                 lbl = self.get_label_from_filename(files[i])
                 if lbl is not None:
                     if type(lbl) != int:
-                        raise error.ErrBadFormat("Found non-integer label "
+                        raise error.ErrBadFormat(
+                            "Found non-integer label "
                             "with type %s for %s" % (str(type(ll)), files[i]))
                     ll.append(lbl)
                 if aa is None:
@@ -562,13 +565,14 @@ class ImageLoader(FullBatchLoader):
                     continue
                 if len(ll):
                     if len(ll) != len(aa):
-                        raise error.ErrBadFormat("Number of labels %d differs "
-                            "from number of input images %d for %s" % (len(ll),
-                                len(aa), pathname))
+                        raise error.ErrBadFormat(
+                            "Number of labels %d differs "
+                            "from number of input images %d for %s" %
+                            (len(ll), len(aa), pathname))
                     labels.extend(ll)
                 elif len(labels):
-                    raise error.ErrBadFormat("Not labels found for %s" % (
-                                                                    pathname))
+                    raise error.ErrBadFormat("Not labels found for %s" %
+                                             (pathname))
                 if data is None:
                     data = aa
                 else:
@@ -578,10 +582,10 @@ class ImageLoader(FullBatchLoader):
 
         if len(labels):
             max_ll = max(labels)
-            self.info("Labels are indexed from-to: %d %d" % (
-                            min(labels), max_ll))
-            self.original_labels = numpy.array(labels,
-                dtype=opencl_types.itypes[
+            self.info("Labels are indexed from-to: %d %d" %
+                      (min(labels), max_ll))
+            self.original_labels = numpy.array(
+                labels, dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(max_ll)])
 
         # Loading target data and labels.
@@ -600,8 +604,8 @@ class ImageLoader(FullBatchLoader):
                 if n != numpy.sum(self.class_samples):
                     raise error.ErrBadFormat("Target samples count differs "
                                              "from data samples count.")
-                self.original_labels = numpy.arange(n,
-                    dtype=opencl_types.itypes[
+                self.original_labels = numpy.arange(
+                    n, dtype=opencl_types.itypes[
                         opencl_types.get_itype_from_size(n)])
 
         self.original_data = data

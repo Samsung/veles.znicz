@@ -39,14 +39,15 @@ class TestInputJoiner(unittest.TestCase):
         obj.initialize()
         obj.run()
         obj.output.map_read()
-        nz = numpy.count_nonzero(numpy.equal(a.v,
-            obj.output.v[:, :a.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
         self.assertEqual(nz, a.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(b.v,
-            obj.output.v[:, a.v.shape[1]:a.v.shape[1] + b.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
+                                          b.v.shape[1]]))
         self.assertEqual(nz, b.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(c.v,
-            obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
+        nz = numpy.count_nonzero(
+            numpy.equal(c.v, obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
         self.assertEqual(nz, c.v.size, "Failed")
 
     def _do_tst2(self, device):
@@ -65,15 +66,17 @@ class TestInputJoiner(unittest.TestCase):
         obj.initialize()
         obj.run()
         obj.output.map_read()
-        nz = numpy.count_nonzero(numpy.equal(a.v,
-            obj.output.v[:, :a.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
         self.assertEqual(nz, a.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(b.v,
-            obj.output.v[:, a.v.shape[1]:a.v.shape[1] + b.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
+                                          b.v.shape[1]]))
         self.assertEqual(nz, b.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(c.v,
-            obj.output.v[:, a.v.shape[1] + b.v.shape[1]:
-                         a.v.shape[1] + b.v.shape[1] + c.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(
+                c.v, obj.output.v[:, a.v.shape[1] + b.v.shape[1]:
+                                  a.v.shape[1] + b.v.shape[1] + c.v.shape[1]]))
         self.assertEqual(nz, c.v.size, "Failed")
         nz = numpy.count_nonzero(
             obj.output.v[:, a.v.shape[1] + b.v.shape[1] + c.v.shape[1]:])
@@ -95,17 +98,21 @@ class TestInputJoiner(unittest.TestCase):
         obj.initialize()
         obj.run()
         obj.output.map_read()
-        nz = numpy.count_nonzero(numpy.equal(a.v,
-            obj.output.v[:, :a.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
         self.assertEqual(nz, a.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(b.v,
-            obj.output.v[:, a.v.shape[1]:a.v.shape[1] + b.v.shape[1]]))
+        nz = numpy.count_nonzero(
+            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
+                                          b.v.shape[1]]))
         self.assertEqual(nz, b.v.size, "Failed")
-        nz = numpy.count_nonzero(numpy.equal(c.v[:, :obj.output.v.shape[1] -
-            (a.v.shape[1] + b.v.shape[1])],
-            obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
-        self.assertEqual(nz, obj.output.v.shape[0] * (obj.output.v.shape[1] -
-            (a.v.shape[1] + b.v.shape[1])), "Failed")
+        nz = numpy.count_nonzero(
+            numpy.equal(c.v[:, :obj.output.v.shape[1] -
+                            (a.v.shape[1] + b.v.shape[1])],
+                        obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
+        self.assertEqual(
+            nz, obj.output.v.shape[0] * (
+                obj.output.v.shape[1] -
+                (a.v.shape[1] + b.v.shape[1])), "Failed")
 
     def testGPU(self):
         print("Will test InputJoiner() on GPU.")

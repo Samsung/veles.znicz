@@ -121,7 +121,8 @@ class GD(OpenCLUnit):
 
     def generate_data_for_master(self):
         if (not self.run_executed or
-            self.gradient_weights.v is None or self.gradient_bias.v is None):
+                self.gradient_weights.v is None or
+                self.gradient_bias.v is None):
             return None
         self.run_executed = False
         self.gradient_weights.map_read()

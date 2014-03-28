@@ -57,14 +57,14 @@ class TestGDConv(unittest.TestCase):
                        device=self.device)
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[[-1, 3],
-                               [8, 2],
-                               [0, 1],
-                               [4, -1],
-                               [-1, 2],
-                               [0, 1],
-                               [-2, 3],
-                               [1, 2],
-                               [1, 1]]], dtype=dtype)
+                                  [8, 2],
+                                  [0, 1],
+                                  [4, -1],
+                                  [-1, 2],
+                                  [0, 1],
+                                  [-2, 3],
+                                  [1, 2],
+                                  [1, 1]]], dtype=dtype)
         c.h = inp
         c.weights = formats.Vector()
         c.weights.v = weights

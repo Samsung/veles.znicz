@@ -74,7 +74,7 @@ class Conv(nn_units.Forward):
                       self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / self.input.supposed_maxvle /
-                (self.kx * self.ky * n_channels))
+                    (self.kx * self.ky * n_channels))
         return (9.0 / self.input.supposed_maxvle /
                 (self.kx * self.ky * n_channels))
 
@@ -94,15 +94,15 @@ class Conv(nn_units.Forward):
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             self.rand.fill(self.weights.v, -self.weights_magnitude,
                            self.weights_magnitude)
-            self.weights.v = self.weights.v.reshape(self.n_kernels,
-                self.kx * self.ky * n_channels)
+            self.weights.v = self.weights.v.reshape(
+                self.n_kernels, self.kx * self.ky * n_channels)
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
                 self.weights.v.shape = a.shape
                 self.weights.v[:] = a[:]
         if (self.bias.v is None or
-            self.bias.v.size != self.n_kernels):
+                self.bias.v.size != self.n_kernels):
             self.bias.reset()
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
             self.rand.fill(self.bias.v, -self.weights_magnitude,
@@ -110,13 +110,13 @@ class Conv(nn_units.Forward):
 
         if root.common.unit_test:
             batch_size <<= 1  # check for overflow
-        output_size = batch_size * (self.n_kernels *
-            (sx - self.kx + 1) * (sy - self.ky + 1))
+        output_size = batch_size * (
+            self.n_kernels * (sx - self.kx + 1) * (sy - self.ky + 1))
         if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
-            self.output.v = numpy.zeros([batch_size,
-                sy - self.ky + 1, sx - self.kx + 1, self.n_kernels],
-                dtype=self.input.v.dtype)
+            self.output.v = numpy.zeros(
+                [batch_size, sy - self.ky + 1,
+                 sx - self.kx + 1, self.n_kernels], dtype=self.input.v.dtype)
         del output_size
 
         self.input.initialize(self.device)
@@ -137,7 +137,7 @@ class Conv(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    root.common.precision_type],
+                    root.common.precision_type],
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -166,7 +166,8 @@ class Conv(nn_units.Forward):
         self.output.map_read()
         y = self.output.v
         if y.dtype in (numpy.complex64, numpy.complex128):
-            self.debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,
@@ -174,7 +175,8 @@ class Conv(nn_units.Forward):
                  (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
                  max(y.real.max(), y.imag.max())))
         else:
-            self.debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,
@@ -187,7 +189,8 @@ class Conv(nn_units.Forward):
         self.input.unmap()  # we will use input
         self.weights.unmap()  # we will use weights
         self.bias.unmap()  # we will use bias
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         global_size = [formats.roundup(self.n_kernels, block_size),
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]
@@ -226,7 +229,7 @@ class ConvTanh(Conv):
                       self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / (self.input.supposed_maxvle * 0.6666) /
-                (self.kx * self.ky * n_channels))
+                    (self.kx * self.ky * n_channels))
         return (9.0 / (self.input.supposed_maxvle * 0.6666) /
                 (self.kx * self.ky * n_channels))
 

@@ -124,7 +124,7 @@ class ImageSaver(units.Unit):
                     continue
                 y = self.output.v[i]
             if (self.max_idx is None and
-                self.output is not None and self.target is not None):
+                    self.output is not None and self.target is not None):
                 y = self.as_image(self.output.v[i])
                 t = self.as_image(self.target.v[i])
                 y = y.reshape(t.shape)
@@ -133,11 +133,12 @@ class ImageSaver(units.Unit):
             if xyt is None:
                 n_rows = x.shape[0]
                 n_cols = x.shape[1]
-                if self.max_idx is None and y is not None and len(y.shape) != 1:
+                if (self.max_idx is None and y is not None and
+                        len(y.shape) != 1):
                     n_rows += y.shape[0]
                     n_cols = max(n_cols, y.shape[1])
                 if (self.max_idx is None and t is not None and
-                    len(t.shape) != 1 and self.input != self.target):
+                        len(t.shape) != 1 and self.input != self.target):
                     n_rows += t.shape[0]
                     n_cols = max(n_cols, t.shape[1])
                 xyt = numpy.empty([n_rows, n_cols, x.shape[2]], dtype=x.dtype)
@@ -160,7 +161,7 @@ class ImageSaver(units.Unit):
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
             if (self.max_idx is None and t is not None and
-                len(t.shape) != 1 and self.input != self.target):
+                    len(t.shape) != 1 and self.input != self.target):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
                 img = xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]]

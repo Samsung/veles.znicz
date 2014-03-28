@@ -58,7 +58,8 @@ class GDPooling(nn_units.GD):
         output_size = n_channels * out_sx * out_sy * batch_size
 
         if self.err_y.v.size != output_size:
-            raise error.ErrBadFormat("Size of err_y differs "
+            raise error.ErrBadFormat(
+                "Size of err_y differs "
                 "from the size computed based on kx, ky, size of h.")
 
         if self.err_h.v is None or self.err_h.v.size != self.h.v.size:
@@ -79,9 +80,9 @@ class GDPooling(nn_units.GD):
                 'KX': self.kx,
                 'KY': self.ky,
             }
-            self.build_program(defines,
-                "%s/gd_pooling_%dx%dx%d_%dx%d.cl" % (
-                root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
+            self.build_program(
+                defines, "%s/gd_pooling_%dx%dx%d_%dx%d.cl" %
+                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
 
     def print_times(self, t_start):
         if not self.log.isEnabledFor(logging.DEBUG):
@@ -97,7 +98,7 @@ class GDPooling(nn_units.GD):
         self.err_h.unmap()  # we will update err_h
         self.err_y.unmap()  # we will use err_y
         event = self.execute_kernel(self.krn_err_h_,
-                                             [self.err_y.v.size], None)
+                                    [self.err_y.v.size], None)
         event.wait()
 
     def cpu_run(self):

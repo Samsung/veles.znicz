@@ -37,15 +37,15 @@ class TestMatrixReduce(unittest.TestCase):
         if A_COL:
             defines["A_COL"] = 1
 
-        src = (
-        "#include \"defines.cl\"\n"
-        "__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
-        "void test(__global c_dtype *A, __global c_dtype *b) {\n"
-        "#include \"matrix_reduce.cl\"\n"
-        "if (!tx) {\n"
-        "  sum += AS[0];\n"
-        "  b[bx] = sum;\n"
-        "}}")
+        src = ("#include \"defines.cl\"\n"
+               "__kernel __attribute__("
+               "(reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
+               "void test(__global c_dtype *A, __global c_dtype *b) {\n"
+               "#include \"matrix_reduce.cl\"\n"
+               "if (!tx) {\n"
+               "  sum += AS[0];\n"
+               "  b[bx] = sum;\n"
+               "}}")
         fnme = "%s/test.cl" % (root.common.cache_dir)
         fout = open(fnme, "w")
         fout.write(src)
@@ -92,7 +92,8 @@ class TestMatrixReduce(unittest.TestCase):
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
-            self.assertEqual(numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
+            self.assertEqual(
+                numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
                 "Written some values outside of the target array bounds")
             b.v[:] = 0
             b.unmap()
@@ -129,7 +130,8 @@ class TestMatrixReduce(unittest.TestCase):
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t_col).max()
             self.assertLess(max_diff, 0.0003,  # in case of float
                             "Result differs by %.6f" % (max_diff))
-            self.assertEqual(numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
+            self.assertEqual(
+                numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
                 "Written some values outside of the target array bounds")
             b.v[:] = 0
             b.unmap()
@@ -145,7 +147,8 @@ class TestMatrixReduce(unittest.TestCase):
             max_diff = numpy.fabs(b[:a.v.shape[0]] - t).max()
             self.assertLess(max_diff, 0.0003,  # in case of float
                             "Result differs by %.6f" % (max_diff))
-            self.assertEqual(numpy.count_nonzero(b.v[a.v.shape[0]:]), 0,
+            self.assertEqual(
+                numpy.count_nonzero(b.v[a.v.shape[0]:]), 0,
                 "Written some values outside of the target array bounds")
             b.v[:] = 0
             b.unmap()

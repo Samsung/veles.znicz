@@ -64,8 +64,9 @@ class Pooling(nn_units.Forward):
         output_size = n_channels * out_sx * out_sy * batch_size
         if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
-            self.output.v = numpy.zeros([batch_size, out_sy, out_sx,
-                n_channels], dtype=self.input.v.dtype)
+            self.output.v = numpy.zeros(
+                [batch_size, out_sy, out_sx, n_channels],
+                dtype=self.input.v.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -81,9 +82,9 @@ class Pooling(nn_units.Forward):
                 'KX': self.kx,
                 'KY': self.ky,
             }
-            self.build_program(defines,
-                "%s/pooling_%dx%dx%d_%dx%d.cl" % (
-                root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
+            self.build_program(
+                defines, "%s/pooling_%dx%dx%d_%dx%d.cl" %
+                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -91,10 +92,11 @@ class Pooling(nn_units.Forward):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         y = self.input.v
-        self.debug("%s: %d samples of size %dx%dx%d vs "
-                         "pooling window of size %dx%d in %.2f sec" % (
-            self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
-            y.shape[3], self.kx, self.ky, time.time() - t_start))
+        self.debug(
+            "%s: %d samples of size %dx%dx%d vs "
+            "pooling window of size %dx%d in %.2f sec" %
+            (self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
+             y.shape[3], self.kx, self.ky, time.time() - t_start))
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
@@ -141,7 +143,7 @@ class MaxPooling(Pooling):
         super(MaxPooling, self).initialize()
 
         if (self.input_offs.v is None or
-            self.input_offs.v.size != self.output.v.size):
+                self.input_offs.v.size != self.output.v.size):
             self.input_offs.reset()
             self.input_offs.v = numpy.zeros(self.output.v.shape,
                                             dtype=numpy.int32)

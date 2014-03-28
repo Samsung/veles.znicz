@@ -66,7 +66,7 @@ class All2All(nn_units.Forward):
         """
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             return (1.0 / self.input.supposed_maxvle /
-                (self.input.v.size // self.input.v.shape[0]))
+                    (self.input.v.size // self.input.v.shape[0]))
         return (9.0 / self.input.supposed_maxvle /
                 (self.input.v.size // self.input.v.shape[0]))
 
@@ -100,7 +100,7 @@ class All2All(nn_units.Forward):
                            self.weights_magnitude)
 
         if (self.output.v is None or
-            self.output.v.size != self.input.v.shape[0] * output_size):
+                self.output.v.size != self.input.v.shape[0] * output_size):
             self.output.reset()
             self.output.v = numpy.zeros([self.input.v.shape[0], output_size],
                                         dtype=self.input.v.dtype)
@@ -117,14 +117,16 @@ class All2All(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                                                    root.common.precision_type],
+                    root.common.precision_type],
                 'H': self.weights.v.size // output_size,
                 'Y': output_size,
                 'BATCH': self.output.v.shape[0]}
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/feed_%d_%d.cl" % (root.common.cache_dir,
-                self.input.v.size // self.input.v.shape[0], output_size))
+            self.build_program(defines, "%s/feed_%d_%d.cl" %
+                               (root.common.cache_dir,
+                                self.input.v.size // self.input.v.shape[0],
+                                output_size))
 
             self.krn_ = self.get_kernel("feed_layer")
             self.krn_.set_arg(0, self.input.v_)
@@ -140,7 +142,8 @@ class All2All(nn_units.Forward):
         self.output.map_read()
         y = self.output.v
         if y.dtype in (numpy.complex64, numpy.complex128):
-            self.debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,
@@ -148,7 +151,8 @@ class All2All(nn_units.Forward):
                  (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
                  max(y.real.max(), y.imag.max())))
         else:
-            self.debug("%s: %d samples with %d weights in %.2f sec: "
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
                  self.weights.v.size, time.time() - t_start,
@@ -163,12 +167,12 @@ class All2All(nn_units.Forward):
         self.bias.unmap()
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_,
-                                             global_size, local_size)
+        event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()
 
     def cpu_run(self):
@@ -178,9 +182,9 @@ class All2All(nn_units.Forward):
         self.input.map_read()
         self.weights.map_read()
         self.bias.map_read()
-        a = formats.reshape(self.input.v,
-            [self.input.v.shape[0],
-             self.input.v.size // self.input.v.shape[0]])
+        a = formats.reshape(
+            self.input.v, [self.input.v.shape[0],
+                           self.input.v.size // self.input.v.shape[0]])
         b = self.weights.v
         if not self.weights_transposed:
             b = b.transpose()
@@ -278,9 +282,9 @@ class All2AllSoftmax(All2All):
         super(All2AllSoftmax, self).initialize()
 
         if (self.max_idx.v is None or
-            self.max_idx.v.size != self.output.v.shape[0]):
+                self.max_idx.v.size != self.output.v.shape[0]):
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
-                dtype=opencl_types.itypes[itype])
+                                         dtype=opencl_types.itypes[itype])
             self.max_idx.v_ = None
 
         self.max_idx.initialize(self.device)
@@ -308,7 +312,8 @@ class All2AllSoftmax(All2All):
     def gpu_apply_exp(self):
         self.output.unmap()
         self.max_idx.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.precision_type]
+        block_size = self.device.device_info.BLOCK_SIZE[
+            root.common.precision_type]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
         event = self.execute_kernel(self.krn_sm_, global_size, local_size)

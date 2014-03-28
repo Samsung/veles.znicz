@@ -35,7 +35,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         """Pure single core CPU test
         """
         dtype = (numpy.complex128 if self.a.v.dtype in (
-                    numpy.complex64, numpy.complex128) else numpy.float64)
+            numpy.complex64, numpy.complex128) else numpy.float64)
         a = numpy.empty(self.a.v.shape, dtype=dtype)
         a[:] = self.a.v[:]
         bt = self.b.v.transpose()
@@ -101,7 +101,8 @@ class TestMatrixMultiplication(unittest.TestCase):
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
             "BATCH": self.A_HEIGHT}
-        obj.build_program(defines, os.path.join(root.common.cache_dir, "test.cl"))
+        obj.build_program(defines, os.path.join(root.common.cache_dir,
+                                                "test.cl"))
 
         krn = obj.get_kernel("feed_layer")
         krn.set_arg(0, self.a.v_)
@@ -129,9 +130,9 @@ class TestMatrixMultiplication(unittest.TestCase):
             AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
             B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
-            print("%d: [%d, %d] * [%d, %d] = [%d, %d]" % (i,
-                AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
-                A_HEIGHT, B_HEIGHT))
+            print("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
+                  (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
+                   A_HEIGHT, B_HEIGHT))
             self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self._do_cpu_tst()
@@ -140,7 +141,8 @@ class TestMatrixMultiplication(unittest.TestCase):
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
             num_nz = numpy.count_nonzero(self.c.v[1].ravel())
-            self.assertEqual(num_nz, 0,
+            self.assertEqual(
+                num_nz, 0,
                 "Written some values outside of the target array bounds")
             self._cleanup_after_tsts()
 

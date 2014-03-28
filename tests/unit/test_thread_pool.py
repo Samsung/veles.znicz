@@ -35,9 +35,9 @@ class TestThreadPool(unittest.TestCase):
             data_lock.release()
             pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
-        self.assertEqual(n_jobs[0], 0,
-            "ThreadPool::shutdown(execute_remaining=True) is not working "
-            "as expected.")
+        self.assertEqual(
+            n_jobs[0], 0, "ThreadPool::shutdown(execute_remaining=True)"
+            "is not working as expected.")
 
     def test_320_threads(self):
         print("Will test ThreadPool with 320 max threads.")
@@ -52,9 +52,9 @@ class TestThreadPool(unittest.TestCase):
             data_lock.release()
             pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
-        self.assertEqual(n_jobs[0], 0,
-            "ThreadPool::shutdown(execute_remaining=True) is not working "
-            "as expected.")
+        self.assertEqual(
+            n_jobs[0], 0, "ThreadPool::shutdown(execute_remaining=True)"
+            "is not working as expected.")
 
     def test_0_threads(self):
         print("Will test ThreadPool with minthreads=0.")
@@ -74,9 +74,9 @@ class TestThreadPool(unittest.TestCase):
         t2 = time.time()
         print("Added to queue in %.3f seconds, Shutdowned in %.3f seconds." % (
             t1 - t0, t2 - t1))
-        self.assertEqual(n_jobs[0], 10,
-            "ThreadPool::shutdown(execute_remaining=False) is not working "
-            "as expected.")
+        self.assertEqual(
+            n_jobs[0], 10, "ThreadPool::shutdown(execute_remaining=False)"
+            "is not working as expected.")
 
     def test_double_shutdown(self):
         print("Will test ThreadPool for double shutdown().")
@@ -91,13 +91,13 @@ class TestThreadPool(unittest.TestCase):
             data_lock.release()
             pool.request(self._job, (n_jobs, data_lock))
         pool.shutdown(execute_remaining=True)
-        self.assertEqual(n_jobs[0], 0,
-            "ThreadPool::shutdown(execute_remaining=True) is not working "
-            "as expected.")
+        self.assertEqual(
+            n_jobs[0], 0, "ThreadPool::shutdown(execute_remaining=True)"
+            "is not working as expected.")
         pool.shutdown(execute_remaining=True)
-        self.assertEqual(n_jobs[0], 0,
-            "ThreadPool::shutdown(execute_remaining=True) is not working "
-            "as expected.")
+        self.assertEqual(
+            n_jobs[0], 0, "ThreadPool::shutdown(execute_remaining=True)"
+            "is not working as expected.")
 
 
 if __name__ == "__main__":
