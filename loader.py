@@ -81,6 +81,7 @@ class Loader(units.Unit):
         self.minibatch_maxsize = [minibatch_maxsize]
 
         self.shuffled_indexes = None
+        self.original_labels = None
 
         self.t_minibatch = 0
         self.samples_served = [0]
