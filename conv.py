@@ -238,6 +238,6 @@ class ConvRELU(Conv):
     """Conv with RELU activation f(x) = log(1.0 + exp(x)).
     """
     def initialize(self):
-        self.s_activation = "ACTIVATION_TANH"
-        super(ConvTanh, self).initialize()
+        self.s_activation = "ACTIVATION_RELU"
+        super(ConvRELU, self).initialize()
         self.output.supposed_maxvle = 10
