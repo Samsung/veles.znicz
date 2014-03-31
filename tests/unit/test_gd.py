@@ -6,6 +6,7 @@ Created on November 18, 2013
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -27,7 +28,7 @@ class TestGD(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def _do_tst(self, device):
+    def _do_tst(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([5, 5], dtype=dtype)
@@ -38,7 +39,7 @@ class TestGD(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = gd.GD(DummyWorkflow(), device=device)
+        c = Unit(DummyWorkflow(), device=device)
         c.h = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],
@@ -83,19 +84,35 @@ class TestGD(unittest.TestCase):
 
         return c.err_h.v
 
-    def test_gpu_cpu(self):
-        print("Will test all2all unit for gpu/cpu correctness")
-        y_gpu = self._do_tst(self.device)
-        y_cpu = self._do_tst(None)
+    def do_test_gpu_cpu(self, Unit):
+        y_gpu = self._do_tst(self.device, Unit)
+        y_cpu = self._do_tst(None, Unit)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(self.W_gpu.ravel() - self.W_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Weights differs by %.6f" % (max_diff))
-        print("All Ok")
+        logging.info("All Ok")
+
+    def test_gpu_cpu_linear(self):
+        logging.info("Will test linear gd unit for gpu/cpu correctness")
+        self.do_test_gpu_cpu(gd.GD)
+
+    def test_gpu_cpu_relu(self):
+        logging.info("Will test RELU gd unit for gpu/cpu correctness")
+        self.do_test_gpu_cpu(gd.GDRELU)
+
+    def test_gpu_cpu_softmax(self):
+        logging.info("Will test SoftMax gd unit for gpu/cpu correctness")
+        self.do_test_gpu_cpu(gd.GDSM)
+
+    def test_gpu_cpu_tanh(self):
+        logging.info("Will test Tanh gd unit for gpu/cpu correctness")
+        self.do_test_gpu_cpu(gd.GDTanh)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

@@ -7,7 +7,9 @@ Unit test for convolutional layer forward propagation.
 """
 
 
+import logging
 import numpy
+import scipy.signal
 import time
 import unittest
 
@@ -30,7 +32,7 @@ class TestConv(unittest.TestCase):
         del self.device
 
     def test_fixed(self):
-        print("Will test convolutional layer forward propagation")
+        logging.info("Will test convolutional layer forward propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -72,20 +74,18 @@ class TestConv(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        print("All Ok")
+        logging.info("All Ok")
 
-    def test_vs_python(self):
-        print("Will test convolutional layer vs python on image")
-        import scipy.signal
+    def do_test_vs_python(self, Unit):
 
-        print("OpenCL")
+        logging.info("OpenCL")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.ConvTanh(DummyWorkflow(), n_kernels=25, kx=9, ky=9,
+        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9,
                           device=self.device)
         c.input = inp
 
@@ -97,13 +97,13 @@ class TestConv(unittest.TestCase):
         t0 = time.time()
         c.run()
         dt0 = time.time() - t0
-        print("OpenCL convolved in %.2f seconds" % (dt0))
+        logging.info("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
         nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        print("Numpy")
+        logging.info("Numpy")
         t0 = time.time()
         pp = []
         for v in inp.v:
@@ -121,9 +121,9 @@ class TestConv(unittest.TestCase):
                 out *= 1.7159
                 pp.append(out)
         dt1 = time.time() - t0
-        print("Numpy convolved in %.2f seconds" % (dt1))
-        print("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
-        print("Will compare results")
+        logging.info("Numpy convolved in %.2f seconds" % (dt1))
+        logging.info("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
+        logging.info("Will compare results")
         offs = 0
         for vv in c.output.v:
             for i_kernel in range(len(weights)):
@@ -134,20 +134,18 @@ class TestConv(unittest.TestCase):
                                 "Result differs by %.6f" % (max_diff))
                 offs += 1
 
-        print("All Ok")
+        logging.info("All Ok")
 
-    def test_vs_python_rgb(self):
-        print("Will test convolutional layer vs python on color image")
-        import scipy.signal
+    def do_test_vs_python_rgb(self, Unit):
 
-        print("OpenCL")
+        logging.info("OpenCL")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = conv.Conv(DummyWorkflow(), n_kernels=4, kx=3, ky=3,
+        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3,
                       device=self.device)
         c.input = inp
 
@@ -159,13 +157,13 @@ class TestConv(unittest.TestCase):
         t0 = time.time()
         c.run()
         dt0 = time.time() - t0
-        print("OpenCL convolved in %.2f seconds" % (dt0))
+        logging.info("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
         nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        print("Numpy with FFT")
+        logging.info("Numpy with FFT")
         t0 = time.time()
         pp = []
         for v in inp.v:
@@ -182,11 +180,11 @@ class TestConv(unittest.TestCase):
                     wwww[:, :, -(i + 1)] = www[:, :, i]
                 pp.append(scipy.signal.fftconvolve(v, wwww, "valid"))
         dt1 = time.time() - t0
-        print("Numpy convolved in %.2f seconds" % (dt1))
+        logging.info("Numpy convolved in %.2f seconds" % (dt1))
 
-        print("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
+        logging.info("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
 
-        print("Will compare results")
+        logging.info("Will compare results")
 
         offs = 0
         for vv in c.output.v:
@@ -198,9 +196,19 @@ class TestConv(unittest.TestCase):
                                 "Result differs by %.6f" % (max_diff))
                 offs += 1
 
-        print("All Ok")
+        logging.info("All Ok")
+
+    def test_vs_python_rgb(self):
+        logging.info("Will test linear convolutional"
+                     " layer vs python on color image")
+        self.do_test_vs_python_rgb(conv.Conv)
+
+    def test_vs_python(self):
+        logging.info("Will test linear convolutional layer vs python on image")
+        self.do_test_vs_python(conv.ConvTanh)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

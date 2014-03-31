@@ -245,8 +245,8 @@ class All2AllRELU(All2All):
             return retval
         self.output.map_write()
         v = self.output.v.copy()
-        numpy.where(v > 15, v, numpy.log(numpy.exp(v) + 1))
-        self.output.v[:] = v[:]
+        self.output.v[:] = numpy.where(v > 15, v,
+                                       numpy.log(numpy.exp(v) + 1.0))
 
 
 class All2AllSoftmax(All2All):

@@ -7,6 +7,7 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -21,8 +22,6 @@ from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
@@ -98,7 +97,7 @@ class TestMatrixReduce(unittest.TestCase):
             b.v[:] = 0
             b.unmap()
 
-        print("test_fixed() succeeded")
+        logging.info("test_fixed() succeeded")
 
     def test_random(self):
         """Test with random input vs numpy.
@@ -153,9 +152,10 @@ class TestMatrixReduce(unittest.TestCase):
             b.v[:] = 0
             b.unmap()
 
-        print("test_random() succeeded")
+        logging.info("test_random() succeeded")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

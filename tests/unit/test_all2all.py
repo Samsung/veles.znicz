@@ -6,6 +6,7 @@ Created on November 18, 2013
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -28,7 +29,7 @@ class TestAll2All(unittest.TestCase):
         del self.device
 
     def test_with_fixed_input(self):
-        print("Will test all2all unit")
+        logging.info("Will test all2all unit")
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.array([[1, 2, 3, 2, 1],
@@ -64,9 +65,9 @@ class TestAll2All(unittest.TestCase):
         max_diff = numpy.fabs(t.ravel() - y.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        print("All Ok")
+        logging.info("All Ok")
 
-    def _do_tst(self, device):
+    def _do_tst(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([101, 235], dtype=dtype)
@@ -77,8 +78,7 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = all2all.All2All(DummyWorkflow(), output_shape=[11, 77],
-                            device=device)
+        c = Unit(DummyWorkflow(), output_shape=[11, 77], device=device)
         c.input = inp
         c.initialize()
 
@@ -96,16 +96,32 @@ class TestAll2All(unittest.TestCase):
 
         return c.output.v
 
-    def test_gpu_cpu(self):
-        print("Will test all2all unit for gpu/cpu correctness")
-        y_gpu = self._do_tst(self.device)
-        y_cpu = self._do_tst(None)
+    def _do_gpu_cpu(self, Unit):
+        y_gpu = self._do_tst(self.device, Unit)
+        y_cpu = self._do_tst(None, Unit)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        print("All Ok")
+        logging.info("All Ok")
+
+    def test_linear(self):
+        logging.info("Will test linear all2all unit for gpu/cpu correctness")
+        self._do_gpu_cpu(all2all.All2All)
+
+    def test_tanh(self):
+        logging.info("Will test Tanh all2all unit for gpu/cpu correctness")
+        self._do_gpu_cpu(all2all.All2AllTanh)
+
+    def test_relu(self):
+        logging.info("Will test RELU all2all unit for gpu/cpu correctness")
+        self._do_gpu_cpu(all2all.All2AllRELU)
+
+    def test_softmax(self):
+        logging.info("Will test Softmax all2all unit for gpu/cpu correctness")
+        self._do_gpu_cpu(all2all.All2AllSoftmax)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

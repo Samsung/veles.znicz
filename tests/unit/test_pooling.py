@@ -7,6 +7,7 @@ Unit test for pooling layer forward propagation.
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -29,7 +30,7 @@ class TestPooling(unittest.TestCase):
         del self.device
 
     def test_max_pooling(self):
-        print("Will test max pooling layer forward propagation")
+        logging.info("Will test max pooling layer forward propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -87,10 +88,10 @@ class TestPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        print("All Ok")
+        logging.info("All Ok")
 
     def test_gd_max_pooling(self):
-        print("Will test max pooling layer gradient descent")
+        logging.info("Will test max pooling layer gradient descent")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -150,10 +151,10 @@ class TestPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        print("All Ok")
+        logging.info("All Ok")
 
     def test_avg_pooling(self):
-        print("Will test avg pooling layer forward propagation")
+        logging.info("Will test avg pooling layer forward propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -197,10 +198,10 @@ class TestPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        print("All Ok")
+        logging.info("All Ok")
 
     def test_gd_avg_pooling(self):
-        print("Will test avg pooling layer gradient descent")
+        logging.info("Will test avg pooling layer gradient descent")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -281,9 +282,10 @@ class TestPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
 
-        print("All Ok")
+        logging.info("All Ok")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

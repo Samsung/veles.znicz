@@ -7,6 +7,7 @@ Will test correctness of OpenCL matrix multiplication.
 """
 
 
+import logging
 import numpy
 import os
 import unittest
@@ -22,8 +23,6 @@ from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
 
 class TestMatrixMultiplication(unittest.TestCase):
     def setUp(self):
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
@@ -124,13 +123,13 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.rnd.seed("/dev/urandom", dtype=numpy.int32, count=1024)
         block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         N = 1000
-        print("Will test %d matrix multiplications "
+        logging.info("Will test %d matrix multiplications "
               "with BLOCK_SIZE = %d" % (N, block_size))
         for i in range(0, N, 47):
             AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
             B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
-            print("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
+            logging.info("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
                   (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
                    A_HEIGHT, B_HEIGHT))
             self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
@@ -148,5 +147,6 @@ class TestMatrixMultiplication(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

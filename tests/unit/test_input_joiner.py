@@ -5,6 +5,7 @@ Created on Oct 29, 2013
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -115,34 +116,35 @@ class TestInputJoiner(unittest.TestCase):
                 (a.v.shape[1] + b.v.shape[1])), "Failed")
 
     def testGPU(self):
-        print("Will test InputJoiner() on GPU.")
+        logging.info("Will test InputJoiner() on GPU.")
         self._do_tst(self.device)
 
     def testCPU(self):
-        print("Will test InputJoiner() on CPU.")
+        logging.info("Will test InputJoiner() on CPU.")
         self._do_tst(None)
 
     def testGPU2(self):
-        print("Will test InputJoiner() on GPU "
+        logging.info("Will test InputJoiner() on GPU "
               "with output size greater than inputs.")
         self._do_tst2(self.device)
 
     def testCPU2(self):
-        print("Will test InputJoiner() on CPU "
+        logging.info("Will test InputJoiner() on CPU "
               "with output size greater than inputs.")
         self._do_tst2(None)
 
     def testGPU3(self):
-        print("Will test InputJoiner() on GPU "
+        logging.info("Will test InputJoiner() on GPU "
               "with output size less than inputs.")
         self._do_tst3(self.device)
 
     def testCPU3(self):
-        print("Will test InputJoiner() on CPU "
+        logging.info("Will test InputJoiner() on CPU "
               "with output size less than inputs.")
         self._do_tst3(None)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

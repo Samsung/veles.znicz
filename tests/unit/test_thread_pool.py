@@ -7,6 +7,7 @@ Unit test for ThreadPool().
 """
 
 
+import logging
 import numpy.random
 import threading
 import time
@@ -23,7 +24,7 @@ class TestThreadPool(unittest.TestCase):
         data_lock.release()
 
     def test_32_threads(self):
-        print("Will test ThreadPool with 32 max threads.")
+        logging.info("Will test ThreadPool with 32 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
         pool = thread_pool.ThreadPool(minthreads=32, maxthreads=32,
@@ -40,7 +41,7 @@ class TestThreadPool(unittest.TestCase):
             "is not working as expected.")
 
     def test_320_threads(self):
-        print("Will test ThreadPool with 320 max threads.")
+        logging.info("Will test ThreadPool with 320 max threads.")
         n_jobs = [0]
         data_lock = threading.Lock()
         pool = thread_pool.ThreadPool(minthreads=32, maxthreads=320,
@@ -57,7 +58,7 @@ class TestThreadPool(unittest.TestCase):
             "is not working as expected.")
 
     def test_0_threads(self):
-        print("Will test ThreadPool with minthreads=0.")
+        logging.info("Will test ThreadPool with minthreads=0.")
         n_jobs = [0]
         data_lock = threading.Lock()
         pool = thread_pool.ThreadPool(minthreads=0, maxthreads=32,
@@ -72,14 +73,14 @@ class TestThreadPool(unittest.TestCase):
         t1 = time.time()
         pool.shutdown(execute_remaining=False, force=True, timeout=0)
         t2 = time.time()
-        print("Added to queue in %.3f seconds, Shutdowned in %.3f seconds." % (
+        logging.info("Added to queue in %.3f seconds, Shutdowned in %.3f seconds." % (
             t1 - t0, t2 - t1))
         self.assertEqual(
             n_jobs[0], 10, "ThreadPool::shutdown(execute_remaining=False)"
             "is not working as expected.")
 
     def test_double_shutdown(self):
-        print("Will test ThreadPool for double shutdown().")
+        logging.info("Will test ThreadPool for double shutdown().")
         n_jobs = [0]
         data_lock = threading.Lock()
         pool = thread_pool.ThreadPool(minthreads=1, maxthreads=32,
@@ -101,5 +102,6 @@ class TestThreadPool(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.test']
     unittest.main()

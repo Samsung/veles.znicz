@@ -7,6 +7,7 @@ Unit test for convolutional layer back propagation.
 """
 
 
+import logging
 import numpy
 import unittest
 
@@ -28,7 +29,7 @@ class TestGDConv(unittest.TestCase):
         del self.device
 
     def test_err_h(self):
-        print("Will test convolutional layer back propagation")
+        logging.info("Will test convolutional layer back propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -97,19 +98,20 @@ class TestGDConv(unittest.TestCase):
         max_diff = numpy.fabs(t.ravel() - c.err_h.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        print("Err_h is right")
+        logging.info("Err_h is right")
 
         max_diff = numpy.fabs(weights_new.ravel() - c.weights.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        print("Weights is right")
+        logging.info("Weights is right")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        print("Bias is right")
+        logging.info("Bias is right")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
