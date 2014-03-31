@@ -25,3 +25,4 @@ __pycache__
 !Android.mk.in
 *.pyc
 *.pyo
+tests/unit/lextab.py
