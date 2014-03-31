@@ -76,7 +76,7 @@ class TestConv(unittest.TestCase):
 
         logging.info("All Ok")
 
-    def do_test_vs_python(self, Unit):
+    def _do_test_vs_python(self, Unit):
 
         logging.info("OpenCL")
 
@@ -136,7 +136,7 @@ class TestConv(unittest.TestCase):
 
         logging.info("All Ok")
 
-    def do_test_vs_python_rgb(self, Unit):
+    def _do_test_vs_python_rgb(self, Unit):
 
         logging.info("OpenCL")
 
@@ -201,11 +201,11 @@ class TestConv(unittest.TestCase):
     def test_vs_python_rgb(self):
         logging.info("Will test linear convolutional"
                      " layer vs python on color image")
-        self.do_test_vs_python_rgb(conv.Conv)
+        self._do_test_vs_python_rgb(conv.Conv)
 
     def test_vs_python(self):
         logging.info("Will test linear convolutional layer vs python on image")
-        self.do_test_vs_python(conv.ConvTanh)
+        self._do_test_vs_python(conv.ConvTanh)
 
 
 if __name__ == "__main__":

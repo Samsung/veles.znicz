@@ -84,7 +84,7 @@ class TestGD(unittest.TestCase):
 
         return c.err_h.v
 
-    def do_test_gpu_cpu(self, Unit):
+    def _do_test_gpu_cpu(self, Unit):
         y_gpu = self._do_tst(self.device, Unit)
         y_cpu = self._do_tst(None, Unit)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
@@ -97,19 +97,19 @@ class TestGD(unittest.TestCase):
 
     def test_gpu_cpu_linear(self):
         logging.info("Will test linear gd unit for gpu/cpu correctness")
-        self.do_test_gpu_cpu(gd.GD)
+        self._do_test_gpu_cpu(gd.GD)
 
     def test_gpu_cpu_relu(self):
         logging.info("Will test RELU gd unit for gpu/cpu correctness")
-        self.do_test_gpu_cpu(gd.GDRELU)
+        self._do_test_gpu_cpu(gd.GDRELU)
 
     def test_gpu_cpu_softmax(self):
         logging.info("Will test SoftMax gd unit for gpu/cpu correctness")
-        self.do_test_gpu_cpu(gd.GDSM)
+        self._do_test_gpu_cpu(gd.GDSM)
 
     def test_gpu_cpu_tanh(self):
         logging.info("Will test Tanh gd unit for gpu/cpu correctness")
-        self.do_test_gpu_cpu(gd.GDTanh)
+        self._do_test_gpu_cpu(gd.GDTanh)
 
 
 if __name__ == "__main__":
