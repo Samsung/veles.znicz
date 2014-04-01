@@ -125,22 +125,22 @@ class TestInputJoiner(unittest.TestCase):
 
     def testGPU2(self):
         logging.info("Will test InputJoiner() on GPU "
-              "with output size greater than inputs.")
+                     "with output size greater than inputs.")
         self._do_tst2(self.device)
 
     def testCPU2(self):
         logging.info("Will test InputJoiner() on CPU "
-              "with output size greater than inputs.")
+                     "with output size greater than inputs.")
         self._do_tst2(None)
 
     def testGPU3(self):
         logging.info("Will test InputJoiner() on GPU "
-              "with output size less than inputs.")
+                     "with output size less than inputs.")
         self._do_tst3(self.device)
 
     def testCPU3(self):
         logging.info("Will test InputJoiner() on CPU "
-              "with output size less than inputs.")
+                     "with output size less than inputs.")
         self._do_tst3(None)
 
 

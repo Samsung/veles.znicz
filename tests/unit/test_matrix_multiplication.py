@@ -124,14 +124,14 @@ class TestMatrixMultiplication(unittest.TestCase):
         block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         N = 1000
         logging.info("Will test %d matrix multiplications "
-              "with BLOCK_SIZE = %d" % (N, block_size))
+                     "with BLOCK_SIZE = %d" % (N, block_size))
         for i in range(0, N, 47):
             AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
             B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             logging.info("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
-                  (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
-                   A_HEIGHT, B_HEIGHT))
+                         (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
+                          A_HEIGHT, B_HEIGHT))
             self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self._do_cpu_tst()

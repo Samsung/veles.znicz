@@ -48,7 +48,7 @@ class TestConvRelu(unittest.TestCase):
         bias = numpy.array([10, -10], dtype=dtype)
 
         c = conv.ConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                      device=self.device)
+                          device=self.device)
         c.input = inp
 
         c.initialize()

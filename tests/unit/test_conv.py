@@ -85,8 +85,7 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9,
-                          device=self.device)
+        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9, device=self.device)
         c.input = inp
 
         c.initialize()
@@ -145,8 +144,7 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3,
-                      device=self.device)
+        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3, device=self.device)
         c.input = inp
 
         c.initialize()

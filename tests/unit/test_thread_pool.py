@@ -73,8 +73,8 @@ class TestThreadPool(unittest.TestCase):
         t1 = time.time()
         pool.shutdown(execute_remaining=False, force=True, timeout=0)
         t2 = time.time()
-        logging.info("Added to queue in %.3f seconds, Shutdowned in %.3f seconds." % (
-            t1 - t0, t2 - t1))
+        logging.info("Added to queue in %.3f seconds,"
+                     " Shutdowned in %.3f seconds." % (t1 - t0, t2 - t1))
         self.assertEqual(
             n_jobs[0], 10, "ThreadPool::shutdown(execute_remaining=False)"
             "is not working as expected.")
