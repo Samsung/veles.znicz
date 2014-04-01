@@ -43,12 +43,43 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define OFFS_IN_BLOCK (a_offs % ELEMENTS_PER_BLOCK)
   #define ROW_IN_BLOCK (OFFS_IN_BLOCK / (N_CHANNELS * KX))
   #define COL_IN_BLOCK (OFFS_IN_BLOCK % (N_CHANNELS * KX))
-  #define BLOCKS_PER_SAMPLE ((SX - KX + 1) * (SY - KY + 1))
   #define SAMPLE_NUMBER (BLOCK_NUMBER / BLOCKS_PER_SAMPLE)
   #define BLOCK_IN_SAMPLE (BLOCK_NUMBER % BLOCKS_PER_SAMPLE)
+
+  #if CONVOLUTION_TYPE_VALID > 0
+
+  #define BLOCKS_PER_SAMPLE ((SX - KX + 1) * (SY - KY + 1))
   #define ROW_IN_SAMPLE (BLOCK_IN_SAMPLE / (SX - KX + 1))
   #define COL_IN_SAMPLE ((BLOCK_IN_SAMPLE % (SX - KX + 1)) * N_CHANNELS)
   #define A_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
+
+  #elif CONVOLUTION_TYPE_SAME > 0
+
+  #define BLOCKS_PER_SAMPLE (SX * SY)
+
+  #if (KX - 1) % 2 == 0
+  #define SHIFT_LEFT ((KX - 1) / 2)
+  #else
+  #define SHIFT_LEFT ((KX - 1) / 2 + 1)
+  #endif
+
+  #if (KY - 1) % 2 == 0
+  #define SHIFT_TOP ((KY - 1) / 2)
+  #else
+  #define SHIFT_TOP ((KY - 1) / 2 + 1)
+  #endif
+
+  #define ROW_IN_SAMPLE (BLOCK_IN_SAMPLE / SX - SHIFT_LEFT)
+  #define COL_IN_SAMPLE ((BLOCK_IN_SAMPLE % SX) * N_CHANNELS - SHIFT_TOP)
+
+  #define A_REAL_OFFS_VALID (ROW_IN_SAMPLES >= 0) && (ROW_IN_SAMPLE < SX) && (COL_IN_SAMPLE >= 0) && (COL_IN_SAMPLE < SY)
+
+  #error "TODO(a.kazantsev): implement remaining."
+  #define A_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
+
+  #else
+  #error "Convolution type should be defined"
+  #endif
 
   #include "matrix_multiplication.cl"
 

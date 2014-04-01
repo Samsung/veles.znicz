@@ -67,6 +67,7 @@ class GD(nn_units.GD):
         self.krn_bias_ = None
 
     def initialize(self):
+        super(GD, self).initialize()
         batch_size = self.h.v.shape[0]
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]

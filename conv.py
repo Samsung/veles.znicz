@@ -43,21 +43,29 @@ class Conv(nn_units.Forward):
         rand: rnd.Rand() object for initial weights generation.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
+        s_type: "valid" or "same".
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, workflow, **kwargs):
         n_kernels = kwargs.get("n_kernels", 5)
         kx = kwargs.get("kx", 5)
         ky = kwargs.get("ky", 5)
+        s_type = kwargs.get("s_type", "valid")
+        if s_type not in ("valid", "same"):
+            raise error.ErrBadFormat("s_type should be eigther "
+                                     "\"valid\" or \"same\"")
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
+        kwargs["s_type"] = s_type
         super(Conv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
         self.s_activation = "ACTIVATION_LINEAR"
-        self.exports.extend(("s_activation", "kx", "ky", "n_kernels"))
+        self.s_type = s_type
+        self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
+                             "s_type"))
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
@@ -144,7 +152,9 @@ class Conv(nn_units.Forward):
                 'N_CHANNELS': n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
-                'N_KERNELS': self.n_kernels
+                'N_KERNELS': self.n_kernels,
+                {"valid": "CONVOLUTION_TYPE_VALID",
+                 "same": "CONVOLUTION_TYPE_SAME"}[self.s_type]: 1
             }
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1

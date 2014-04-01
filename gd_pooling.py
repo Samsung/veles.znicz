@@ -48,6 +48,7 @@ class GDPooling(nn_units.GD):
         self.krn_err_h_ = None
 
     def initialize(self):
+        super(GDPooling, self).initialize()
         batch_size = self.h.v.shape[0]
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]

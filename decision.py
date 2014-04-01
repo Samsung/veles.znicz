@@ -257,7 +257,8 @@ class Decision(units.Unit):
                 bias.append(forward.bias.v)
             else:
                 bias.append(None)
-            if forward.weights is None or forward.bias is None:
+            if (forward.weights is None or forward.bias is None or
+               forward.weights.v is None or forward.bias.v is None):
                 continue
             if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
                 self.info("%f %f %f %f" % (

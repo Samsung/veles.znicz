@@ -67,6 +67,7 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
   if (valid) {
     #define in_offs idx
     ATOM_ADD(&err_h[IN_REAL_OFFS], sum[0]);
+    #undef in_offs
   }
 }
 
@@ -120,6 +121,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
   #undef A_WIDTH
   #undef B_WIDTH
   #undef AB_COMMON
+  #undef in_offs
 
   #undef A
   #undef B
