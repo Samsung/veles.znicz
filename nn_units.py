@@ -43,11 +43,9 @@ class Forward(OpenCLUnit):
         self.exports = ["weights", "bias", "weights_transposed"]
 
     def generate_data_for_slave(self, slave=None):
-        self.workflow.lock_data()
         self.weights.map_read()
         self.bias.map_read()
         data = (self.weights.v.copy(), self.bias.v.copy())
-        self.workflow.unlock_data()
         return data
 
     def apply_data_from_master(self, data):
@@ -130,9 +128,7 @@ class GD(OpenCLUnit):
         return (self.gradient_weights.v, self.gradient_bias.v)
 
     def apply_data_from_slave(self, data, slave=None):
-        self.workflow.lock_data()
         self.weights.map_write()
         self.bias.map_write()
         self.weights.v += data[0]
         self.bias.v += data[1]
-        self.workflow.unlock_data()

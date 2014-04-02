@@ -127,12 +127,10 @@ class Decision(units.Unit):
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
-        self.unlock_pipeline = True
         self.samples_served = 0
 
     def init_unpickled(self):
         super(Decision, self).init_unpickled()
-        self.master_lock_ = threading.Lock()
 
     def initialize(self):
         super(Decision, self).initialize()
@@ -560,7 +558,6 @@ class Decision(units.Unit):
         return data
 
     def generate_data_for_slave(self, slave=None):
-        self.master_lock_.acquire()
         self.samples_served += 1
         minibatch_last = self.minibatch_last[0]
         if minibatch_last:
@@ -570,9 +567,8 @@ class Decision(units.Unit):
                 self.minibatch_offs is not None else None,
                 "minibatch_size": self.minibatch_size[0] if
                 self.minibatch_size is not None else None}
-        if not minibatch_last:
-            self.workflow.unlock_pipeline()
-        self.master_lock_.release()
+        if minibatch_last:
+            self.has_data_for_slave = False
         return data
 
     def apply_data_from_master(self, data):
@@ -593,51 +589,47 @@ class Decision(units.Unit):
         self.min_train_mse = 0
 
     def apply_data_from_slave(self, data, slave=None):
-        self.master_lock_.acquire()
-        try:
-            self.slave_minibatch_class = data["minibatch_class"]
-            self.slave_minibatch_size = data["minibatch_size"]
-            self.slave_minibatch_offs = data["minibatch_offs"]
-            if (self.minibatch_n_err is not None and
-                    self.minibatch_n_err.v is not None):
-                self.minibatch_n_err.map_write()
-                self.minibatch_n_err.v += data["minibatch_n_err"]
-            if (self.minibatch_metrics is not None and
-                    self.minibatch_metrics.v is not None):
-                self.minibatch_metrics.map_write()
-                self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
-                self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
-                                                  data["minibatch_metrics"][1])
-                self.minibatch_metrics.v[2] = min(self.minibatch_metrics.v[2],
-                                                  data["minibatch_metrics"][2])
-            if (self.minibatch_mse is not None and
-                    self.minibatch_mse.v is not None):
-                self.minibatch_mse.map_write()
-                self.minibatch_mse.v = data["minibatch_mse"]
-            if (self.minibatch_max_err_y_sum is not None and
-                    self.minibatch_max_err_y_sum.v is not None):
-                self.minibatch_max_err_y_sum.map_write()
-                numpy.maximum(self.minibatch_max_err_y_sum.v,
-                              data["minibatch_max_err_y_sum"],
-                              self.minibatch_max_err_y_sum.v)
-            if (self.minibatch_confusion_matrix is not None and
-                    self.minibatch_confusion_matrix.v is not None):
-                self.minibatch_confusion_matrix.map_write()
-                self.minibatch_confusion_matrix.v += data[
-                    "minibatch_confusion_matrix"]
-            for i, d in enumerate(data["sample_input"]):
-                self.sample_input[i] = d
-            for i, d in enumerate(data["sample_output"]):
-                self.sample_output[i] = d
-            for i, d in enumerate(data["sample_target"]):
-                self.sample_target[i] = d
-            for i, d in enumerate(data["sample_label"]):
-                self.sample_label[i] = d
-            self.copy_minibatch_mse(self.slave_minibatch_class)
-            self.epoch_ended << False
-            self._finalize_job(slave)
-        finally:
-            self.master_lock_.release()
+        self.slave_minibatch_class = data["minibatch_class"]
+        self.slave_minibatch_size = data["minibatch_size"]
+        self.slave_minibatch_offs = data["minibatch_offs"]
+        if (self.minibatch_n_err is not None and
+                self.minibatch_n_err.v is not None):
+            self.minibatch_n_err.map_write()
+            self.minibatch_n_err.v += data["minibatch_n_err"]
+        if (self.minibatch_metrics is not None and
+                self.minibatch_metrics.v is not None):
+            self.minibatch_metrics.map_write()
+            self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
+            self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
+                                              data["minibatch_metrics"][1])
+            self.minibatch_metrics.v[2] = min(self.minibatch_metrics.v[2],
+                                              data["minibatch_metrics"][2])
+        if (self.minibatch_mse is not None and
+                self.minibatch_mse.v is not None):
+            self.minibatch_mse.map_write()
+            self.minibatch_mse.v = data["minibatch_mse"]
+        if (self.minibatch_max_err_y_sum is not None and
+                self.minibatch_max_err_y_sum.v is not None):
+            self.minibatch_max_err_y_sum.map_write()
+            numpy.maximum(self.minibatch_max_err_y_sum.v,
+                          data["minibatch_max_err_y_sum"],
+                          self.minibatch_max_err_y_sum.v)
+        if (self.minibatch_confusion_matrix is not None and
+                self.minibatch_confusion_matrix.v is not None):
+            self.minibatch_confusion_matrix.map_write()
+            self.minibatch_confusion_matrix.v += data[
+                "minibatch_confusion_matrix"]
+        for i, d in enumerate(data["sample_input"]):
+            self.sample_input[i] = d
+        for i, d in enumerate(data["sample_output"]):
+            self.sample_output[i] = d
+        for i, d in enumerate(data["sample_target"]):
+            self.sample_target[i] = d
+        for i, d in enumerate(data["sample_label"]):
+            self.sample_label[i] = d
+        self.copy_minibatch_mse(self.slave_minibatch_class)
+        self.epoch_ended << False
+        self._finalize_job(slave)
 
     def _finalize_job(self, slave=None):
         self.samples_served -= 1
@@ -652,14 +644,9 @@ class Decision(units.Unit):
             unlock = True
             self.debug("Will invoke run()")
             self.run()
-        if unlock and (self.should_unlock_pipeline or
-                       self.slave_minibatch_class != 2):
+        if unlock:
             self.debug("Will unlock pipeline")
-            self.workflow.unlock_pipeline()
+            self.has_data_for_slave = True
 
     def drop_slave(self, slave=None):
-        self.master_lock_.acquire()
-        try:
-            self._finalize_job(slave)
-        finally:
-            self.master_lock_.release()
+        self._finalize_job(slave)
