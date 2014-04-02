@@ -172,7 +172,7 @@ class Loader(units.Unit):
             self.shuffle()
             self.minibatch_offs[0] = 0
 
-        # Compute next minibatch size and it's class.
+        # Compute next minibatch size and its class.
         for i in range(0, len(self.nextclass_offs)):
             if self.minibatch_offs[0] < self.nextclass_offs[i]:
                 self.minibatch_class[0] = i
@@ -182,8 +182,9 @@ class Loader(units.Unit):
                 if (self.minibatch_offs[0] + minibatch_size >=
                         self.nextclass_offs[self.minibatch_class[0]]):
                     self.minibatch_last[0] = 1
-                    self.info("Last minibatch for class %d served",
-                              self.minibatch_class[0])
+                    if not self.is_slave:
+                        self.info("Last minibatch for class %d served",
+                                  self.minibatch_class[0])
                 else:
                     self.minibatch_last[0] = 0
                 break
