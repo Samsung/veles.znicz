@@ -47,6 +47,10 @@ void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
     }
   }
   if (labels[i_sample] != i_min) {
-    atom_inc(n_err);
+  	#if (itype2 == short) || (itype2 == char)
+    atom_inc((__global volatile int*)n_err);
+  	#else
+  	atom_inc(n_err);
+  	#endif
   }
 }
