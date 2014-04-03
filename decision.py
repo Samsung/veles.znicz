@@ -227,21 +227,17 @@ class Decision(units.Unit):
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
         if self.minibatch_n_err is not None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        """
         self.fnme = os.path.join(root.common.snapshot_dir,
                                  "%s_%s.pickle" % (self.snapshot_prefix,
                                                    "_".join(ss)))
         self.info("Snapshotting to %s" % (self.fnme))
-        fout = open(self.fnme, "wb")
-        pickle.dump(self.workflow, fout)
-        fout.close()
-        """
+        with open(self.fnme, "wb") as fout:
+            pickle.dump(self.workflow, fout)
         self.fnmeWb = os.path.join(root.common.snapshot_dir,
                                    "%s_%s_Wb.%d.pickle" %
                                    (self.snapshot_prefix, "_".join(ss),
                                     3 if six.PY3 else 2))
         self.info("Exporting weights to %s" % (self.fnmeWb))
-        fout = open(self.fnmeWb, "wb")
         weights = []
         bias = []
         for forward in self.workflow.forward:
@@ -272,8 +268,8 @@ class Decision(units.Unit):
                 self.info("%f %f %f %f" % (
                     forward.weights.v.min(), forward.weights.v.max(),
                     forward.bias.v.min(), forward.bias.v.max()))
-        pickle.dump((weights, bias), fout)
-        fout.close()
+        with open(self.fnmeWb, "wb") as fout:
+            pickle.dump((weights, bias), fout)
         for fnme in to_rm:
             try:
                 os.unlink(fnme)
