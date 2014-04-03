@@ -22,8 +22,8 @@
  * <li> Y - output size.
  * <li> WEIGHTS_TRANSPOSED - if weights array is transposed (if necessary)
  * <li> ACTIVATION_<type> - activation type
- * <li> DOT - optimization flag for platforms with fast dot product build-in
- *            function
+ * <li> VECTOR_OPT - optimization flag for platforms with fast dot product
+ *                   build-in function
  * </ul>
  *
  * @param inputs layer inputs
