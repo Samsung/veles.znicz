@@ -15,12 +15,15 @@
  *
  * Should be defined externally:
  * <ul>
+ * <li> dtype - data element type
  * <li> BLOCK_SIZE - size of the block for matrix multiplication,
  * <li> BATCH - minibatch size,
  * <li> H - input size,
  * <li> Y - output size.
  * <li> WEIGHTS_TRANSPOSED - if weights array is transposed (if necessary)
  * <li> ACTIVATION_<type> - activation type
+ * <li> DOT - optimization flag for platforms with fast dot product build-in
+ *            function
  * </ul>
  *
  * @param inputs layer inputs
@@ -56,15 +59,8 @@ void feed_layer(__global const dtype /* IN*/ *inputs,
   #undef A
   #undef B
 
-  // Optimizes number of reads from bias
-  __local dtype bias_shared[BLOCK_SIZE];
-  if (is_in_range && get_local_id(1) == 0) {
-    bias_shared[get_local_id(0)] = bias[get_global_id(0)];
-  }
-  barrier(CLK_LOCAL_MEM_FENCE);
-
   if (is_in_range) {  // is_in_range is defined in matrix_mul.cl
-    res += bias_shared[get_local_id(0)];  // lx is defined in matrix_mul.cl
+    res += bias[get_global_id(0)];
     #ifdef ACTIVATION_LINEAR
       outputs[idx] = res;
     #elif ACTIVATION_TANH
