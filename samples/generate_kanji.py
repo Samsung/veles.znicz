@@ -14,6 +14,7 @@ import glob
 import logging
 import numpy
 import os
+import six
 import pickle
 import scipy.misc
 import sqlite3
@@ -226,7 +227,7 @@ if __name__ == '__main__':
     dirnme = os.path.join(root.common.test_dataset_root, "kanji/train")
     target_dirnme = os.path.join(root.common.test_dataset_root, "kanji/target")
 
-    logging.info("Be shure that %s and %s are empty" % (dirnme, target_dirnme))
+    logging.info("Be sure that %s and %s are empty" % (dirnme, target_dirnme))
     logging.info("Will continue in 15 seconds")
     time.sleep(5)
     logging.info("Will continue in 10 seconds")
@@ -284,7 +285,7 @@ if __name__ == '__main__':
                 sample_number = len(index_map)
                 fnme = "%s/%07d" % (outdir, sample_number)
                 scipy.misc.imsave("%s.png" % (fnme), img)
-                pickle_fnme = "%s.pickle" % (fnme)
+                pickle_fnme = "%s.%d.pickle" % (fnme, 3 if six.PY3 else 2)
                 fout = open(pickle_fnme, "wb")
                 pickle.dump({"angle": angle_,
                              "lbl": lbl,
@@ -311,11 +312,12 @@ if __name__ == '__main__':
         if not exists:
             raise Exception("Glyph does not exists in the supplied fonts")
 
-    fout = open("%s/targets.pickle" % (target_dirnme), "wb")
+    fout = open("%s/targets.%d.pickle" % (target_dirnme, 3 if six.PY3 else 2),
+                "wb")
     pickle.dump(targets, fout)
     fout.close()
 
-    fout = open("%s/index_map.pickle" % (dirnme), "wb")
+    fout = open("%s/index_map.%d.pickle" % (dirnme, 3 if six.PY3 else 2), "wb")
     pickle.dump(index_map, fout)
     fout.close()
 
