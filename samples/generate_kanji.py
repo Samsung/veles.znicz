@@ -37,7 +37,7 @@ KANJI_COUNT = 15
 
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
-    face = Face(bytes(fontPath, 'UTF-8'))
+    face = Face(fontPath.encode('utf-8'))
     #face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
