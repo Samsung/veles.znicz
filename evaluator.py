@@ -302,8 +302,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
                 'SAMPLE_SIZE': 'Y',
                 'N_TARGETS': (self.class_target.v.shape[0]
-                              if self.class_target is not None else 0)
-            }
+                              if self.class_target is not None else 0)}
             self.build_program(
                 defines, "%s/ev_%d.cl" % (root.common.cache_dir,
                                           self.y.v.size // self.y.v.shape[0]))

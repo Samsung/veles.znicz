@@ -18,7 +18,7 @@ import veles.rnd as rnd
 import veles.znicz.samples.wine as wine
 
 
-class TestWorkflow(unittest.TestCase):
+class TestWine(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
@@ -27,7 +27,7 @@ class TestWorkflow(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def test_worflow(self):
+    def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
         rnd.default.seed(numpy.fromfile("%s/veles/znicz/samples/seed" %
                                         (root.common.veles_dir),
@@ -43,6 +43,7 @@ class TestWorkflow(unittest.TestCase):
                        "path_for_load_data":
                        os.path.join(root.common.veles_dir,
                                     "veles/znicz/samples/wine/wine.data")}
+
         l = launcher.Launcher()
         device = None if l.is_master else opencl.Device()
         w = wine.Workflow(l, layers=[8, 3], device=device)
