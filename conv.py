@@ -119,14 +119,19 @@ class Conv(nn_units.Forward):
 
         if root.common.unit_test:
             batch_size <<= 1  # check for overflow
-        output_size = batch_size * (
-            self.n_kernels * (sx - self.kx + 1) * (sy - self.ky + 1))
+        output_shape = [
+            batch_size,
+            (sy + self.padding[1] + self.padding[3] - self.ky) //
+            self.sliding[1] + 1,
+            (sx + self.padding[0] + self.padding[2] - self.kx) //
+            self.sliding[0] + 1,
+            self.n_kernels]
+        output_size = int(numpy.prod(output_shape))
         if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
-            self.output.v = numpy.zeros(
-                [batch_size, sy - self.ky + 1,
-                 sx - self.kx + 1, self.n_kernels], dtype=self.input.v.dtype)
+            self.output.v = numpy.zeros(output_shape, dtype=self.input.v.dtype)
         del output_size
+        del output_shape
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)

@@ -76,6 +76,51 @@ class TestConv(unittest.TestCase):
 
         logging.info("All Ok")
 
+    def test_padding_sliding(self):
+        logging.info("Will test convolutional layer forward propagation")
+
+        inp = formats.Vector()
+        dtype = opencl_types.dtypes[root.common.dtype]
+        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+                              [0, 1, 2, 1, 0],
+                              [0, 1, 0, 1, 0],
+                              [2, 0, 1, 0, 2],
+                              [1, 0, 1, 0, 1]]], dtype=dtype)
+
+        weights = numpy.array([[[-1, -1, -1],
+                                [-1, 8, -1],
+                                [-1, -1, -1]],
+                               [[1.1, 2.1, 3.1],
+                                [-1.1, -0.5, 1.3],
+                                [1.7, -1.4, 0.05]]], dtype=dtype)
+        bias = numpy.array([10, -10], dtype=dtype)
+
+        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+                      padding=(1, 2, 3, 4), sliding=(2, 3), device=self.device)
+        c.input = inp
+
+        c.initialize()
+
+        c.weights.map_invalidate()  # rewrite weights
+        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.bias.map_invalidate()  # rewrite bias
+        c.bias.v[:] = bias[:]
+
+        c.run()
+        c.output.map_read()  # get results back
+        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        self.assertEqual(nz, 0, "Overflow occured")
+
+        y = c.output.v.ravel()
+        t = numpy.array([7, -11.3, 3, -10.7, 7, -8, 10, -10,
+                         6, -8.4, 3, -2.8, 6, -12.8, 10, -10,
+                         9, -7.9, 9, -7.9, 9, -7.9, 10, -10], dtype=dtype)
+        max_diff = numpy.fabs(t - y).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Result differs by %.6f" % (max_diff))
+
+        logging.info("All Ok")
+
     def _do_test_vs_python(self, Unit):
 
         logging.info("OpenCL")
