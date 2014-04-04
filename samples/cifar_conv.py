@@ -129,7 +129,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        self.forward.clear()
+        del forward[:]
         for i in range(0, len(layers)):
             layer = layers[i]
             if type(layer) == int:
@@ -204,7 +204,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.image_saver.snapshot_time = self.decision.snapshot_time
 
         # Add gradient descent units
-        self.gd.clear()
+        del self.gd[:]
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(self, device=device)
         self.gd[-1].link_from(self.decision)

@@ -9,7 +9,6 @@ Created on November 18, 2013
 import logging
 import numpy
 import os
-import pickle
 import six
 import unittest
 
@@ -42,14 +41,14 @@ class TestKanji(unittest.TestCase):
         root.path_for_target_data = os.path.join(
             root.common.veles_dir,
             ("veles/znicz/tests/data/kanji/target/targets.%d.pickle" %
-             3 if six.PY3 else 2))
+             (3 if six.PY3 else 2)))
 
         root.path_for_train_data = os.path.join(
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
         root.index_map = os.path.join(root.path_for_train_data,
-                                      "index_map.%d.pickle" % 3 if
-                                      six.PY3 else 2)
+                                      "index_map.%d.pickle" % (3 if
+                                      six.PY3 else 2))
 
         l = launcher.Launcher()
         w = kanji.Workflow(l, layers=[30, 30, 24 * 24], device=self.device)

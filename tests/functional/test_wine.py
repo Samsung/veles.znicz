@@ -45,8 +45,8 @@ class TestWine(unittest.TestCase):
                                     "veles/znicz/samples/wine/wine.data")}
 
         l = launcher.Launcher()
-        device = None if l.is_master else opencl.Device()
-        w = wine.Workflow(l, layers=[8, 3], device=device)
+        #device = None if l.is_master else opencl.Device()
+        w = wine.Workflow(l, layers=[8, 3], device=self.device)
         w.initialize()
         l.run()
         epoch = w.decision.epoch_number[0]

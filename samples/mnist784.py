@@ -19,13 +19,13 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.samples.mnist as mnist
 import veles.workflows as workflows
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
+import veles.znicz.samples.mnist as mnist
 
 
 root.update = {"decision": {"fail_iterations":

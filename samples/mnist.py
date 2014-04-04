@@ -24,7 +24,7 @@ import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
 
-mnist_dir = os.path.join(root.common.veles_dir, "veles/samples/MNIST")
+mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
 
 root.update = {"all2all": {"weights_magnitude":
                            get_config(root.all2all.weights_magnitude, 0.05)},

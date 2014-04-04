@@ -47,7 +47,7 @@ root.loader.minibatch_maxsize = get_config(root.loader.minibatch_maxsize, 5103)
 root.path_for_target_data = get_config(
     root.path_for_target_data,
     os.path.join(root.common.test_dataset_root,
-                 ("kanji/target/targets.%d.pickle" % 3 if six.PY3 else 2)))
+                 ("kanji/target/targets.%d.pickle" % (3 if six.PY3 else 2))))
 
 root.path_for_train_data = get_config(
     root.path_for_train_data,
@@ -55,7 +55,8 @@ root.path_for_train_data = get_config(
 
 root.index_map = get_config(
     root.index_map, os.path.join(root.path_for_train_data,
-                                 "index_map.%d.pickle" % 3 if six.PY3 else 2))
+                                 "index_map.%d.pickle" %
+                                 (3 if six.PY3 else 2)))
 
 root.validation_procent = get_config(root.validation_procent, 0.15)
 root.weights_plotter.limit = get_config(root.weights_plotter.limit, 16)
