@@ -16,7 +16,7 @@ import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.znicz.gd_conv as gd_conv
-from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
+from veles.tests.dummy_workflow import DummyWorkflow
 
 
 class TestGDConv(unittest.TestCase):

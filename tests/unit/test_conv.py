@@ -19,7 +19,7 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.rnd as rnd
 import veles.znicz.conv as conv
-from veles.znicz.tests.unit.dummy_workflow import DummyWorkflow
+from veles.tests.dummy_workflow import DummyWorkflow
 
 
 class TestConv(unittest.TestCase):
