@@ -39,33 +39,34 @@ class Conv(nn_units.Forward):
         n_kernels: number of convolutional kernels.
         kx: kernel width.
         ky: kernel height.
+        padding: tuple of virtual sample padding (left, top, right, bottom).
+        sliding: tuple of kernel sliding (by x-axis, by y-axis).
         weights_magnitude: magnitude of the random distribution of weights.
         rand: rnd.Rand() object for initial weights generation.
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
-        s_type: "valid" or "same".
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, workflow, **kwargs):
         n_kernels = kwargs.get("n_kernels", 5)
         kx = kwargs.get("kx", 5)
         ky = kwargs.get("ky", 5)
-        s_type = kwargs.get("s_type", "valid")
-        if s_type not in ("valid", "same"):
-            raise error.ErrBadFormat("s_type should be eigther "
-                                     "\"valid\" or \"same\"")
+        padding = kwargs.get("padding", (0, 0, 0, 0))
+        sliding = kwargs.get("sliding", (1, 1))
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
-        kwargs["s_type"] = s_type
+        kwargs["padding"] = padding
+        kwargs["sliding"] = sliding
         super(Conv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
+        self.padding = tuple(padding)
+        self.sliding = tuple(sliding)
         self.s_activation = "ACTIVATION_LINEAR"
-        self.s_type = s_type
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
-                             "s_type"))
+                             "padding", "sliding"))
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
@@ -153,8 +154,12 @@ class Conv(nn_units.Forward):
                 'KX': self.kx,
                 'KY': self.ky,
                 'N_KERNELS': self.n_kernels,
-                {"valid": "CONVOLUTION_TYPE_VALID",
-                 "same": "CONVOLUTION_TYPE_SAME"}[self.s_type]: 1
+                'PAD_LEFT': self.padding[0],
+                'PAD_TOP': self.padding[1],
+                'PAD_RIGHT': self.padding[2],
+                'PAD_BOTTOM': self.padding[3],
+                'SLIDE_X': self.sliding[0],
+                'SLIDE_Y': self.sliding[1]
             }
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
