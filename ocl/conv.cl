@@ -46,7 +46,6 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
 
   #define A h
   #define B weights
-  #define C y
 
   #ifdef WEIGHTS_TRANSPOSED
   #define B_COL
@@ -76,7 +75,6 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
 
   #undef A
   #undef B
-  #undef C
 
   if ((valid) && (!ty)) // read from memory only for the first row
     AS[0][tx] = bias[bx * BLOCK_SIZE + tx];

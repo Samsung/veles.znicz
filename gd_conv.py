@@ -49,10 +49,22 @@ class GD(nn_units.GD):
         ky: kernel height.
     """
     def __init__(self, workflow, **kwargs):
+        n_kernels = kwargs["n_kernels"]
+        kx = kwargs["kx"]
+        ky = kwargs["ky"]
+        padding = kwargs.get("padding", (0, 0, 0, 0))
+        sliding = kwargs.get("sliding", (1, 1))
+        kwargs["n_kernels"] = n_kernels
+        kwargs["kx"] = kx
+        kwargs["ky"] = ky
+        kwargs["padding"] = padding
+        kwargs["sliding"] = sliding
         super(GD, self).__init__(workflow, **kwargs)
-        self.n_kernels = kwargs["n_kernels"]
-        self.kx = kwargs["kx"]
-        self.ky = kwargs["ky"]
+        self.n_kernels = n_kernels
+        self.kx = kx
+        self.ky = ky
+        self.padding = tuple(padding)
+        self.sliding = tuple(sliding)
         self.cl_const = numpy.zeros(
             2, dtype=opencl_types.dtypes[root.common.dtype])
         self.reduce_size = 64
@@ -131,6 +143,12 @@ class GD(nn_units.GD):
                 'KX': self.kx,
                 'KY': self.ky,
                 'N_KERNELS': self.n_kernels,
+                'PAD_LEFT': self.padding[0],
+                'PAD_TOP': self.padding[1],
+                'PAD_RIGHT': self.padding[2],
+                'PAD_BOTTOM': self.padding[3],
+                'SLIDE_X': self.sliding[0],
+                'SLIDE_Y': self.sliding[1],
                 'REDUCE_SIZE': self.reduce_size
             }
             if self.apply_gradient:
@@ -225,7 +243,11 @@ class GD(nn_units.GD):
         kernel_size = self.kx * self.ky * n_channels
         global_size = [
             formats.roundup(kernel_size, block_size),
-            formats.roundup(self.h.v.size // kernel_size, block_size)]
+            formats.roundup(
+                batch_size *
+                ((sx + self.padding[0] - self.kx) // self.sliding[0] + 1) *
+                ((sy + self.padding[1] - self.ky) // self.sliding[1] + 1),
+                block_size)]
         local_size = [block_size, block_size]
         event = self.execute_kernel(self.krn_err_h_, global_size, local_size)
         event.wait()

@@ -11,21 +11,37 @@
  *          KX - kernel width,
  *          KY - kernel height,
  *          N_KERNELS - number of kernels (i.e. neurons),
+ *          PAD_TOP - padding-top,
+ *          PAD_LEFT - padding-left,
+ *          PAD_BOTTOM - padding-bottom,
+ *          PAD_RIGHT - padding-right,
+ *          SLIDE_X - kernel sliding by x-axis,
+ *          SLIDE_Y - kernel sliding by y-axis,
  *          REDUCE_SIZE - buffer size for reduce operation.
  */
 
+#define SX_FULL (SX + PAD_LEFT + PAD_RIGHT)
+#define SY_FULL (SY + PAD_TOP + PAD_BOTTOM)
 
-#define ELEMENTS_PER_BLOCK (N_CHANNELS * KX * KY)
-#define BLOCK_NUMBER (in_offs / ELEMENTS_PER_BLOCK)
-#define OFFS_IN_BLOCK (in_offs % ELEMENTS_PER_BLOCK)
-#define ROW_IN_BLOCK (OFFS_IN_BLOCK / (N_CHANNELS * KX))
-#define COL_IN_BLOCK (OFFS_IN_BLOCK % (N_CHANNELS * KX))
-#define BLOCKS_PER_SAMPLE ((SX - KX + 1) * (SY - KY + 1))
-#define SAMPLE_NUMBER (BLOCK_NUMBER / BLOCKS_PER_SAMPLE)
-#define BLOCK_IN_SAMPLE (BLOCK_NUMBER % BLOCKS_PER_SAMPLE)
-#define ROW_IN_SAMPLE (BLOCK_IN_SAMPLE / (SX - KX + 1))
-#define COL_IN_SAMPLE ((BLOCK_IN_SAMPLE % (SX - KX + 1)) * N_CHANNELS)
-#define IN_REAL_OFFS ((SAMPLE_NUMBER * SY + ROW_IN_SAMPLE + ROW_IN_BLOCK) * (N_CHANNELS * SX) + (COL_IN_SAMPLE + COL_IN_BLOCK))
+#define KERNEL_APPLIES_PER_WIDTH ((SX_FULL - KX) / SLIDE_X + 1)
+#define KERNEL_APPLIES_PER_HEIGHT ((SY_FULL - KY) / SLIDE_Y + 1)
+#define KERNELS_PER_SAMPLE (KERNEL_APPLIES_PER_WIDTH * KERNEL_APPLIES_PER_HEIGHT)
+
+#define ELEMENTS_PER_KERNEL (N_CHANNELS * KX * KY)
+#define KERNEL_APPLY_NUMBER (in_offs / ELEMENTS_PER_KERNEL)
+#define OFFS_IN_KERNEL (in_offs % ELEMENTS_PER_KERNEL)
+#define PLAIN_ROW_IN_KERNEL (OFFS_IN_KERNEL / (N_CHANNELS * KX))
+#define PLAIN_COL_IN_KERNEL (OFFS_IN_KERNEL % (N_CHANNELS * KX))
+#define SAMPLE_NUMBER (KERNEL_APPLY_NUMBER / KERNELS_PER_SAMPLE)
+#define KERNEL_APPLY_IN_SAMPLE (KERNEL_APPLY_NUMBER % KERNELS_PER_SAMPLE)
+#define VIRT_ROW_IN_SAMPLE (KERNEL_APPLY_IN_SAMPLE / KERNEL_APPLIES_PER_WIDTH)
+#define VIRT_COL_IN_SAMPLE (KERNEL_APPLY_IN_SAMPLE % KERNEL_APPLIES_PER_WIDTH)
+
+#define SAMPLE_ROW (VIRT_ROW_IN_SAMPLE * SLIDE_Y + PLAIN_ROW_IN_KERNEL - PAD_TOP)
+#define SAMPLE_COL (VIRT_COL_IN_SAMPLE * SLIDE_X * N_CHANNELS + PLAIN_COL_IN_KERNEL - PAD_LEFT * N_CHANNELS)
+
+#define IN_REAL_OFFS_VALID ((SAMPLE_ROW >= 0) && (SAMPLE_ROW < SY) && (SAMPLE_COL >= 0) && (SAMPLE_COL < SX * N_CHANNELS))
+#define IN_REAL_OFFS ((SAMPLE_NUMBER * SY + SAMPLE_ROW) * (SX * N_CHANNELS) + SAMPLE_COL)
 
 
 /// @brief Computes backprogated error for previous layer.
@@ -38,13 +54,12 @@ __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
                   __global c_dtype /*OUT*/ *err_h) {
 
-  #define A_WIDTH (BATCH * (SX - KX + 1) * (SY - KY + 1))
-  #define B_WIDTH ELEMENTS_PER_BLOCK
+  #define A_WIDTH (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
+  #define B_WIDTH ELEMENTS_PER_KERNEL
   #define AB_COMMON N_KERNELS
 
   #define A err_y
   #define B weights
-  #define C err_h_tmp
 
   #ifndef WEIGHTS_TRANSPOSED
   #define B_COL
@@ -62,13 +77,12 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
   #undef A
   #undef B
-  #undef C
 
-  if (valid) {
-    #define in_offs idx
+  #define in_offs idx
+  if ((valid) && (IN_REAL_OFFS_VALID)) {
     ATOM_ADD(&err_h[IN_REAL_OFFS], sum[0]);
-    #undef in_offs
   }
+  #undef in_offs
 }
 
 
@@ -87,7 +101,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
                     const dtype alpha_batch, const dtype alpha_lambda) {
   #ifdef WEIGHTS_TRANSPOSED
 
-  #define A_WIDTH ELEMENTS_PER_BLOCK
+  #define A_WIDTH ELEMENTS_PER_KERNEL
   #define B_WIDTH N_KERNELS
   #define A h
   #define B err_y
@@ -98,7 +112,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
   #else
 
   #define A_WIDTH N_KERNELS
-  #define B_WIDTH ELEMENTS_PER_BLOCK
+  #define B_WIDTH ELEMENTS_PER_KERNEL
   #define A err_y
   #define B h
 
@@ -107,8 +121,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
   #endif
 
-  #define AB_COMMON (BATCH * (SX - KX + 1) * (SY - KY + 1))
-  #define C weights
+  #define AB_COMMON (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
 
   #define A_COL
   #define B_COL
@@ -125,7 +138,6 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
   #undef A
   #undef B
-  #undef C
 
   if (valid) {
     c_dtype weight = weights[idx];
@@ -153,7 +165,7 @@ void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
 
   #define A err_y
   #define A_WIDTH N_KERNELS
-  #define A_HEIGHT (BATCH * (SX - KX + 1) * (SY - KY + 1))
+  #define A_HEIGHT (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
   #define A_COL
 
   #include "matrix_reduce.cl"

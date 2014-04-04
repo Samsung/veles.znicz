@@ -17,7 +17,6 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
   #define A err_y
   #define B weights
-  #define C err_h
 
   #ifndef WEIGHTS_TRANSPOSED
   #define B_COL
@@ -35,7 +34,6 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
   #undef A
   #undef B
-  #undef C
 
   if (valid)
     err_h[idx] = sum[0];
@@ -73,7 +71,6 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
   #endif
 
   #define AB_COMMON BATCH
-  #define C weights
 
   #define A_COL
   #define B_COL
@@ -89,7 +86,6 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
   #undef A
   #undef B
-  #undef C
 
   if (valid) {
     c_dtype weight = weights[idx];
