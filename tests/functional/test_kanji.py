@@ -13,10 +13,10 @@ import six
 import unittest
 
 from veles.config import root
-import veles.launcher as launcher
 import veles.opencl as opencl
 import veles.rnd as rnd
 import veles.znicz.samples.kanji as kanji
+import veles.tests.dummy_workflow as dummy_workflow
 
 
 class TestKanji(unittest.TestCase):
@@ -47,16 +47,16 @@ class TestKanji(unittest.TestCase):
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
         root.index_map = os.path.join(root.path_for_train_data,
-                                      "index_map.%d.pickle" % (3 if
-                                      six.PY3 else 2))
+                                      "index_map.%d.pickle" %
+                                      (3 if six.PY3 else 2))
 
-        l = launcher.Launcher()
-        w = kanji.Workflow(l, layers=[30, 30, 24 * 24], device=self.device)
+        w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
+                           layers=[30, 30, 24 * 24], device=self.device)
         w.initialize(global_alpha=root.global_alpha,
                      global_lambda=root.global_lambda,
                      minibatch_maxsize=root.loader.minibatch_maxsize,
                      device=self.device, weights=None, bias=None)
-        l.run()
+        w.run()
         err = w.decision.epoch_n_err[1]
         self.assertEqual(err, 17)
         logging.info("All Ok")

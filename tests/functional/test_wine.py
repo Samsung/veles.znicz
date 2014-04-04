@@ -12,10 +12,10 @@ import os
 import unittest
 
 from veles.config import root
-import veles.launcher as launcher
 import veles.opencl as opencl
 import veles.rnd as rnd
 import veles.znicz.samples.wine as wine
+import veles.tests.dummy_workflow as dummy_workflow
 
 
 class TestWine(unittest.TestCase):
@@ -44,11 +44,10 @@ class TestWine(unittest.TestCase):
                        os.path.join(root.common.veles_dir,
                                     "veles/znicz/samples/wine/wine.data")}
 
-        l = launcher.Launcher()
-        #device = None if l.is_master else opencl.Device()
-        w = wine.Workflow(l, layers=[8, 3], device=self.device)
+        w = wine.Workflow(dummy_workflow.DummyWorkflow(), layers=[8, 3],
+                          device=self.device)
         w.initialize()
-        l.run()
+        w.run()
         epoch = w.decision.epoch_number[0]
         self.assertEqual(epoch, 11)
         logging.info("All Ok")
