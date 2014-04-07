@@ -1,6 +1,6 @@
 #!/usr/bin/python3.3 -O
 """
-Created on November 18, 2013
+Created on April 2, 2014
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
@@ -32,7 +32,6 @@ class TestWine(unittest.TestCase):
         rnd.default.seed(numpy.fromfile("%s/veles/znicz/samples/seed" %
                                         (root.common.veles_dir),
                                         dtype=numpy.int32, count=1024))
-        root.common.update = {"plotters_disabled": True}
 
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},

@@ -25,4 +25,4 @@ root.update = {"decision": {"fail_iterations": 250,
                "layers": [10, 3],
                "loader": {"minibatch_maxsize": 1000000},
                "path_for_load_data":
-               "/data/veles/Veles2/veles/samples/wine/wine.data"}
+               "/data/veles/Veles2/veles/znicz/samples/wine/wine.data"}

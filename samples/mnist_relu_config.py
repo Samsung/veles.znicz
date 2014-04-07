@@ -11,7 +11,7 @@ Example of Mnist config.
 import os
 from veles.config import root, Config
 
-mnist_dir = "/data/veles/Veles2/veles/samples/MNIST"
+mnist_dir = "/data/veles/Veles2/veles/znicz/samples/MNIST"
 
 root.all2all = Config()  # not necessary for execution (it will do it in real
 root.decision = Config()  # time any way) but good for Eclipse editor

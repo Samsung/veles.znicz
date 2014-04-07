@@ -1,6 +1,6 @@
 #!/usr/bin/python3.3 -O
 """
-Created on November 18, 2013
+Created on April 3, 2014
 
 @author: Lyubov Podoynitsina <lyubov.p@samsung.com>
 """
@@ -36,7 +36,6 @@ class TestKanji(unittest.TestCase):
         rnd.default2.seed(numpy.fromfile("%s/veles/znicz/samples/seed2"
                                          % (root.common.veles_dir),
                                          dtype=numpy.int32, count=1024))
-        root.common.update = {"plotters_disabled": True}
         root.decision.fail_iterations = -1
         root.path_for_target_data = os.path.join(
             root.common.veles_dir,
