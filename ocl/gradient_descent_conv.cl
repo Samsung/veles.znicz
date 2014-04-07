@@ -49,7 +49,7 @@
 /// @param weights weights.
 /// @param err_h resulted backpropagated error for previous layer.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>
-/// @details err_h_tmp = err_y * weights
+/// @details err_h = err_y * weights
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
                   __global c_dtype /*OUT*/ *err_h) {
@@ -108,6 +108,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
   #define in_offs a_offs
   #define A_REAL_OFFS IN_REAL_OFFS
+  #define A_REAL_OFFS_VALID IN_REAL_OFFS_VALID
 
   #else
 
@@ -118,6 +119,7 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
   #define in_offs b_offs
   #define B_REAL_OFFS IN_REAL_OFFS
+  #define B_REAL_OFFS_VALID IN_REAL_OFFS_VALID
 
   #endif
 
