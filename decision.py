@@ -11,6 +11,7 @@ import numpy
 import os
 import six
 from six.moves import cPickle as pickle
+import sys
 import time
 
 from veles.config import root
