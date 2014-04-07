@@ -7,12 +7,13 @@ ImageSaver unit.
 """
 
 
+import logging
 import glob
 import numpy
 import os
 
 import veles.formats as formats
-from veles.config import root
+from veles.config import root, get_config
 import veles.units as units
 
 
@@ -38,19 +39,16 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, workflow, **kwargs):
-        out_dirs = kwargs.get("out_dirs")
-        limit = kwargs.get("limit", 100)
-        yuv = kwargs.get("yuv", False)
-        if out_dirs is None:
-            out_dirs = ["%s/tmpimg/test" % (root.common.cache_dir),
-                        "%s/tmpimg/validation" % (root.common.cache_dir),
-                        "%s/tmpimg/train" % (root.common.cache_dir)]
-        kwargs["out_dirs"] = out_dirs
-        kwargs["limit"] = limit
-        kwargs["yuv"] = yuv
-        super(ImageSaver, self).__init__(workflow, **kwargs)
-        self.out_dirs = out_dirs
+    def __init__(self, workflow):
+        super(ImageSaver, self).__init__(workflow)
+        root.image_saver.out = get_config(root.image_saver.out,
+                                          os.path.join(root.common.cache_dir,
+                                                       "tmpimg"))
+        self.out_dirs = [os.path.join(root.image_saver.out, "test"),
+                         os.path.join(root.image_saver.out, "validation"),
+                         os.path.join(root.image_saver.out, "train")]
+        self.limit = get_config(root.image_saver.limit, 100)
+        yuv = get_config(root.image_saver.yuv, False)
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
@@ -61,7 +59,6 @@ class ImageSaver(units.Unit):
         self.minibatch_size = None  # [0]
         self.this_save_time = [0]
         self.last_save_time = 0
-        self.limit = limit
         self.n_saved = [0, 0, 0]
         self.yuv = [1 if yuv else 0]
 
@@ -84,6 +81,7 @@ class ImageSaver(units.Unit):
         return x.ravel()
 
     def run(self):
+        logging.basicConfig(level=logging.INFO)
         import scipy.misc
         self.input.map_read()
         if self.output is not None:
@@ -94,19 +92,21 @@ class ImageSaver(units.Unit):
             self.max_idx.map_read()
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
-            for i in range(len(self.n_saved)):
-                self.n_saved[i] = 0
-            for dirnme in self.out_dirs:
+
+        for i in range(len(self.n_saved)):
+            self.n_saved[i] = 0
+        for dirnme in self.out_dirs:
+            try:
+                os.makedirs(dirnme, mode=0o775, exist_ok=True)
+            except OSError:
+                logging.info("Failed to create a folder %s" % dirnme)
+                pass
+            files = glob.glob("%s/*.png" % (dirnme))
+            for file in files:
                 try:
-                    os.makedirs(dirnme, mode=0o775, exist_ok=True)
+                    os.unlink(file)
                 except OSError:
                     pass
-                files = glob.glob("%s/*.png" % (dirnme))
-                for file in files:
-                    try:
-                        os.unlink(file)
-                    except OSError:
-                        pass
         if self.n_saved[self.minibatch_class[0]] >= self.limit:
             return
         xyt = None
