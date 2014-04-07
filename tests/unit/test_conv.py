@@ -112,9 +112,10 @@ class TestConv(unittest.TestCase):
         self.assertEqual(nz, 0, "Overflow occured")
 
         y = c.output.v.ravel()
-        t = numpy.array([7, -11.3, 3, -10.7, 7, -8, 10, -10,
-                         6, -8.4, 3, -2.8, 6, -12.8, 10, -10,
-                         9, -7.9, 9, -7.9, 9, -7.9, 10, -10], dtype=dtype)
+        t = numpy.array([[[7, -11.3], [3, -10.7], [7, -8], [10, -10]],
+                         [[6, -8.4], [3, -2.8], [6, -12.8], [10, -10]],
+                         [[9, -7.9], [9, -7.9], [9, -7.9], [10, -10]]],
+                        dtype=dtype).ravel()
         max_diff = numpy.fabs(t - y).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))

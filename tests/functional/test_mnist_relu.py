@@ -50,7 +50,7 @@ class TestMnistRelu(unittest.TestCase):
                        os.path.join(mnist_dir, "train-labels.idx1-ubyte")}
 
         w = mnist_relu.Workflow(dummy_workflow.DummyWorkflow(),
-                           layers=[100, 10], device=self.device)
+                                layers=[100, 10], device=self.device)
         w.initialize()
         w.run()
         err = w.decision.epoch_n_err[1]
