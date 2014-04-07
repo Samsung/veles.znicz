@@ -38,6 +38,9 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
+if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
+    FileNotFoundError = IOError  # pylint: disable=W0622
+
 root.cache_fnme = get_config(
     root.cache_fnme, os.path.join(root.common.cache_dir, "channels.pickle"))
 

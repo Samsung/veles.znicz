@@ -11,7 +11,6 @@ import numpy
 import os
 import six
 from six.moves import cPickle as pickle
-import threading
 import time
 
 from veles.config import root
@@ -19,6 +18,10 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.units as units
+
+
+if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
+    FileNotFoundError = IOError  # pylint: disable=W0622
 
 
 class Decision(units.Unit):
