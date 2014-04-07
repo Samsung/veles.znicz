@@ -11,7 +11,7 @@ MNIST with Convolutional layer.
 from veles.config import root, get_config
 import veles.error as error
 import veles.plotting_units as plotting_units
-from veles.samples import mnist as mnist
+from veles.znicz.samples import mnist
 import veles.workflows as workflows
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv

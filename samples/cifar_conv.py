@@ -129,7 +129,7 @@ class Workflow(workflows.OpenCLWorkflow):
         self.loader.link_from(self.rpt)
 
         # Add forward units
-        del forward[:]
+        del self.forward[:]
         for i in range(0, len(layers)):
             layer = layers[i]
             if type(layer) == int:

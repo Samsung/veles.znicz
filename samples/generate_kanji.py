@@ -8,8 +8,8 @@ File for generation of samples for kanji recognition.
 """
 
 
-from freetype import (Face, FT_Matrix,
-                      FT_LOAD_RENDER, FT_Vector, FT_Set_Transform, byref)
+from freetype import (Face, FT_Matrix, FT_LOAD_RENDER,  # pylint: disable=E0611
+                      FT_Vector, FT_Set_Transform, byref)
 import glob
 import logging
 import numpy
@@ -38,7 +38,7 @@ KANJI_COUNT = 15
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
     face = Face(fontPath.encode('utf-8'))
-    #face.set_char_size(48 * 64)
+    # face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
     c = text[0]
@@ -78,7 +78,7 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
-            #logging.info("Set pixel size for font %s to %d" % (
+            # logging.info("Set pixel size for font %s to %d" % (
             #    fontPath, size - j))
             continue
         break
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     n_kanji = rs.fetchone()[0]
     if not n_kanji:
         fill_tables(db)
-    #query = ("select idx, literal from kanji where grade <> 0 "
+    # query = ("select idx, literal from kanji where grade <> 0 "
     #         "order by grade asc, freq desc, idx asc limit %d" % (
     #                                                    KANJI_COUNT))
     query = ("select idx, literal from kanji where jlpt >= 2 "
@@ -273,7 +273,7 @@ if __name__ == '__main__':
                 img = do_plot(font, character, SY_, angle_, sx_, sy_, True,
                               SX_, SY_)
                 if img is None:
-                    #logging.info("Not found for font %s" % (font))
+                    # logging.info("Not found for font %s" % (font))
                     continue
                 a = img.astype(numpy.float32)
                 formats.normalize(a)
