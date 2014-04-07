@@ -21,9 +21,10 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
+import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
-mnist_dir = os.path.join(root.common.veles_dir, "veles/samples/MNIST")
+mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
 
 root.update = {"all2all": {"weights_magnitude":
                            get_config(root.all2all.weights_magnitude, 0.05)},
@@ -169,6 +170,17 @@ class Workflow(workflows.OpenCLWorkflow):
             else:
                 self.forward[i].link_from(self.loader)
                 self.forward[i].input = self.loader.minibatch_data
+
+        # Add Image Saver unit
+        self.image_saver = image_saver.ImageSaver(self)
+        self.image_saver.link_from(self.forward[-1])
+        self.image_saver.input = self.loader.minibatch_data
+        self.image_saver.output = self.forward[-1].output
+        self.image_saver.max_idx = self.forward[-1].max_idx
+        self.image_saver.indexes = self.loader.minibatch_indexes
+        self.image_saver.labels = self.loader.minibatch_labels
+        self.image_saver.minibatch_class = self.loader.minibatch_class
+        self.image_saver.minibatch_size = self.loader.minibatch_size
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
