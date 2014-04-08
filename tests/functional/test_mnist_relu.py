@@ -42,6 +42,7 @@ class TestMnistRelu(unittest.TestCase):
                                     "snapshot_prefix": "mnist_relu_test"},
                        "global_alpha": 0.01,
                        "global_lambda": 0.0,
+                       "loader": {"minibatch_maxsize": 60},
                        "path_for_load_data_test_images":
                        os.path.join(mnist_dir, "t10k-images.idx3-ubyte"),
                        "path_for_load_data_test_label":
