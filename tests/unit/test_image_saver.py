@@ -86,10 +86,10 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_SM.minibatch_size = [20]
         self.img_saver_SM.output = self.output
 
-        self.do_test_image_saver_SM_test()
-        self.do_test_image_saver_SM_validation()
-        self.do_test_image_saver_SM_train()
-        self.do_test_image_saver_limit()
+        self.do_image_saver_SM_t()
+        self.do_image_saver_SM_validation()
+        self.do_image_saver_SM_train()
+        self.do_image_saver_limit()
 
     def test_image_saver_MSE_test(self):
         logging.info("Will test image_saver unit for MSE, test")
@@ -122,7 +122,7 @@ class TestImageSaver(unittest.TestCase):
         logging.info("All Ok")
         self.remove_dir()
 
-    def do_test_image_saver_SM_test(self):
+    def do_image_saver_SM_t(self):
         logging.info("Will test image_saver unit for Softmax, test")
         self.img_saver_SM.this_save_time = [time.time()]
         self.img_saver_SM.max_idx = self.max_idx
@@ -137,7 +137,7 @@ class TestImageSaver(unittest.TestCase):
         logging.info("All Ok")
         self.remove_dir()
 
-    def do_test_image_saver_SM_validation(self):
+    def do_image_saver_SM_validation(self):
         logging.info("Will test image_saver unit for Softmax, validation")
         self.img_saver_SM.this_save_time = [time.time()]
         self.img_saver_SM.max_idx = self.max_idx
@@ -155,7 +155,7 @@ class TestImageSaver(unittest.TestCase):
         logging.info("All Ok")
         self.remove_dir()
 
-    def do_test_image_saver_SM_train(self):
+    def do_image_saver_SM_train(self):
         logging.info("Will test image_saver unit for Softmax, train")
         self.img_saver_SM.this_save_time = [time.time()]
         self.img_saver_SM.max_idx = self.max_idx
@@ -171,7 +171,7 @@ class TestImageSaver(unittest.TestCase):
         logging.info("All Ok")
         self.remove_dir()
 
-    def do_test_image_saver_limit(self):
+    def do_image_saver_limit(self):
         logging.info("Will test image_saver unit for limit")
         self.img_saver_SM.this_save_time = [time.time()]
         self.img_saver_SM.max_idx = self.max_idx

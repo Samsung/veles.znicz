@@ -192,9 +192,6 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
 
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
-        self.image_saver.this_save_time = self.decision.snapshot_time
-
         # Add gradient descent units
         del self.gd[:]
         self.gd.extend(list(None for i in range(0, len(self.forward))))
