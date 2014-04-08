@@ -171,17 +171,6 @@ class Workflow(nn_units.NNWorkflow):
                 self.forward[i].link_from(self.loader)
                 self.forward[i].input = self.loader.minibatch_data
 
-        # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self)
-        self.image_saver.link_from(self.forward[-1])
-        self.image_saver.input = self.loader.minibatch_data
-        self.image_saver.output = self.forward[-1].output
-        self.image_saver.max_idx = self.forward[-1].max_idx
-        self.image_saver.indexes = self.loader.minibatch_indexes
-        self.image_saver.labels = self.loader.minibatch_labels
-        self.image_saver.minibatch_class = self.loader.minibatch_class
-        self.image_saver.minibatch_size = self.loader.minibatch_size
-
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(self.forward[-1])
@@ -202,6 +191,9 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
+
+        self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.this_save_time = self.decision.snapshot_time
 
         # Add gradient descent units
         del self.gd[:]

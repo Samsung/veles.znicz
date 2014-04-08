@@ -40,6 +40,7 @@ class ImageSaver(units.Unit):
             should be None or not None both simultaneously.
     """
     def __init__(self, workflow):
+
         super(ImageSaver, self).__init__(workflow)
         root.image_saver.out = get_config(root.image_saver.out,
                                           os.path.join(root.common.cache_dir,
@@ -93,20 +94,20 @@ class ImageSaver(units.Unit):
         if self.last_save_time < self.this_save_time[0]:
             self.last_save_time = self.this_save_time[0]
 
-        for i in range(len(self.n_saved)):
-            self.n_saved[i] = 0
-        for dirnme in self.out_dirs:
-            try:
-                os.makedirs(dirnme, mode=0o775, exist_ok=True)
-            except OSError:
-                logging.info("Failed to create a folder %s" % dirnme)
-                pass
-            files = glob.glob("%s/*.png" % (dirnme))
-            for file in files:
+            for i in range(len(self.n_saved)):
+                self.n_saved[i] = 0
+            for dirnme in self.out_dirs:
                 try:
-                    os.unlink(file)
+                    os.makedirs(dirnme, mode=0o775, exist_ok=True)
                 except OSError:
+                    logging.info("Failed to create a folder %s" % dirnme)
                     pass
+                files = glob.glob("%s/*.png" % (dirnme))
+                for file in files:
+                    try:
+                        os.unlink(file)
+                    except OSError:
+                        pass
         if self.n_saved[self.minibatch_class[0]] >= self.limit:
             return
         xyt = None
