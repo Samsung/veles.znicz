@@ -187,11 +187,13 @@ class Workflow(workflows.OpenCLWorkflow):
             self, snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
-        self.decision.minibatch_class = self.loader.minibatch_class
-        self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err
-        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
-        self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "minibatch_last")
+        self.decision.link_attrs(self.ev,
+             ("minibatch_n_err", "n_err"),
+             ("minibatch_confusion_matrix", "confusion_matrix"),
+             ("minibatch_max_err_y_sum", "max_err_y_sum"))
         self.decision.class_samples = self.loader.class_samples
 
         self.ipython = Shell(self)
@@ -204,20 +206,20 @@ class Workflow(workflows.OpenCLWorkflow):
         self.gd[-1] = gd.GDSM(self, device=device)
         self.gd[-1].link_from(self.ipython)
         self.gd[-1].err_y = self.ev.err_y
-        self.gd[-1].y = self.forward[-1].output
-        self.gd[-1].h = self.forward[-1].input
-        self.gd[-1].weights = self.forward[-1].weights
-        self.gd[-1].bias = self.forward[-1].bias
+        self.gd[-1].link_attrs(self.forward[-1],
+                                  ("y", "output"),
+                                  ("h", "input"),
+                                  "weights", "bias")
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h
-            self.gd[i].y = self.forward[i].output
-            self.gd[i].h = self.forward[i].input
-            self.gd[i].weights = self.forward[i].weights
-            self.gd[i].bias = self.forward[i].bias
+            self.gd[i].link_attrs(self.forward[i],
+                                  ("y", "output"),
+                                  ("h", "input"),
+                                  "weights", "bias")
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
