@@ -22,6 +22,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
+from veles.interaction import Shell
 
 
 mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
@@ -193,11 +194,15 @@ class Workflow(workflows.OpenCLWorkflow):
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
         self.decision.class_samples = self.loader.class_samples
 
+        self.ipython = Shell(self)
+        self.ipython.link_from(self.decision)
+        self.ipython.gate_skip = ~self.decision.epoch_ended
+
         # Add gradient descent units
         del self.gd[:]
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(self, device=device)
-        self.gd[-1].link_from(self.decision)
+        self.gd[-1].link_from(self.ipython)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].y = self.forward[-1].output
         self.gd[-1].h = self.forward[-1].input
