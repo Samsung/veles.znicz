@@ -39,12 +39,15 @@ class Pooling(nn_units.Forward):
     def __init__(self, workflow, **kwargs):
         kx = kwargs.get("kx", 2)
         ky = kwargs.get("ky", 2)
+        sliding = kwargs.get("sliding", (kx, ky))
         kwargs["kx"] = kx
         kwargs["ky"] = ky
+        kwargs["sliding"] = sliding
         super(Pooling, self).__init__(workflow, **kwargs)
         self.kx = kx
         self.ky = ky
-        self.exports.extend(("kx", "ky"))
+        self.sliding = sliding
+        self.exports.extend(("kx", "ky", "sliding"))
 
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
@@ -59,8 +62,10 @@ class Pooling(nn_units.Forward):
         sx = self.input.v.shape[2]
         n_channels = self.input.v.size // (batch_size * sx * sy)
 
-        out_sx = (sx // self.kx) + (0 if sx % self.kx == 0 else 1)
-        out_sy = (sy // self.ky) + (0 if sy % self.ky == 0 else 1)
+        out_sx = sx // self.sliding[0] + (
+            0 if sx % self.sliding[0] == 0 else 1)
+        out_sy = sy // self.sliding[1] + (
+            0 if sy % self.sliding[1] == 0 else 1)
         output_size = n_channels * out_sx * out_sy * batch_size
         if self.output.v is None or self.output.v.size != output_size:
             self.output.reset()
@@ -81,6 +86,8 @@ class Pooling(nn_units.Forward):
                 'N_CHANNELS': n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
+                'SLIDE_X': self.sliding[0],
+                'SLIDE_Y': self.sliding[1]
             }
             self.build_program(
                 defines, "%s/pooling_%dx%dx%d_%dx%d.cl" %
@@ -94,9 +101,10 @@ class Pooling(nn_units.Forward):
         y = self.input.v
         self.debug(
             "%s: %d samples of size %dx%dx%d vs "
-            "pooling window of size %dx%d in %.2f sec" %
+            "pooling window of size %dx%d and sliding %dx%d in %.2f sec" %
             (self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
-             y.shape[3], self.kx, self.ky, time.time() - t_start))
+             y.shape[3], self.kx, self.ky, self.sliding[0], self.sliding[1],
+             time.time() - t_start))
 
     def gpu_run(self):
         """Forward propagation from batch on GPU.
