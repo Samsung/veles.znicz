@@ -17,7 +17,7 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.pooling as pooling
@@ -112,7 +112,7 @@ class Loader(loader.FullBatchLoader):
             formats.normalize(sample)
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):

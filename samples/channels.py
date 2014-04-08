@@ -30,7 +30,7 @@ import veles.image as image
 import veles.plotting_units as plotting_units
 import veles.rnd as rnd
 import veles.thread_pool as thread_pool
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -583,7 +583,7 @@ class Loader(loader.FullBatchLoader):
         return formats.norm_image(x, True)
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):

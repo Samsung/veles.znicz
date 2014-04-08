@@ -16,7 +16,7 @@ import veles.formats as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -63,7 +63,7 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Sample workflow for Hands dataset.
     """
     def __init__(self, workflow, **kwargs):

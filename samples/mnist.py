@@ -16,7 +16,7 @@ from veles.config import get_config, root
 import veles.error as error
 import veles.formats as formats
 import veles.plotting_units as plotting_units
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -137,7 +137,7 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[2] = 60000
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, **kwargs):

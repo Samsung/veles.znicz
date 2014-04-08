@@ -14,7 +14,7 @@ import os
 from veles.config import root, get_config
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -86,7 +86,7 @@ class Loader(loader.FullBatchLoader):
         self.total_samples[0] = self.original_data.shape[0]
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Sample workflow for Wine dataset.
     """
     def __init__(self, workflow, **kwargs):

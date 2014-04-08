@@ -21,7 +21,7 @@ import veles.launcher as launcher
 import veles.opencl as opencl
 import veles.snd_features as snd_features
 import veles.units as units
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 
 gtzan_dir = os.path.join(root.common.test_dataset_root, "music/GTZAN")
 music_dir = os.path.join(root.common.test_dataset_root, "music")
@@ -83,7 +83,7 @@ root.update = {"colors": get_config(root.colors, ["blue",
                }
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):

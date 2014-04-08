@@ -20,7 +20,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.rnd as rnd
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -177,7 +177,7 @@ class Loader(loader.Loader):
             self.minibatch_target.v[i] = self.class_target[lbl]
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
     1023 classes to recognize, 3.6 million 32x32 images dataset size.

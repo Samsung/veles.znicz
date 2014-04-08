@@ -12,7 +12,7 @@ from veles.config import root, get_config
 import veles.error as error
 import veles.plotting_units as plotting_units
 from veles.znicz.samples import mnist
-import veles.workflows as workflows
+import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
@@ -40,7 +40,7 @@ root.update = {"decision": {"fail_iterations":
                                    get_config(root.weights_plotter.limit, 64)}}
 
 
-class Workflow(workflows.OpenCLWorkflow):
+class Workflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     A deep learning method (advanced convolutional neural network) is used.
     """
