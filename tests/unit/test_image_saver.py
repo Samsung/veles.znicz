@@ -33,10 +33,9 @@ class TestImageSaver(unittest.TestCase):
 
         self.lbls = formats.Vector()
         self.lbls.v = numpy.array([1, 0, 0, 2, 4,
-                              7, 9, 3, 6, 8,
-                              6, 3, 5, 5, 5,
-                              9, 0, 1, 1, 0],
-                             dtype=numpy.int8)
+                                   7, 9, 3, 6, 8,
+                                   6, 3, 5, 5, 5,
+                                   9, 0, 1, 1, 0], dtype=numpy.int8)
 
         self.max_idx = formats.Vector()
         self.max_idx.v = numpy.array([1, 2, 1, 2, 4,
@@ -46,9 +45,9 @@ class TestImageSaver(unittest.TestCase):
 
         self.indexes = formats.Vector()
         self.indexes.v = numpy.array([0, 1, 2, 3, 4,
-                                 5, 6, 7, 8, 9,
-                                 0, 1, 2, 3, 4,
-                                 5, 6, 7, 8, 9], dtype=self.lbls.v.dtype)
+                                      5, 6, 7, 8, 9,
+                                      0, 1, 2, 3, 4,
+                                      5, 6, 7, 8, 9], dtype=self.lbls.v.dtype)
 
         self.output = formats.Vector()
         self.output.v = numpy.zeros([20, 10], dtype=numpy.float32)

@@ -21,7 +21,6 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
 mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")

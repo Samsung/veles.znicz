@@ -189,7 +189,8 @@ class Workflow(nn_units.NNWorkflow):
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
         self.image_saver.max_idx = self.forward[-1].max_idx
-        self.image_saver.link_attrs(self.loader,
+        self.image_saver.link_attrs(
+            self.loader,
             ("indexes", "minibatch_indexes"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")

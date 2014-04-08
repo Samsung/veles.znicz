@@ -190,10 +190,11 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "minibatch_last")
-        self.decision.link_attrs(self.ev,
-             ("minibatch_n_err", "n_err"),
-             ("minibatch_confusion_matrix", "confusion_matrix"),
-             ("minibatch_max_err_y_sum", "max_err_y_sum"))
+        self.decision.link_attrs(
+            self.ev,
+            ("minibatch_n_err", "n_err"),
+            ("minibatch_confusion_matrix", "confusion_matrix"),
+            ("minibatch_max_err_y_sum", "max_err_y_sum"))
         self.decision.class_samples = self.loader.class_samples
 
         self.ipython = Shell(self)
@@ -207,9 +208,9 @@ class Workflow(nn_units.NNWorkflow):
         self.gd[-1].link_from(self.ipython)
         self.gd[-1].err_y = self.ev.err_y
         self.gd[-1].link_attrs(self.forward[-1],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                               ("y", "output"),
+                               ("h", "input"),
+                               "weights", "bias")
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
