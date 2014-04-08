@@ -34,6 +34,7 @@ class Pooling(nn_units.Forward):
         output: output as batch of multichannel interleaved images.
         kx: pooling kernel width.
         ky: pooling kernel height.
+        sliding: tuple of kernel sliding (by x-axis, by y-axis).
         krn_: OpenCL kernel.
     """
     def __init__(self, workflow, **kwargs):

@@ -138,6 +138,9 @@ void do_avg_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y) {
 
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   y[idx] = smm / (NX * NY);
+
+  #undef NX
+  #undef NY
 }
 
 

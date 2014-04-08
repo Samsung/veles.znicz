@@ -32,15 +32,23 @@ class GDPooling(nn_units.GD):
     Attributes:
         kx: pooling kernel width.
         ky: pooling kernel height.
+        sliding: tuple of kernel sliding (by x-axis, by y-axis).
         err_y: backpropagation errors for y.
         h: input (will get only shape from it).
         err_h: backpropagation errors for h (will compute its).
         krn_err_h_: OpenCL kernel for computing err_h.
     """
     def __init__(self, workflow, **kwargs):
+        kx = kwargs.get("kx", 2)
+        ky = kwargs.get("ky", 2)
+        sliding = kwargs.get("sliding", (kx, ky))
+        kwargs["kx"] = kx
+        kwargs["ky"] = ky
+        kwargs["sliding"] = sliding
         super(GDPooling, self).__init__(workflow, **kwargs)
-        self.kx = kwargs["kx"]
-        self.ky = kwargs["ky"]
+        self.kx = kx
+        self.ky = ky
+        self.sliding = sliding
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
@@ -54,8 +62,10 @@ class GDPooling(nn_units.GD):
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (batch_size * sx * sy)
 
-        out_sx = (sx // self.kx) + (0 if sx % self.kx == 0 else 1)
-        out_sy = (sy // self.ky) + (0 if sy % self.ky == 0 else 1)
+        out_sx = sx // self.sliding[0] + (
+            0 if sx % self.sliding[0] == 0 else 1)
+        out_sy = sy // self.sliding[1] + (
+            0 if sy % self.sliding[1] == 0 else 1)
         output_size = n_channels * out_sx * out_sy * batch_size
 
         if self.err_y.v.size != output_size:
@@ -80,6 +90,8 @@ class GDPooling(nn_units.GD):
                 'N_CHANNELS': n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
+                'SLIDE_X': self.sliding[0],
+                'SLIDE_Y': self.sliding[1]
             }
             self.build_program(
                 defines, "%s/gd_pooling_%dx%dx%d_%dx%d.cl" %
@@ -89,9 +101,11 @@ class GDPooling(nn_units.GD):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         y = self.err_h.v
-        self.debug("%s: %d samples of size %dx%dx%d in %.2f sec" % (
-            self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
-            y.shape[3], time.time() - t_start))
+        self.debug(
+            "%s: %d samples of size %dx%dx%d and sliding %dx%d in %.2f sec" % (
+                self.__class__.__name__, y.shape[0], y.shape[2], y.shape[1],
+                y.shape[3], self.sliding[0], self.sliding[1],
+                time.time() - t_start))
 
     def gpu_run(self):
         """Do gradient descent.
@@ -178,13 +192,32 @@ class GDAvgPooling(GDPooling):
     Creates within initialize():
 
     """
+    def init_unpickled(self):
+        super(GDAvgPooling, self).init_unpickled()
+        self.krn_err_h_clear_ = None
+
     def initialize(self):
         super(GDAvgPooling, self).initialize()
 
         if self.device is None:
             return
 
+        if (self.krn_err_h_clear_ is None and
+           (self.sliding[0] < self.kx or self.sliding[1] < self.ky)):
+            self.krn_err_h_clear_ = self.get_kernel("array_clear")
+            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
+
         if self.krn_err_h_ is None:
             self.krn_err_h_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)
+
+    def gpu_run(self):
+        """Do gradient descent.
+        """
+        if self.krn_err_h_clear_ is not None:
+            self.err_h.unmap()  # we will clear err_h here
+            event = self.execute_kernel(self.krn_err_h_clear_,
+                                        [self.err_h.v.size], None)
+            event.wait()
+        return super(GDAvgPooling, self).gpu_run()
