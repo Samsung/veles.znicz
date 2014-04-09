@@ -17,13 +17,14 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
+import veles.znicz.nn_units as nn_units
+import veles.znicz.accumulator as accumulator
 
 root.update = {"decision": {"fail_iterations":
                             get_config(root.decision.fail_iterations, 100),
@@ -32,11 +33,14 @@ root.update = {"decision": {"fail_iterations":
                                        "cifar")},
                "global_alpha": get_config(root.global_alpha, 0.1),
                "global_lambda": get_config(root.global_lambda, 0.00005),
+               "image_saver": {"out":
+                               get_config(root.path_for_out_data,
+                                          os.path.join(root.common.cache_dir,
+                                                       "tmp/"))},
                "layers": get_config(root.layers, [100, 10]),
                "loader": {"minibatch_maxsize":
                           get_config(root.loader.minibatch_maxsize, 180)},
-               "path_for_out_data": get_config(root.path_for_out_data,
-                                               "/data/veles/cifar/tmpimg/"),
+               "n_bars": get_config(root.n_bars, 30),
                "path_for_train_data":
                get_config(root.path_for_train_data,
                           os.path.join(root.common.test_dataset_root,
@@ -131,12 +135,20 @@ class Workflow(nn_units.NNWorkflow):
                 self.forward[i].link_from(self.loader)
                 self.forward[i].input = self.loader.minibatch_data
 
+        # Add Accumulator units
+        self.accumulator = []
+        for i in range(0, len(layers)):
+            accum = accumulator.RangeAccumulator(self, bars=root.n_bars)
+            self.accumulator.append(accum)
+            if i:
+                self.accumulator[i].link_from(self.accumulator[i - 1])
+            else:
+                self.accumulator[i].link_from(self.forward[-1])
+            self.accumulator[i].input = self.forward[i].output
+
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self, out_dirs=[
-            os.path.join(root.path_for_out_data, "test"),
-            os.path.join(root.path_for_out_data, "validation"),
-            os.path.join(root.path_for_out_data, "train")])
-        self.image_saver.link_from(self.forward[-1])
+        self.image_saver = image_saver.ImageSaver(self)
+        self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
         self.image_saver.max_idx = self.forward[-1].max_idx
@@ -166,7 +178,9 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.class_samples = self.loader.class_samples
 
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
-        self.image_saver.snapshot_time = self.decision.snapshot_time
+        self.image_saver.this_save_time = self.decision.snapshot_time
+        for i in range(0, len(layers)):
+            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
         del self.gd[:]
@@ -230,6 +244,18 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+
+        # Histogram plotter
+        self.plt_hist = []
+        for i in range(0, len(layers)):
+            hist = plotting_units.Histogram(self, name="Histogram %s" %
+                                            (i + 1))
+            self.plt_hist.append(hist)
+            self.plt_hist[i].link_from(self.decision)
+            self.plt_hist[i].input = self.accumulator[i].output
+            self.plt_hist[i].n_bars = self.accumulator[i].n_bars
+            self.plt_hist[i].x = self.accumulator[i].input
+            self.plt_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
