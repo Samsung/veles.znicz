@@ -39,9 +39,8 @@ class ImageSaver(units.Unit):
             MSE task is assumed and output and target
             should be None or not None both simultaneously.
     """
-    def __init__(self, workflow):
-
-        super(ImageSaver, self).__init__(workflow)
+    def __init__(self, workflow, **kwargs):
+        super(ImageSaver, self).__init__(workflow, **kwargs)
         root.image_saver.out = get_config(root.image_saver.out,
                                           os.path.join(root.common.cache_dir,
                                                        "tmpimg"))

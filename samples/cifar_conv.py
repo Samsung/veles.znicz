@@ -31,24 +31,32 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get_config(root.decision.fail_iterations, 1000),
                             "snapshot_prefix":
                             get_config(root.decision.snapshot_prefix,
                                        "cifar")},
-               "global_alpha": get_config(root.global_alpha, 0.1),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
+               "global_alpha": get_config(root.global_alpha, 0.001),
+               "global_lambda": get_config(root.global_lambda, 0.004),
                "layers_cifar_conv":
                get_config(root.layers_cifar_conv,
-                          [{"type": "conv", "n_kernels": 50,
-                            "kx": 9, "ky": 9},
-                           {"type": "conv", "n_kernels": 100,
-                            "kx": 7, "ky": 7},
-                           {"type": "conv", "n_kernels": 200,
-                            "kx": 5, "ky": 5},
-                           {"type": "conv", "n_kernels": 400,
-                            "kx": 3, "ky": 3}, 100, 10]),
+                          [{"type": "conv", "n_kernels": 32,
+                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                           {"type": "max_pooling",
+                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                           {"type": "conv", "n_kernels": 32,
+                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                           {"type": "avg_pooling",
+                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                           {"type": "conv", "n_kernels": 64,
+                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                           {"type": "avg_pooling",
+                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                           10]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 270)},
+                          get_config(root.loader.minibatch_maxsize, 100)},
                "path_for_out_data": get_config(root.path_for_out_data,
                                                "/data/veles/cifar/tmpimg/"),
                "path_for_train_data":
@@ -113,7 +121,7 @@ class Loader(loader.FullBatchLoader):
 
 
 class Workflow(nn_units.NNWorkflow):
-    """Sample workflow.
+    """Cifar workflow.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
@@ -143,13 +151,22 @@ class Workflow(nn_units.NNWorkflow):
                 if layer["type"] == "conv":
                     aa = conv.ConvTanh(
                         self, n_kernels=layer["n_kernels"],
-                        kx=layer["kx"], ky=layer["ky"], device=device)
+                        kx=layer["kx"], ky=layer["ky"],
+                        sliding=layer.get("sliding", (1, 1, 1, 1)),
+                        padding=layer.get("padding", (0, 0, 0, 0)),
+                        device=device)
                 elif layer["type"] == "max_pooling":
                     aa = pooling.MaxPooling(
-                        self, kx=layer["kx"], ky=layer["ky"], device=device)
+                        self, kx=layer["kx"], ky=layer["ky"],
+                        sliding=layer.get("sliding",
+                                          (layer["kx"], layer["ky"])),
+                        device=device)
                 elif layer["type"] == "avg_pooling":
                     aa = pooling.AvgPooling(
-                        self, kx=layer["kx"], ky=layer["ky"], device=device)
+                        self, kx=layer["kx"], ky=layer["ky"],
+                        sliding=layer.get("sliding",
+                                          (layer["kx"], layer["ky"])),
+                        device=device)
                 else:
                     raise error.ErrBadFormat(
                         "Unsupported layer type %s" % (layer["type"]))
@@ -167,10 +184,7 @@ class Workflow(nn_units.NNWorkflow):
                 self.forward[i].input = self.loader.minibatch_data
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self, out_dirs=[
-            os.path.join(root.path_for_out_data, "test"),
-            os.path.join(root.path_for_out_data, "validation"),
-            os.path.join(root.path_for_out_data, "train")])
+        self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.input = self.loader.minibatch_data
         self.image_saver.output = self.forward[-1].output
@@ -203,7 +217,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
 
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
-        self.image_saver.snapshot_time = self.decision.snapshot_time
+        self.image_saver.this_save_time = self.decision.snapshot_time
 
         # Add gradient descent units
         del self.gd[:]
@@ -222,15 +236,19 @@ class Workflow(nn_units.NNWorkflow):
                 obj = gd_conv.GDTanh(
                     self, n_kernels=self.forward[i].n_kernels,
                     kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    sliding=self.forward[i].sliding,
+                    padding=self.forward[i].padding,
                     device=device)
             elif isinstance(self.forward[i], pooling.MaxPooling):
                 obj = gd_pooling.GDMaxPooling(
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    sliding=self.forward[i].sliding,
                     device=device)
                 obj.h_offs = self.forward[i].input_offs
             elif isinstance(self.forward[i], pooling.AvgPooling):
                 obj = gd_pooling.GDAvgPooling(
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    sliding=self.forward[i].sliding,
                     device=device)
             else:
                 obj = gd.GDTanh(self, device=device)
