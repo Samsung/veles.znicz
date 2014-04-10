@@ -222,8 +222,9 @@ class Decision(units.Unit):
         if self.minibatch_n_err is not None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
         self.fnme = os.path.join(root.common.snapshot_dir,
-                                 "%s_%s.pickle" % (self.snapshot_prefix,
-                                                   "_".join(ss)))
+                                 "%s_%s.%d.pickle" %
+                                 (self.snapshot_prefix, "_".join(ss),
+                                  3 if six.PY3 else 2))
         self.info("Snapshotting to %s" % (self.fnme))
         with open(self.fnme, "wb") as fout:
             pickle.dump(self.workflow, fout)
@@ -251,6 +252,10 @@ class Decision(units.Unit):
             except FileNotFoundError:
                 pass
         ss = []
+        if self.minibatch_metrics is not None:
+            ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
+        if self.minibatch_n_err is not None:
+            ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
         self.fnmeWb = os.path.join(root.common.snapshot_dir,
                                    "%s_%s_Wb.%d.pickle" %
                                    (self.snapshot_prefix, "_".join(ss),

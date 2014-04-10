@@ -68,7 +68,7 @@ root.update = {"decision": {"fail_iterations":
                           os.path.join(root.common.test_dataset_root,
                                        "cifar/10/test_batch")),
                "weights_plotter": {"limit":
-                                   get_config(root.weights_plotter.limit, 25)}
+                                   get_config(root.weights_plotter.limit, 64)}
                }
 
 
@@ -208,7 +208,8 @@ class Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            snapshot_prefix=root.decision.snapshot_prefix,
+            do_export_weights=True)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -284,6 +285,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Confusion matrix plotter
+        """
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
@@ -292,6 +294,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+        """
         # Weights plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(

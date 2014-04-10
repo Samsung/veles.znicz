@@ -99,7 +99,7 @@ class ImageSaver(units.Unit):
                 try:
                     os.makedirs(dirnme, mode=0o775)
                 except OSError:
-                    logging.info("Failed to create a folder %s" % dirnme)
+                    logging.debug("Failed to create a folder %s" % dirnme)
                     pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
