@@ -47,7 +47,7 @@ class TestWine(unittest.TestCase):
                           device=self.device)
         w.initialize()
         w.run()
-        epoch = w.decision.epoch_number[0]
+        epoch = w.decision.epoch_number
         self.assertEqual(epoch, 11)
         logging.info("All Ok")
 

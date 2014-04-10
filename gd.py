@@ -149,9 +149,7 @@ class GD(nn_units.GD):
         self.gradient_weights.map_invalidate()
         self.gradient_bias.map_invalidate()
 
-        batch_size = (
-            self.y.v.shape[0] if self.batch_size is None else
-            self.batch_size[0])
+        batch_size = self.batch_size or self.y.v.shape[0]
 
         alpha_batch = -self.global_alpha / batch_size
         alpha_lambda = -self.global_alpha * self.global_lambda
@@ -185,9 +183,7 @@ class GD(nn_units.GD):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = (
-            self.y.v.shape[0] if self.batch_size is None
-            else self.batch_size[0])
+        batch_size = self.batch_size or self.y.v.shape[0]
         self.cl_const[0] = -self.global_alpha / batch_size
         self.cl_const[1] = -self.global_alpha * self.global_lambda
         self.krn_weights_.set_arg(4, self.cl_const[0:1])

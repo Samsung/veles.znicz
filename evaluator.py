@@ -57,8 +57,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.labels = None  # formats.Vector()
         self.y = None  # formats.Vector()
         self.err_y = formats.Vector()
-        self.batch_size = None  # [0]
-        self.max_samples_per_epoch = None  # [0]
+        self.def_attr("batch_size", 0)
+        self.def_attr("max_samples_per_epoch", 0)
         self.compute_confusion_matrix = compute_confusion_matrix
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()
@@ -75,7 +75,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             raise error.ErrBadFormat("Incorrectly set labels.dtype "
                                      "(probably in Loader).")
         itype2 = opencl_types.get_itype_from_size(
-            self.max_samples_per_epoch[0])
+            self.max_samples_per_epoch)
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v is None or
@@ -146,7 +146,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.confusion_matrix.unmap()
         self.max_err_y_sum.unmap()
 
-        self.krn_constants_i_[0] = self.batch_size[0]
+        self.krn_constants_i_[0] = self.batch_size
         self.krn_.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
@@ -164,7 +164,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.confusion_matrix.map_write()
         self.max_err_y_sum.map_write()
 
-        batch_size = self.batch_size[0]
+        batch_size = self.batch_size
         labels = self.labels.v
         confusion_matrix = self.confusion_matrix.v
 
@@ -251,7 +251,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         itype = opencl_types.get_itype_from_size(
             (self.y.v.size // self.y.v.shape[0]))
         itype2 = opencl_types.get_itype_from_size(
-            self.max_samples_per_epoch[0])
+            self.max_samples_per_epoch)
         self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
 
         if (self.err_y.v is None or
@@ -332,7 +332,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.metrics.unmap()
         self.mse.unmap()
 
-        batch_size = self.batch_size[0]
+        batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
         self.krn_.set_arg(5, self.krn_constants_i_[0:1])
 

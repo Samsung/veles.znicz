@@ -80,13 +80,11 @@ class Decision(units.Unit):
         kwargs["use_dynamic_alpha"] = use_dynamic_alpha
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(Decision, self).__init__(workflow, **kwargs)
-        self.minibatch_class = None  # [0]
-        self.minibatch_last = None  # [0]
         self.class_samples = None  # [0, 0, 0]
         self.fail_iterations = [fail_iterations]
         self.complete = Bool(False)
         self.gd_skip = Bool(False)
-        self.epoch_number = [0]
+        self.def_attr("epoch_number", 0)
         self.epoch_ended = Bool(False)
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
@@ -320,9 +318,9 @@ class Decision(units.Unit):
         self.snapshot_time[0] = time.time()
 
     def _on_stop_condition(self, minibatch_class):
-        if (((self.epoch_number[0] - self.min_validation_mse_epoch_number >
+        if (((self.epoch_number - self.min_validation_mse_epoch_number >
               self.fail_iterations[0]) and
-                self.epoch_number[0] - self.min_validation_n_err_epoch_number >
+                self.epoch_number - self.min_validation_n_err_epoch_number >
                 self.fail_iterations[0]) or
                 self.min_validation_n_err <= 0 or
                 self.min_validation_mse <= 0):
@@ -337,7 +335,7 @@ class Decision(units.Unit):
              (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
               and self.epoch_min_mse[2] < self.min_train_mse))):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
-            self.min_validation_mse_epoch_number = self.epoch_number[0]
+            self.min_validation_mse_epoch_number = self.epoch_number
             self.min_train_mse = self.epoch_min_mse[2]
             do_snapshot = True
         if (self.minibatch_n_err is not None and
@@ -345,7 +343,7 @@ class Decision(units.Unit):
              (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
               and self.epoch_n_err[2] < self.min_train_n_err))):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
-            self.min_validation_n_err_epoch_number = self.epoch_number[0]
+            self.min_validation_n_err_epoch_number = self.epoch_number
             self.min_train_n_err = self.epoch_n_err[2]
             do_snapshot = True
         if do_snapshot:
@@ -366,7 +364,7 @@ class Decision(units.Unit):
                       (self.epoch_n_err[minibatch_class],
                        self.epoch_n_err_pt[minibatch_class]))
         self.info("Epoch %d Class %d %s in %.2f sec" %
-                  (self.epoch_number[0], minibatch_class, " ".join(ss), dt))
+                  (self.epoch_number, minibatch_class, " ".join(ss), dt))
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class
@@ -426,7 +424,7 @@ class Decision(units.Unit):
                     alpha = gd.global_alpha
             self.info("new global_alpha: %.6f" % (alpha))
         self.epoch_ended << True
-        self.epoch_number[0] += 1
+        self.epoch_number += 1
         # Reset n_err
         for i in range(0, len(self.epoch_n_err)):
             self.epoch_n_err[i] = 0
@@ -498,7 +496,7 @@ class Decision(units.Unit):
         self.t1 = t2
 
         # Training set processed
-        if self.minibatch_class[0] == 2:
+        if self.minibatch_class == 2:
             self.on_training_processed(minibatch_class)
 
         self.on_reset_statistics(minibatch_class)
@@ -528,16 +526,18 @@ class Decision(units.Unit):
         self.complete << False
         self.epoch_ended << False
 
-        minibatch_class = self.__dict__.get("slave_minibatch_class")
-        if minibatch_class is None and self.minibatch_class is not None:
-            minibatch_class = self.minibatch_class[0]
+        try:
+            minibatch_class = getattr(self, "slave_minibatch_class")
+        except AttributeError:
+            if self.minibatch_class is not None:
+                minibatch_class = self.minibatch_class
 
         self.copy_minibatch_mse(minibatch_class)
 
         # Check skip gradient descent or not
         self.gd_skip << (True if minibatch_class < 2 else False)
 
-        if self.minibatch_last[0]:
+        if self.minibatch_last:
             self._on_last_minibatch(minibatch_class)
 
     def generate_data_for_master(self):
@@ -576,10 +576,10 @@ class Decision(units.Unit):
 
     def generate_data_for_slave(self, slave=None):
         self.samples_served += 1
-        minibatch_last = self.minibatch_last[0]
+        minibatch_last = self.minibatch_last
         if minibatch_last:
             self.sample_serving_ended = True
-        data = {"minibatch_class": self.minibatch_class[0],
+        data = {"minibatch_class": self.minibatch_class,
                 "minibatch_offs": self.minibatch_offs[0] if
                 self.minibatch_offs is not None else None,
                 "minibatch_size": self.minibatch_size[0] if

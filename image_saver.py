@@ -107,7 +107,7 @@ class ImageSaver(units.Unit):
                         os.unlink(file)
                     except OSError:
                         pass
-        if self.n_saved[self.minibatch_class[0]] >= self.limit:
+        if self.n_saved[self.minibatch_class] >= self.limit:
             return
         xyt = None
         x = None
@@ -171,10 +171,10 @@ class ImageSaver(units.Unit):
                 numpy.clip(img, 0, 255, img)
             if self.max_idx is None:
                 fnme = "%s/%.6f_%d_%d.png" % (
-                    self.out_dirs[self.minibatch_class[0]], mse, lbl, idx)
+                    self.out_dirs[self.minibatch_class], mse, lbl, idx)
             else:
                 fnme = "%s/%d_as_%d.%.0fpt.%d.png" % (
-                    self.out_dirs[self.minibatch_class[0]], lbl, im, y[im],
+                    self.out_dirs[self.minibatch_class], lbl, im, y[im],
                     idx)
             img = xyt
             if img.shape[2] == 1:
@@ -183,6 +183,6 @@ class ImageSaver(units.Unit):
                 scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
             except OSError:
                 self.error("Could not save image to %s" % (fnme))
-            self.n_saved[self.minibatch_class[0]] += 1
-            if self.n_saved[self.minibatch_class[0]] >= self.limit:
+            self.n_saved[self.minibatch_class] += 1
+            if self.n_saved[self.minibatch_class] >= self.limit:
                 return
