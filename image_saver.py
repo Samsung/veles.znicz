@@ -99,7 +99,6 @@ class ImageSaver(units.Unit):
                 try:
                     os.makedirs(dirnme, mode=0o775)
                 except OSError:
-                    logging.debug("Failed to create a folder %s" % dirnme)
                     pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
@@ -183,6 +182,7 @@ class ImageSaver(units.Unit):
                 scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
             except OSError:
                 self.error("Could not save image to %s" % (fnme))
+
             self.n_saved[self.minibatch_class] += 1
             if self.n_saved[self.minibatch_class] >= self.limit:
                 return
