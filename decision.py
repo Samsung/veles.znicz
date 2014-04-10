@@ -100,6 +100,8 @@ class Decision(units.Unit):
         self.min_validation_n_err_epoch_number = -1
         self.min_train_n_err = 1.0e30
         self.snapshot_prefix = snapshot_prefix
+        self._do_snapshots = kwargs.get("do_snapshots", True)
+        self._do_export_weights = kwargs.get("do_export_weights", False)
         self.fnme = None
         self.fnmeWb = None
         self.t1 = None
@@ -202,9 +204,7 @@ class Decision(units.Unit):
 
         self.t1 = time.time()
 
-    def on_snapshot(self, minibatch_class):
-        if self.workflow is None:
-            return
+    def _on_snapshot(self, minibatch_class):
         to_rm = []
         if self.fnme is not None:
             to_rm.append("%s.bak" % (self.fnme))
@@ -215,16 +215,6 @@ class Decision(units.Unit):
             try:
                 os.rename(self.fnme, to_rm[-1])
             except OSError:
-                pass
-        if self.fnmeWb is not None:
-            to_rm.append("%s.bak" % (self.fnmeWb))
-            try:
-                os.unlink(to_rm[-1])
-            except OSError:
-                pass
-            try:
-                os.rename(self.fnmeWb, to_rm[-1])
-            except FileNotFoundError:
                 pass
         ss = []
         if self.minibatch_metrics is not None:
@@ -237,6 +227,30 @@ class Decision(units.Unit):
         self.info("Snapshotting to %s" % (self.fnme))
         with open(self.fnme, "wb") as fout:
             pickle.dump(self.workflow, fout)
+        fnme_link = os.path.join(root.common.snapshot_dir,
+                                 "%s_current.%d.pickle" %
+                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
+        try:
+            os.remove(fnme_link)
+        except:
+            pass
+        os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
+                                        "_".join(ss), 3 if six.PY3 else 2),
+                   fnme_link)
+
+    def _on_export_weights(self, minibatch_class):
+        to_rm = []
+        if self.fnmeWb is not None:
+            to_rm.append("%s.bak" % (self.fnmeWb))
+            try:
+                os.unlink(to_rm[-1])
+            except OSError:
+                pass
+            try:
+                os.rename(self.fnmeWb, to_rm[-1])
+            except FileNotFoundError:
+                pass
+        ss = []
         self.fnmeWb = os.path.join(root.common.snapshot_dir,
                                    "%s_%s_Wb.%d.pickle" %
                                    (self.snapshot_prefix, "_".join(ss),
@@ -289,20 +303,18 @@ class Decision(units.Unit):
         os.symlink("%s_%s_Wb.%d.pickle" % (self.snapshot_prefix,
                                            "_".join(ss), 3 if six.PY3 else 2),
                    fnme_link)
-        fnme_link = os.path.join(root.common.snapshot_dir,
-                                 "%s_current.%d.pickle" %
-                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
-        try:
-            os.remove(fnme_link)
-        except:
-            pass
-        os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
-                                        "_".join(ss), 3 if six.PY3 else 2),
-                   fnme_link)
+
+    def _on_export(self, minibatch_class):
+        if self.workflow is None:
+            return
+        if self._do_snapshots:
+            self._on_snapshot(minibatch_class)
+        if self._do_export_weights:
+            self._on_export_weights(minibatch_class)
         self.just_snapshotted << True
         self.snapshot_time[0] = time.time()
 
-    def on_stop_condition(self, minibatch_class):
+    def _on_stop_condition(self, minibatch_class):
         if (((self.epoch_number[0] - self.min_validation_mse_epoch_number >
               self.fail_iterations[0]) and
                 self.epoch_number[0] - self.min_validation_n_err_epoch_number >
@@ -311,7 +323,7 @@ class Decision(units.Unit):
                 self.min_validation_mse <= 0):
             self.complete << True
 
-    def on_test_validation_processed(self, minibatch_class):
+    def _on_test_validation_processed(self, minibatch_class):
         if self.just_snapshotted:
             self.just_snapshotted << False
         do_snapshot = False
@@ -332,12 +344,12 @@ class Decision(units.Unit):
             self.min_train_n_err = self.epoch_n_err[2]
             do_snapshot = True
         if do_snapshot:
-            # Do the snapshot
-            self.on_snapshot(minibatch_class)
+            # Export workflow and weights
+            self._on_export(minibatch_class)
         # Stop condition
-        self.on_stop_condition(minibatch_class)
+        self._on_stop_condition(minibatch_class)
 
-    def on_print_statistics(self, minibatch_class, dt):
+    def _on_print_statistics(self, minibatch_class, dt):
         ss = []
         if self.epoch_metrics[minibatch_class] is not None:
             ss.append("AvgMSE %.6f MaxMSE %.6f "
@@ -430,7 +442,7 @@ class Decision(units.Unit):
                 self.vectors_to_sync.keys()):
             self.sample_label[0] = ev.labels.v[0]
 
-    def on_last_minibatch(self, minibatch_class):
+    def _on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
         if (self.minibatch_confusion_matrix is not None and
                 self.minibatch_confusion_matrix.v is not None):
@@ -473,11 +485,11 @@ class Decision(units.Unit):
         # Test and Validation sets processed
         if ((self.class_samples[1] and minibatch_class == 1) or
                 (not self.class_samples[1] and minibatch_class >= 1)):
-            self.on_test_validation_processed(minibatch_class)
+            self._on_test_validation_processed(minibatch_class)
 
         # Print some statistics
         t2 = time.time()
-        self.on_print_statistics(minibatch_class, t2 - self.t1)
+        self._on_print_statistics(minibatch_class, t2 - self.t1)
         self.t1 = t2
 
         # Training set processed
@@ -521,7 +533,7 @@ class Decision(units.Unit):
         self.gd_skip << (True if minibatch_class < 2 else False)
 
         if self.minibatch_last[0]:
-            self.on_last_minibatch(minibatch_class)
+            self._on_last_minibatch(minibatch_class)
 
     def generate_data_for_master(self):
         self.sync_vectors()
