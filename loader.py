@@ -19,6 +19,10 @@ import veles.rnd as rnd
 import veles.units as units
 
 
+class LoaderError(Exception):
+    pass
+
+
 class Loader(units.Unit):
     """Loads data and provides mini-batch output interface.
 
