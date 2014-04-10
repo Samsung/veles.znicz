@@ -97,7 +97,7 @@ class ImageSaver(units.Unit):
                 self.n_saved[i] = 0
             for dirnme in self.out_dirs:
                 try:
-                    os.makedirs(dirnme, mode=0o775, exist_ok=True)
+                    os.makedirs(dirnme, mode=0o775)
                 except OSError:
                     logging.info("Failed to create a folder %s" % dirnme)
                     pass
