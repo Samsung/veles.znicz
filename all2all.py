@@ -126,7 +126,8 @@ class All2All(nn_units.Forward):
             self.build_program(defines, "%s/feed_%d_%d.cl" %
                                (root.common.cache_dir,
                                 self.input.v.size // self.input.v.shape[0],
-                                output_size))
+                                output_size),
+                               dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")
             self.krn_.set_arg(0, self.input.v_)

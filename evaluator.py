@@ -125,7 +125,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             }
             self.build_program(defines, "%s/ev_%d.cl" %
                                (root.common.cache_dir,
-                                self.y.v.size // self.y.v.shape[0]))
+                                self.y.v.size // self.y.v.shape[0]),
+                               dtype=self.y.v.dtype)
 
             self.krn_ = self.get_kernel("ev_sm")
             self.krn_.set_arg(0, self.y.v_)
@@ -307,7 +308,8 @@ class EvaluatorMSE(units.OpenCLUnit):
                               if self.class_target is not None else 0)}
             self.build_program(
                 defines, "%s/ev_%d.cl" % (root.common.cache_dir,
-                                          self.y.v.size // self.y.v.shape[0]))
+                                          self.y.v.size // self.y.v.shape[0]),
+                dtype=self.y.v.dtype)
 
             self.krn_ = self.get_kernel("ev_mse")
             self.krn_.set_arg(0, self.y.v_)

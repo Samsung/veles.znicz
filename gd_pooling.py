@@ -95,7 +95,8 @@ class GDPooling(nn_units.GD):
             }
             self.build_program(
                 defines, "%s/gd_pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
+                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky),
+                dtype=self.err_y.v.dtype)
 
     def print_times(self, t_start):
         if not self.log.isEnabledFor(logging.DEBUG):

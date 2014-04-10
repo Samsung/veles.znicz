@@ -171,7 +171,8 @@ class Conv(nn_units.Forward):
                 defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
                 root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky,
-                self.n_kernels))
+                self.n_kernels),
+                dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")
             self.krn_.set_arg(0, self.input.v_)

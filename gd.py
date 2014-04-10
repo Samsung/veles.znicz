@@ -122,7 +122,8 @@ class GD(nn_units.GD):
             self.build_program(defines, "%s/gd_%d_%d.cl" % (
                 root.common.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
-                self.y.v.size // self.y.v.shape[0]))
+                self.y.v.size // self.y.v.shape[0]),
+                dtype=self.err_y.v.dtype)
 
             self.krn_err_h_ = self.get_kernel("err_h_update")
             self.krn_err_h_.set_arg(0, self.err_y.v_)

@@ -160,7 +160,8 @@ class GD(nn_units.GD):
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
                 root.common.cache_dir,
                 self.h.v.size // self.h.v.shape[0],
-                self.y.v.size // self.y.v.shape[0]))
+                self.y.v.size // self.y.v.shape[0]),
+                dtype=self.err_y.v.dtype)
 
             self.krn_err_h_clear_ = self.get_kernel("array_clear")
             self.krn_err_h_clear_.set_arg(0, self.err_h.v_)

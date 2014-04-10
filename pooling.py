@@ -92,7 +92,8 @@ class Pooling(nn_units.Forward):
             }
             self.build_program(
                 defines, "%s/pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky))
+                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky),
+                dtype=self.input.v.dtype)
 
     def print_times(self, t_start):
         """Show some statistics.
