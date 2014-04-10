@@ -129,7 +129,7 @@ class GD(nn_units.GD):
 
         if self.prg_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
-                root.common.precision_type]
+                opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
@@ -200,7 +200,7 @@ class GD(nn_units.GD):
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.n_kernels, block_size),
@@ -239,7 +239,7 @@ class GD(nn_units.GD):
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (batch_size * sx * sy)
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         kernel_size = self.kx * self.ky * n_channels
         global_size = [
             formats.roundup(kernel_size, block_size),

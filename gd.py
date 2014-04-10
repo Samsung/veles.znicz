@@ -103,7 +103,7 @@ class GD(nn_units.GD):
 
         if self.prg_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
-                root.common.precision_type]
+                opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)
 
             defines = {
@@ -192,7 +192,7 @@ class GD(nn_units.GD):
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.err_y.v.size // self.err_y.v.shape[0],
@@ -241,7 +241,7 @@ class GD(nn_units.GD):
         self.err_y.unmap()
         self.weights.unmap()
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         global_size = [formats.roundup(self.err_h.v.size //
                        self.err_h.v.shape[0], block_size),
                        formats.roundup(self.err_h.v.shape[0],

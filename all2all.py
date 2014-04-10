@@ -117,7 +117,7 @@ class All2All(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    root.common.precision_type],
+                    opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
                 'H': self.weights.v.size // output_size,
                 'Y': output_size,
                 'BATCH': self.output.v.shape[0]}
@@ -168,7 +168,7 @@ class All2All(nn_units.Forward):
         output_size = int(self.output.v.size //
                           self.output.v.shape[0])
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
         global_size = [formats.roundup(output_size, block_size),
                        formats.roundup(self.output.v.shape[0], block_size)]
         local_size = [block_size, block_size]
@@ -313,7 +313,7 @@ class All2AllSoftmax(All2All):
         self.output.unmap()
         self.max_idx.unmap()
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
         event = self.execute_kernel(self.krn_sm_, global_size, local_size)

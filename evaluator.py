@@ -118,7 +118,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE':
-                self.device.device_info.BLOCK_SIZE[root.common.precision_type],
+                self.device.device_info.BLOCK_SIZE[
+                    opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
             }
@@ -148,7 +149,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]]
+            opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()
@@ -297,7 +298,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         if self.prg_ is None:
             defines = {
                 'BLOCK_SIZE':
-                self.device.device_info.BLOCK_SIZE[root.common.precision_type],
+                self.device.device_info.BLOCK_SIZE[
+                    opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)],
                 'BATCH': self.err_y.v.shape[0],
                 'Y': self.err_y.v.size // self.err_y.v.shape[0],
                 'SAMPLE_SIZE': 'Y',
@@ -333,7 +335,7 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.krn_.set_arg(5, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]]
+            opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()

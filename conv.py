@@ -15,6 +15,7 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.znicz.nn_units as nn_units
+import veles.opencl_types as opencl_types
 
 
 class Conv(nn_units.Forward):
@@ -151,7 +152,7 @@ class Conv(nn_units.Forward):
             defines = {
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    root.common.precision_type],
+                    opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -210,7 +211,7 @@ class Conv(nn_units.Forward):
         self.weights.unmap()  # we will use weights
         self.bias.unmap()  # we will use bias
         block_size = self.device.device_info.BLOCK_SIZE[
-            root.common.precision_type]
+            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
         global_size = [formats.roundup(self.n_kernels, block_size),
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]
