@@ -248,7 +248,7 @@ class Workflow(nn_units.NNWorkflow):
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
-            hist = plotting_units.Histogram(self, name="Histogram %s" %
+            hist = plotting_units.Histogram(self, name="Histogram output %s" %
                                             (i + 1))
             self.plt_hist.append(hist)
             self.plt_hist[i].link_from(self.decision)
@@ -256,6 +256,18 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_hist[i].n_bars = self.accumulator[i].n_bars
             self.plt_hist[i].x = self.accumulator[i].input
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
+
+        # MultiHistogram plotter
+        self.plt_multi_hist = []
+        for i in range(0, len(layers)):
+            multi_hist = plotting_units.MultiHistogram(
+                self, name="Histogram weights %s" % (i + 1))
+            self.plt_multi_hist.append(multi_hist)
+            self.plt_multi_hist[i].link_from(self.decision)
+            self.plt_multi_hist[i].hist_number = self.forward[
+                i].output_shape[0]
+            self.plt_multi_hist[i].input = self.forward[i].weights
+            self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
