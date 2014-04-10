@@ -19,12 +19,12 @@ root.loader = Config()
 
 # optional parameters
 root.update = {"all2all": {"weights_magnitude": 0.05},
-               "decision": {"fail_iterations": 250,
+               "decision": {"fail_iterations": 50,
                             "snapshot_prefix": "mnist"},
-               "global_alpha": 0.01,
+               "global_alpha": 0.1,
                "global_lambda": 0,
-               "layers_mnist": [250, 10],
-               "loader": {"minibatch_maxsize": 50},
+               "layers_mnist": [100, 10],
+               "loader": {"minibatch_maxsize": 60},
                "path_for_load_data_test_images":
                os.path.join(mnist_dir, "t10k-images.idx3-ubyte"),
                "path_for_load_data_test_label":
