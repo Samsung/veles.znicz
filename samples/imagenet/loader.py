@@ -59,6 +59,8 @@ class Loader(loader.Loader):
                                       config.root.imagenet.colorspace or "RGB")
         self._include_derivative = kwargs.get(
             "derivative", config.root.imagenet.derivative or False)
+        self._sobel_kernel_size = kwargs.get(
+            "sobel_kernel_size", config.root.imagenet.sobel_ksize or 5)
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -111,12 +113,22 @@ class Loader(loader.Loader):
             data = jpeg4py.JPEG(file_name).decode()
         except:
             self.exception("Failed to decode %s", file_name)
+        if self._include_derivative:
+            deriv = cv2.cvtColor(data, cv2.COLOR_RGB2GRAY)
+            deriv = cv2.Sobel(deriv, cv2.CV_32F if self._dtype == numpy.float32
+                                                else cv2.CV_64F,
+                              1, 1, ksize=self._sobel_kernel_size)
         if self._colorspace == "HSV":
             cv2.cvtColor(data, cv2.COLOR_RGB2HSV, data)
         if self._include_derivative:
-            # TODO(v.markovtsev): apply Sobel
-            pass
-        return data.as_type(dtype=self._dtype)
+            shape = list(data.shape)
+            shape[2] += 1
+            res = numpy.empty(shape, dtype=self._dtype)
+            res[:, :, :-1] = data[:, :, :]
+            res.ravel()[3::4] = deriv.ravel()
+        else:
+            res = data.astype(self._dtype)
+        return res
 
     def _img_file_name(self, base, full):
         res = full[len(os.path.commonprefix([base, full])):]
