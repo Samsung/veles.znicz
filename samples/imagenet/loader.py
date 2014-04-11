@@ -115,9 +115,10 @@ class Loader(loader.Loader):
             self.exception("Failed to decode %s", file_name)
         if self._include_derivative:
             deriv = cv2.cvtColor(data, cv2.COLOR_RGB2GRAY)
-            deriv = cv2.Sobel(deriv, cv2.CV_32F if self._dtype == numpy.float32
-                                                else cv2.CV_64F,
-                              1, 1, ksize=self._sobel_kernel_size)
+            deriv = cv2.Sobel(
+                deriv,
+                cv2.CV_32F if self._dtype == numpy.float32 else cv2.CV_64F, 1,
+                1, ksize=self._sobel_kernel_size)
         if self._colorspace == "HSV":
             cv2.cvtColor(data, cv2.COLOR_RGB2HSV, data)
         if self._include_derivative:
