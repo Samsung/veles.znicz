@@ -190,8 +190,7 @@ class GD(nn_units.GD):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = (self.y.v.shape[0] if self.batch_size is None
-                      else self.batch_size[0])
+        batch_size = self.batch_size or self.y.v.shape[0]
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)

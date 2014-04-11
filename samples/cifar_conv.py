@@ -114,7 +114,7 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[2] = 50000
         self.nextclass_offs[2] = 60000
 
-        self.total_samples[0] = self.original_data.shape[0]
+        self.total_samples = self.original_data.shape[0]
 
         for sample in self.original_data:
             formats.normalize(sample)
@@ -177,20 +177,21 @@ class Workflow(nn_units.NNWorkflow):
                     "convolutional or pooling")
             self.forward.append(aa)
             if i:
-                self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[-1].link_from(self.forward[-2])
+                self.forward[-1].link_attrs(self.forward[-2],
+                                            ("input", "output"))
             else:
-                self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[-1].link_from(self.loader)
+                self.forward[-1].link_attrs(self.loader,
+                                            ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.forward[-1])
-        self.image_saver.input = self.loader.minibatch_data
-        self.image_saver.output = self.forward[-1].output
-        self.image_saver.max_idx = self.forward[-1].max_idx
+        self.image_saver.link_attrs(self.forward[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
+            ("input", "minibatch_data"),
             ("indexes", "minibatch_indexes"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
@@ -198,12 +199,11 @@ class Workflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(self.image_saver)
-        self.ev.y = self.forward[-1].output
+        self.ev.link_attrs(self.forward[-1], ("y", "output"), "max_idx")
         self.ev.link_attrs(self.loader,
                            ("batch_size", "minibatch_size"),
                            ("labels", "minibatch_labels"),
                            ("max_samples_per_epoch", "total_samples"))
-        self.ev.max_idx = self.forward[-1].max_idx
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -215,24 +215,27 @@ class Workflow(nn_units.NNWorkflow):
                                  "minibatch_class",
                                  "minibatch_last",
                                  "class_samples")
-        self.decision.minibatch_n_err = self.ev.n_err
-        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
+        self.decision.link_attrs(
+            self.ev,
+            ("minibatch_n_err", "n_err"),
+            ("minibatch_confusion_matrix", "confusion_matrix"))
 
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
-        self.image_saver.this_save_time = self.decision.snapshot_time
+        self.image_saver.link_attrs(self.decision,
+                                    ("this_save_time", "snapshot_time"))
 
         # Add gradient descent units
         del self.gd[:]
         self.gd.extend(list(None for i in range(0, len(self.forward))))
         self.gd[-1] = gd.GDSM(self, device=device)
         self.gd[-1].link_from(self.decision)
-        self.gd[-1].err_y = self.ev.err_y
+        self.gd[-1].link_attrs(self.ev, "err_y")
         self.gd[-1].link_attrs(self.forward[-1],
                                ("y", "output"),
                                ("h", "input"),
                                "weights", "bias")
+        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             if isinstance(self.forward[i], conv.ConvTanh):
                 obj = gd_conv.GDTanh(
@@ -246,7 +249,7 @@ class Workflow(nn_units.NNWorkflow):
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
                     sliding=self.forward[i].sliding,
                     device=device)
-                obj.h_offs = self.forward[i].input_offs
+                obj.link_attrs(self.forward[i], ("h_offs", "input_offs"))
             elif isinstance(self.forward[i], pooling.AvgPooling):
                 obj = gd_pooling.GDAvgPooling(
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
@@ -260,13 +263,15 @@ class Workflow(nn_units.NNWorkflow):
                                  self.forward[i].__class__.__name__)
             self.gd[i] = obj
             self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].err_y = self.gd[i + 1].err_h
+            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
             self.gd[i].link_attrs(self.forward[i],
                                   ("y", "output"),
                                   ("h", "input"),
                                   "weights", "bias")
+            self.gd[i].link_attrs(self.loader,
+                                  ("batch_size", "minibatch_size"))
             self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.loader.minibatch_size
+
         self.rpt.link_from(self.gd[0])
 
         self.end_point.link_from(self.decision)

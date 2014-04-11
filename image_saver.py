@@ -57,10 +57,10 @@ class ImageSaver(units.Unit):
         self.max_idx = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
-        self.this_save_time = [0]
-        self.last_save_time = 0
-        self.n_saved = [0, 0, 0]
-        self.yuv = [1 if yuv else 0]
+        self.def_attr("this_save_time", 0)
+        self.def_attr("yuv", 1 if yuv else 0)
+        self._last_save_time = 0
+        self._n_saved = [0, 0, 0]
 
     def as_image(self, x):
         if len(x.shape) == 2:
@@ -90,11 +90,11 @@ class ImageSaver(units.Unit):
         self.labels.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
-        if self.last_save_time < self.this_save_time[0]:
-            self.last_save_time = self.this_save_time[0]
+        if self._last_save_time < self.this_save_time:
+            self._last_save_time = self.this_save_time
 
-            for i in range(len(self.n_saved)):
-                self.n_saved[i] = 0
+            for i in range(len(self._n_saved)):
+                self._n_saved[i] = 0
             for dirnme in self.out_dirs:
                 try:
                     os.makedirs(dirnme, mode=0o775)
@@ -106,14 +106,14 @@ class ImageSaver(units.Unit):
                         os.unlink(file)
                     except OSError:
                         pass
-        if self.n_saved[self.minibatch_class] >= self.limit:
+        if self._n_saved[self.minibatch_class] >= self.limit:
             return
         xyt = None
         x = None
         y = None
         t = None
         im = 0
-        for i in range(0, self.minibatch_size[0]):
+        for i in range(0, self.minibatch_size):
             x = self.as_image(self.input[i])
             idx = self.indexes[i]
             lbl = self.labels[i]
@@ -179,10 +179,10 @@ class ImageSaver(units.Unit):
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
             try:
-                scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv[0]))
+                scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv))
             except OSError:
                 self.error("Could not save image to %s" % (fnme))
 
-            self.n_saved[self.minibatch_class] += 1
-            if self.n_saved[self.minibatch_class] >= self.limit:
+            self._n_saved[self.minibatch_class] += 1
+            if self._n_saved[self.minibatch_class] >= self.limit:
                 return

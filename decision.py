@@ -81,7 +81,7 @@ class Decision(units.Unit):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(Decision, self).__init__(workflow, **kwargs)
         self.class_samples = None  # [0, 0, 0]
-        self.fail_iterations = [fail_iterations]
+        self.def_attr("fail_iterations", fail_iterations)
         self.complete = Bool(False)
         self.gd_skip = Bool(False)
         self.def_attr("epoch_number", 0)
@@ -105,7 +105,7 @@ class Decision(units.Unit):
         self.t1 = None
         self.epoch_metrics = [None, None, None]
         self.just_snapshotted = Bool(False)
-        self.snapshot_time = [0]
+        self.def_attr("snapshot_time", 0)
         self.minibatch_mse = None
         self.epoch_samples_mse = ([formats.Vector(),
                                    formats.Vector(),
@@ -124,10 +124,10 @@ class Decision(units.Unit):
         self.max_err_y_sums = [0, 0, 0]
         self.minibatch_max_err_y_sum = None  # formats.Vector()
         self.vectors_to_sync = {}
-        self.sample_input = [None]
-        self.sample_output = [None]
-        self.sample_target = [None]
-        self.sample_label = [None]
+        self.def_attr("sample_input", None)
+        self.def_attr("sample_output", None)
+        self.def_attr("sample_target", None)
+        self.def_attr("sample_label", None)
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.ev = None
@@ -189,16 +189,16 @@ class Decision(units.Unit):
 
         # Initialize sample_input, sample_output, sample_target if necessary
         if self.workflow.forward[0].input in self.vectors_to_sync:
-            self.sample_input[0] = numpy.zeros_like(
+            self.sample_input = numpy.zeros_like(
                 self.workflow.forward[0].input[0])
         if self.workflow.forward[-1].output in self.vectors_to_sync:
-            self.sample_output[0] = numpy.zeros_like(
+            self.sample_output = numpy.zeros_like(
                 self.workflow.forward[-1].output[0])
         ev = self.ev if self.ev is not None else self.workflow.ev
         if (ev.__dict__.get("target") is not None
                 and ev.target in self.vectors_to_sync
                 and ev.target.v is not None):
-            self.sample_target[0] = numpy.zeros_like(ev.target[0])
+            self.sample_target = numpy.zeros_like(ev.target[0])
 
         self.t1 = time.time()
 
@@ -315,13 +315,13 @@ class Decision(units.Unit):
         if self._do_export_weights:
             self._on_export_weights(minibatch_class)
         self.just_snapshotted << True
-        self.snapshot_time[0] = time.time()
+        self.snapshot_time = time.time()
 
     def _on_stop_condition(self, minibatch_class):
         if (((self.epoch_number - self.min_validation_mse_epoch_number >
-              self.fail_iterations[0]) and
+              self.fail_iterations) and
                 self.epoch_number - self.min_validation_n_err_epoch_number >
-                self.fail_iterations[0]) or
+                self.fail_iterations) or
                 self.min_validation_n_err <= 0 or
                 self.min_validation_mse <= 0):
             self.complete << True
@@ -424,7 +424,7 @@ class Decision(units.Unit):
                     alpha = gd.global_alpha
             self.info("new global_alpha: %.6f" % (alpha))
         self.epoch_ended << True
-        self.epoch_number += 1
+        self.epoch_number = self.epoch_number + 1
         # Reset n_err
         for i in range(0, len(self.epoch_n_err)):
             self.epoch_n_err[i] = 0
@@ -434,16 +434,16 @@ class Decision(units.Unit):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
-        if self.sample_input[0] is not None:
-            self.sample_input[0][:] = self.workflow.forward[0].input[0]
-        if self.sample_output[0] is not None:
-            self.sample_output[0][:] = self.workflow.forward[-1].output[0]
+        if self.sample_input is not None:
+            self.sample_input[:] = self.workflow.forward[0].input[0]
+        if self.sample_output is not None:
+            self.sample_output[:] = self.workflow.forward[-1].output[0]
         ev = self.ev if self.ev is not None else self.workflow.ev
-        if self.sample_target[0] is not None:
-            self.sample_target[0][:] = ev.target[0]
+        if self.sample_target is not None:
+            self.sample_target[:] = ev.target[0]
         if (ev.__dict__.get("labels") in
                 self.vectors_to_sync.keys()):
-            self.sample_label[0] = ev.labels[0]
+            self.sample_label = ev.labels[0]
 
     def _on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
@@ -504,10 +504,10 @@ class Decision(units.Unit):
     def copy_minibatch_mse(self, minibatch_class):
         minibatch_offs = self.__dict__.get("slave_minibatch_offs")
         if minibatch_offs is None and self.minibatch_offs is not None:
-            minibatch_offs = self.minibatch_offs[0]
+            minibatch_offs = self.minibatch_offs
         minibatch_size = self.__dict__.get("slave_minibatch_size")
         if minibatch_size is None and self.minibatch_size is not None:
-            minibatch_size = self.minibatch_size[0]
+            minibatch_size = self.minibatch_size
         if minibatch_offs is None or minibatch_size is None:
             return
 
@@ -580,9 +580,9 @@ class Decision(units.Unit):
         if minibatch_last:
             self.sample_serving_ended = True
         data = {"minibatch_class": self.minibatch_class,
-                "minibatch_offs": self.minibatch_offs[0] if
+                "minibatch_offs": self.minibatch_offs if
                 self.minibatch_offs is not None else None,
-                "minibatch_size": self.minibatch_size[0] if
+                "minibatch_size": self.minibatch_size if
                 self.minibatch_size is not None else None}
         if minibatch_last:
             self.has_data_for_slave = False
