@@ -82,7 +82,7 @@ class Loader(loader.FullBatchLoader):
         self.nextclass_offs[1] = 0
         self.nextclass_offs[2] = self.original_data.shape[0]
 
-        self.total_samples[0] = self.original_data.shape[0]
+        self.total_samples = self.original_data.shape[0]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -112,20 +112,24 @@ class Workflow(nn_units.NNWorkflow):
                                             device=device)
             self.forward.append(aa)
             if i:
-                self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[-1].link_from(self.forward[-2])
+                self.forward[-1].link_attrs(self.forward[-2],
+                                            ("input", "output"))
             else:
-                self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[-1].link_from(self.loader)
+                self.forward[-1].link_attrs(self.loader,
+                                            ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(self.forward[-1])
-        self.ev.y = self.forward[-1].output
-        self.ev.batch_size = self.loader.minibatch_size
-        self.ev.labels = self.loader.minibatch_labels
-        self.ev.max_idx = self.forward[-1].max_idx
-        self.ev.max_samples_per_epoch = self.loader.total_samples
+        self.ev.link_attrs(self.forward[-1],
+                           ("y", "output"),
+                           "max_idx")
+        self.ev.link_attrs(self.loader,
+                           ("batch_size", "minibatch_size"),
+                           ("max_samples_per_epoch", "total_samples"),
+                           ("labels", "minibatch_labels"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -133,43 +137,44 @@ class Workflow(nn_units.NNWorkflow):
             fail_iterations=root.decision.fail_iterations,
             snapshot_prefix=root.decision.snapshot_prefix)
         self.decision.link_from(self.ev)
-        self.decision.minibatch_class = self.loader.minibatch_class
-        self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_n_err = self.ev.n_err
-        self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
-        self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
-        self.decision.class_samples = self.loader.class_samples
+        self.decision.link_attrs(self.loader, "minibatch_class",
+                                 "minibatch_last", "class_samples")
+        self.decision.link_attrs(
+            self.ev,
+            ("minibatch_n_err", "n_err"),
+            ("minibatch_confusion_matrix", "confusion_matrix"),
+            ("minibatch_max_err_y_sum", "max_err_y_sum"))
 
         # Add gradient descent units
         del self.gd[:]
         self.gd.extend(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDSM(self, device=device)
-        # self.gd[-1].link_from(self.decision)
-        self.gd[-1].err_y = self.ev.err_y
-        self.gd[-1].y = self.forward[-1].output
-        self.gd[-1].h = self.forward[-1].input
-        self.gd[-1].weights = self.forward[-1].weights
-        self.gd[-1].bias = self.forward[-1].bias
+        self.gd[-1].link_from(self.decision)
+        self.gd[-1].link_attrs(self.ev, "err_y")
+        self.gd[-1].link_attrs(self.forward[-1],
+                               ("y", "output"),
+                               ("h", "input"),
+                               "weights", "bias")
+        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].err_y = self.gd[i + 1].err_h
-            self.gd[i].y = self.forward[i].output
-            self.gd[i].h = self.forward[i].input
-            self.gd[i].weights = self.forward[i].weights
-            self.gd[i].bias = self.forward[i].bias
+            self.gd[i].link_attrs(self.gd[i + 1],
+                                  ("err_y", "err_h"))
+            self.gd[i].link_attrs(self.forward[i],
+                                  ("y", "output"),
+                                  ("h", "input"),
+                                  "weights", "bias")
+            self.gd[i].link_attrs(self.loader,
+                                  ("batch_size", "minibatch_size"))
             self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
         self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
-
-        self.gd[-1].link_from(self.decision)
 
 
 def run(load, main):

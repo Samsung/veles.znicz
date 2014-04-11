@@ -177,10 +177,11 @@ class Workflow(nn_units.NNWorkflow):
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
-        self.ev.batch_size = self.loader.minibatch_size
         self.ev.labels = self.loader.minibatch_labels
         self.ev.max_idx = self.forward[-1].max_idx
-        self.ev.max_samples_per_epoch = self.loader.total_samples
+        self.ev.link_attrs(self.loader,
+                           ("batch_size", "minibatch_size"),
+                           ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
