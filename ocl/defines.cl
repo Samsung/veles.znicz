@@ -84,7 +84,6 @@ inline c_dtype c_relu(c_dtype a) {
 
 #ifdef USE_ATOMICS
 
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
 
 /// @brief atom_add for float.
 inline float atom_add_float(__global float *addr, float vle) {
@@ -105,6 +104,7 @@ inline float atom_add_float(__global float *addr, float vle) {
 
 /// @brief atom_add for double.
 #if sizeof_dtype == 8
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
 inline double atom_add_double(__global double *addr, double vle) {
   double sum = *addr;
   double oldsum;
@@ -124,14 +124,16 @@ inline double atom_add_double(__global double *addr, double vle) {
 
 /// @brief atom_add for float2.
 inline float2 atom_add_float2(__global float2 *addr, float2 vle) {
-  return (float2)(atom_add_float(&addr[0], vle.x), atom_add_float(&addr[1], vle.y));
+  __global float *a = (__global float*)addr;
+  return (float2)(atom_add_float(a, vle.x), atom_add_float(a + 1, vle.y));
 }
 
 
 /// @brief atom_add for double2.
 #if sizeof_dtype == 8
 inline double2 atom_add_double2(__global double2 *addr, double2 vle) {
-  return (double2)(atom_add_double(&addr[0], vle.x), atom_add_double(&addr[1], vle.y));
+  __global double *a = (__global double*)addr;
+  return (double2)(atom_add_double(a, vle.x), atom_add_double(a + 1, vle.y));
 }
 #endif
 

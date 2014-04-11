@@ -234,7 +234,7 @@ class Workflow(nn_units.NNWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
-            if isinstance(self.forward[i], conv.Conv):
+            if isinstance(self.forward[i], conv.ConvTanh):
                 obj = gd_conv.GDTanh(
                     self, n_kernels=self.forward[i].n_kernels,
                     kx=self.forward[i].kx, ky=self.forward[i].ky,
@@ -252,8 +252,12 @@ class Workflow(nn_units.NNWorkflow):
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
                     sliding=self.forward[i].sliding,
                     device=device)
-            else:
+            elif isinstance(self.forward[i], all2all.All2AllTanh):
                 obj = gd.GDTanh(self, device=device)
+            else:
+                raise ValueError("Unsupported forward unit type "
+                                 " encountered: %s" %
+                                 self.forward[i].__class__.__name__)
             self.gd[i] = obj
             self.gd[i].link_from(self.gd[i + 1])
             self.gd[i].err_y = self.gd[i + 1].err_h

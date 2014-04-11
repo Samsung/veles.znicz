@@ -36,6 +36,9 @@
 ///          KY - pooling kernel height,
 ///          SLIDE_X - kernel sliding by x-axis,
 ///          SLIDE_Y - kernel sliding by y-axis.
+///          Kernel should be run as:
+///          global_size = [number of elements in err_y],
+///          local_size = None.
 __kernel
 void gd_max_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *err_h,
                     __global int /*IN*/ *h_offs) {
@@ -62,6 +65,9 @@ void gd_max_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
 ///          KY - pooling kernel height,
 ///          SLIDE_X - kernel sliding by x-axis,
 ///          SLIDE_Y - kernel sliding by y-axis.
+///          Kernel should be run as:
+///          global_size = [number of elements in err_y],
+///          local_size = None.
 __kernel
 void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *err_h) {
   int target_x = get_global_id(0) % (OUT_SX * N_CHANNELS),
@@ -69,13 +75,13 @@ void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
       start_y = target_y % OUT_SY * SLIDE_Y;
 
-  #if SY % SLIDE_Y == 0
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   #define NY KY
   #else
   #define NY (target_y % OUT_SY < OUT_SY - 1 ? KY : MINIMUM(KY, SY - (OUT_SY - 1) * SLIDE_Y))
   #endif
 
-  #if SX % SLIDE_X == 0
+  #if (OUT_SX - 1) * SLIDE_X + KX == SX
   #define NX KX
   #else
   #define NX (TARGET_PIXEL_X < OUT_SX - 1 ? KX: MINIMUM(KX, SX - (OUT_SX - 1) * SLIDE_X))
@@ -85,12 +91,12 @@ void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
   c_dtype avg = err_y[idx] / (NY * NX);
 
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
-  #if SY % SLIDE_Y == 0
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
   #else
   for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
   #endif
-    #if SX % SLIDE_X == 0
+    #if (OUT_SX - 1) * SLIDE_X + KX == SX
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
     #else
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {

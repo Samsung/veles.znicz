@@ -49,14 +49,14 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-  #if SY % SLIDE_Y == 0
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
   #else
   // There are partial windows at the bottom
   for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
   #endif
-    #if SX % SLIDE_X == 0
+    #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
     #else
@@ -106,14 +106,14 @@ void do_avg_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y) {
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-  #if SY % SLIDE_Y == 0
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
   #else
   // There are partial windows at the bottom
   for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
   #endif
-    #if SX % SLIDE_X == 0
+    #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
     #else
@@ -124,13 +124,13 @@ void do_avg_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y) {
     }
   }
 
-  #if SY % SLIDE_Y == 0
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   #define NY KY
   #else
   #define NY (target_y % OUT_SY < OUT_SY - 1 ? KY : MINIMUM(KY, SY - (OUT_SY - 1) * SLIDE_Y))
   #endif
 
-  #if SX % SLIDE_X == 0
+  #if (OUT_SX - 1) * SLIDE_X + KX == SX
   #define NX KX
   #else
   #define NX (TARGET_PIXEL_X < OUT_SX - 1 ? KX: MINIMUM(KX, SX - (OUT_SX - 1) * SLIDE_X))
