@@ -23,6 +23,8 @@ class TestGDConv(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
+        import os
+        os.environ["PYOPENCL_CTX"] = "0:0"
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -85,6 +87,7 @@ class TestGDConv(unittest.TestCase):
 
         c.initialize()
         c.gpu_err_h_update()
+        c.gpu_weights_update = c.dereference_attributes(c.gpu_weights_update)
         c.gpu_weights_update()
         c.err_h.map_read()
         c.weights.map_read()
@@ -175,6 +178,7 @@ class TestGDConv(unittest.TestCase):
 
         c.initialize()
         c.gpu_err_h_update()
+        c.gpu_weights_update = c.dereference_attributes(c.gpu_weights_update)
         c.gpu_weights_update()
         c.err_h.map_read()
         c.weights.map_read()
@@ -187,7 +191,9 @@ class TestGDConv(unittest.TestCase):
                           [1.1, -1.1, -5.2, -1.7, 10.5]]], dtype=dtype)
         max_diff = numpy.fabs(t.ravel() - c.err_h.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+                        "Result differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
+                        (max_diff, " ".join("%.2f" % x for x in t.ravel()),
+                         " ".join("%.2f" % x for x in c.err_h.v.ravel())))
         logging.info("Err_h is right")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()

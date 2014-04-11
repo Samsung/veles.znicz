@@ -245,8 +245,10 @@ class GD(nn_units.GD):
             formats.roundup(kernel_size, block_size),
             formats.roundup(
                 batch_size *
-                ((sx + self.padding[0] - self.kx) // self.sliding[0] + 1) *
-                ((sy + self.padding[1] - self.ky) // self.sliding[1] + 1),
+                ((sx + self.padding[0] + self.padding[2] - self.kx) //
+                 self.sliding[0] + 1) *
+                ((sy + self.padding[1] + self.padding[3] - self.ky) //
+                 self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
         event = self.execute_kernel(self.krn_err_h_, global_size, local_size)

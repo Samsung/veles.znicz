@@ -86,6 +86,7 @@ class TestGDConv(unittest.TestCase):
 
         c.initialize()
         c.gpu_err_h_update()
+        c.gpu_weights_update = c.dereference_attributes(c.gpu_weights_update)
         c.gpu_weights_update()
         c.err_h.map_read()
         c.weights.map_read()
