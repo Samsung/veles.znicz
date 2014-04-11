@@ -23,8 +23,6 @@ class TestGDConv(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        import os
-        os.environ["PYOPENCL_CTX"] = "0:0"
         self.device = opencl.Device()
 
     def tearDown(self):
