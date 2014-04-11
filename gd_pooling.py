@@ -54,6 +54,7 @@ class GDPooling(nn_units.GD):
         super(GDPooling, self).init_unpickled()
         self.cl_sources_["gradient_descent_pooling.cl"] = {}
         self.krn_err_h_ = None
+        self.krn_err_h_clear_ = None
 
     def initialize(self):
         super(GDPooling, self).initialize()
@@ -98,6 +99,10 @@ class GDPooling(nn_units.GD):
                 (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky),
                 dtype=self.err_y.v.dtype)
 
+        if self.krn_err_h_clear_ is None:
+            self.krn_err_h_clear_ = self.get_kernel("array_clear")
+            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
+
     def print_times(self, t_start):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
@@ -113,8 +118,17 @@ class GDPooling(nn_units.GD):
         """
         self.err_h.unmap()  # we will update err_h
         self.err_y.unmap()  # we will use err_y
-        event = self.execute_kernel(self.krn_err_h_,
-                                    [self.err_y.v.size], None)
+
+        # Clear err_h
+        event = self.execute_kernel(self.krn_err_h_clear_,
+                                    [self.err_h.v.size], None)
+        event.wait()
+
+        # Compute err_h
+        event = self.execute_kernel(
+            self.krn_err_h_,
+            [(self.batch_size or self.err_y.v.shape[0]) *
+             (self.err_y.v.size // self.err_y.v.shape[0])], None)
         event.wait()
 
     def cpu_run(self):
@@ -162,10 +176,6 @@ class GDMaxPooling(GDPooling):
         if self.device is None:
             return
 
-        if self.krn_err_h_clear_ is None:
-            self.krn_err_h_clear_ = self.get_kernel("array_clear")
-            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
-
         if self.krn_err_h_ is None:
             self.krn_err_h_ = self.get_kernel("gd_max_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
@@ -175,10 +185,6 @@ class GDMaxPooling(GDPooling):
     def gpu_run(self):
         """Do gradient descent.
         """
-        self.err_h.unmap()  # we will clear err_h here
-        event = self.execute_kernel(self.krn_err_h_clear_,
-                                    [self.err_h.v.size], None)
-        event.wait()
         self.h_offs.unmap()  # we will use h_offs
         return super(GDMaxPooling, self).gpu_run()
 
@@ -193,32 +199,13 @@ class GDAvgPooling(GDPooling):
     Creates within initialize():
 
     """
-    def init_unpickled(self):
-        super(GDAvgPooling, self).init_unpickled()
-        self.krn_err_h_clear_ = None
-
     def initialize(self):
         super(GDAvgPooling, self).initialize()
 
         if self.device is None:
             return
 
-        if (self.krn_err_h_clear_ is None and
-           (self.sliding[0] < self.kx or self.sliding[1] < self.ky)):
-            self.krn_err_h_clear_ = self.get_kernel("array_clear")
-            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
-
         if self.krn_err_h_ is None:
             self.krn_err_h_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)
-
-    def gpu_run(self):
-        """Do gradient descent.
-        """
-        if self.krn_err_h_clear_ is not None:
-            self.err_h.unmap()  # we will clear err_h here
-            event = self.execute_kernel(self.krn_err_h_clear_,
-                                        [self.err_h.v.size], None)
-            event.wait()
-        return super(GDAvgPooling, self).gpu_run()
