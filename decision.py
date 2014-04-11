@@ -190,15 +190,15 @@ class Decision(units.Unit):
         # Initialize sample_input, sample_output, sample_target if necessary
         if self.workflow.forward[0].input in self.vectors_to_sync:
             self.sample_input[0] = numpy.zeros_like(
-                self.workflow.forward[0].input.v[0])
+                self.workflow.forward[0].input[0])
         if self.workflow.forward[-1].output in self.vectors_to_sync:
             self.sample_output[0] = numpy.zeros_like(
-                self.workflow.forward[-1].output.v[0])
+                self.workflow.forward[-1].output[0])
         ev = self.ev if self.ev is not None else self.workflow.ev
         if (ev.__dict__.get("target") is not None
                 and ev.target in self.vectors_to_sync
                 and ev.target.v is not None):
-            self.sample_target[0] = numpy.zeros_like(ev.target.v[0])
+            self.sample_target[0] = numpy.zeros_like(ev.target[0])
 
         self.t1 = time.time()
 
@@ -376,7 +376,7 @@ class Decision(units.Unit):
                 self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_invalidate()
             self.minibatch_metrics.v[:] = 0
-            self.minibatch_metrics.v[2] = 1.0e30
+            self.minibatch_metrics[2] = 1.0e30
         if (len(self.epoch_samples_mse) > minibatch_class and
                 self.epoch_samples_mse[minibatch_class] is not None and
                 self.epoch_samples_mse[minibatch_class].v is not None):
@@ -435,15 +435,15 @@ class Decision(units.Unit):
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
         if self.sample_input[0] is not None:
-            self.sample_input[0][:] = self.workflow.forward[0].input.v[0]
+            self.sample_input[0][:] = self.workflow.forward[0].input[0]
         if self.sample_output[0] is not None:
-            self.sample_output[0][:] = self.workflow.forward[-1].output.v[0]
+            self.sample_output[0][:] = self.workflow.forward[-1].output[0]
         ev = self.ev if self.ev is not None else self.workflow.ev
         if self.sample_target[0] is not None:
-            self.sample_target[0][:] = ev.target.v[0]
+            self.sample_target[0][:] = ev.target[0]
         if (ev.__dict__.get("labels") in
                 self.vectors_to_sync.keys()):
-            self.sample_label[0] = ev.labels.v[0]
+            self.sample_label[0] = ev.labels[0]
 
     def _on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
@@ -457,7 +457,7 @@ class Decision(units.Unit):
                 self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_read()
             self.epoch_min_mse[minibatch_class] = (
-                min(self.minibatch_metrics.v[0] /
+                min(self.minibatch_metrics[0] /
                     self.class_samples[minibatch_class],
                     self.epoch_min_mse[minibatch_class]))
             # Copy metrics
@@ -471,7 +471,7 @@ class Decision(units.Unit):
         if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_read()
-            self.epoch_n_err[minibatch_class] = self.minibatch_n_err.v[0]
+            self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
             # Compute error in percents
             if self.class_samples[minibatch_class]:
                 self.epoch_n_err_pt[minibatch_class] = (
@@ -483,7 +483,7 @@ class Decision(units.Unit):
                 self.minibatch_max_err_y_sum.v is not None):
             self.minibatch_max_err_y_sum.map_read()
             self.max_err_y_sums[minibatch_class] = (
-                self.minibatch_max_err_y_sum.v[0])
+                self.minibatch_max_err_y_sum[0])
 
         # Test and Validation sets processed
         if ((self.class_samples[1] and minibatch_class == 1) or
@@ -616,10 +616,10 @@ class Decision(units.Unit):
         if (self.minibatch_metrics is not None and
                 self.minibatch_metrics.v is not None):
             self.minibatch_metrics.map_write()
-            self.minibatch_metrics.v[0] += data["minibatch_metrics"][0]
-            self.minibatch_metrics.v[1] = max(self.minibatch_metrics.v[1],
+            self.minibatch_metrics[0] += data["minibatch_metrics"][0]
+            self.minibatch_metrics[1] = max(self.minibatch_metrics[1],
                                               data["minibatch_metrics"][1])
-            self.minibatch_metrics.v[2] = min(self.minibatch_metrics.v[2],
+            self.minibatch_metrics[2] = min(self.minibatch_metrics[2],
                                               data["minibatch_metrics"][2])
         if (self.minibatch_mse is not None and
                 self.minibatch_mse.v is not None):

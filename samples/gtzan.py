@@ -218,7 +218,7 @@ class Loader(loader.Loader):
         files = self.data["files"]
         for i in range(minibatch_size):
             fnme = self.fnmes[idxs[i]]
-            self.minibatch_labels.v[i] = self.file_labels[idxs[i]]
+            self.minibatch_labels[i] = self.file_labels[idxs[i]]
             v = files[fnme]
             features = v["features"]
             limit = v["limit"]

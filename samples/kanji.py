@@ -99,7 +99,7 @@ class Loader(loader.Loader):
         self.class_target.v = numpy.empty(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
         for i, target in enumerate(targets):
-            self.class_target.v[i] = target
+            self.class_target[i] = target
 
         self.label_dtype = opencl_types.itypes[
             opencl_types.get_itype_from_size(len(targets))]
@@ -142,7 +142,7 @@ class Loader(loader.Loader):
 
         self.minibatch_target.reset()
         sh = [self.minibatch_maxsize]
-        sh.extend(self.class_target.v[0].shape)
+        sh.extend(self.class_target[0].shape)
         self.minibatch_target.v = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
@@ -172,9 +172,9 @@ class Loader(loader.Loader):
             data = sample["data"]
             lbl = sample["lbl"]
             fin.close()
-            self.minibatch_data.v[i] = data
-            self.minibatch_labels.v[i] = lbl
-            self.minibatch_target.v[i] = self.class_target[lbl]
+            self.minibatch_data[i] = data
+            self.minibatch_labels[i] = lbl
+            self.minibatch_target[i] = self.class_target[lbl]
 
 
 class Workflow(nn_units.NNWorkflow):

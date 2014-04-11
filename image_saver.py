@@ -114,18 +114,18 @@ class ImageSaver(units.Unit):
         t = None
         im = 0
         for i in range(0, self.minibatch_size[0]):
-            x = self.as_image(self.input.v[i])
-            idx = self.indexes.v[i]
-            lbl = self.labels.v[i]
+            x = self.as_image(self.input[i])
+            idx = self.indexes[i]
+            lbl = self.labels[i]
             if self.max_idx is not None:
                 im = self.max_idx[i]
                 if im == lbl:
                     continue
-                y = self.output.v[i]
+                y = self.output[i]
             if (self.max_idx is None and
                     self.output is not None and self.target is not None):
-                y = self.as_image(self.output.v[i])
-                t = self.as_image(self.target.v[i])
+                y = self.as_image(self.output[i])
+                t = self.as_image(self.target[i])
                 y = y.reshape(t.shape)
             if self.max_idx is None and y is not None:
                 mse = numpy.linalg.norm(t - y) / x.size

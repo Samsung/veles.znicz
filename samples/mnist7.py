@@ -63,7 +63,7 @@ class Loader(mnist.Loader):
             dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
-            self.original_target[i] = self.class_target.v[label]
+            self.original_target[i] = self.class_target[label]
 
 
 class Workflow(nn_units.NNWorkflow):

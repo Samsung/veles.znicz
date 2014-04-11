@@ -424,15 +424,15 @@ class FullBatchLoader(Loader):
             self.minibatch_offs:self.minibatch_offs + minibatch_size]
 
         for i, ii in enumerate(idxs[:minibatch_size]):
-            self.minibatch_data.v[i] = self.original_data[int(ii)]
+            self.minibatch_data[i] = self.original_data[int(ii)]
 
         if self.original_labels is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_labels.v[i] = self.original_labels[int(ii)]
+                self.minibatch_labels[i] = self.original_labels[int(ii)]
 
         if self.original_target is not None:
             for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_target.v[i] = self.original_target[int(ii)]
+                self.minibatch_target[i] = self.original_target[int(ii)]
 
 
 class ImageLoader(FullBatchLoader):

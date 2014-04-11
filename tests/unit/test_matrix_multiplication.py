@@ -42,7 +42,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         b[:] = bt[:]
         bias = numpy.empty(self.bias.v.shape, dtype=dtype)
         bias[:] = self.bias.v[:]
-        c = numpy.empty(self.c.v[0].shape, dtype=dtype)
+        c = numpy.empty(self.c[0].shape, dtype=dtype)
         numpy.dot(a, b, c)
         c[:] += bias
         c *= 0.6666
@@ -136,10 +136,10 @@ class TestMatrixMultiplication(unittest.TestCase):
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self._do_cpu_tst()
             self._do_tst(self.device, block_size)
-            max_diff = numpy.fabs(c.ravel() - self.c.v[0].ravel()).max()
+            max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
-            num_nz = numpy.count_nonzero(self.c.v[1].ravel())
+            num_nz = numpy.count_nonzero(self.c[1].ravel())
             self.assertEqual(
                 num_nz, 0,
                 "Written some values outside of the target array bounds")

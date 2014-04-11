@@ -301,7 +301,7 @@ class All2AllSoftmax(All2All):
         self.output.map_write()
         self.max_idx.map_invalidate()
         for i in range(0, self.output.v.shape[0]):
-            sample = self.output.v[i]
+            sample = self.output[i]
             im = sample.argmax()
             self.max_idx[i] = im
             m = sample[im]

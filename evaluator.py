@@ -170,10 +170,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         n_ok = 0
         for i in range(batch_size):  # loop by batch
-            y = formats.ravel(self.y.v[i])
-            err_y = formats.ravel(self.err_y.v[i])
+            y = formats.ravel(self.y[i])
+            err_y = formats.ravel(self.err_y[i])
 
-            max_idx = self.max_idx.v[i]
+            max_idx = self.max_idx[i]
             confusion_matrix[max_idx, labels[i]] += 1
             if max_idx == labels[i]:
                 n_ok += 1
@@ -182,15 +182,15 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             err_y[:] = y[:]
             err_y[labels[i]] -= 1.0
             if err_y.dtype in (numpy.complex64, numpy.complex128):
-                self.max_err_y_sum.v[0] = max(self.max_err_y_sum.v[0],
+                self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
                                               numpy.linalg.norm(err_y))
             else:
-                self.max_err_y_sum.v[0] = max(self.max_err_y_sum.v[0],
+                self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
                                               (numpy.fabs(err_y)).sum())
         # Set errors for excessive samples to zero
         if batch_size < self.err_y.v.shape[0]:
             self.err_y.v[batch_size:] = 0.0
-        self.n_err.v[0] += batch_size - n_ok
+        self.n_err[0] += batch_size - n_ok
 
 
 class EvaluatorMSE(units.OpenCLUnit):
@@ -263,7 +263,7 @@ class EvaluatorMSE(units.OpenCLUnit):
             self.metrics.reset()
             self.metrics.v = numpy.zeros(
                 3, dtype=opencl_types.dtypes[root.common.dtype])
-            self.metrics.v[2] = 1.0e30  # mse_min
+            self.metrics[2] = 1.0e30  # mse_min
 
         if (self.mse.v is None or
                 self.mse.v.size != self.err_y.v.shape[0]):

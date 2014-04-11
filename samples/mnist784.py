@@ -119,15 +119,15 @@ class Loader(mnist.Loader):
         for i in range(0, 10):
             img = do_plot(root.path_for_load_data,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
-            self.class_target.v[i] = img.ravel().astype(
+            self.class_target[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.dtype])
-            formats.normalize(self.class_target.v[i])
+            formats.normalize(self.class_target[i])
         self.original_target = numpy.zeros(
             [self.original_labels.shape[0], self.class_target.v.shape[1]],
             dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
-            self.original_target[i] = self.class_target.v[label]
+            self.original_target[i] = self.class_target[label]
 
 
 class Workflow(nn_units.NNWorkflow):
