@@ -188,9 +188,10 @@ class Workflow(nn_units.NNWorkflow):
         self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
         self.ev.y = self.forward[-1].output
-        self.ev.batch_size = self.loader.minibatch_size
-        self.ev.target = self.loader.minibatch_target
-        self.ev.max_samples_per_epoch = self.loader.total_samples
+        self.ev.link_attrs(self.loader,
+                           ("batch_size", "minibatch_size"),
+                           ("max_samples_per_epoch", "total_samples"),
+                           ("target", "minibatch_target"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -198,35 +199,42 @@ class Workflow(nn_units.NNWorkflow):
             store_samples_mse=root.decision.store_samples_mse,
             snapshot_prefix=root.decision.snapshot_prefix)
         self.decision.link_from(self.ev)
-        self.decision.minibatch_class = self.loader.minibatch_class
-        self.decision.minibatch_last = self.loader.minibatch_last
-        self.decision.minibatch_metrics = self.ev.metrics
-        self.decision.minibatch_mse = self.ev.mse
-        self.decision.minibatch_offs = self.loader.minibatch_offs
-        self.decision.minibatch_size = self.loader.minibatch_size
-        self.decision.class_samples = self.loader.class_samples
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "minibatch_last",
+                                 "minibatch_offs",
+                                 "minibatch_size",
+                                 "class_samples")
+        self.decision.link_attrs(
+            self.ev,
+            ("minibatch_mse", "mse"),
+            ("minibatch_metrics", "metrics"))
 
         # Add gradient descent units
         self.gd = list(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDTanh(self, device=device)
         self.gd[-1].link_from(self.decision)
-        self.gd[-1].err_y = self.ev.err_y
-        self.gd[-1].y = self.forward[-1].output
-        self.gd[-1].h = self.forward[-1].input
-        self.gd[-1].weights = self.forward[-1].weights
-        self.gd[-1].bias = self.forward[-1].bias
+
+        self.gd[-1].link_attrs(self.forward[-1],
+                               ("y", "output"),
+                               ("h", "input"),
+                               "weights", "bias")
+
+        self.gd[-1].link_attrs(self.ev, "err_y")
+        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].err_y = self.gd[i + 1].err_h
-            self.gd[i].y = self.forward[i].output
-            self.gd[i].h = self.forward[i].input
-            self.gd[i].weights = self.forward[i].weights
-            self.gd[i].bias = self.forward[i].bias
+
+            self.gd[i].link_attrs(self.forward[i],
+                                  ("y", "output"),
+                                  ("h", "input"),
+                                  "weights", "bias")
+            self.gd[i].link_attrs(self.loader, ("batch_size",
+                                                "minibatch_size"))
+            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
             self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].batch_size = self.loader.minibatch_size
         self.rpt.link_from(self.gd[0])
 
         self.end_point.link_from(self.decision)
