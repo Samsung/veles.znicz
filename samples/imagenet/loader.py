@@ -45,13 +45,19 @@ class Loader(loader.Loader):
         }
     }
 
-    def __init__(self, workflow, ipath, dbpath, year, series, **kwargs):
-        self._ipath = ipath
-        self._dbpath = dbpath
-        self._year = year
-        self._series = series
+    def __init__(self, workflow, **kwargs):
+        self._dbpath = kwargs.get("dbpath", config.root.imagenet.dbpath)
         super(Loader, self).__init__(workflow, **kwargs)
-        self._data_shape = kwargs.get("data_shape", (256, 256))
+        self._ipath = kwargs.get("ipath", config.root.imagenet.ipath)
+        self._year = kwargs.get("year", config.root.imagenet.year)
+        self._series = kwargs.get("series", config.root.imagenet.series)
+        self._data_shape = kwargs.get("data_shape",
+                                      config.root.imagenet.shape or (256, 256))
+        self._dtype = opencl_types.dtypes[config.root.common.precision_type]
+        self._colorspace = kwargs.get("colorspace",
+                                      config.root.imagenet.colorspace or "RGB")
+        self._include_derivative = kwargs.get(
+            "derivative", config.root.imagenet.derivative or False)
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()

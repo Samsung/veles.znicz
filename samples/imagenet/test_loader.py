@@ -16,8 +16,9 @@ class Test(unittest.TestCase):
 
     def testLoader(self):
         loader = Loader(DummyWorkflow(),
-                        "/data/imagenet/2013", "/data/imagenet/2013/db",
-                        "2013", "DET")
+                        ipath="/data/imagenet/2013",
+                        dbpath="/data/imagenet/2013/db",
+                        year="2013", series="DET")
         loader.setup(level=logging.DEBUG)
         loader.load_data()
 
