@@ -229,15 +229,17 @@ class Loader(loader.Loader):
                     tree = xmltodict.parse(fr.read())
                 del tree["annotation"]["folder"]
                 del tree["annotation"]["filename"]
-                file_key = self._img_file_name(os.path.join(self._ipath,
+                file_key = self._img_file_name(os.path.join(
+                    self._ipath,
                     Loader.MAPPING[set_name][self.year][self.series][1]), xml)
                 try:
                     index = ifntbl[set_name][file_key]
                 except KeyError:
-                    self.error("%s references unexistent file %s", xml,
-                               os.path.join(self._ipath,
-                                    Loader.MAPPING[set_name][self.year]
-                                        [self.series][0], file_key))
+                    self.error(
+                        "%s references unexistent file %s", xml, os.path.join(
+                            self._ipath,
+                            Loader.MAPPING[set_name][self.year]
+                            [self.series][0], file_key))
                     continue
                 self._set_meta(index, tree["annotation"])
         progress.finish()

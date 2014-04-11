@@ -618,9 +618,9 @@ class Decision(units.Unit):
             self.minibatch_metrics.map_write()
             self.minibatch_metrics[0] += data["minibatch_metrics"][0]
             self.minibatch_metrics[1] = max(self.minibatch_metrics[1],
-                                              data["minibatch_metrics"][1])
+                                            data["minibatch_metrics"][1])
             self.minibatch_metrics[2] = min(self.minibatch_metrics[2],
-                                              data["minibatch_metrics"][2])
+                                            data["minibatch_metrics"][2])
         if (self.minibatch_mse is not None and
                 self.minibatch_mse.v is not None):
             self.minibatch_mse.map_write()

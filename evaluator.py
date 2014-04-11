@@ -183,10 +183,10 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             err_y[labels[i]] -= 1.0
             if err_y.dtype in (numpy.complex64, numpy.complex128):
                 self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
-                                              numpy.linalg.norm(err_y))
+                                            numpy.linalg.norm(err_y))
             else:
                 self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
-                                              (numpy.fabs(err_y)).sum())
+                                            (numpy.fabs(err_y)).sum())
         # Set errors for excessive samples to zero
         if batch_size < self.err_y.v.shape[0]:
             self.err_y.v[batch_size:] = 0.0
