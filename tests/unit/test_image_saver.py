@@ -82,7 +82,7 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_SM.input = self.minibatch_data
         self.img_saver_SM.labels = self.lbls
         self.img_saver_SM.indexes = self.indexes
-        self.img_saver_SM.minibatch_size = [20]
+        self.img_saver_SM.minibatch_size = 20
         self.img_saver_SM.output = self.output
 
         self.do_image_saver_SM_t()
@@ -103,13 +103,13 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.input = self.minibatch_data
         self.img_saver_MSE.labels = self.lbls
         self.img_saver_MSE.indexes = self.indexes
-        self.img_saver_MSE.minibatch_size = [20]
+        self.img_saver_MSE.minibatch_size = 20
         self.img_saver_MSE.output = self.output
-        self.img_saver_MSE.this_save_time = [time.time()]
+        self.img_saver_MSE.this_save_time = time.time()
         self.target = formats.Vector()
         self.target.v = numpy.zeros([20, 10], dtype=numpy.float32)
         rnd.default.fill(self.target.v)
-        self.img_saver_MSE.minibatch_class = [0]
+        self.img_saver_MSE.minibatch_class = 0
         self.img_saver_MSE.target = self.target
         self.img_saver_MSE.initialize()
         self.img_saver_MSE.run()
@@ -123,9 +123,9 @@ class TestImageSaver(unittest.TestCase):
 
     def do_image_saver_SM_t(self):
         logging.info("Will test image_saver unit for Softmax, test")
-        self.img_saver_SM.this_save_time = [time.time()]
+        self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
-        self.img_saver_SM.minibatch_class = [0]
+        self.img_saver_SM.minibatch_class = 0
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
         files_test = glob.glob("%s/*.png" % (os.path.join(root.image_saver.out,
@@ -138,9 +138,9 @@ class TestImageSaver(unittest.TestCase):
 
     def do_image_saver_SM_validation(self):
         logging.info("Will test image_saver unit for Softmax, validation")
-        self.img_saver_SM.this_save_time = [time.time()]
+        self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
-        self.img_saver_SM.minibatch_class = [1]
+        self.img_saver_SM.minibatch_class = 1
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
 
@@ -156,9 +156,9 @@ class TestImageSaver(unittest.TestCase):
 
     def do_image_saver_SM_train(self):
         logging.info("Will test image_saver unit for Softmax, train")
-        self.img_saver_SM.this_save_time = [time.time()]
+        self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
-        self.img_saver_SM.minibatch_class = [2]
+        self.img_saver_SM.minibatch_class = 2
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
 
@@ -172,7 +172,7 @@ class TestImageSaver(unittest.TestCase):
 
     def do_image_saver_limit(self):
         logging.info("Will test image_saver unit for limit")
-        self.img_saver_SM.this_save_time = [time.time()]
+        self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
         self.img_saver_SM.limit = 5
         self.img_saver_SM.initialize()
