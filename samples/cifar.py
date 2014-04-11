@@ -271,7 +271,7 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
-        self.loader.minibatch_maxsize[0] = minibatch_maxsize
+        self.loader.minibatch_maxsize = minibatch_maxsize
         self.ev.device = device
         for g in self.gd:
             g.device = device

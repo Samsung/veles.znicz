@@ -90,7 +90,7 @@ class Loader(loader.Loader):
         self.labels = root.labels
         self.exports = root.exports
         self.pickle_fnme = root.pickle_fnme
-        self.minibatch_maxsize[0] = root.minibatch_maxsize
+        self.minibatch_maxsize = root.minibatch_maxsize
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
@@ -171,7 +171,7 @@ class Loader(loader.Loader):
 
         self.class_samples[0] = 0
         self.class_samples[1] = 0
-        self.class_samples[2] = (self.minibatch_maxsize[0] *
+        self.class_samples[2] = (self.minibatch_maxsize *
                                  self.minibatches_in_epoch)
 
     def create_minibatches(self):
@@ -180,19 +180,19 @@ class Loader(loader.Loader):
             nn += self.norm_add[k].size
 
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize[0], nn * self.window_size]
+        sh = [self.minibatch_maxsize, nn * self.window_size]
         self.minibatch_data.v = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
 
         self.minibatch_labels.reset()
-        sh = [self.minibatch_maxsize[0]]
+        sh = [self.minibatch_maxsize]
         self.minibatch_labels.v = numpy.zeros(
             sh, dtype=numpy.int8)
 
         self.minibatch_indexes.reset()
-        sh = [self.minibatch_maxsize[0]]
+        sh = [self.minibatch_maxsize]
         self.minibatch_indexes.v = numpy.zeros(
             sh, dtype=opencl_types.itypes[
                 opencl_types.get_itype_from_size(len(self.data["files"]))])

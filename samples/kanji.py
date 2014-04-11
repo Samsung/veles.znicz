@@ -135,19 +135,19 @@ class Loader(loader.Loader):
         """Allocate arrays for minibatch_data etc. here.
         """
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize[0]]
+        sh = [self.minibatch_maxsize]
         sh.extend(self.first_sample.shape)
         self.minibatch_data.v = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
-        sh = [self.minibatch_maxsize[0]]
+        sh = [self.minibatch_maxsize]
         sh.extend(self.class_target.v[0].shape)
         self.minibatch_target.v = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
-        sh = [self.minibatch_maxsize[0]]
+        sh = [self.minibatch_maxsize]
         self.minibatch_labels.v = numpy.zeros(sh, dtype=self.label_dtype)
 
         self.minibatch_indexes.reset()
@@ -355,7 +355,7 @@ class Workflow(nn_units.NNWorkflow):
         for forward in self.forward:
             forward.device = device
         self.ev.device = device
-        self.loader.minibatch_maxsize[0] = minibatch_maxsize
+        self.loader.minibatch_maxsize = minibatch_maxsize
         super(Workflow, self).initialize()
         if weights is not None:
             for i, forward in enumerate(self.forward):
