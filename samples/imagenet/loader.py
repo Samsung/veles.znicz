@@ -5,6 +5,7 @@ Created on Apr 10, 2014
 """
 
 
+import jpeg4py
 import json
 import leveldb
 import numpy
@@ -13,7 +14,7 @@ import struct
 import os
 import xmltodict
 
-from veles.config import root
+import veles.config as config
 import veles.opencl_types as opencl_types
 import veles.znicz.loader as loader
 
@@ -78,13 +79,32 @@ class Loader(loader.Loader):
         self._fill_class_samples()
 
     def create_minibatches(self):
-        count = self.minibatch_maxsize[0]
+        count = self.minibatch_maxsize
         minibatch_shape = [count, 3] + list(self._data_shape)
         self.minibatch_data << numpy.zeros(
             shape=minibatch_shape,
-            dtype=opencl_types.dtypes[root.common.precision_type])
+            dtype=opencl_types.dtypes[config.root.common.precision_type])
         self.minibatch_labels << numpy.zeros(count, dtype=numpy.int32)
         self.minibatch_indexes << numpy.zeros(count, dtype=numpy.int32)
+
+    def fill_minibatch(self):
+        pass
+
+    def _get_file_name(self, index):
+        for i in range(len(self._files_locator) - 1):
+            left_index, files, set_name = self._files_locator[i]
+            right_index = self._files_locator[i + 1][0]
+            if left_index < index < right_index:
+                mapping = Loader.MAPPING[set_name][self.year][self.series]
+                return os.path.join(self._ipath, mapping[0],
+                                    files[index - left_index]) + ".JPEG"
+
+    def _decode_image(self, index):
+        file_name = self._get_file_name(index)
+        try:
+            return jpeg4py.JPEG(file_name).decode()
+        except:
+            self.exception("Failed to decode %s", file_name)
 
     def _img_file_name(self, base, full):
         res = full[len(os.path.commonprefix([base, full])):]
@@ -103,27 +123,32 @@ class Loader(loader.Loader):
             files = self._db_.Get(files_key)
             self.info("Loaded files table from DB")
             self._files = json.loads(files.decode())
-            return
         except KeyError:
-            pass
-        self.debug("Will look for images in %s", self._ipath)
-        self._files = {}
-        index = 0
-        for set_name, years in Loader.MAPPING.items():
-            imgs = []
-            subdir = years[self.year][self.series][0]
-            path = os.path.join(self._ipath, subdir)
-            self.debug("Scanning %s...", path)
-            for root, _, files in os.walk(path, followlinks=True):
-                imgs.extend([self._img_file_name(path, os.path.join(root, f))
-                             for f in files
-                             if os.path.splitext(f)[1] == ".JPEG" and
-                             f.find("-256") < 0])
-            self._files[set_name] = (imgs, index)
-            index += len(imgs)
-        self.debug("Saving files table to DB...")
-        self._db_.Put(files_key, json.dumps(self._files).encode())
-        self.info("Initialized files table")
+            self.debug("Will look for images in %s", self._ipath)
+            self._files = {}
+            index = 0
+            for set_name, years in Loader.MAPPING.items():
+                imgs = []
+                subdir = years[self.year][self.series][0]
+                path = os.path.join(self._ipath, subdir)
+                self.debug("Scanning %s...", path)
+                for root, _, files in os.walk(path, followlinks=True):
+                    imgs.extend([self._img_file_name(path,
+                                                     os.path.join(root, f))
+                                 for f in files
+                                 if os.path.splitext(f)[1] == ".JPEG" and
+                                 f.find("-256") < 0])
+                self._files[set_name] = (imgs, index)
+                index += len(imgs)
+            self.debug("Saving files table to DB...")
+            self._db_.Put(files_key, json.dumps(self._files).encode())
+            self.info("Initialized files table")
+        self._files_locator = sorted([(files[1], files[0], set_name)
+                                      for set_name, files
+                                      in self._files.items()])
+        self._files_locator.append((self._files_locator[-1][0] +
+                                    len(self._files_locator[-1][1]),
+                                    None, None))
 
     def _gen_img_key(self, index):
         return struct.pack("I", index) + self.year.encode() + \
@@ -197,5 +222,5 @@ class Loader(loader.Loader):
 
     def _fill_class_samples(self):
         triage = {"train": 2, "validation": 1, "test": 0}
-        for key, val in triage:
+        for key, val in triage.items():
             self.class_samples[val] = len(self._files[key][0])
