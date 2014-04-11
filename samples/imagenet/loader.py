@@ -5,6 +5,7 @@ Created on Apr 10, 2014
 """
 
 
+import cv2
 import jpeg4py
 import json
 import leveldb
@@ -87,9 +88,8 @@ class Loader(loader.Loader):
     def create_minibatches(self):
         count = self.minibatch_maxsize
         minibatch_shape = [count, 3] + list(self._data_shape)
-        self.minibatch_data << numpy.zeros(
-            shape=minibatch_shape,
-            dtype=opencl_types.dtypes[config.root.common.precision_type])
+        self.minibatch_data << numpy.zeros(shape=minibatch_shape,
+                                           dtype=self._dtype)
         self.minibatch_labels << numpy.zeros(count, dtype=numpy.int32)
         self.minibatch_indexes << numpy.zeros(count, dtype=numpy.int32)
 
@@ -108,9 +108,15 @@ class Loader(loader.Loader):
     def _decode_image(self, index):
         file_name = self._get_file_name(index)
         try:
-            return jpeg4py.JPEG(file_name).decode()
+            data = jpeg4py.JPEG(file_name).decode()
         except:
             self.exception("Failed to decode %s", file_name)
+        if self._colorspace == "HSV":
+            cv2.cvtColor(data, cv2.COLOR_RGB2HSV, data)
+        if self._include_derivative:
+            # TODO(v.markovtsev): apply Sobel
+            pass
+        return data.as_type(dtype=self._dtype)
 
     def _img_file_name(self, base, full):
         res = full[len(os.path.commonprefix([base, full])):]
