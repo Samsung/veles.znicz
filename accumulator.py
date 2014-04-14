@@ -9,7 +9,7 @@ Accumulator units.
 
 import numpy
 
-from veles.config import root, get_config
+import veles.config as config
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.units as units
@@ -20,15 +20,15 @@ class RangeAccumulator(units.Unit):
     """
     def __init__(self, workflow, **kwargs):
         super(RangeAccumulator, self).__init__(workflow)
-        bars = kwargs.get("bars", get_config(root.n_bars, 30))
+        bars = kwargs.get("bars", config.get(config.root.n_bars, 30))
         kwargs["bars"] = bars
         self.input = None
         self.output = formats.Vector()
         self.reset_flag = Bool(True)
         self.n_bars = [0]
         self.bars = bars
-        self.max = get_config(root.accumulator.max, 1.7159)
-        self.min = get_config(root.accumulator.min, -1.7159)
+        self.max = config.get(config.root.accumulator.max, 1.7159)
+        self.min = config.get(config.root.accumulator.min, -1.7159)
 
     def initialize(self):
         super(RangeAccumulator, self).initialize()

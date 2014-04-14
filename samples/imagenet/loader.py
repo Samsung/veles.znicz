@@ -18,7 +18,6 @@ import xmltodict
 import veles.config as config
 import veles.opencl_types as opencl_types
 import veles.znicz.loader as loader
-from configparser import Interpolation
 
 
 class Loader(loader.Loader):
@@ -201,7 +200,7 @@ class Loader(loader.Loader):
             deriv = cv2.cvtColor(data, cv2.COLOR_RGB2GRAY)
             deriv = cv2.Sobel(deriv,
                               cv2.CV_32F if self._dtype == numpy.float32
-                                         else cv2.CV_64F,
+                              else cv2.CV_64F,
                               1, 1, ksize=self._sobel_kernel_size)
         if self._colorspace != "RGB":
             cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),

@@ -5,9 +5,7 @@ Created on Apr 10, 2014
 """
 
 
-import gc
 import logging
-import time
 import unittest
 
 from veles.tests import DummyWorkflow
