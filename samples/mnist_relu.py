@@ -29,9 +29,8 @@ root.update = {"all2all": {"weights_magnitude":
                            get(root.all2all.weights_magnitude, 0.05)},
                "decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 150),
-                                "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                "mnist_relu")},
+                            "snapshot_prefix":
+                            get(root.decision.snapshot_prefix, "mnist_relu")},
                "global_alpha": get(root.global_alpha, 0.01),
                "global_lambda": get(root.global_lambda, 0.0),
                "layers_mnist_relu": get(root.layers_mnist_relu, [100, 10]),

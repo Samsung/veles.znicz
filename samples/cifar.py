@@ -29,26 +29,24 @@ import veles.znicz.accumulator as accumulator
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "cifar")},
+                            get(root.decision.snapshot_prefix, "cifar")},
                "global_alpha": get(root.global_alpha, 0.1),
                "global_lambda": get(root.global_lambda, 0.00005),
                "image_saver": {"out":
                                get(root.path_for_out_data,
-                                          os.path.join(root.common.cache_dir,
-                                                       "tmp/"))},
+                                   os.path.join(root.common.cache_dir,
+                                                "tmp/"))},
                "layers": get(root.layers, [100, 10]),
                "loader": {"minibatch_maxsize":
                           get(root.loader.minibatch_maxsize, 180)},
                "n_bars": get(root.n_bars, 30),
                "path_for_train_data":
                get(root.path_for_train_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "cifar/10")),
+                   os.path.join(root.common.test_dataset_root, "cifar/10")),
                "path_for_valid_data":
                get(root.path_for_valid_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "cifar/10/test_batch")),
+                   os.path.join(root.common.test_dataset_root,
+                                "cifar/10/test_batch")),
                "weights_plotter": {"limit":
                                    get(root.weights_plotter.limit, 25)}
                }

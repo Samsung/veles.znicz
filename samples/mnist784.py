@@ -31,8 +31,7 @@ import veles.znicz.samples.mnist as mnist
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "mnist_784")},
+                            get(root.decision.snapshot_prefix, "mnist_784")},
                "global_alpha": get(root.global_alpha, 0.001),
                "global_lambda": get(root.global_lambda, 0.00005),
                "layers_mnist784": get(root.layers_mnist784, [784, 784]),
@@ -40,8 +39,7 @@ root.update = {"decision": {"fail_iterations":
                           get(root.loader.minibatch_maxsize, 100)},
                "path_for_load_data":
                get(root.path_for_load_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "arial.ttf")),
+                   os.path.join(root.common.test_dataset_root, "arial.ttf")),
                "weights_plotter": {"limit":
                                    get(root.weights_plotter.limit, 16)}
                }

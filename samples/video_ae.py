@@ -28,8 +28,7 @@ import veles.znicz.loader as loader
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "video_ae")},
+                            get(root.decision.snapshot_prefix, "video_ae")},
                "global_alpha": get(root.global_alpha, 0.0002),
                "global_lambda": get(root.global_lambda, 0.00005),
                "layers": get(root.layers, [9, 14400]),
@@ -37,8 +36,8 @@ root.update = {"decision": {"fail_iterations":
                           get(root.loader.minibatch_maxsize, 50)},
                "path_for_load_data":
                get(root.path_for_load_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "video/video_ae/img/*.png")),
+                   os.path.join(root.common.test_dataset_root,
+                                "video/video_ae/img/*.png")),
                "weights_plotter": {"limit":
                                    get(root.weights_plotter.limit, 16)}
                }

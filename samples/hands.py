@@ -27,8 +27,7 @@ import veles.znicz.loader as loader
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "hands")},
+                            get(root.decision.snapshot_prefix, "hands")},
                "global_alpha": get(root.global_alpha, 0.05),
                "global_lambda": get(root.global_lambda, 0.0),
                "layers_hands": get(root.layers_hands, [30, 2]),
@@ -36,16 +35,16 @@ root.update = {"decision": {"fail_iterations":
                           get(root.loader.minibatch_maxsize, 60)},
                "path_for_train_data":
                get(root.path_for_train_data,
-                          [os.path.join(root.common.test_dataset_root,
-                                        "hands/Positive/Training/*.raw"),
-                           os.path.join(root.common.test_dataset_root,
-                                        "hands/Negative/Training/*.raw")]),
+                   [os.path.join(root.common.test_dataset_root,
+                                 "hands/Positive/Training/*.raw"),
+                    os.path.join(root.common.test_dataset_root,
+                                 "hands/Negative/Training/*.raw")]),
                "path_for_valid_data":
                get(root.path_for_valid_data,
-                          [os.path.join(root.common.test_dataset_root,
-                                        "hands/Positive/Testing/*.raw"),
-                           os.path.join(root.common.test_dataset_root,
-                                        "hands/Negative/Testing/*.raw")])}
+                   [os.path.join(root.common.test_dataset_root,
+                                 "hands/Positive/Testing/*.raw"),
+                    os.path.join(root.common.test_dataset_root,
+                                 "hands/Negative/Testing/*.raw")])}
 
 
 class Loader(loader.ImageLoader):

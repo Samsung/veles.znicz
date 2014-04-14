@@ -28,8 +28,7 @@ root.common.update = {"plotters_disabled":
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 200),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "wine")},
+                            get(root.decision.snapshot_prefix, "wine")},
                "global_alpha": get(root.global_alpha, 0.5),
                "global_lambda": get(root.global_lambda, 0.0),
                "layers": get(root.layers, [8, 3]),
@@ -37,8 +36,8 @@ root.update = {"decision": {"fail_iterations":
                           get(root.loader.minibatch_maxsize, 1000000)},
                "path_for_load_data":
                get(root.path_for_load_data,
-                          os.path.join(root.common.veles_dir,
-                                       "veles/samples/wine/wine.data"))
+                   os.path.join(root.common.veles_dir,
+                                "veles/samples/wine/wine.data"))
                }
 
 

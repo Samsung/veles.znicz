@@ -47,10 +47,9 @@ root.cache_fnme = get(
 root.decision.fail_iterations = get(root.decision.fail_iterations, 1000)
 
 root.decision.snapshot_prefix = get(root.decision.snapshot_prefix,
-                                           "channles_108_24")
+                                    "channles_108_24")
 
-root.decision.use_dynamic_alpha = get(root.decision.use_dynamic_alpha,
-                                             False)
+root.decision.use_dynamic_alpha = get(root.decision.use_dynamic_alpha, False)
 root.export = get(root.export, False)
 root.find_negative = get(root.find_negative, 0)
 root.global_alpha = get(root.global_alpha, 0.01)

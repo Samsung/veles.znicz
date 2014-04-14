@@ -26,8 +26,7 @@ import veles.znicz.samples.mnist as mnist
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 25),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "mnist7")},
+                            get(root.decision.snapshot_prefix, "mnist7")},
                "global_alpha": get(root.global_alpha, 0.0001),
                "global_lambda": get(root.global_lambda, 0.00005),
                "layers_mnist7": get(root.layers_mnist7, [100, 100, 7]),

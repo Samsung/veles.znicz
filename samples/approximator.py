@@ -27,8 +27,7 @@ import veles.znicz.loader as loader
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 1000),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "approximator"),
+                            get(root.decision.snapshot_prefix, "approximator"),
                             "store_samples_mse":
                             get(root.decision.store_samples_mse, True)},
                "global_alpha": get(root.global_alpha, 0.01),
@@ -38,10 +37,10 @@ root.update = {"decision": {"fail_iterations":
                           get(root.loader.minibatch_maxsize, 81)},
                "path_for_target_data":
                get(root.path_for_target_data,
-                          ["/data/veles/approximator/all_org_appertures.mat"]),
+                   ["/data/veles/approximator/all_org_appertures.mat"]),
                "path_for_train_data":
                get(root.path_for_train_data,
-                          ["/data/veles/approximator/all_dec_appertures.mat"])
+                   ["/data/veles/approximator/all_dec_appertures.mat"])
                }
 
 
