@@ -117,7 +117,7 @@ class Decision(units.Unit):
                                        formats.Vector()]
                                       if store_samples_mse
                                       else [])
-        self.minibatch_offs = None
+        self.minibatch_offset = None
         self.minibatch_size = None
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
@@ -503,8 +503,8 @@ class Decision(units.Unit):
 
     def copy_minibatch_mse(self, minibatch_class):
         minibatch_offs = self.__dict__.get("slave_minibatch_offs")
-        if minibatch_offs is None and self.minibatch_offs is not None:
-            minibatch_offs = self.minibatch_offs
+        if minibatch_offs is None and self.minibatch_offset is not None:
+            minibatch_offs = self.minibatch_offset
         minibatch_size = self.__dict__.get("slave_minibatch_size")
         if minibatch_size is None and self.minibatch_size is not None:
             minibatch_size = self.minibatch_size
@@ -545,7 +545,7 @@ class Decision(units.Unit):
         data = {}
         data["minibatch_class"] = self.master_minibatch_class
         data["minibatch_size"] = self.master_minibatch_size
-        data["minibatch_offs"] = self.master_minibatch_offs
+        data["minibatch_offset"] = self.master_minibatch_offs
         if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_read()
@@ -580,8 +580,8 @@ class Decision(units.Unit):
         if minibatch_last:
             self.sample_serving_ended = True
         data = {"minibatch_class": self.minibatch_class,
-                "minibatch_offs": self.minibatch_offs if
-                self.minibatch_offs is not None else None,
+                "minibatch_offset": self.minibatch_offset if
+                self.minibatch_offset is not None else None,
                 "minibatch_size": self.minibatch_size if
                 self.minibatch_size is not None else None}
         if minibatch_last:
@@ -590,7 +590,7 @@ class Decision(units.Unit):
 
     def apply_data_from_master(self, data):
         self.master_minibatch_class = data["minibatch_class"]
-        self.master_minibatch_offs = data["minibatch_offs"]
+        self.master_minibatch_offs = data["minibatch_offset"]
         self.master_minibatch_size = data["minibatch_size"]
         if self.__dict__.get("_on_reset_statistics_") is None:
             self._on_reset_statistics_ = self.on_reset_statistics
@@ -608,7 +608,7 @@ class Decision(units.Unit):
     def apply_data_from_slave(self, data, slave=None):
         self.slave_minibatch_class = data["minibatch_class"]
         self.slave_minibatch_size = data["minibatch_size"]
-        self.slave_minibatch_offs = data["minibatch_offs"]
+        self.slave_minibatch_offs = data["minibatch_offset"]
         if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_write()

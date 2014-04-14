@@ -40,7 +40,7 @@ class Loader(units.Unit):
         minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
         minibatch_last: if current minibatch is last in it's class.
 
-        minibatch_offs: offset of the current minibatch in all samples,
+        minibatch_offset: offset of the current minibatch in all samples,
                         where first come test samples, then validation, with
                         train ones at the end.
         minibatch_size: size of the current minibatch.
@@ -57,6 +57,7 @@ class Loader(units.Unit):
         create_minibatches()
         fill_minibatch()
     """
+
     def __init__(self, workflow, **kwargs):
         minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
         rnd_ = kwargs.get("rnd", rnd.default)
@@ -80,7 +81,7 @@ class Loader(units.Unit):
         self.class_samples = [0, 0, 0]
         self.nextclass_offs = [0, 0, 0]
 
-        self.def_attr("minibatch_offs", 0)
+        self.def_attr("minibatch_offset", 0)
         self.def_attr("minibatch_size", 0)
         self.def_attr("minibatch_maxsize", minibatch_maxsize)
 
@@ -142,7 +143,7 @@ class Loader(units.Unit):
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")
 
-        self.minibatch_offs = self.total_samples
+        self.minibatch_offset = self.total_samples
 
         # Initial shuffle.
         if self.shuffled_indexes is None:
@@ -170,20 +171,20 @@ class Loader(units.Unit):
 
     def get_next_minibatch(self):
         # Adjust offset according to previous minibatch size.
-        self.minibatch_offs += self.minibatch_size
+        self.minibatch_offset += self.minibatch_size
         # Reshuffle when end of data reached.
-        if self.minibatch_offs >= self.total_samples:
+        if self.minibatch_offset >= self.total_samples:
             self.shuffle()
-            self.minibatch_offs = 0
+            self.minibatch_offset = 0
 
         # Compute next minibatch size and its class.
         for i in range(0, len(self.nextclass_offs)):
-            if self.minibatch_offs < self.nextclass_offs[i]:
+            if self.minibatch_offset < self.nextclass_offs[i]:
                 self.minibatch_class = i
                 minibatch_size = min(
                     self.minibatch_maxsize,
-                    self.nextclass_offs[i] - self.minibatch_offs)
-                if (self.minibatch_offs + minibatch_size >=
+                    self.nextclass_offs[i] - self.minibatch_offset)
+                if (self.minibatch_offset + minibatch_size >=
                         self.nextclass_offs[self.minibatch_class]):
                     self.minibatch_last = 1
                     if not self.is_slave:
@@ -233,8 +234,8 @@ class Loader(units.Unit):
 
     def generate_data_for_slave(self, slave=None):
         self.get_next_minibatch()
-        idxs = self.shuffled_indexes[self.minibatch_offs:
-                                     self.minibatch_offs +
+        idxs = self.shuffled_indexes[self.minibatch_offset:
+                                     self.minibatch_offset +
                                      self.minibatch_size].copy()
         cls = self.minibatch_class
         return (idxs, cls)
@@ -248,7 +249,7 @@ class Loader(units.Unit):
             raise error.ErrBadFormat("Received too many indexes from master")
         self.shuffled_indexes[:total_samples] = idxs[:]
         self.minibatch_size = self.minibatch_maxsize
-        self.minibatch_offs = -self.minibatch_size
+        self.minibatch_offset = -self.minibatch_size
         self.total_samples = total_samples
         self.minibatch_class = cls
         self.minibatch_last = 1
@@ -421,7 +422,7 @@ class FullBatchLoader(Loader):
 
         idxs = self.minibatch_indexes.v
         idxs[:minibatch_size] = self.shuffled_indexes[
-            self.minibatch_offs:self.minibatch_offs + minibatch_size]
+            self.minibatch_offset:self.minibatch_offset + minibatch_size]
 
         for i, ii in enumerate(idxs[:minibatch_size]):
             self.minibatch_data[i] = self.original_data[int(ii)]

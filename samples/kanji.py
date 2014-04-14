@@ -163,7 +163,7 @@ class Loader(loader.Loader):
 
         idxs = self.minibatch_indexes.v
         idxs[:minibatch_size] = self.shuffled_indexes[
-            self.minibatch_offs:self.minibatch_offs + minibatch_size]
+            self.minibatch_offset:self.minibatch_offset + minibatch_size]
 
         for i, ii in enumerate(idxs[:minibatch_size]):
             fnme = "%s/%s" % (self.train_path, self.index_map[ii])
@@ -230,7 +230,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "minibatch_last",
-                                 "minibatch_offs",
+                                 "minibatch_offset",
                                  "minibatch_size",
                                  "class_samples")
         self.decision.link_attrs(
