@@ -12,7 +12,7 @@ import numpy
 import struct
 import os
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.formats as formats
 import veles.error as error
 import veles.plotting_units as plotting_units
@@ -26,29 +26,29 @@ import veles.znicz.loader as loader
 mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
 
 root.update = {"all2all": {"weights_magnitude":
-                           get_config(root.all2all.weights_magnitude, 0.05)},
+                           get(root.all2all.weights_magnitude, 0.05)},
                "decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 150),
+                            get(root.decision.fail_iterations, 150),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "mnist_relu")},
-               "global_alpha": get_config(root.global_alpha, 0.01),
-               "global_lambda": get_config(root.global_lambda, 0.0),
-               "layers_mnist_relu": get_config(root.layers_mnist_relu,
+               "global_alpha": get(root.global_alpha, 0.01),
+               "global_lambda": get(root.global_lambda, 0.0),
+               "layers_mnist_relu": get(root.layers_mnist_relu,
                                                [100, 10]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 60)},
+                          get(root.loader.minibatch_maxsize, 60)},
                "path_for_load_data_test_images":
-               get_config(root.path_for_load_data_test_images,
+               get(root.path_for_load_data_test_images,
                           os.path.join(mnist_dir, "t10k-images.idx3-ubyte")),
                "path_for_load_data_test_label":
-               get_config(root.path_for_load_data_test_label,
+               get(root.path_for_load_data_test_label,
                           os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")),
                "path_for_load_data_train_images":
-               get_config(root.path_for_load_data_train_images,
+               get(root.path_for_load_data_train_images,
                           os.path.join(mnist_dir, "train-images.idx3-ubyte")),
                "path_for_load_data_train_label":
-               get_config(root.path_for_load_data_train_label,
+               get(root.path_for_load_data_train_label,
                           os.path.join(mnist_dir, "train-labels.idx1-ubyte"))}
 
 

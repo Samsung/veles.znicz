@@ -11,7 +11,7 @@ File for Wine dataset.
 import numpy
 import os
 
-from veles.config import get_config, root
+from veles.config import get, root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
@@ -23,20 +23,20 @@ import veles.znicz.loader as loader
 
 
 root.common.update = {"plotters_disabled":
-                      get_config(root.common.plotters_disabled, True)}
+                      get(root.common.plotters_disabled, True)}
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 200),
+                            get(root.decision.fail_iterations, 200),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "wine")},
-               "global_alpha": get_config(root.global_alpha, 0.5),
-               "global_lambda": get_config(root.global_lambda, 0.0),
-               "layers": get_config(root.layers, [8, 3]),
+               "global_alpha": get(root.global_alpha, 0.5),
+               "global_lambda": get(root.global_lambda, 0.0),
+               "layers": get(root.layers, [8, 3]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 1000000)},
+                          get(root.loader.minibatch_maxsize, 1000000)},
                "path_for_load_data":
-               get_config(root.path_for_load_data,
+               get(root.path_for_load_data,
                           os.path.join(root.common.veles_dir,
                                        "veles/samples/wine/wine.data"))
                }

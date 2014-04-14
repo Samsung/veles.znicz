@@ -11,7 +11,7 @@ import shutil
 import tarfile
 import yaml
 
-from veles.config import root, get_config
+import veles.config as config
 import veles.formats as formats
 import veles.rnd as rnd
 from veles.units import OpenCLUnit, Repeater
@@ -81,9 +81,10 @@ class GD(OpenCLUnit):
     """
     def __init__(self, workflow, **kwargs):
         global_alpha = kwargs.get("global_alpha",
-                                  get_config(root.global_alpha, 0.01))
+                                  config.get(config.root.global_alpha, 0.01))
         global_lambda = kwargs.get("global_lambda",
-                                   get_config(root.global_lambda, 0.00005))
+                                   config.get(config.root.global_lambda,
+                                              0.00005))
         weights_transposed = kwargs.get("weights_transposed", False)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
@@ -164,7 +165,7 @@ class NNWorkflow(OpenCLWorkflow):
         """Exports workflow for use on DTV.
         """
         # create temporary folder
-        tmppath = os.path.join(root.common.cache_dir, "saver_tmp")
+        tmppath = os.path.join(config.root.common.cache_dir, "saver_tmp")
         if not os.path.exists(tmppath):
             os.makedirs(tmppath)
         files_to_save = []

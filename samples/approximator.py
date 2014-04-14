@@ -11,7 +11,7 @@ File for function approximation.
 import numpy
 import scipy.io
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.error as error
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -25,22 +25,22 @@ import veles.znicz.loader as loader
 
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 1000),
+                            get(root.decision.fail_iterations, 1000),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "approximator"),
                             "store_samples_mse":
-                            get_config(root.decision.store_samples_mse, True)},
-               "global_alpha": get_config(root.global_alpha, 0.01),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
-               "layers": get_config(root.layers, [810, 9]),
+                            get(root.decision.store_samples_mse, True)},
+               "global_alpha": get(root.global_alpha, 0.01),
+               "global_lambda": get(root.global_lambda, 0.00005),
+               "layers": get(root.layers, [810, 9]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 81)},
+                          get(root.loader.minibatch_maxsize, 81)},
                "path_for_target_data":
-               get_config(root.path_for_target_data,
+               get(root.path_for_target_data,
                           ["/data/veles/approximator/all_org_appertures.mat"]),
                "path_for_train_data":
-               get_config(root.path_for_train_data,
+               get(root.path_for_train_data,
                           ["/data/veles/approximator/all_dec_appertures.mat"])
                }
 

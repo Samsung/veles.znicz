@@ -10,7 +10,7 @@ MNIST with target encoded as 7 points, MSE.
 
 import numpy
 
-from veles.config import root, get_config
+from veles.config import root, get
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
@@ -24,17 +24,17 @@ import veles.znicz.samples.mnist as mnist
 
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 25),
+                            get(root.decision.fail_iterations, 25),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "mnist7")},
-               "global_alpha": get_config(root.global_alpha, 0.0001),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
-               "layers_mnist7": get_config(root.layers_mnist7, [100, 100, 7]),
+               "global_alpha": get(root.global_alpha, 0.0001),
+               "global_lambda": get(root.global_lambda, 0.00005),
+               "layers_mnist7": get(root.layers_mnist7, [100, 100, 7]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 60)},
+                          get(root.loader.minibatch_maxsize, 60)},
                "weights_plotter": {"limit":
-                                   get_config(root.weights_plotter.limit, 25)}
+                                   get(root.weights_plotter.limit, 25)}
                }
 
 

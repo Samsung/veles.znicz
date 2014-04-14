@@ -11,7 +11,7 @@ File for Hands dataset.
 import numpy
 import os
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.formats as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
@@ -25,23 +25,23 @@ import veles.znicz.loader as loader
 
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "hands")},
-               "global_alpha": get_config(root.global_alpha, 0.05),
-               "global_lambda": get_config(root.global_lambda, 0.0),
-               "layers_hands": get_config(root.layers_hands, [30, 2]),
+               "global_alpha": get(root.global_alpha, 0.05),
+               "global_lambda": get(root.global_lambda, 0.0),
+               "layers_hands": get(root.layers_hands, [30, 2]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 60)},
+                          get(root.loader.minibatch_maxsize, 60)},
                "path_for_train_data":
-               get_config(root.path_for_train_data,
+               get(root.path_for_train_data,
                           [os.path.join(root.common.test_dataset_root,
                                         "hands/Positive/Training/*.raw"),
                            os.path.join(root.common.test_dataset_root,
                                         "hands/Negative/Training/*.raw")]),
                "path_for_valid_data":
-               get_config(root.path_for_valid_data,
+               get(root.path_for_valid_data,
                           [os.path.join(root.common.test_dataset_root,
                                         "hands/Positive/Testing/*.raw"),
                            os.path.join(root.common.test_dataset_root,

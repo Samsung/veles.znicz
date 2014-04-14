@@ -17,7 +17,7 @@ import sys
 import time
 import traceback
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
@@ -31,7 +31,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
-root.labels = get_config(root.labels, {"blues": 0,
+root.labels = get(root.labels, {"blues": 0,
                                        "country": 1,
                                        "jazz": 2,
                                        "pop": 3,
@@ -41,33 +41,33 @@ root.labels = get_config(root.labels, {"blues": 0,
                                        "hiphop": 7,
                                        "metal": 8,
                                        "reggae": 9})
-root.features_shape = get_config(root.features_shape, {"CRP": 12})
+root.features_shape = get(root.features_shape, {"CRP": 12})
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "gtzan")},
-               "export": get_config(root.export, False),
+               "export": get(root.export, False),
                "exports":
-               get_config(root.exports,
+               get(root.exports,
                           ["features", "labels", "norm_add", "norm_mul"]),
                "features":
-               get_config(root.features,
+               get(root.features,
                           ["Energy", "Centroid", "Flux", "Rolloff",
                            "ZeroCrossings", "CRP"]),
-               "global_alpha": get_config(root.global_alpha, 0.01),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
-               "layers_gtzan": get_config(root.layers_gtzan, [100, 500, 10]),
-               "minibatch_maxsize": get_config(root.minibatch_maxsize, 108),
+               "global_alpha": get(root.global_alpha, 0.01),
+               "global_lambda": get(root.global_lambda, 0.00005),
+               "layers_gtzan": get(root.layers_gtzan, [100, 500, 10]),
+               "minibatch_maxsize": get(root.minibatch_maxsize, 108),
                "minibatches_in_epoch":
-               get_config(root.minibatches_in_epoch, 1000),
+               get(root.minibatches_in_epoch, 1000),
                "pickle_fnme":
-               get_config(root.pickle_fnme,
+               get(root.pickle_fnme,
                           os.path.join(root.common.test_dataset_root,
                                        "music/GTZAN/gtzan.pickle")),
-               "snapshot": get_config(root.snapshot, ""),
-               "window_size": get_config(root.window_size, 100)
+               "snapshot": get(root.snapshot, ""),
+               "window_size": get(root.window_size, 100)
                }
 
 

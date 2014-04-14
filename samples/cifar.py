@@ -12,7 +12,7 @@ import numpy
 import os
 import pickle
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -27,30 +27,30 @@ import veles.znicz.nn_units as nn_units
 import veles.znicz.accumulator as accumulator
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "cifar")},
-               "global_alpha": get_config(root.global_alpha, 0.1),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
+               "global_alpha": get(root.global_alpha, 0.1),
+               "global_lambda": get(root.global_lambda, 0.00005),
                "image_saver": {"out":
-                               get_config(root.path_for_out_data,
+                               get(root.path_for_out_data,
                                           os.path.join(root.common.cache_dir,
                                                        "tmp/"))},
-               "layers": get_config(root.layers, [100, 10]),
+               "layers": get(root.layers, [100, 10]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 180)},
-               "n_bars": get_config(root.n_bars, 30),
+                          get(root.loader.minibatch_maxsize, 180)},
+               "n_bars": get(root.n_bars, 30),
                "path_for_train_data":
-               get_config(root.path_for_train_data,
+               get(root.path_for_train_data,
                           os.path.join(root.common.test_dataset_root,
                                        "cifar/10")),
                "path_for_valid_data":
-               get_config(root.path_for_valid_data,
+               get(root.path_for_valid_data,
                           os.path.join(root.common.test_dataset_root,
                                        "cifar/10/test_batch")),
                "weights_plotter": {"limit":
-                                   get_config(root.weights_plotter.limit, 25)}
+                                   get(root.weights_plotter.limit, 25)}
                }
 
 

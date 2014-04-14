@@ -23,7 +23,7 @@ import traceback
 # FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.error as error
 import veles.formats as formats
 import veles.image as image
@@ -41,32 +41,32 @@ import veles.znicz.loader as loader
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
-root.cache_fnme = get_config(
+root.cache_fnme = get(
     root.cache_fnme, os.path.join(root.common.cache_dir, "channels.pickle"))
 
-root.decision.fail_iterations = get_config(root.decision.fail_iterations, 1000)
+root.decision.fail_iterations = get(root.decision.fail_iterations, 1000)
 
-root.decision.snapshot_prefix = get_config(root.decision.snapshot_prefix,
+root.decision.snapshot_prefix = get(root.decision.snapshot_prefix,
                                            "channles_108_24")
 
-root.decision.use_dynamic_alpha = get_config(root.decision.use_dynamic_alpha,
+root.decision.use_dynamic_alpha = get(root.decision.use_dynamic_alpha,
                                              False)
-root.export = get_config(root.export, False)
-root.find_negative = get_config(root.find_negative, 0)
-root.global_alpha = get_config(root.global_alpha, 0.01)
-root.global_lambda = get_config(root.global_lambda, 0.00005)
-root.grayscale = get_config(root.grayscale, False)
-root.layers = get_config(root.layers, [108, 24])
-root.loader.minibatch_size = get_config(root.loader.minibatch_size, 81)
-root.loader.rect = get_config(root.loader.rect, (264, 129))
-root.n_threads = get_config(root.n_threads, 32)
+root.export = get(root.export, False)
+root.find_negative = get(root.find_negative, 0)
+root.global_alpha = get(root.global_alpha, 0.01)
+root.global_lambda = get(root.global_lambda, 0.00005)
+root.grayscale = get(root.grayscale, False)
+root.layers = get(root.layers, [108, 24])
+root.loader.minibatch_size = get(root.loader.minibatch_size, 81)
+root.loader.rect = get(root.loader.rect, (264, 129))
+root.n_threads = get(root.n_threads, 32)
 
-root.path_for_train_data = get_config(
+root.path_for_train_data = get(
     root.path_for_train_data, "/data/veles/channels/korean_960_540/train")
 
-root.snapshot = get_config(root.snapshot, "")
-root.validation_procent = get_config(root.validation_procent, 0.15)
-root.weights_plotter.limit = get_config(root.weights_plotter.limit, 16)
+root.snapshot = get(root.snapshot, "")
+root.validation_procent = get(root.validation_procent, 0.15)
+root.weights_plotter.limit = get(root.weights_plotter.limit, 16)
 
 
 class Loader(loader.FullBatchLoader):

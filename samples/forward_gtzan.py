@@ -13,7 +13,7 @@ import pickle
 import os
 import sys
 
-from veles.config import root, get_config
+from veles.config import root, get
 from libSoundFeatureExtraction.python.sound_feature_extraction import (
     features_xml)
 import veles.audio_file_loader as audio_file_loader
@@ -26,7 +26,7 @@ import veles.znicz.nn_units as nn_units
 gtzan_dir = os.path.join(root.common.test_dataset_root, "music/GTZAN")
 music_dir = os.path.join(root.common.test_dataset_root, "music")
 
-root.labels = get_config(root.labels, {"blues": 0,
+root.labels = get(root.labels, {"blues": 0,
                                        "country": 1,
                                        "jazz": 2,
                                        "pop": 3,
@@ -37,20 +37,20 @@ root.labels = get_config(root.labels, {"blues": 0,
                                        "metal": 8,
                                        "reggae": 9})
 
-root.norm_add = get_config(root.norm_add,
+root.norm_add = get(root.norm_add,
                            {'Rolloff': (-4194.1299697454906),
                             'Centroid': (-2029.2262731600895),
                             'ZeroCrossings': (-55.22063408843276),
                             'Flux': (-0.91969949785961735),
                             'Energy': (-10533446.715802385)})
-root.norm_mul = get_config(root.norm_mul,
+root.norm_mul = get(root.norm_mul,
                            {'Rolloff': 0.00016505214530598153,
                             'Centroid': 0.00014461928085116515,
                             'ZeroCrossings': 0.0025266602711760356,
                             'Flux': 0.066174680046850856,
                             'Energy': 3.2792848460441024e-09})
 
-root.update = {"colors": get_config(root.colors, ["blue",
+root.update = {"colors": get(root.colors, ["blue",
                                                   "pink",
                                                   "green",
                                                   "brown",
@@ -61,25 +61,25 @@ root.update = {"colors": get_config(root.colors, ["blue",
                                                   "gray",
                                                   "orange"]),
                "features":
-               get_config(root.features,
+               get(root.features,
                           ["Energy", "Centroid", "Flux", "Rolloff",
                            "ZeroCrossings"]),
                "file_name":
-               get_config(root.file_name,
+               get(root.file_name,
                           os.path.join(music_dir, "22.flac")),
-               "graphics": get_config(root.graphics, 1),
-               "limit": get_config(root.limit, 2000000000),
+               "graphics": get(root.graphics, 1),
+               "limit": get(root.limit, 2000000000),
                "path_for_features":
-               get_config(root.path_for_features,
+               get(root.path_for_features,
                           os.path.join(music_dir, "features.xml")),
-               "plotter_window_name": get_config(root.plotter_window_name, ""),
-               "shift_size": get_config(root.shift_size, 10),
+               "plotter_window_name": get(root.plotter_window_name, ""),
+               "shift_size": get(root.shift_size, 10),
                "snapshot_forward":
-               get_config(root.snapshot_forward,
+               get(root.snapshot_forward,
                           os.path.join(gtzan_dir,
                                        "gtzan_1000_500_10_28.88pt_Wb.pickle")),
-               "title_fontsize": get_config(root.title_fontsize, 23),
-               "window_size": get_config(root.window_size, 100)
+               "title_fontsize": get(root.title_fontsize, 23),
+               "window_size": get(root.window_size, 100)
                }
 
 

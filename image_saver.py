@@ -12,8 +12,8 @@ import glob
 import numpy
 import os
 
+import veles.config as config
 import veles.formats as formats
-from veles.config import root, get_config
 import veles.units as units
 
 
@@ -41,14 +41,17 @@ class ImageSaver(units.Unit):
     """
     def __init__(self, workflow, **kwargs):
         super(ImageSaver, self).__init__(workflow, **kwargs)
-        root.image_saver.out = get_config(root.image_saver.out,
-                                          os.path.join(root.common.cache_dir,
-                                                       "tmpimg"))
-        self.out_dirs = [os.path.join(root.image_saver.out, "test"),
-                         os.path.join(root.image_saver.out, "validation"),
-                         os.path.join(root.image_saver.out, "train")]
-        self.limit = get_config(root.image_saver.limit, 100)
-        yuv = get_config(root.image_saver.yuv, False)
+        config.root.image_saver.out = config.get(
+            config.root.image_saver.out,
+            os.path.join(config.root.common.cache_dir, "tmpimg"))
+        self.out_dirs = [os.path.join(config.root.image_saver.out,
+                                      "test"),
+                         os.path.join(config.root.image_saver.out,
+                                      "validation"),
+                         os.path.join(config.root.image_saver.out,
+                                      "train")]
+        self.limit = config.get(config.root.image_saver.limit, 100)
+        yuv = config.get(config.root.image_saver.yuv, False)
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
@@ -145,7 +148,7 @@ class ImageSaver(units.Unit):
             offs = (xyt.shape[1] - x.shape[1]) >> 1
             xyt[:x.shape[0], offs:offs + x.shape[1]] = x[:, :]
             img = xyt[:x.shape[0], offs:offs + x.shape[1]]
-            #img *= -1.0
+            # img *= -1.0
             img += 1.0
             img *= 127.5
             numpy.clip(img, 0, 255, img)
@@ -155,7 +158,7 @@ class ImageSaver(units.Unit):
                     offs:offs + y.shape[1]] = y[:, :]
                 img = xyt[x.shape[0]:x.shape[0] + y.shape[0],
                           offs:offs + y.shape[1]]
-                #img *= -1.0
+                # img *= -1.0
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)
@@ -164,7 +167,7 @@ class ImageSaver(units.Unit):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
                 img = xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]]
-                #img *= -1.0
+                # img *= -1.0
                 img += 1.0
                 img *= 127.5
                 numpy.clip(img, 0, 255, img)

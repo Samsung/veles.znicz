@@ -14,7 +14,7 @@ import logging
 import os
 import re
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
@@ -26,21 +26,21 @@ import veles.znicz.loader as loader
 
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "video_ae")},
-               "global_alpha": get_config(root.global_alpha, 0.0002),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
-               "layers": get_config(root.layers, [9, 14400]),
+               "global_alpha": get(root.global_alpha, 0.0002),
+               "global_lambda": get(root.global_lambda, 0.00005),
+               "layers": get(root.layers, [9, 14400]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 50)},
+                          get(root.loader.minibatch_maxsize, 50)},
                "path_for_load_data":
-               get_config(root.path_for_load_data,
+               get(root.path_for_load_data,
                           os.path.join(root.common.test_dataset_root,
                                        "video/video_ae/img/*.png")),
                "weights_plotter": {"limit":
-                                   get_config(root.weights_plotter.limit, 16)}
+                                   get(root.weights_plotter.limit, 16)}
                }
 
 

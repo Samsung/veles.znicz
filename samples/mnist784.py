@@ -14,7 +14,7 @@ import logging
 import numpy
 import os
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -29,21 +29,21 @@ import veles.znicz.samples.mnist as mnist
 
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 100),
+                            get(root.decision.fail_iterations, 100),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "mnist_784")},
-               "global_alpha": get_config(root.global_alpha, 0.001),
-               "global_lambda": get_config(root.global_lambda, 0.00005),
-               "layers_mnist784": get_config(root.layers_mnist784, [784, 784]),
+               "global_alpha": get(root.global_alpha, 0.001),
+               "global_lambda": get(root.global_lambda, 0.00005),
+               "layers_mnist784": get(root.layers_mnist784, [784, 784]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 100)},
+                          get(root.loader.minibatch_maxsize, 100)},
                "path_for_load_data":
-               get_config(root.path_for_load_data,
+               get(root.path_for_load_data,
                           os.path.join(root.common.test_dataset_root,
                                        "arial.ttf")),
                "weights_plotter": {"limit":
-                                   get_config(root.weights_plotter.limit, 16)}
+                                   get(root.weights_plotter.limit, 16)}
                }
 
 

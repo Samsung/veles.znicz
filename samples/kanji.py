@@ -14,7 +14,7 @@ import os
 import pickle
 import six
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -27,39 +27,39 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
-root.decision.fail_iterations = get_config(root.decision.fail_iterations, 1000)
+root.decision.fail_iterations = get(root.decision.fail_iterations, 1000)
 
-root.decision.snapshot_prefix = get_config(
+root.decision.snapshot_prefix = get(
     root.decision.snapshot_prefix, "kanji")
 
-root.decision.store_samples_mse = get_config(
+root.decision.store_samples_mse = get(
     root.decision.store_samples_mse, True)
 
-root.dir_for_kanji_pickle = get_config(
+root.dir_for_kanji_pickle = get(
     root.dir_for_kanji_pickle,
     os.path.join(root.common.snapshot_dir, "kanji.pickle"))
 
-root.global_alpha = get_config(root.global_alpha, 0.001)
-root.global_lambda = get_config(root.global_lambda, 0.00005)
-root.layers = get_config(root.layers, [5103, 2889, 24 * 24])
-root.loader.minibatch_maxsize = get_config(root.loader.minibatch_maxsize, 5103)
+root.global_alpha = get(root.global_alpha, 0.001)
+root.global_lambda = get(root.global_lambda, 0.00005)
+root.layers = get(root.layers, [5103, 2889, 24 * 24])
+root.loader.minibatch_maxsize = get(root.loader.minibatch_maxsize, 5103)
 
-root.path_for_target_data = get_config(
+root.path_for_target_data = get(
     root.path_for_target_data,
     os.path.join(root.common.test_dataset_root,
                  ("kanji/target/targets.%d.pickle" % (3 if six.PY3 else 2))))
 
-root.path_for_train_data = get_config(
+root.path_for_train_data = get(
     root.path_for_train_data,
     os.path.join(root.common.test_dataset_root, "kanji/train"))
 
-root.index_map = get_config(
+root.index_map = get(
     root.index_map, os.path.join(root.path_for_train_data,
                                  "index_map.%d.pickle" %
                                  (3 if six.PY3 else 2)))
 
-root.validation_procent = get_config(root.validation_procent, 0.15)
-root.weights_plotter.limit = get_config(root.weights_plotter.limit, 16)
+root.validation_procent = get(root.validation_procent, 0.15)
+root.weights_plotter.limit = get(root.weights_plotter.limit, 16)
 
 
 class Loader(loader.Loader):

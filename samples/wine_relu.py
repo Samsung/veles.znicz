@@ -11,7 +11,7 @@ File for Wine dataset (NN with RELU activation).
 import numpy
 import os
 
-from veles.config import root, get_config
+from veles.config import root, get
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
@@ -23,20 +23,20 @@ import veles.znicz.loader as loader
 
 
 root.common.update = {"plotters_disabled":
-                      get_config(root.common.plotters_disabled, True)}
+                      get(root.common.plotters_disabled, True)}
 
 root.update = {"decision": {"fail_iterations":
-                            get_config(root.decision.fail_iterations, 250),
+                            get(root.decision.fail_iterations, 250),
                             "snapshot_prefix":
-                            get_config(root.decision.snapshot_prefix,
+                            get(root.decision.snapshot_prefix,
                                        "wine_relu")},
-               "global_alpha": get_config(root.global_alpha, 0.75),
-               "global_lambda": get_config(root.global_lambda, 0.0),
-               "layers": get_config(root.layers, [10, 3]),
+               "global_alpha": get(root.global_alpha, 0.75),
+               "global_lambda": get(root.global_lambda, 0.0),
+               "layers": get(root.layers, [10, 3]),
                "loader": {"minibatch_maxsize":
-                          get_config(root.loader.minibatch_maxsize, 1000000)},
+                          get(root.loader.minibatch_maxsize, 1000000)},
                "path_for_load_data":
-               get_config(root.path_for_load_data,
+               get(root.path_for_load_data,
                           os.path.join(root.common.veles_dir,
                                        "veles/samples/wine/wine.data"))
                }
