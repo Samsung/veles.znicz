@@ -292,8 +292,8 @@ class Loader(units.Unit):
                     total_samples, dtype=opencl_types.itypes[
                         opencl_types.get_itype_from_size(total_samples)])
             return
-        offs0 = self.class_samples[TEST]
-        offs = offs0
+        offs_test = self.class_samples[TEST]
+        offs = offs_test
         train_samples = self.class_samples[VALID] + self.class_samples[TRAIN]
         total_samples = train_samples + offs
         original_labels = self.original_labels
@@ -317,10 +317,10 @@ class Loader(units.Unit):
 
                 offs += 1
                 n -= 1
-            self.class_samples[VALID] = offs - offs0
+            self.class_samples[VALID] = offs - offs_test
             self.class_samples[TRAIN] = (total_samples
                                          - self.class_samples[VALID]
-                                         - offs0)
+                                         - offs_test)
             return
         # If there are labels
         nn = {}
@@ -336,15 +336,15 @@ class Loader(units.Unit):
                                          "for class %d" % (l))
             n += nn[l]
         while n > 0:
-            i = rand.randint(offs, offs0 + train_samples)
+            i = rand.randint(offs, offs_test + train_samples)
             l = original_labels[shuffled_indexes[i]]
             if nn[l] <= 0:
                 # Move unused label to the end
 
                 # Swap indexes
-                ii = shuffled_indexes[offs0 + train_samples - 1]
+                ii = shuffled_indexes[offs_test + train_samples - 1]
                 shuffled_indexes[
-                    offs0 + train_samples - 1] = shuffled_indexes[i]
+                    offs_test + train_samples - 1] = shuffled_indexes[i]
                 shuffled_indexes[i] = ii
 
                 train_samples -= 1
@@ -357,9 +357,9 @@ class Loader(units.Unit):
             nn[l] -= 1
             n -= 1
             offs += 1
-        self.class_samples[VALID] = offs - offs0
+        self.class_samples[VALID] = offs - offs_test
         self.class_samples[TRAIN] = (total_samples - self.class_samples[VALID]
-                                     - offs0)
+                                     - offs_test)
 
 
 class FullBatchLoader(Loader):
