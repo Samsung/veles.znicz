@@ -18,6 +18,7 @@ import xmltodict
 import veles.config as config
 import veles.opencl_types as opencl_types
 import veles.znicz.loader as loader
+from configparser import Interpolation
 
 
 class Loader(loader.Loader):
@@ -52,15 +53,20 @@ class Loader(loader.Loader):
         self._ipath = kwargs.get("ipath", config.root.imagenet.ipath)
         self._year = kwargs.get("year", config.root.imagenet.year)
         self._series = kwargs.get("series", config.root.imagenet.series)
-        self._data_shape = kwargs.get("data_shape",
-                                      config.root.imagenet.shape or (256, 256))
+        aperture = kwargs.get("aperture",
+                              config.get(config.root.imagenet.aperture) or 256)
+        self._data_shape = (aperture, aperture)
         self._dtype = opencl_types.dtypes[config.root.common.precision_type]
-        self._colorspace = kwargs.get("colorspace",
-                                      config.root.imagenet.colorspace or "RGB")
+        self._crop_color = kwargs.get(
+            "crop_color",
+            config.get(config.root.imagenet.crop_color) or (127, 127, 127))
+        self._colorspace = kwargs.get(
+            "colorspace", config.get(config.root.imagenet.colorspace) or "RGB")
         self._include_derivative = kwargs.get(
-            "derivative", config.root.imagenet.derivative or False)
+            "derivative", config.get(config.root.imagenet.derivative) or False)
         self._sobel_kernel_size = kwargs.get(
-            "sobel_kernel_size", config.root.imagenet.sobel_ksize or 5)
+            "sobel_kernel_size",
+            config.get(config.root.imagenet.sobel_ksize) or 5)
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -102,7 +108,7 @@ class Loader(loader.Loader):
         for i in range(len(self._files_locator) - 1):
             left_index, files, set_name = self._files_locator[i]
             right_index = self._files_locator[i + 1][0]
-            if left_index < index < right_index:
+            if left_index <= index < right_index:
                 mapping = Loader.MAPPING[set_name][self.year][self.series]
                 return os.path.join(self._ipath, mapping[0],
                                     files[index - left_index]) + ".JPEG"
@@ -113,42 +119,138 @@ class Loader(loader.Loader):
             data = jpeg4py.JPEG(file_name).decode()
         except:
             self.exception("Failed to decode %s", file_name)
+            raise
+        return data
+
+    def _crop_and_scale(self, img, index):
+        width = img.shape[1]
+        height = img.shape[0]
+        try:
+            meta = self._get_meta(index)
+            bbox_obj = meta["object"]["bndbox"]
+            bbox = [int(bbox_obj["xmin"]), int(bbox_obj["ymin"]),
+                    int(bbox_obj["xmax"]), int(bbox_obj["ymax"])]
+        except (KeyError, ValueError):
+            # No bbox found: crop the squared area and resize it
+            offset = (width - height) / 2
+            if offset > 0:
+                img = img[:, offset:(width - offset), :]
+            else:
+                img = img[offset:(height - offset), :, :]
+            cv2.resize(img, self._data_shape, img,
+                       interpolation=cv2.INTER_AREA)
+            return img
+        # Check if the specified bbox is a square
+        offset = (bbox[2] - bbox[0] - (bbox[3] - bbox[1])) / 2
+        if offset > 0:
+            # Width is bigger than height
+            bbox[1] -= offset
+            bbox[3] += offset
+            bottom_height = -bbox[1]
+            if bottom_height > 0:
+                bbox[1] = 0
+            else:
+                bottom_height = 0
+            top_height = bbox[3] - height
+            if top_height > 0:
+                bbox[3] = height
+            else:
+                top_height = 0
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+            if bottom_height > 0:
+                fixup = numpy.array((bottom_height, bbox[2] - bbox[0], 3))
+                fixup.fill(self._crop_color)
+                img = numpy.concatenate((fixup, img), axis=0)
+            if top_height > 0:
+                fixup = numpy.array((top_height, bbox[2] - bbox[0], 3))
+                fixup.fill(self._crop_color)
+                img = numpy.concatenate((img, fixup), axis=0)
+        elif offset < 0:
+            # Height is bigger than width
+            bbox[0] -= offset
+            bbox[2] += offset
+            left_width = -bbox[0]
+            if left_width > 0:
+                bbox[0] = 0
+            else:
+                left_width = 0
+            right_width = bbox[2] - width
+            if right_width > 0:
+                bbox[2] = width
+            else:
+                right_width = 0
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+            if left_width > 0:
+                fixup = numpy.array((bbox[3] - bbox[1], left_width, 3))
+                fixup.fill(self._crop_color)
+                img = numpy.concatenate((fixup, img), axis=1)
+            if right_width > 0:
+                fixup = numpy.array((bbox[3] - bbox[1], right_width, 3))
+                fixup.fill(self._crop_color)
+                img = numpy.concatenate((img, fixup), axis=1)
+        else:
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+        assert img.shape[0] == img.shape[1]
+        if img.shape[0] != self._data_shape[0]:
+            img = cv2.resize(img, self._data_shape,
+                             interpolation=cv2.INTER_AREA)
+        return img
+
+    def _preprocess_sample(self, data):
         if self._include_derivative:
             deriv = cv2.cvtColor(data, cv2.COLOR_RGB2GRAY)
-            deriv = cv2.Sobel(
-                deriv,
-                cv2.CV_32F if self._dtype == numpy.float32 else cv2.CV_64F, 1,
-                1, ksize=self._sobel_kernel_size)
-        if self._colorspace == "HSV":
-            cv2.cvtColor(data, cv2.COLOR_RGB2HSV, data)
+            deriv = cv2.Sobel(deriv,
+                              cv2.CV_32F if self._dtype == numpy.float32
+                                         else cv2.CV_64F,
+                              1, 1, ksize=self._sobel_kernel_size)
+        if self._colorspace != "RGB":
+            cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),
+                         data)
         if self._include_derivative:
             shape = list(data.shape)
-            shape[2] += 1
+            shape[-1] += 1
             res = numpy.empty(shape, dtype=self._dtype)
             res[:, :, :-1] = data[:, :, :]
-            res.ravel()[3::4] = deriv.ravel()
+            begindex = len(shape)
+            res.ravel()[begindex::(begindex + 1)] = deriv.ravel()
         else:
             res = data.astype(self._dtype)
         return res
+
+    def _get_sample(self, index):
+        data = self._decode_image(index)
+        data = self._crop_and_scale(data, index)
+        data = self._preprocess_sample(data)
+        return data
 
     def _img_file_name(self, base, full):
         res = full[len(os.path.commonprefix([base, full])):]
         res = os.path.splitext(res)[0]
         while (res[0] == os.sep):
             res = res[1:]
-        parts = res.split(os.sep)
-        if len(parts) >= 2 and parts[0] == parts[1]:
-            res = os.sep.join(parts[1:])
         return res
 
-    def _init_files(self):
+    def _fixup_duplicate_dirs(self, path):
+        parts = path.split(os.sep)
+        if len(parts) >= 2 and parts[0] == parts[1]:
+            res = os.sep.join(parts[1:])
+            return res
+        return path
+
+    def _init_files(self, force=False):
         self.debug("Initializing files table...")
         files_key = ("files_%s_%s" % (self.year, self.series)).encode()
-        try:
-            files = self._db_.Get(files_key)
-            self.info("Loaded files table from DB")
-            self._files = json.loads(files.decode())
-        except KeyError:
+        if not force:
+            try:
+                files = self._db_.Get(files_key)
+                self.info("Loaded files table from DB")
+                self._files = json.loads(files.decode())
+                do_init = False
+            except KeyError:
+                do_init = True
+        else:
+            do_init = True
+        if do_init:
             self.debug("Will look for images in %s", self._ipath)
             self._files = {}
             index = 0
@@ -185,15 +287,16 @@ class Loader(loader.Loader):
     def _set_meta(self, index, value):
         self._db_.Put(self._gen_img_key(index), json.dumps(value).encode())
 
-    def _init_metadata(self):
+    def _init_metadata(self, force=False):
         self.debug("Initializing metadata...")
         metadata_key = ("metadata_%s_%s" % (self.year, self.series)).encode()
-        try:
-            self._db_.Get(metadata_key)
-            self.info("Found metadata in DB")
-            return
-        except KeyError:
-            pass
+        if not force:
+            try:
+                self._db_.Get(metadata_key)
+                self.info("Found metadata in DB")
+                return
+            except KeyError:
+                pass
         self.debug("Will look for metadata in %s", self._ipath)
         all_xmls = {}
         for set_name, years in Loader.MAPPING.items():
@@ -214,7 +317,7 @@ class Loader(loader.Loader):
             base = files[1]
             table = {}
             for i in range(len(flist)):
-                table[flist[i]] = i + base
+                table[self._fixup_duplicate_dirs(flist[i])] = i + base
             if len(table) < len(flist):
                 self.error("Duplicate file names detected in %s (%s, %s)",
                            set_name, self.year, self.series)
