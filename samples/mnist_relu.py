@@ -29,27 +29,26 @@ root.update = {"all2all": {"weights_magnitude":
                            get(root.all2all.weights_magnitude, 0.05)},
                "decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 150),
-                            "snapshot_prefix":
+                                "snapshot_prefix":
                             get(root.decision.snapshot_prefix,
-                                       "mnist_relu")},
+                                "mnist_relu")},
                "global_alpha": get(root.global_alpha, 0.01),
                "global_lambda": get(root.global_lambda, 0.0),
-               "layers_mnist_relu": get(root.layers_mnist_relu,
-                                               [100, 10]),
+               "layers_mnist_relu": get(root.layers_mnist_relu, [100, 10]),
                "loader": {"minibatch_maxsize":
                           get(root.loader.minibatch_maxsize, 60)},
                "path_for_load_data_test_images":
                get(root.path_for_load_data_test_images,
-                          os.path.join(mnist_dir, "t10k-images.idx3-ubyte")),
+                   os.path.join(mnist_dir, "t10k-images.idx3-ubyte")),
                "path_for_load_data_test_label":
                get(root.path_for_load_data_test_label,
-                          os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")),
+                   os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")),
                "path_for_load_data_train_images":
                get(root.path_for_load_data_train_images,
-                          os.path.join(mnist_dir, "train-images.idx3-ubyte")),
+                   os.path.join(mnist_dir, "train-images.idx3-ubyte")),
                "path_for_load_data_train_label":
                get(root.path_for_load_data_train_label,
-                          os.path.join(mnist_dir, "train-labels.idx1-ubyte"))}
+                   os.path.join(mnist_dir, "train-labels.idx1-ubyte"))}
 
 
 class Loader(loader.FullBatchLoader):

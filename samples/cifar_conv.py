@@ -33,40 +33,37 @@ import veles.znicz.loader as loader
 root.update = {"decision": {"fail_iterations":
                             get(root.decision.fail_iterations, 1000),
                             "snapshot_prefix":
-                            get(root.decision.snapshot_prefix,
-                                       "cifar")},
+                            get(root.decision.snapshot_prefix, "cifar")},
                "global_alpha": get(root.global_alpha, 0.001),
                "global_lambda": get(root.global_lambda, 0.004),
                "layers_cifar_conv":
                get(root.layers_cifar_conv,
-                          [{"type": "conv", "n_kernels": 32,
-                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                           {"type": "max_pooling",
-                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+                   [{"type": "conv", "n_kernels": 32,
+                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                    {"type": "max_pooling",
+                     "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                           {"type": "conv", "n_kernels": 32,
-                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                           {"type": "avg_pooling",
-                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+                    {"type": "conv", "n_kernels": 32,
+                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                    {"type": "avg_pooling",
+                     "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                           {"type": "conv", "n_kernels": 64,
-                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                           {"type": "avg_pooling",
-                            "kx": 3, "ky": 3, "sliding": (2, 2)},
-
-                           10]),
+                    {"type": "conv", "n_kernels": 64,
+                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                    {"type": "avg_pooling",
+                     "kx": 3, "ky": 3, "sliding": (2, 2)},
+                    10]),
                "loader": {"minibatch_maxsize":
                           get(root.loader.minibatch_maxsize, 100)},
                "path_for_out_data": get(root.path_for_out_data,
-                                               "/data/veles/cifar/tmpimg/"),
+                                        "/data/veles/cifar/tmpimg/"),
                "path_for_train_data":
                get(root.path_for_train_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "cifar/10")),
+                   os.path.join(root.common.test_dataset_root, "cifar/10")),
                "path_for_valid_data":
                get(root.path_for_valid_data,
-                          os.path.join(root.common.test_dataset_root,
-                                       "cifar/10/test_batch")),
+                   os.path.join(root.common.test_dataset_root,
+                                "cifar/10/test_batch")),
                "weights_plotter": {"limit":
                                    get(root.weights_plotter.limit, 64)}
                }
