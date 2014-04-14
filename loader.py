@@ -19,6 +19,16 @@ import veles.rnd as rnd
 import veles.units as units
 
 
+TRAIN = 2
+VALID = 1
+TEST = 0
+TRIAGE = {"train": TRAIN,
+          "validation": VALID,
+          "valid": VALID,
+          "test": TEST}
+CLASS_NAME = ["TEST", "VALIDATION", "TRAIN"]
+
+
 class LoaderError(Exception):
     pass
 
@@ -133,9 +143,9 @@ class Loader(units.Unit):
 
         # Adjust minibatch_maxsize.
         self.minibatch_maxsize = min(
-            self.minibatch_maxsize, max(self.class_samples[2],
-                                        self.class_samples[1],
-                                        self.class_samples[0]))
+            self.minibatch_maxsize, max(self.class_samples[TRAIN],
+                                        self.class_samples[VALID],
+                                        self.class_samples[TEST]))
         self.info("Using minibatch size %d", self.minibatch_maxsize)
 
         self.create_minibatches()
@@ -151,7 +161,7 @@ class Loader(units.Unit):
                 self.total_samples, dtype=opencl_types.itypes[
                     opencl_types.get_itype_from_size(self.total_samples)])
 
-        if self.class_samples[0]:
+        if self.class_samples[TEST]:
             self.shuffle_validation_train()
         else:
             self.shuffle_train()
@@ -188,8 +198,8 @@ class Loader(units.Unit):
                         self.nextclass_offs[self.minibatch_class]):
                     self.minibatch_last = 1
                     if not self.is_slave:
-                        self.info("Last minibatch for class %d served",
-                                  self.minibatch_class)
+                        self.info("Last minibatch for class %s served",
+                                  CLASS_NAME[self.minibatch_class])
                 else:
                     self.minibatch_last = 0
                 break
@@ -274,17 +284,17 @@ class Loader(units.Unit):
         if rand is None:
             rand = self.rnd[0]
         if amount <= 0:  # Dispose of validation set
-            self.class_samples[2] += self.class_samples[1]
-            self.class_samples[1] = 0
+            self.class_samples[TRAIN] += self.class_samples[VALID]
+            self.class_samples[VALID] = 0
             if self.shuffled_indexes is None:
                 total_samples = numpy.sum(self.class_samples)
                 self.shuffled_indexes = numpy.arange(
                     total_samples, dtype=opencl_types.itypes[
                         opencl_types.get_itype_from_size(total_samples)])
             return
-        offs0 = self.class_samples[0]
+        offs0 = self.class_samples[TEST]
         offs = offs0
-        train_samples = self.class_samples[1] + self.class_samples[2]
+        train_samples = self.class_samples[VALID] + self.class_samples[TRAIN]
         total_samples = train_samples + offs
         original_labels = self.original_labels
 
@@ -307,9 +317,10 @@ class Loader(units.Unit):
 
                 offs += 1
                 n -= 1
-            self.class_samples[1] = offs - offs0
-            self.class_samples[2] = (total_samples - self.class_samples[1] -
-                                     offs0)
+            self.class_samples[VALID] = offs - offs0
+            self.class_samples[TRAIN] = (total_samples
+                                         - self.class_samples[VALID]
+                                         - offs0)
             return
         # If there are labels
         nn = {}
@@ -346,8 +357,9 @@ class Loader(units.Unit):
             nn[l] -= 1
             n -= 1
             offs += 1
-        self.class_samples[1] = offs - offs0
-        self.class_samples[2] = (total_samples - self.class_samples[1] - offs0)
+        self.class_samples[VALID] = offs - offs0
+        self.class_samples[TRAIN] = (total_samples - self.class_samples[VALID]
+                                     - offs0)
 
 
 class FullBatchLoader(Loader):

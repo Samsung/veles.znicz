@@ -19,6 +19,7 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.units as units
+from veles.znicz.loader import CLASS_NAME
 
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
@@ -363,8 +364,9 @@ class Decision(units.Unit):
             ss.append("n_err %d (%.2f%%)" %
                       (self.epoch_n_err[minibatch_class],
                        self.epoch_n_err_pt[minibatch_class]))
-        self.info("Epoch %d Class %d %s in %.2f sec" %
-                  (self.epoch_number, minibatch_class, " ".join(ss), dt))
+        self.info("Epoch %d Class %s %s in %.2f sec" %
+                  (self.epoch_number, CLASS_NAME[minibatch_class],
+                   " ".join(ss), dt))
 
     def on_reset_statistics(self, minibatch_class):
         # Reset statistics per class

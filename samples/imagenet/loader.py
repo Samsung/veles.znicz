@@ -350,6 +350,5 @@ class Loader(loader.Loader):
         self.info("Initialized metadata")
 
     def _fill_class_samples(self):
-        triage = {"train": 2, "validation": 1, "test": 0}
-        for key, val in triage.items():
+        for key, val in loader.TRIAGE.items():
             self.class_samples[val] = len(self._files[key][0])
