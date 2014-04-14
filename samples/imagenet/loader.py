@@ -157,8 +157,8 @@ class Loader(loader.Loader):
                 img = img[:, offset:(width - offset), :]
             else:
                 img = img[offset:(height - offset), :, :]
-            cv2.resize(img, self._data_shape, img,
-                       interpolation=cv2.INTER_AREA)
+            img = cv2.resize(img, self._data_shape,
+                             interpolation=cv2.INTER_AREA)
             return img
         # Check if the specified bbox is a square
         offset = (bbox[2] - bbox[0] - (bbox[3] - bbox[1])) / 2
