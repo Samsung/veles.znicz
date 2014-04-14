@@ -385,8 +385,8 @@ class Loader(loader.Loader):
                 self.info("Initializing labels from scratch...")
         names = set()
         self._metadata_misses = {}
-        progress = ProgressBar(maxval=sum(len(f[0]) for f
-                                              in self._files.values()))
+        progress = ProgressBar(maxval=sum(len(f[0])
+                                          for f in self._files.values()))
         progress.start()
         for set_name, files in self._files.items():
             flist = files[0]
