@@ -95,10 +95,16 @@ class Loader(loader.Loader):
         return self._series
 
     def load_data(self):
-        self._init_files()
-        self._init_metadata()
-        self._init_labels()
-        self._fill_class_samples()
+        sample_sets, cats = self._init_samples_categories(None, None)
+        if sample_sets is not None and cats is not None:
+            self._label_map = self._init_labels(cats)
+            self._fill_class_samples(sample_sets)
+            return
+        file_sets = self._init_files()
+        metadata = self._init_metadata(file_sets)
+        sample_sets, cats = self._init_samples_categories(file_sets, metadata)
+        self._label_map = self._init_labels(cats)
+        self._fill_class_samples(sample_sets)
 
     def create_minibatches(self):
         count = self.minibatch_maxsize
@@ -116,22 +122,24 @@ class Loader(loader.Loader):
         for i, data in images:
             self.minibatch_data[i] = data
         for i in range(self.minibatch_size):
-            try:
-                meta = self._get_meta(self.shuffled_indexes[i])
-                name = meta["object"]["name"]
-            except KeyError:
+            meta = self._get_meta(self.shuffled_indexes[i])[1]
+            if meta[2] is not None:
+                name = meta["name"]
+            else:
                 fn = self._get_file_name(self.shuffled_indexes[i])
                 name = os.path.basename(os.path.dirname(fn))
             self.minibatch_labels[i] = self._label_map[name]
 
     def _get_file_name(self, index):
-        for i in range(len(self._files_locator) - 1):
-            left_index, files, set_name = self._files_locator[i]
-            right_index = self._files_locator[i + 1][0]
-            if left_index <= index < right_index:
-                mapping = Loader.MAPPING[set_name][self.year][self.series]
-                return os.path.join(self._ipath, mapping[0],
-                                    files[index - left_index]) + ".JPEG"
+        meta = self._get_meta(index)
+        set_name = loader.CLASS_NAME[meta[1]]
+        mapping = Loader.MAPPING[set_name][self.year][self.series]
+        return os.path.join(self._ipath, mapping[0], meta[0]) + ".JPEG"
+
+    def _get_bbox(self, meta):
+        bbox = meta[2]["bndbox"]
+        return (int(bbox["xmin"]), int(bbox["ymin"]),
+                int(bbox["xmax"]), int(bbox["ymax"]))
 
     def _decode_image(self, index):
         file_name = self._get_file_name(index)
@@ -145,12 +153,10 @@ class Loader(loader.Loader):
     def _crop_and_scale(self, img, index):
         width = img.shape[1]
         height = img.shape[0]
-        try:
-            meta = self._get_meta(index)
-            bbox_obj = meta["object"]["bndbox"]
-            bbox = [int(bbox_obj["xmin"]), int(bbox_obj["ymin"]),
-                    int(bbox_obj["xmax"]), int(bbox_obj["ymax"])]
-        except (KeyError, ValueError):
+        meta = self._get_meta(index)
+        if meta[2] is not None:
+            bbox = list(self._get_bbox(meta))
+        else:
             # No bbox found: crop the squared area and resize it
             offset = (width - height) / 2
             if offset > 0:
@@ -261,69 +267,54 @@ class Loader(loader.Loader):
             return res
         return path
 
-    def _init_files(self):
-        self.debug("Initializing files table...")
-        files_key = ("files_%s_%s" % (self.year, self.series)).encode()
-        if not self._force_reinit:
-            try:
-                files = self._db_.Get(files_key)
-                self.info("Loaded files table from DB")
-                self._files = json.loads(files.decode())
-                do_init = False
-            except KeyError:
-                self.info("Initializing files table from scratch...")
-                do_init = True
-        else:
-            do_init = True
-        if do_init:
-            self.debug("Will look for images in %s", self._ipath)
-            self._files = {}
-            index = 0
-            for set_name, years in Loader.MAPPING.items():
-                imgs = []
-                subdir = years[self.year][self.series][0]
-                path = os.path.join(self._ipath, subdir)
-                self.info("Scanning %s...", path)
-                for root, _, files in os.walk(path, followlinks=True):
-                    imgs.extend([self._img_file_name(path,
-                                                     os.path.join(root, f))
-                                 for f in files
-                                 if os.path.splitext(f)[1] == ".JPEG" and
-                                 f.find("-256") < 0])
-                self._files[set_name] = (imgs, index)
-                index += len(imgs)
-            self.info("Saving files table to DB...")
-            self._db_.Put(files_key, json.dumps(self._files).encode())
-            self.info("Initialized files table")
-        self._files_locator = sorted([(files[1], files[0], set_name)
-                                      for set_name, files
-                                      in self._files.items()])
-        self._files_locator.append((self._files_locator[-1][0] +
-                                    len(self._files_locator[-1][1]),
-                                    None, None))
-
-    def _gen_img_key(self, index):
+    def _gen_sample_key(self, index):
         return struct.pack("I", index) + self.year.encode() + \
             self.series.encode()
 
     def _get_meta(self, index):
-        return json.loads(self._db_.Get(self._gen_img_key(index)).decode())
+        return json.loads(self._db_.Get(self._gen_sample_key(index)).decode())
 
     def _set_meta(self, index, value):
-        self._db_.Put(self._gen_img_key(index), json.dumps(value).encode())
+        self._db_.Put(self._gen_sample_key(index), json.dumps(value).encode())
 
-    def _init_metadata(self):
+    def _init_files(self, force=False):
+        self.debug("Initializing files table...")
+        files_key = ("files_%s_%s" % (self.year, self.series)).encode()
+        if not force:
+            try:
+                files = self._db_.Get(files_key)
+                self.debug("Loaded files table from DB")
+                return json.loads(files.decode())
+            except KeyError:
+                pass
+        self.info("Looking for images in %s:", self._ipath)
+        file_sets = {}
+        for set_name, years in Loader.MAPPING.items():
+            file_sets[set_name] = imgs = []
+            subdir = years[self.year][self.series][0]
+            path = os.path.join(self._ipath, subdir)
+            self.info("Scanning %s...", path)
+            for root, _, files in os.walk(path, followlinks=True):
+                imgs.extend([self._img_file_name(path, os.path.join(root, f))
+                             for f in files
+                             if os.path.splitext(f)[1] == ".JPEG" and
+                             f.find("-256") < 0])
+        self.info("Saving files table to DB...")
+        self._db_.Put(files_key, json.dumps(file_sets).encode())
+        self.info("Initialized files table")
+        return file_sets
+
+    def _init_metadata(self, file_sets, force=False):
         self.debug("Initializing metadata...")
         metadata_key = ("metadata_%s_%s" % (self.year, self.series)).encode()
-        # self._db_.Delete(metadata_key)
-        if not self._force_reinit:
+        if not force:
             try:
-                self._db_.Get(metadata_key)
-                self.info("Found metadata in DB")
-                return
+                metadata = json.loads(self._db_.Get(metadata_key).decode())
+                self.debug("Loaded metadata from DB")
+                return metadata
             except KeyError:
-                self.info("Initializing metadata from scratch...")
-        self.debug("Will look for metadata in %s", self._ipath)
+                pass
+        self.info("Looking for metadata in %s:", self._ipath)
         all_xmls = {}
         for set_name, years in Loader.MAPPING.items():
             all_xmls[set_name] = xmls = []
@@ -338,21 +329,19 @@ class Loader(loader.Loader):
                              if os.path.splitext(f)[1] == ".xml"])
         self.info("Building image indices mapping")
         ifntbl = {}
-        for set_name, files in self._files.items():
-            flist = files[0]
-            base = files[1]
-            table = {}
-            for i in range(len(flist)):
-                table[self._fixup_duplicate_dirs(flist[i])] = i + base
-            if len(table) < len(flist):
-                self.error("Duplicate file names detected in %s (%s, %s)",
-                           set_name, self.year, self.series)
-            ifntbl[set_name] = table
+        for set_name, files in file_sets.items():
+            ifntbl[set_name] = {self._fixup_duplicate_dirs(name): index
+                                for index, name in enumerate(files)}
+            assert len(ifntbl[set_name]) == len(files), \
+                "Duplicate file names detected in %s (%s, %s)" % \
+                    (set_name, self.year, self.series)
         self.info("Parsing XML files...")
+        metadata = {}
         progress = ProgressBar(maxval=sum(
             [len(xmls) for xmls in all_xmls.values()]))
         progress.start()
         for set_name, xmls in all_xmls.items():
+            metadata[set_name] = mdsn = {}
             for xml in xmls:
                 progress.inc()
                 with open(xml, "r") as fr:
@@ -371,57 +360,114 @@ class Loader(loader.Loader):
                             Loader.MAPPING[set_name][self.year]
                             [self.series][0], file_key))
                     continue
-                self._set_meta(index, tree["annotation"])
+                mdsn[index] = tree["annotation"]
         progress.finish()
-        self._db_.Put(metadata_key, b"")
+        self.info("Saving metadata to DB...")
+        self._db_.Put(metadata_key, json.dumps(metadata).encode())
         self.info("Initialized metadata")
+        return metadata
 
-    def _init_labels(self):
-        self.debug("Initializing labels...")
-        label_key = ("labels_%s_%s" % (self.year, self.series)).encode()
-        # self._db_.Delete(label_key)
-        if not self._force_reinit:
+    def _init_samples_categories(self, file_sets, metadata, force=False):
+        self.debug("Initializing samples and categories...")
+        samples_key = ("samples_%s_%s" % (self.year, self.series)).encode()
+        cats_key = ("categories_%s_%s" % (self.year, self.series)).encode()
+        if not force:
             try:
-                self._label_map = json.loads(self._db_.Get(label_key).decode())
-                self.info("Found %d labels in DB", len(self._label_map))
-                return
+                sample_sets = json.loads(self._db_.Get(samples_key).decode())
+                categories = json.loads(self._db_.Get(cats_key).decode())
+                self.debug("Loaded %d, %d, %d samples in %d categories",
+                           len(sample_sets["test"]),
+                           len(sample_sets["validation"]),
+                           len(sample_sets["train"]),
+                           len(categories))
+                return sample_sets, categories
             except KeyError:
-                self.info("Initializing labels from scratch...")
-        names = set()
-        self._metadata_misses = {}
-        progress = ProgressBar(maxval=sum(len(f[0])
-                                          for f in self._files.values()))
+                pass
+        if file_sets is None or metadata is None:
+            return None, None
+        self.info("Building samples and categories...")
+        samples = []
+        sample_sets = {}
+        categories = {}
+        sindex = 0
+        fmeta_misses = {}
+        progress = ProgressBar(maxval=sum(
+            [len(files) for files in file_sets.values()]))
         progress.start()
-        for set_name, files in self._files.items():
-            flist = files[0]
-            base = files[1]
-            self._metadata_misses[set_name] = 0
-            for i in range(len(flist)):
+        for set_name, files in file_sets.items():
+            sample_sets[set_name] = ss = []
+            fmeta_misses[set_name] = 0
+            set_index = loader.TRIAGE[set_name]
+            for i in range(len(files)):
                 progress.inc()
                 try:
-                    meta = self._get_meta(base + i)
-                    names.add(meta["object"]["name"])
-                except:
-                    self._metadata_misses[set_name] += 1
-                    names.add(os.path.basename(os.path.dirname(flist[i])))
+                    objs = metadata[set_name][str(i)]["object"]
+                except KeyError:
+                    fmeta_misses[set_name] += 1
+                    samples.append((files[i], set_index, None))
+                    self._set_meta(sindex, samples[sindex])
+                    ss.append(sindex)
+                    ckey = os.path.basename(os.path.dirname(files[i]))
+                    try:
+                        categories[ckey]
+                    except KeyError:
+                        categories[ckey] = []
+                    categories[ckey].append(sindex)
+                    sindex += 1
+                    continue
+                if isinstance(objs, dict):
+                    objs = [objs]
+                for obj in objs:
+                    samples.append((files[i], set_index, obj))
+                    self._set_meta(sindex, samples[sindex])
+                    ss.append(sindex)
+                    ckey = obj["name"]
+                    try:
+                        categories[ckey]
+                    except KeyError:
+                        categories[ckey] = []
+                    categories[ckey].append(sindex)
+                    sindex += 1
         progress.finish()
-        self.info("Sorting labels...")
-        label_indices = [n for n in names]
-        label_indices.sort()
-        self._label_map = {name: i for i, name in enumerate(label_indices)}
-        self.info("Saving labels to DB...")
-        self._db_.Put(label_key, json.dumps(self._label_map).encode())
-        self.info("Initialized %d labels", len(self._label_map))
-        table = PrettyTable("set", "files", "bbox", "bbox/files, %")
+        assert sum(len(files) for files in sample_sets.values()) == \
+               sum(len(files) for files in categories.values())
+        table = PrettyTable("set", "files", "objects", "bbox", "bbox objs",
+                            "bbox/files,%", "bbox objs/objects,%")
         table.align["set"] = "l"
         table.align["files"] = "l"
-        for set_name, files in self._files.items():
-            meta_count = len(files[0]) - self._metadata_misses[set_name]
-            table.add_row(set_name, len(files[0]), meta_count,
-                          int(meta_count * 100 / len(files[0])))
+        table.align["objects"] = "l"
+        table.align["bbox"] = "l"
+        table.align["bbox objs"] = "l"
+        for set_name, files in file_sets.items():
+            bbox = len(files) - fmeta_misses[set_name]
+            set_index = loader.TRIAGE[set_name]
+            bbox_objs = len([t for t in samples if t[2] and t[1] == set_index])
+            table.add_row(set_name, len(files), len(sample_sets[set_name]),
+                          bbox, bbox_objs, int(bbox * 100 / len(files)),
+                          int(bbox_objs * 100 / len(sample_sets[set_name])))
         self.info("Stats:\n%s", str(table))
+        self.info("Saving samples and categories to DB...")
+        self._db_.Put(samples_key, json.dumps(sample_sets).encode())
+        self._db_.Put(cats_key, json.dumps(categories).encode())
+        return sample_sets, categories
 
-    def _fill_class_samples(self):
-        for set_name, files in self._files.items():
+    def _init_labels(self, categories, force=False):
+        self.debug("Initializing labels...")
+        labels_key = ("labels_%s_%s" % (self.year, self.series)).encode()
+        if not force:
+            try:
+                label_map = json.loads(self._db_.Get(labels_key).decode())
+                self.debug("Found %d labels in DB", len(label_map))
+                return label_map
+            except KeyError:
+                pass
+        self.info("Building labels...")
+        label_map = {v: i for i, v in enumerate(sorted(categories.keys()))
+                     if v}
+        self._db_.Put(labels_key, json.dumps(label_map).encode())
+        self.info("Initialized %d labels", len(label_map))
+
+    def _fill_class_samples(self, sample_sets):
+        for set_name, files in sample_sets.items():
             index = loader.TRIAGE[set_name]
-            self.class_samples[index] = len(files[0])
+            self.class_samples[index] = len(files)

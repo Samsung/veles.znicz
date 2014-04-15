@@ -45,7 +45,7 @@ if __name__ == "__main__":
     loader = Loader(DummyWorkflow(),
                     ipath="/data/imagenet/2013",
                     dbpath="/data/imagenet/2013/db",
-                    year="2013", series="img")
+                    year="2013", series="DET")
     loader.setup(level=logging.DEBUG)
     loader.load_data()
     unittest.main()
