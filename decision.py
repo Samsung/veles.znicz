@@ -14,7 +14,7 @@ from six.moves import cPickle as pickle
 import sys
 import time
 
-from veles.config import root
+import veles.config as config
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -180,10 +180,11 @@ class Decision(units.Unit):
                 self.tmp_epoch_samples_mse[i].v = (
                     numpy.zeros(
                         self.class_samples[i],
-                        dtype=opencl_types.dtypes[root.common.dtype]))
+                        dtype=opencl_types.dtypes[config.root.common.dtype]))
                 self.epoch_samples_mse[i].v = (
-                    numpy.zeros(self.class_samples[i],
-                                dtype=opencl_types.dtypes[root.common.dtype]))
+                    numpy.zeros(
+                        self.class_samples[i],
+                        dtype=opencl_types.dtypes[config.root.common.dtype]))
             else:
                 self.tmp_epoch_samples_mse[i].v[:] = 0
                 self.epoch_samples_mse[i].v[:] = 0
@@ -220,14 +221,14 @@ class Decision(units.Unit):
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
         if self.minibatch_n_err is not None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        self.fnme = os.path.join(root.common.snapshot_dir,
+        self.fnme = os.path.join(config.root.common.snapshot_dir,
                                  "%s_%s.%d.pickle" %
                                  (self.snapshot_prefix, "_".join(ss),
                                   3 if six.PY3 else 2))
         self.info("Snapshotting to %s" % (self.fnme))
         with open(self.fnme, "wb") as fout:
             pickle.dump(self.workflow, fout)
-        fnme_link = os.path.join(root.common.snapshot_dir,
+        fnme_link = os.path.join(config.root.common.snapshot_dir,
                                  "%s_current.%d.pickle" %
                                  (self.snapshot_prefix, 3 if six.PY3 else 2))
         try:
@@ -255,7 +256,7 @@ class Decision(units.Unit):
             ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
         if self.minibatch_n_err is not None:
             ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        self.fnmeWb = os.path.join(root.common.snapshot_dir,
+        self.fnmeWb = os.path.join(config.root.common.snapshot_dir,
                                    "%s_%s_Wb.%d.pickle" %
                                    (self.snapshot_prefix, "_".join(ss),
                                     3 if six.PY3 else 2))
@@ -297,7 +298,7 @@ class Decision(units.Unit):
                 os.unlink(fnme)
             except OSError:
                 pass
-        fnme_link = os.path.join(root.common.snapshot_dir,
+        fnme_link = os.path.join(config.root.common.snapshot_dir,
                                  "%s_current_Wb.%d.pickle" %
                                  (self.snapshot_prefix, 3 if six.PY3 else 2))
         try:

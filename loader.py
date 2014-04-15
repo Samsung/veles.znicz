@@ -11,7 +11,7 @@ import glob
 import numpy
 import time
 
-from veles.config import root
+import veles.config as config
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -73,7 +73,8 @@ class Loader(units.Unit):
         rnd_ = kwargs.get("rnd", rnd.default)
         kwargs["minibatch_maxsize"] = minibatch_maxsize
         kwargs["rnd"] = rnd_
-        kwargs["view_group"] = kwargs.get("view_group", "LOADER")
+        kwargs["view_group"] = kwargs.get(
+            "view_group", config.get(config.root.loader.view_group, "LOADER"))
         super(Loader, self).__init__(workflow, **kwargs)
 
         self.rnd = [rnd_]
@@ -272,7 +273,8 @@ class Loader(units.Unit):
             self.class_samples[i] = 0
         self.recompute_total_samples()
 
-    def extract_validation_from_train(self, amount=root.validation_procent,
+    def extract_validation_from_train(self,
+                                      amount=config.root.validation_procent,
                                       rand=None):
         """Extracts validation dataset from train dataset randomly.
 
@@ -409,14 +411,15 @@ class FullBatchLoader(Loader):
         sh = [self.minibatch_maxsize]
         sh.extend(self.original_data[0].shape)
         self.minibatch_data.v = numpy.zeros(
-            sh, dtype=opencl_types.dtypes[root.common.precision_type])
+            sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_target.reset()
         if self.original_target is not None:
             sh = [self.minibatch_maxsize]
             sh.extend(self.original_target[0].shape)
             self.minibatch_target.v = numpy.zeros(
-                sh, dtype=opencl_types.dtypes[root.common.precision_type])
+                sh,
+                dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_labels.reset()
         if self.original_labels is not None:

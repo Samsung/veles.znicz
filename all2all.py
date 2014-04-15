@@ -11,7 +11,7 @@ import logging
 import numpy
 import time
 
-from veles.config import root
+import veles.config as config
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
@@ -44,8 +44,11 @@ class All2All(nn_units.Forward):
     def __init__(self, workflow, **kwargs):
         output_shape = kwargs.get("output_shape")
         kwargs["output_shape"] = output_shape
+        weights_magnitude = kwargs.get("weights_magnitude", 0.05)
+        kwargs["weights_magnitude"] = weights_magnitude
         super(All2All, self).__init__(workflow, **kwargs)
         self.input = None
+        self.weights_magnitude = weights_magnitude
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
@@ -124,7 +127,7 @@ class All2All(nn_units.Forward):
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/feed_%d_%d.cl" %
-                               (root.common.cache_dir,
+                               (config.root.common.cache_dir,
                                 self.input.v.size // self.input.v.shape[0],
                                 output_size),
                                dtype=self.input.v.dtype)

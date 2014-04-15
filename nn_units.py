@@ -80,11 +80,8 @@ class GD(OpenCLUnit):
         apply_gradient: will apply gradient.
     """
     def __init__(self, workflow, **kwargs):
-        global_alpha = kwargs.get("global_alpha",
-                                  config.get(config.root.global_alpha, 0.01))
-        global_lambda = kwargs.get("global_lambda",
-                                   config.get(config.root.global_lambda,
-                                              0.00005))
+        global_alpha = kwargs.get("global_alpha", 0.01)
+        global_lambda = kwargs.get("global_lambda", 0.00005)
         weights_transposed = kwargs.get("weights_transposed", False)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
