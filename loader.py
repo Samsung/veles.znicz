@@ -26,7 +26,7 @@ TRIAGE = {"train": TRAIN,
           "validation": VALID,
           "valid": VALID,
           "test": TEST}
-CLASS_NAME = ["TEST", "VALIDATION", "TRAIN"]
+CLASS_NAME = ["test", "validation", "train"]
 
 
 class LoaderError(Exception):
@@ -135,11 +135,13 @@ class Loader(units.Unit):
 
     def initialize(self):
         super(Loader, self).initialize()
-        res = self.load_data()
-        if res:
-            return res
+        self.load_data()
 
         self.recompute_total_samples()
+
+        self.info("Samples number: train: %d, validation: %d, test: %d",
+                  self.class_samples[TRAIN], self.class_samples[VALID],
+                  self.class_samples[TEST])
 
         # Adjust minibatch_maxsize.
         self.minibatch_maxsize = min(
