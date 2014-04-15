@@ -164,8 +164,8 @@ class Loader(loader.Loader):
         offset = (bbox[2] - bbox[0] - (bbox[3] - bbox[1])) / 2
         if offset > 0:
             # Width is bigger than height
-            bbox[1] -= offset
-            bbox[3] += offset
+            bbox[1] -= numpy.floor(offset)
+            bbox[3] += numpy.ceil(offset)
             bottom_height = -bbox[1]
             if bottom_height > 0:
                 bbox[1] = 0
@@ -178,17 +178,19 @@ class Loader(loader.Loader):
                 top_height = 0
             img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
             if bottom_height > 0:
-                fixup = numpy.array((bottom_height, bbox[2] - bbox[0], 3))
-                fixup.fill(self._crop_color)
+                fixup = numpy.empty((bottom_height, bbox[2] - bbox[0], 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
                 img = numpy.concatenate((fixup, img), axis=0)
             if top_height > 0:
-                fixup = numpy.array((top_height, bbox[2] - bbox[0], 3))
-                fixup.fill(self._crop_color)
+                fixup = numpy.empty((top_height, bbox[2] - bbox[0], 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
                 img = numpy.concatenate((img, fixup), axis=0)
         elif offset < 0:
             # Height is bigger than width
-            bbox[0] -= offset
-            bbox[2] += offset
+            bbox[0] -= numpy.floor(offset)
+            bbox[2] += numpy.ceil(offset)
             left_width = -bbox[0]
             if left_width > 0:
                 bbox[0] = 0
@@ -201,12 +203,14 @@ class Loader(loader.Loader):
                 right_width = 0
             img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
             if left_width > 0:
-                fixup = numpy.array((bbox[3] - bbox[1], left_width, 3))
-                fixup.fill(self._crop_color)
+                fixup = numpy.empty((bbox[3] - bbox[1], left_width, 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
                 img = numpy.concatenate((fixup, img), axis=1)
             if right_width > 0:
-                fixup = numpy.array((bbox[3] - bbox[1], right_width, 3))
-                fixup.fill(self._crop_color)
+                fixup = numpy.empty((bbox[3] - bbox[1], right_width, 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
                 img = numpy.concatenate((img, fixup), axis=1)
         else:
             img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
