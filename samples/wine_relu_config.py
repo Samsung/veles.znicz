@@ -8,6 +8,8 @@ Example of Wine config.
 """
 
 
+import os
+
 from veles.config import root, Config
 
 
@@ -20,9 +22,11 @@ root.common.update = {"plotters_disabled": True}
 
 root.update = {"decision": {"fail_iterations": 250,
                             "snapshot_prefix": "wine_relu"},
-               "global_alpha": 0.75,
-               "global_lambda": 0,
-               "layers": [10, 3],
                "loader": {"minibatch_maxsize": 1000000},
-               "path_for_load_data":
-               "/data/veles/Veles2/veles/znicz/samples/wine/wine.data"}
+               "wine_relu": {"global_alpha": 0.75,
+                             "global_lambda": 0.0,
+                             "layers": [10, 3],
+                             "path_for_load_data":
+                             os.path.join(root.common.veles_dir,
+                                          "veles/znicz/samples/wine/wine.data")
+                             }}

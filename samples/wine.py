@@ -11,9 +11,10 @@ File for Wine dataset.
 import numpy
 import os
 
-from veles.config import get, root
+from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+import veles.rnd as rnd
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -22,30 +23,26 @@ import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
 
-root.common.update = {"plotters_disabled":
-                      get(root.common.plotters_disabled, True)}
+root.common.defaults = {"plotters_disabled": True}
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 200),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "wine")},
-               "global_alpha": get(root.global_alpha, 0.5),
-               "global_lambda": get(root.global_lambda, 0.0),
-               "layers": get(root.layers, [8, 3]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 1000000)},
-               "path_for_load_data":
-               get(root.path_for_load_data,
-                   os.path.join(root.common.veles_dir,
-                                "veles/samples/wine/wine.data"))
-               }
+root.defaults = {"decision": {"fail_iterations": 200,
+                              "snapshot_prefix": "wine"},
+                 "loader": {"minibatch_maxsize": 1000000,
+                            "rnd": rnd.default,
+                            "view_group": "LOADER"},
+                 "wine": {"global_alpha": 0.5,
+                          "global_lambda": 0.0,
+                          "layers": [8, 3],
+                          "path_for_load_data":
+                          os.path.join(root.common.veles_dir,
+                                       "veles/znicz/samples/wine/wine.data")}}
 
 
 class Loader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
-        fin = open(root.path_for_load_data, "r")
+        fin = open(root.wine.path_for_load_data, "r")
         lines = []
         max_lbl = 0
         while True:
@@ -96,8 +93,10 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self, name="Wine loader",
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+        self.loader = Loader(self,
+                             minibatch_maxsize=root.loader.minibatch_maxsize,
+                             rnd=root.loader.rnd.default,
+                             view_group=root.loader.view_group)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -133,8 +132,8 @@ class Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.Decision(
             self,
-            fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            snapshot_prefix=root.decision.snapshot_prefix,
+            fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                  "minibatch_last", "class_samples")
@@ -175,7 +174,18 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers)
-    main()
+    load(Workflow, layers=root.wine.layers)
+    main(global_alpha=root.wine.global_alpha,
+         global_lambda=root.wine.global_lambda)

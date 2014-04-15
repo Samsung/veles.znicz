@@ -8,7 +8,10 @@ Example of Wine config.
 """
 
 
+import os
+
 from veles.config import root, Config
+import veles.rnd as rnd
 
 
 root.decision = Config()  # not necessary for execution (it will do it in real
@@ -18,11 +21,14 @@ root.decision = Config()  # not necessary for execution (it will do it in real
 
 root.common.update = {"plotters_disabled": True}
 
-root.update = {"decision": {"fail_iterations": 100,
+root.update = {"decision": {"fail_iterations": 200,
                             "snapshot_prefix": "wine"},
-               "global_alpha": 0.5,
-               "global_lambda": 0,
-               "layers": [8, 3],
-               "loader": {"minibatch_maxsize": 1000000},
-               "path_for_load_data":
-               "/data/veles/Veles2/veles/znicz/samples/wine/wine.data"}
+               "loader": {"minibatch_maxsize": 1000000,
+                          "rnd": rnd.default,
+                          "view_group": "LOADER"},
+               "wine": {"global_alpha": 0.5,
+                        "global_lambda": 0.0,
+                        "layers": [8, 3],
+                        "path_for_load_data":
+                        os.path.join(root.common.veles_dir,
+                                     "veles/znicz/samples/wine/wine.data")}}

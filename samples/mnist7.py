@@ -10,7 +10,7 @@ MNIST with target encoded as 7 points, MSE.
 
 import numpy
 
-from veles.config import root, get
+from veles.config import root
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
@@ -22,19 +22,13 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.samples.mnist as mnist
 
-
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 25),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "mnist7")},
-               "global_alpha": get(root.global_alpha, 0.0001),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers_mnist7": get(root.layers_mnist7, [100, 100, 7]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 60)},
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 25)}
-               }
+root.defaults = {"decision": {"fail_iterations": 25,
+                              "snapshot_prefix": "mnist7"},
+                 "loader": {"minibatch_maxsize": 60},
+                 "weights_plotter": {"limit": 25},
+                 "mnist7": {"global_alpha": 0.0001,
+                            "global_lambda": 0.00005,
+                            "layers": [100, 100, 7]}}
 
 
 class Loader(mnist.Loader):
@@ -107,8 +101,9 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            self,
+            snapshot_prefix=root.decision.snapshot_prefix,
+            fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -180,7 +175,8 @@ class Workflow(nn_units.NNWorkflow):
         # """
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(
-            self, name="First Layer Weights", limit=root.weights_plotter.limit)
+            self, name="First Layer Weights",
+            limit=root.weights_plotter.limit)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = self.forward[0].input
@@ -211,7 +207,18 @@ class Workflow(nn_units.NNWorkflow):
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers_mnist7)
-    main()
+    load(Workflow, layers=root.mnist7.layers)
+    main(global_alpha=root.mnist7.global_alpha,
+         global_lambda=root.mnist7.global_lambda)

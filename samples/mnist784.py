@@ -14,7 +14,7 @@ import logging
 import numpy
 import os
 
-from veles.config import root, get
+from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -28,21 +28,16 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.samples.mnist as mnist
 
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "mnist_784")},
-               "global_alpha": get(root.global_alpha, 0.001),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers_mnist784": get(root.layers_mnist784, [784, 784]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 100)},
-               "path_for_load_data":
-               get(root.path_for_load_data,
-                   os.path.join(root.common.test_dataset_root, "arial.ttf")),
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 16)}
-               }
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "mnist_784"},
+                 "loader": {"minibatch_maxsize": 100},
+                 "weights_plotter": {"limit": 16},
+                 "mnist784": {"global_alpha": 0.001,
+                              "global_lambda": 0.00005,
+                              "layers": [784, 784],
+                              "path_for_load_data":
+                              os.path.join(root.common.test_dataset_root,
+                                           "arial.ttf")}}
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,
@@ -115,7 +110,7 @@ class Loader(mnist.Loader):
         self.class_target.v = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, 10):
-            img = do_plot(root.path_for_load_data,
+            img = do_plot(root.mnist784.path_for_load_data,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_target[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.dtype])
@@ -170,7 +165,8 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
+            self,
+            snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
@@ -243,7 +239,8 @@ class Workflow(nn_units.NNWorkflow):
         # """
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(
-            self, name="First Layer Weights", limit=root.weights_plotter.limit)
+            self, name="First Layer Weights",
+            limit=root.weights_plotter.limit)
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = self.forward[0].input
@@ -287,7 +284,18 @@ class Workflow(nn_units.NNWorkflow):
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers_mnist784)
-    main()
+    load(Workflow, layers=root.mnist784.layers)
+    main(global_alpha=root.mnist784.global_alpha,
+         global_lambda=root.mnist784.global_lambda)

@@ -18,12 +18,11 @@ root.loader = Config()  # time any way) but good for Eclipse editor
 # optional parameters
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "mnist_784"},
-               "global_alpha": 0.001,
-               "global_lambda": 0.00005,
-               "layers_mnist784": [784, 784],
                "loader": {"minibatch_maxsize": 100},
-               "path_for_load_data":
-               os.path.join(root.common.test_dataset_root,
-                            "arial.ttf"),
-               "weights_plotter": {"limit": 16}
-               }
+               "weights_plotter": {"limit": 16},
+               "mnist784": {"global_alpha": 0.001,
+                            "global_lambda": 0.00005,
+                            "layers": [784, 784],
+                            "path_for_load_data":
+                            os.path.join(root.common.test_dataset_root,
+                                         "arial.ttf")}}

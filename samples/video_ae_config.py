@@ -20,12 +20,11 @@ root.decision = Config()  # not necessary for execution (it will do it in real
 
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "video_ae"},
-               "global_alpha": 0.0002,
-               "global_lambda": 0.00005,
-               "layers": [9, 14400],
                "loader": {"minibatch_maxsize": 50},
-               "path_for_load_data":
-               os.path.join(root.common.test_dataset_root,
-                            "video/video_ae/img/*.png"),
-               "weights_plotter": {"limit": 16}
-               }
+               "weights_plotter": {"limit": 16},
+               "video_ae": {"global_alpha": 0.0002,
+                            "global_lambda": 0.00005,
+                            "layers": [9, 14400],
+                            "path_for_load_data":
+                            os.path.join(root.common.test_dataset_root,
+                                         "video/video_ae/img/*.png")}}

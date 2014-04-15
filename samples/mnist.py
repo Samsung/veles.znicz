@@ -12,7 +12,7 @@ import numpy
 import os
 import struct
 
-from veles.config import get, root
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.plotting_units as plotting_units
@@ -27,31 +27,22 @@ from veles.interaction import Shell
 
 mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
 
-root.update = {"all2all": {"weights_magnitude":
-                           get(root.all2all.weights_magnitude, 0.05)},
-               "decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "mnist"),
-                            "store_samples_mse":
-                            get(root.decision.store_samples_mse, True)},
-               "global_alpha": get(root.global_alpha, 0.01),
-               "global_lambda": get(root.global_lambda, 0.0),
-               "layers_mnist": get(root.layers_mnist, [100, 10]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 60)},
-               "path_for_load_data_test_images":
-               get(root.path_for_load_data_test_images,
-                   os.path.join(mnist_dir, "t10k-images.idx3-ubyte")),
-               "path_for_load_data_test_label":
-               get(root.path_for_load_data_test_label,
-                   os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")),
-               "path_for_load_data_train_images":
-               get(root.path_for_load_data_train_images,
-                   os.path.join(mnist_dir, "train-images.idx3-ubyte")),
-               "path_for_load_data_train_label":
-               get(root.path_for_load_data_train_label,
-                   os.path.join(mnist_dir, "train-labels.idx1-ubyte"))}
+root.defaults = {"all2all": {"weights_magnitude": 0.05},
+                 "decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "mnist",
+                              "store_samples_mse": True},
+                 "loader": {"minibatch_maxsize": 60},
+                 "mnist": {"global_alpha": 0.01,
+                           "global_lambda": 0.0,
+                           "layers": [100, 10],
+                           "path_for_load_data_test_images":
+                           os.path.join(mnist_dir, "t10k-images.idx3-ubyte"),
+                           "path_for_load_data_test_label":
+                           os.path.join(mnist_dir, "t10k-labels.idx1-ubyte"),
+                           "path_for_load_data_train_images":
+                           os.path.join(mnist_dir, "train-images.idx3-ubyte"),
+                           "path_for_load_data_train_label":
+                           os.path.join(mnist_dir, "train-labels.idx1-ubyte")}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -126,10 +117,11 @@ class Loader(loader.FullBatchLoader):
         self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
         self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
 
-        self.load_original(0, 10000, root.path_for_load_data_test_label,
-                           root.path_for_load_data_test_images)
-        self.load_original(10000, 60000, root.path_for_load_data_train_label,
-                           root.path_for_load_data_train_images)
+        self.load_original(0, 10000, root.mnist.path_for_load_data_test_label,
+                           root.mnist.path_for_load_data_test_images)
+        self.load_original(10000, 60000,
+                           root.mnist.path_for_load_data_train_label,
+                           root.mnist.path_for_load_data_train_images)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 10000
@@ -157,13 +149,12 @@ class Workflow(nn_units.NNWorkflow):
         del self.forward[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(
-                    self, output_shape=[layers[i]], device=device,
-                    weights_magnitude=root.all2all.weights_magnitude)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                                         device=device)
             else:
-                aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layers[i]], device=device,
-                    weights_magnitude=root.all2all.weights_magnitude)
+                aa = all2all.All2AllSoftmax(self,
+                                            output_shape=[layers[i]],
+                                            device=device)
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
@@ -183,9 +174,7 @@ class Workflow(nn_units.NNWorkflow):
                            ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.Decision(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+        self.decision = decision.Decision(self)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -264,7 +253,18 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers_mnist)
-    main()
+    load(Workflow, layers=root.mnist.layers)
+    main(global_alpha=root.mnist.global_alpha,
+         global_lambda=root.mnist.global_lambda)

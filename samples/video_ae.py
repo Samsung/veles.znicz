@@ -14,7 +14,7 @@ import logging
 import os
 import re
 
-from veles.config import root, get
+from veles.config import root
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
@@ -25,22 +25,16 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "video_ae")},
-               "global_alpha": get(root.global_alpha, 0.0002),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers": get(root.layers, [9, 14400]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 50)},
-               "path_for_load_data":
-               get(root.path_for_load_data,
-                   os.path.join(root.common.test_dataset_root,
-                                "video/video_ae/img/*.png")),
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 16)}
-               }
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "video_ae"},
+                 "loader": {"minibatch_maxsize": 50},
+                 "weights_plotter": {"limit": 16},
+                 "video_ae": {"global_alpha": 0.0002,
+                              "global_lambda": 0.00005,
+                              "layers": [9, 14400],
+                              "path_for_load_data":
+                              os.path.join(root.common.test_dataset_root,
+                                           "video/video_ae/img/*.png")}}
 
 
 class Loader(loader.ImageLoader):
@@ -73,9 +67,9 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(
-            self, train_paths=[root.path_for_load_data],
-            minibatch_maxsize=root.loader.minibatch_maxsize)
+        self.loader = Loader(self,
+                             train_paths=[root.video_ae.path_for_load_data],
+                             minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -114,7 +108,8 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
+            self,
+            snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
@@ -172,7 +167,8 @@ class Workflow(nn_units.NNWorkflow):
         # Matrix plotter
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(
-            self, name="First Layer Weights", limit=root.weights_plotter.limit)
+            self, name="First Layer Weights",
+            limit=root.weights_plotter.limit)
         self.plt_mx.get_shape_from = self.forward[0].input
         self.plt_mx.input = self.gd[0].weights
         self.plt_mx.input_field = "v"
@@ -212,12 +208,23 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_img.gate_block = ~self.decision.epoch_ended
         """
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    w, snapshot = load(Workflow, layers=root.layers)
+    w, snapshot = load(Workflow, layers=root.video_ae.layers)
     if snapshot:
         for forward in w.forward:
             logging.info(forward.weights.v.min(), forward.weights.v.max(),
                          forward.bias.v.min(), forward.bias.v.max())
         w.decision.just_snapshotted << True
-    main()
+    main(global_alpha=root.video_ae.global_alpha,
+         global_lambda=root.video_ae.global_lambda)
