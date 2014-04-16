@@ -27,39 +27,28 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
-root.decision.fail_iterations = get(root.decision.fail_iterations, 1000)
+root.defaults = {"decision": {"fail_iterations": 1000,
+                              "snapshot_prefix": "kanji",
+                              "store_samples_mse": True},
+                 "loader": {"minibatch_maxsize": 5103,
+                            "validation_procent": 0.15},
+                 "weights_plotter": {"limit": 16},
+                 "kanji": {"global_alpha": 0.001,
+                           "global_lambda": 0.00005,
+                           "layers": [5103, 2889, 24 * 24],
+                           "path_for_load_data":
+                           {"target":
+                            os.path.join(root.common.test_dataset_root,
+                                         ("kanji/target/targets.%d.pickle" %
+                                          (3 if six.PY3 else 2))),
+                            "train":
+                            os.path.join(root.common.test_dataset_root,
+                                         "kanji/train")}}}
 
-root.decision.snapshot_prefix = get(
-    root.decision.snapshot_prefix, "kanji")
-
-root.decision.store_samples_mse = get(
-    root.decision.store_samples_mse, True)
-
-root.dir_for_kanji_pickle = get(
-    root.dir_for_kanji_pickle,
-    os.path.join(root.common.snapshot_dir, "kanji.pickle"))
-
-root.global_alpha = get(root.global_alpha, 0.001)
-root.global_lambda = get(root.global_lambda, 0.00005)
-root.layers = get(root.layers, [5103, 2889, 24 * 24])
-root.loader.minibatch_maxsize = get(root.loader.minibatch_maxsize, 5103)
-
-root.path_for_target_data = get(
-    root.path_for_target_data,
-    os.path.join(root.common.test_dataset_root,
-                 ("kanji/target/targets.%d.pickle" % (3 if six.PY3 else 2))))
-
-root.path_for_train_data = get(
-    root.path_for_train_data,
-    os.path.join(root.common.test_dataset_root, "kanji/train"))
-
-root.index_map = get(
-    root.index_map, os.path.join(root.path_for_train_data,
+root.kanji.index_map = get(
+    root.index_map, os.path.join(root.kanji.path_for_load_data.train,
                                  "index_map.%d.pickle" %
                                  (3 if six.PY3 else 2)))
-
-root.validation_procent = get(root.validation_procent, 0.15)
-root.weights_plotter.limit = get(root.weights_plotter.limit, 16)
 
 
 class Loader(loader.Loader):
@@ -82,7 +71,7 @@ class Loader(loader.Loader):
         Should be filled here:
             class_samples[].
         """
-        fin = open(root.index_map, "rb")
+        fin = open(root.kanji.index_map, "rb")
         self.index_map = pickle.load(fin)
         fin.close()
 
@@ -126,8 +115,7 @@ class Loader(loader.Loader):
 
         self.info("Found %d samples. Extracting 15%% for validation..." % (
             len(self.index_map)))
-        self.extract_validation_from_train(
-            root.validation_procent, rnd.default2)
+        self.extract_validation_from_train(rnd.default2)
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
 
@@ -191,8 +179,9 @@ class Workflow(nn_units.NNWorkflow):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(
-            self, train_path=root.path_for_train_data,
-            target_path=root.path_for_target_data)
+            self, validation_procent=root.loader.validation_procent,
+            train_path=root.kanji.path_for_load_data.train,
+            target_path=root.kanji.path_for_load_data.target)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -377,7 +366,7 @@ class Workflow(nn_units.NNWorkflow):
 def run(load, main):
     weights = None
     bias = None
-    w, snapshot = load(Workflow, layers=root.layers)
+    w, snapshot = load(Workflow, layers=root.kanji.layers)
     if snapshot:
         if type(w) == tuple:
             logging.info("Will load weights")
@@ -391,6 +380,7 @@ def run(load, main):
                     forward.weights.v.min(), forward.weights.v.max(),
                     forward.bias.v.min(), forward.bias.v.max()))
             w.decision.just_snapshotted << True
-    main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
+    main(global_alpha=root.kanji.global_alpha,
+         global_lambda=root.kanji.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize,
          weights=weights, bias=bias)

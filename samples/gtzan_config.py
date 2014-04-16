@@ -17,31 +17,32 @@ root.loader = Config()
 
 # optional parameters
 
-root.labels = {"blues": 0,
-               "country": 1,
-               "jazz": 2,
-               "pop": 3,
-               "rock": 4,
-               "classical": 5,
-               "disco": 6,
-               "hiphop": 7,
-               "metal": 8,
-               "reggae": 9}
-root.features_shape = {"CRP": 12}
+root.gtzan.labels = {"blues": 0,
+                     "country": 1,
+                     "jazz": 2,
+                     "pop": 3,
+                     "rock": 4,
+                     "classical": 5,
+                     "disco": 6,
+                     "hiphop": 7,
+                     "metal": 8,
+                     "reggae": 9}
+root.gtzan.features_shape = {"CRP": 12}
 
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "gtzan"},
-               "export": False,
-               "exports": ["features", "labels", "norm_add", "norm_mul"],
-               "features": ["Energy", "Centroid", "Flux", "Rolloff",
-                            "ZeroCrossings", "CRP"],
-               "global_alpha": 0.01,
-               "global_lambda": 0.00005,
-               "layers_gtzan": [100, 500, 10],
-               "minibatch_maxsize": 108,
-               "minibatches_in_epoch": 1000,
-               "pickle_fnme": os.path.join(root.common.test_dataset_root,
-                                           "music/GTZAN/gtzan.pickle"),
-               "snapshot": "",
-               "window_size": 100
-               }
+               "gtzan": {"exports":
+                         ["features", "labels", "norm_add", "norm_mul"],
+                         "features":
+                         ["Energy", "Centroid", "Flux", "Rolloff",
+                          "ZeroCrossings", "CRP"],
+                         "global_alpha": 0.01,
+                         "global_lambda": 0.00005,
+                         "layers": [100, 500, 10],
+                         "minibatch_maxsize": 108,
+                         "minibatches_in_epoch": 1000,
+                         "pickle_fnme":
+                         os.path.join(root.common.test_dataset_root,
+                                      "music/GTZAN/gtzan.pickle"),
+                         "snapshot": "",
+                         "window_size": 100}}

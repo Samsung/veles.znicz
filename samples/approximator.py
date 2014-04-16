@@ -11,7 +11,7 @@ File for function approximation.
 import numpy
 import scipy.io
 
-from veles.config import root, get
+from veles.config import root
 import veles.error as error
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -23,25 +23,18 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
+target_dir = ["/data/veles/approximator/all_org_appertures.mat"]
+train_dir = ["/data/veles/approximator/all_dec_appertures.mat"]
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 1000),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "approximator"),
-                            "store_samples_mse":
-                            get(root.decision.store_samples_mse, True)},
-               "global_alpha": get(root.global_alpha, 0.01),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers": get(root.layers, [810, 9]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 81)},
-               "path_for_target_data":
-               get(root.path_for_target_data,
-                   ["/data/veles/approximator/all_org_appertures.mat"]),
-               "path_for_train_data":
-               get(root.path_for_train_data,
-                   ["/data/veles/approximator/all_dec_appertures.mat"])
-               }
+root.defaults = {"decision": {"fail_iterations": 1000,
+                              "snapshot_prefix":  "approximator",
+                              "store_samples_mse": True},
+                 "loader": {"minibatch_maxsize": 100},
+                 "approximator": {"global_alpha": 0.01,
+                                  "global_lambda": 0.00005,
+                                  "layers": [810, 9],
+                                  "path_for_load_data": {"target": target_dir,
+                                                         "train": train_dir}}}
 
 
 class Loader(loader.ImageLoader):
@@ -165,9 +158,8 @@ class Workflow(nn_units.NNWorkflow):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(
-            self, train_paths=root.path_for_train_data,
-            target_paths=root.path_for_target_data,
-            minibatch_maxsize=root.loader.minibatch_maxsize)
+            self, train_paths=root.approximator.path_for_load_data.train,
+            target_paths=root.approximator.path_for_load_data.target)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -201,7 +193,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "minibatch_last",
-                                 "minibatch_offs",
+                                 "minibatch_offset",
                                  "minibatch_size",
                                  "class_samples")
         self.decision.link_attrs(
@@ -312,7 +304,21 @@ class Workflow(nn_units.NNWorkflow):
         self.plt.link_from(self.decision)
         self.plt.gate_block = ~self.decision.epoch_ended
 
+    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+                   device):
+        self.loader.minibatch_maxsize = minibatch_maxsize
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers)
-    main()
+    load(Workflow, layers=root.approximator.layers)
+    main(global_alpha=root.approximator.global_alpha,
+         global_lambda=root.approximator.global_lambda,
+         minibatch_maxsize=root.loader.minibatch_maxsize)

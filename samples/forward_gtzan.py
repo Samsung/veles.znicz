@@ -23,62 +23,59 @@ import veles.snd_features as snd_features
 import veles.units as units
 import veles.znicz.nn_units as nn_units
 
-gtzan_dir = os.path.join(root.common.test_dataset_root, "music/GTZAN")
-music_dir = os.path.join(root.common.test_dataset_root, "music")
+features_dir = os.path.join(root.common.test_dataset_root,
+                            "music/features.xml")
+snapshot_dir = os.path.join(root.common.test_dataset_root,
+                            "music/GTZAN/gtzan_1000_500_10_28.88pt_Wb.pickle")
+path_file = os.path.join(root.common.test_dataset_root,
+                         "music/GTZAN/blues/blues.00000.au")
 
-root.labels = get(root.labels, {"blues": 0,
-                                "country": 1,
-                                "jazz": 2,
-                                "pop": 3,
-                                "rock": 4,
-                                "classical": 5,
-                                "disco": 6,
-                                "hiphop": 7,
-                                "metal": 8,
-                                "reggae": 9})
+root.forward_gtzan.labels = get(root.forward_gtzan.labels, {"blues": 0,
+                                                            "country": 1,
+                                                            "jazz": 2,
+                                                            "pop": 3,
+                                                            "rock": 4,
+                                                            "classical": 5,
+                                                            "disco": 6,
+                                                            "hiphop": 7,
+                                                            "metal": 8,
+                                                            "reggae": 9})
 
-root.norm_add = get(root.norm_add,
-                    {'Rolloff': (-4194.1299697454906),
-                     'Centroid': (-2029.2262731600895),
-                     'ZeroCrossings': (-55.22063408843276),
-                     'Flux': (-0.91969949785961735),
-                     'Energy': (-10533446.715802385)})
-root.norm_mul = get(root.norm_mul,
-                    {'Rolloff': 0.00016505214530598153,
-                     'Centroid': 0.00014461928085116515,
-                     'ZeroCrossings': 0.0025266602711760356,
-                     'Flux': 0.066174680046850856,
-                     'Energy': 3.2792848460441024e-09})
+root.forward_gtzan.norm_add = get(root.forward_gtzan.norm_add,
+                                  {'Rolloff': (-4194.1299697454906),
+                                   'Centroid': (-2029.2262731600895),
+                                   'ZeroCrossings': (-55.22063408843276),
+                                   'Flux': (-0.91969949785961735),
+                                   'Energy': (-10533446.715802385)})
+root.forward_gtzan.norm_mul = get(root.forward_gtzan.norm_mul,
+                                  {'Rolloff': 0.00016505214530598153,
+                                   'Centroid': 0.00014461928085116515,
+                                   'ZeroCrossings': 0.0025266602711760356,
+                                   'Flux': 0.066174680046850856,
+                                   'Energy': 3.2792848460441024e-09})
 
-root.update = {"colors": get(root.colors, ["blue",
-                                           "pink",
-                                           "green",
-                                           "brown",
-                                           "gold",
-                                           "white",
-                                           "red",
-                                           "black",
-                                           "gray",
-                                           "orange"]),
-               "features":
-               get(root.features,
-                   ["Energy", "Centroid", "Flux", "Rolloff", "ZeroCrossings"]),
-               "file_name":
-               get(root.file_name, os.path.join(music_dir, "22.flac")),
-               "graphics": get(root.graphics, 1),
-               "limit": get(root.limit, 2000000000),
-               "path_for_features":
-               get(root.path_for_features, os.path.join(music_dir,
-                                                        "features.xml")),
-               "plotter_window_name": get(root.plotter_window_name, ""),
-               "shift_size": get(root.shift_size, 10),
-               "snapshot_forward":
-               get(root.snapshot_forward,
-                   os.path.join(gtzan_dir,
-                                "gtzan_1000_500_10_28.88pt_Wb.pickle")),
-               "title_fontsize": get(root.title_fontsize, 23),
-               "window_size": get(root.window_size, 100)
-               }
+root.forward_gtzan.defaults = {"colors": ["blue",
+                                          "pink",
+                                          "green",
+                                          "brown",
+                                          "gold",
+                                          "white",
+                                          "red",
+                                          "black",
+                                          "gray",
+                                          "orange"],
+                               "features": ["Energy", "Centroid", "Flux",
+                                            "Rolloff", "ZeroCrossings"],
+                               "file_name": path_file,
+                               "graphics": 1,
+                               "limit": 2000000000,
+                               "path_for_load_data": {"features":
+                                                      features_dir},
+                               "plotter_window_name": "",
+                               "shift_size": 10,
+                               "snapshot": snapshot_dir,
+                               "title_fontsize":  23,
+                               "window_size": 100}
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -131,14 +128,14 @@ class Forward(units.Unit):
         ff = self.ff.__dict__[self.ff_key]
         ff = ff[0][0]
 
-        labels = root.labels
+        labels = root.forward_gtzan.labels
         self.i_labels = {}
         for k, v in labels.items():
             self.i_labels[v] = k
-        features = root.features
-        norm_add = root.norm_add
-        norm_mul = root.norm_mul
-        limit = root.limit
+        features = root.forward_gtzan.features
+        norm_add = root.forward_gtzan.norm_add
+        norm_mul = root.forward_gtzan.norm_mul
+        limit = root.forward_gtzan.limit
         for k in features:
             v = ff[k]
             limit = min(len(v), limit)
@@ -233,12 +230,13 @@ def draw_plot(figure_label, x, y, i_labels, fnme, name, left_legend=False):
         "metal": 8,
         "reggae": 9
     """
-    colors = root.colors
+    colors = root.forward_gtzan.colors
 
     fig = pp.figure(figure_label)
     ax = fig.add_subplot(111)
     # ax.set_ylim(0, 1)
-    ax.set_title(name if len(name) else fnme, fontsize=root.title_fontsize)
+    ax.set_title(name if len(name) else fnme,
+                 fontsize=root.forward_gtzan.title_fontsize)
     for i in range(len(y)):
         ax.plot(x, y[i], color=colors[i], label=i_labels[i], linewidth=4)
     ax.fill_between(x, y[0], 0, color=colors[0])
@@ -253,21 +251,24 @@ def draw_plot(figure_label, x, y, i_labels, fnme, name, left_legend=False):
 
 def main():
     l = launcher.Launcher()
-    fin = open(root.snapshot_forward, "rb")
+    fin = open(root.forward_gtzan.snapshot, "rb")
     W, b = pickle.load(fin)
     fin.close()
     device = None if l.is_master else opencl.Device()
     w = Workflow(l, device=device)
-    w.initialize(file=root.file_name, feature_file=root.path_for_features,
-                 W=W, b=b, window_size=root.window_size,
-                 shift_size=root.shift_size)
+    w.initialize(file=root.forward_gtzan.file_name,
+                 feature_file=root.forward_gtzan.path_for_load_data.features,
+                 W=W, b=b, window_size=root.forward_gtzan.window_size,
+                 shift_size=root.forward_gtzan.shift_size)
     l.run()
 
-    if root.graphics:
+    if root.forward_gtzan.graphics:
         draw_plot("Points", w.forward.x, w.forward.y, w.forward.i_labels,
-                  root.file_name, root.plotter_window_name)
+                  root.forward_gtzan.file_name,
+                  root.forward_gtzan.plotter_window_name)
         draw_plot("Incremental", w.forward.x, w.forward.yy, w.forward.i_labels,
-                  root.file_name, root.plotter_window_name, True)
+                  root.forward_gtzan.file_name,
+                  root.forward_gtzan.plotter_window_name, True)
 
         pp.show()
 

@@ -11,7 +11,7 @@ File for Hands dataset.
 import numpy
 import os
 
-from veles.config import root, get
+from veles.config import root
 import veles.formats as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
@@ -23,28 +23,24 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
+train_dir = [os.path.join(root.common.test_dataset_root,
+                          "hands/Positive/Training/*.raw"),
+             os.path.join(root.common.test_dataset_root,
+                          "hands/Negative/Training/*.raw")]
+validation_dir = [os.path.join(root.common.test_dataset_root,
+                               "hands/Positive/Testing/*.raw"),
+                  os.path.join(root.common.test_dataset_root,
+                               "hands/Negative/Testing/*.raw")]
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "hands")},
-               "global_alpha": get(root.global_alpha, 0.05),
-               "global_lambda": get(root.global_lambda, 0.0),
-               "layers_hands": get(root.layers_hands, [30, 2]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 60)},
-               "path_for_train_data":
-               get(root.path_for_train_data,
-                   [os.path.join(root.common.test_dataset_root,
-                                 "hands/Positive/Training/*.raw"),
-                    os.path.join(root.common.test_dataset_root,
-                                 "hands/Negative/Training/*.raw")]),
-               "path_for_valid_data":
-               get(root.path_for_valid_data,
-                   [os.path.join(root.common.test_dataset_root,
-                                 "hands/Positive/Testing/*.raw"),
-                    os.path.join(root.common.test_dataset_root,
-                                 "hands/Negative/Testing/*.raw")])}
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "hands"},
+                 "loader": {"minibatch_maxsize": 60},
+                 "hands": {"global_alpha": 0.05,
+                           "global_lambda": 0.0,
+                           "layers": [30, 2],
+                           "path_for_load_data": {"train": train_dir,
+                                                  "validation":
+                                                  validation_dir}}}
 
 
 class Loader(loader.ImageLoader):
@@ -75,8 +71,8 @@ class Workflow(nn_units.NNWorkflow):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(
-            self, validation_paths=root.path_for_valid_data,
-            train_paths=root.path_for_train_data,
+            self, validation_paths=root.hands.path_for_load_data.validation,
+            train_paths=root.hands.path_for_load_data.train,
             minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.rpt)
 
@@ -173,7 +169,18 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
+
 
 def run(load, main):
-    load(Workflow, layers=root.layers_hands)
-    main()
+    load(Workflow, layers=root.hands.layers)
+    main(global_alpha=root.hands.global_alpha,
+         global_lambda=root.hands.global_lambda)

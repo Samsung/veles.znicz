@@ -23,7 +23,7 @@ import traceback
 # FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-from veles.config import root, get
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.image as image
@@ -41,31 +41,25 @@ import veles.znicz.loader as loader
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
-root.cache_fnme = get(
-    root.cache_fnme, os.path.join(root.common.cache_dir, "channels.pickle"))
-
-root.decision.fail_iterations = get(root.decision.fail_iterations, 1000)
-
-root.decision.snapshot_prefix = get(root.decision.snapshot_prefix,
-                                    "channles_108_24")
-
-root.decision.use_dynamic_alpha = get(root.decision.use_dynamic_alpha, False)
-root.export = get(root.export, False)
-root.find_negative = get(root.find_negative, 0)
-root.global_alpha = get(root.global_alpha, 0.01)
-root.global_lambda = get(root.global_lambda, 0.00005)
-root.grayscale = get(root.grayscale, False)
-root.layers = get(root.layers, [108, 24])
-root.loader.minibatch_size = get(root.loader.minibatch_size, 81)
-root.loader.rect = get(root.loader.rect, (264, 129))
-root.n_threads = get(root.n_threads, 32)
-
-root.path_for_train_data = get(
-    root.path_for_train_data, "/data/veles/channels/korean_960_540/train")
-
-root.snapshot = get(root.snapshot, "")
-root.validation_procent = get(root.validation_procent, 0.15)
-root.weights_plotter.limit = get(root.weights_plotter.limit, 16)
+root.defaults = {"decision": {"fail_iterations": 1000,
+                              "snapshot_prefix": "channels_108_24",
+                              "use_dynamic_alpha": False},
+                 "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
+                                                       "channels.pickle"),
+                            "grayscale": False,
+                            "minibatch_size": 81,
+                            "n_threads": 32,
+                            "channels_dir":
+                            "/data/veles/channels/korean_960_540/train",
+                            "rect": (264, 129),
+                            "validation_procent": 0.15},
+                 "weights_plotter": {"limit": 16},
+                 "channels": {"export": False,
+                              "find_negative": 0,
+                              "global_alpha": 0.01,
+                              "global_lambda": 0.00005,
+                              "layers": [108, 24],
+                              "snapshot": ""}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -76,22 +70,27 @@ class Loader(loader.FullBatchLoader):
         rect = kwargs.get("rect", (264, 129))
         grayscale = kwargs.get("grayscale", False)
         cache_fnme = kwargs.get("cache_fnme", "")
+        find_negative = kwargs.get("find_negative", 0)
+        n_threads = kwargs.get("n_threads", 32)
         kwargs["channels_dir"] = channels_dir
         kwargs["rect"] = rect
         kwargs["grayscale"] = grayscale
         kwargs["cache_fnme"] = cache_fnme
+        kwargs["find_negative"] = find_negative
+        kwargs["n_threads"] = n_threads
         super(Loader, self).__init__(workflow, **kwargs)
         # : Top-level configuration from channels_dir/conf.py
         self.top_conf_ = None
         # : Configuration from channels_dir/subdirectory/conf.py
         self.subdir_conf_ = {}
-        self.channels_dir = root.path_for_train_data
-        self.cache_fnme = root.cache_fnme
-        self.rect = root.loader.rect
-        self.grayscale = root.grayscale
+        self.channels_dir = channels_dir
+        self.cache_fnme = cache_fnme
+        self.rect = rect
+        self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
-        self.find_negative = root.find_negative
+        self.find_negative = find_negative
         self.channel_map = None
+        self.n_threads = n_threads
         self.pos = {}
         self.sz = {}
         self.file_map = {}  # sample index to its file name map
@@ -375,7 +374,7 @@ class Loader(loader.FullBatchLoader):
 
         # Read top-level configuration
         try:
-            fin = open(os.path.join(root.path_for_train_data, "conf.py"), "r")
+            fin = open(os.path.join(self.channels_dir, "conf.py"), "r")
             s = fin.read()
             fin.close()
             self.top_conf_ = {}
@@ -479,7 +478,7 @@ class Loader(loader.FullBatchLoader):
                                  count=1024))
         # FIXME(a.kazantsev): numpy.dot is thread-safe with this value
         # on ubuntu 13.10 (due to the static number of buffers in libopenblas)
-        n_threads = root.n_threads
+        n_threads = self.n_threads
         pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
                                       queue_size=n_threads)
         data_lock = threading.Lock()
@@ -520,7 +519,7 @@ class Loader(loader.FullBatchLoader):
 
         # Randomly generate validation set from train.
         self.info("Will extract validation set from train")
-        self.extract_validation_from_train(rand=rnd.default2)
+        self.extract_validation_from_train(rnd.default2)
 
         # Saving all the samples
         """
@@ -596,7 +595,13 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self)
+        self.loader = Loader(self, cache_fnme=root.loader.cache_fnme,
+                             find_negative=root.channels.find_negative,
+                             grayscale=root.loader.grayscale,
+                             n_threads=root.loader.n_threads,
+                             channels_dir=root.loader.channels_dir,
+                             rect=root.loader.rect,
+                             validation_procent=root.loader.validation_procent)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -736,9 +741,9 @@ class Workflow(nn_units.NNWorkflow):
         """
         self.gd[-1].link_from(self.decision)
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, global_alpha, global_lambda, minibatch_size,
                    w_neg, device):
-        self.loader.minibatch_maxsize = minibatch_maxsize
+        self.loader.minibatch_maxsize = minibatch_size
         self.loader.w_neg = w_neg
         self.ev.device = device
         for g in self.gd:
@@ -751,16 +756,10 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    layers = []
-    for s in root.layers:
-        layers.append(int(s))
-    logging.info("Will train NN with layers: %s"
-                 % (" ".join(str(x) for x in layers)))
-
     w_neg = None
     try:
-        w, _ = load(Workflow, layers=root.layers)
-        if root.export:
+        w, _ = load(Workflow, layers=root.channels.layers)
+        if root.channels.export:
             tm = time.localtime()
             s = "%d.%02d.%02d_%02d.%02d.%02d" % (
                 tm.tm_year, tm.tm_mon, tm.tm_mday,
@@ -775,7 +774,7 @@ def run(load, main):
                 traceback.print_exception(a, b, c)
                 logging.error("Error while exporting.")
             return
-        if root.find_negative > 0:
+        if root.channels.find_negative > 0:
             if type(w) != tuple or len(w) != 2:
                 logging.error(
                     "Snapshot with weights and biases only "
@@ -785,11 +784,11 @@ def run(load, main):
             w_neg = w
             raise IOError()
     except IOError:
-        if root.export:
+        if root.channels.export:
             logging.error("Valid snapshot should be provided if "
                           "export is True. Will now exit.")
             return
-        if (root.find_negative > 0 and w_neg is None):
+        if (root.channels.find_negative > 0 and w_neg is None):
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return
@@ -803,5 +802,6 @@ def run(load, main):
     fout.close()
     logging.info("Done")
     logging.info("Will execute workflow now")
-    main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
-         minibatch_maxsize=root.loader.minibatch_maxsize, w_neg=w_neg)
+    main(global_alpha=root.channels.global_alpha,
+         global_lambda=root.channels.global_lambda,
+         minibatch_size=root.loader.minibatch_size, w_neg=w_neg)

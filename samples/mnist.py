@@ -26,7 +26,15 @@ from veles.interaction import Shell
 from veles.external.progressbar import ProgressBar
 
 
-mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
+test_image_dir = os.path.join(
+    root.common.veles_dir, "veles/znicz/samples/MNIST/t10k-images.idx3-ubyte")
+test_label_dir = os.path.join(
+    root.common.veles_dir, "veles/znicz/samples/MNIST/t10k-labels.idx1-ubyte")
+train_image_dir = os.path.join(
+    root.common.veles_dir, "veles/znicz/samples/MNIST/train-images.idx3-ubyte")
+train_label_dir = os.path.join(
+    root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
+
 
 root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "decision": {"fail_iterations": 100,
@@ -36,14 +44,14 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "mnist": {"global_alpha": 0.01,
                            "global_lambda": 0.0,
                            "layers": [100, 10],
-                           "path_for_load_data_test_images":
-                           os.path.join(mnist_dir, "t10k-images.idx3-ubyte"),
-                           "path_for_load_data_test_label":
-                           os.path.join(mnist_dir, "t10k-labels.idx1-ubyte"),
-                           "path_for_load_data_train_images":
-                           os.path.join(mnist_dir, "train-images.idx3-ubyte"),
-                           "path_for_load_data_train_label":
-                           os.path.join(mnist_dir, "train-labels.idx1-ubyte")}}
+                           "path_for_load_data": {"test_images":
+                                                  test_image_dir,
+                                                  "test_label":
+                                                  test_label_dir,
+                                                  "train_images":
+                                                  train_image_dir,
+                                                  "train_label":
+                                                  train_label_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -123,11 +131,11 @@ class Loader(loader.FullBatchLoader):
         self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
         self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
 
-        self.load_original(0, 10000, root.mnist.path_for_load_data_test_label,
-                           root.mnist.path_for_load_data_test_images)
+        self.load_original(0, 10000, root.mnist.path_for_load_data.test_label,
+                           root.mnist.path_for_load_data.test_images)
         self.load_original(10000, 60000,
-                           root.mnist.path_for_load_data_train_label,
-                           root.mnist.path_for_load_data_train_images)
+                           root.mnist.path_for_load_data.train_label,
+                           root.mnist.path_for_load_data.train_images)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 10000

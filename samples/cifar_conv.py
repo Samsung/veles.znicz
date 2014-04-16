@@ -12,7 +12,7 @@ import numpy
 import os
 import pickle
 
-from veles.config import root, get
+from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -30,43 +30,40 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 1000),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "cifar")},
-               "global_alpha": get(root.global_alpha, 0.001),
-               "global_lambda": get(root.global_lambda, 0.004),
-               "layers_cifar_conv":
-               get(root.layers_cifar_conv,
-                   [{"type": "conv", "n_kernels": 32,
-                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                    {"type": "max_pooling",
-                     "kx": 3, "ky": 3, "sliding": (2, 2)},
+train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
+validation_dir = os.path.join(root.common.test_dataset_root,
+                              "cifar/10/test_batch")
 
-                    {"type": "conv", "n_kernels": 32,
-                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                    {"type": "avg_pooling",
-                     "kx": 3, "ky": 3, "sliding": (2, 2)},
-
-                    {"type": "conv", "n_kernels": 64,
-                     "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                    {"type": "avg_pooling",
-                     "kx": 3, "ky": 3, "sliding": (2, 2)},
-                    10]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 100)},
-               "path_for_out_data": get(root.path_for_out_data,
-                                        "/data/veles/cifar/tmpimg/"),
-               "path_for_train_data":
-               get(root.path_for_train_data,
-                   os.path.join(root.common.test_dataset_root, "cifar/10")),
-               "path_for_valid_data":
-               get(root.path_for_valid_data,
-                   os.path.join(root.common.test_dataset_root,
-                                "cifar/10/test_batch")),
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 64)}
-               }
+root.defaults = {"decision": {"fail_iterations": 1000,
+                              "snapshot_prefix": "cifar",
+                              "do_export_weights": True},
+                 "loader": {"minibatch_maxsize": 100},
+                 "image_saver": {"out_dirs":
+                                 [os.path.join(root.common.cache_dir,
+                                               "tmp/test"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/validation"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/train")]},
+                 "weights_plotter": {"limit": 64},
+                 "cifar_conv": {"global_alpha": 0.001,
+                                "global_lambda": 0.004,
+                                "layers":
+                                [{"type": "conv", "n_kernels": 32,
+                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                                 {"type": "max_pooling",
+                                  "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                 {"type": "conv", "n_kernels": 32,
+                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                                 {"type": "avg_pooling",
+                                  "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                 {"type": "conv", "n_kernels": 64,
+                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                                 {"type": "avg_pooling",
+                                  "kx": 3, "ky": 3, "sliding": (2, 2)}, 10],
+                                "path_for_load_data": {"train": train_dir,
+                                                       "validation":
+                                                       validation_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -83,7 +80,7 @@ class Loader(loader.FullBatchLoader):
                 opencl_types.get_itype_from_size(n_classes)])
 
         # Load Validation
-        fin = open(root.path_for_valid_data, "rb")
+        fin = open(root.cifar_conv.path_for_load_data.validation, "rb")
         u = pickle._Unpickler(fin)
         u.encoding = 'latin1'
         vle = u.load()
@@ -94,7 +91,7 @@ class Loader(loader.FullBatchLoader):
 
         # Load Train
         for i in range(1, 6):
-            fin = open(os.path.join(root.path_for_train_data,
+            fin = open(os.path.join(root.cifar_conv.path_for_load_data.train,
                                     ("data_batch_%d" % i)), "rb")
             u = pickle._Unpickler(fin)
             u.encoding = 'latin1'
@@ -129,8 +126,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self,
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -183,7 +179,8 @@ class Workflow(nn_units.NNWorkflow):
                                             ("input", "minibatch_data"))
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self)
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=root.image_saver.out_dirs)
         self.image_saver.link_from(self.forward[-1])
         self.image_saver.link_attrs(self.forward[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -206,7 +203,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
             snapshot_prefix=root.decision.snapshot_prefix,
-            do_export_weights=True)
+            do_export_weights=root.decision.do_export_weights)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -328,6 +325,7 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.layers_cifar_conv)
-    main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
+    load(Workflow, layers=root.cifar_conv.layers)
+    main(global_alpha=root.cifar_conv.global_alpha,
+         global_lambda=root.cifar_conv.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize)

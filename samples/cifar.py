@@ -12,7 +12,7 @@ import numpy
 import os
 import pickle
 
-from veles.config import root, get
+from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -26,30 +26,28 @@ import veles.znicz.loader as loader
 import veles.znicz.nn_units as nn_units
 import veles.znicz.accumulator as accumulator
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "cifar")},
-               "global_alpha": get(root.global_alpha, 0.1),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "image_saver": {"out":
-                               get(root.path_for_out_data,
-                                   os.path.join(root.common.cache_dir,
-                                                "tmp/"))},
-               "layers": get(root.layers, [100, 10]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 180)},
-               "n_bars": get(root.n_bars, 30),
-               "path_for_train_data":
-               get(root.path_for_train_data,
-                   os.path.join(root.common.test_dataset_root, "cifar/10")),
-               "path_for_valid_data":
-               get(root.path_for_valid_data,
-                   os.path.join(root.common.test_dataset_root,
-                                "cifar/10/test_batch")),
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 25)}
-               }
+train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
+validation_dir = os.path.join(root.common.test_dataset_root,
+                              "cifar/10/test_batch")
+
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "cifar"},
+                 "image_saver": {"out_dirs":
+                                 [os.path.join(root.common.cache_dir,
+                                               "tmp/test"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/validation"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/train")]},
+                 "loader": {"minibatch_maxsize": 180},
+                 "accumulator": {"n_bars": 30},
+                 "weights_plotter": {"limit": 25},
+                 "cifar": {"global_alpha": 0.1,
+                           "global_lambda": 0.00005,
+                           "layers": [100, 10],
+                           "path_for_load_data": {"train": train_dir,
+                                                  "validation":
+                                                  validation_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -66,7 +64,7 @@ class Loader(loader.FullBatchLoader):
                 opencl_types.get_itype_from_size(n_classes)])
 
         # Load Validation
-        fin = open(root.path_for_valid_data, "rb")
+        fin = open(root.cifar.path_for_load_data.validation, "rb")
         u = pickle._Unpickler(fin)
         u.encoding = 'latin1'
         vle = u.load()
@@ -77,7 +75,7 @@ class Loader(loader.FullBatchLoader):
 
         # Load Train
         for i in range(1, 6):
-            fin = open(os.path.join(root.path_for_train_data,
+            fin = open(os.path.join(root.cifar.path_for_load_data.train,
                                     ("data_batch_%d" % i)), "rb")
             u = pickle._Unpickler(fin)
             u.encoding = 'latin1'
@@ -112,8 +110,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self,
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+        self.loader = Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -136,7 +133,8 @@ class Workflow(nn_units.NNWorkflow):
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self, bars=root.n_bars)
+            accum = accumulator.RangeAccumulator(self,
+                                                 bars=root.accumulator.n_bars)
             self.accumulator.append(accum)
             if i:
                 self.accumulator[i].link_from(self.accumulator[i - 1])
@@ -147,7 +145,8 @@ class Workflow(nn_units.NNWorkflow):
                                            ("input", "output"))
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self)
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=root.image_saver.out_dirs)
         self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.link_attrs(self.forward[-1],
                                     "output", "max_idx")
@@ -288,6 +287,7 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.layers)
-    main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
+    load(Workflow, layers=root.cifar.layers)
+    main(global_alpha=root.cifar.global_alpha,
+         global_lambda=root.cifar.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize)

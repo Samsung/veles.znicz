@@ -18,16 +18,25 @@ root.loader = Config()
 
 # optional parameters
 
+train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
+validation_dir = os.path.join(root.common.test_dataset_root,
+                              "cifar/10/test_batch")
+
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "cifar"},
-               "global_alpha": 0.1,
-               "global_lambda": 0.00005,
-               "layers": [100, 10],
+               "image_saver": {"out_dirs":
+                               [os.path.join(root.common.cache_dir,
+                                             "tmp/test"),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp/validation"),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp/train")]},
                "loader": {"minibatch_maxsize": 180},
-               "n_bars": 50,
-               "path_for_out_data": os.path.join(root.common.cache_dir,
-                                                 "tmp/"),
-               "path_for_train_data": "/data/veles/cifar/10",
-               "path_for_valid_data": "/data/veles/cifar/10/test_batch",
-               "weights_plotter": {"limit": 25}
-               }
+               "accumulator": {"n_bars": 30},
+               "weights_plotter": {"limit": 25},
+               "cifar": {"global_alpha": 0.1,
+                         "global_lambda": 0.00005,
+                         "layers": [100, 10],
+                         "path_for_load_data": {"train": train_dir,
+                                                "validation":
+                                                validation_dir}}}

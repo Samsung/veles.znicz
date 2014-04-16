@@ -13,9 +13,6 @@ import numpy
 import os
 import pickle
 import re
-import sys
-import time
-import traceback
 
 from veles.config import root, get
 import veles.error as error
@@ -31,65 +28,83 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
-root.labels = get(root.labels, {"blues": 0,
-                                "country": 1,
-                                "jazz": 2,
-                                "pop": 3,
-                                "rock": 4,
-                                "classical": 5,
-                                "disco": 6,
-                                "hiphop": 7,
-                                "metal": 8,
-                                "reggae": 9})
-root.features_shape = get(root.features_shape, {"CRP": 12})
+root.gtzan.labels = get(root.gtzan.labels, {"blues": 0,
+                                            "country": 1,
+                                            "jazz": 2,
+                                            "pop": 3,
+                                            "rock": 4,
+                                            "classical": 5,
+                                            "disco": 6,
+                                            "hiphop": 7,
+                                            "metal": 8,
+                                            "reggae": 9})
+root.gtzan.features_shape = get(root.gtzan.features_shape, {"CRP": 12})
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "gtzan")},
-               "export": get(root.export, False),
-               "exports":
-               get(root.exports,
-                   ["features", "labels", "norm_add", "norm_mul"]),
-               "features":
-               get(root.features,
-                   ["Energy", "Centroid", "Flux", "Rolloff",
-                    "ZeroCrossings", "CRP"]),
-               "global_alpha": get(root.global_alpha, 0.01),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers_gtzan": get(root.layers_gtzan, [100, 500, 10]),
-               "minibatch_maxsize": get(root.minibatch_maxsize, 108),
-               "minibatches_in_epoch":
-               get(root.minibatches_in_epoch, 1000),
-               "pickle_fnme":
-               get(root.pickle_fnme,
-                   os.path.join(root.common.test_dataset_root,
-                                "music/GTZAN/gtzan.pickle")),
-               "snapshot": get(root.snapshot, ""),
-               "window_size": get(root.window_size, 100)
-               }
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "gtzan"},
+                 "gtzan": {"exports":
+                           ["features", "labels", "norm_add", "norm_mul"],
+                           "features":
+                           ["Energy", "Centroid", "Flux", "Rolloff",
+                            "ZeroCrossings", "CRP"],
+                           "global_alpha": 0.01,
+                           "global_lambda": 0.00005,
+                           "layers": [100, 500, 10],
+                           "minibatch_maxsize": 108,
+                           "minibatches_in_epoch": 1000,
+                           "pickle_fnme":
+                           os.path.join(root.common.test_dataset_root,
+                                        "music/GTZAN/gtzan.pickle"),
+                           "snapshot": "",
+                           "window_size": 100}}
 
 
 class Loader(loader.Loader):
     """Loads GTZAN dataset.
     """
     def __init__(self, workflow, **kwargs):
+        pickle_fnme = kwargs.get("pickle_fnme", "")
+        minibatch_max_size = kwargs.get("minibatch_max_size", 100)
+        minibatches_in_epoch = kwargs.get("minibatches_in_epoch", 1000)
+        window_size = kwargs.get("window_size", 100)
         rnd_ = kwargs.get("rnd", rnd.default2)
+        labels = kwargs.get("labels", {"blues": 0,
+                                       "country": 1,
+                                       "jazz": 2,
+                                       "pop": 3,
+                                       "rock": 4,
+                                       "classical": 5,
+                                       "disco": 6,
+                                       "hiphop": 7,
+                                       "metal": 8,
+                                       "reggae": 9})
+        features = kwargs.get("features",
+                              ["Energy", "Centroid", "Flux", "Rolloff",
+                               "ZeroCrossings", "CRP"])
+        exports = kwargs.get("exports", ["features", "labels", "norm_add",
+                                         "norm_mul"])
+        features_shape = kwargs.get("features_shape", {"CRP": 12})
+        kwargs["pickle_fnme"] = pickle_fnme
+        kwargs["minibatch_max_size"] = minibatch_max_size
+        kwargs["minibatches_in_epoch"] = minibatches_in_epoch
+        kwargs["window_size"] = window_size
         kwargs["rnd"] = rnd_
+        kwargs["labels"] = labels
+        kwargs["features"] = features
+        kwargs["exports"] = exports
+        kwargs["features_shape"] = features_shape
         super(Loader, self).__init__(workflow, **kwargs)
-        self.pickle_fnme = root.pickle_fnme
-        self.minibatches_in_epoch = root.minibatches_in_epoch
+        self.pickle_fnme = pickle_fnme
+        self.minibatches_in_epoch = minibatches_in_epoch
         self.data = None
-        self.window_size = root.window_size
-        self.features = root.features
+        self.window_size = window_size
+        self.features = features
         #                "MainBeat", "MainBeatStdDev"
-        self.features_shape = root.features_shape
+        self.features_shape = features_shape
         self.norm_add = {}
         self.norm_mul = {}
-        self.labels = root.labels
-        self.exports = root.exports
-        self.pickle_fnme = root.pickle_fnme
-        self.minibatch_maxsize = root.minibatch_maxsize
+        self.labels = labels
+        self.exports = exports
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
@@ -235,16 +250,21 @@ class Workflow(nn_units.NNWorkflow):
     """Sample workflow for MNIST dataset.
     """
     def __init__(self, workflow, **kwargs):
-        # layers = kwargs.get("layers")
+        layers = kwargs.get("layers")
         device = kwargs.get("device")
-        # kwargs["layers"] = layers
-        layers = root.layers_gtzan
+        kwargs["layers"] = layers
         kwargs["device"] = device
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self)
+        self.loader = Loader(
+            self, labels=root.gtzan.labels, exports=root.gtzan.exports,
+            pickle_fnme=root.gtzan.pickle_fnme,
+            minibatch_maxsize=root.gtzan.minibatch_maxsize,
+            minibatches_in_epoch=root.gtzan.minibatches_in_epoch,
+            window_size=root.gtzan.window_size, features=root.gtzan.features,
+            features_shape=root.gtzan.features_shape)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -354,30 +374,16 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
-    def initialize(self, device):
+    def initialize(self, global_alpha, global_lambda, device):
         for g in self.gd:
-            g.global_alpha = root.global_alpha
-            g.global_lambda = root.global_lambda
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
         return super(Workflow, self).initialize(device=device)
 
 
 def run(load, main):
-    w, _ = load(Workflow, layers=root.layers_gtzan)
-    if root.export:
-        tm = time.localtime()
-        s = "%d.%02d.%02d_%02d.%02d.%02d" % (
-            tm.tm_year, tm.tm_mon, tm.tm_mday,
-            tm.tm_hour, tm.tm_min, tm.tm_sec)
-        fnme = os.path.join(root.common.snapshot_dir,
-                            "channels_workflow_%s" % s)
-        try:
-            w.export(fnme)
-            logging.info("Exported successfully to %s.tar.gz" % (fnme))
-        except:
-            a, b, c = sys.exc_info()
-            traceback.print_exception(a, b, c)
-            logging.error("Error while exporting.")
-            return
+    w, _ = load(Workflow, layers=root.gtzan.layers)
     logging.info("norm_add: %s" % (str(w.loader.norm_add)))
     logging.info("norm_mul: %s" % (str(w.loader.norm_mul)))
-    main()
+    main(global_alpha=root.gtzan.global_alpha,
+         global_lambda=root.gtzan.global_lambda)

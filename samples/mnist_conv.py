@@ -8,7 +8,7 @@ MNIST with Convolutional layer.
 """
 
 
-from veles.config import root, get
+from veles.config import root
 import veles.error as error
 import veles.plotting_units as plotting_units
 from veles.znicz.samples import mnist
@@ -23,20 +23,15 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 
 
-root.update = {"decision": {"fail_iterations":
-                            get(root.decision.fail_iterations, 100),
-                            "snapshot_prefix":
-                            get(root.decision.snapshot_prefix, "mnist_conv")},
-               "global_alpha": get(root.global_alpha, 0.005),
-               "global_lambda": get(root.global_lambda, 0.00005),
-               "layers_mnist_conv":
-               get(root.layers_mnist_conv,
-                   [{"type": "conv", "n_kernels": 25, "kx": 9, "ky": 9},
-                    100, 10]),
-               "loader": {"minibatch_maxsize":
-                          get(root.loader.minibatch_maxsize, 540)},
-               "weights_plotter": {"limit":
-                                   get(root.weights_plotter.limit, 64)}}
+root.defaults = {"decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "mnist_conv"},
+                 "loader": {"minibatch_maxsize": 540},
+                 "weights_plotter": {"limit": 64},
+                 "mnist_conv": {"global_alpha": 0.005,
+                                "global_lambda": 0.00005,
+                                "layers":
+                                [{"type": "conv", "n_kernels": 25,
+                                  "kx": 9, "ky": 9}, 100, 10]}}
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -53,8 +48,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = mnist.Loader(
-            self, minibatch_maxsize=root.loader.minibatch_maxsize)
+        self.loader = mnist.Loader(self)
         self.loader.link_from(self.rpt)
 
         # Add forward units
@@ -225,7 +219,7 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.layers_mnist_conv)
+    load(Workflow, layers=root.mnist_conv.layers)
     """
     W = []
     b = []
@@ -247,6 +241,6 @@ def run(load, main):
     #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
     #                     100, 10], device=device)
-    main(global_alpha=root.global_alpha,
-         global_lambda=root.global_lambda,
+    main(global_alpha=root.mnist_conv.global_alpha,
+         global_lambda=root.mnist_conv.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize)
