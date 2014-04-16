@@ -23,6 +23,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 from veles.interaction import Shell
+from veles.external.progressbar import ProgressBar
 
 
 mnist_dir = os.path.join(root.common.veles_dir, "veles/znicz/samples/MNIST")
@@ -102,10 +103,15 @@ class Loader(loader.FullBatchLoader):
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.info("Original range: [%.1f, %.1f]" % (images.min(),
+        self.info("Original range: [%.1f, %.1f];" \
+                  " performing normalization..." % (images.min(),
                                                     images.max()))
+        progress = ProgressBar(maxval=len(images), term_width=17)
+        progress.start()
         for image in images:
+            progress.inc()
             formats.normalize(image)
+        progress.finish()
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))
         self.original_data[offs:offs + n_images] = images[:]
