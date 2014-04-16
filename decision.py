@@ -44,6 +44,7 @@ class Decision(units.Unit):
         class_samples: number of samples per class.
         fail_iterations: number of consequent iterations with non-decreased
                          validation error.
+        max_epochs: max number of epochs for training (stop if exceeded).
         epoch_metrics: metrics for an epoch (same as minibatch_metrics).
         workflow: reference to workflow to snapshot.
         snapshot_prefix: prefix for the snapshots.
@@ -75,11 +76,13 @@ class Decision(units.Unit):
         snapshot_prefix = kwargs.get("snapshot_prefix", "")
         store_samples_mse = kwargs.get("store_samples_mse", False)
         use_dynamic_alpha = kwargs.get("use_dynamic_alpha", False)
+        max_epochs = kwargs.get("max_epochs", None)
         kwargs["fail_iterations"] = fail_iterations
         kwargs["snapshot_prefix"] = snapshot_prefix
         kwargs["store_samples_mse"] = store_samples_mse
         kwargs["use_dynamic_alpha"] = use_dynamic_alpha
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
+        kwargs["max_epochs"] = max_epochs
         super(Decision, self).__init__(workflow, **kwargs)
         self.class_samples = None  # [0, 0, 0]
         self.def_attr("fail_iterations", fail_iterations)
@@ -133,6 +136,7 @@ class Decision(units.Unit):
         self.prev_train_err = 1.0e30
         self.ev = None
         self.samples_served = 0
+        self.max_epochs = max_epochs  # max epochs to learn
 
     def init_unpickled(self):
         super(Decision, self).init_unpickled()
@@ -327,6 +331,11 @@ class Decision(units.Unit):
                 self.min_validation_n_err <= 0 or
                 self.min_validation_mse <= 0):
             self.complete << True
+
+        # stop if max epoch number reached     333
+        if self.max_epochs is not None:
+            if self.epoch_number >= self.max_epochs:
+                self.complete << True
 
     def _on_test_validation_processed(self, minibatch_class):
         if self.just_snapshotted:
