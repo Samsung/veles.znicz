@@ -16,6 +16,7 @@ import os
 import xmltodict
 
 import veles.config as config
+import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.external.prettytable import PrettyTable
 from veles.external.progressbar import ProgressBar
@@ -198,6 +199,7 @@ class LoaderBase(loader.Loader):
         data = self._decode_image(index)
         data = self.crop_and_scale(data, index)
         data = self._preprocess_sample(data)
+        data = formats.normalize(data)
         return data
 
     def _key_file_name(self, base, full):
