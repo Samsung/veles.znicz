@@ -35,17 +35,21 @@ class TestWine(unittest.TestCase):
 
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},
-                       "global_alpha": 0.75,
-                       "global_lambda": 0.0,
-                       "layers":  [8, 3],
                        "loader": {"minibatch_maxsize": 10},
-                       "path_for_load_data":
-                       os.path.join(root.common.veles_dir,
-                                    "veles/znicz/samples/wine/wine.data")}
+                       "wine_test": {"global_alpha": 0.75,
+                                     "global_lambda": 0.0,
+                                     "layers":  [8, 3],
+                                     "path_for_load_data":
+                                     os.path.join(root.common.veles_dir,
+                                                  "veles/znicz/samples/wine" +
+                                                  "/wine.data")}}
 
-        w = wine.Workflow(dummy_workflow.DummyWorkflow(), layers=[8, 3],
+        w = wine.Workflow(dummy_workflow.DummyWorkflow(),
+                          layers=root.wine_test.layers,
                           device=self.device)
-        w.initialize()
+        w.initialize(global_alpha=root.wine_test.global_alpha,
+                     global_lambda=root.wine_test.global_lambda,
+                     device=self.device)
         w.run()
         epoch = w.decision._epoch_number
         self.assertEqual(epoch, 11)

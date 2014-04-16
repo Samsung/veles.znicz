@@ -94,9 +94,7 @@ class Workflow(nn_units.NNWorkflow):
         self.rpt.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_maxsize=root.loader.minibatch_maxsize,
-                             rnd=root.loader.rnd.default,
-                             view_group=root.loader.view_group)
+                             minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.rpt)
 
         # Add forward units
