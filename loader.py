@@ -70,8 +70,10 @@ class Loader(units.Unit):
 
     def __init__(self, workflow, **kwargs):
         minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
+        validation_procent = kwargs.get("validation_procent", 0.15)
         rnd_ = kwargs.get("rnd", rnd.default)
         kwargs["minibatch_maxsize"] = minibatch_maxsize
+        kwargs["validation_procent"] = validation_procent
         kwargs["rnd"] = rnd_
         kwargs["view_group"] = kwargs.get(
             "view_group", config.get(config.root.loader.view_group, "LOADER"))
@@ -101,6 +103,7 @@ class Loader(units.Unit):
 
         self.t_minibatch = 0
         self.def_attr("samples_served", 0)
+        self.validation_procent = validation_procent
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
@@ -273,9 +276,7 @@ class Loader(units.Unit):
             self.class_samples[i] = 0
         self.recompute_total_samples()
 
-    def extract_validation_from_train(self,
-                                      amount=config.root.validation_procent,
-                                      rand=None):
+    def extract_validation_from_train(self, rand=None):
         """Extracts validation dataset from train dataset randomly.
 
         We will rearrange indexes only.
@@ -285,6 +286,7 @@ class Loader(units.Unit):
                     relative to the entire samples count for each class.
             rand: rnd.Rand(), if None - will use self.rnd.
         """
+        amount = self.validation_procent
         if rand is None:
             rand = self.rnd[0]
         if amount <= 0:  # Dispose of validation set
