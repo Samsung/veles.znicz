@@ -111,7 +111,7 @@ class Loader(loader.FullBatchLoader):
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.info("Original range: [%.1f, %.1f];" \
+        self.info("Original range: [%.1f, %.1f];"
                   " performing normalization..." % (images.min(),
                                                     images.max()))
         progress = ProgressBar(maxval=len(images), term_width=17)

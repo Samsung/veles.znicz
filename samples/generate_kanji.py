@@ -8,8 +8,9 @@ File for generation of samples for kanji recognition.
 """
 
 
-from veles.external.freetype import (Face, FT_Matrix, FT_LOAD_RENDER,  # pylint: disable=E0611
-                      FT_Vector, FT_Set_Transform, byref)
+from veles.external.freetype import (Face, FT_Matrix, FT_LOAD_RENDER,
+                                     # pylint: disable=E0611
+                                     FT_Vector, FT_Set_Transform, byref)
 import glob
 import logging
 import numpy

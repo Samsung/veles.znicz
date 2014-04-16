@@ -275,9 +275,9 @@ class LoaderBase(loader.Loader):
         for set_name, files in file_sets.items():
             ifntbl[set_name] = {self._fixup_duplicate_dirs(name): index
                                 for index, name in enumerate(files)}
-            assert len(ifntbl[set_name]) == len(files), \
-                "Duplicate file names detected in %s (%s, %s)" % \
-                    (set_name, self.year, self.series)
+            assert (len(ifntbl[set_name]) == len(files),
+                    "Duplicate file names detected in %s (%s, %s)" %
+                    (set_name, self.year, self.series))
         self.info("Parsing XML files...")
         metadata = {}
         progress = ProgressBar(term_width=80, maxval=sum(
@@ -291,10 +291,11 @@ class LoaderBase(loader.Loader):
                     tree = xmltodict.parse(fr.read())
                 del tree["annotation"]["folder"]
                 del tree["annotation"]["filename"]
-                file_key = self._key_file_name(os.path.join(
-                    self._ipath,
-                    LoaderBase.MAPPING[set_name][self.year][self.series][1]),
-                                               xml)
+                file_key = self._key_file_name(
+                    os.path.join(
+                        self._ipath,
+                        LoaderBase.MAPPING[set_name][self.year][
+                            self.series][1]), xml)
                 try:
                     index = ifntbl[set_name][file_key]
                 except KeyError:
@@ -374,8 +375,9 @@ class LoaderBase(loader.Loader):
                     categories[ckey].append(sindex)
                     sindex += 1
         progress.finish()
-        assert sum(len(files) for files in objects.values()) == \
-               sum(len(files) for files in categories.values())
+        assert (sum(len(files) for files in
+                    objects.values()) == sum(len(files) for files in
+                                             categories.values()))
         table = PrettyTable("set", "files", "objects", "bbox", "bbox objs",
                             "bbox/files,%", "bbox objs/objects,%")
         table.align["set"] = "l"
@@ -584,9 +586,11 @@ class LoaderBoundingBox(LoaderBase):
                 objects = meta[2]["object"]
             else:
                 objects = {
-                    "name": self.get_category_by_file_name(
-                                self.get_image_file_name(index)),
-                    "bndbox": {"xmin":-1, "ymin":-1, "xmax":-1, "ymax":-1}}
+                    "name":
+                    self.get_category_by_file_name(
+                        self.get_image_file_name(index)),
+                    "bndbox": {"xmin": (-1), "ymin": (-1), "xmax": (-1),
+                               "ymax": (-1)}}
             if isinstance(objects, dict):
                 objects = [objects]
             for j, obj in enumerate(objects):
