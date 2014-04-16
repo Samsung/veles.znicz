@@ -8,7 +8,7 @@ MNIST with target encoded as ideal image (784 points), MSE.
 """
 
 
-from freetype import (Face, FT_Matrix, FT_LOAD_RENDER,  # pylint: disable=E0611
+from veles.external.freetype import (Face, FT_Matrix, FT_LOAD_RENDER,  # pylint: disable=E0611
                       FT_Vector, FT_Set_Transform, byref)
 import logging
 import numpy
