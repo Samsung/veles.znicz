@@ -11,7 +11,6 @@ import jpeg4py
 import json
 import leveldb
 import numpy
-from progressbar import ProgressBar
 import struct
 import os
 import xmltodict
@@ -19,6 +18,7 @@ import xmltodict
 import veles.config as config
 import veles.opencl_types as opencl_types
 from veles.external.prettytable import PrettyTable
+from veles.external.progressbar import ProgressBar
 import veles.znicz.loader as loader
 
 
