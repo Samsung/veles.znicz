@@ -9,7 +9,7 @@ import logging
 import unittest
 
 from veles.tests import DummyWorkflow
-from veles.znicz.samples.imagenet import Loader
+from veles.znicz.samples.imagenet import LoaderDetection
 
 
 loader = None
@@ -42,10 +42,10 @@ class Test(unittest.TestCase):
         loader._colorspace = "RGB"
 
 if __name__ == "__main__":
-    loader = Loader(DummyWorkflow(),
-                    ipath="/data/imagenet/2013",
-                    dbpath="/data/imagenet/2013/db",
-                    year="2013", series="DET")
+    loader = LoaderDetection(DummyWorkflow(),
+                             ipath="/data/imagenet/2013",
+                             dbpath="/data/imagenet/2013/db",
+                             year="2013", series="DET")
     loader.setup(level=logging.DEBUG)
     loader.load_data()
     unittest.main()
