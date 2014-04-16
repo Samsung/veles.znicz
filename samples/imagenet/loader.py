@@ -318,7 +318,7 @@ class LoaderBase(loader.Loader):
             try:
                 objects = json.loads(self._db_.Get(samples_key).decode())
                 categories = json.loads(self._db_.Get(cats_key).decode())
-                self.debug("Loaded %d, %d, %d samples in %d categories",
+                self.debug("Loaded %d, %d, %d objects and %d categories",
                            len(objects["test"]),
                            len(objects["validation"]),
                            len(objects["train"]),
@@ -400,8 +400,10 @@ class LoaderBase(loader.Loader):
         if not force:
             try:
                 images = json.loads(self._db_.Get(images_key).decode())
-                self.debug("Loaded %d images",
-                           sum([(i[1] - i[0]) for i in images]))
+                self.debug("Loaded %d, %d, %d images",
+                           images[0][1] - images[0][0],
+                           images[1][1] - images[1][0],
+                           images[2][1] - images[2][0])
                 return images
             except KeyError:
                 pass
