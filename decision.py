@@ -62,13 +62,13 @@ class Decision(units.Unit):
         max_err_y_sums: maximums of backpropagated gradient.
         vectors_to_sync: list of Vector() objects to sync after each epoch.
         sample_input: will be a copy of first element from forward[0].input
-                      if the later is in vectors_to_sync.
+                      if the latter is in vectors_to_sync.
         sample_output: will be a copy of first element from forward[-1].output
-                       if the later is in vectors_to_sync.
+                       if the latter is in vectors_to_sync.
         sample_target: will be a copy of first element from ev.target
-                       if the later is in vectors_to_sync.
+                       if the latter is in vectors_to_sync.
         sample_label: will be a copy of first element label from ev.labels
-                       if the later is in vectors_to_sync.
+                       if the latter is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, workflow, **kwargs):
@@ -648,14 +648,18 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.map_write()
             self.minibatch_confusion_matrix.v += data[
                 "minibatch_confusion_matrix"]
-        for i, d in enumerate(data["sample_input"]):
-            self.sample_input[i] = d
-        for i, d in enumerate(data["sample_output"]):
-            self.sample_output[i] = d
-        for i, d in enumerate(data["sample_target"]):
-            self.sample_target[i] = d
-        for i, d in enumerate(data["sample_label"]):
-            self.sample_label[i] = d
+        if data["sample_input"] is not None:
+            for i, d in enumerate(data["sample_input"]):
+                self.sample_input[i] = d
+        if data["sample_output"] is not None:
+            for i, d in enumerate(data["sample_output"]):
+                self.sample_output[i] = d
+        if data["sample_target"] is not None:
+            for i, d in enumerate(data["sample_target"]):
+                self.sample_target[i] = d
+        if data["sample_label"] is not None:
+            for i, d in enumerate(data["sample_label"]):
+                self.sample_label[i] = d
         self.copy_minibatch_mse(self.slave_minibatch_class)
         self.epoch_ended << False
         self._finalize_job(slave)
