@@ -149,6 +149,14 @@ class Workflow(nn_units.NNWorkflow):
                         sliding=layer.get("sliding", (1, 1, 1, 1)),
                         padding=layer.get("padding", (0, 0, 0, 0)),
                         device=device)
+                elif layer["type"] == "conv_relu":
+                    aa = conv.ConvRELU(
+                        self, n_kernels=layer["n_kernels"],
+                        kx=layer["kx"], ky=layer["ky"],
+                        sliding=layer.get("sliding", (1, 1, 1, 1)),
+                        padding=layer.get("padding", (0, 0, 0, 0)),
+                        device=device,
+                        weights_filling="normal")
                 elif layer["type"] == "max_pooling":
                     aa = pooling.MaxPooling(
                         self, kx=layer["kx"], ky=layer["ky"],
@@ -239,7 +247,7 @@ class Workflow(nn_units.NNWorkflow):
                     sliding=self.forward[i].sliding,
                     padding=self.forward[i].padding,
                     device=device)
-            if isinstance(self.forward[i], conv.ConvRELU):
+            elif isinstance(self.forward[i], conv.ConvRELU):
                 obj = gd_conv.GDRELU(
                     self, n_kernels=self.forward[i].n_kernels,
                     kx=self.forward[i].kx, ky=self.forward[i].ky,
