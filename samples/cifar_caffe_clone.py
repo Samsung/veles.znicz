@@ -331,3 +331,4 @@ def run(load, main):
     load(Workflow, layers=root.layers_cifar_conv)
     main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize)
+    

@@ -7,7 +7,7 @@ Example of Mnist config.
 @author: Podoynitsina Lyubov <lyubov.p@samsung.com>
 """
 
-"""
+
 import os
 
 from veles.config import root, Config
@@ -37,4 +37,3 @@ root.update = {"decision": {"fail_iterations": 100,
                             "cifar/10/test_batch"),
                "weights_plotter": {"limit": 25}
                }
-"""

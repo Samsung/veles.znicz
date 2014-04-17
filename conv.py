@@ -113,7 +113,7 @@ class Conv(nn_units.Forward):
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
                 self.rand.fill(self.weights.v, -self.weights_magnitude,
-                           self.weights_magnitude)
+                               self.weights_magnitude)
             elif self.weights_filling == "normal":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
@@ -132,7 +132,7 @@ class Conv(nn_units.Forward):
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
                 self.rand.fill(self.bias.v, -self.weights_magnitude,
-                           self.weights_magnitude)
+                               self.weights_magnitude)
             elif self.weights_filling == "normal":
                 self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
             else:
