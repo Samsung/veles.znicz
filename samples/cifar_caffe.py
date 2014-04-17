@@ -4,7 +4,8 @@ Created on Mar 31, 2014
 
 Cifar convolutional.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+@author: Kazantsev Alexey, <a.kazantsev@samsung.com>
+@author: Alexey Golovizin, <a.golovizin@samsung.com>
 """
 
 
@@ -38,17 +39,17 @@ root.update = {"decision": {"fail_iterations":
                "global_lambda": get(root.global_lambda, 0.004),
                "layers_cifar_conv":
                get(root.layers_cifar_conv,
-                   [{"type": "conv", "n_kernels": 32,
+                   [{"type": "conv_relu", "n_kernels": 32,
                      "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                     {"type": "max_pooling",
                      "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                    {"type": "conv", "n_kernels": 32,
+                    {"type": "conv_relu", "n_kernels": 32,
                      "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                     {"type": "avg_pooling",
                      "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                    {"type": "conv", "n_kernels": 64,
+                    {"type": "conv_relu", "n_kernels": 64,
                      "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                     {"type": "avg_pooling",
                      "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -241,6 +242,13 @@ class Workflow(nn_units.NNWorkflow):
                     sliding=self.forward[i].sliding,
                     padding=self.forward[i].padding,
                     device=device)
+            if isinstance(self.forward[i], conv.ConvRELU):
+                obj = gd_conv.GDRELU(
+                    self, n_kernels=self.forward[i].n_kernels,
+                    kx=self.forward[i].kx, ky=self.forward[i].ky,
+                    sliding=self.forward[i].sliding,
+                    padding=self.forward[i].padding,
+                    device=device)
             elif isinstance(self.forward[i], pooling.MaxPooling):
                 obj = gd_pooling.GDMaxPooling(
                     self, kx=self.forward[i].kx, ky=self.forward[i].ky,
@@ -331,4 +339,3 @@ def run(load, main):
     load(Workflow, layers=root.layers_cifar_conv)
     main(global_alpha=root.global_alpha, global_lambda=root.global_lambda,
          minibatch_maxsize=root.loader.minibatch_maxsize)
-    
