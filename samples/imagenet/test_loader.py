@@ -30,7 +30,7 @@ class Test(unittest.TestCase):
         self.assertEqual(loader._data_shape[0], data.shape[0])
         self.assertEqual(loader._data_shape[1], data.shape[1])
         self.assertEqual(loader._dtype, data.dtype)
-        loader._include_derivative = True
+        loader.include_derivative = True
         loader._colorspace = "HSV"
         data = loader._get_sample(450000)
         self.assertEqual(3, len(data.shape))
@@ -38,7 +38,7 @@ class Test(unittest.TestCase):
         self.assertEqual(loader._data_shape[0], data.shape[0])
         self.assertEqual(loader._data_shape[1], data.shape[1])
         self.assertEqual(loader._dtype, data.dtype)
-        loader._include_derivative = False
+        loader.include_derivative = False
         loader._colorspace = "RGB"
 
 if __name__ == "__main__":

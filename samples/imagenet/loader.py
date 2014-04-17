@@ -10,9 +10,16 @@ import cv2
 import jpeg4py
 import json
 import leveldb
+import multiprocessing as mp
 import numpy
+from PIL import Image
+import shutil
 import struct
+import tempfile
+import threading
+import time
 import os
+from six.moves import cPickle as pickle
 import xmltodict
 
 import veles.config as config
@@ -59,9 +66,11 @@ class LoaderBase(loader.Loader):
         self._dtype = opencl_types.dtypes[config.root.common.precision_type]
         self._crop_color = kwargs.get(
             "crop_color",
-            config.get(config.root.imagenet.crop_color) or (127, 127, 127))
+            config.get(config.root.imagenet.crop_color) or (64, 64, 64))
         self._colorspace = kwargs.get(
             "colorspace", config.get(config.root.imagenet.colorspace) or "RGB")
+        if self.colorspace == "GRAY":
+            self._crop_color = self._crop_color[0]
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or False)
         self._sobel_kernel_size = kwargs.get(
@@ -73,9 +82,10 @@ class LoaderBase(loader.Loader):
 
     def init_unpickled(self):
         super(LoaderBase, self).init_unpickled()
-        self._db_ = leveldb.LevelDB(self._dbpath)
-        self._executor_ = ThreadPoolExecutor(
-            config.get(config.root.imagenet.thread_pool_size) or 4)
+        if self._dbpath:
+            self._db_ = leveldb.LevelDB(self._dbpath)
+            self._executor_ = ThreadPoolExecutor(
+                config.get(config.root.imagenet.thread_pool_size) or 4)
 
     @property
     def images_path(self):
@@ -93,26 +103,55 @@ class LoaderBase(loader.Loader):
     def series(self):
         return self._series
 
+    @property
+    def colorspace(self):
+        return self._colorspace
+
+    @property
+    def include_derivative(self):
+        return self._include_derivative
+
+    @include_derivative.setter
+    def include_derivative(self, value):
+        self._include_derivative = value
+        self._mean = self._init_mean(None, db_only=True)
+
+    @property
+    def channels(self):
+        channels = 1 if self._colorspace == "GRAY" else 3
+        if self._include_derivative:
+            channels += 1
+        return channels
+
     def load_data(self):
+        self.info("Loading from %s...", self.db_path)
+        progress = ProgressBar(maxval=4, term_width=11)
+        progress.start()
         objects, categories = self._init_objects(None, None, db_only=True)
+        progress.inc()
         images = self._init_images(None, None, db_only=True)
+        progress.inc()
         if objects is not None and images is not None:
             self._label_map = self._init_labels(categories)
             self.fill_class_samples(objects, images)
-            return
+            progress.inc()
+            self._mean = self._init_mean(objects, db_only=True)
+            if (self._mean is not None):
+                progress.finish()
+                return
+        progress.finish()
+        self.info("DB does not have all the necessary data, recovering...")
         file_sets = self._init_files()
         metadata = self._init_metadata(file_sets)
         objects, categories = self._init_objects(file_sets, metadata)
         images = self._init_images(file_sets, metadata)
         self._label_map = self._init_labels(categories)
         self.fill_class_samples(objects, images)
+        self._mean = self._init_mean(objects)
 
     def create_minibatches(self):
         count = self.minibatch_maxsize
-        channels = 1 if self._colorspace == "GRAY" else 3
-        if self._include_derivative:
-            channels += 1
-        minibatch_shape = [count] + list(self._data_shape) + [channels]
+        minibatch_shape = [count] + list(self._data_shape) + [self.channels]
         self.minibatch_data << numpy.zeros(shape=minibatch_shape,
                                            dtype=self._dtype)
         self.minibatch_indexes << numpy.zeros(count, dtype=numpy.int32)
@@ -169,37 +208,52 @@ class LoaderBase(loader.Loader):
         file_name = self.get_sample_file_name(index)
         try:
             data = jpeg4py.JPEG(file_name).decode()
-        except:
-            self.exception("Failed to decode %s", file_name)
-            raise
+        except jpeg4py.JPEGRuntimeError as e:
+            try:
+                data = numpy.array(Image.open(file_name).convert("RGB"))
+                self.warning("Falling back to PIL with file %s: %s",
+                             file_name, repr(e))
+            except:
+                self.exception("Failed to decode %s", file_name)
+                raise
+        if len(data.shape) == 2 and self.colorspace != "GRAY":
+            data = cv2.cvtColor(data, cv2.COLOR_GRAY2RGB)
+        if len(data.shape) == 2:
+            data = data[:, :, numpy.newaxis]
         return data
 
     def _preprocess_sample(self, data):
         if self._include_derivative:
-            deriv = cv2.cvtColor(data, cv2.COLOR_RGB2GRAY)
-            deriv = cv2.Sobel(deriv,
+            deriv = cv2.Sobel(cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) \
+                              if data.shape[-1] > 1 else data,
                               cv2.CV_32F if self._dtype == numpy.float32
                               else cv2.CV_64F,
                               1, 1, ksize=self._sobel_kernel_size)
-        if self._colorspace != "RGB":
+        if self.colorspace != "RGB" and not (data.shape[-1] == 1 and
+                                             self.colorspace == "GRAY"):
             cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),
                          data)
         if self._include_derivative:
             shape = list(data.shape)
             shape[-1] += 1
             res = numpy.empty(shape, dtype=self._dtype)
-            res[:, :, :-1] = data[:, :, :]
+            res[:, :, :-1] = data
             begindex = len(shape)
             res.ravel()[begindex::(begindex + 1)] = deriv.ravel()
         else:
             res = data.astype(self._dtype)
         return res
 
-    def _get_sample(self, index):
+    def _get_sample_raw(self, index):
         data = self._decode_image(index)
         data = self.crop_and_scale(data, index)
         data = self._preprocess_sample(data)
-        data = formats.normalize(data)
+        return data
+
+    def _get_sample(self, index):
+        data = self._get_sample_raw(index)
+        data -= self._mean
+        formats.normalize(data)
         return data
 
     def _key_file_name(self, base, full):
@@ -275,9 +329,9 @@ class LoaderBase(loader.Loader):
         for set_name, files in file_sets.items():
             ifntbl[set_name] = {self._fixup_duplicate_dirs(name): index
                                 for index, name in enumerate(files)}
-            assert (len(ifntbl[set_name]) == len(files),
-                    "Duplicate file names detected in %s (%s, %s)" %
-                    (set_name, self.year, self.series))
+            assert len(ifntbl[set_name]) == len(files), \
+                    "Duplicate file names detected in %s (%s, %s)" % \
+                    (set_name, self.year, self.series)
         self.info("Parsing XML files...")
         metadata = {}
         progress = ProgressBar(term_width=80, maxval=sum(
@@ -315,11 +369,11 @@ class LoaderBase(loader.Loader):
 
     def _init_objects(self, file_sets, metadata, force=False, db_only=False):
         self.debug("Initializing objects and categories...")
-        samples_key = ("samples_%s_%s" % (self.year, self.series)).encode()
+        objects_key = ("objects_%s_%s" % (self.year, self.series)).encode()
         cats_key = ("categories_%s_%s" % (self.year, self.series)).encode()
         if not force:
             try:
-                objects = json.loads(self._db_.Get(samples_key).decode())
+                objects = json.loads(self._db_.Get(objects_key).decode())
                 categories = json.loads(self._db_.Get(cats_key).decode())
                 self.debug("Loaded %d, %d, %d objects and %d categories",
                            len(objects["test"]),
@@ -394,7 +448,7 @@ class LoaderBase(loader.Loader):
                           int(bbox_objs * 100 / len(objects[set_name])))
         self.info("Stats:\n%s", str(table))
         self.info("Saving objects and categories to DB...")
-        self._db_.Put(samples_key, json.dumps(objects).encode())
+        self._db_.Put(objects_key, json.dumps(objects).encode())
         self._db_.Put(cats_key, json.dumps(categories).encode())
         return objects, categories
 
@@ -454,12 +508,93 @@ class LoaderBase(loader.Loader):
         self._db_.Put(labels_key, json.dumps(label_map).encode())
         self.info("Initialized %d labels", len(label_map))
 
+    def _init_mean(self, objects, force=False, db_only=False):
+        self.debug("Initializing mean sample...")
+        mean_key = ("mean_%s_%s_%s_%d" % (self.year, self.series,
+                                          self.colorspace,
+                                          self.include_derivative)).encode()
+        if not force:
+            try:
+                mean = pickle.loads(self._db_.Get(mean_key))
+                self.debug("Found mean sample in DB")
+                return mean
+            except KeyError:
+                pass
+        if db_only:
+            return None
+        self.info("Preparing to calculate the mean...")
+        actors = mp.cpu_count()
+        indices = objects["train"]
+        indices = indices[:(len(indices) // actors) * actors]
+        mean_done = mp.Value('i', 0)
+        shared_mean = mp.Array(
+            'd', self._data_shape[0] * self._data_shape[1] * self.channels)
+        mean = numpy.frombuffer(shared_mean.get_obj())
+        mean = mean.reshape(list(self._data_shape) + [self.channels])
+        mean.fill(0)
+        progress = ProgressBar(maxval=len(indices), term_width=80)
+        progress_thread = threading.Thread(target=self._show_mean_progress,
+                                           args=(progress, mean_done))
+        dirs = [tempfile.mkdtemp("-imagenet-db-%d" % i, "veles-")
+                for i in range(actors)]
+        self.info("Replicating the database...")
+        dir_progress = ProgressBar(maxval=len(dirs),
+                                   term_width=(7 + len(dirs)))
+        dir_progress.start()
+        for d in dirs:
+            os.rmdir(d)
+            shutil.copytree(self.db_path, d)
+            dir_progress.inc()
+        tasks = [(dirs[i], indices[i::actors], len(indices))
+                 for i in range(actors)]
+        self.info("Calculating the mean sample...")
+        progress_thread.start()
+        dbpath = self._dbpath
+        self._dbpath = None
+        with mp.Pool(actors, self._init_mean_process,
+                     (shared_mean, mean_done)) as pool:
+            pool.starmap(self._calculate_mean_process, tasks, 1)
+        progress_thread.join()
+        self._dbpath = dbpath
+        self._db_.Put(mean_key, pickle.dumps(mean))
+        self.info("Calculated mean sample")
+
+    def _init_mean_process(self, shared_mean, mean_done):
+        global _shared_mean
+        _shared_mean = shared_mean
+        global _mean_done
+        _mean_done = mean_done
+
+    def _calculate_mean_process(self, dbpath, indices, N):
+        self._db_ = leveldb.LevelDB(dbpath)
+        mean = numpy.frombuffer(_shared_mean.get_obj())
+        mean = mean.reshape(list(self._data_shape) + [self.channels])
+        for index in indices:
+            sample = self._get_sample_raw(index)
+            sample /= N
+            with _shared_mean.get_lock():
+                mean += sample
+            with _mean_done.get_lock():
+                _mean_done.value += 1
+
+    def _show_mean_progress(self, progress, mean_done):
+        value = 0
+        progress.start()
+        while (value < progress.maxval):
+            time.sleep(0.5)
+            with mean_done.get_lock():
+                value = mean_done.value
+            progress.update(value)
+        progress.finish()
+
 
 class LoaderDetection(LoaderBase):
     def __init__(self, workflow, **kwargs):
         aperture = kwargs.get("aperture",
                               config.get(config.root.imagenet.aperture) or 256)
         super(LoaderDetection, self).__init__(workflow, aperture, **kwargs)
+        self._use_bboxes = kwargs.get(
+            "bboxes", config.get(config.root.imagenet.force_reinit) or True)
 
     def create_minibatches(self):
         super(LoaderDetection, self).create_minibatches()
@@ -489,7 +624,7 @@ class LoaderDetection(LoaderBase):
         width = img.shape[1]
         height = img.shape[0]
         meta = self.get_object_meta(index)
-        if meta[2] is not None:
+        if meta[2] is not None and self._use_bboxes:
             bbox = list(self._get_bbox(meta[2]))
         else:
             # No bbox found: crop the squared area and resize it
