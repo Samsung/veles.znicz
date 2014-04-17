@@ -37,22 +37,22 @@ class TestKanji(unittest.TestCase):
                                          % (root.common.veles_dir),
                                          dtype=numpy.int32, count=1024))
         root.decision.fail_iterations = -1
-        root.path_for_target_data = os.path.join(
+        root.kanji.path_for_load_data.target = os.path.join(
             root.common.veles_dir,
             ("veles/znicz/tests/data/kanji/target/targets.%d.pickle" %
              (3 if six.PY3 else 2)))
 
-        root.path_for_train_data = os.path.join(
+        root.kanji.path_for_load_data.train = os.path.join(
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
-        root.index_map = os.path.join(root.path_for_train_data,
-                                      "index_map.%d.pickle" %
-                                      (3 if six.PY3 else 2))
+        root.kanji.index_map = os.path.join(root.kanji.path_for_load_data.train,
+                                            "index_map.%d.pickle" %
+                                            (3 if six.PY3 else 2))
 
         w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
                            layers=[30, 30, 24 * 24], device=self.device)
-        w.initialize(global_alpha=root.global_alpha,
-                     global_lambda=root.global_lambda,
+        w.initialize(global_alpha=root.kanji.global_alpha,
+                     global_lambda=root.kanji.global_lambda,
                      minibatch_maxsize=root.loader.minibatch_maxsize,
                      device=self.device, weights=None, bias=None)
         w.run()
