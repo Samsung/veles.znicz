@@ -167,7 +167,8 @@ class Workflow(nn_units.NNWorkflow):
                 self, name="num errors", plot_style=styles[i]))
             self.plt[-1].input = self.decision.epoch_n_err_pt
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
+            self.plt[-1].link_from(self.decision if len(self.plt) < 2
+                                   else self.plt[-2])
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
