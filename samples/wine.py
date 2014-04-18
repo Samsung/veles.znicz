@@ -134,7 +134,7 @@ class Workflow(nn_units.NNWorkflow):
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader, "minibatch_class",
-                                 "minibatch_last", "class_samples")
+                                 "no_more_minibatches_left", "class_samples")
         self.decision.link_attrs(
             self.ev,
             ("minibatch_n_err", "n_err"),

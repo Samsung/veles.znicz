@@ -48,7 +48,7 @@ class Loader(units.Unit):
                       (in case of classification with MSE).
 
         minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
-        minibatch_last: if current minibatch is last in it's class.
+        no_more_minibatches_left: if current minibatch is last in it's class.
 
         minibatch_offset: offset of the current minibatch in all samples,
                         where first come test samples, then validation, with
@@ -88,7 +88,7 @@ class Loader(units.Unit):
         self.class_target = formats.Vector()
 
         self.def_attr("minibatch_class", 0)
-        self.def_attr("minibatch_last", 0)
+        self.no_more_minibatches_left = [False, False, False]
 
         self.def_attr("total_samples", 0)
         self.class_samples = [0, 0, 0]
@@ -133,6 +133,8 @@ class Loader(units.Unit):
         for i, n in enumerate(self.class_samples):
             total_samples += n
             self.nextclass_offs[i] = total_samples
+            if n == 0:
+                self.no_more_minibatches_left[i] = True
         self.total_samples = total_samples
         if total_samples == 0:
             raise error.ErrBadFormat("class_samples should be filled")
@@ -185,16 +187,16 @@ class Loader(units.Unit):
         """
         self.shuffle_train()
 
-    def get_next_minibatch(self):
+    def _serve_next_minibatch(self):
         # Adjust offset according to previous minibatch size.
         self.minibatch_offset += self.minibatch_size
-        # Reshuffle when end of data reached.
+        # Reshuffle when the  end of data is reached.
         if self.minibatch_offset >= self.total_samples:
             self.shuffle()
             self.minibatch_offset = 0
 
         # Compute next minibatch size and its class.
-        for i in range(0, len(self.nextclass_offs)):
+        for i in range(len(self.nextclass_offs)):
             if self.minibatch_offset < self.nextclass_offs[i]:
                 self.minibatch_class = i
                 minibatch_size = min(
@@ -202,12 +204,12 @@ class Loader(units.Unit):
                     self.nextclass_offs[i] - self.minibatch_offset)
                 if (self.minibatch_offset + minibatch_size >=
                         self.nextclass_offs[self.minibatch_class]):
-                    self.minibatch_last = 1
+                    self.no_more_minibatches_left[i] = True
                     if not self.is_slave:
-                        self.info("Last minibatch for class %s served",
-                                  CLASS_NAME[self.minibatch_class])
+                        self.info("Last minibatch of class %s served",
+                                  CLASS_NAME[self.minibatch_class].upper())
                 else:
-                    self.minibatch_last = 0
+                    self.no_more_minibatches_left[i] = False
                 break
         else:
             raise error.ErrNotExists("Could not determine minibatch class.")
@@ -227,7 +229,7 @@ class Loader(units.Unit):
     def run(self):
         """Prepare the minibatch.
         """
-        self.get_next_minibatch()
+        self._serve_next_minibatch()
         minibatch_size = self.minibatch_size
 
         # Fill minibatch according to current random shuffle and offset.
@@ -249,7 +251,7 @@ class Loader(units.Unit):
                 self.minibatch_indexes.v[minibatch_size:] = -1
 
     def generate_data_for_slave(self, slave=None):
-        self.get_next_minibatch()
+        self._serve_next_minibatch()
         idxs = self.shuffled_indexes[self.minibatch_offset:
                                      self.minibatch_offset +
                                      self.minibatch_size].copy()
@@ -268,7 +270,6 @@ class Loader(units.Unit):
         self.minibatch_offset = -self.minibatch_size
         self.total_samples = total_samples
         self.minibatch_class = cls
-        self.minibatch_last = 1
         for i in range(cls):
             self.class_samples[i] = 0
         self.class_samples[cls] = total_samples

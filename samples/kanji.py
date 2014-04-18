@@ -218,7 +218,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "minibatch_last",
+                                 "no_more_minibatches_left",
                                  "minibatch_offset",
                                  "minibatch_size",
                                  "class_samples")
