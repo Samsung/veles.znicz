@@ -224,11 +224,10 @@ class LoaderBase(loader.Loader):
 
     def _preprocess_sample(self, data):
         if self._include_derivative:
-            deriv = cv2.Sobel(cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) \
-                              if data.shape[-1] > 1 else data,
-                              cv2.CV_32F if self._dtype == numpy.float32
-                              else cv2.CV_64F,
-                              1, 1, ksize=self._sobel_kernel_size)
+            deriv = cv2.Sobel(
+                cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
+                else data, cv2.CV_32F if self._dtype == numpy.float32
+                else cv2.CV_64F, 1, 1, ksize=self._sobel_kernel_size)
         if self.colorspace != "RGB" and not (data.shape[-1] == 1 and
                                              self.colorspace == "GRAY"):
             cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),
@@ -330,8 +329,8 @@ class LoaderBase(loader.Loader):
             ifntbl[set_name] = {self._fixup_duplicate_dirs(name): index
                                 for index, name in enumerate(files)}
             assert len(ifntbl[set_name]) == len(files), \
-                    "Duplicate file names detected in %s (%s, %s)" % \
-                    (set_name, self.year, self.series)
+                ("Duplicate file names detected in %s (%s, %s)" %
+                 (set_name, self.year, self.series))
         self.info("Parsing XML files...")
         metadata = {}
         progress = ProgressBar(term_width=80, maxval=sum(
@@ -429,9 +428,9 @@ class LoaderBase(loader.Loader):
                     categories[ckey].append(sindex)
                     sindex += 1
         progress.finish()
-        assert (sum(len(files) for files in
-                    objects.values()) == sum(len(files) for files in
-                                             categories.values()))
+        sum_objects = sum(len(files) for files in objects.values())
+        sum_categories = sum(len(files) for files in categories.values())
+        assert sum_objects == sum_categories
         table = PrettyTable("set", "files", "objects", "bbox", "bbox objs",
                             "bbox/files,%", "bbox objs/objects,%")
         table.align["set"] = "l"

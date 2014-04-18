@@ -77,10 +77,10 @@ class TestImageSaver(unittest.TestCase):
                 % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
             os.path.join(root.common.cache_dir,
                          "tmpimg/test_image_saver_%s/validation"
-                          %(i.strftime('%Y_%m_%d_%H_%M_%S'))),
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
             os.path.join(root.common.cache_dir,
-                         "tmpimg/test_image_saver_%s/train" %
-                         (i.strftime('%Y_%m_%d_%H_%M_%S')))]
+                         "tmpimg/test_image_saver_%s/train"
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
         root.image_saver.limit = 7
         self.img_saver_SM = image_saver.ImageSaver(
             dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
@@ -107,10 +107,10 @@ class TestImageSaver(unittest.TestCase):
                 % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
             os.path.join(root.common.cache_dir,
                          "tmpimg/test_image_saver_%s/validation"
-                          %(i.strftime('%Y_%m_%d_%H_%M_%S'))),
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
             os.path.join(root.common.cache_dir,
-                         "tmpimg/test_image_saver_%s/train" %
-                         (i.strftime('%Y_%m_%d_%H_%M_%S')))]
+                         "tmpimg/test_image_saver_%s/train"
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
         root.image_saver.limit = 7
         self.img_saver_MSE = image_saver.ImageSaver(
             dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)

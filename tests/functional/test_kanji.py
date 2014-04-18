@@ -45,9 +45,9 @@ class TestKanji(unittest.TestCase):
         root.kanji.path_for_load_data.train = os.path.join(
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
-        root.kanji.index_map = os.path.join(root.kanji.path_for_load_data.train,
-                                            "index_map.%d.pickle" %
-                                            (3 if six.PY3 else 2))
+        root.kanji.index_map = os.path.join(
+            root.kanji.path_for_load_data.train, "index_map.%d.pickle" %
+            (3 if six.PY3 else 2))
 
         w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
                            layers=[30, 30, 24 * 24], device=self.device)
