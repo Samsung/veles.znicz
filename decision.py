@@ -556,29 +556,17 @@ class Decision(units.Unit):
         data = {}
         data["minibatch_class"] = self.minibatch_class
         data["minibatch_size"] = self.minibatch_size
-        data["minibatch_offset"] = self.minibatch_offs
-        if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.v is not None):
-            self.minibatch_n_err.map_read()
-            data["minibatch_n_err"] = self.minibatch_n_err.v
-        if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.v is not None):
-            self.minibatch_metrics.map_read()
-            data["minibatch_metrics"] = self.minibatch_metrics.v
-        if (self.minibatch_mse is not None and
-                self.minibatch_mse.v is not None):
+        data["minibatch_offset"] = self.minibatch_offset
+        for attr in ["minibatch_n_err", "minibatch_metrics",
+                     "minibatch_max_err_y_sum", "minibatch_confusion_matrix"]:
+            attrval = getattr(self, attr)
+            if attrval:
+                attrval.map_read()
+                data[attr] = attrval.v
+        if self.minibatch_mse:
             self.tmp_epoch_samples_mse[self.minibatch_class].map_read()
             data["minibatch_mse"] = self.tmp_epoch_samples_mse[
                 self.minibatch_class].v[:self.minibatch_size]
-        if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.v is not None):
-            self.minibatch_max_err_y_sum.map_read()
-            data["minibatch_max_err_y_sum"] = self.minibatch_max_err_y_sum.v
-        if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
-            self.minibatch_confusion_matrix.map_read()
-            data["minibatch_confusion_matrix"] = (
-                self.minibatch_confusion_matrix.v)
         data["sample_input"] = self.sample_input
         data["sample_output"] = self.sample_output
         data["sample_target"] = self.sample_target
@@ -586,23 +574,19 @@ class Decision(units.Unit):
         return data
 
     def generate_data_for_slave(self, slave=None):
-        sid = slave['id']
+        sid = slave.id
         assert self.slave_minibatch_class_.get(sid) == None
         self.slave_minibatch_class_[sid] = self.minibatch_class
         self.minibatches_balance_[self.minibatch_class] += 1
         if all(self.no_more_minibatches_left):
             self.has_data_for_slave = False
         data = {"minibatch_class": self.minibatch_class,
-                "minibatch_offset": self.minibatch_offset if
-                self.minibatch_offset is not None else None,
-                "minibatch_size": self.minibatch_size if
-                self.minibatch_size is not None else None}
+                "minibatch_offset": self.minibatch_offset,
+                "minibatch_size": self.minibatch_size}
         return data
 
     def apply_data_from_master(self, data):
-        self.minibatch_class = data["minibatch_class"]
-        self.minibatch_offs = data["minibatch_offset"]
-        self.minibatch_size = data["minibatch_size"]
+        self.__dict__.update(data)
         self._reset_statistics_(self.minibatch_class)
         # Prevent doing snapshot and set complete after one epoch
         self.complete << False
@@ -617,26 +601,22 @@ class Decision(units.Unit):
                 self.minibatch_n_err.v is not None):
             self.minibatch_n_err.map_write()
             self.minibatch_n_err.v += data["minibatch_n_err"]
-        if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.v is not None):
+        if self.minibatch_metrics:
             self.minibatch_metrics.map_write()
             self.minibatch_metrics[0] += data["minibatch_metrics"][0]
             self.minibatch_metrics[1] = max(self.minibatch_metrics[1],
                                             data["minibatch_metrics"][1])
             self.minibatch_metrics[2] = min(self.minibatch_metrics[2],
                                             data["minibatch_metrics"][2])
-        if (self.minibatch_mse is not None and
-                self.minibatch_mse.v is not None):
+        if self.minibatch_mse:
             self.minibatch_mse.map_write()
             self.minibatch_mse.v = data["minibatch_mse"]
-        if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.v is not None):
+        if self.minibatch_max_err_y_sum:
             self.minibatch_max_err_y_sum.map_write()
             numpy.maximum(self.minibatch_max_err_y_sum.v,
                           data["minibatch_max_err_y_sum"],
                           self.minibatch_max_err_y_sum.v)
-        if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
+        if self.minibatch_confusion_matrix:
             self.minibatch_confusion_matrix.map_write()
             self.minibatch_confusion_matrix.v += data[
                 "minibatch_confusion_matrix"]
@@ -653,11 +633,11 @@ class Decision(units.Unit):
             for i, d in enumerate(data["sample_label"]):
                 self.sample_label[i] = d
         minibatch_class = data["minibatch_class"]
-        assert minibatch_class == self.slave_minibatch_class_[slave['id']]
         minibatch_size = data["minibatch_size"]
-        minibatch_offs = data["minibatch_offset"]
+        minibatch_offset = data["minibatch_offset"]
+        assert minibatch_class == self.slave_minibatch_class_[slave.id]
         self._copy_minibatch_mse(minibatch_class, minibatch_size,
-                                 minibatch_offs)
+                                 minibatch_offset)
         self.epoch_ended << False
         self._finalize_job(slave)
         if (self.no_more_minibatches_left[minibatch_class] and
@@ -669,17 +649,16 @@ class Decision(units.Unit):
             self.has_data_for_slave = True
 
     def _finalize_job(self, slave=None):
-        sid = slave['id']
-        minibatch_class = self.slave_minibatch_class_[sid]
+        minibatch_class = self.slave_minibatch_class_[slave.id]
         if minibatch_class is None:
             # Slave has dropped while waiting for a new job
             return
         self.minibatches_balance_[minibatch_class] -= 1
         if self.minibatches_balance_[minibatch_class] < 0:
             self.warning("Slave %s resulted in negative minibatch balance",
-                         sid)
+                         slave.id)
             self.minibatches_balance_[minibatch_class] = 0
-        self.slave_minibatch_class_[sid] = None
+        self.slave_minibatch_class_[slave.id] = None
 
     def drop_slave(self, slave=None):
         self._finalize_job(slave)
