@@ -214,6 +214,19 @@ class Decision(units.Unit):
             self._reset_statistics = self.nothing
             self._training_finished = self.nothing
 
+    def run(self):
+        self.epoch_ended << False
+        minibatch_class = self.minibatch_class
+
+        self._copy_minibatch_mse(minibatch_class, self.minibatch_size,
+                                 self.minibatch_offset)
+
+        # Check skip gradient descent or not
+        self.gd_skip << (minibatch_class != TRAIN)
+
+        if self.no_more_minibatches_left[minibatch_class]:
+            self._on_last_minibatch(minibatch_class)
+
     def _on_snapshot(self, minibatch_class):
         to_rm = []
         if self.fnme is not None:
@@ -444,9 +457,9 @@ class Decision(units.Unit):
                 if not alpha:
                     alpha = gd.global_alpha
             self.info("new global_alpha: %.6f" % (alpha))
-        self.sync_vectors()
+        self._sync_vectors()
 
-    def sync_vectors(self):
+    def _sync_vectors(self):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
@@ -538,21 +551,8 @@ class Decision(units.Unit):
             self.tmp_epoch_samples_mse[minibatch_class][
                 offset:offset + size] = self.minibatch_mse[:size]
 
-    def run(self):
-        self.epoch_ended << False
-        minibatch_class = self.minibatch_class
-
-        self._copy_minibatch_mse(minibatch_class, self.minibatch_size,
-                                 self.minibatch_offset)
-
-        # Check skip gradient descent or not
-        self.gd_skip << (minibatch_class != TRAIN)
-
-        if self.no_more_minibatches_left[minibatch_class]:
-            self._on_last_minibatch(minibatch_class)
-
     def generate_data_for_master(self):
-        self.sync_vectors()
+        self._sync_vectors()
         data = {}
         data["minibatch_class"] = self.minibatch_class
         data["minibatch_size"] = self.minibatch_size
