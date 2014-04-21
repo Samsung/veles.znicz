@@ -154,7 +154,7 @@ class Loader(units.Unit):
             self.minibatch_maxsize, max(self.class_samples[TRAIN],
                                         self.class_samples[VALID],
                                         self.class_samples[TEST]))
-        self.info("Using minibatch size %d", self.minibatch_maxsize)
+        self.info("Minibatch size is set to %d", self.minibatch_maxsize)
 
         self.create_minibatches()
         if self.minibatch_data.v is None:
