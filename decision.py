@@ -19,7 +19,7 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.units as units
-from veles.znicz.loader import CLASS_NAME, TRAIN, VALID, TEST
+from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
 
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
@@ -578,7 +578,7 @@ class Decision(units.Unit):
 
     def generate_data_for_slave(self, slave=None):
         sid = slave.id
-        assert self.slave_minibatch_class_.get(sid) == None
+        assert self.slave_minibatch_class_.get(sid) is None
         self.slave_minibatch_class_[sid] = self.minibatch_class
         self.minibatches_balance_[self.minibatch_class] += 1
         if all(self.no_more_minibatches_left):

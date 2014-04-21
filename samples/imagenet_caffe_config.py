@@ -6,5 +6,3 @@ Created on Apr 18, 2014
 
 @author: Alexey Golovizin <a.golovizin@samsung.com>
 """
-
-

@@ -299,7 +299,7 @@ class Workflow(nn_units.NNWorkflow):
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.ev)
         self.decision.minibatch_class = self.loader.minibatch_class
-        self.decision.no_more_minibatches_left = self.loader.no_more_minibatches_left
+        self.decision.link_attrs(self.loader, "no_more_minibatches_left")
         self.decision.minibatch_n_err = self.ev.n_err
         self.decision.minibatch_confusion_matrix = self.ev.confusion_matrix
         self.decision.minibatch_max_err_y_sum = self.ev.max_err_y_sum
