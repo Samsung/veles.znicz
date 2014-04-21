@@ -102,11 +102,11 @@ class Loader(loader.FullBatchLoader):
             self.original_labels[i * 10000: (i + 1) * 10000] = vle["labels"][:]
 
         self.class_samples[0] = 0
-        self.nextclass_offs[0] = 0
+        self.nextclass_offsets[0] = 0
         self.class_samples[1] = 10000
-        self.nextclass_offs[1] = 10000
+        self.nextclass_offsets[1] = 10000
         self.class_samples[2] = 50000
-        self.nextclass_offs[2] = 60000
+        self.nextclass_offsets[2] = 60000
 
         self.total_samples = self.original_data.shape[0]
 

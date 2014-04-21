@@ -74,9 +74,9 @@ class Loader(loader.FullBatchLoader):
         self.class_samples[1] = 0
         self.class_samples[2] = self.original_data.shape[0]
 
-        self.nextclass_offs[0] = 0
-        self.nextclass_offs[1] = 0
-        self.nextclass_offs[2] = self.original_data.shape[0]
+        self.nextclass_offsets[0] = 0
+        self.nextclass_offsets[1] = 0
+        self.nextclass_offsets[2] = self.original_data.shape[0]
 
         self.total_samples = self.original_data.shape[0]
 
