@@ -342,19 +342,22 @@ class Decision(units.Unit):
         self.just_snapshotted << True
         self.snapshot_time = time.time()
 
-    def _on_stop_condition(self, minibatch_class):
-        if (((self.epoch_number - self.min_validation_mse_epoch_number >
-              self.fail_iterations) and
-                self.epoch_number - self.min_validation_n_err_epoch_number >
-                self.fail_iterations) or
-                self.min_validation_n_err <= 0 or
-                self.min_validation_mse <= 0):
-            self.complete << True
+    def _stop_condition(self, minibatch_class):
+        if (self.epoch_number - self.min_validation_mse_epoch_number >
+            self.fail_iterations and
+            self.epoch_number - self.min_validation_n_err_epoch_number >
+            self.fail_iterations):
+            return True
+
+        if (self.min_validation_n_err <= 0 or
+            self.min_validation_mse <= 0):
+            return True
 
         # stop if max epoch number reached     333
-        if self.max_epochs is not None:
-            if self.epoch_number >= self.max_epochs:
-                self.complete << True
+        if (self.max_epochs is not None and
+            self.epoch_number >= self.max_epochs):
+                return True
+        return False
 
     def _on_test_validation_processed(self, minibatch_class):
         if self.just_snapshotted:
@@ -380,7 +383,7 @@ class Decision(units.Unit):
             # Export workflow and weights
             self._on_export(minibatch_class)
         # Stop condition
-        self._on_stop_condition(minibatch_class)
+        self.complete << self._stop_condition(minibatch_class)
 
     def _print_statistics(self, minibatch_class):
         ss = []
@@ -582,7 +585,8 @@ class Decision(units.Unit):
             self.has_data_for_slave = False
         data = {"minibatch_class": self.minibatch_class,
                 "minibatch_offset": self.minibatch_offset,
-                "minibatch_size": self.minibatch_size}
+                "minibatch_size": self.minibatch_size,
+                "epoch_number": self.epoch_number}
         return data
 
     def apply_data_from_master(self, data):
