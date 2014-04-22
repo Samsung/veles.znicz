@@ -359,7 +359,7 @@ class LoaderBase(loader.Loader):
                             [self.series][0], file_key))
                     continue
                 meta = tree["annotation"]
-                mdsn[index] = meta
+                mdsn[str(index)] = meta
         progress.finish()
         self.info("Saving metadata to DB...")
         self._db_.Put(metadata_key, json.dumps(metadata).encode())
@@ -390,27 +390,36 @@ class LoaderBase(loader.Loader):
         categories = {}
         sindex = 0
         fmeta_misses = {}
+        no_cat_recovery = {}
+        bad_ckeys = {""}
+        for year in LoaderBase.MAPPING.values():
+            for sets in year.values():
+                bad_ckeys.update([pair[0] for pair in sets.values()])
         progress = ProgressBar(term_width=80, maxval=sum(
             [len(files) for files in file_sets.values()]))
         progress.start()
         for set_name, files in file_sets.items():
             objects[set_name] = ss = []
             fmeta_misses[set_name] = 0
+            no_cat_recovery[set_name] = 0
             set_index = loader.TRIAGE[set_name]
             for i in range(len(files)):
                 progress.inc()
                 try:
-                    objs = metadata[set_name][i]["object"]
+                    objs = metadata[set_name][str(i)]["object"]
                 except KeyError:
                     fmeta_misses[set_name] += 1
-                    samples.append((files[i], set_index, None))
-                    self._set_object_meta(sindex, samples[-1])
-                    ss.append(sindex)
                     ckey = self.get_category_by_file_name(files[i])
+                    if ckey in bad_ckeys:
+                        no_cat_recovery[set_name] += 1
+                        continue
                     try:
                         categories[ckey]
                     except KeyError:
                         categories[ckey] = []
+                    samples.append((files[i], set_index, None))
+                    self._set_object_meta(sindex, samples[-1])
+                    ss.append(sindex)
                     categories[ckey].append(sindex)
                     sindex += 1
                     continue
@@ -432,7 +441,7 @@ class LoaderBase(loader.Loader):
         sum_categories = sum(len(files) for files in categories.values())
         assert sum_objects == sum_categories
         table = PrettyTable("set", "files", "objects", "bbox", "bbox objs",
-                            "bbox/files,%", "bbox objs/objects,%")
+                            "bad", "bbox/files,%", "bbox objs/objects,%")
         table.align["set"] = "l"
         table.align["files"] = "l"
         table.align["objects"] = "l"
@@ -443,8 +452,10 @@ class LoaderBase(loader.Loader):
             set_index = loader.TRIAGE[set_name]
             bbox_objs = len([t for t in samples if t[2] and t[1] == set_index])
             table.add_row(set_name, len(files), len(objects[set_name]),
-                          bbox, bbox_objs, int(bbox * 100 / len(files)),
-                          int(bbox_objs * 100 / len(objects[set_name])))
+                          bbox, bbox_objs, no_cat_recovery[set_name],
+                           int(bbox * 100 / len(files)),
+                          int(bbox_objs * 100 / (len(objects[set_name])
+                          if len(objects[set_name]) > 0 else 1)))
         self.info("Stats:\n%s", str(table))
         self.info("Saving objects and categories to DB...")
         self._db_.Put(objects_key, json.dumps(objects).encode())
@@ -473,20 +484,36 @@ class LoaderBase(loader.Loader):
         index = 0
         for i in range(len(images)):
             num = images[i]
-            images[i] = (index, index + num)
+            images[i] = [index, index + num]
             index += num
 
         self.info("Saving images to DB...")
+        bad_ckeys = {""}
+        for year in LoaderBase.MAPPING.values():
+            for sets in year.values():
+                bad_ckeys.update([pair[0] for pair in sets.values()])
         progress = ProgressBar(term_width=80,
                                maxval=sum([(i[1] - i[0]) for i in images]))
         progress.start()
         for set_name, files in file_sets.items():
             set_index = loader.TRIAGE[set_name]
+            iindex = 0
             for i in range(len(files)):
                 progress.inc()
                 meta = metadata[set_name].get(i)
-                self._set_image_meta(images[set_index][0] + i,
+                try:
+                    metadata[set_name][str(i)]["object"]
+                except KeyError:
+                    ckey = self.get_category_by_file_name(files[i])
+                    if ckey in bad_ckeys:
+                        images[set_index][1] -= 1
+                        for j in range(set_index + 1, len(images)):
+                            images[j][0] -= 1
+                            images[j][1] -= 1
+                        continue
+                self._set_image_meta(images[set_index][0] + iindex,
                                      (files[i], set_index, meta))
+                iindex += 1
         progress.finish()
         self._db_.Put(images_key, json.dumps(images).encode())
         return images
