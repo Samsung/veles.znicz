@@ -6,14 +6,14 @@ Created on Apr 18, 2014
 @author: Alexey Golovizin <a.golovizin@samsung.com>
 """
 
-from veles.config import root, get
+from veles.config import root
 from veles.znicz import nn_units
-from veles.znicz import loader
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
 from imagenet.loader import LoaderDetection
 
 import logging
+
 
 class Workflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
@@ -29,9 +29,9 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = LoaderDetection(self,
-                             ipath="/data/imagenet/2013",
-                             dbpath="/data/imagenet/2013/db",
-                             year="2013", series="DET")
+                                      ipath="/data/imagenet/2013",
+                                      dbpath="/data/imagenet/2013/db",
+                                      year="2013", series="DET")
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
@@ -111,7 +111,6 @@ class Workflow(nn_units.NNWorkflow):
         self.ev.link_attrs(self.loader, ("batch_size", "minibatch_size"),
                            ("max_samples_per_epoch", "total_samples"))
 
-
         # Add decision unit
         self.decision = decision.Decision(self)
         self.decision.link_from(self.ev)
@@ -124,7 +123,6 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
         self.decision.class_samples = self.loader.class_samples
-
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
@@ -165,13 +163,15 @@ class Workflow(nn_units.NNWorkflow):
 
             elif isinstance(fwd_elm, pooling.MaxPooling):
                 grad_elm = gd_pooling.GDMaxPooling(
-                    self, kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    self, kx=fwd_elm.kx, ky=fwd_elm.ky,
+                    sliding=fwd_elm.sliding,
                     device=self.device)
                 grad_elm.link_attrs(fwd_elm, ("h_offs", "input_offs"))  # WHY?!
 
             elif isinstance(fwd_elm, pooling.AvgPooling):
                 grad_elm = gd_pooling.GDAvgPooling(
-                    self, kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    self, kx=fwd_elm.kx, ky=fwd_elm.ky,
+                    sliding=fwd_elm.sliding,
                     device=self.device)
 
             else:
@@ -180,7 +180,7 @@ class Workflow(nn_units.NNWorkflow):
             self.gd.append(grad_elm)
 
             grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"),
-                "weights", "bias")
+                                "weights", "bias")
             grad_elm.gate_skip = self.decision.gd_skip
 
         for i in range(len(self.gd) - 1):

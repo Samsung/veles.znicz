@@ -344,19 +344,19 @@ class Decision(units.Unit):
 
     def _stop_condition(self, minibatch_class):
         if (self.epoch_number - self.min_validation_mse_epoch_number >
-            self.fail_iterations and
-            self.epoch_number - self.min_validation_n_err_epoch_number >
-            self.fail_iterations):
+                self.fail_iterations and
+                self.epoch_number - self.min_validation_n_err_epoch_number >
+                self.fail_iterations):
             return True
 
         if (self.min_validation_n_err <= 0 or
-            self.min_validation_mse <= 0):
+                self.min_validation_mse <= 0):
             return True
 
         # stop if max epoch number reached     333
         if (self.max_epochs is not None and
-            self.epoch_number >= self.max_epochs):
-                return True
+                self.epoch_number >= self.max_epochs):
+            return True
         return False
 
     def _on_test_validation_processed(self, minibatch_class):
@@ -642,11 +642,11 @@ class Decision(units.Unit):
         self.epoch_ended << False
         self._finalize_job(slave)
         if (self.no_more_minibatches_left[minibatch_class] and
-            self.minibatches_balance_[minibatch_class] == 0):
-            self._on_last_minibatch(minibatch_class)
+                self.minibatches_balance_[minibatch_class] == 0):
+                self._on_last_minibatch(minibatch_class)
         if (all(self.no_more_minibatches_left) and
-            not any(self.minibatches_balance_) and
-            not self.complete):
+                not any(self.minibatches_balance_) and
+                not self.complete):
             self.has_data_for_slave = True
 
     def _finalize_job(self, slave=None):
