@@ -68,8 +68,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
     def initialize(self):
         super(EvaluatorSoftmax, self).initialize()
-        itype = opencl_types.get_itype_from_size(
-            self.y.v.size // self.y.v.shape[0])
+        itype = opencl_types.numpy_dtype_to_opencl(self.labels.v.dtype)
         if (self.labels.v.dtype != opencl_types.itypes[itype] or
                 self.labels.v.dtype != self.max_idx.v.dtype):
             raise error.ErrBadFormat("Incorrectly set labels.dtype "

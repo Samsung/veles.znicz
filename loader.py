@@ -408,12 +408,7 @@ class FullBatchLoader(Loader):
         return state
 
     def create_minibatches(self):
-        if type(self.original_labels) == list:
-            self.label_dtype = opencl_types.itypes[
-                opencl_types.get_itype_from_size(
-                    numpy.max(self.original_labels))]
-        else:
-            self.label_dtype = self.original_labels.dtype
+        self.label_dtype = numpy.int32
 
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize]

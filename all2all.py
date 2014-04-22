@@ -281,7 +281,7 @@ class All2AllSoftmax(All2All):
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
-        itype = opencl_types.get_itype_from_size(output_size)
+        itype = opencl_types.numpy_dtype_to_opencl(numpy.int32)
         self.cl_sources_["softmax.cl"] = {"itype": itype}
         super(All2AllSoftmax, self).initialize()
 
