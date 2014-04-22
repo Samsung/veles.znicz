@@ -30,7 +30,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader = LoaderDetection(self,
                              ipath="/data/imagenet/2013",
-                             dbpath="/home/agolovizin/db",
+                             dbpath="/data/imagenet/2013/db",
                              year="2013", series="DET")
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
