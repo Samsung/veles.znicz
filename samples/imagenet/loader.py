@@ -20,7 +20,6 @@ import threading
 import time
 import os
 from six.moves import cPickle as pickle
-import xmltodict
 
 import veles.config as config
 import veles.formats as formats
@@ -28,6 +27,7 @@ import veles.opencl_types as opencl_types
 from veles.external.prettytable import PrettyTable
 from veles.external.progressbar import ProgressBar
 import veles.znicz.loader as loader
+from veles.znicz.external import xmltodict
 
 
 class LoaderBase(loader.Loader):
@@ -603,7 +603,7 @@ class LoaderDetection(LoaderBase):
     def fill_minibatch(self):
         super(LoaderBase, self).fill_minibatch()
         for i in range(self.minibatch_size):
-            meta = self.get_object_meta(self.shuffled_indexes[i])[1]
+            meta = self.get_object_meta(self.shuffled_indexes[i])
             if meta[2] is not None:
                 name = meta["name"]
             else:
