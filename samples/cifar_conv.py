@@ -35,7 +35,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
 root.defaults = {"decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "cifar",
+                              "snapshot_prefix": "cifar_conv",
                               "do_export_weights": True},
                  "loader": {"minibatch_maxsize": 100},
                  "image_saver": {"out_dirs":

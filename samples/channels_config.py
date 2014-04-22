@@ -26,7 +26,7 @@ root.update = {"decision": {"fail_iterations": 1000,
                           "minibatch_size": 81,
                           "n_threads": 32,
                           "channels_dir":
-                          "/data/veles/channels/korean_960_540/train",
+                          "/data/veles/TV/russian_small/train",
                           "rect": (264, 129),
                           "validation_procent": 0.15},
                "weights_plotter": {"limit": 16},
