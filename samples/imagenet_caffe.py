@@ -26,7 +26,7 @@ class Workflow(nn_units.NNWorkflow):
         kwargs["name"] = kwargs.get("name", "MNIST")
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        self.rpt.link_from(self.start_point)
+        self.repeater.link_from(self.start_point)
 
         self.loader = LoaderDetection(self,
                              ipath="/data/imagenet/2013",
@@ -35,7 +35,7 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
-        self.loader.link_from(self.rpt)
+        self.loader.link_from(self.repeater)
 
         # FORWARD LAYERS
 
@@ -130,7 +130,7 @@ class Workflow(nn_units.NNWorkflow):
         self._create_gradient_descent_units()
 
         # repeater and gate block
-        self.rpt.link_from(self.gd[0])
+        self.repeater.link_from(self.gd[0])
         self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
