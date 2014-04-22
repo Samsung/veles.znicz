@@ -538,9 +538,11 @@ class Decision(units.Unit):
         if not self.is_slave:
             self.epoch_ended << True
             self.epoch_number += 1
-        # Reset n_err
-        for i in range(len(self.epoch_n_err)):
-            self.epoch_n_err[i] = 0
+            # Reset n_err
+            for i in range(len(self.epoch_n_err)):
+                self.epoch_n_err[i] = 0
+        else:
+            self.complete << True
 
     def _copy_minibatch_mse(self, minibatch_class, minibatch_size,
                             minibatch_offset):
@@ -556,10 +558,13 @@ class Decision(units.Unit):
 
     def generate_data_for_master(self):
         self._sync_vectors()
-        data = {}
-        data["minibatch_class"] = self.minibatch_class
-        data["minibatch_size"] = self.minibatch_size
-        data["minibatch_offset"] = self.minibatch_offset
+        data = {"minibatch_class": self.minibatch_class,
+                "minibatch_size": self.minibatch_size,
+                "minibatch_offset": self.minibatch_offset,
+                "sample_input": self.sample_input,
+                "sample_output": self.sample_output,
+                "sample_target": self.sample_target,
+                "sample_label": self.sample_label}
         for attr in ["minibatch_n_err", "minibatch_metrics",
                      "minibatch_max_err_y_sum", "minibatch_confusion_matrix"]:
             attrval = getattr(self, attr)
@@ -570,10 +575,6 @@ class Decision(units.Unit):
             self.tmp_epoch_samples_mse[self.minibatch_class].map_read()
             data["minibatch_mse"] = self.tmp_epoch_samples_mse[
                 self.minibatch_class].v[:self.minibatch_size]
-        data["sample_input"] = self.sample_input
-        data["sample_output"] = self.sample_output
-        data["sample_target"] = self.sample_target
-        data["sample_label"] = self.sample_label
         return data
 
     def generate_data_for_slave(self, slave=None):
@@ -583,18 +584,14 @@ class Decision(units.Unit):
         self.minibatches_balance_[self.minibatch_class] += 1
         if all(self.no_more_minibatches_left):
             self.has_data_for_slave = False
-        data = {"minibatch_class": self.minibatch_class,
-                "minibatch_offset": self.minibatch_offset,
-                "minibatch_size": self.minibatch_size,
-                "epoch_number": self.epoch_number}
+        data = {"epoch_number": self.epoch_number}
         return data
 
     def apply_data_from_master(self, data):
         self.__dict__.update(data)
-        self._reset_statistics_(self.minibatch_class)
         # Prevent doing snapshot and set complete after one epoch
         self.complete << False
-        self.epoch_ended << False
+        self._reset_statistics_(self.minibatch_class)
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
         self.min_validation_mse = 0
@@ -653,7 +650,7 @@ class Decision(units.Unit):
             self.has_data_for_slave = True
 
     def _finalize_job(self, slave=None):
-        minibatch_class = self.slave_minibatch_class_[slave.id]
+        minibatch_class = self.slave_minibatch_class_.get(slave.id)
         if minibatch_class is None:
             # Slave has dropped while waiting for a new job
             return
