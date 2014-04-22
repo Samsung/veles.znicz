@@ -256,7 +256,7 @@ class Workflow(nn_units.NNWorkflow):
         kwargs["device"] = device
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        self.rpt.link_from(self.start_point)
+        self.repeater.link_from(self.start_point)
 
         self.loader = Loader(
             self, labels=root.gtzan.labels, exports=root.gtzan.exports,
@@ -265,7 +265,7 @@ class Workflow(nn_units.NNWorkflow):
             minibatches_in_epoch=root.gtzan.minibatches_in_epoch,
             window_size=root.gtzan.window_size, features=root.gtzan.features,
             features_shape=root.gtzan.features_shape)
-        self.loader.link_from(self.rpt)
+        self.loader.link_from(self.repeater)
 
         # Add forward units
         del self.forward[:]
@@ -328,7 +328,7 @@ class Workflow(nn_units.NNWorkflow):
             self.gd[i].bias = self.forward[i].bias
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
-        self.rpt.link_from(self.gd[0])
+        self.repeater.link_from(self.gd[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete

@@ -141,7 +141,7 @@ class NNWorkflow(OpenCLWorkflow):
     """Base class for neural network workflows.
 
     Attributes:
-        rpt: repeater.
+        repeater: Repeater unit.
         loader: loader unit.
         forward: list of the forward units.
         ev: evaluator unit.
@@ -150,7 +150,7 @@ class NNWorkflow(OpenCLWorkflow):
     """
     def __init__(self, workflow, **kwargs):
         super(NNWorkflow, self).__init__(workflow, **kwargs)
-        self.rpt = Repeater(self)
+        self.repeater = Repeater(self)
         self.loader = None
         self.forward = []
         self.ev = None

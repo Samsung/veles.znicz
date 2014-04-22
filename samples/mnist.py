@@ -153,11 +153,11 @@ class Workflow(nn_units.NNWorkflow):
         kwargs["name"] = kwargs.get("name", "MNIST")
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        self.rpt.link_from(self.start_point)
+        self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Mnist fullbatch loader",
                              minibatch_maxsize=root.loader.minibatch_maxsize)
-        self.loader.link_from(self.rpt)
+        self.loader.link_from(self.repeater)
 
         # Add forward units
         del self.forward[:]
@@ -226,7 +226,7 @@ class Workflow(nn_units.NNWorkflow):
                                   "weights", "bias")
             self.gd[i].gate_skip = self.decision.gd_skip
             self.gd[i].batch_size = self.loader.minibatch_size
-        self.rpt.link_from(self.gd[0])
+        self.repeater.link_from(self.gd[0])
 
         self.end_point.link_from(self.gd[0])
         self.end_point.gate_block = ~self.decision.complete

@@ -108,10 +108,10 @@ class Workflow(nn_units.NNWorkflow):
         kwargs["device"] = device
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        self.rpt.link_from(self.start_point)
+        self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self)
-        self.loader.link_from(self.rpt)
+        self.loader.link_from(self.repeater)
 
         # Add forward units
         del self.forward[:]
@@ -208,7 +208,7 @@ class Workflow(nn_units.NNWorkflow):
                                                 "minibatch_size"))
             self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
             self.gd[i].gate_skip = self.decision.gd_skip
-        self.rpt.link_from(self.gd[0])
+        self.repeater.link_from(self.gd[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
