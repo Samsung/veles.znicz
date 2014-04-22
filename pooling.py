@@ -108,7 +108,7 @@ class Pooling(nn_units.Forward):
              y.shape[3], self.kx, self.ky, self.sliding[0], self.sliding[1],
              time.time() - t_start))
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
         self.output.unmap()  # we will be updating output
@@ -169,9 +169,9 @@ class MaxPooling(Pooling):
             self.krn_.set_arg(1, self.output.v_)
             self.krn_.set_arg(2, self.input_offs.v_)
 
-    def gpu_run(self):
+    def ocl_run(self):
         self.input_offs.unmap()  # we will be updating input_offs
-        return super(MaxPooling, self).gpu_run()
+        return super(MaxPooling, self).ocl_run()
 
 
 class AvgPooling(Pooling):

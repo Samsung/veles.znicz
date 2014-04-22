@@ -118,7 +118,7 @@ class InputJoiner(units.OpenCLUnit):
                 inp[:minibatch_size, :high - low])
             low = high
 
-    def gpu_run(self):
+    def ocl_run(self):
         self.output.unmap()  # we will update output on GPU
         minibatch_size = self.minibatch_size[0]
         low = 0

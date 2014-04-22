@@ -307,7 +307,7 @@ class GD(nn_units.GD):
         self.cpu_weights_update()
         self.print_times(t1)
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Do gradient descent.
         """
         t1 = time.time()

@@ -295,7 +295,7 @@ class GD(nn_units.GD):
                                  [self.err_y.v.size], None)
         ev.wait()
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Do gradient descent.
         """
         t1 = time.time()

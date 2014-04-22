@@ -113,7 +113,7 @@ class GDPooling(nn_units.GD):
                 y.shape[3], self.sliding[0], self.sliding[1],
                 time.time() - t_start))
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Do gradient descent.
         """
         self.err_h.unmap()  # we will update err_h
@@ -182,11 +182,11 @@ class GDMaxPooling(GDPooling):
             self.krn_err_h_.set_arg(1, self.err_h.v_)
             self.krn_err_h_.set_arg(2, self.h_offs.v_)
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Do gradient descent.
         """
         self.h_offs.unmap()  # we will use h_offs
-        return super(GDMaxPooling, self).gpu_run()
+        return super(GDMaxPooling, self).ocl_run()
 
 
 class GDAvgPooling(GDPooling):

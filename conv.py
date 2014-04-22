@@ -224,7 +224,7 @@ class Conv(nn_units.Forward):
                  self.weights.v.size, time.time() - t_start,
                  y.min(), numpy.average(y), y.max()))
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
         self.output.unmap()  # we will be updating output

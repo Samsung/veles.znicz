@@ -162,7 +162,7 @@ class All2All(nn_units.Forward):
                  self.weights.v.size, time.time() - t_start,
                  y.min(), numpy.average(y), y.max()))
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
         self.output.unmap()
@@ -328,10 +328,10 @@ class All2AllSoftmax(All2All):
             return retval
         self.cpu_apply_exp()
 
-    def gpu_run(self):
+    def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        retval = super(All2AllSoftmax, self).gpu_run()
+        retval = super(All2AllSoftmax, self).ocl_run()
         if retval:
             return retval
         self.gpu_apply_exp()

@@ -136,7 +136,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
             self.krn_.set_arg(5, self.confusion_matrix.v_)
             self.krn_.set_arg(6, self.max_err_y_sum.v_)
 
-    def gpu_run(self):
+    def ocl_run(self):
         self.err_y.unmap()
         self.y.unmap()
         self.max_idx.unmap()
@@ -324,7 +324,7 @@ class EvaluatorMSE(units.OpenCLUnit):
                 self.krn_find_closest_.set_arg(2, self.labels.v_)
                 self.krn_find_closest_.set_arg(3, self.n_err.v_)
 
-    def gpu_run(self):
+    def ocl_run(self):
         self.err_y.unmap()
         self.y.unmap()
         self.target.unmap()
