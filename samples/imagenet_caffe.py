@@ -1,6 +1,5 @@
 #!/usr/bin/python3.3 -O
 # encoding: utf-8
-
 """
 Created on Apr 18, 2014
 
@@ -12,120 +11,129 @@ from veles.znicz import nn_units
 from veles.znicz import loader
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
+from imagenet.loader import LoaderDetection
 
-
-class Loader(loader.FullBatchLoader):
-    pass
-
+import logging
 
 class Workflow(nn_units.NNWorkflow):
+    """Workflow for MNIST dataset (handwritten digits recognition).
+    """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
+        kwargs["name"] = kwargs.get("name", "MNIST")
         super(Workflow, self).__init__(workflow, **kwargs)
-        self.device = device
 
         self.rpt.link_from(self.start_point)
 
-        self.loader = Loader(self)
+        self.loader = LoaderDetection(self,
+                             ipath="/data/imagenet/2013",
+                             dbpath="/home/agolovizin/db",
+                             year="2013", series="DET")
+        self.loader.setup(level=logging.DEBUG)
+        self.loader.load_data()
+
         self.loader.link_from(self.rpt)
 
         # FORWARD LAYERS
 
         # Layer 1 (CONV + POOL)
-        conv1 = conv.ConvRELU(
-            self, n_kernels=96, kx=11, ky=11,
-            sliding=(4, 4, 4, 4), padding=(0, 0, 0, 0), device=device)
+        conv1 = conv.ConvRELU(self, n_kernels=96, kx=11, ky=11,
+                              sliding=(4, 4), padding=(0, 0, 0, 0),
+                              device=device)
         conv1.link_from(self.loader)
         conv1.link_attrs(self.loader, ("input", "minibatch_data"))
         self.forward.append(conv1)
 
         pool1 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
-        self.link_last_forward_with(pool1)
+        self._link_last_forward_with(pool1)
 
         # TODO: normalization, gaussian filling
 
         # Layer 2 (CONV + POOL)
-        conv2 = conv.ConvRELU(
-            self, n_kernels=256, kx=5, ky=5,
-            sliding=(1, 1, 1, 1), padding=(2, 2, 2, 2), device=device)
-        self.link_last_forward_with(conv2)
+        conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
+                              sliding=(1, 1), padding=(2, 2, 2, 2),
+                              device=device)
+        self._link_last_forward_with(conv2)
 
-        pool2 = pooling.MaxPooling(
-            self, kx=3, ky=3, sliding=(2, 2), device=device)
-        self.add_to_forward_unts(pool2)
+        pool2 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
+                                   device=device)
+        self._link_last_forward_with(pool2)
 
         # Layer 3 (CONV)
-        conv3 = conv.ConvRELU(
-            self, n_kernels=384, kx=3, ky=3,
-            sliding=(1, 1, 1, 1), padding=(1, 1, 1, 1), device=device)
-        self.link_last_forward_with(conv3)
+        conv3 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
+                              sliding=(1, 1), padding=(1, 1, 1, 1),
+                              device=device)
+        self._link_last_forward_with(conv3)
 
         # Layer 4 (CONV)
-        conv4 = conv.ConvRELU(
-            self, n_kernels=384, kx=3, ky=3,
-            sliding=(1, 1, 1, 1), padding=(1, 1, 1, 1), device=device)
-        self.link_last_forward_with(conv4)
+        conv4 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
+                              sliding=(1, 1), padding=(1, 1, 1, 1),
+                              device=device)
+        self._link_last_forward_with(conv4)
 
         # Layer 5 (CONV + POOL)
-        conv5 = conv.ConvRELU(
-            self, n_kernels=256, kx=3, ky=3,
-            sliding=(1, 1, 1, 1), padding=(1, 1, 1, 1), device=device)
-        self.link_last_forward_with(conv5)
+        conv5 = conv.ConvRELU(self, n_kernels=256, kx=3, ky=3,
+                              sliding=(1, 1), padding=(1, 1, 1, 1),
+                              device=device)
+        self._link_last_forward_with(conv5)
 
-        pool5 = pooling.MaxPooling(
-            self, kx=3, ky=3, sliding=(2, 2),
-            device=device)
-        self.link_last_forward_with(pool5)
+        pool5 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
+                                   device=device)
+        self._link_last_forward_with(pool5)
 
         # Layer 6 (FULLY CONNECTED)
-        fc6 = all2all.All2AllRELU(self, output_shape=4096)
-        self.link_last_forward_with(fc6)
+        fc6 = all2all.All2AllRELU(self, output_shape=4096, device=device)
+        self._link_last_forward_with(fc6)
 
             # TODO: dropout
 
         # Layer 7 (FULLY CONNECTED)
-        fc7 = all2all.All2AllRELU(self, output_shape=4096)
-        self.link_last_forward_with(fc7)
+        fc7 = all2all.All2AllRELU(self, output_shape=4096, device=device)
+        self._link_last_forward_with(fc7)
 
             # TODO: dropout
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
-        fc8sm = all2all.All2AllSoftmax(self, output_shape=4096)
-        self.link_last_forward_with(fc8sm)
-        self.forward.append(fc8sm)
+        fc8sm = all2all.All2AllSoftmax(self, output_shape=1000,
+                                       device=device)
+        self._link_last_forward_with(fc8sm)
 
         # EVALUATOR
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
-        self.ev.link_from(self.fc8)
-        self.ev.y = self.fc8.output
+        self.ev.link_from(fc8sm)
+        self.ev.y = fc8sm.output
         self.ev.labels = self.loader.minibatch_labels
-        self.ev.max_idx = fc8sm.max_idx
+        self.ev.link_attrs(fc8sm, ("y", "output"), "max_idx")
         self.ev.link_attrs(self.loader, ("batch_size", "minibatch_size"),
                            ("max_samples_per_epoch", "total_samples"))
 
-        # DECISION UNIT
+
+        # Add decision unit
         self.decision = decision.Decision(self)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class", "minibatch_last")
+                                 "minibatch_class",
+                                 "no_more_minibatches_left")
         self.decision.link_attrs(
-            self.ev, ("minibatch_n_err", "n_err"),
+            self.ev,
+            ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
         self.decision.class_samples = self.loader.class_samples
 
+
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
 
-        # Repeater from last-activated GD unit
+        # repeater and gate block
         self.rpt.link_from(self.gd[0])
-
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize):
-        return super(Workflow, self).initialize()
+        self.end_point.link_from(self.gd[0])
+        self.end_point.gate_block = ~self.decision.complete
+        self.loader.gate_block = self.decision.complete
 
     def _create_gradient_descent_units(self):
         '''
@@ -136,8 +144,8 @@ class Workflow(nn_units.NNWorkflow):
         for i, fwd_elm in enumerate(self.forward):
             if isinstance(fwd_elm, conv.ConvRELU):
                 grad_elm = gd_conv.GDRELU(
-                    self, n_kernels=fwd_elm.n_kernels,
-                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    self, n_kernels=fwd_elm.n_kernels, kx=fwd_elm.kx,
+                    ky=fwd_elm.ky, sliding=fwd_elm.sliding,
                     padding=fwd_elm.padding, device=self.device)
 
             elif isinstance(fwd_elm, conv.ConvTanh):
@@ -157,22 +165,22 @@ class Workflow(nn_units.NNWorkflow):
 
             elif isinstance(fwd_elm, pooling.MaxPooling):
                 grad_elm = gd_pooling.GDMaxPooling(
-                    self, kx=fwd_elm.kx,
-                    ky=fwd_elm.ky, sliding=fwd_elm.sliding, device=self.device)
+                    self, kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    device=self.device)
                 grad_elm.link_attrs(fwd_elm, ("h_offs", "input_offs"))  # WHY?!
 
             elif isinstance(fwd_elm, pooling.AvgPooling):
                 grad_elm = gd_pooling.GDAvgPooling(
-                    self, kx=fwd_elm.kx,
-                    ky=fwd_elm.ky, sliding=fwd_elm.sliding, device=self.device)
+                    self, kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    device=self.device)
 
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
 
             self.gd.append(grad_elm)
 
-            grad_elm.link_attrs(
-                fwd_elm, ("y", "output"), ("h", "input"), "weights", "bias")
+            grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"),
+                "weights", "bias")
             grad_elm.gate_skip = self.decision.gd_skip
 
         for i in range(len(self.gd) - 1):
@@ -182,7 +190,7 @@ class Workflow(nn_units.NNWorkflow):
         self.gd[-1].link_from(self.decision)
         self.gd[-1].link_attrs(self.ev, "err_y")
 
-    def link_last_forward_with(self, new_unit):
+    def _link_last_forward_with(self, new_unit):
         '''
         Adds a new forward unit to self.forward, links it with previous unit
         by link_from and link_attrs. If self.forward is empty, raises error.
@@ -191,10 +199,20 @@ class Workflow(nn_units.NNWorkflow):
         prev_forward_unit = self.forward[-1]
         new_unit.link_from(prev_forward_unit)
         new_unit.link_attrs(prev_forward_unit, ("input", "output"))
+        self.forward.append(new_unit)
+
+    def initialize(self, global_alpha, global_lambda, device):
+        self.ev.device = device
+        for g in self.gd:
+            g.device = device
+            g.global_alpha = global_alpha
+            g.global_lambda = global_lambda
+        for forward in self.forward:
+            forward.device = device
+        return super(Workflow, self).initialize()
 
 
 def run(load, main):
-    load(Workflow, layers=root.imagenet.layers)
-    main(global_alpha=get(root.imagenet.global_alpha),
-         global_lambda=root.imagenet.global_lambda,
-         minibatch_maxsize=root.loader.minibatch_maxsize)
+    load(Workflow, layers=root.imagenet_caffe.layers)
+    main(global_alpha=root.imagenet_caffe.global_alpha,
+         global_lambda=root.imagenet_caffe.global_lambda)
