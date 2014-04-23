@@ -62,7 +62,7 @@ class LoaderBase(loader.Loader):
         self._ipath = kwargs.get("ipath", config.root.imagenet.ipath)
         self._year = kwargs.get("year", config.root.imagenet.year)
         self._series = kwargs.get("series", config.root.imagenet.series)
-        self.def_attr("data_shape", (aperture, aperture))
+        self.data_shape = (aperture, aperture)
         self._dtype = opencl_types.dtypes[config.root.common.precision_type]
         self._crop_color = kwargs.get(
             "crop_color",
@@ -729,7 +729,7 @@ class LoaderBoundingBox(LoaderBase):
                               config.get(config.root.imagenet.aperture)
                               or 4000)
         super(LoaderDetection, self).__init__(workflow, aperture, **kwargs)
-        self.def_attr("max_detected_bboxes", 10)
+        self.max_detected_bboxes = 10
 
     def create_minibatches(self):
         super(LoaderDetection, self).create_minibatches()
