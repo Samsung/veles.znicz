@@ -633,7 +633,7 @@ class LoaderDetection(LoaderBase):
         for i in range(self.minibatch_size):
             meta = self.get_object_meta(self.shuffled_indexes[i])
             if meta[2] is not None:
-                name = meta["name"]
+                name = meta[2]["name"]
             else:
                 fn = self.get_object_file_name(self.shuffled_indexes[i])
                 name = self.get_category_by_file_name(fn)

@@ -3,7 +3,7 @@
 """
 Created on Apr 18, 2014
 
-Copyright (c) 2013 Samsung Electronics Co., Ltd.
+@author: Alexey Golovizin <a.golovizin@samsung.com>
 """
 
 from veles.config import root
@@ -12,7 +12,17 @@ from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz.samples.imagenet.loader import LoaderDetection
 
+
 import logging
+
+root.defaults = {"all2all": {"weights_magnitude": 0.05},
+                 "decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "imagenet_caffe",
+                              "store_samples_mse": True},
+                 "loader": {"minibatch_maxsize": 60},
+                 "imagenet_caffe": {"global_alpha": 0.01,
+                           "global_lambda": 0.0}
+                 }
 
 
 class Workflow(nn_units.NNWorkflow):
