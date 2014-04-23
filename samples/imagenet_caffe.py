@@ -10,7 +10,7 @@ from veles.config import root
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
-from imagenet.loader import LoaderDetection
+from veles.znicz.samples.imagenet.loader import LoaderDetection
 
 import logging
 

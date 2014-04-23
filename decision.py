@@ -643,7 +643,7 @@ class Decision(units.Unit):
         self._finalize_job(slave)
         if (self.no_more_minibatches_left[minibatch_class] and
                 self.minibatches_balance_[minibatch_class] == 0):
-                self._on_last_minibatch(minibatch_class)
+            self._on_last_minibatch(minibatch_class)
         if (all(self.no_more_minibatches_left) and
                 not any(self.minibatches_balance_) and
                 not self.complete):

@@ -453,9 +453,10 @@ class LoaderBase(loader.Loader):
             bbox_objs = len([t for t in samples if t[2] and t[1] == set_index])
             table.add_row(set_name, len(files), len(objects[set_name]),
                           bbox, bbox_objs, no_cat_recovery[set_name],
-                           int(bbox * 100 / len(files)),
+                          int(bbox * 100 / len(files)),
                           int(bbox_objs * 100 / (len(objects[set_name])
-                          if len(objects[set_name]) > 0 else 1)))
+                                                 if len(objects[set_name])
+                                                 > 0 else 1)))
         self.info("Stats:\n%s", str(table))
         self.info("Saving objects and categories to DB...")
         self._db_.Put(objects_key, json.dumps(objects).encode())
