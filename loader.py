@@ -145,6 +145,9 @@ class Loader(units.Unit):
 
         self._recompute_total_samples()
 
+        # this will make _prepare_next_minbatch() shuffle indices on first run
+        self.minibatch_offset = self.total_samples
+
         self.info("Samples number: train: %d, validation: %d, test: %d",
                   self.class_samples[TRAIN], self.class_samples[VALID],
                   self.class_samples[TEST])
