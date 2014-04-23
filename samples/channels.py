@@ -52,7 +52,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                             "channels_dir":
                             "/data/veles/channels/korean_960_540/train",
                             "rect": (264, 129),
-                            "validation_procent": 0.15},
+                            "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 16},
                  "channels": {"export": False,
                               "find_negative": 0,
@@ -601,7 +601,7 @@ class Workflow(nn_units.NNWorkflow):
                              n_threads=root.loader.n_threads,
                              channels_dir=root.loader.channels_dir,
                              rect=root.loader.rect,
-                             validation_procent=root.loader.validation_procent)
+                             validation_ratio=root.loader.validation_ratio)
         self.loader.link_from(self.repeater)
 
         # Add forward units

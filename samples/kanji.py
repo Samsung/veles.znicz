@@ -31,7 +31,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                               "snapshot_prefix": "kanji",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 5103,
-                            "validation_procent": 0.15},
+                            "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 16},
                  "kanji": {"global_alpha": 0.001,
                            "global_lambda": 0.00005,
@@ -179,7 +179,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(
-            self, validation_procent=root.loader.validation_procent,
+            self, validation_ratio=root.loader.validation_ratio,
             train_path=root.kanji.path_for_load_data.train,
             target_path=root.kanji.path_for_load_data.target)
         self.loader.link_from(self.repeater)

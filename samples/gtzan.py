@@ -211,12 +211,6 @@ class Loader(loader.Loader):
             sh, dtype=opencl_types.itypes[
                 opencl_types.get_itype_from_size(len(self.data["files"]))])
 
-    def shuffle_validation_train(self):
-        pass
-
-    def shuffle_train(self):
-        pass
-
     def shuffle(self):
         pass
 
