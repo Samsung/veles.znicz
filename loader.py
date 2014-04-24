@@ -115,6 +115,8 @@ class Loader(units.Unit):
         return state
 
     def initialize(self):
+        """Loads the data, initializes indices, shuffles the training set.
+        """
         super(Loader, self).initialize()
         self.load_data()
 
@@ -142,7 +144,7 @@ class Loader(units.Unit):
         self.shuffle()
 
     def run(self):
-        """Prepare the minibatch.
+        """Prepares the minibatch.
         """
         self._prepare_next_minibatch()
 
@@ -328,6 +330,8 @@ class Loader(units.Unit):
                                                      else override_value)
 
     def _prepare_next_minibatch(self):
+        """Increments minibatch_offset by an appropriate minibatch_size.
+        """
         # Shuffle again when the end of data is reached.
         if self.minibatch_offset >= self.total_samples:
             self.shuffle()
