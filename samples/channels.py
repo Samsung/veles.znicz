@@ -42,7 +42,7 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
 root.defaults = {"decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels_108_24",
+                              "snapshot_prefix": "channels_54_10",
                               "use_dynamic_alpha": False},
                  "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
                                                        "channels.pickle"),
@@ -50,7 +50,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                             "minibatch_size": 81,
                             "n_threads": 32,
                             "channels_dir":
-                            "/data/veles/channels/korean_960_540/train",
+                            "/data/veles/VD/channels/russian_small/train",
                             "rect": (264, 129),
                             "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 16},
@@ -58,7 +58,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                               "find_negative": 0,
                               "global_alpha": 0.01,
                               "global_lambda": 0.00005,
-                              "layers": [108, 24],
+                              "layers": [54, 10],
                               "snapshot": ""}}
 
 
@@ -616,10 +616,12 @@ class Workflow(nn_units.NNWorkflow):
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[i].link_attrs(self.forward[i - 1],
+                                           ("input", "output"))
             else:
                 self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[i].link_attrs(self.loader,
+                                           ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self, yuv=True)
@@ -701,7 +703,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i],
                 ylim=(0, 100)))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = ~self.decision.epoch_ended
@@ -713,10 +715,11 @@ class Workflow(nn_units.NNWorkflow):
             self, name="First Layer Weights", limit=root.weights_plotter.limit,
             yuv=True)
         self.plt_w.input = [self.gd[0].weights.v]
-        self.plt_w.get_shape_from = self.forward[0].input
+        self.plt_w.link_attrs(self.forward[0], ("get_shape_from", "input"))
         self.plt_w.input_field = 0
         self.plt_w.link_from(self.decision)
         self.plt_w.gate_block = ~self.decision.epoch_ended
+
         # Image plottter
         self.decision.vectors_to_sync[self.forward[0].input] = 1
         self.decision.vectors_to_sync[self.ev.labels] = 1
@@ -731,8 +734,10 @@ class Workflow(nn_units.NNWorkflow):
         """
         self.plt_mx = []
         for i in range(1, 3):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)

@@ -36,6 +36,8 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                                   "path_for_load_data": {"target": target_dir,
                                                          "train": train_dir}}}
 
+#root.loader.minibatch_maxsize = 100
+
 
 class Loader(loader.ImageLoader):
     def load_original(self, fnme):
@@ -62,7 +64,7 @@ class Loader(loader.ImageLoader):
 
     def initialize(self):
         super(Loader, self).initialize()
-        self.shuffle_validation_train()
+        #self.shuffle_validation_train()
         self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
                      self.original_target.min(), self.original_target.max()))
@@ -159,7 +161,8 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader = Loader(
             self, train_paths=root.approximator.path_for_load_data.train,
-            target_paths=root.approximator.path_for_load_data.target)
+            target_paths=root.approximator.path_for_load_data.target,
+            minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 
         # Add forward units
@@ -170,15 +173,17 @@ class Workflow(nn_units.NNWorkflow):
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[i].link_attrs(self.forward[i - 1],
+                                           ("input", "output"))
             else:
                 self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[i].link_attrs(self.loader,
+                                           ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorMSE(self, device=device)
         self.ev.link_from(self.forward[-1])
-        self.ev.y = self.forward[-1].output
+        self.ev.link_attrs(self.forward[-1], ("y", "output"))
         self.ev.link_attrs(self.loader,
                            ("batch_size", "minibatch_size"),
                            ("max_samples_per_epoch", "total_samples"),
@@ -205,19 +210,16 @@ class Workflow(nn_units.NNWorkflow):
         self.gd = list(None for i in range(0, len(self.forward)))
         self.gd[-1] = gd.GDTanh(self, device=device)
         self.gd[-1].link_from(self.decision)
-
         self.gd[-1].link_attrs(self.forward[-1],
                                ("y", "output"),
                                ("h", "input"),
                                "weights", "bias")
-
         self.gd[-1].link_attrs(self.ev, "err_y")
         self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gd[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.forward) - 2, -1, -1):
             self.gd[i] = gd.GDTanh(self, device=device)
             self.gd[i].link_from(self.gd[i + 1])
-
             self.gd[i].link_attrs(self.forward[i],
                                   ("y", "output"),
                                   ("h", "input"),
@@ -242,7 +244,8 @@ class Workflow(nn_units.NNWorkflow):
                 continue
             self.plt_avg.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_avg[-1].input = self.decision.epoch_metrics
+            self.plt_avg[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_avg[-1].input_field = i
             self.plt_avg[-1].link_from(self.plt_avg[-2] if j
                                        else self.decision)
@@ -259,7 +262,8 @@ class Workflow(nn_units.NNWorkflow):
                 continue
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_max[-1].input = self.decision.epoch_metrics
+            self.plt_max[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
             self.plt_max[-1].link_from(self.plt_max[-2] if j
@@ -274,7 +278,8 @@ class Workflow(nn_units.NNWorkflow):
                 continue
             self.plt_min.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_min[-1].input = self.decision.epoch_metrics
+            self.plt_min[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
             self.plt_min[-1].link_from(self.plt_min[-2] if j

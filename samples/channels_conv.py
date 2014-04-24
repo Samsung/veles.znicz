@@ -50,7 +50,7 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
 
 root.defaults = {"accumulator": {"n_bars": 30},
                  "decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels_conv_108_24",
+                              "snapshot_prefix": "channels_conv",
                               "use_dynamic_alpha": False,
                               "do_export_weights": True},
                  "image_saver": {"out_dirs":
@@ -66,7 +66,7 @@ root.defaults = {"accumulator": {"n_bars": 30},
                             "minibatch_size": 81,
                             "n_threads": 32,
                             "channels_dir":
-                            "/data/veles/TV/russian_small/train",
+                            "/data/veles/VD/channels/russian_small/train",
                             "rect": (264, 129),
                             "validation_procent": 0.15},
                  "weights_plotter": {"limit": 64},
@@ -711,7 +711,6 @@ class Workflow(nn_units.NNWorkflow):
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
         self.image_saver.link_from(self.accumulator[-1])
-        #self.image_saver.link_from(self.forward[-1])
         self.image_saver.link_attrs(self.forward[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
@@ -821,7 +820,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(1, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision
                                    if len(self.plt) == 1 else self.plt[-2])
@@ -835,7 +834,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
@@ -848,13 +848,14 @@ class Workflow(nn_units.NNWorkflow):
                 self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
-            self.plt_mx[i].input = self.gd[i].weights
+            self.plt_mx[i].link_attrs(self.gd[i], ("input", "weights"))
             self.plt_mx[i].input_field = "v"
             if layers[i].get("n_kernels") is not None:
                 self.plt_mx[i].get_shape_from = (
                     [self.forward[i].kx, self.forward[i].ky])
             if layers[i].get("layers") is not None:
-                self.plt_mx[i].get_shape_from = self.forward[i].input
+                self.plt_mx[i].link_attrs(self.forward[i],
+                                          ("get_shape_from", "input"))
             self.plt_mx[i].link_from(self.decision)
             self.plt_mx[i].gate_block = ~self.decision.epoch_ended
 
@@ -866,9 +867,8 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_hist.append(hist)
 
         self.plt_hist[-1].link_from(self.decision)
-        self.plt_hist[-1].input = self.accumulator[i].output
-        self.plt_hist[-1].n_bars = self.accumulator[i].n_bars
-        self.plt_hist[-1].x = self.accumulator[i].input
+        self.plt_hist[-1].link_attrs(self.accumulator[i], ("input", "output"),
+                                     ("x", "input"), "n_bars")
         self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
 
         # MultiHistogram plotter
@@ -881,13 +881,15 @@ class Workflow(nn_units.NNWorkflow):
             if layers[i].get("n_kernels") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
                 self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist[i].input = self.forward[i].weights
+                self.plt_multi_hist[i].link_attrs(self.forward[i],
+                                                  ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
             if layers[i].get("layers") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
                 self.plt_multi_hist[i].hist_number = layers[i]["layers"]
-                self.plt_multi_hist[i].input = self.forward[i].weights
+                self.plt_multi_hist[i].link_attrs(self.forward[i],
+                                                  ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_size,
