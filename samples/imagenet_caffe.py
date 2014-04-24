@@ -10,6 +10,7 @@ from veles.config import root
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
+from veles.znicz import normalization
 from veles.znicz.samples.imagenet.loader import LoaderDetection
 
 
@@ -62,6 +63,8 @@ class Workflow(nn_units.NNWorkflow):
         self._link_last_forward_with(pool1)
 
         # TODO: normalization, gaussian filling
+        norm1 = normalization.LRNormalizerForward(self, device=device)
+        self._link_last_forward_with(norm1)
 
         # Layer 2 (CONV + POOL)
         conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
@@ -183,6 +186,11 @@ class Workflow(nn_units.NNWorkflow):
                     self, kx=fwd_elm.kx, ky=fwd_elm.ky,
                     sliding=fwd_elm.sliding,
                     device=self.device)
+
+            elif isinstance(fwd_elm, normalization.LRNormalizerForward):
+                grad_elm = normalization.LRNormalizerBackward(
+                    self, alpha=fwd_elm.alpha, beta=fwd_elm.beta,
+                    k=fwd_elm.k, n=fwd_elm.n)
 
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
