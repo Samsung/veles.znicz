@@ -139,7 +139,6 @@ class Loader(units.Unit):
         # Initial shuffle
         self.shuffled_indexes = numpy.arange(
             self.total_samples, dtype=self.minibatch_indexes.v.dtype)
-
         self.shuffle()
 
     def run(self):
@@ -324,9 +323,9 @@ class Loader(units.Unit):
         current epoch.
         """
         for i, n in enumerate(self.class_samples):
-                self.no_more_minibatches_left[i] = (not n
-                                                    if override_value is None
-                                                    else override_value)
+                self.no_more_minibatches_left[i] |= (not n
+                                                     if override_value is None
+                                                     else override_value)
 
     def _prepare_next_minibatch(self):
         # Shuffle again when the end of data is reached.
