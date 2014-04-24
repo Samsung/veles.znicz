@@ -120,10 +120,9 @@ class Loader(loader.FullBatchLoader):
             progress.inc()
             formats.normalize(image)
         progress.finish()
+        self.original_data[offs:offs + n_images] = images[:]
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))
-        self.original_data[offs:offs + n_images] = images[:]
-        self.info("Done")
 
     def load_data(self):
         """Here we will load MNIST data.
