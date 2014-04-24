@@ -3,7 +3,7 @@ Created on Dec 4, 2013
 
 Unit test for pooling layer forward propagation.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

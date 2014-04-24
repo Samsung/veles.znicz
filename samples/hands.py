@@ -4,7 +4,7 @@ Created on Jun 14, 2013
 
 File for Hands dataset.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

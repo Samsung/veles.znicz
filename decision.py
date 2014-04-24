@@ -3,7 +3,7 @@ Created on Aug 15, 2013
 
 Decision unit.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

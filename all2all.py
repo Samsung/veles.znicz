@@ -3,7 +3,7 @@ Created on Mar 20, 2013
 
 All2All units.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

@@ -4,7 +4,7 @@ Created on Sep 2, 2013
 
 File for korean channels recognition.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

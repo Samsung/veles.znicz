@@ -6,7 +6,7 @@ File for autoencoding video.
 
 AutoEncoder version.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

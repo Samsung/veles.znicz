@@ -1,7 +1,7 @@
 '''
 Created on Apr 10, 2014
 
-@author: Vadim Markovtsev <v.markovtsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 '''
 
 from .loader import LoaderDetection, LoaderBoundingBox

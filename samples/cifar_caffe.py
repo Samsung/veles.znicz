@@ -4,8 +4,8 @@ Created on Mar 31, 2014
 
 Cifar convolutional.
 
-@author: Kazantsev Alexey, <a.kazantsev@samsung.com>
-@author: Alexey Golovizin, <a.golovizin@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

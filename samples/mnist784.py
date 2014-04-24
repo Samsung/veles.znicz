@@ -4,7 +4,7 @@ Created on August 12, 2013
 
 MNIST with target encoded as ideal image (784 points), MSE.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

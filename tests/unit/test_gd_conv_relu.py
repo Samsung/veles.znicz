@@ -3,7 +3,7 @@ Created on Mart 31, 2014
 
 Unit test for RELU convolutional layer back propagation
 
-@author: Lyubov Podoynitsina <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

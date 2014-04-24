@@ -3,7 +3,7 @@ Created on April 9, 2014
 
 Accumulator units.
 
-@author: Lyubov Podoynitsina <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

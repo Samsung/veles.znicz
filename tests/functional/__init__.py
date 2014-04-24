@@ -1,5 +1,5 @@
 """
 Created on April 3, 2014
 
-@author: Podoynitsina Lyubov <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

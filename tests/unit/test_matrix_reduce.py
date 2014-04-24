@@ -3,7 +3,7 @@ Created on Nov 22, 2013
 
 Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

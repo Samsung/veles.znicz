@@ -3,7 +3,7 @@ Created on Nov 8, 2013
 
 Will test correctness of OpenCL matrix multiplication.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

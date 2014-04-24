@@ -4,7 +4,7 @@ Created on Mar 20, 2013
 
 File for MNIST dataset.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

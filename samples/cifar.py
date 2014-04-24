@@ -4,7 +4,7 @@ Created on Jul 3, 2013
 
 Cifar all2all.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

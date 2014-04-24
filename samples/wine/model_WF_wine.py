@@ -21,7 +21,7 @@ Result is in the serialize (-"-)
 
 no testing for test data set. (-"-)
 
-@author: Seresov Denis <d.seresov@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

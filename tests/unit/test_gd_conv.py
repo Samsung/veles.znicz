@@ -3,7 +3,7 @@ Created on Nov 7, 2013
 
 Unit test for convolutional layer back propagation.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

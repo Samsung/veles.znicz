@@ -4,7 +4,7 @@ Created on Dec 20, 2013
 
 Compares two gtzan.pickle's.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

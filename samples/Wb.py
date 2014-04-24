@@ -4,7 +4,7 @@ Created on Aug 21, 2013
 
 Outputs first layer weights to stdout separated by ", ".
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

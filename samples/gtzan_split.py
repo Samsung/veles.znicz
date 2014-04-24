@@ -4,7 +4,7 @@ Created on Dec 12, 2013
 
 Splits gtzan.pickle in training and test data.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

@@ -3,7 +3,7 @@ Created on Dec 3, 2013
 
 Gradient Descent for Pooling units.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

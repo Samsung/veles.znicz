@@ -4,7 +4,7 @@ Created on August 4, 2013
 
 File for Wine dataset (NN with RELU activation).
 
-@author: Podoynitsina Lyubov <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

@@ -3,7 +3,7 @@ Created on Aug 14, 2013
 
 Loader base class.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

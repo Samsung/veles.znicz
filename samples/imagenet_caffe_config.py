@@ -4,5 +4,5 @@
 """
 Created on Apr 18, 2014
 
-@author: Alexey Golovizin <a.golovizin@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
