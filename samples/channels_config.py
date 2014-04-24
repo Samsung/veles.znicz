@@ -18,7 +18,7 @@ root.loader = Config()  # time any way) but good for Eclipse editor
 # optional parameters
 
 root.update = {"decision": {"fail_iterations": 1000,
-                            "snapshot_prefix": "channels_108_24",
+                            "snapshot_prefix": "channels_54_10",
                             "use_dynamic_alpha": False},
                "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
                                                      "channels.pickle"),
@@ -26,13 +26,13 @@ root.update = {"decision": {"fail_iterations": 1000,
                           "minibatch_size": 81,
                           "n_threads": 32,
                           "channels_dir":
-                          "/data/veles/TV/russian_small/train",
+                          "/data/veles/VD/channels/russian_small/train",
                           "rect": (264, 129),
-                          "validation_procent": 0.15},
+                          "validation_ratio": 0.15},
                "weights_plotter": {"limit": 16},
                "channels": {"export": False,
                             "find_negative": 0,
                             "global_alpha": 0.01,
                             "global_lambda": 0.00005,
-                            "layers": [108, 24],
+                            "layers": [54, 10],
                             "snapshot": ""}}

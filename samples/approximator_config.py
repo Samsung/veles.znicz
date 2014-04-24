@@ -21,6 +21,7 @@ train = ["/data/veles/approximator/all_dec_appertures.mat"]
 root.update = {"decision": {"fail_iterations": 1000,
                             "snapshot_prefix":  "approximator",
                             "store_samples_mse": True},
+               "loader": {"minibatch_maxsize": 100},
                "approximator": {"global_alpha": 0.01,
                                 "global_lambda": 0.00005,
                                 "layers": [810, 9],
