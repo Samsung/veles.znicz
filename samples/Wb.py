@@ -11,14 +11,15 @@ Outputs first layer weights to stdout separated by ", ".
 import argparse
 import pickle
 
-parser = argparse.ArgumentParser()
-parser.add_argument("IN", help="input file")
-args = parser.parse_args()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("IN", help="input file")
+    args = parser.parse_args()
 
-fin = open(args.IN, "rb")
-(W, b) = pickle.load(fin)
-fin.close()
+    fin = open(args.IN, "rb")
+    (W, b) = pickle.load(fin)
+    fin.close()
 
-weights = W[0]
-for row in weights:
-    print(", ".join("%.6f" % (x) for x in row))
+    weights = W[0]
+    for row in weights:
+        print(", ".join("%.6f" % (x) for x in row))
