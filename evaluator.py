@@ -57,8 +57,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.labels = None  # formats.Vector()
         self.y = None  # formats.Vector()
         self.err_y = formats.Vector()
-        self.def_attr("batch_size", 0)
-        self.def_attr("max_samples_per_epoch", 0)
+        self.batch_size = 0
+        self.max_samples_per_epoch = 0
         self.compute_confusion_matrix = compute_confusion_matrix
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()

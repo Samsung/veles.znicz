@@ -87,22 +87,22 @@ class Loader(units.Unit):
         self.minibatch_labels = formats.Vector()
         self.class_target = formats.Vector()
 
-        self.def_attr("minibatch_class", 0)
+        self.minibatch_class = 0
         self.no_more_minibatches_left = [False, False, False]
 
-        self.def_attr("total_samples", 0)
+        self.total_samples = 0
         self.class_samples = [0, 0, 0]
         self.nextclass_offsets = [0, 0, 0]
         self.minibatch_offset = 0
 
-        self.def_attr("minibatch_offset", 0)
-        self.def_attr("minibatch_size", 0)
-        self.def_attr("minibatch_maxsize", minibatch_maxsize)
+        self.minibatch_offset = 0
+        self.minibatch_size = 0
+        self.minibatch_maxsize = minibatch_maxsize
 
         self.shuffled_indexes = None
         self.original_labels = None
 
-        self.def_attr("samples_served", 0)
+        self.samples_served = 0
         self.validation_ratio = validation_ratio
 
     def init_unpickled(self):

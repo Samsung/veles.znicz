@@ -98,7 +98,7 @@ class GD(OpenCLUnit):
         self.err_h = formats.Vector()
         self.weights = None
         self.bias = None
-        self.def_attr("batch_size", None)
+        self.batch_size = None
         self.global_alpha = global_alpha
         self.global_lambda = global_lambda
         self.weights_transposed = weights_transposed
