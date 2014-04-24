@@ -547,14 +547,15 @@ class Decision(units.Unit):
     def _copy_minibatch_mse(self, minibatch_class, minibatch_size,
                             minibatch_offset):
         if self.epoch_samples_mse:
+            minibatch_offset -= minibatch_size
             self.minibatch_mse.map_read()
             offset = minibatch_offset
             for i in range(minibatch_class):
                 offset -= self.class_samples[i]
-                size = minibatch_size
             self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.tmp_epoch_samples_mse[minibatch_class][
-                offset:offset + size] = self.minibatch_mse[:size]
+                offset:offset
+                + minibatch_size] = self.minibatch_mse[:minibatch_size]
 
     def generate_data_for_master(self):
         self._sync_vectors()

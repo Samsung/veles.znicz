@@ -231,7 +231,7 @@ class Loader(units.Unit):
             if self.shuffled_indexes is None:
                 total_samples = numpy.sum(self.class_samples)
                 self.shuffled_indexes = numpy.arange(
-                    total_samples, dtype=self.minibatch_indexes.v.dtype)
+                    total_samples, dtype=numpy.int32)
             return
         offs_test = self.class_samples[TEST]
         offs = offs_test
@@ -241,7 +241,7 @@ class Loader(units.Unit):
 
         if self.shuffled_indexes is None:
             self.shuffled_indexes = numpy.arange(
-                total_samples, dtype=self.minibatch_indexes.v.dtype)
+                total_samples, dtype=numpy.int32)
         shuffled_indexes = self.shuffled_indexes
 
         # If there are no labels
