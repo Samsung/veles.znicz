@@ -4,7 +4,7 @@ Created on Mart 26, 2014
 
 Example of Mnist config.
 
-@author: Podoynitsina Lyubov <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

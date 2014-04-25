@@ -3,7 +3,7 @@ Created on Aug 14, 2013
 
 Loader base class.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -114,8 +114,12 @@ class Loader(units.Unit):
         state["shuffled_indexes"] = None
         return state
 
-    def initialize(self):
-        super(Loader, self).initialize()
+    def initialize(self, **kwargs):
+        """Loads the data, initializes indices, shuffles the training set.
+        """
+        super(Loader, self).initialize(**kwargs)
+        self.minibatch_maxsize = kwargs.get("minibatch_maxsize",
+                                            self.minibatch_maxsize)
         self.load_data()
 
         self._recompute_total_samples()
@@ -139,11 +143,10 @@ class Loader(units.Unit):
         # Initial shuffle
         self.shuffled_indexes = numpy.arange(
             self.total_samples, dtype=self.minibatch_indexes.v.dtype)
-
         self.shuffle()
 
     def run(self):
-        """Prepare the minibatch.
+        """Prepares the minibatch.
         """
         self._prepare_next_minibatch()
 
@@ -324,11 +327,13 @@ class Loader(units.Unit):
         current epoch.
         """
         for i, n in enumerate(self.class_samples):
-                self.no_more_minibatches_left[i] = (not n
-                                                    if override_value is None
-                                                    else override_value)
+                self.no_more_minibatches_left[i] |= (not n
+                                                     if override_value is None
+                                                     else override_value)
 
     def _prepare_next_minibatch(self):
+        """Increments minibatch_offset by an appropriate minibatch_size.
+        """
         # Shuffle again when the end of data is reached.
         if self.minibatch_offset >= self.total_samples:
             self.shuffle()

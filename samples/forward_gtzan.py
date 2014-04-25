@@ -2,7 +2,7 @@
 """
 Created on Dec 20, 2013.
 
-@author: Podoynitsina Lyubov <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -94,23 +94,23 @@ class Workflow(nn_units.NNWorkflow):
         self.extr.link_from(self.audio_loader)
         self.extr.inputs = self.audio_loader.outputs
 
-        self.forward = Forward()
-        self.forward.ff = self.extr
-        self.forward.ff_key = "outputs"
-        self.forward.link_from(self.extr)
+        self.fwds = Forward()
+        self.fwds.ff = self.extr
+        self.fwds.ff_key = "outputs"
+        self.fwds.link_from(self.extr)
 
-        self.end_point.link_from(self.forward)
+        self.end_point.link_from(self.fwds)
 
     def initialize(self, file, feature_file, W, b,
                    window_size, shift_size):
         self.audio_loader.files_list = [file]
-        self.forward.W = W
-        self.forward.b = b
-        self.forward.window_size = window_size
-        self.forward.shift_size = shift_size
+        self.fwds.W = W
+        self.fwds.b = b
+        self.fwds.window_size = window_size
+        self.fwds.shift_size = shift_size
         features = features_xml.FeaturesXml.parse(feature_file)
         self.extr.add_features(features)
-        return super(Workflow, self).initialize()
+        return super(Workflow, self).initialize(**kwargs)
 
 
 class Forward(units.Unit):
@@ -263,10 +263,10 @@ def main():
     l.run()
 
     if root.forward_gtzan.graphics:
-        draw_plot("Points", w.forward.x, w.forward.y, w.forward.i_labels,
+        draw_plot("Points", w.fwds.x, w.fwds.y, w.fwds.i_labels,
                   root.forward_gtzan.file_name,
                   root.forward_gtzan.plotter_window_name)
-        draw_plot("Incremental", w.forward.x, w.forward.yy, w.forward.i_labels,
+        draw_plot("Incremental", w.fwds.x, w.fwds.yy, w.fwds.i_labels,
                   root.forward_gtzan.file_name,
                   root.forward_gtzan.plotter_window_name, True)
 

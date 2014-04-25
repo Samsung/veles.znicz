@@ -4,8 +4,8 @@ Created on Mar 31, 2014
 
 Cifar convolutional.
 
-@author: Kazantsev Alexey, <a.kazantsev@samsung.com>
-@author: Alexey Golovizin, <a.golovizin@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -330,15 +330,10 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
-        self.loader.minibatch_maxsize = minibatch_maxsize
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_maxsize,
+                                         device=device)
 
 
 def run(load, main):

@@ -3,7 +3,7 @@ Created on Nov 22, 2013
 
 Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -15,8 +15,8 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
+from veles.opencl_units import OpenCLUnit
 import veles.rnd as rnd
-import veles.units as units
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -50,7 +50,7 @@ class TestMatrixReduce(unittest.TestCase):
         fout.write(src)
         fout.close()
 
-        tmp = units.OpenCLUnit(DummyWorkflow(), device=self.device)
+        tmp = OpenCLUnit(DummyWorkflow(), device=self.device)
         tmp.cl_sources_[fnme] = {}
         tmp.build_program(defines, fnme)
 

@@ -3,7 +3,7 @@ Created on Nov 14, 2013
 
 Gradient Descent for Convolutional Units.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -18,7 +18,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
 
 
-class GD(nn_units.GD):
+class GradientDescentConv(nn_units.GradientDescentBase):
     """Gradient Descent.
 
     Should be assigned before initialize():
@@ -59,7 +59,7 @@ class GD(nn_units.GD):
         kwargs["ky"] = ky
         kwargs["padding"] = padding
         kwargs["sliding"] = sliding
-        super(GD, self).__init__(workflow, **kwargs)
+        super(GradientDescentConv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
@@ -70,7 +70,7 @@ class GD(nn_units.GD):
         self.reduce_size = 64
 
     def init_unpickled(self):
-        super(GD, self).init_unpickled()
+        super(GradientDescentConv, self).init_unpickled()
         self.cl_sources_["gradient_descent_conv.cl"] = {}
         self.krn_err_h_clear_ = None
         self.krn_err_h_ = None
@@ -78,8 +78,8 @@ class GD(nn_units.GD):
         self.krn_err_y_ = None
         self.krn_bias_ = None
 
-    def initialize(self):
-        super(GD, self).initialize()
+    def initialize(self, **kwargs):
+        super(GradientDescentConv, self).initialize(**kwargs)
         batch_size = self.h.v.shape[0]
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
@@ -127,7 +127,7 @@ class GD(nn_units.GD):
         if self.device is None:
             return
 
-        if self.prg_ is None:
+        if self.program_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
             self.reduce_size = min(self.reduce_size,
@@ -308,7 +308,7 @@ class GD(nn_units.GD):
         raise error.ErrNotImplemented()
 
 
-class GDTanh(GD):
+class GDTanhConv(GradientDescentConv):
     """Gradient Descent for f(x) = 1.7159 * tanh(0.6666 * s), s = (W * x + b),
        y = a * tanh(b * s).
 
@@ -327,9 +327,9 @@ class GDTanh(GD):
         y = self.y.v
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
-        super(GDTanh, self).initialize()
+        super(GDTanhConv, self).initialize(**kwargs)
         if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")
@@ -337,7 +337,7 @@ class GDTanh(GD):
         self.krn_err_y_.set_arg(1, self.y.v_)
 
 
-class GDRELU(GD):
+class GDRELUConv(GradientDescentConv):
     """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
        y = log(1.0 + exp(s)).
 
@@ -351,9 +351,9 @@ class GDRELU(GD):
         y = self.y.v
         self.err_y.v *= 1.0 - numpy.exp(-y)
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         self.cl_sources_["gradient_descent_relu.cl"] = {}
-        super(GDRELU, self).initialize()
+        super(GDRELUConv, self).initialize(**kwargs)
         if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")

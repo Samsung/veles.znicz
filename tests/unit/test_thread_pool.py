@@ -3,7 +3,7 @@ Created on Oct 8, 2013
 
 Unit test for ThreadPool().
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

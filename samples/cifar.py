@@ -4,7 +4,7 @@ Created on Jul 3, 2013
 
 Cifar all2all.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -113,8 +113,8 @@ class Workflow(nn_units.NNWorkflow):
         self.loader = Loader(self)
         self.loader.link_from(self.repeater)
 
-        # Add forward units
-        del self.forward[:]
+        # Add fwds units
+        del self.fwds[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
@@ -122,14 +122,14 @@ class Workflow(nn_units.NNWorkflow):
             else:
                 aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
                                             device=device)
-            self.forward.append(aa)
+            self.fwds.append(aa)
             if i:
-                self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].link_attrs(self.forward[i - 1],
+                self.fwds[i].link_from(self.fwds[i - 1])
+                self.fwds[i].link_attrs(self.fwds[i - 1],
                                            ("input", "output"))
             else:
-                self.forward[i].link_from(self.loader)
-                self.forward[i].link_attrs(self.loader,
+                self.fwds[i].link_from(self.loader)
+                self.fwds[i].link_attrs(self.loader,
                                            ("input", "minibatch_data"))
 
         # Add Accumulator units
@@ -141,16 +141,16 @@ class Workflow(nn_units.NNWorkflow):
             if i:
                 self.accumulator[i].link_from(self.accumulator[i - 1])
             else:
-                self.accumulator[i].link_from(self.forward[-1])
+                self.accumulator[i].link_from(self.fwds[-1])
 
-            self.accumulator[i].link_attrs(self.forward[i],
+            self.accumulator[i].link_attrs(self.fwds[i],
                                            ("input", "output"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
         self.image_saver.link_from(self.accumulator[-1])
-        self.image_saver.link_attrs(self.forward[-1],
+        self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
@@ -159,10 +159,10 @@ class Workflow(nn_units.NNWorkflow):
                                     "minibatch_class", "minibatch_size")
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(self, device=device)
-        self.ev.link_from(self.image_saver)
-        self.ev.link_attrs(self.forward[-1], ("y", "output"), "max_idx")
-        self.ev.link_attrs(self.loader,
+        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator.link_from(self.image_saver)
+        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.loader,
                            ("batch_size", "minibatch_size"),
                            ("labels", "minibatch_labels"),
                            ("max_samples_per_epoch", "total_samples"))
@@ -171,13 +171,13 @@ class Workflow(nn_units.NNWorkflow):
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
             snapshot_prefix=root.decision.snapshot_prefix)
-        self.decision.link_from(self.ev)
+        self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "no_more_minibatches_left",
                                  "class_samples")
         self.decision.link_attrs(
-            self.ev,
+            self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
@@ -188,29 +188,29 @@ class Workflow(nn_units.NNWorkflow):
             self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
-        del self.gd[:]
-        self.gd.extend(None for i in range(0, len(self.forward)))
-        self.gd[-1] = gd.GDSM(self, device=device)
-        self.gd[-1].link_from(self.decision)
-        self.gd[-1].link_attrs(self.forward[-1],
+        del self.gds[:]
+        self.gds.extend(None for i in range(0, len(self.fwds)))
+        self.gds[-1] = gd.GDSM(self, device=device)
+        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_attrs(self.fwds[-1],
                                ("y", "output"),
                                ("h", "input"),
                                "weights", "bias")
-        self.gd[-1].link_attrs(self.ev, "err_y")
-        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gd[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(self, device=device)
-            self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].link_attrs(self.forward[i],
+        self.gds[-1].link_attrs(self.evaluator, "err_y")
+        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        self.gds[-1].gate_skip = self.decision.gd_skip
+        for i in range(len(self.fwds) - 2, -1, -1):
+            self.gds[i] = gd.GDTanh(self, device=device)
+            self.gds[i].link_from(self.gds[i + 1])
+            self.gds[i].link_attrs(self.fwds[i],
                                   ("y", "output"),
                                   ("h", "input"),
                                   "weights", "bias")
-            self.gd[i].link_attrs(self.loader, ("batch_size",
+            self.gds[i].link_attrs(self.loader, ("batch_size",
                                                 "minibatch_size"))
-            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
-            self.gd[i].gate_skip = self.decision.gd_skip
-        self.repeater.link_from(self.gd[0])
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].gate_skip = self.decision.gd_skip
+        self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
@@ -235,8 +235,8 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.vectors_to_sync[self.gd[0].weights] = 1
         self.plt_w = plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
-        self.plt_w.link_attrs(self.gd[0], ("input", "weights"))
-        self.plt_w.link_attrs(self.forward[0], ("get_shape_from", "input"))
+        self.plt_w.link_attrs(self.gds[0], ("input", "weights"))
+        self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_w.input_field = "v"
         self.plt_w.link_from(self.decision)
         self.plt_w.gate_block = ~self.decision.epoch_ended
@@ -271,23 +271,18 @@ class Workflow(nn_units.NNWorkflow):
                 self, name="Histogram weights %s" % (i + 1))
             self.plt_multi_hist.append(multi_hist)
             self.plt_multi_hist[i].link_from(self.decision)
-            self.plt_multi_hist[i].link_attrs(self.forward[i],
+            self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                               ("input", "weights"))
-            self.plt_multi_hist[i].hist_number = self.forward[
+            self.plt_multi_hist[i].hist_number = self.fwds[
                 i].output_shape[0]
             self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
-        self.loader.minibatch_maxsize = minibatch_maxsize
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_maxsize,
+                                         device=device)
 
 
 def run(load, main):

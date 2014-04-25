@@ -3,7 +3,7 @@ Created on Mar 20, 2013
 
 All2All units.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -73,8 +73,8 @@ class All2All(nn_units.Forward):
         return (9.0 / self.input.supposed_maxvle /
                 (self.input.v.size // self.input.v.shape[0]))
 
-    def initialize(self):
-        super(All2All, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(All2All, self).initialize(device=device, **kwargs)
 
         if self.weights_magnitude is None:
             # Get weights magnitude and cap it to 0.05
@@ -207,9 +207,9 @@ class All2All(nn_units.Forward):
 class All2AllTanh(All2All):
     """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
     """
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
-        super(All2AllTanh, self).initialize()
+        super(All2AllTanh, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 1.7159
 
     def get_weights_magnitude(self):
@@ -236,9 +236,9 @@ class All2AllTanh(All2All):
 class All2AllRELU(All2All):
     """All2All with RELU activation f(x) = log(1.0 + exp(x)).
     """
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
-        super(All2AllRELU, self).initialize()
+        super(All2AllRELU, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10
 
     def cpu_run(self):
@@ -276,11 +276,11 @@ class All2AllSoftmax(All2All):
         super(All2AllSoftmax, self).init_unpickled()
         self.krn_sm_ = None
 
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         # Always use 32-bit signed integers for output
         itype = opencl_types.numpy_dtype_to_opencl(numpy.int32)
         self.cl_sources_["softmax.cl"] = {"itype": itype}
-        super(All2AllSoftmax, self).initialize()
+        super(All2AllSoftmax, self).initialize(device=device, **kwargs)
 
         if (self.max_idx.v is None or
                 self.max_idx.v.size != self.output.v.shape[0]):

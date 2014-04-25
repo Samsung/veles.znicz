@@ -4,7 +4,7 @@ Created on Mar 20, 2013
 
 File for MNIST dataset.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -120,10 +120,9 @@ class Loader(loader.FullBatchLoader):
             progress.inc()
             formats.normalize(image)
         progress.finish()
+        self.original_data[offs:offs + n_images] = images[:]
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))
-        self.original_data[offs:offs + n_images] = images[:]
-        self.info("Done")
 
     def load_data(self):
         """Here we will load MNIST data.
@@ -159,8 +158,8 @@ class Workflow(nn_units.NNWorkflow):
                              minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 
-        # Add forward units
-        del self.forward[:]
+        # Add fwds units
+        del self.fwds[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
@@ -169,34 +168,34 @@ class Workflow(nn_units.NNWorkflow):
                 aa = all2all.All2AllSoftmax(self,
                                             output_shape=[layers[i]],
                                             device=device)
-            self.forward.append(aa)
+            self.fwds.append(aa)
             if i:
-                self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].link_attrs(self.forward[i - 1],
+                self.fwds[i].link_from(self.fwds[i - 1])
+                self.fwds[i].link_attrs(self.fwds[i - 1],
                                            ("input", "output"))
             else:
-                self.forward[i].link_from(self.loader)
-                self.forward[i].link_attrs(self.loader,
+                self.fwds[i].link_from(self.loader)
+                self.fwds[i].link_attrs(self.loader,
                                            ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(self, device=device)
-        self.ev.link_from(self.forward[-1])
-        self.ev.link_attrs(self.forward[-1], ("y", "output"), "max_idx")
-        self.ev.link_attrs(self.loader,
+        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.loader,
                            ("labels", "minibatch_labels"),
                            ("batch_size", "minibatch_size"),
                            ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(self)
-        self.decision.link_from(self.ev)
+        self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "no_more_minibatches_left",
                                  "class_samples")
         self.decision.link_attrs(
-            self.ev,
+            self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
@@ -206,31 +205,31 @@ class Workflow(nn_units.NNWorkflow):
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
         # Add gradient descent units
-        del self.gd[:]
-        self.gd.extend(list(None for i in range(0, len(self.forward))))
-        self.gd[-1] = gd.GDSM(self, device=device)
-        self.gd[-1].link_from(self.ipython)
-        self.gd[-1].link_attrs(self.ev, "err_y")
-        self.gd[-1].link_attrs(self.forward[-1],
+        del self.gds[:]
+        self.gds.extend(list(None for i in range(0, len(self.fwds))))
+        self.gds[-1] = gd.GDSM(self, device=device)
+        self.gds[-1].link_from(self.ipython)
+        self.gds[-1].link_attrs(self.evaluator, "err_y"
+        self.gds[-1].link_attrs(self.fwds[-1],
                                ("y", "output"),
                                ("h", "input"),
                                "weights", "bias")
-        self.gd[-1].gate_skip = self.decision.gd_skip
-        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        for i in range(len(self.forward) - 2, -1, -1):
-            self.gd[i] = gd.GDTanh(self, device=device)
-            self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
-            self.gd[i].link_attrs(self.forward[i],
+        self.gds[-1].gate_skip = self.decision.gd_skip
+        self.gds[-1].batch_size = self.loader.minibatch_size
+        for i in range(len(self.fwds) - 2, -1, -1):
+            self.gds[i] = gd.GDTanh(self, device=device)
+            self.gds[i].link_from(self.gds[i + 1])
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.fwds[i],
                                   ("y", "output"),
                                   ("h", "input"),
                                   "weights", "bias")
-            self.gd[i].gate_skip = self.decision.gd_skip
-            self.gd[i].link_attrs(self.loader,
+            self.gds[i].gate_skip = self.decision.gd_skip
+            self.gds[i].link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"))
-        self.repeater.link_from(self.gd[0])
+        self.repeater.link_from(self.gds[0])
 
-        self.end_point.link_from(self.gd[0])
+        self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
@@ -272,14 +271,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[-1].redraw_plot = True
 
     def initialize(self, global_alpha, global_lambda, device):
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        return super(Workflow, self).initialize(global_alpha=global_alpha,
+                                                global_lambda=global_lambda,
+                                                device=device)
 
 
 def run(load, main):

@@ -1,7 +1,7 @@
 """
 Created on Apr 1, 2013
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -10,11 +10,12 @@ import numpy
 from veles.config import root
 import veles.error as error
 import veles.formats as formats
+import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.units as units
+from veles.opencl_units import OpenCLUnit
 
 
-class EvaluatorSoftmax(units.OpenCLUnit):
+class EvaluatorSoftmax(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
@@ -66,8 +67,8 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
 
-    def initialize(self):
-        super(EvaluatorSoftmax, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         itype = opencl_types.numpy_dtype_to_opencl(self.labels.v.dtype)
         if (self.labels.v.dtype != opencl_types.itypes[itype] or
                 self.labels.v.dtype != self.max_idx.v.dtype):
@@ -114,7 +115,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
@@ -192,7 +193,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.n_err[0] += batch_size - n_ok
 
 
-class EvaluatorMSE(units.OpenCLUnit):
+class EvaluatorMSE(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
@@ -245,8 +246,8 @@ class EvaluatorMSE(units.OpenCLUnit):
         self.max_samples_per_epoch = None  # [0]
         self.n_err = formats.Vector()
 
-    def initialize(self):
-        super(EvaluatorMSE, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         itype = opencl_types.get_itype_from_size(
             (self.y.v.size // self.y.v.shape[0]))
         itype2 = opencl_types.get_itype_from_size(
@@ -295,7 +296,7 @@ class EvaluatorMSE(units.OpenCLUnit):
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[

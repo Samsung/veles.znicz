@@ -4,7 +4,7 @@ Created on April 22, 2014
 
 Convolitional channels config.
 
-@author: Lyubov Podoynitsina <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

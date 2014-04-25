@@ -4,7 +4,7 @@ Created on Dec 11, 2013
 
 Test performance of NN trained by gtzan.py.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

@@ -1,7 +1,7 @@
 """
 Created on Apr 10, 2014
 
-@author: Vadim Markovtsev <v.markovtsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -453,9 +453,10 @@ class LoaderBase(loader.Loader):
             bbox_objs = len([t for t in samples if t[2] and t[1] == set_index])
             table.add_row(set_name, len(files), len(objects[set_name]),
                           bbox, bbox_objs, no_cat_recovery[set_name],
-                           int(bbox * 100 / len(files)),
+                          int(bbox * 100 / len(files)),
                           int(bbox_objs * 100 / (len(objects[set_name])
-                          if len(objects[set_name]) > 0 else 1)))
+                                                 if len(objects[set_name])
+                                                 > 0 else 1)))
         self.info("Stats:\n%s", str(table))
         self.info("Saving objects and categories to DB...")
         self._db_.Put(objects_key, json.dumps(objects).encode())
@@ -632,7 +633,7 @@ class LoaderDetection(LoaderBase):
         for i in range(self.minibatch_size):
             meta = self.get_object_meta(self.shuffled_indexes[i])
             if meta[2] is not None:
-                name = meta["name"]
+                name = meta[2]["name"]
             else:
                 fn = self.get_object_file_name(self.shuffled_indexes[i])
                 name = self.get_category_by_file_name(fn)

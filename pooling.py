@@ -3,7 +3,7 @@ Created on Dec 3, 2013
 
 Pooling layer.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -55,8 +55,8 @@ class Pooling(nn_units.Forward):
         self.cl_sources_["pooling.cl"] = {}
         self.krn_ = None
 
-    def initialize(self):
-        super(Pooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(Pooling, self).initialize(**kwargs)
 
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
@@ -149,8 +149,8 @@ class MaxPooling(Pooling):
         super(MaxPooling, self).__init__(workflow, **kwargs)
         self.input_offs = formats.Vector()
 
-    def initialize(self):
-        super(MaxPooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(MaxPooling, self).initialize(**kwargs)
 
         if (self.input_offs.v is None or
                 self.input_offs.v.size != self.output.v.size):
@@ -184,8 +184,8 @@ class AvgPooling(Pooling):
     Creates within initialize():
 
     """
-    def initialize(self):
-        super(AvgPooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(AvgPooling, self).initialize(**kwargs)
 
         if self.device is None:
             return

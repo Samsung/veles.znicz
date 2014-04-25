@@ -1,7 +1,7 @@
 """
 Created on Oct 29, 2013
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -35,9 +35,8 @@ class TestInputJoiner(unittest.TestCase):
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
-        obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c],
-                                       device=device)
-        obj.initialize()
+        obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c])
+        obj.initialize(device=device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(

@@ -3,7 +3,7 @@ Created on Nov 8, 2013
 
 Will test correctness of OpenCL matrix multiplication.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -16,8 +16,8 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
+from veles.opencl_units import OpenCLUnit
 import veles.rnd as rnd
-import veles.units as units
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -92,7 +92,8 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        obj = units.OpenCLUnit(DummyWorkflow(), device=device)
+        obj = OpenCLUnit(DummyWorkflow())
+        obj.initialize(device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
             "ACTIVATION_TANH": 1,

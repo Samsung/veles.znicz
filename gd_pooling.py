@@ -3,7 +3,7 @@ Created on Dec 3, 2013
 
 Gradient Descent for Pooling units.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -16,7 +16,7 @@ import veles.error as error
 import veles.znicz.nn_units as nn_units
 
 
-class GDPooling(nn_units.GD):
+class GDPooling(nn_units.GradientDescentBase):
     """Gradient Descent for pooling unit.
 
     Should be assigned before initialize():
@@ -56,8 +56,8 @@ class GDPooling(nn_units.GD):
         self.krn_err_h_ = None
         self.krn_err_h_clear_ = None
 
-    def initialize(self):
-        super(GDPooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(GDPooling, self).initialize(**kwargs)
         batch_size = self.h.v.shape[0]
         sy = self.h.v.shape[1]
         sx = self.h.v.shape[2]
@@ -84,7 +84,7 @@ class GDPooling(nn_units.GD):
         if self.device is None:
             return
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'SX': sx,
                 'SY': sy,
@@ -164,8 +164,8 @@ class GDMaxPooling(GDPooling):
         super(GDMaxPooling, self).init_unpickled()
         self.krn_err_h_clear_ = None
 
-    def initialize(self):
-        super(GDMaxPooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(GDMaxPooling, self).initialize(**kwargs)
 
         if self.err_y.v.size != self.h_offs.v.size:
             raise error.ErrBadFormat("Shape of err_y differs from "
@@ -199,8 +199,8 @@ class GDAvgPooling(GDPooling):
     Creates within initialize():
 
     """
-    def initialize(self):
-        super(GDAvgPooling, self).initialize()
+    def initialize(self, **kwargs):
+        super(GDAvgPooling, self).initialize(**kwargs)
 
         if self.device is None:
             return

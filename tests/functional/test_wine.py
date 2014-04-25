@@ -2,7 +2,7 @@
 """
 Created on April 2, 2014
 
-@author: Lyubov Podoynitsina <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

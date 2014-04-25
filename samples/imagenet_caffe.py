@@ -10,9 +10,20 @@ from veles.config import root
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
-from imagenet.loader import LoaderDetection
+from veles.znicz import normalization
+from veles.znicz.samples.imagenet.loader import LoaderDetection
+
 
 import logging
+
+root.defaults = {"all2all": {"weights_magnitude": 0.05},
+                 "decision": {"fail_iterations": 100,
+                              "snapshot_prefix": "imagenet_caffe",
+                              "store_samples_mse": True},
+                 "loader": {"minibatch_maxsize": 60},
+                 "imagenet_caffe": {"global_alpha": 0.01,
+                           "global_lambda": 0.0}
+                 }
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -52,6 +63,8 @@ class Workflow(nn_units.NNWorkflow):
         self._link_last_forward_with(pool1)
 
         # TODO: normalization, gaussian filling
+        norm1 = normalization.LRNormalizerForward(self, device=device)
+        self._link_last_forward_with(norm1)
 
         # Layer 2 (CONV + POOL)
         conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
@@ -173,6 +186,11 @@ class Workflow(nn_units.NNWorkflow):
                     sliding=fwd_elm.sliding,
                     device=self.device)
 
+            elif isinstance(fwd_elm, normalization.LRNormalizerForward):
+                grad_elm = normalization.LRNormalizerBackward(
+                    self, alpha=fwd_elm.alpha, beta=fwd_elm.beta,
+                    k=fwd_elm.k, n=fwd_elm.n)
+
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
 
@@ -201,14 +219,9 @@ class Workflow(nn_units.NNWorkflow):
         self.forward.append(new_unit)
 
     def initialize(self, global_alpha, global_lambda, device):
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         device=device)
 
 
 def run(load, main):

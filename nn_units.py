@@ -1,7 +1,7 @@
 """
 Created on Jan 28, 2014
 
-@author: Vadim Markovtsev <v.markovtsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -13,9 +13,9 @@ import yaml
 
 import veles.config as config
 import veles.formats as formats
+from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.rnd as rnd
-from veles.units import OpenCLUnit, Repeater
-from veles.workflows import OpenCLWorkflow
+from veles.units import Repeater
 
 
 class Forward(OpenCLUnit):
@@ -60,7 +60,7 @@ class Forward(OpenCLUnit):
         numpy.copyto(self.bias.v, data[1])
 
 
-class GD(OpenCLUnit):
+class GradientDescentBase(OpenCLUnit):
     """Base class for gradient descent units.
 
     Attributes:
@@ -91,7 +91,7 @@ class GD(OpenCLUnit):
         kwargs["store_gradient"] = store_gradient
         kwargs["apply_gradient"] = apply_gradient
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
-        super(GD, self).__init__(workflow, **kwargs)
+        super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.h = None
         self.y = None
         self.err_y = None  # formats.Vector()
@@ -106,6 +106,11 @@ class GD(OpenCLUnit):
         self.apply_gradient = apply_gradient
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
+
+    def initialize(self, device, **kwargs):
+        super(GradientDescentBase, self).initialize(device=device, **kwargs)
+        self.global_alpha = kwargs.get("global_alpha", self.global_alpha)
+        self.global_lambda = kwargs.get("global_lambda", self.global_lambda)
 
     def generate_data_for_slave(self, slave=None):
         return (self.global_alpha, self.global_lambda)
@@ -138,25 +143,24 @@ class GD(OpenCLUnit):
 
 
 class NNWorkflow(OpenCLWorkflow):
-    """Base class for neural network workflows.
+    """Base class for neural network workflow.
 
     Attributes:
         repeater: Repeater unit.
-        loader: loader unit.
-        forward: list of the forward units.
-        ev: evaluator unit.
-        decision: decision unit.
-        gd: list of the gradient descent units.
+        loader: loader.Loader unit.
+        fwds: list of the forward propagation (Forward) units.
+        evaluator: evaluator.* unit.
+        decision: decision.Decision unit.
+        gds: list of the gradient descent units.
     """
     def __init__(self, workflow, **kwargs):
         super(NNWorkflow, self).__init__(workflow, **kwargs)
         self.repeater = Repeater(self)
         self.loader = None
-        self.forward = []
-        self.ev = None
+        self.fwds = []
+        self.evaluator = None
         self.decision = None
-        self.gd = []
-        self.power = None
+        self.gds = []
 
     def export(self, filename):
         """Exports workflow for use on DTV.
@@ -170,7 +174,7 @@ class NNWorkflow(OpenCLWorkflow):
         variables_to_save = []
         # Go through units & save numpy array to binary file
         units_to_export = [self.loader]
-        units_to_export.extend(self.forward)
+        units_to_export.extend(self.fwds)
         for i in range(len(units_to_export)):
             u = units_to_export[i]
             if u.exports is None:

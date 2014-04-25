@@ -5,7 +5,7 @@ Created on Sep 2, 2013
 Will normalize counts of *.jp2 in the supplied folder
 by replicating some of the found files.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

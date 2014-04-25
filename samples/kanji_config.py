@@ -4,7 +4,7 @@ Created on Mart 21, 2014
 
 Example of Kanji config.
 
-@author: Podoynitsina Lyubov <lyubov.p@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 

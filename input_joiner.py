@@ -3,7 +3,7 @@ Created on Oct 29, 2013
 
 Joins several inpus into one continuous output.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
@@ -13,10 +13,10 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-import veles.units as units
+from veles.opencl_units import OpenCLUnit
 
 
-class InputJoiner(units.OpenCLUnit):
+class InputJoiner(OpenCLUnit):
     """Joins several minibatch inputs into one continuous minibatch output.
 
     Should be assigned before initialize():
@@ -54,11 +54,11 @@ class InputJoiner(units.OpenCLUnit):
         self.cl_sources_["join.cl"] = {}
         self.krn_ = None
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         if not len(self.inputs):
             raise error.ErrBadFormat("inputs should not be empty")
 
-        super(InputJoiner, self).initialize()
+        super(InputJoiner, self).initialize(**kwargs)
 
         if self.minibatch_size[0] is None:
             minibatch_size = self.inputs[0].v.shape[0]

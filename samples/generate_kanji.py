@@ -4,7 +4,7 @@ Created on June 29, 2013
 
 File for generation of samples for kanji recognition.
 
-@author: Kazantsev Alexey <a.kazantsev@samsung.com>
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
