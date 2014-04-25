@@ -88,10 +88,12 @@ class Workflow(nn_units.NNWorkflow):
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[i].link_attrs(self.forward[i - 1],
+                                           ("input", "output"))
             else:
                 self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[i].link_attrs(self.loader,
+                                           ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
@@ -152,7 +154,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else self.plt[-2])
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
@@ -164,7 +166,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended

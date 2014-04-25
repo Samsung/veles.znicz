@@ -105,24 +105,23 @@ class Workflow(nn_units.NNWorkflow):
         # EVALUATOR
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
         self.ev.link_from(fc8sm)
-        self.ev.y = fc8sm.output
-        self.ev.labels = self.loader.minibatch_labels
         self.ev.link_attrs(fc8sm, ("y", "output"), "max_idx")
         self.ev.link_attrs(self.loader, ("batch_size", "minibatch_size"),
-                           ("max_samples_per_epoch", "total_samples"))
+                           ("max_samples_per_epoch", "total_samples"),
+                           ("labels", "minibatch_labels"))
 
         # Add decision unit
         self.decision = decision.Decision(self)
         self.decision.link_from(self.ev)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
+                                 "class_samples",
                                  "no_more_minibatches_left")
         self.decision.link_attrs(
             self.ev,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
-        self.decision.class_samples = self.loader.class_samples
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()

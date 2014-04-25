@@ -80,10 +80,12 @@ class Workflow(nn_units.NNWorkflow):
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[i].link_attrs(self.forward[i - 1],
+                                           ("input", "output"))
             else:
                 self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[i].link_attrs(self.loader,
+                                           ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
@@ -159,7 +161,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_metrics
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_metrics"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = ~self.decision.epoch_ended
@@ -169,8 +171,8 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx = plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
-        self.plt_mx.get_shape_from = self.forward[0].input
-        self.plt_mx.input = self.gd[0].weights
+        self.plt_mx.link_attrs(self.gd[0], ("input", "weights"))
+        self.plt_mx.link_attrs(self.forward[0], ("get_shape_from", "input"))
         self.plt_mx.input_field = "v"
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
@@ -182,7 +184,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_max[-1].input = self.decision.epoch_metrics
+            self.plt_max[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
             self.plt_max[-1].link_from(self.decision)
@@ -193,7 +196,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt_min.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_min[-1].input = self.decision.epoch_metrics
+            self.plt_min[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
             self.plt_min[-1].link_from(self.decision)

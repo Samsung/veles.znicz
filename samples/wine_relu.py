@@ -108,10 +108,12 @@ class Workflow(nn_units.NNWorkflow):
             self.forward.append(aa)
             if i:
                 self.forward[i].link_from(self.forward[i - 1])
-                self.forward[i].input = self.forward[i - 1].output
+                self.forward[i].link_attrs(self.forward[i - 1],
+                                           ("input", "output"))
             else:
                 self.forward[i].link_from(self.loader)
-                self.forward[i].input = self.loader.minibatch_data
+                self.forward[i].link_attrs(self.loader,
+                                           ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.ev = evaluator.EvaluatorSoftmax(self, device=device)
