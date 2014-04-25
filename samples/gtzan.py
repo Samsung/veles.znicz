@@ -274,20 +274,20 @@ class Workflow(nn_units.NNWorkflow):
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
                 self.fwds[i].link_attrs(self.fwds[i - 1],
-                                           ("input", "output"))
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
                 self.fwds[i].link_attrs(self.loader,
-                                           ("input", "minibatch_data"))
+                                        ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
         self.evaluator.link_attrs(self.loader,
-                           ("labels", "minibatch_labels"),
-                           ("batch_size", "minibatch_size"),
-                           ("max_samples_per_epoch", "total_samples"))
+                                  ("labels", "minibatch_labels"),
+                                  ("batch_size", "minibatch_size"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -311,23 +311,23 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].gate_skip = self.decision.gd_skip
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         for i in range(len(self.fwds) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device,
-                                   weights_transposed=False)
+                                    weights_transposed=False)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
-                                  ("batch_size", "minibatch_size"))
+                                   ("batch_size", "minibatch_size"))
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)

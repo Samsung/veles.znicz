@@ -81,11 +81,11 @@ class Workflow(nn_units.NNWorkflow):
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
                 self.fwds[i].link_attrs(self.fwds[i - 1],
-                                           ("input", "output"))
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
-                self.fwdsi].link_attrs(self.loader,
-                                           ("input", "minibatch_data"))
+                self.fwds[i].link_attrs(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
@@ -104,9 +104,9 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"))
         self.evaluator.link_attrs(self.loader,
-                           ("batch_size", "minibatch_size"),
-                           ("target", "minibatch_data"),
-                           ("max_samples_per_epoch", "total_samples"))
+                                  ("batch_size", "minibatch_size"),
+                                  ("target", "minibatch_data"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -130,9 +130,9 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1] = gd.GDTanh(self, device=device)
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
@@ -140,11 +140,11 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                "minibatch_size"))
+                                                 "minibatch_size"))
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
@@ -220,13 +220,15 @@ class Workflow(nn_units.NNWorkflow):
             g.global_lambda = global_lambda
         for forward in self.fwds:
             forward.device = device
-        return super(Workflow, self).initialize(**kwargs)
+        return super(Workflow, self).initialize(
+            global_alpha=global_alpha, global_lambda=global_lambda,
+            device=device)
 
 
 def run(load, main):
     w, snapshot = load(Workflow, layers=root.video_ae.layers)
     if snapshot:
-        for forward in w.fwds:
+        for fwds in w.fwds:
             logging.info(fwds.weights.v.min(), fwds.weights.v.max(),
                          fwds.bias.v.min(), fwds.bias.v.max())
         w.decision.just_snapshotted << True
