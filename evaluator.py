@@ -12,9 +12,10 @@ import veles.error as error
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
+from veles.opencl_units import OpenCLUnit
 
 
-class EvaluatorSoftmax(opencl.OpenCLUnit):
+class EvaluatorSoftmax(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
@@ -114,7 +115,7 @@ class EvaluatorSoftmax(opencl.OpenCLUnit):
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
@@ -192,7 +193,7 @@ class EvaluatorSoftmax(opencl.OpenCLUnit):
         self.n_err[0] += batch_size - n_ok
 
 
-class EvaluatorMSE(opencl.OpenCLUnit):
+class EvaluatorMSE(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
@@ -295,7 +296,7 @@ class EvaluatorMSE(opencl.OpenCLUnit):
 
         self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[

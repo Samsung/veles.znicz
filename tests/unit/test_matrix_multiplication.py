@@ -16,8 +16,8 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
+from veles.opencl_units import OpenCLUnit
 import veles.rnd as rnd
-import veles.units as units
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -92,7 +92,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        obj = opencl.OpenCLUnit(DummyWorkflow(), device=device)
+        obj = OpenCLUnit(DummyWorkflow(), device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
             "ACTIVATION_TANH": 1,

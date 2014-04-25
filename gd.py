@@ -101,7 +101,7 @@ class GD(nn_units.GD):
         if self.device is None:
             return
 
-        if self.prg_ is None:
+        if self.program_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
             self.reduce_size = min(self.reduce_size, self.bias.v.size)

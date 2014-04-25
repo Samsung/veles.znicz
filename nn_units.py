@@ -13,7 +13,7 @@ import yaml
 
 import veles.config as config
 import veles.formats as formats
-from veles.opencl import OpenCLUnit, OpenCLWorkflow
+from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.rnd as rnd
 from veles.units import Repeater
 

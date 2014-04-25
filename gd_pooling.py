@@ -84,7 +84,7 @@ class GDPooling(nn_units.GD):
         if self.device is None:
             return
 
-        if self.prg_ is None:
+        if self.program_ is None:
             defines = {
                 'SX': sx,
                 'SY': sy,
