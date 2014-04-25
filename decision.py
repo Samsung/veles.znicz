@@ -536,6 +536,8 @@ class Decision(units.Unit):
     def _end_epoch(self):
         assert all(self.no_more_minibatches_left)
         if not self.is_slave:
+            self.no_more_minibatches_left[:] = \
+                [False] * len(self.no_more_minibatches_left)
             self.epoch_ended << True
             self.epoch_number += 1
             # Reset n_err
@@ -641,13 +643,16 @@ class Decision(units.Unit):
                                  minibatch_offset)
         self.epoch_ended << False
         self._finalize_job(slave)
+        # we evaluate this condition before _on_last_minibatch since it may
+        # reset no_more_minibatches_left in _end_epoch
+        has_data_for_slave = (all(self.no_more_minibatches_left) and
+                              not any(self.minibatches_balance_) and
+                              not self.complete)
         if (self.no_more_minibatches_left[minibatch_class] and
                 self.minibatches_balance_[minibatch_class] == 0):
             self._on_last_minibatch(minibatch_class)
-        if (all(self.no_more_minibatches_left) and
-                not any(self.minibatches_balance_) and
-                not self.complete):
-            self.has_data_for_slave = True
+        if has_data_for_slave:
+            self.has_data_for_slave = has_data_for_slave
 
     def _finalize_job(self, slave=None):
         minibatch_class = self.slave_minibatch_class_.get(slave.id)
