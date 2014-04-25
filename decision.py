@@ -67,8 +67,8 @@ class Decision(units.Unit):
                        if the latter is in vectors_to_sync.
         sample_target: will be a copy of first element from evaluator.target
                        if the latter is in vectors_to_sync.
-        sample_label: will be a copy of first element label from evaluator.labels
-                       if the latter is in vectors_to_sync.
+        sample_label: will be a copy of first element label from
+                      evaluator.labels if the latter is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, workflow, **kwargs):
