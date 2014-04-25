@@ -147,20 +147,20 @@ class NNWorkflow(OpenCLWorkflow):
 
     Attributes:
         repeater: Repeater unit.
-        loader: loader unit.
-        forward: list of the forward units.
-        ev: evaluator unit.
-        decision: decision unit.
-        gd: list of the gradient descent units.
+        loader: loader.Loader unit.
+        fwds: list of the forward propagation (Forward) units.
+        evaluator: evaluator.* unit.
+        decision: decision.Decision unit.
+        gds: list of the gradient descent units.
     """
     def __init__(self, workflow, **kwargs):
         super(NNWorkflow, self).__init__(workflow, **kwargs)
         self.repeater = Repeater(self)
         self.loader = None
-        self.forward = []
-        self.ev = None
+        self.fwds = []
+        self.evaluator = None
         self.decision = None
-        self.gd = []
+        self.gds = []
 
     def export(self, filename):
         """Exports workflow for use on DTV.
@@ -174,7 +174,7 @@ class NNWorkflow(OpenCLWorkflow):
         variables_to_save = []
         # Go through units & save numpy array to binary file
         units_to_export = [self.loader]
-        units_to_export.extend(self.forward)
+        units_to_export.extend(self.fwds)
         for i in range(len(units_to_export)):
             u = units_to_export[i]
             if u.exports is None:

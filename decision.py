@@ -61,13 +61,13 @@ class Decision(units.Unit):
                                  for a minibatch.
         max_err_y_sums: maximums of backpropagated gradient.
         vectors_to_sync: list of Vector() objects to sync after each epoch.
-        sample_input: will be a copy of first element from forward[0].input
+        sample_input: will be a copy of first element from fwds[0].input
                       if the latter is in vectors_to_sync.
-        sample_output: will be a copy of first element from forward[-1].output
+        sample_output: will be a copy of first element from fwds[-1].output
                        if the latter is in vectors_to_sync.
-        sample_target: will be a copy of first element from ev.target
+        sample_target: will be a copy of first element from evaluator.target
                        if the latter is in vectors_to_sync.
-        sample_label: will be a copy of first element label from ev.labels
+        sample_label: will be a copy of first element label from evaluator.labels
                        if the latter is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
@@ -133,7 +133,7 @@ class Decision(units.Unit):
         self.def_attr("sample_label", None)
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
-        self.ev = None
+        self.evaluator = None
         self.max_epochs = max_epochs  # max epochs to learn
 
     def init_unpickled(self):
@@ -193,17 +193,17 @@ class Decision(units.Unit):
                 self.epoch_samples_mse[i].v[:] = 0
 
         # Initialize sample_input, sample_output, sample_target if necessary
-        if self.workflow.forward[0].input in self.vectors_to_sync:
+        if self.workflow.fwds[0].input in self.vectors_to_sync:
             self.sample_input = numpy.zeros_like(
-                self.workflow.forward[0].input[0])
-        if self.workflow.forward[-1].output in self.vectors_to_sync:
+                self.workflow.fwds[0].input[0])
+        if self.workflow.fwds[-1].output in self.vectors_to_sync:
             self.sample_output = numpy.zeros_like(
-                self.workflow.forward[-1].output[0])
-        ev = self.ev if self.ev is not None else self.workflow.ev
-        if (ev.__dict__.get("target") is not None
-                and ev.target in self.vectors_to_sync
-                and ev.target.v is not None):
-            self.sample_target = numpy.zeros_like(ev.target[0])
+                self.workflow.fwds[-1].output[0])
+        evaluator = self.evaluator or self.workflow.evaluator
+        if (evaluator.__dict__.get("target") is not None
+                and evaluator.target in self.vectors_to_sync
+                and evaluator.target.v is not None):
+            self.sample_target = numpy.zeros_like(evaluator.target[0])
 
         timestamp = time.time()
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
@@ -286,7 +286,7 @@ class Decision(units.Unit):
         self.info("Exporting weights to %s" % (self.fnmeWb))
         weights = []
         bias = []
-        for forward in self.workflow.forward:
+        for forward in self.workflow.fwds:
             if forward.weights is not None:
                 forward.weights.map_read()
                 weights.append(forward.weights.v)
@@ -452,7 +452,7 @@ class Decision(units.Unit):
                 ak = 0.7
             self.prev_train_err = this_train_err
             alpha = 0
-            for gd in self.workflow.gd:
+            for gd in self.workflow.gds:
                 if gd is None:
                     continue
                 gd.global_alpha = numpy.clip(ak * gd.global_alpha,
@@ -467,15 +467,15 @@ class Decision(units.Unit):
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
         if self.sample_input is not None:
-            self.sample_input[:] = self.workflow.forward[0].input[0]
+            self.sample_input[:] = self.workflow.fwds[0].input[0]
         if self.sample_output is not None:
-            self.sample_output[:] = self.workflow.forward[-1].output[0]
-        ev = self.ev if self.ev is not None else self.workflow.ev
+            self.sample_output[:] = self.workflow.fwds[-1].output[0]
+        evaluator = self.evaluator or self.workflow.evaluator
         if self.sample_target is not None:
-            self.sample_target[:] = ev.target[0]
-        if (ev.__dict__.get("labels") in
+            self.sample_target[:] = evaluator.target[0]
+        if (evaluator.__dict__.get("labels") in
                 self.vectors_to_sync.keys()):
-            self.sample_label = ev.labels[0]
+            self.sample_label = evaluator.labels[0]
 
     def _on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix

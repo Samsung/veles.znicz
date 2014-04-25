@@ -129,8 +129,8 @@ class Workflow(nn_units.NNWorkflow):
         self.loader = Loader(self)
         self.loader.link_from(self.repeater)
 
-        # Add forward units
-        del self.forward[:]
+        # Add fwds units
+        del self.fwds[:]
         for i in range(0, len(layers)):
             layer = layers[i]
             if type(layer) == int:
@@ -168,21 +168,21 @@ class Workflow(nn_units.NNWorkflow):
                     "layers element type should be int "
                     "for all-to-all or dictionary for "
                     "convolutional or pooling")
-            self.forward.append(aa)
+            self.fwds.append(aa)
             if i:
-                self.forward[-1].link_from(self.forward[-2])
-                self.forward[-1].link_attrs(self.forward[-2],
+                self.fwds[-1].link_from(self.fwds[-2])
+                self.fwds[-1].link_attrs(self.fwds[-2],
                                             ("input", "output"))
             else:
-                self.forward[-1].link_from(self.loader)
-                self.forward[-1].link_attrs(self.loader,
+                self.fwds[-1].link_from(self.loader)
+                self.fwds[-1].link_attrs(self.loader,
                                             ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        self.image_saver.link_from(self.forward[-1])
-        self.image_saver.link_attrs(self.forward[-1], "output", "max_idx")
+        self.image_saver.link_from(self.fwds[-1])
+        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
             ("input", "minibatch_data"),
@@ -191,10 +191,10 @@ class Workflow(nn_units.NNWorkflow):
             "minibatch_class", "minibatch_size")
 
         # Add evaluator for single minibatch
-        self.ev = evaluator.EvaluatorSoftmax(self, device=device)
-        self.ev.link_from(self.image_saver)
-        self.ev.link_attrs(self.forward[-1], ("y", "output"), "max_idx")
-        self.ev.link_attrs(self.loader,
+        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator.link_from(self.image_saver)
+        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.loader,
                            ("batch_size", "minibatch_size"),
                            ("labels", "minibatch_labels"),
                            ("max_samples_per_epoch", "total_samples"))
@@ -204,13 +204,13 @@ class Workflow(nn_units.NNWorkflow):
             self, fail_iterations=root.decision.fail_iterations,
             snapshot_prefix=root.decision.snapshot_prefix,
             do_export_weights=root.decision.do_export_weights)
-        self.decision.link_from(self.ev)
+        self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "no_more_minibatches_left",
                                  "class_samples")
         self.decision.link_attrs(
-            self.ev,
+            self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
@@ -219,54 +219,54 @@ class Workflow(nn_units.NNWorkflow):
                                     ("this_save_time", "snapshot_time"))
 
         # Add gradient descent units
-        del self.gd[:]
-        self.gd.extend(list(None for i in range(0, len(self.forward))))
-        self.gd[-1] = gd.GDSM(self, device=device)
-        self.gd[-1].link_from(self.decision)
-        self.gd[-1].link_attrs(self.ev, "err_y")
-        self.gd[-1].link_attrs(self.forward[-1],
+        del self.gds[:]
+        self.gds.extend(list(None for i in range(0, len(self.fwds))))
+        self.gds[-1] = gd.GDSM(self, device=device)
+        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_attrs(self.evaluator, "err_y")
+        self.gds[-1].link_attrs(self.fwds[-1],
                                ("y", "output"),
                                ("h", "input"),
                                "weights", "bias")
-        self.gd[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gd[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.forward) - 2, -1, -1):
-            if isinstance(self.forward[i], conv.ConvTanh):
+        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        self.gds[-1].gate_skip = self.decision.gd_skip
+        for i in range(len(self.fwds) - 2, -1, -1):
+            if isinstance(self.fwds[i], conv.ConvTanh):
                 obj = gd_conv.GDTanh(
-                    self, n_kernels=self.forward[i].n_kernels,
-                    kx=self.forward[i].kx, ky=self.forward[i].ky,
-                    sliding=self.forward[i].sliding,
-                    padding=self.forward[i].padding,
+                    self, n_kernels=self.fwds[i].n_kernels,
+                    kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
+                    padding=self.fwds[i].padding,
                     device=device)
-            elif isinstance(self.forward[i], pooling.MaxPooling):
+            elif isinstance(self.fwds[i], pooling.MaxPooling):
                 obj = gd_pooling.GDMaxPooling(
-                    self, kx=self.forward[i].kx, ky=self.forward[i].ky,
-                    sliding=self.forward[i].sliding,
+                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
                     device=device)
-                obj.link_attrs(self.forward[i], ("h_offs", "input_offs"))
-            elif isinstance(self.forward[i], pooling.AvgPooling):
+                obj.link_attrs(self.fwds[i], ("h_offs", "input_offs"))
+            elif isinstance(self.fwds[i], pooling.AvgPooling):
                 obj = gd_pooling.GDAvgPooling(
-                    self, kx=self.forward[i].kx, ky=self.forward[i].ky,
-                    sliding=self.forward[i].sliding,
+                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
                     device=device)
-            elif isinstance(self.forward[i], all2all.All2AllTanh):
+            elif isinstance(self.fwds[i], all2all.All2AllTanh):
                 obj = gd.GDTanh(self, device=device)
             else:
-                raise ValueError("Unsupported forward unit type "
+                raise ValueError("Unsupported fwds unit type "
                                  " encountered: %s" %
-                                 self.forward[i].__class__.__name__)
-            self.gd[i] = obj
-            self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
-            self.gd[i].link_attrs(self.forward[i],
+                                 self.fwds[i].__class__.__name__)
+            self.gds[i] = obj
+            self.gds[i].link_from(self.gds[i + 1])
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.fwds[i],
                                   ("y", "output"),
                                   ("h", "input"),
                                   "weights", "bias")
-            self.gd[i].link_attrs(self.loader,
+            self.gds[i].link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"))
-            self.gd[i].gate_skip = self.decision.gd_skip
+            self.gds[i].gate_skip = self.decision.gd_skip
 
-        self.repeater.link_from(self.gd[0])
+        self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
@@ -299,15 +299,15 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
         """
         # Weights plotter
-        self.decision.vectors_to_sync[self.gd[0].weights] = 1
+        self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
-        self.plt_mx.input = self.gd[0].weights
+        self.plt_mx.input = self.gds[0].weights
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = (
-            [self.forward[0].kx, self.forward[0].ky]
-            if isinstance(self.forward[0], conv.Conv)
-            else self.forward[0].input)
+            [self.fwds[0].kx, self.fwds[0].ky]
+            if isinstance(self.fwds[0], conv.Conv)
+            else self.fwds[0].input)
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
 
