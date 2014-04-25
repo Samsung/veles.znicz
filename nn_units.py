@@ -13,8 +13,9 @@ import yaml
 
 import veles.config as config
 import veles.formats as formats
+from veles.opencl import OpenCLUnit
 import veles.rnd as rnd
-from veles.units import OpenCLUnit, Repeater
+from veles.units import Repeater
 from veles.workflows import OpenCLWorkflow
 
 

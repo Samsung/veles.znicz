@@ -13,10 +13,10 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-import veles.units as units
+import veles.opencl as opencl
 
 
-class InputJoiner(units.OpenCLUnit):
+class InputJoiner(opencl.OpenCLUnit):
     """Joins several minibatch inputs into one continuous minibatch output.
 
     Should be assigned before initialize():

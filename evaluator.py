@@ -10,11 +10,11 @@ import numpy
 from veles.config import root
 import veles.error as error
 import veles.formats as formats
+import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.units as units
 
 
-class EvaluatorSoftmax(units.OpenCLUnit):
+class EvaluatorSoftmax(opencl.OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
@@ -192,7 +192,7 @@ class EvaluatorSoftmax(units.OpenCLUnit):
         self.n_err[0] += batch_size - n_ok
 
 
-class EvaluatorMSE(units.OpenCLUnit):
+class EvaluatorMSE(opencl.OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
