@@ -54,11 +54,11 @@ class InputJoiner(OpenCLUnit):
         self.cl_sources_["join.cl"] = {}
         self.krn_ = None
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         if not len(self.inputs):
             raise error.ErrBadFormat("inputs should not be empty")
 
-        super(InputJoiner, self).initialize()
+        super(InputJoiner, self).initialize(**kwargs)
 
         if self.minibatch_size[0] is None:
             minibatch_size = self.inputs[0].v.shape[0]

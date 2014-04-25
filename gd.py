@@ -17,7 +17,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
 
 
-class GD(nn_units.GD):
+class GradientDescent(nn_units.GradientDescentBase):
     """Gradient Descent.
 
     Should be assigned before initialize():
@@ -50,7 +50,7 @@ class GD(nn_units.GD):
         krn_bias_: OpenCL kernel for bias update.
     """
     def __init__(self, workflow, **kwargs):
-        super(GD, self).__init__(workflow, **kwargs)
+        super(GradientDescent, self).__init__(workflow, **kwargs)
         self.weights = None  # formats.Vector()
         self.bias = None  # formats.Vector()
         self.y = None  # formats.Vector()
@@ -62,15 +62,15 @@ class GD(nn_units.GD):
         self.reduce_size = 64
 
     def init_unpickled(self):
-        super(GD, self).init_unpickled()
+        super(GradientDescent, self).init_unpickled()
         self.cl_sources_["gradient_descent.cl"] = {}
         self.krn_err_h_ = None
         self.krn_weights_ = None
         self.krn_err_y_ = None
         self.krn_bias_ = None
 
-    def initialize(self):
-        super(GD, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(GradientDescent, self).initialize(device=device, **kwargs)
         if (self.err_h.v is None or self.err_h.v.size != self.h.v.size):
             self.err_h.reset()
             self.err_h.v = numpy.zeros(self.h.v.shape,
@@ -317,15 +317,14 @@ class GD(nn_units.GD):
         self.print_times(t1)
 
 
-class GDSM(GD):
+class GDSM(GradientDescent):
     """Gradient Descent for softmax.
 
-    It is the same as GD inside.
+    It is the same as GradientDescent inside.
     """
-    pass
 
 
-class GDTanh(GD):
+class GDTanh(GradientDescent):
     """Gradient Descent for f(x) = 1.7159 * tanh(0.6666 * s), s = (W * x + b),
        y = a * tanh(b * s).
 
@@ -344,9 +343,9 @@ class GDTanh(GD):
         y = self.y.v
         self.err_y.v *= y * y * (-0.388484177) + 1.14381894
 
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
-        super(GDTanh, self).initialize()
+        super(GDTanh, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")
@@ -354,7 +353,7 @@ class GDTanh(GD):
         self.krn_err_y_.set_arg(1, self.y.v_)
 
 
-class GDRELU(GD):
+class GDRELU(GradientDescent):
     """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
        y = log(1.0 + exp(s)).
 
@@ -368,9 +367,9 @@ class GDRELU(GD):
         y = self.y.v
         self.err_y.v *= 1.0 - numpy.exp(-y)
 
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_relu.cl"] = {}
-        super(GDRELU, self).initialize()
+        super(GDRELU, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
         self.krn_err_y_ = self.get_kernel("err_y_update")

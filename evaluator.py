@@ -67,8 +67,8 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.krn_constants_i_ = None
         self.max_err_y_sum = formats.Vector()
 
-    def initialize(self):
-        super(EvaluatorSoftmax, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         itype = opencl_types.numpy_dtype_to_opencl(self.labels.v.dtype)
         if (self.labels.v.dtype != opencl_types.itypes[itype] or
                 self.labels.v.dtype != self.max_idx.v.dtype):
@@ -246,8 +246,8 @@ class EvaluatorMSE(OpenCLUnit):
         self.max_samples_per_epoch = None  # [0]
         self.n_err = formats.Vector()
 
-    def initialize(self):
-        super(EvaluatorMSE, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         itype = opencl_types.get_itype_from_size(
             (self.y.v.size // self.y.v.shape[0]))
         itype2 = opencl_types.get_itype_from_size(

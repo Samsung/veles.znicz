@@ -97,8 +97,8 @@ class Conv(nn_units.Forward):
         return (9.0 / self.input.supposed_maxvle /
                 (self.kx * self.ky * n_channels))
 
-    def initialize(self):
-        super(Conv, self).initialize()
+    def initialize(self, device, **kwargs):
+        super(Conv, self).initialize(device=device, **kwargs)
 
         if self.weights_magnitude is None:
             # Get weights magnitude and cap it to 0.05
@@ -256,9 +256,9 @@ class Conv(nn_units.Forward):
 class ConvTanh(Conv):
     """Conv with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
     """
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
-        super(ConvTanh, self).initialize()
+        super(ConvTanh, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 1.7159
 
     def get_weights_magnitude(self):
@@ -279,7 +279,7 @@ class ConvTanh(Conv):
 class ConvRELU(Conv):
     """Conv with RELU activation f(x) = log(1.0 + exp(x)).
     """
-    def initialize(self):
+    def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
-        super(ConvRELU, self).initialize()
+        super(ConvRELU, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10

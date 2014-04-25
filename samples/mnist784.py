@@ -286,14 +286,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_min[-1].redraw_plot = True
 
     def initialize(self, global_alpha, global_lambda, device):
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         device=device)
 
 
 def run(load, main):

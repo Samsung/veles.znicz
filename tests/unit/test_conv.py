@@ -50,11 +50,10 @@ class TestConv(unittest.TestCase):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                      device=self.device)
+        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
         c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
@@ -96,10 +95,10 @@ class TestConv(unittest.TestCase):
         bias = numpy.array([10, -10], dtype=dtype)
 
         c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                      padding=(1, 2, 3, 4), sliding=(2, 3), device=self.device)
+                      padding=(1, 2, 3, 4), sliding=(2, 3))
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
         c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
@@ -131,10 +130,10 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9, device=self.device)
+        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         weights = c.weights.v.reshape(c.n_kernels, c.ky, c.kx)
         bias = c.bias.v
@@ -190,10 +189,10 @@ class TestConv(unittest.TestCase):
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
         rnd.default.fill(inp.v)
 
-        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3, device=self.device)
+        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         c.bias.map_invalidate()  # rewrite bias
         c.bias.v[:] = 0

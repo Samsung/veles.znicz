@@ -39,7 +39,7 @@ class TestGD(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), device=device)
+        c = Unit(DummyWorkflow())
         c.h = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],
@@ -60,7 +60,7 @@ class TestGD(unittest.TestCase):
         c.bias.v = bias
         c.y = formats.Vector()
         c.y.v = c.err_y.v.copy()
-        c.initialize()
+        c.initialize(device=device)
 
         if device is None:
             c.weights.map_invalidate()
@@ -99,7 +99,7 @@ class TestGD(unittest.TestCase):
 
     def test_gpu_cpu_linear(self):
         logging.info("Will test linear gd unit for gpu/cpu correctness")
-        self._do_test_gpu_cpu(gd.GD)
+        self._do_test_gpu_cpu(gd.GradientDescent)
 
     def test_gpu_cpu_relu(self):
         logging.info("Will test RELU gd unit for gpu/cpu correctness")

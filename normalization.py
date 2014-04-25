@@ -27,8 +27,8 @@ class LocalResponseNormalizer(units.Unit):
 
         super(LocalResponseNormalizer, self).__init__(workflow, **kwargs)
 
-    def initialize(self):
-        super(LocalResponseNormalizer, self).initialize()
+    def initialize(self, **kwargs):
+        super(LocalResponseNormalizer, self).initialize(**kwargs)
 
     def _subsums(self, source_array, window_size):
         """
@@ -59,8 +59,8 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
         super(LRNormalizerForward, self).__init__(workflow, **kwargs)
 
-    def initialize(self):
-        super(LRNormalizerForward, self).initialize()
+    def initialize(self, **kwargs):
+        super(LRNormalizerForward, self).initialize(**kwargs)
         self.output.v = np.ndarray(shape=self.input.v.shape,
                                    dtype=self.input.v.dtype)
 
@@ -89,8 +89,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
 
-    def initialize(self):
-        super(LRNormalizerBackward, self).initialize()
+    def initialize(self, **kwargs):
+        super(LRNormalizerBackward, self).initialize(**kwargs)
         self.err_h.v = np.ndarray(shape=self.err_y.v.shape,
                                    dtype=self.err_y.v.dtype)
 

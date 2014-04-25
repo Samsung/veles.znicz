@@ -216,7 +216,7 @@ class Workflow(nn_units.NNWorkflow):
             g.global_lambda = global_lambda
         for forward in self.forward:
             forward.device = device
-        return super(Workflow, self).initialize()
+        return super(Workflow, self).initialize(**kwargs)
 
 
 def run(load, main):

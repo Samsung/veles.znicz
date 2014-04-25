@@ -30,8 +30,8 @@ class RangeAccumulator(units.Unit):
         self.max = config.get(config.root.accumulator.max, 1.7159)
         self.min = config.get(config.root.accumulator.min, -1.7159)
 
-    def initialize(self):
-        super(RangeAccumulator, self).initialize()
+    def initialize(self, **kwargs):
+        super(RangeAccumulator, self).initialize(**kwargs)
         self.output.v = numpy.zeros([self.bars + 2], dtype=numpy.int64)
 
     def run(self):

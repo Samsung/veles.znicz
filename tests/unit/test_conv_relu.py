@@ -47,11 +47,10 @@ class TestConvRelu(unittest.TestCase):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = conv.ConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                          device=self.device)
+        c = conv.ConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
         c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]

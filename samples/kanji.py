@@ -344,15 +344,10 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device, weights, bias):
-        for g in self.gd:
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-            g.device = device
-        for forward in self.forward:
-            forward.device = device
-        self.ev.device = device
-        self.loader.minibatch_maxsize = minibatch_maxsize
-        super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_maxsize,
+                                         device=device)
         if weights is not None:
             for i, forward in enumerate(self.forward):
                 forward.weights.map_invalidate()

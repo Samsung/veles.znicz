@@ -141,8 +141,8 @@ class Decision(units.Unit):
         self.minibatches_balance_ = [0, 0, 0]
         self.slave_minibatch_class_ = {}
 
-    def initialize(self):
-        super(Decision, self).initialize()
+    def initialize(self, **kwargs):
+        super(Decision, self).initialize(**kwargs)
         # Reset errors
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]

@@ -60,8 +60,8 @@ class Loader(loader.ImageLoader):
             self.class_samples[1] = n
             self.class_samples[2] -= n
 
-    def initialize(self):
-        super(Loader, self).initialize()
+    def initialize(self, **kwargs):
+        super(Loader, self).initialize(**kwargs)
         self.shuffle_validation_train()
         self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
@@ -306,15 +306,10 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
-        self.loader.minibatch_maxsize = minibatch_maxsize
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_maxsize,
+                                         device=device)
 
 
 def run(load, main):

@@ -52,10 +52,10 @@ class TestPooling(unittest.TestCase):
              (-1), -3, 4, 1, 2, -1, -2, -3, 3, 1, 3, -3, 4, -2],
             dtype=dtype).reshape(3, 5, 7, 2)
 
-        c = pooling.MaxPooling(DummyWorkflow(), kx=2, ky=2, device=self.device)
+        c = pooling.MaxPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
         c.run()
 
         c.output.map_read()  # get results back

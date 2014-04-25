@@ -369,10 +369,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[-1].redraw_plot = True
 
     def initialize(self, global_alpha, global_lambda, device):
-        for g in self.gd:
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        return super(Workflow, self).initialize(device=device)
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         device=device)
 
 
 def run(load, main):

@@ -127,7 +127,7 @@ class Workflow(nn_units.NNWorkflow):
         self.gd[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.forward) - 2, -1, -1):
             if isinstance(self.forward[i], conv.Conv):
-                obj = gd_conv.GDTanh(
+                obj = gd_conv.GDTanhConv(
                     self, n_kernels=self.forward[i].n_kernels,
                     kx=self.forward[i].kx, ky=self.forward[i].ky,
                     device=device)
@@ -208,15 +208,10 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
                    device):
-        self.loader.minibatch_maxsize = minibatch_maxsize
-        for f in self.forward:
-            f.device = device
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        return super(Workflow, self).initialize(device=device)
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_maxsize,
+                                         device=device)
 
 
 def run(load, main):

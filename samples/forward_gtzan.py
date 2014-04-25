@@ -110,7 +110,7 @@ class Workflow(nn_units.NNWorkflow):
         self.forward.shift_size = shift_size
         features = features_xml.FeaturesXml.parse(feature_file)
         self.extr.add_features(features)
-        return super(Workflow, self).initialize()
+        return super(Workflow, self).initialize(**kwargs)
 
 
 class Forward(units.Unit):

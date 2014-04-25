@@ -44,10 +44,10 @@ class TestAll2All(unittest.TestCase):
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
         c = all2all.All2All(DummyWorkflow(), output_shape=[3],
-                            device=self.device, weights_amplitude=0.05)
+                            weights_amplitude=0.05)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
         c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
@@ -78,9 +78,9 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_shape=[11, 77], device=device)
+        c = Unit(DummyWorkflow(), output_shape=[11, 77])
         c.input = inp
-        c.initialize()
+        c.initialize(device=device)
 
         if device is not None:
             self.W = c.weights.v.copy()

@@ -114,10 +114,12 @@ class Loader(units.Unit):
         state["shuffled_indexes"] = None
         return state
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
-        super(Loader, self).initialize()
+        super(Loader, self).initialize(**kwargs)
+        self.minibatch_maxsize = kwargs.get("minibatch_maxsize",
+                                            self.minibatch_maxsize)
         self.load_data()
 
         self._recompute_total_samples()

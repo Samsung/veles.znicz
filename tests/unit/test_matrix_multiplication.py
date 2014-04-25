@@ -92,7 +92,8 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        obj = OpenCLUnit(DummyWorkflow(), device=device)
+        obj = OpenCLUnit(DummyWorkflow())
+        obj.initialize(device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
             "ACTIVATION_TANH": 1,

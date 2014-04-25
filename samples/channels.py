@@ -99,6 +99,10 @@ class Loader(loader.FullBatchLoader):
             "class_samples", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
 
+    def initialize(self, **kwargs):
+        super(Loader, self).initialize(self, **kwargs)
+        self.w_neg = kwargs.get("w_neg", self.w_neg)
+
     def from_jp2(self, fnme):
         try:
             j2 = glymur.Jp2k(fnme)
@@ -743,16 +747,11 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, global_alpha, global_lambda, minibatch_size,
                    w_neg, device):
-        self.loader.minibatch_maxsize = minibatch_size
-        self.loader.w_neg = w_neg
-        self.ev.device = device
-        for g in self.gd:
-            g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
-        for forward in self.forward:
-            forward.device = device
-        return super(Workflow, self).initialize()
+        super(Workflow, self).initialize(global_alpha=global_alpha,
+                                         global_lambda=global_lambda,
+                                         minibatch_maxsize=minibatch_size,
+                                         w_neg=w_neg,
+                                         device=device)
 
 
 def run(load, main):
