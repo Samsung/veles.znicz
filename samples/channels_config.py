@@ -17,9 +17,18 @@ root.loader = Config()  # time any way) but good for Eclipse editor
 
 # optional parameters
 
-root.update = {"decision": {"fail_iterations": 1000,
+root.update = {"accumulator": {"n_bars": 30},
+               "decision": {"fail_iterations": 1000,
                             "snapshot_prefix": "channels_54_10",
-                            "use_dynamic_alpha": False},
+                            "use_dynamic_alpha": False,
+                            "do_export_weights": True},
+               "image_saver": {"out_dirs":
+                               [os.path.join(root.common.cache_dir,
+                                             "tmp/test"),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp/validation"),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp/train")]},
                "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
                                                      "channels.pickle"),
                           "grayscale": False,
@@ -34,5 +43,6 @@ root.update = {"decision": {"fail_iterations": 1000,
                             "find_negative": 0,
                             "global_alpha": 0.01,
                             "global_lambda": 0.00005,
-                            "layers": [54, 10],
+                            "layers": [{"type": "tanh", "layers": 54},
+                                       {"type": "softmax", "layers": 10}],
                             "snapshot": ""}}

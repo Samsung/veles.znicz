@@ -1,8 +1,9 @@
 #!/usr/bin/python3.3 -O
-"""
-Created on Sep 2, 2013
 
-File for korean channels recognition.
+"""
+Created on April 22, 2014
+
+Convolitional channels recognition.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -27,23 +28,38 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.image as image
+from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.rnd as rnd
 import veles.thread_pool as thread_pool
-import veles.znicz.nn_units as nn_units
+import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
+import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
+import veles.znicz.gd_conv as gd_conv
+import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
+import veles.znicz.nn_units as nn_units
+import veles.znicz.pooling as pooling
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
-root.defaults = {"decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels_54_10",
-                              "use_dynamic_alpha": False},
+root.defaults = {"accumulator": {"n_bars": 30},
+                 "decision": {"fail_iterations": 1000,
+                              "snapshot_prefix": "channels",
+                              "use_dynamic_alpha": False,
+                              "do_export_weights": True},
+                 "image_saver": {"out_dirs":
+                                 [os.path.join(root.common.cache_dir,
+                                               "tmp/test"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/validation"),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp/train")]},
                  "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
                                                        "channels.pickle"),
                             "grayscale": False,
@@ -53,13 +69,29 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                             "/data/veles/VD/channels/russian_small/train",
                             "rect": (264, 129),
                             "validation_ratio": 0.15},
-                 "weights_plotter": {"limit": 16},
+                 "weights_plotter": {"limit": 64},
                  "channels": {"export": False,
-                              "find_negative": 0,
-                              "global_alpha": 0.01,
-                              "global_lambda": 0.00005,
-                              "layers": [54, 10],
-                              "snapshot": ""}}
+                                   "find_negative": 0,
+                                   "global_alpha": 0.001,
+                                   "global_lambda": 0.004,
+                                   "layers":
+                                   [{"type": "conv", "n_kernels": 32,
+                                     "kx": 5, "ky": 5,
+                                     "padding": (2, 2, 2, 2)},
+                                    {"type": "max_pooling",
+                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                    {"type": "conv", "n_kernels": 32,
+                                     "kx": 5, "ky": 5, "padding":
+                                     (2, 2, 2, 2)},
+                                    {"type": "avg_pooling",
+                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                    {"type": "conv", "n_kernels": 64,
+                                     "kx": 5, "ky": 5,
+                                     "padding": (2, 2, 2, 2)},
+                                    {"type": "avg_pooling",
+                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                    {"type": "softmax", "layers": 10}],
+                                   "snapshot": ""}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -67,6 +99,7 @@ class Loader(loader.FullBatchLoader):
     """
     def __init__(self, workflow, **kwargs):
         channels_dir = kwargs.get("channels_dir", "")
+        self.layers = kwargs.get("layers", [54, 10])
         rect = kwargs.get("rect", (264, 129))
         grayscale = kwargs.get("grayscale", False)
         cache_fnme = kwargs.get("cache_fnme", "")
@@ -98,6 +131,7 @@ class Loader(loader.FullBatchLoader):
             "channels_dir", "rect", "channel_map", "pos", "sz",
             "class_samples", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
+        self.do_swap_axis = False
 
     def from_jp2(self, fnme):
         try:
@@ -214,6 +248,11 @@ class Loader(loader.FullBatchLoader):
         a = self.from_jp2(fnme)
 
         sample = self.sample_rect(a, pos, sz)
+        
+        if self.do_swap_axis is True:
+            sample = numpy.swapaxes(sample, 0, 1)
+            sample = numpy.swapaxes(sample, 1, 2)
+
         self.append_sample(sample, lbl, fnme, None, data_lock)
 
         # Collect negative dataset from positive samples only
@@ -289,6 +328,10 @@ class Loader(loader.FullBatchLoader):
         self.info("Will try to load previously cached data from " +
                   cached_data_fnme)
         save_to_cache = True
+        self.do_swap_axis = False
+        for i in range(0, len(self.layers)):
+            if self.layers[i].get("n_kernels") is not None:
+                self.do_swap_axis = True
         try:
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
@@ -324,7 +367,7 @@ class Loader(loader.FullBatchLoader):
             self.shuffled_indexes = pickle.load(fin)
             self.original_labels = pickle.load(fin)
             sh = ([self.rect[1], self.rect[0]] if self.grayscale
-                  else [3, self.rect[1], self.rect[0]])
+                  else [self.rect[1], self.rect[0], 3])
             n = int(numpy.prod(sh))
             # Get raw array from file
             self.original_data = []
@@ -522,7 +565,6 @@ class Loader(loader.FullBatchLoader):
         self.extract_validation_from_train(rnd.default2)
 
         # Saving all the samples
-        """
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
         for i in self.shuffled_indexes:
             l = self.original_labels[i]
@@ -534,7 +576,6 @@ class Loader(loader.FullBatchLoader):
             fnme = "%s/%d.png" % (dirnme, i)
             scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
         self.info("Done")
-        """
 
         self.info("class_samples=[%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
@@ -601,42 +642,89 @@ class Workflow(nn_units.NNWorkflow):
                              n_threads=root.loader.n_threads,
                              channels_dir=root.loader.channels_dir,
                              rect=root.loader.rect,
-                             validation_ratio=root.loader.validation_ratio)
+                             validation_ratio=root.loader.validation_ratio,
+                             layers=root.channels.layers)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
         del self.fwds[:]
         for i in range(0, len(layers)):
-            if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
-                                         device=device)
+            layer = layers[i]
+            if layer["type"] == "conv":
+                aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
+                                   kx=layer["kx"], ky=layer["ky"],
+                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
+                                   padding=layer.get("padding", (0, 0, 0, 0)),
+                                   device=device)
+            elif layer["type"] == "conv_relu":
+                aa = conv.ConvRELU(self, n_kernels=layer["n_kernels"],
+                                   kx=layer["kx"], ky=layer["ky"],
+                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
+                                   padding=layer.get("padding", (0, 0, 0, 0)),
+                                   device=device,
+                                   weights_filling="normal")
+            elif layer["type"] == "max_pooling":
+                aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
+                                        sliding=layer.get("sliding",
+                                                          (layer["kx"],
+                                                           layer["ky"])),
+                                        device=device)
+            elif layer["type"] == "avg_pooling":
+                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
+                                        sliding=layer.get("sliding",
+                                                          (layer["kx"],
+                                                           layer["ky"])),
+                                        device=device)
+            elif layer["type"] == "relu":
+                aa = all2all.All2AllRELU(
+                    self, output_shape=[layer["layers"]], device=device)
+            
+            elif layer["type"] == "tanh":
+                aa = all2all.All2AllTanh(
+                    self, output_shape=[layer["layers"]], device=device)
+            
+            elif layer["type"] == "softmax":
+                aa = all2all.All2AllSoftmax(
+                    self, output_shape=[layer["layers"]], device=device)
+            
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
-                                            device=device)
+                raise error.ErrBadFormat("Unsupported layer type %s" %
+                                         (layer["type"]))
+
             self.fwds.append(aa)
             if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1],
-                                        ("input", "output"))
+                self.fwds[-1].link_from(self.fwds[-2])
+                self.fwds[-1].link_attrs(self.fwds[-2],
+                                         ("input", "output"))
             else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+                self.fwds[-1].link_from(self.loader)
+                self.fwds[-1].link_attrs(self.loader,
+                                         ("input", "minibatch_data"))
+
+        # Add Accumulator units
+        self.accumulator = []
+        for i in range(0, len(layers)):
+            accum = accumulator.RangeAccumulator(self,
+                                                 bars=root.accumulator.n_bars)
+            self.accumulator.append(accum)
+        self.accumulator[-1].link_from(self.fwds[-1])
+        self.accumulator[-1].link_attrs(self.fwds[-1],
+                                        ("input", "output"))
 
         # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(self, yuv=True)
-        self.image_saver.link_from(self.fwds[-1])
-        self.image_saver.link_attrs(self.fwds[-1],
-                                    "output", "max_idx")
-        self.image_saver.link_attrs(self.loader,
-                                    ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indexes"),
-                                    ("labels", "minibatch_labels"),
-                                    "minibatch_class", "minibatch_size")
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=root.image_saver.out_dirs)
+        self.image_saver.link_from(self.accumulator[-1])
+        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.image_saver.link_attrs(
+            self.loader,
+            ("input", "minibatch_data"),
+            ("indexes", "minibatch_indexes"),
+            ("labels", "minibatch_labels"),
+            "minibatch_class", "minibatch_size")
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(
-            self, device=device, compute_confusion_matrix=False)
+        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
         self.evaluator.link_attrs(self.loader,
@@ -646,9 +734,10 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
+            self, fail_iterations=root.decision.fail_iterations,
+            snapshot_prefix=root.decision.snapshot_prefix,
             use_dynamic_alpha=root.decision.use_dynamic_alpha,
-            fail_iterations=root.decision.fail_iterations)
+            do_export_weights=root.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -657,40 +746,76 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
-            ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_y_sum"))
+            ("minibatch_confusion_matrix", "confusion_matrix"))
 
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
+        for i in range(0, len(layers)):
+            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.fwds)))
+        self.gds.extend(list(None for i in range(0, len(self.fwds))))
         self.gds[-1] = gd.GDSM(self, device=device)
-        # self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.fwds[-1],
                                 ("y", "output"),
                                 ("h", "input"),
                                 "weights", "bias")
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self, device=device)
+            if isinstance(self.fwds[i], conv.ConvTanh):
+                obj = gd_conv.GDTanhConv(
+                    self, n_kernels=self.fwds[i].n_kernels,
+                    kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
+                    padding=self.fwds[i].padding,
+                    device=device)
+            elif isinstance(self.fwds[i], conv.ConvRELU):
+                obj = gd_conv.GDRELUConv(
+                    self, n_kernels=self.fwds[i].n_kernels,
+                    kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
+                    padding=self.fwds[i].padding,
+                    device=device)
+            elif isinstance(self.fwds[i], pooling.MaxPooling):
+                obj = gd_pooling.GDMaxPooling(
+                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
+                    device=device)
+                obj.link_attrs(self.fwds[i], ("h_offs", "input_offs"))
+            elif isinstance(self.fwds[i], pooling.AvgPooling):
+                obj = gd_pooling.GDAvgPooling(
+                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
+                    sliding=self.fwds[i].sliding,
+                    device=device)
+            elif isinstance(self.fwds[i], all2all.All2AllTanh):
+                obj = gd.GDTanh(self, device=device)
+            elif isinstance(self.fwds[i], all2all.All2AllRELU):
+                obj = gd.GDRELU(self, device=device)
+            else:
+                raise ValueError("Unsupported fwds unit type "
+                                 " encountered: %s" %
+                                 self.fwds[i].__class__.__name__)
+            self.gds[i] = obj
             self.gds[i].link_from(self.gds[i + 1])
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].link_attrs(self.fwds[i],
                                    ("y", "output"),
                                    ("h", "input"),
                                    "weights", "bias")
-            self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                 "minibatch_size"))
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.loader,
+                                  ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
+
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
+
         self.loader.gate_block = self.decision.complete
 
         # Error plotter
@@ -698,50 +823,78 @@ class Workflow(nn_units.NNWorkflow):
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
-                self, name="num errors", plot_style=styles[i],
-                ylim=(0, 100)))
+                self, name="num errors", plot_style=styles[i]))
             self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = ~self.decision.epoch_ended
+            self.plt[-1].link_from(self.decision
+                                   if len(self.plt) == 1 else self.plt[-2])
+            self.plt[-1].gate_block = (~self.decision.epoch_ended
+                                       if len(self.plt) == 1 else Bool(False))
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
-        # Weights plotter
-        self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_w = plotting_units.Weights2D(
-            self, name="First Layer Weights", limit=root.weights_plotter.limit,
-            yuv=True)
-        self.plt_w.input = [self.gds[0].weights.v]
-        self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))
-        self.plt_w.input_field = 0
-        self.plt_w.link_from(self.decision)
-        self.plt_w.gate_block = ~self.decision.epoch_ended
-
-        # Image plottter
-        self.decision.vectors_to_sync[self.fwds[0].input] = 1
-        self.decision.vectors_to_sync[self.evaluator.labels] = 1
-        self.plt_i = plotting_units.Image(self, name="Input", yuv=True)
-        self.plt_i.inputs.append(self.decision.sample_label)
-        self.plt_i.input_fields.append(0)
-        self.plt_i.inputs.append(self.decision.sample_input)
-        self.plt_i.input_fields.append(0)
-        self.plt_i.link_from(self.decision)
-        self.plt_i.gate_block = ~self.decision.epoch_ended
         # Confusion matrix plotter
         """
         self.plt_mx = []
-        for i in range(1, 3):
+        for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].link_attrs(self.decision,
                                        ("input", "confusion_matrixes"))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        self.gds[-1].link_from(self.plt_mx[-1])
         """
-        self.gds[-1].link_from(self.decision)
+        # Weights plotter
+        self.plt_mx = []
+        for i in range(0, len(layers)):
+            self.decision.vectors_to_sync[self.gds[0].weights] = 1
+            plt_mx = plotting_units.Weights2D(
+                self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
+                limit=root.weights_plotter.limit)
+            self.plt_mx.append(plt_mx)
+            self.plt_mx[i].link_attrs(self.gds[i], ("input", "weights"))
+            self.plt_mx[i].input_field = "v"
+            if layers[i].get("n_kernels") is not None:
+                self.plt_mx[i].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky])
+            if layers[i].get("layers") is not None:
+                self.plt_mx[i].link_attrs(self.fwds[i],
+                                          ("get_shape_from", "input"))
+            self.plt_mx[i].link_from(self.decision)
+            self.plt_mx[i].gate_block = ~self.decision.epoch_ended
+
+        # Histogram plotter
+        self.plt_hist = []
+        for i in range(0, len(layers)):
+            hist = plotting_units.Histogram(self, name="Histogram output %s" %
+                                            (i + 1))
+            self.plt_hist.append(hist)
+
+        self.plt_hist[-1].link_from(self.decision)
+        self.plt_hist[-1].link_attrs(self.accumulator[i], ("input", "output"),
+                                     ("x", "input"), "n_bars")
+        self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
+
+        # MultiHistogram plotter
+        self.plt_multi_hist = []
+        for i in range(0, len(layers)):
+            multi_hist = plotting_units.MultiHistogram(
+                self, name="Histogram weights %s %s" % (i + 1,
+                                                        layers[i]["type"]))
+            self.plt_multi_hist.append(multi_hist)
+            if layers[i].get("n_kernels") is not None:
+                self.plt_multi_hist[i].link_from(self.decision)
+                self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
+                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                                                  ("input", "weights"))
+                end_epoch = ~self.decision.epoch_ended
+                self.plt_multi_hist[i].gate_block = end_epoch
+            if layers[i].get("layers") is not None:
+                self.plt_multi_hist[i].link_from(self.decision)
+                self.plt_multi_hist[i].hist_number = layers[i]["layers"]
+                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                                                  ("input", "weights"))
+                self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_size,
                    w_neg, device):
