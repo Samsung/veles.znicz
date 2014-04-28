@@ -45,8 +45,7 @@ class TestWine(unittest.TestCase):
                                                   "/wine.data")}}
 
         w = wine.Workflow(dummy_workflow.DummyWorkflow(),
-                          layers=root.wine_test.layers,
-                          device=self.device)
+                          layers=root.wine_test.layers)
         w.initialize(global_alpha=root.wine_test.global_alpha,
                      global_lambda=root.wine_test.global_lambda,
                      device=self.device)
