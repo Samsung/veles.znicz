@@ -125,10 +125,12 @@ class Workflow(nn_units.NNWorkflow):
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].input = self.fwds[i - 1].output
+                self.fwds[i].link_attrs(self.fwds[i - 1],
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
-                self.fwds[i].input = self.loader.minibatch_data
+                self.fwds[i].link_attrs(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add Accumulator units
         self.accumulator = []
@@ -161,9 +163,9 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
         self.evaluator.link_attrs(self.loader,
-                           ("batch_size", "minibatch_size"),
-                           ("labels", "minibatch_labels"),
-                           ("max_samples_per_epoch", "total_samples"))
+                                  ("batch_size", "minibatch_size"),
+                                  ("labels", "minibatch_labels"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -191,9 +193,9 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1] = gd.GDSM(self, device=device)
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
@@ -201,11 +203,11 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                "minibatch_size"))
+                                                 "minibatch_size"))
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
@@ -221,7 +223,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else self.plt[-2])
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
@@ -229,22 +231,23 @@ class Workflow(nn_units.NNWorkflow):
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Matrix plotter
-        # """
+
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_w = plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
-        self.plt_w.input = self.gds[0].weights
-        self.plt_w.get_shape_from = self.fwds[0].input
+        self.plt_w.link_attrs(self.gds[0], ("input", "weights"))
+        self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_w.input_field = "v"
         self.plt_w.link_from(self.decision)
         self.plt_w.gate_block = ~self.decision.epoch_ended
-        # """
+
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
@@ -256,9 +259,9 @@ class Workflow(nn_units.NNWorkflow):
                                             (i + 1))
             self.plt_hist.append(hist)
             self.plt_hist[i].link_from(self.decision)
-            self.plt_hist[i].input = self.accumulator[i].output
-            self.plt_hist[i].n_bars = self.accumulator[i].n_bars
-            self.plt_hist[i].x = self.accumulator[i].input
+            self.plt_hist[i].link_attrs(self.accumulator[i],
+                                        ("input", "output"),
+                                        ("x", "input"), "n_bars")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
 
         # MultiHistogram plotter
@@ -268,9 +271,10 @@ class Workflow(nn_units.NNWorkflow):
                 self, name="Histogram weights %s" % (i + 1))
             self.plt_multi_hist.append(multi_hist)
             self.plt_multi_hist[i].link_from(self.decision)
+            self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                                              ("input", "weights"))
             self.plt_multi_hist[i].hist_number = self.fwds[
                 i].output_shape[0]
-            self.plt_multi_hist[i].input = self.fwds[i].weights
             self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, global_alpha, global_lambda, minibatch_maxsize,

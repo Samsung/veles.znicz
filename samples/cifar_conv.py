@@ -172,11 +172,11 @@ class Workflow(nn_units.NNWorkflow):
             if i:
                 self.fwds[-1].link_from(self.fwds[-2])
                 self.fwds[-1].link_attrs(self.fwds[-2],
-                                            ("input", "output"))
+                                         ("input", "output"))
             else:
                 self.fwds[-1].link_from(self.loader)
                 self.fwds[-1].link_attrs(self.loader,
-                                            ("input", "minibatch_data"))
+                                         ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
@@ -195,9 +195,9 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
         self.evaluator.link_attrs(self.loader,
-                           ("batch_size", "minibatch_size"),
-                           ("labels", "minibatch_labels"),
-                           ("max_samples_per_epoch", "total_samples"))
+                                  ("batch_size", "minibatch_size"),
+                                  ("labels", "minibatch_labels"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -225,14 +225,14 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.fwds) - 2, -1, -1):
             if isinstance(self.fwds[i], conv.ConvTanh):
-                obj = gd_conv.GDTanh(
+                obj = gd_conv.GDTanhConv(
                     self, n_kernels=self.fwds[i].n_kernels,
                     kx=self.fwds[i].kx, ky=self.fwds[i].ky,
                     sliding=self.fwds[i].sliding,
@@ -259,11 +259,11 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].link_attrs(self.loader,
-                                  ("batch_size", "minibatch_size"))
+                                   ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
 
         self.repeater.link_from(self.gds[0])
@@ -279,7 +279,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(1, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision
                                    if len(self.plt) == 1 else self.plt[-2])
@@ -293,7 +293,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
@@ -302,7 +303,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
-        self.plt_mx.input = self.gds[0].weights
+        self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = (
             [self.fwds[0].kx, self.fwds[0].ky]

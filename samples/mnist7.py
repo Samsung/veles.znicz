@@ -39,6 +39,7 @@ class Loader(mnist.Loader):
         """
         super(Loader, self).load_data()
         self.class_target.reset()
+        print("root.common.dtype", root.common.dtype)
         self.class_target.v = numpy.array(
             [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
              [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
@@ -83,21 +84,23 @@ class Workflow(nn_units.NNWorkflow):
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].input = self.fwds[i - 1].output
+                self.fwds[i].link_attrs(self.fwds[i - 1],
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
-                self.fwds[i].input = self.loader.minibatch_data
+                self.fwds[i].link_attrs(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"))
         self.evaluator.link_attrs(self.loader,
-                           ("batch_size", "minibatch_size"),
-                           ("target", "minibatch_target"),
-                           ("labels", "minibatch_labels"),
-                           ("max_samples_per_epoch", "total_samples"),
-                           "class_target")
+                                  ("batch_size", "minibatch_size"),
+                                  ("target", "minibatch_target"),
+                                  ("labels", "minibatch_labels"),
+                                  ("max_samples_per_epoch", "total_samples"),
+                                  "class_target")
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -134,9 +137,9 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1] = gd.GDTanh(self, device=device)
         self.gds[-1].link_from(self.image_saver)
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
@@ -144,11 +147,11 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                "minibatch_size"))
+                                                 "minibatch_size"))
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
@@ -177,9 +180,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx = plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
-        self.plt_mx.input = self.gds[0].weights
+        self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "v"
-        self.plt_mx.get_shape_from = self.fwds[0].input
+        self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
         # """
@@ -189,7 +192,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_max[-1].input = self.decision.epoch_metrics
+            self.plt_max[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
             self.plt_max[-1].link_from(self.plt[-1] if not i else
@@ -200,7 +204,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt_min.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt_min[-1].input = self.decision.epoch_metrics
+            self.plt_min[-1].link_attrs(self.decision,
+                                        ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
             self.plt_min[-1].link_from(self.plt_max[-1] if not i else

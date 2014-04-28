@@ -42,7 +42,7 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
 root.defaults = {"decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels_108_24",
+                              "snapshot_prefix": "channels_54_10",
                               "use_dynamic_alpha": False},
                  "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
                                                        "channels.pickle"),
@@ -50,7 +50,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                             "minibatch_size": 81,
                             "n_threads": 32,
                             "channels_dir":
-                            "/data/veles/channels/korean_960_540/train",
+                            "/data/veles/VD/channels/russian_small/train",
                             "rect": (264, 129),
                             "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 16},
@@ -58,7 +58,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                               "find_negative": 0,
                               "global_alpha": 0.01,
                               "global_lambda": 0.00005,
-                              "layers": [108, 24],
+                              "layers": [54, 10],
                               "snapshot": ""}}
 
 
@@ -98,10 +98,6 @@ class Loader(loader.FullBatchLoader):
             "channels_dir", "rect", "channel_map", "pos", "sz",
             "class_samples", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
-
-    def initialize(self, **kwargs):
-        super(Loader, self).initialize(self, **kwargs)
-        self.w_neg = kwargs.get("w_neg", self.w_neg)
 
     def from_jp2(self, fnme):
         try:
@@ -620,10 +616,12 @@ class Workflow(nn_units.NNWorkflow):
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].input = self.fwds[i - 1].output
+                self.fwds[i].link_attrs(self.fwds[i - 1],
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
-                self.fwds[i].input = self.loader.minibatch_data
+                self.fwds[i].link_attrs(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self, yuv=True)
@@ -637,14 +635,14 @@ class Workflow(nn_units.NNWorkflow):
                                     "minibatch_class", "minibatch_size")
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device,
-                                             compute_confusion_matrix=False)
+        self.evaluator = evaluator.EvaluatorSoftmax(
+            self, device=device, compute_confusion_matrix=False)
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
         self.evaluator.link_attrs(self.loader,
-                           ("batch_size", "minibatch_size"),
-                           ("labels", "minibatch_labels"),
-                           ("max_samples_per_epoch", "total_samples"))
+                                  ("batch_size", "minibatch_size"),
+                                  ("labels", "minibatch_labels"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
@@ -662,8 +660,6 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
 
-        # self.decision.minibatch_confusion_matrix = self.evaluator.confusion_matrix
-
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
@@ -674,9 +670,9 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1] = gd.GDSM(self, device=device)
         # self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.fwds[-1],
-                               ("y", "output"),
-                               ("h", "input"),
-                               "weights", "bias")
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_y")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
@@ -684,18 +680,17 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.fwds[i],
-                                  ("y", "output"),
-                                  ("h", "input"),
-                                  "weights", "bias")
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                "minibatch_size"))
+                                                 "minibatch_size"))
             self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
-
         self.loader.gate_block = self.decision.complete
 
         # Error plotter
@@ -705,7 +700,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i],
                 ylim=(0, 100)))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = ~self.decision.epoch_ended
@@ -717,10 +712,11 @@ class Workflow(nn_units.NNWorkflow):
             self, name="First Layer Weights", limit=root.weights_plotter.limit,
             yuv=True)
         self.plt_w.input = [self.gds[0].weights.v]
-        self.plt_w.get_shape_from = self.fwds[0].input
+        self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_w.input_field = 0
         self.plt_w.link_from(self.decision)
         self.plt_w.gate_block = ~self.decision.epoch_ended
+
         # Image plottter
         self.decision.vectors_to_sync[self.fwds[0].input] = 1
         self.decision.vectors_to_sync[self.evaluator.labels] = 1
@@ -735,8 +731,10 @@ class Workflow(nn_units.NNWorkflow):
         """
         self.plt_mx = []
         for i in range(1, 3):
-            self.plt_mx.append(plotters.MatrixPlotter(
+            self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input = self.decision.confusion_matrixes
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)

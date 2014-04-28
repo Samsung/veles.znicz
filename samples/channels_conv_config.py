@@ -19,7 +19,7 @@ root.loader = Config()  # time any way) but good for Eclipse editor
 
 root.update = {"accumulator": {"n_bars": 30},
                "decision": {"fail_iterations": 1000,
-                            "snapshot_prefix": "channels_conv_108_24",
+                            "snapshot_prefix": "channels_conv",
                             "use_dynamic_alpha": False,
                             "do_export_weights": True},
                "image_saver": {"out_dirs":
@@ -35,7 +35,7 @@ root.update = {"accumulator": {"n_bars": 30},
                           "minibatch_size": 81,
                           "n_threads": 32,
                           "channels_dir":
-                          "/data/veles/VD/TV/russian_small/train",
+                          "/data/veles/VD/channels/russian_small/train",
                           "rect": (264, 129),
                           "validation_procent": 0.15},
                "weights_plotter": {"limit": 64},

@@ -60,8 +60,8 @@ class ImageSaver(units.Unit):
         self.max_idx = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
-        self.def_attr("this_save_time", 0)
-        self.def_attr("yuv", 1 if yuv else 0)
+        self.this_save_time = 0
+        self.yuv = 1 if yuv else 0
         self._last_save_time = 0
         self._n_saved = [0, 0, 0]
 

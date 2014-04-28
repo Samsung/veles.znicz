@@ -67,8 +67,8 @@ class Decision(units.Unit):
                        if the latter is in vectors_to_sync.
         sample_target: will be a copy of first element from evaluator.target
                        if the latter is in vectors_to_sync.
-        sample_label: will be a copy of first element label from evaluator.labels
-                       if the latter is in vectors_to_sync.
+        sample_label: will be a copy of first element label from
+                      evaluator.labels if the latter is in vectors_to_sync.
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, workflow, **kwargs):
@@ -85,10 +85,10 @@ class Decision(units.Unit):
         kwargs["max_epochs"] = max_epochs
         super(Decision, self).__init__(workflow, **kwargs)
         self.class_samples = None  # [0, 0, 0]
-        self.def_attr("fail_iterations", fail_iterations)
+        self.fail_iterations = fail_iterations
         self.complete = Bool(False)
         self.gd_skip = Bool(False)
-        self.def_attr("epoch_number", 0)
+        self.epoch_number = 0
         self.epoch_ended = Bool(False)
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
@@ -108,7 +108,7 @@ class Decision(units.Unit):
         self.fnmeWb = None
         self.epoch_metrics = [None, None, None]
         self.just_snapshotted = Bool(False)
-        self.def_attr("snapshot_time", 0)
+        self.snapshot_time = 0
         self.minibatch_mse = None
         self.epoch_samples_mse = ([formats.Vector(),
                                    formats.Vector(),
@@ -127,10 +127,10 @@ class Decision(units.Unit):
         self.max_err_y_sums = [0, 0, 0]
         self.minibatch_max_err_y_sum = None  # formats.Vector()
         self.vectors_to_sync = {}
-        self.def_attr("sample_input", None)
-        self.def_attr("sample_output", None)
-        self.def_attr("sample_target", None)
-        self.def_attr("sample_label", None)
+        self.sample_input = None
+        self.sample_output = None
+        self.sample_target = None
+        self.sample_label = None
         self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.evaluator = None
@@ -544,14 +544,15 @@ class Decision(units.Unit):
     def _copy_minibatch_mse(self, minibatch_class, minibatch_size,
                             minibatch_offset):
         if self.epoch_samples_mse:
+            minibatch_offset -= minibatch_size
             self.minibatch_mse.map_read()
             offset = minibatch_offset
             for i in range(minibatch_class):
                 offset -= self.class_samples[i]
-                size = minibatch_size
             self.tmp_epoch_samples_mse[minibatch_class].map_write()
             self.tmp_epoch_samples_mse[minibatch_class][
-                offset:offset + size] = self.minibatch_mse[:size]
+                offset:offset
+                + minibatch_size] = self.minibatch_mse[:minibatch_size]
 
     def generate_data_for_master(self):
         self._sync_vectors()

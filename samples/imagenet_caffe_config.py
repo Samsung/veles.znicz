@@ -22,6 +22,5 @@ root.update = {"all2all": {"weights_magnitude": 0.05},
                             "store_samples_mse": True},
                "loader": {"minibatch_maxsize": 60},
                "imagenet_caffe": {"global_alpha": 0.01,
-                         "global_lambda": 0.0,
-                         "layers": [100, 10]}
-               }
+                                  "global_lambda": 0.0,
+                                  "layers": [100, 10]}}

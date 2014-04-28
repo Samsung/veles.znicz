@@ -20,6 +20,7 @@ from veles.tests.dummy_workflow import DummyWorkflow
 class TestNormalization(unittest.TestCase):
     def setUp(self):
         pass
+
     def tearDown(self):
         pass
 

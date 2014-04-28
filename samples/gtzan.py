@@ -273,55 +273,61 @@ class Workflow(nn_units.NNWorkflow):
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].input = self.fwds[i - 1].output
+                self.fwds[i].link_attrs(self.fwds[i - 1],
+                                        ("input", "output"))
             else:
                 self.fwds[i].link_from(self.loader)
-                self.fwds[i].input = self.loader.minibatch_data
+                self.fwds[i].link_attrs(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.y = self.fwds[-1].output
-        self.evaluator.batch_size = self.loader.minibatch_size
-        self.evaluator.labels = self.loader.minibatch_labels
-        self.evaluator.max_idx = self.fwds[-1].max_idx
-        self.evaluator.max_samples_per_epoch = self.loader.total_samples
+        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.loader,
+                                  ("labels", "minibatch_labels"),
+                                  ("batch_size", "minibatch_size"),
+                                  ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
         self.decision = decision.Decision(
             self, snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
-        self.decision.minibatch_class = self.loader.minibatch_class
-        self.decision.link_attrs(self.loader, "no_more_minibatches_left")
-        self.decision.minibatch_n_err = self.evaluator.n_err
-        self.decision.minibatch_confusion_matrix = self.evaluator.confusion_matrix
-        self.decision.minibatch_max_err_y_sum = self.evaluator.max_err_y_sum
-        self.decision.class_samples = self.loader.class_samples
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "no_more_minibatches_left",
+                                 "class_samples")
+        self.decision.link_attrs(
+            self.evaluator,
+            ("minibatch_n_err", "n_err"),
+            ("minibatch_confusion_matrix", "confusion_matrix"),
+            ("minibatch_max_err_y_sum", "max_err_y_sum"))
 
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.fwds))))
         self.gds[-1] = gd.GDSM(self, device=device)
         self.gds[-1].link_from(self.decision)
-        self.gds[-1].err_y = self.evaluator.err_y
-        self.gds[-1].y = self.fwds[-1].output
-        self.gds[-1].h = self.fwds[-1].input
-        self.gds[-1].weights = self.fwds[-1].weights
-        self.gds[-1].bias = self.fwds[-1].bias
+        self.gds[-1].link_attrs(self.evaluator, "err_y")
+        self.gds[-1].link_attrs(self.fwds[-1],
+                                ("y", "output"),
+                                ("h", "input"),
+                                "weights", "bias")
         self.gds[-1].gate_skip = self.decision.gd_skip
-        self.gds[-1].batch_size = self.loader.minibatch_size
+        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         for i in range(len(self.fwds) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device,
-                                   weights_transposed=False)
+                                    weights_transposed=False)
             self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].err_y = self.gds[i + 1].err_h
-            self.gds[i].y = self.fwds[i].output
-            self.gds[i].h = self.fwds[i].input
-            self.gds[i].weights = self.fwds[i].weights
-            self.gds[i].bias = self.fwds[i].bias
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.fwds[i],
+                                   ("y", "output"),
+                                   ("h", "input"),
+                                   "weights", "bias")
             self.gds[i].gate_skip = self.decision.gd_skip
-            self.gds[i].batch_size = self.loader.minibatch_size
+            self.gds[i].link_attrs(self.loader,
+                                   ("batch_size", "minibatch_size"))
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
@@ -335,7 +341,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_n_err_pt
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else self.plt[-2])
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
@@ -347,7 +353,8 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].input = self.decision.confusion_matrixes
+            self.plt_mx[-1].link_attrs(self.decision,
+                                       ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision if not i
                                       else self.plt_mx[-2])
@@ -359,7 +366,8 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_err_y.append(plotting_units.AccumulatingPlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
-            self.plt_err_y[-1].input = self.decision.max_err_y_sums
+            self.plt_err_y[-1].link_attrs(self.decision,
+                                          ("input", "max_err_y_sums"))
             self.plt_err_y[-1].input_field = i
             self.plt_err_y[-1].link_from(self.decision if not i
                                          else self.plt_err_y[-2])

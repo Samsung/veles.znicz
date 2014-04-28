@@ -14,9 +14,11 @@ import numpy as np
 from veles import units
 from veles import formats
 
+
 class LocalResponseNormalizer(units.Unit):
     """
-    A base class for forward and backward units of local response normalization.
+    A base class for forward and backward units of local
+    response normalization.
     """
     def __init__(self, workflow, **kwargs):
         self.alpha = kwargs.get("alpha", 0.0001)
@@ -41,7 +43,7 @@ class LocalResponseNormalizer(units.Unit):
         for i in range(num_of_chans):
             min_index = max(0, i - int(window_size / 2))
             max_index = min(i + int(window_size / 2), num_of_chans - 1)
-            array_slice = source_array[:, :, :, min_index : max_index + 1]
+            array_slice = source_array[:, :, :, min_index: max_index + 1]
             subsums[:, :, :, i] = np.sum(array_slice, axis=3)
         return subsums
 
@@ -88,16 +90,14 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
-
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
         self.err_h.v = np.ndarray(shape=self.err_y.v.shape,
-                                   dtype=self.err_y.v.dtype)
+                                  dtype=self.err_y.v.dtype)
 
     def run(self):
         assert len(self.h.v.shape) == 4
         assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
-
 
         num_of_chans = self.h.v.shape[3]
         self.err_h.v = np.zeros(shape=self.h.v.shape, dtype=np.float64)
@@ -126,4 +126,3 @@ class LRNormalizerBackward(LocalResponseNormalizer):
                     self.h.v[:, :, :, j]
                 dh_j *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
             delta_h[:, :, :, i] += dh_j
-
