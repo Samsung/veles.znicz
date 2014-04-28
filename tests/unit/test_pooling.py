@@ -112,8 +112,7 @@ class TestPooling(unittest.TestCase):
                               [-1, 4, 2, -2, 3, 3, 4]]], dtype=dtype)
         inp.v = inp.v.reshape(3, 5, 7, 1)
 
-        c = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=2, ky=2,
-                                    device=self.device)
+        c = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=2, ky=2)
         c.h = inp
         c.h_offs = formats.Vector()
         c.h_offs.v = numpy.array(
@@ -126,7 +125,7 @@ class TestPooling(unittest.TestCase):
                                  4, -4, -0.3, -3, -1, -3, 2, -2, -4, 2, -1, -3,
                                  (-4), 2, 3, 2, -1, -1, -3, 4, -2, 2, 0.3, -4],
                                 dtype=dtype)
-        c.initialize()
+        c.initialize(device=self.device)
         c.err_h.map_write()
         c.err_h.v[:] = 1.0e30
         c.run()
@@ -176,10 +175,10 @@ class TestPooling(unittest.TestCase):
              (-1), -3, 4, 1, 2, -1, -2, -3, 3, 1, 3, -3, 4, -2],
             dtype=dtype).reshape(3, 5, 7, 2)
 
-        c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2, device=self.device)
+        c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = inp
 
-        c.initialize()
+        c.initialize(device=self.device)
         c.run()
 
         c.output.map_read()  # get results back
@@ -225,8 +224,7 @@ class TestPooling(unittest.TestCase):
              [[-1, -2], [4, 8], [2, 2], [-2, -4],
               [3, 6], [3, 6], [4, 8]]]], dtype=dtype)
 
-        c = gd_pooling.GDAvgPooling(DummyWorkflow(), kx=2, ky=2,
-                                    device=self.device)
+        c = gd_pooling.GDAvgPooling(DummyWorkflow(), kx=2, ky=2)
         c.h = inp
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[1, 2], [3, 6], [0.5, 1], [-4, -8],
@@ -241,7 +239,7 @@ class TestPooling(unittest.TestCase):
                                  [-1, -2], [-1, -2], [-3, -6], [4, 8],
                                  [-2, -4], [2, 4], [0.3, 0.6], [-4, -8]],
                                 dtype=dtype)
-        c.initialize()
+        c.initialize(device=self.device)
         c.err_h.map_write()
         c.err_h.v[:] = 1.0e30
         c.run()

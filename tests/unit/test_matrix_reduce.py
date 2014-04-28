@@ -50,7 +50,8 @@ class TestMatrixReduce(unittest.TestCase):
         fout.write(src)
         fout.close()
 
-        tmp = OpenCLUnit(DummyWorkflow(), device=self.device)
+        tmp = OpenCLUnit(DummyWorkflow())
+        tmp.initialize(device=self.device)
         tmp.cl_sources_[fnme] = {}
         tmp.build_program(defines, fnme)
 

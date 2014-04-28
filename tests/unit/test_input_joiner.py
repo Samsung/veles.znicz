@@ -61,9 +61,8 @@ class TestInputJoiner(unittest.TestCase):
         b.initialize(device)
         c.initialize(device)
         obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c],
-                                       output_sample_shape=[80],
-                                       device=device)
-        obj.initialize()
+                                       output_sample_shape=[80])
+        obj.initialize(device=device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
@@ -93,9 +92,8 @@ class TestInputJoiner(unittest.TestCase):
         b.initialize(device)
         c.initialize(device)
         obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c],
-                                       output_sample_shape=[50],
-                                       device=device)
-        obj.initialize()
+                                       output_sample_shape=[50])
+        obj.initialize(device=device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
