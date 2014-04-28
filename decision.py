@@ -208,12 +208,6 @@ class Decision(units.Unit):
         timestamp = time.time()
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
 
-        if self.is_slave:
-            self._reset_statistics_ = self._reset_statistics
-            self._on_training_finished_ = self._on_training_finished
-            self._reset_statistics = self.nothing
-            self._training_finished = self.nothing
-
     def run(self):
         self.epoch_ended << False
         minibatch_class = self.minibatch_class
@@ -528,7 +522,8 @@ class Decision(units.Unit):
 
         # Print some statistics
         self._print_statistics(minibatch_class)
-        self._reset_statistics(minibatch_class)
+        if not self.is_slave:  # we will need them in generate_data_for_master
+            self._reset_statistics(minibatch_class)
 
         if all(self.no_more_minibatches_left):
             self._end_epoch()
@@ -593,7 +588,7 @@ class Decision(units.Unit):
         self.__dict__.update(data)
         # Prevent doing snapshot and set complete after one epoch
         self.complete << False
-        self._reset_statistics_(self.minibatch_class)
+        self._reset_statistics(self.minibatch_class)
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
         self.min_validation_mse = 0
