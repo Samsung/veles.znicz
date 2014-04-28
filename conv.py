@@ -119,7 +119,7 @@ class Conv(nn_units.Forward):
             if self.weights_filling == "uniform":
                 self.rand.fill(self.weights.v, -self.weights_magnitude,
                                self.weights_magnitude)
-            elif self.weights_filling == "normal":
+            elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
             else:
