@@ -42,7 +42,7 @@ class Conv(nn_units.Forward):
         ky: kernel height.
         padding: tuple of virtual sample padding (left, top, right, bottom).
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
-        weights_filling: rand weight filling ("unirofm" (default) or "normal")
+        weights_filling: rand weight filling ("unirofm" (default) or "gaussian")
         weights_magnitude: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
 
@@ -58,12 +58,14 @@ class Conv(nn_units.Forward):
         padding = kwargs.get("padding", (0, 0, 0, 0))
         sliding = kwargs.get("sliding", (1, 1))
         weights_filling = kwargs.get("weights_filling", "uniform")
+        weights_magnitude = kwargs.get("weights_magnitude", None)
         weights_stddev = kwargs.get("weights_stddev", 0.05)
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
         kwargs["padding"] = padding
         kwargs["sliding"] = sliding
+        kwargs["weights_magnitude"] = weights_magnitude
         kwargs["weights_filling"] = weights_filling
         kwargs["weights_stddev"] = weights_stddev
         super(Conv, self).__init__(workflow, **kwargs)
@@ -75,7 +77,9 @@ class Conv(nn_units.Forward):
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
                              "padding", "sliding"))
+
         self.weights_filling = weights_filling
+        self.weights_magnitude = weights_magnitude
         self.weights_stddev = weights_stddev
 
     def init_unpickled(self):
@@ -103,6 +107,7 @@ class Conv(nn_units.Forward):
         if self.weights_magnitude is None:
             # Get weights magnitude and cap it to 0.05
             self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
+
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
         sx = self.input.v.shape[2]
@@ -133,7 +138,7 @@ class Conv(nn_units.Forward):
             if self.weights_filling == "uniform":
                 self.rand.fill(self.bias.v, -self.weights_magnitude,
                                self.weights_magnitude)
-            elif self.weights_filling == "normal":
+            elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
             else:
                 raise Exception("Invalid weight filling type")

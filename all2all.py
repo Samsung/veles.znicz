@@ -40,14 +40,27 @@ class All2All(nn_units.Forward):
         krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
+
+        weights_filling: rand weight filling ("unirofm" (default) or "gaussian")
+        weights_magnitude: magnitude of uniform weight distribution.
+        weights_stddev: StdDev of normal weight distributtion
     """
     def __init__(self, workflow, **kwargs):
         output_shape = kwargs.get("output_shape")
         kwargs["output_shape"] = output_shape
-        weights_magnitude = kwargs.get("weights_magnitude", 0.05)
+
+        weights_filling = kwargs.get("weights_filling", "uniform")
+        weights_magnitude = kwargs.get("weights_magnitude", None)
+        weights_stddev = kwargs.get("weights_stddev", 0.05)
+
         kwargs["weights_magnitude"] = weights_magnitude
+        kwargs["weights_filling"] = weights_filling
+        kwargs["weights_stddev"] = weights_stddev
+
         super(All2All, self).__init__(workflow, **kwargs)
         self.input = None
+        self.weights_filling = weights_filling
+        self.weights_stddev = weights_stddev
         self.weights_magnitude = weights_magnitude
         self.output = formats.Vector()
         self.weights = formats.Vector()
@@ -87,8 +100,14 @@ class All2All(nn_units.Forward):
         if self.weights.v is None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
-            self.rand.fill(self.weights.v, -self.weights_magnitude,
-                           self.weights_magnitude)
+            if self.weights_filling == "uniform":
+                self.rand.fill(self.weights.v, -self.weights_magnitude,
+                               self.weights_magnitude)
+            elif self.weights_filling == "gaussian":
+                self.rand.fill_normal_real(self.weights.v, 0,
+                                           self.weights_stddev)
+            else:
+                assert False
             self.weights.v = self.weights.v.reshape([
                 output_size, self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
@@ -99,8 +118,14 @@ class All2All(nn_units.Forward):
         if (self.bias.v is None or self.bias.v.size != output_size):
             self.bias.reset()
             self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
-            self.rand.fill(self.bias.v, -self.weights_magnitude,
-                           self.weights_magnitude)
+            if self.weights_filling == "uniform":
+                self.rand.fill(self.bias.v, -self.weights_magnitude,
+                               self.weights_magnitude)
+            elif self.weights_filling == "gaussian":
+                self.rand.fill_normal_real(self.bias.v,
+                                           self.bias.v, 0, self.weights_stddev)
+            else:
+                assert False
 
         if (self.output.v is None or
                 self.output.v.size != self.input.v.shape[0] * output_size):
