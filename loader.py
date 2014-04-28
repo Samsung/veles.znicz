@@ -75,8 +75,7 @@ class Loader(units.Unit):
         kwargs["minibatch_maxsize"] = minibatch_maxsize
         kwargs["validation_ratio"] = validation_ratio
         kwargs["rnd"] = rnd_
-        kwargs["view_group"] = kwargs.get(
-            "view_group", config.get(config.root.loader.view_group, "LOADER"))
+        kwargs["view_group"] = kwargs.get("view_group", "LOADER")
         super(Loader, self).__init__(workflow, **kwargs)
 
         self.rnd = [rnd_]
