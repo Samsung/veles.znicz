@@ -27,9 +27,7 @@ root.common.defaults = {"plotters_disabled": True}
 
 root.defaults = {"decision": {"fail_iterations": 200,
                               "snapshot_prefix": "wine"},
-                 "loader": {"minibatch_maxsize": 1000000,
-                            "rnd": rnd.default,
-                            "view_group": "LOADER"},
+                 "loader": {"minibatch_maxsize": 1000000},
                  "wine": {"global_alpha": 0.5,
                           "global_lambda": 0.0,
                           "layers": [8, 3],

@@ -24,8 +24,8 @@ class TestWine(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    def tearDown(self):
-        del self.device
+    #def tearDown(self):
+    #    del self.device
 
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
@@ -50,8 +50,8 @@ class TestWine(unittest.TestCase):
                      global_lambda=root.wine_test.global_lambda,
                      device=self.device)
         w.run()
-        epoch = w.decision._epoch_number
-        self.assertEqual(epoch, 11)
+        epoch = w.decision.epoch_number
+        self.assertEqual(epoch, 10)
         logging.info("All Ok")
 
 
