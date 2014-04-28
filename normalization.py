@@ -67,6 +67,9 @@ class LRNormalizerForward(LocalResponseNormalizer):
                                    dtype=self.input.v.dtype)
 
     def run(self):
+        self.output.map_invalidate()
+        self.input.map_read()
+
         assert(len(self.input.v.shape) == 4)
         input_squared = np.square(self.input.v)
         subsums = self._subsums(input_squared, self.n)
@@ -96,6 +99,11 @@ class LRNormalizerBackward(LocalResponseNormalizer):
                                   dtype=self.err_y.v.dtype)
 
     def run(self):
+        self.err_h.map_invalidate()
+        self.err_y.map_read()
+        self.h.map_read()
+        self.y.map_read()
+
         assert len(self.h.v.shape) == 4
         assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
 
