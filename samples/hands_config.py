@@ -9,11 +9,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import os
-from veles.config import root, Config
+from veles.config import root
 
-root.all2all = Config()  # not necessary for execution (it will do it in real
-root.decision = Config()  # time any way) but good for Eclipse editor
-root.loader = Config()
 
 # optional parameters
 train_dir = [os.path.join(root.common.test_dataset_root,

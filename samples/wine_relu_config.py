@@ -10,11 +10,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import os
 
-from veles.config import root, Config
+from veles.config import root
 
-
-root.decision = Config()  # not necessary for execution (it will do it in real
-# time any way) but good for Eclipse editor
 
 # optional parameters
 
