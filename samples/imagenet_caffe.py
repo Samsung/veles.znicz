@@ -52,10 +52,9 @@ class Workflow(nn_units.NNWorkflow):
         # Layer 1 (CONV + POOL)
         conv1 = conv.ConvRELU(self, n_kernels=96, kx=11, ky=11,
                               sliding=(4, 4), padding=(0, 0, 0, 0),
+                              weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
-        conv1.link_from(self.loader)
-        conv1.link_attrs(self.loader, ("input", "minibatch_data"))
-        self.fwds.append(conv1)
+        self._add_forward_unit(conv1)
 
         pool1 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
@@ -68,6 +67,7 @@ class Workflow(nn_units.NNWorkflow):
         # Layer 2 (CONV + POOL)
         conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
                               sliding=(1, 1), padding=(2, 2, 2, 2),
+                              weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
         self._add_forward_unit(conv2)
 
@@ -78,18 +78,21 @@ class Workflow(nn_units.NNWorkflow):
         # Layer 3 (CONV)
         conv3 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
+                              weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
         self._add_forward_unit(conv3)
 
         # Layer 4 (CONV)
         conv4 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
+                              weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
         self._add_forward_unit(conv4)
 
         # Layer 5 (CONV + POOL)
         conv5 = conv.ConvRELU(self, n_kernels=256, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
+                              weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
         self._add_forward_unit(conv5)
 
@@ -98,7 +101,9 @@ class Workflow(nn_units.NNWorkflow):
         self._add_forward_unit(pool5)
 
         # Layer 6 (FULLY CONNECTED + 50% dropout)
-        fc6 = all2all.All2AllRELU(self, output_shape=4096, device=device)
+        fc6 = all2all.All2AllRELU(
+            self, output_shape=4096, weights_filling="gaussian",
+            weights_stddev=0.005, device=device)
         self._add_forward_unit(fc6)
 
         drop6 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
@@ -106,15 +111,18 @@ class Workflow(nn_units.NNWorkflow):
 
 
         # Layer 7 (FULLY CONNECTED + 50% dropout)
-        fc7 = all2all.All2AllRELU(self, output_shape=4096, device=device)
+        fc7 = all2all.All2AllRELU(
+            self, output_shape=4096, weights_filling="gaussian",
+            weights_stddev=0.005, device=device)
         self._add_forward_unit(fc7)
 
         drop7 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
         self._add_forward_unit(drop7)
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
-        fc8sm = all2all.All2AllSoftmax(self, output_shape=1000,
-                                       device=device)
+        fc8sm = all2all.All2AllSoftmax(
+            self, output_shape=1000, weights_filling="gaussian",
+            weights_stddev=0.01, device=device)
         self._add_forward_unit(fc8sm)
 
         # EVALUATOR
