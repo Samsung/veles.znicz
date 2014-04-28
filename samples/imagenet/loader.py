@@ -57,6 +57,7 @@ class LoaderBase(loader.Loader):
     }
 
     def __init__(self, workflow, aperture, **kwargs):
+        self._data_shape = (256, 256)  # TODO: fix data shape
         self._dbpath = kwargs.get("dbpath", config.root.imagenet.dbpath)
         super(LoaderBase, self).__init__(workflow, **kwargs)
         self._ipath = kwargs.get("ipath", config.root.imagenet.ipath)

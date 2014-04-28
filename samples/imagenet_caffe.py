@@ -3,7 +3,7 @@
 """
 Created on Apr 18, 2014
 
-@author: Alexey Golovizin <a.golovizin@samsung.com>
+This workflow should clone the Imagenet example in CAFFE tool.
 """
 
 from veles.config import root
@@ -26,7 +26,7 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
 
 
 class Workflow(nn_units.NNWorkflow):
-    """Workflow for MNIST dataset (handwritten digits recognition).
+    """Workflow for ImageNet dataset.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
@@ -39,9 +39,9 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = LoaderDetection(self,
-                                      ipath="/data/imagenet/2013",
+                                     ipath="/data/imagenet/2013",
                                       dbpath="/data/imagenet/2013/db",
-                                      year="2013", series="DET")
+                                      year="2013", series="img")
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
@@ -55,7 +55,7 @@ class Workflow(nn_units.NNWorkflow):
                               device=device)
         conv1.link_from(self.loader)
         conv1.link_attrs(self.loader, ("input", "minibatch_data"))
-        self.forward.append(conv1)
+        self.fwds.append(conv1)
 
         pool1 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
@@ -115,22 +115,22 @@ class Workflow(nn_units.NNWorkflow):
         self._link_last_forward_with(fc8sm)
 
         # EVALUATOR
-        self.ev = evaluator.EvaluatorSoftmax(self, device=device)
-        self.ev.link_from(fc8sm)
-        self.ev.link_attrs(fc8sm, ("y", "output"), "max_idx")
-        self.ev.link_attrs(self.loader, ("batch_size", "minibatch_size"),
+        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator.link_from(fc8sm)
+        self.evaluator.link_attrs(fc8sm, ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.loader, ("batch_size", "minibatch_size"),
                            ("max_samples_per_epoch", "total_samples"),
                            ("labels", "minibatch_labels"))
 
         # Add decision unit
         self.decision = decision.Decision(self)
-        self.decision.link_from(self.ev)
+        self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "class_samples",
                                  "no_more_minibatches_left")
         self.decision.link_attrs(
-            self.ev,
+            self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
@@ -139,26 +139,26 @@ class Workflow(nn_units.NNWorkflow):
         self._create_gradient_descent_units()
 
         # repeater and gate block
-        self.repeater.link_from(self.gd[0])
-        self.end_point.link_from(self.gd[0])
+        self.repeater.link_from(self.gds[0])
+        self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
     def _create_gradient_descent_units(self):
         '''
-        Creates gradient descent units for previously made self.forward.
+        Creates gradient descent units for previously made self.fwds.
         Feeds their inputs with respect of their order.
         '''
-        self.gd = []
-        for i, fwd_elm in enumerate(self.forward):
+        self.gds = []
+        for i, fwd_elm in enumerate(self.fwds):
             if isinstance(fwd_elm, conv.ConvRELU):
-                grad_elm = gd_conv.GDRELU(
+                grad_elm = gd_conv.GDRELUConv(
                     self, n_kernels=fwd_elm.n_kernels, kx=fwd_elm.kx,
                     ky=fwd_elm.ky, sliding=fwd_elm.sliding,
                     padding=fwd_elm.padding, device=self.device)
 
             elif isinstance(fwd_elm, conv.ConvTanh):
-                grad_elm = gd_conv.GDTanh(
+                grad_elm = gd_conv.GDTanhConv(
                     self, n_kernels=fwd_elm.n_kernels,
                     kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
                     padding=fwd_elm.padding, device=self.device)
@@ -193,29 +193,29 @@ class Workflow(nn_units.NNWorkflow):
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
 
-            self.gd.append(grad_elm)
+            self.gds.append(grad_elm)
 
             grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"),
                                 "weights", "bias")
             grad_elm.gate_skip = self.decision.gd_skip
 
-        for i in range(len(self.gd) - 1):
-            self.gd[i].link_from(self.gd[i + 1])
-            self.gd[i].link_attrs(self.gd[i + 1], ("err_y", "err_h"))
+        for i in range(len(self.gds) - 1):
+            self.gds[i].link_from(self.gds[i + 1])
+            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
 
-        self.gd[-1].link_from(self.decision)
-        self.gd[-1].link_attrs(self.ev, "err_y")
+        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_attrs(self.evaluator, "err_y")
 
     def _link_last_forward_with(self, new_unit):
         '''
-        Adds a new forward unit to self.forward, links it with previous unit
-        by link_from and link_attrs. If self.forward is empty, raises error.
+        Adds a new fwds unit to self.fwds, links it with previous unit
+        by link_from and link_attrs. If self.fwds is empty, raises error.
         '''
-        assert self.forward
-        prev_forward_unit = self.forward[-1]
+        assert self.fwds
+        prev_forward_unit = self.fwds[-1]
         new_unit.link_from(prev_forward_unit)
         new_unit.link_attrs(prev_forward_unit, ("input", "output"))
-        self.forward.append(new_unit)
+        self.fwds.append(new_unit)
 
     def initialize(self, global_alpha, global_lambda, device):
         super(Workflow, self).initialize(global_alpha=global_alpha,
