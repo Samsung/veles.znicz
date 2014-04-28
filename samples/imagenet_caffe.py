@@ -33,7 +33,7 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        kwargs["name"] = kwargs.get("name", "MNIST")
+        kwargs["name"] = kwargs.get("name", "ImageNet")
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
@@ -59,64 +59,63 @@ class Workflow(nn_units.NNWorkflow):
 
         pool1 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
-        self._link_last_forward_with(pool1)
+        self._add_forward_unit(pool1)
 
-        # TODO: normalization, gaussian filling
+        # TODO: gaussian filling
         norm1 = normalization.LRNormalizerForward(self, device=device)
-        self._link_last_forward_with(norm1)
+        self._add_forward_unit(norm1)
 
         # Layer 2 (CONV + POOL)
         conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
                               sliding=(1, 1), padding=(2, 2, 2, 2),
                               device=device)
-        self._link_last_forward_with(conv2)
+        self._add_forward_unit(conv2)
 
         pool2 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
-        self._link_last_forward_with(pool2)
+        self._add_forward_unit(pool2)
 
         # Layer 3 (CONV)
         conv3 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
                               device=device)
-        self._link_last_forward_with(conv3)
+        self._add_forward_unit(conv3)
 
         # Layer 4 (CONV)
         conv4 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
                               device=device)
-        self._link_last_forward_with(conv4)
+        self._add_forward_unit(conv4)
 
         # Layer 5 (CONV + POOL)
         conv5 = conv.ConvRELU(self, n_kernels=256, kx=3, ky=3,
                               sliding=(1, 1), padding=(1, 1, 1, 1),
                               device=device)
-        self._link_last_forward_with(conv5)
+        self._add_forward_unit(conv5)
 
         pool5 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
-        self._link_last_forward_with(pool5)
+        self._add_forward_unit(pool5)
 
         # Layer 6 (FULLY CONNECTED + 50% dropout)
         fc6 = all2all.All2AllRELU(self, output_shape=4096, device=device)
-        self._link_last_forward_with(fc6)
+        self._add_forward_unit(fc6)
 
         drop6 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
-        self._link_last_forward_with(drop6)
+        self._add_forward_unit(drop6)
 
 
-        # Layer 7 (FULLY CONNECTED)
+        # Layer 7 (FULLY CONNECTED + 50% dropout)
         fc7 = all2all.All2AllRELU(self, output_shape=4096, device=device)
-        self._link_last_forward_with(fc7)
+        self._add_forward_unit(fc7)
 
         drop7 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
-        self._link_last_forward_with(drop7)
-            # TODO: dropout
+        self._add_forward_unit(drop7)
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(self, output_shape=1000,
                                        device=device)
-        self._link_last_forward_with(fc8sm)
+        self._add_forward_unit(fc8sm)
 
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
@@ -215,15 +214,22 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.evaluator, "err_y")
 
-    def _link_last_forward_with(self, new_unit):
+    def _add_forward_unit(self, new_unit):
         '''
-        Adds a new fwds unit to self.fwds, links it with previous unit
-        by link_from and link_attrs. If self.fwds is empty, raises error.
+        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
+        by link_from and link_attrs. If self.fwds is empty, links unit with
+        self.loader
         '''
-        assert self.fwds
-        prev_forward_unit = self.fwds[-1]
+
+        if self.fwds:
+            prev_forward_unit = self.fwds[-1]
+            new_unit.link_attrs(prev_forward_unit, ("input", "output"))
+        else:
+            assert self.loader is not None
+            prev_forward_unit = self.loader
+            new_unit.link_attrs(self.loader, ("input", "minibatch_data"))
+
         new_unit.link_from(prev_forward_unit)
-        new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         self.fwds.append(new_unit)
 
     def initialize(self, global_alpha, global_lambda, device):
