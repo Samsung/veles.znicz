@@ -122,8 +122,7 @@ class All2All(nn_units.Forward):
                 self.rand.fill(self.bias.v, -self.weights_magnitude,
                                self.weights_magnitude)
             elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.v,
-                                           self.bias.v, 0, self.weights_stddev)
+                self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
             else:
                 assert False
 
