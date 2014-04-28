@@ -10,7 +10,7 @@ from veles.config import root
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import gd, gd_conv, gd_pooling
-from veles.znicz import normalization
+from veles.znicz import normalization, dropout
 from veles.znicz.samples.imagenet.loader import LoaderDetection
 
 
@@ -39,7 +39,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = LoaderDetection(self,
-                                     ipath="/data/imagenet/2013",
+                                      ipath="/data/imagenet/2013",
                                       dbpath="/data/imagenet/2013/db",
                                       year="2013", series="img")
         self.loader.setup(level=logging.DEBUG)
@@ -97,16 +97,20 @@ class Workflow(nn_units.NNWorkflow):
                                    device=device)
         self._link_last_forward_with(pool5)
 
-        # Layer 6 (FULLY CONNECTED)
+        # Layer 6 (FULLY CONNECTED + 50% dropout)
         fc6 = all2all.All2AllRELU(self, output_shape=4096, device=device)
         self._link_last_forward_with(fc6)
 
-            # TODO: dropout
+        drop6 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
+        self._link_last_forward_with(drop6)
+
 
         # Layer 7 (FULLY CONNECTED)
         fc7 = all2all.All2AllRELU(self, output_shape=4096, device=device)
         self._link_last_forward_with(fc7)
 
+        drop7 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
+        self._link_last_forward_with(drop7)
             # TODO: dropout
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
@@ -189,6 +193,11 @@ class Workflow(nn_units.NNWorkflow):
                 grad_elm = normalization.LRNormalizerBackward(
                     self, alpha=fwd_elm.alpha, beta=fwd_elm.beta,
                     k=fwd_elm.k, n=fwd_elm.n)
+
+            elif isinstance(fwd_elm, dropout.DropoutForward):
+                grad_elm = dropout.DropoutBackward(
+                    self, dropout_ratio=fwd_elm.dropout_ratio,
+                    device=self.device)
 
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
