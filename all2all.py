@@ -163,6 +163,14 @@ class All2All(nn_units.Forward):
             self.krn_.set_arg(2, self.output.v_)
             self.krn_.set_arg(3, self.bias.v_)
 
+        output_size = int(self.output.v.size // self.output.v.shape[0])
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
+        self._global_size_ = [formats.roundup(output_size, block_size),
+                              formats.roundup(self.output.v.shape[0],
+                                              block_size)]
+        self._local_size_ = [block_size, block_size]
+
     def print_times(self, t_start):
         """Show some statistics.
         """
@@ -194,15 +202,9 @@ class All2All(nn_units.Forward):
         self.input.unmap()
         self.weights.unmap()
         self.bias.unmap()
-        output_size = int(self.output.v.size //
-                          self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
-        global_size = [formats.roundup(output_size, block_size),
-                       formats.roundup(self.output.v.shape[0], block_size)]
-        local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_, global_size, local_size)
-        event.wait()
+
+        self.execute_kernel(self.krn_, self._global_size_,
+                            self._local_size_).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -220,13 +222,6 @@ class All2All(nn_units.Forward):
         v = numpy.dot(a, b)
         v += self.bias.v
         self.output.v[:] = v[:]
-
-    def run(self):
-        t1 = time.time()
-        retval = super(All2All, self).run()
-        if retval:
-            return retval
-        self.print_times(t1)
 
 
 class All2AllTanh(All2All):
@@ -247,9 +242,7 @@ class All2AllTanh(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        retval = super(All2AllTanh, self).cpu_run()
-        if retval:
-            return retval
+        super(All2AllTanh, self).cpu_run()
         self.output.map_write()
         v = self.output.v.copy()
         v *= 0.6666
@@ -269,9 +262,7 @@ class All2AllRELU(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        retval = super(All2AllRELU, self).cpu_run()
-        if retval:
-            return retval
+        super(All2AllRELU, self).cpu_run()
         self.output.map_write()
         v = self.output.v.copy()
         self.output.v[:] = numpy.where(v > 15, v,
@@ -348,15 +339,11 @@ class All2AllSoftmax(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        retval = super(All2AllSoftmax, self).cpu_run()
-        if retval:
-            return retval
+        super(All2AllSoftmax, self).cpu_run()
         self.cpu_apply_exp()
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        retval = super(All2AllSoftmax, self).ocl_run()
-        if retval:
-            return retval
+        super(All2AllSoftmax, self).ocl_run()
         self.gpu_apply_exp()
