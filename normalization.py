@@ -113,6 +113,7 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         h_squared = np.square(self.h.v)
 
         h_subsums = self._subsums(h_squared, self.n)
+
         h_subsums *= self.alpha
         h_subsums += self.k
 
@@ -125,12 +126,10 @@ class LRNormalizerBackward(LocalResponseNormalizer):
             min_index = max(0, i - int(self.n / 2))
             max_index = min(i + int(self.n / 2), num_of_chans - 1)
 
+            dh = np.zeros(dtype=np.float64, shape=delta_h[:, :, :, i].shape)
             for j in range(min_index, max_index + 1):
-                dh_j = np.zeros(dtype=np.float64,
-                                shape=delta_h[:, :, :, i].shape)
                 if i == j:
-                    dh_j += h_subsums[:, :, :, j]
-                dh_j -= 2 * self.beta * self.alpha * self.h.v[:, :, :, i] * \
-                    self.h.v[:, :, :, j]
-                dh_j *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
-            delta_h[:, :, :, i] += dh_j
+                    dh += h_subsums[:, :, :, j]
+                dh -= 2 * self.beta * self.alpha * self.h.v[:, :, :, i] * self.h.v[:, :, :, j]
+                dh *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
+            delta_h[:, :, :, i] += dh
