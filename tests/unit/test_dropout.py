@@ -28,6 +28,7 @@ class TestNormalization(unittest.TestCase):
         workflow = DummyWorkflow()
         fwd_dropout = DropoutForward(workflow, dropout_ratio=0.5)
         fwd_dropout.input = Vector()
+        fwd_dropout.output = Vector()
         in_vector = np.zeros(shape=(1, 1, 5, 5), dtype=np.float64)
 
         for i in range(5):
@@ -40,7 +41,7 @@ class TestNormalization(unittest.TestCase):
         device = Device()
         fwd_dropout.initialize(device)
 
-        fwd_dropout.run()
+        fwd_dropout.cpu_run()
 
         logging.info("FWD")
         logging.info(fwd_dropout.output.v)
@@ -62,7 +63,7 @@ class TestNormalization(unittest.TestCase):
         logging.info("Y_ERR")
         logging.info(y_err_vector)
 
-        back_drouput.run()
+        back_drouput.cpu_run()
         logging.info("BACK")
         logging.info(back_drouput.err_h.v)
 
