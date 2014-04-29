@@ -51,7 +51,6 @@ class DropoutForward(Dropout):
         self.output = None  # output value of forward layer
         self.states = formats.Vector()
         self.rnd = kwargs.get("rnd", rnd.default)
-
         super(DropoutForward, self).__init__(workflow, **kwargs)
 
     @Dropout.dropout_ratio.setter
@@ -63,10 +62,17 @@ class DropoutForward(Dropout):
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
         self.calc_weights()
-        self.states.v = self.rnd.randint(low=0, high=0xFFFFFFFF,
-                                         size=self.input.v.size * 4)
+        self.states.v = self.rnd.randint(
+            low=0, high=0x100000000,
+            size=self.input.v.size * 4).astype(np.uint32)
+        if self.output is None:
+            self.output = self.input
+        elif self.output.v is None:
+            self.output.v = self.input.v.copy()
+        self.input.initialize(device)
         self.states.initialize(device)
         self.weights.initialize(device)
+        self.output.initialize(device)
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
         self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
         sample_size = self.input.v.size // self.input.v.shape[0]
@@ -77,8 +83,6 @@ class DropoutForward(Dropout):
 
         self.krn_ = self.get_kernel("dropout_forward")
         self.krn_.set_arg(0, self.input.v_)
-        self.krn_.set_arg(1, self._threshold_arg_)
-        self.krn_.set_arg(2, self._pass_arg_)
         self.krn_.set_arg(3, self.states.v_)
         self.krn_.set_arg(4, self.weights.v_)
         self.krn_.set_arg(5, self.output.v_)
@@ -102,8 +106,14 @@ class DropoutForward(Dropout):
         self.calc_weights()
 
     def ocl_run(self):
-        self._threshold_arg_[0] = 0xffffffffffffffff * self.dropout_ratio
+        self.input.unmap()
+        self.states.unmap()
+        self.weights.unmap()
+        self.output.unmap()
+        self._threshold_arg_[0] = 18446744073709551616.0 * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
+        self.krn_.set_arg(1, self._threshold_arg_)
+        self.krn_.set_arg(2, self._pass_arg_)
         self.execute_kernel(self.krn_, (self.input.v.size,), None).wait()
 
 
@@ -130,8 +140,8 @@ class DropoutBackward(Dropout):
         self.err_h.map_invalidate()
         self.err_y.map_read()
         self.weights.map_read()
-
-        self.err_h.v = self.err_y.v * self.weights.v
+        np.multiply(self.err_y.v.ravel(), self.weights.v.ravel(),
+                    formats.ravel(self.err_h.v))
 
     def ocl_run(self):
         self.execute_kernel(self.krn_).wait()

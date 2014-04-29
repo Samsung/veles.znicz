@@ -6,7 +6,6 @@ Created on April 25, 2014
 
 A unit test for drouput layer.
 """
-
 import unittest
 import logging
 import numpy as np
@@ -44,7 +43,10 @@ class TestNormalization(unittest.TestCase):
         fwd_dropout.ocl_run()
 
         logging.info("FWD")
+        fwd_dropout.output.map_read()
         logging.info(fwd_dropout.output.v)
+        logging.info("%.2f", 1.0 - (np.count_nonzero(fwd_dropout.output.v) /
+                     fwd_dropout.output.v.size))
 
         back_drouput = DropoutBackward(workflow, drouput_ratio=0.5)
         back_drouput.h = fwd_dropout.input
