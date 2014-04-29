@@ -12,6 +12,7 @@ import logging
 import numpy
 import os
 import pickle
+import re
 import six
 
 from veles.config import root, get
@@ -99,7 +100,6 @@ class Loader(loader.Loader):
 
         self.original_labels = numpy.empty(len(self.index_map),
                                            dtype=self.label_dtype)
-        import re
         lbl_re = re.compile("^(\d+)_\d+/(\d+)\.\d\.pickle$")
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
@@ -151,7 +151,7 @@ class Loader(loader.Loader):
 
         idxs = self.minibatch_indexes.v
         idxs[:minibatch_size] = self.shuffled_indexes[
-            self.minibatch_offset:self.minibatch_offset + minibatch_size]
+            self.minibatch_offset - minibatch_size:self.minibatch_offset]
 
         for i, ii in enumerate(idxs[:minibatch_size]):
             fnme = "%s/%s" % (self.train_path, self.index_map[ii])
