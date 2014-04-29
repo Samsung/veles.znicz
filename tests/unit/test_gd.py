@@ -67,7 +67,6 @@ class TestGD(unittest.TestCase):
             c.bias.map_invalidate()
             c.weights.v[:] = self.W[:]
             c.bias.v[:] = self.b[:]
-            c.cpu_run = c.dereference_attributes(c.cpu_run)
             c.cpu_run()
             c.weights.map_read()
             self.W_cpu = c.weights.v.copy()
@@ -76,7 +75,6 @@ class TestGD(unittest.TestCase):
         else:
             self.W = c.weights.v.copy()
             self.b = c.bias.v.copy()
-            c.ocl_run = c.dereference_attributes(c.ocl_run)
             c.ocl_run()
             c.weights.map_read()
             self.W_gpu = c.weights.v.copy()
