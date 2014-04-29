@@ -227,17 +227,21 @@ class All2All(nn_units.Forward):
 class All2AllTanh(All2All):
     """All2All with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
     """
+    A = 1.7159
+    B = 0.6666
+    C = 9.0  # tanh(C) -> 1
+
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
         super(All2AllTanh, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 1.7159
+        self.output.supposed_maxvle = All2AllTanh.A
 
     def get_weights_magnitude(self):
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
-            return (1.0 / (self.input.supposed_maxvle * 0.6666) /
+            return (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
                     (self.input.v.size // self.input.v.shape[0]))
-        return (9.0 / (self.input.supposed_maxvle * 0.6666) /
-                (self.input.v.size // self.input.v.shape[0]))
+        return (All2AllTanh.C / (self.input.supposed_maxvle * All2AllTanh.B *
+                                 self.input.v.size // self.input.v.shape[0]))
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -245,9 +249,9 @@ class All2AllTanh(All2All):
         super(All2AllTanh, self).cpu_run()
         self.output.map_write()
         v = self.output.v.copy()
-        v *= 0.6666
+        v *= All2AllTanh.B
         numpy.tanh(v, v)
-        v *= 1.7159
+        v *= All2AllTanh.A
         self.output.v[:] = v[:]
 
 
