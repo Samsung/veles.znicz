@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Computes backprogated error for previous layer:
 ///        err_h = err_y * weights

@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Joins two minibatch inputs into one.
 /// @param output Output.

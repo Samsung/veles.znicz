@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /* TODO(a.kazantsev): implement properly.
 /// @brief For each sample, outputs the distances to the targets.

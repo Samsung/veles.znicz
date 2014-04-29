@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Evaluate softmax.
 /// @author: Kazantsev Alexey <a.kazantsev@samsung.com>

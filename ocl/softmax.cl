@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /*
  * Applies softmax exponent.

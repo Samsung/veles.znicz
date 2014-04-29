@@ -2,6 +2,7 @@
 #define USE_ATOMICS 1
 #endif
 #include "defines.cl"
+#include "highlight.cl"
 
 
 #define MINIMUM(a, b) ((a) < (b) ? (a) : (b))

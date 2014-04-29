@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Updates backpropagated error by activation derivative.
 /// @author Kazantsev Alexey <a.kazantsev@samsung.com>

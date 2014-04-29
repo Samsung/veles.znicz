@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /* @brief Kernels for convolutional layer gradient descent.
  * @author Kazantsev Alexey <a.kazantsev@samsung.com>

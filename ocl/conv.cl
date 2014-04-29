@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Feeds 2D multichannel convolutional layer with activation function:
 ///        linear activation: x;

@@ -1,4 +1,5 @@
 #include "defines.cl"
+#include "highlight.cl"
 
 /// @brief Feeds all-to-all layer with activation function:
 ///        linear activation: x;

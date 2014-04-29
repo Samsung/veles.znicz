@@ -1,9 +1,4 @@
-// hack for highlighting syntax in OpenCL *.cl files without errors
-#ifndef __OPENCL_VERSION__
-#define __kernel
-#define __global
-#define __local
-#endif  // __OPENCL_VERSION__
+#include "highlight.cl"
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
