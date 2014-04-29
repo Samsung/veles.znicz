@@ -109,7 +109,6 @@ class Workflow(nn_units.NNWorkflow):
         drop6 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
         self._add_forward_unit(drop6)
 
-
         # Layer 7 (FULLY CONNECTED + 50% dropout)
         fc7 = all2all.All2AllRELU(
             self, output_shape=4096, weights_filling="gaussian",
@@ -129,9 +128,10 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(fc8sm)
         self.evaluator.link_attrs(fc8sm, ("y", "output"), "max_idx")
-        self.evaluator.link_attrs(self.loader, ("batch_size", "minibatch_size"),
-                           ("max_samples_per_epoch", "total_samples"),
-                           ("labels", "minibatch_labels"))
+        self.evaluator.link_attrs(self.loader,
+                                  ("batch_size", "minibatch_size"),
+                                  ("max_samples_per_epoch", "total_samples"),
+                                  ("labels", "minibatch_labels"))
 
         # Add decision unit
         self.decision = decision.Decision(self)

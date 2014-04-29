@@ -41,7 +41,8 @@ class All2All(nn_units.Forward):
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
 
-        weights_filling: rand weight filling ("unirofm" (default) or "gaussian")
+        weights_filling: rand weight filling
+                         ("unirofm" (default) or "gaussian")
         weights_magnitude: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
     """

@@ -13,9 +13,11 @@ import numpy as np
 from veles import units
 from veles import formats
 
+
 class Dropout(units.Unit):
     """
-    A base class for forward and backward units of local response normalization.
+    A base class for forward and backward units of local
+    response normalization.
     """
     def __init__(self, workflow, **kwargs):
         # what fraction of inputs to disable
@@ -45,7 +47,7 @@ class DropoutForward(Dropout):
     def initialize(self, **kwargs):
         super(DropoutForward, self).initialize(**kwargs)
         self.output.v = np.zeros(shape=self.input.v.shape,
-                                   dtype=self.input.v.dtype)
+                                 dtype=self.input.v.dtype)
 
     def run(self):
         self.output.map_invalidate()
@@ -72,11 +74,10 @@ class DropoutBackward(Dropout):
 
         super(DropoutBackward, self).__init__(workflow, **kwargs)
 
-
     def initialize(self, **kwargs):
         super(DropoutBackward, self).initialize(**kwargs)
         self.err_h.v = np.zeros(shape=self.err_y.v.shape,
-                                   dtype=self.err_y.v.dtype)
+                                dtype=self.err_y.v.dtype)
 
     def run(self):
         self.err_h.map_invalidate()

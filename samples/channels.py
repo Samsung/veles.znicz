@@ -71,27 +71,27 @@ root.defaults = {"accumulator": {"n_bars": 30},
                             "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 64},
                  "channels": {"export": False,
-                                   "find_negative": 0,
-                                   "global_alpha": 0.001,
-                                   "global_lambda": 0.004,
-                                   "layers":
-                                   [{"type": "conv", "n_kernels": 32,
-                                     "kx": 5, "ky": 5,
-                                     "padding": (2, 2, 2, 2)},
-                                    {"type": "max_pooling",
-                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
-                                    {"type": "conv", "n_kernels": 32,
-                                     "kx": 5, "ky": 5, "padding":
-                                     (2, 2, 2, 2)},
-                                    {"type": "avg_pooling",
-                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
-                                    {"type": "conv", "n_kernels": 64,
-                                     "kx": 5, "ky": 5,
-                                     "padding": (2, 2, 2, 2)},
-                                    {"type": "avg_pooling",
-                                     "kx": 3, "ky": 3, "sliding": (2, 2)},
-                                    {"type": "softmax", "layers": 10}],
-                                   "snapshot": ""}}
+                              "find_negative": 0,
+                              "global_alpha": 0.001,
+                              "global_lambda": 0.004,
+                              "layers":
+                              [{"type": "conv", "n_kernels": 32,
+                                "kx": 5, "ky": 5,
+                                "padding": (2, 2, 2, 2)},
+                               {"type": "max_pooling",
+                                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                               {"type": "conv", "n_kernels": 32,
+                                "kx": 5, "ky": 5, "padding":
+                                (2, 2, 2, 2)},
+                               {"type": "avg_pooling",
+                                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                               {"type": "conv", "n_kernels": 64,
+                                "kx": 5, "ky": 5,
+                                "padding": (2, 2, 2, 2)},
+                               {"type": "avg_pooling",
+                                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                               {"type": "softmax", "layers": 10}],
+                              "snapshot": ""}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -248,7 +248,6 @@ class Loader(loader.FullBatchLoader):
         a = self.from_jp2(fnme)
 
         sample = self.sample_rect(a, pos, sz)
-
         if self.do_swap_axis is True:
             sample = numpy.swapaxes(sample, 0, 1)
             sample = numpy.swapaxes(sample, 1, 2)
@@ -675,15 +674,12 @@ class Workflow(nn_units.NNWorkflow):
             elif layer["type"] == "relu":
                 aa = all2all.All2AllRELU(
                     self, output_shape=[layer["layers"]], device=device)
-
             elif layer["type"] == "tanh":
                 aa = all2all.All2AllTanh(
                     self, output_shape=[layer["layers"]], device=device)
-
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
                     self, output_shape=[layer["layers"]], device=device)
-
             else:
                 raise error.ErrBadFormat("Unsupported layer type %s" %
                                          (layer["type"]))

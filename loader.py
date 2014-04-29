@@ -326,9 +326,9 @@ class Loader(units.Unit):
         current epoch.
         """
         for i, n in enumerate(self.class_samples):
-                self.no_more_minibatches_left[i] |= (not n
-                                                     if override_value is None
-                                                     else override_value)
+            self.no_more_minibatches_left[i] |= (not n
+                                                 if override_value is None
+                                                 else override_value)
 
     def _prepare_next_minibatch(self):
         """Increments minibatch_offset by an appropriate minibatch_size.

@@ -32,7 +32,6 @@ class TestNormalization(unittest.TestCase):
         for i in range(5):
             in_vector[0, 0, i, :] = np.linspace(10, 50, 5) * (i + 1)
 
-
         logging.info("IN_VECTOR")
         logging.info(in_vector)
 
@@ -44,7 +43,8 @@ class TestNormalization(unittest.TestCase):
         logging.info("FWD")
         logging.info(fwd_dropout.output.v)
 
-        back_drouput = DropoutBackward(workflow, device=None, drouput_ratio=0.5)
+        back_drouput = DropoutBackward(workflow, device=None,
+                                       drouput_ratio=0.5)
         back_drouput.h = fwd_dropout.input
         back_drouput.y = fwd_dropout.output
         back_drouput.weights = fwd_dropout.weights

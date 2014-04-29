@@ -353,11 +353,11 @@ class Workflow(nn_units.NNWorkflow):
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
         if weights is not None:
-            for i, forward in enumerate(self.fwds):
+            for i, fwds in enumerate(self.fwds):
                 fwds.weights.map_invalidate()
                 fwds.weights.v[:] = weights[i][:]
         if bias is not None:
-            for i, forward in enumerate(self.fwds):
+            for i, fwds in enumerate(self.fwds):
                 fwds.bias.map_invalidate()
                 fwds.bias.v[:] = bias[i][:]
 
@@ -374,7 +374,7 @@ def run(load, main):
         else:
             logging.info("Will load workflow")
             logging.info("Weights and bias ranges per layer are:")
-            for forward in w.fwds:
+            for fwds in w.fwds:
                 logging.info("%f %f %f %f" % (
                     fwds.weights.v.min(), fwds.weights.v.max(),
                     fwds.bias.v.min(), fwds.bias.v.max()))
