@@ -41,7 +41,7 @@ class TestNormalization(unittest.TestCase):
         device = Device()
         fwd_dropout.initialize(device)
 
-        fwd_dropout.cpu_run()
+        fwd_dropout.ocl_run()
 
         logging.info("FWD")
         logging.info(fwd_dropout.output.v)

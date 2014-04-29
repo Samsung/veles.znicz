@@ -10,9 +10,8 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 
 import numpy as np
 
-from veles import OpenCLUnit
-import veles.opencl_types as opencl_types
-from veles import formats
+from veles import config, formats, OpenCLUnit
+import veles.rnd as rnd
 
 
 class Dropout(OpenCLUnit):
@@ -23,6 +22,10 @@ class Dropout(OpenCLUnit):
     def __init__(self, workflow, **kwargs):
         super(Dropout, self).__init__(workflow, **kwargs)
         self.dropout_ratio = kwargs.get("dropout_ratio", 0.5)
+
+    def init_unpickled(self):
+        super(Dropout, self).init_unpickled()
+        self.cl_sources_["dropout.cl"] = {}
 
     @property
     def dropout_ratio(self):
@@ -46,6 +49,8 @@ class DropoutForward(Dropout):
         self.input = None  # input value of forward layer
         self.weights = formats.Vector()  # dropout mask
         self.output = None  # output value of forward layer
+        self.states = formats.Vector()
+        self.rnd = kwargs.get("rnd", rnd.default)
 
         super(DropoutForward, self).__init__(workflow, **kwargs)
 
@@ -58,20 +63,35 @@ class DropoutForward(Dropout):
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
         self.calc_weights()
-        output_size = int(self.input.v.size // self.input.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
-        self._global_size_ = [formats.roundup(output_size, block_size),
-                              formats.roundup(self.input.v.shape[0],
-                                              block_size)]
-        self._local_size_ = [block_size, block_size]
+        self.states.v = self.rnd.randint(low=0, high=0xFFFFFFFF,
+                                         size=self.input.v.size * 4)
+        self.states.initialize(device)
+        self.weights.initialize(device)
+        self._threshold_arg_ = np.empty(1, dtype=np.uint64)
+        self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
+        sample_size = self.input.v.size // self.input.v.shape[0]
+
+        self.build_program({}, "%s/dropout_forward_%d.cl" %
+                           (config.root.common.cache_dir, sample_size),
+                            dtype=self.input.v.dtype)
+
+        self.krn_ = self.get_kernel("dropout_forward")
+        self.krn_.set_arg(0, self.input.v_)
+        self.krn_.set_arg(1, self._threshold_arg_)
+        self.krn_.set_arg(2, self._pass_arg_)
+        self.krn_.set_arg(3, self.states.v_)
+        self.krn_.set_arg(4, self.weights.v_)
+        self.krn_.set_arg(5, self.output.v_)
 
     def calc_weights(self):
         leave_ratio = 1.0 - self.dropout_ratio
         self.weights.v = np.random.uniform(low=-self.dropout_ratio,
                                            high=leave_ratio,
-                                           size=self.input.v.shape)
-        self.weights.v = np.maximum(self.weights.v, 0) / leave_ratio
+                                           size=self.input.v.size)
+        np.maximum(self.weights.v, 0, self.weights.v)
+        np.ceil(self.weights.v, self.weights.v)
+        self.weights.v = (self.weights.v.astype(self.input.v.dtype) /
+                          leave_ratio)
 
     def cpu_run(self):
         self.output.map_invalidate()
@@ -82,8 +102,9 @@ class DropoutForward(Dropout):
         self.calc_weights()
 
     def ocl_run(self):
-        self.execute_kernel(self.krn_, self._global_size_,
-                            self._local_size_).wait()
+        self._threshold_arg_[0] = 0xffffffffffffffff * self.dropout_ratio
+        self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
+        self.execute_kernel(self.krn_, (self.input.v.size,), None).wait()
 
 
 class DropoutBackward(Dropout):
@@ -104,15 +125,6 @@ class DropoutBackward(Dropout):
         self.err_h.v = np.zeros(shape=self.err_y.v.shape,
                                 dtype=self.err_y.v.dtype)
         assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
-        """
-        output_size = int(self.output.v.size // self.output.v.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
-        self._global_size_ = [formats.roundup(output_size, block_size),
-                              formats.roundup(self.output.v.shape[0],
-                                              block_size)]
-        self._local_size_ = [block_size, block_size]
-        """
 
     def cpu_run(self):
         self.err_h.map_invalidate()
