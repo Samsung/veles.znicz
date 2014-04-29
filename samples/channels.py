@@ -248,7 +248,7 @@ class Loader(loader.FullBatchLoader):
         a = self.from_jp2(fnme)
 
         sample = self.sample_rect(a, pos, sz)
-        
+
         if self.do_swap_axis is True:
             sample = numpy.swapaxes(sample, 0, 1)
             sample = numpy.swapaxes(sample, 1, 2)
@@ -366,16 +366,13 @@ class Loader(loader.FullBatchLoader):
 
             self.shuffled_indexes = pickle.load(fin)
             self.original_labels = pickle.load(fin)
-            sh = ([self.rect[1], self.rect[0]] if self.grayscale
-                  else [self.rect[1], self.rect[0], 3])
-            n = int(numpy.prod(sh))
             # Get raw array from file
             self.original_data = []
             store_negative = self.w_neg is not None and self.find_negative > 0
             old_file_map = []
             n_not_exists_anymore = 0
             for i in range(len(self.original_labels)):
-                a = numpy.fromfile(fin, dtype=numpy.float32, count=n)
+                a = pickle.load(fin)
                 if store_negative:
                     if self.original_labels[i]:
                         del a
@@ -385,7 +382,7 @@ class Loader(loader.FullBatchLoader):
                         del a
                         continue
                     old_file_map.append(self.file_map[i])
-                self.original_data.append(a.reshape(sh))
+                self.original_data.append(a)
             self.rnd[0].state = pickle.load(fin)
             fin.close()
             self.info("Succeeded")
@@ -593,7 +590,7 @@ class Loader(loader.FullBatchLoader):
         pickle.dump(self.original_labels, fout)
         # Because pickle doesn't support greater than 4Gb arrays
         for i in range(len(self.original_data)):
-            self.original_data[i].ravel().tofile(fout)
+            pickle.dump(self.original_data[i], fout)
         # Save random state
         pickle.dump(self.rnd[0].state, fout)
         fout.close()
@@ -678,15 +675,15 @@ class Workflow(nn_units.NNWorkflow):
             elif layer["type"] == "relu":
                 aa = all2all.All2AllRELU(
                     self, output_shape=[layer["layers"]], device=device)
-            
+
             elif layer["type"] == "tanh":
                 aa = all2all.All2AllTanh(
                     self, output_shape=[layer["layers"]], device=device)
-            
+
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
                     self, output_shape=[layer["layers"]], device=device)
-            
+
             else:
                 raise error.ErrBadFormat("Unsupported layer type %s" %
                                          (layer["type"]))
@@ -796,6 +793,8 @@ class Workflow(nn_units.NNWorkflow):
                 obj = gd.GDTanh(self, device=device)
             elif isinstance(self.fwds[i], all2all.All2AllRELU):
                 obj = gd.GDRELU(self, device=device)
+            elif isinstance(self.fwds[i], all2all.All2AllSoftmax):
+                obj = gd.GradientDescent(self, device=device)
             else:
                 raise ValueError("Unsupported fwds unit type "
                                  " encountered: %s" %
@@ -857,7 +856,8 @@ class Workflow(nn_units.NNWorkflow):
             if layers[i].get("n_kernels") is not None:
                 self.plt_mx[i].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky])
-            if layers[i].get("layers") is not None:
+            if (layers[i].get("layers") is not None and
+                    layers[i]["type"] != "softmax"):
                 self.plt_mx[i].link_attrs(self.fwds[i],
                                           ("get_shape_from", "input"))
             self.plt_mx[i].link_from(self.decision)
