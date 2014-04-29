@@ -12,6 +12,7 @@ import logging
 import numpy as np
 
 from veles.formats import Vector
+from veles.opencl import Device
 from veles.znicz.dropout import DropoutForward, DropoutBackward
 from veles.tests.dummy_workflow import DummyWorkflow
 
@@ -25,7 +26,7 @@ class TestNormalization(unittest.TestCase):
 
     def test_dropout(self):
         workflow = DummyWorkflow()
-        fwd_dropout = DropoutForward(workflow, device=None, dropout_ratio=0.5)
+        fwd_dropout = DropoutForward(workflow, dropout_ratio=0.5)
         fwd_dropout.input = Vector()
         in_vector = np.zeros(shape=(1, 1, 5, 5), dtype=np.float64)
 
@@ -36,15 +37,15 @@ class TestNormalization(unittest.TestCase):
         logging.info(in_vector)
 
         fwd_dropout.input.v = in_vector
-        fwd_dropout.initialize()
+        device = Device()
+        fwd_dropout.initialize(device)
 
         fwd_dropout.run()
 
         logging.info("FWD")
         logging.info(fwd_dropout.output.v)
 
-        back_drouput = DropoutBackward(workflow, device=None,
-                                       drouput_ratio=0.5)
+        back_drouput = DropoutBackward(workflow, drouput_ratio=0.5)
         back_drouput.h = fwd_dropout.input
         back_drouput.y = fwd_dropout.output
         back_drouput.weights = fwd_dropout.weights
@@ -56,7 +57,7 @@ class TestNormalization(unittest.TestCase):
         back_drouput.err_y = Vector()
         back_drouput.err_y.v = y_err_vector
 
-        back_drouput.initialize()
+        back_drouput.initialize(device)
 
         logging.info("Y_ERR")
         logging.info(y_err_vector)

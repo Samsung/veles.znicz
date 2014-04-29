@@ -42,7 +42,7 @@ class All2All(nn_units.Forward):
         weights_transposed: assume weights matrix as a transposed one.
 
         weights_filling: rand weight filling
-                         ("unirofm" (default) or "gaussian")
+                         ("uniform" (default) or "gaussian")
         weights_magnitude: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
     """

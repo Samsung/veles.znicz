@@ -10,11 +10,11 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 
 import numpy as np
 
-from veles import units
+from veles import OpenCLUnit
 from veles import formats
 
 
-class Dropout(units.Unit):
+class Dropout(OpenCLUnit):
     """
     A base class for forward and backward units of local
     response normalization.
@@ -24,16 +24,12 @@ class Dropout(units.Unit):
         self.dropout_ratio = kwargs.get("dropout_ratio", 0.5)
         assert 0. < self.dropout_ratio < 1.
         self.device = kwargs.get("device")
-
         super(Dropout, self).__init__(workflow, **kwargs)
-
-    def initialize(self, **kwargs):
-        super(Dropout, self).initialize(**kwargs)
 
 
 class DropoutForward(Dropout):
     """
-    Forward propagation of dropout layer/
+    Forward propagation of dropout layer.
     """
     def __init__(self, workflow, **kwargs):
         self.input = None  # input value of forward layer
@@ -44,21 +40,24 @@ class DropoutForward(Dropout):
 
         super(DropoutForward, self).__init__(workflow, **kwargs)
 
-    def initialize(self, **kwargs):
-        super(DropoutForward, self).initialize(**kwargs)
-        self.output.v = np.zeros(shape=self.input.v.shape,
-                                 dtype=self.input.v.dtype)
+    def initialize(self, device, **kwargs):
+        super(DropoutForward, self).initialize(device=device, **kwargs)
+        self.calc_weights()
 
-    def run(self):
+    def calc_weights(self):
+        leave_ratio = 1.0 - self.dropout_ratio
+        self.weights.v = np.random.uniform(low=-self.dropout_ratio,
+                                           high=leave_ratio,
+                                           size=self.input.v.shape)
+        self.weights.v = np.maximum(self.weights.v, 0) / leave_ratio
+
+    def cpu_run(self):
         self.output.map_invalidate()
         self.weights.map_invalidate()
         self.input.map_read()
 
-        self.weights.v = np.random.binomial(n=1, p=(1. - self.dropout_ratio),
-                                            size=self.input.v.shape)
-
-        np.copyto(self.output.v, self.input.v)
-        self.output.v *= self.weights.v * (1. / (1. - self.dropout_ratio))
+        self.output.v = self.input.v * self.weights.v
+        self.calc_weights()
 
 
 class DropoutBackward(Dropout):
@@ -74,16 +73,15 @@ class DropoutBackward(Dropout):
 
         super(DropoutBackward, self).__init__(workflow, **kwargs)
 
-    def initialize(self, **kwargs):
-        super(DropoutBackward, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(DropoutBackward, self).initialize(device=device, **kwargs)
         self.err_h.v = np.zeros(shape=self.err_y.v.shape,
                                 dtype=self.err_y.v.dtype)
+        assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
 
     def run(self):
         self.err_h.map_invalidate()
         self.err_y.map_read()
         self.weights.map_read()
 
-        assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
-        np.copyto(self.err_h.v, self.err_y.v)
-        self.err_h.v *= self.weights.v * (1. / (1. - self.dropout_ratio))
+        self.err_h.v = self.err_y.v * self.weights.v
