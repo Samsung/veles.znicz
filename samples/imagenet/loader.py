@@ -253,7 +253,8 @@ class LoaderBase(loader.Loader):
     def _get_sample(self, index):
         data = self._get_sample_raw(index)
         data -= self._mean
-        formats.normalize(data)
+        if self.normalize:
+            formats.normalize(data)
         return data
 
     def _key_file_name(self, base, full):

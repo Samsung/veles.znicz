@@ -59,6 +59,7 @@ class Loader(units.Unit):
         total_samples: total number of samples in the dataset.
         class_samples: number of samples per class.
         nextclass_offsets: offset in samples where the next class begins.
+        normalize: normalize pixel values to [-1, 1] range. True by default.
 
         shuffled_indexes: indexes for all dataset, shuffled with rnd.
 
@@ -71,11 +72,13 @@ class Loader(units.Unit):
     def __init__(self, workflow, **kwargs):
         minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
         validation_ratio = kwargs.get("validation_ratio", 0.15)
+        normalize = kwargs.get("normalize", True)
         rnd_ = kwargs.get("rnd", rnd.default)
         kwargs["minibatch_maxsize"] = minibatch_maxsize
         kwargs["validation_ratio"] = validation_ratio
         kwargs["rnd"] = rnd_
         kwargs["view_group"] = kwargs.get("view_group", "LOADER")
+        kwargs["normalize"] = normalize
         super(Loader, self).__init__(workflow, **kwargs)
 
         self.rnd = [rnd_]
@@ -103,6 +106,8 @@ class Loader(units.Unit):
 
         self.samples_served = 0
         self.validation_ratio = validation_ratio
+
+        self.normalize = normalize
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -512,7 +517,8 @@ class ImageLoader(FullBatchLoader):
         import scipy.ndimage
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)
         a = a.astype(numpy.float32)
-        formats.normalize(a)
+        if self.normalize:
+            formats.normalize(a)
         return a
 
     def get_label_from_filename(self, filename):
