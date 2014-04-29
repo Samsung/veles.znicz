@@ -630,7 +630,7 @@ class LoaderDetection(LoaderBase):
                                              dtype=numpy.int32)
 
     def fill_minibatch(self):
-        super(LoaderBase, self).fill_minibatch()
+        super(LoaderDetection, self).fill_minibatch()
         for i in range(self.minibatch_size):
             meta = self.get_object_meta(self.shuffled_indexes[i])
             if meta[2] is not None:
@@ -730,17 +730,17 @@ class LoaderBoundingBox(LoaderBase):
         aperture = kwargs.get("aperture",
                               config.get(config.root.imagenet.aperture)
                               or 4000)
-        super(LoaderDetection, self).__init__(workflow, aperture, **kwargs)
+        super(LoaderBoundingBox, self).__init__(workflow, aperture, **kwargs)
         self.max_detected_bboxes = 10
 
     def create_minibatches(self):
-        super(LoaderDetection, self).create_minibatches()
+        super(LoaderBoundingBox, self).create_minibatches()
         # label = category index + xmin + ymin + xmax + ymax
         label_size = self.minibatch_maxsize * 5 * self._max_detected_bboxes
         self.minibatch_labels << numpy.zeros(label_size, dtype=numpy.int32)
 
     def fill_minibatch(self):
-        super(LoaderBase, self).fill_minibatch()
+        super(LoaderBoundingBox, self).fill_minibatch()
         stride = 5 * self._max_detected_bboxes
         for i in range(self.minibatch_size):
             index = self.shuffled_indexes[i]
