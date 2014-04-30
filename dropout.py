@@ -142,4 +142,5 @@ class DropoutBackward(Dropout):
                     formats.ravel(self.err_h.v))
 
     def ocl_run(self):
-        self.execute_kernel(self.krn_).wait()
+        return self.cpu_run()
+    # TODO: implement backward propagation kernel

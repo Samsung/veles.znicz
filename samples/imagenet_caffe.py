@@ -60,7 +60,6 @@ class Workflow(nn_units.NNWorkflow):
                                    device=device)
         self._add_forward_unit(pool1)
 
-        # TODO: gaussian filling
         norm1 = normalization.LRNormalizerForward(self, device=device)
         self._add_forward_unit(norm1)
 
@@ -211,8 +210,17 @@ class Workflow(nn_units.NNWorkflow):
 
             self.gds.append(grad_elm)
 
-            grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"),
-                                "weights", "bias")
+            grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"))
+
+            # LRN has no weights
+            if not isinstance(grad_elm, normalization.LRNormalizerBackward):
+                grad_elm.link_attrs(fwd_elm, "weights")
+
+            # LRN and droupout units have no biases
+            if not (isinstance(grad_elm, dropout.DropoutBackward) or
+                    isinstance(grad_elm, normalization.LRNormalizerBackward)):
+                grad_elm.link_attrs(fwd_elm, "bias")
+
             grad_elm.gate_skip = self.decision.gd_skip
 
         for i in range(len(self.gds) - 1):
