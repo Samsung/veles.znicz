@@ -70,18 +70,13 @@ class Loader(units.Unit):
     """
 
     def __init__(self, workflow, **kwargs):
-        minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
-        validation_ratio = kwargs.get("validation_ratio", 0.15)
-        normalize = kwargs.get("normalize", True)
-        rnd_ = kwargs.get("rnd", rnd.default)
-        kwargs["minibatch_maxsize"] = minibatch_maxsize
-        kwargs["validation_ratio"] = validation_ratio
-        kwargs["rnd"] = rnd_
-        kwargs["view_group"] = kwargs.get("view_group", "LOADER")
-        kwargs["normalize"] = normalize
+        kwargs["view_group"] = "LOADER"
         super(Loader, self).__init__(workflow, **kwargs)
 
-        self.rnd = [rnd_]
+        self._rnd = [kwargs.get("rnd", rnd.default)]
+        self._normalize = kwargs.get("normalize", True)
+        self.minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
+        self.validation_ratio = kwargs.get("validation_ratio", 0.15)
 
         self.minibatch_data = formats.Vector()
         self.minibatch_target = formats.Vector()
@@ -99,19 +94,23 @@ class Loader(units.Unit):
 
         self.minibatch_offset = 0
         self.minibatch_size = 0
-        self.minibatch_maxsize = minibatch_maxsize
 
         self.shuffled_indexes = None
         self.original_labels = None
 
         self.samples_served = 0
-        self.validation_ratio = validation_ratio
-
-        self.normalize = normalize
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
         self._minibatch_serve_timestamp_ = time.time()
+
+    @property
+    def rnd(self):
+        return self._rnd
+
+    @property
+    def normalize(self):
+        return self._normalize
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
