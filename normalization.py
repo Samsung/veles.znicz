@@ -11,11 +11,10 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 
 import numpy as np
 
-from veles import units
+from veles.znicz import nn_units
 from veles import formats
 
-
-class LocalResponseNormalizer(units.Unit):
+class LocalResponseNormalizer(nn_units.Forward):
     """
     A base class for forward and backward units of local
     response normalization.
@@ -25,6 +24,7 @@ class LocalResponseNormalizer(units.Unit):
         self.beta = kwargs.get("beta", 0.75)
         self.k = kwargs.get("k", 2)
         self.n = kwargs.get("n", 5)
+        self._num_of_chans = None
         self.device = kwargs.get("device")
 
         super(LocalResponseNormalizer, self).__init__(workflow, **kwargs)
@@ -61,12 +61,35 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
         super(LRNormalizerForward, self).__init__(workflow, **kwargs)
 
+    def init_unpickled(self):
+        super(LRNormalizerForward, self).init_unpickled()
+        self.cl_sources_["normalization.cl"] = {}
+        self.krn_ = None
+
     def initialize(self, **kwargs):
         super(LRNormalizerForward, self).initialize(**kwargs)
         self.output.v = np.ndarray(shape=self.input.v.shape,
                                    dtype=self.input.v.dtype)
 
-    def run(self):
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
+
+        self._num_of_chans = self.input.v.shape[3]
+
+        defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
+                   "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
+
+        self.build_program(defines, dtype=self.input.v.dtype)
+        self.krn_ = self.get_kernel("forward")
+        self.krn_.set_arg(0, self.input.v_)
+        self.krn_.set_arg(1, self.output.v_)
+
+
+        self._global_size_ = [self.output.v.size // self._num_of_chans]
+        self._local_size_ = None
+
+
+    def cpu_run(self):
         self.output.map_invalidate()
         self.input.map_read()
 
@@ -79,6 +102,14 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
         np.copyto(self.output.v, self.input.v)
         self.output.v /= subsums
+
+    def ocl_run(self):
+        """Forward propagation from batch on GPU.
+        """
+        self.output.unmap()
+        self.input.unmap()
+        self.execute_kernel(self.krn_, self._global_size_,
+                            self._local_size_).wait()
 
 
 class LRNormalizerBackward(LocalResponseNormalizer):
@@ -93,19 +124,42 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
+    def init_unpickled(self):
+        super(LRNormalizerBackward, self).init_unpickled()
+        self.cl_sources_["normalization.cl"] = {}
+        self.krn_ = None
+
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
         self.err_h.v = np.ndarray(shape=self.err_y.v.shape,
                                   dtype=self.err_y.v.dtype)
 
-    def run(self):
+        self.err_y.initialize(self.device)
+        self.h.initialize(self.device)
+        self.err_h.initialize(self.device)
+
+        self._num_of_chans = self.h.v.shape[3]
+
+        defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
+                   "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
+
+        self.build_program(defines, dtype=self.h.v.dtype)
+        self.krn_ = self.get_kernel("backward")
+        self.krn_.set_arg(0, self.err_y.v_)
+        self.krn_.set_arg(1, self.h.v_)
+        self.krn_.set_arg(2, self.err_h.v_)
+
+
+        self._global_size_ = [self.err_h.v.size // self._num_of_chans]
+        self._local_size_ = None
+
+    def cpu_run(self):
         self.err_h.map_invalidate()
         self.err_y.map_read()
         self.h.map_read()
-        self.y.map_read()
 
         assert len(self.h.v.shape) == 4
-        assert self.h.v.shape == self.y.v.shape == self.err_y.v.shape
+        assert self.h.v.shape == self.err_y.v.shape
 
         num_of_chans = self.h.v.shape[3]
         self.err_h.v = np.zeros(shape=self.h.v.shape, dtype=np.float64)
@@ -133,3 +187,11 @@ class LRNormalizerBackward(LocalResponseNormalizer):
                 dh -= 2 * self.beta * self.alpha * self.h.v[:, :, :, i] * self.h.v[:, :, :, j]
                 dh *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
             delta_h[:, :, :, i] += dh
+
+    def ocl_run(self):
+        self.err_y.unmap()
+        self.h.unmap()
+        self.err_h.unmap()
+        self.execute_kernel(self.krn_, self._global_size_,
+                            self._local_size_).wait()
+
