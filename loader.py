@@ -143,9 +143,14 @@ class Loader(units.Unit):
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")
 
-        # Initial shuffle
-        self.shuffled_indexes = numpy.arange(
-            self.total_samples, dtype=self.minibatch_indexes.v.dtype)
+        self.minibatch_offset = self.total_samples
+
+        # Initial shuffle.
+        if self.shuffled_indexes is None:
+            self.shuffled_indexes = numpy.arange(
+                self.total_samples, dtype=opencl_types.itypes[
+                    opencl_types.get_itype_from_size(self.total_samples)])
+
         self.shuffle()
 
     def run(self):
