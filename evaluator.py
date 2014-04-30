@@ -274,7 +274,7 @@ class EvaluatorMSE(OpenCLUnit):
         if (self.labels is not None and self.class_target is not None and
                 (self.n_err.v is None or self.n_err.v.size < 2)):
             itype0 = opencl_types.get_itype_from_size(len(self.class_target.v))
-            if self.labels.v.dtype != numpy.int32:
+            if self.labels.v.dtype != opencl_types.itypes[itype0]:
                 raise error.ErrBadFormat("Incorrectly set labels.dtype "
                                          "(probably in Loader).")
             self.n_err.reset()
