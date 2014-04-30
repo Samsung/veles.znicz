@@ -14,7 +14,6 @@ import os
 from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-import veles.rnd as rnd
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision

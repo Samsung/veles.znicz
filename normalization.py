@@ -184,7 +184,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
             for j in range(min_index, max_index + 1):
                 if i == j:
                     dh += h_subsums[:, :, :, j]
-                dh -= 2 * self.beta * self.alpha * self.h.v[:, :, :, i] * self.h.v[:, :, :, j]
+                dh -= (2 * self.beta * self.alpha * self.h.v[:, :, :, i] *
+                       self.h.v[:, :, :, j])
                 dh *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
             delta_h[:, :, :, i] += dh
 

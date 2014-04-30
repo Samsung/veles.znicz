@@ -46,7 +46,7 @@ class TestRandom(unittest.TestCase):
         obj.initialize(device=self.device)
         obj.cl_sources_["random.cl"] = {}
         obj.build_program({}, os.path.join(root.common.cache_dir,
-                                                "test_random.cl"))
+                                           "test_random.cl"))
 
         krn = obj.get_kernel("random")
         krn.set_arg(0, states.v_)
@@ -92,9 +92,9 @@ class TestRandom(unittest.TestCase):
     def test(self):
         self.n_states = 5
         self.n_rounds = 3
-        self.states = rnd.default.randint(0, 0x100000000,
-            self.n_states * 128 // 4).astype(numpy.uint32).view(
-                numpy.uint64).reshape(self.n_states, 16)
+        self.states = rnd.default.randint(
+            0, 0x100000000, self.n_states * 128 // 4).astype(
+            numpy.uint32).view(numpy.uint64).reshape(self.n_states, 16)
         v_gpu = self._gpu()
         v_cpu = self._cpu()
         self.assertEqual(numpy.count_nonzero(v_gpu - v_cpu), 0)

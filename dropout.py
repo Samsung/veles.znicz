@@ -75,9 +75,10 @@ class DropoutForward(Dropout):
         self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
         sample_size = self.input.v.size // self.input.v.shape[0]
 
-        self.build_program({}, "%s/dropout_forward_%d.cl" %
-                           (config.root.common.cache_dir, sample_size),
-                            dtype=self.input.v.dtype)
+        self.build_program(
+            {}, "%s/dropout_forward_%d.cl" %
+            (config.root.common.cache_dir, sample_size),
+            dtype=self.input.v.dtype)
 
         self.krn_ = self.get_kernel("dropout_forward")
         self.krn_.set_arg(0, self.input.v_)
