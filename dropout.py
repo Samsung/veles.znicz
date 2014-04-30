@@ -48,7 +48,6 @@ class DropoutForward(Dropout):
     def __init__(self, workflow, **kwargs):
         self.input = None  # input value of forward layer
         self.weights = formats.Vector()  # dropout mask
-        self.output = None  # output value of forward layer
         self.states = formats.Vector()
         self.rnd = kwargs.get("rnd", rnd.default)
         super(DropoutForward, self).__init__(workflow, **kwargs)
@@ -59,20 +58,19 @@ class DropoutForward(Dropout):
         if self.input is not None:
             self.calc_weights()
 
+    @property
+    def output(self):
+        return self.input
+
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
         self.calc_weights()
         self.states.v = self.rnd.randint(
             low=0, high=0x100000000,
             size=self.input.v.size * 4).astype(np.uint32)
-        if self.output is None:
-            self.output = self.input
-        elif self.output.v is None:
-            self.output.v = self.input.v.copy()
         self.input.initialize(device)
         self.states.initialize(device)
         self.weights.initialize(device)
-        self.output.initialize(device)
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
         self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
         sample_size = self.input.v.size // self.input.v.shape[0]
