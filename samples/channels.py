@@ -48,20 +48,26 @@ import veles.znicz.pooling as pooling
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
+root.model = "conv"
+
 root.defaults = {"accumulator": {"n_bars": 30},
                  "decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels",
+                              "snapshot_prefix": "channels %s" % root.model,
                               "use_dynamic_alpha": False,
                               "do_export_weights": True},
+                 "conv":  {"weights_filling": "uniform"},
+                 "conv_relu":  {"weights_filling": "uniform"},
                  "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
-                                               "tmp/test"),
+                                               "tmp %s/test" % root.model),
                                   os.path.join(root.common.cache_dir,
-                                               "tmp/validation"),
+                                               "tmp %s/validation" %
+                                               root.model),
                                   os.path.join(root.common.cache_dir,
-                                               "tmp/train")]},
+                                               "tmp %s/train" % root.model)]},
                  "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                       "channels.pickle"),
+                                                       "channels_%s.pickle"
+                                                       % root.model),
                             "grayscale": False,
                             "minibatch_size": 81,
                             "n_threads": 32,
@@ -564,7 +570,12 @@ class Loader(loader.FullBatchLoader):
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
         for i in self.shuffled_indexes:
             l = self.original_labels[i]
-            dirnme = "%s/%03d" % (root.common.cache_dir, l)
+            dir = "%s/%s" % (root.common.cache_dir, root.model)
+            try:
+                os.mkdir(dir)
+            except OSError:
+                pass
+            dirnme = "%s/%03d" % (dir, l)
             try:
                 os.mkdir(dirnme)
             except OSError:
@@ -649,16 +660,18 @@ class Workflow(nn_units.NNWorkflow):
             if layer["type"] == "conv":
                 aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
                                    kx=layer["kx"], ky=layer["ky"],
+                                   weights_filling=root.conv.weights_filling,
                                    sliding=layer.get("sliding", (1, 1, 1, 1)),
                                    padding=layer.get("padding", (0, 0, 0, 0)),
                                    device=device)
             elif layer["type"] == "conv_relu":
-                aa = conv.ConvRELU(self, n_kernels=layer["n_kernels"],
-                                   kx=layer["kx"], ky=layer["ky"],
-                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
-                                   padding=layer.get("padding", (0, 0, 0, 0)),
-                                   device=device,
-                                   weights_filling="normal")
+                aa = conv.ConvRELU(
+                    self, n_kernels=layer["n_kernels"],
+                    kx=layer["kx"], ky=layer["ky"],
+                    sliding=layer.get("sliding", (1, 1, 1, 1)),
+                    padding=layer.get("padding", (0, 0, 0, 0)),
+                    device=device,
+                    weights_filling=root.conv_relu.weights_filling)
             elif layer["type"] == "max_pooling":
                 aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
                                         sliding=layer.get("sliding",

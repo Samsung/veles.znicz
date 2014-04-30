@@ -15,20 +15,26 @@ from veles.config import root
 
 # optional parameters
 
+root.model = "tanh"
+
 root.update = {"accumulator": {"n_bars": 30},
                "decision": {"fail_iterations": 1000,
-                            "snapshot_prefix": "channels_54_10",
+                            "snapshot_prefix": "channels %s" % root.model,
                             "use_dynamic_alpha": False,
                             "do_export_weights": True},
+               "conv":  {"weights_filling": "uniform"},
+               "conv_relu":  {"weights_filling": "uniform"},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,
-                                             "tmp/test"),
+                                             "tmp %s/test" % root.model),
                                 os.path.join(root.common.cache_dir,
-                                             "tmp/validation"),
+                                             "tmp %s/validation" %
+                                             root.model),
                                 os.path.join(root.common.cache_dir,
-                                             "tmp/train")]},
+                                             "tmp %s/train" % root.model)]},
                "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                     "channels.pickle"),
+                                                     "channels_%s.pickle"
+                                                     % root.model),
                           "grayscale": False,
                           "minibatch_size": 81,
                           "n_threads": 32,
@@ -42,5 +48,5 @@ root.update = {"accumulator": {"n_bars": 30},
                             "global_alpha": 0.01,
                             "global_lambda": 0.00005,
                             "layers": [{"type": "tanh", "layers": 54},
-                                       {"type": "softmax", "layers": 10}],
+                                       {"type": "softmax", "layers": 11}],
                             "snapshot": ""}}
