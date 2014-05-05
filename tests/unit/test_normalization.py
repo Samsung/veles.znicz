@@ -70,7 +70,6 @@ class TestNormalization(unittest.TestCase):
         logging.info(back_normalizer.err_h.v)
 
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     logging.info("Running LR normalizer test!")

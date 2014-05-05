@@ -14,6 +14,7 @@ import numpy as np
 from veles.znicz import nn_units
 from veles import formats
 
+
 class LocalResponseNormalizer(nn_units.Forward):
     """
     A base class for forward and backward units of local
@@ -84,10 +85,8 @@ class LRNormalizerForward(LocalResponseNormalizer):
         self.krn_.set_arg(0, self.input.v_)
         self.krn_.set_arg(1, self.output.v_)
 
-
         self._global_size_ = [self.output.v.size // self._num_of_chans]
         self._local_size_ = None
-
 
     def cpu_run(self):
         self.output.map_invalidate()
@@ -149,7 +148,6 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.krn_.set_arg(1, self.h.v_)
         self.krn_.set_arg(2, self.err_h.v_)
 
-
         self._global_size_ = [self.err_h.v.size // self._num_of_chans]
         self._local_size_ = None
 
@@ -195,4 +193,3 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.err_h.unmap()
         self.execute_kernel(self.krn_, self._global_size_,
                             self._local_size_).wait()
-
