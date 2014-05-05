@@ -2,7 +2,6 @@
 #include "highlight.cl"
 
 /// @brief Evaluate softmax.
-/// @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the last layer with applied softmax.
 /// @param max_idx index of maximum element for each sample in batch.
 /// @param labels labels for samples in batch.
@@ -13,8 +12,6 @@
 /// @param max_err_y_sum maximum sum of backpropagated gradient norms.
 /// @details We will launch a single workgroup here.
 ///          Should be defined externally:
-///          itype - type of sample label (char)
-///          itype2 - type of elements for confusion matrix and n_err_skipped (int)
 ///          BLOCK_SIZE - block size
 ///          BATCH - minibatch size
 ///          Y - last layer output size.
@@ -27,24 +24,24 @@
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global itype /*IN*/ *labels,
-           __global c_dtype /*OUT*/ *err_y, __global itype2 /*IO*/ *n_err,
-           __global itype2 /*IO*/ *confusion_matrix, __global dtype /*IO*/ *max_err_y_sum,
-           const itype2 batch_size) {
-  __local itype2 IM[BLOCK_SIZE], IREAL[BLOCK_SIZE];
+void ev_sm(__global c_dtype /*IN*/ *y, __global int /*IN*/ *max_idx, __global int /*IN*/ *labels,
+           __global c_dtype /*OUT*/ *err_y, __global int /*IO*/ *n_err,
+           __global int /*IO*/ *confusion_matrix, __global dtype /*IO*/ *max_err_y_sum,
+           const int batch_size) {
+  __local int IM[BLOCK_SIZE], IREAL[BLOCK_SIZE];
   __local dtype SM[BLOCK_SIZE];
   int tx = get_local_id(0);
   int i_sample = tx;
   int y_start = i_sample * Y;
-  itype2 n_ok = 0;
+  int n_ok = 0;
   dtype _max_err_y_sum = 0;
 
   // Compute err_y and fill the confusion matrix
   for (int i = 0; i < N_BLOCKS; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
     dtype err_y_sum = 0;
     if (i_sample < batch_size) {
-      itype im = max_idx[i_sample];
-      itype ireal = labels[i_sample];
+      int im = max_idx[i_sample];
+      int ireal = labels[i_sample];
 
       IM[tx] = im;
       IREAL[tx] = ireal;
@@ -104,7 +101,6 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
 
 
 /// @brief Evaluate MSE.
-/// @author: Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y output of the last layer.
 /// @param target target values.
 /// @param err_y output error for backpropagation.
@@ -113,8 +109,6 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
 /// @param batch_size size of the current batch.
 /// @details We will launch a single workgroup here.
 ///          Should be defined externally:
-///          itype - type of sample label (char)
-///          itype2 - type of elements for confusion matrix and n_err_skipped (int)
 ///          BLOCK_SIZE - block size
 ///          BATCH - minibatch size
 ///          Y - last layer output size.
@@ -129,7 +123,7 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global itype /*IN*/ *max_idx, __global 
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
             __global c_dtype /*OUT*/ *err_y, __global c_dtype /*IO*/ *metrics,
-            __global dtype /*OUT*/ *mse, const itype2 batch_size) {
+            __global dtype /*OUT*/ *mse, const int batch_size) {
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
   int i_sample = tx;

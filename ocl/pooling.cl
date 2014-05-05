@@ -21,7 +21,6 @@
 
 
 /// @brief Does max pooling over convolutional layer output.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
 /// @param h_offs indexes of y value in corresponding to it h array.
@@ -82,7 +81,6 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
 
 
 /// @brief Does avg pooling over convolutional layer output.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
 /// @details Should be defined externally:

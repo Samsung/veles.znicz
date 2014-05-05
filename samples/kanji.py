@@ -91,15 +91,12 @@ class Loader(loader.Loader):
         for i, target in enumerate(targets):
             self.class_target[i] = target
 
-        self.label_dtype = opencl_types.itypes[
-            opencl_types.get_itype_from_size(len(targets))]
-
         self.class_samples[0] = 0
         self.class_samples[1] = 0
         self.class_samples[2] = len(self.index_map)
 
         self.original_labels = numpy.empty(len(self.index_map),
-                                           dtype=self.label_dtype)
+                                           dtype=numpy.int32)
         lbl_re = re.compile("^(\d+)_\d+/(\d+)\.\d\.pickle$")
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
@@ -136,13 +133,11 @@ class Loader(loader.Loader):
 
         self.minibatch_labels.reset()
         sh = [self.minibatch_maxsize]
-        self.minibatch_labels.v = numpy.zeros(sh, dtype=self.label_dtype)
+        self.minibatch_labels.v = numpy.zeros(sh, dtype=numpy.int32)
 
         self.minibatch_indexes.reset()
-        self.minibatch_indexes.v = numpy.zeros(
-            len(self.index_map),
-            dtype=opencl_types.itypes[opencl_types.get_itype_from_size(
-                len(self.index_map))])
+        self.minibatch_indexes.v = numpy.zeros(len(self.index_map),
+                                               dtype=numpy.int32)
 
     def fill_minibatch(self):
         """Fill minibatch data labels and indexes according to current shuffle.

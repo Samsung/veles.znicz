@@ -53,10 +53,8 @@ class Loader(loader.FullBatchLoader):
 
         self.original_data = numpy.zeros([len(lines), lines[0].shape[0] - 1],
                                          dtype=numpy.float32)
-        self.original_labels = numpy.zeros(
-            [self.original_data.shape[0]],
-            dtype=opencl_types.itypes[
-                opencl_types.get_itype_from_size(max_lbl)])
+        self.original_labels = numpy.zeros(self.original_data.shape[0],
+                                           dtype=numpy.int32)
 
         for i, a in enumerate(lines):
             self.original_data[i] = a[1:]

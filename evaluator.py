@@ -68,14 +68,7 @@ class EvaluatorSoftmax(OpenCLUnit):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
-        itype = opencl_types.numpy_dtype_to_opencl(self.labels.v.dtype)
-        if (self.labels.v.dtype != opencl_types.itypes[itype] or
-                self.labels.v.dtype != self.max_idx.v.dtype):
-            raise error.ErrBadFormat("Incorrectly set labels.dtype "
-                                     "(probably in Loader).")
-        itype2 = opencl_types.get_itype_from_size(
-            self.max_samples_per_epoch)
-        self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
+        self.cl_sources_["evaluator.cl"] = {}
 
         if (self.err_y.v is None or
                 self.err_y.v.size != self.y.v.size):
@@ -84,7 +77,7 @@ class EvaluatorSoftmax(OpenCLUnit):
 
         if self.n_err.v is None or self.n_err.v.size < 2:
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
+            self.n_err.v = numpy.zeros(2, dtype=numpy.int32)
 
         out_size = self.y.v.size // self.y.v.shape[0]
         if self.compute_confusion_matrix:
@@ -92,7 +85,7 @@ class EvaluatorSoftmax(OpenCLUnit):
                     self.confusion_matrix.v.size != out_size * out_size):
                 self.confusion_matrix.reset()
                 self.confusion_matrix.v = numpy.zeros(
-                    [out_size, out_size], dtype=opencl_types.itypes[itype2])
+                    [out_size, out_size], dtype=numpy.int32)
         else:
             self.confusion_matrix.reset()
 
@@ -112,7 +105,7 @@ class EvaluatorSoftmax(OpenCLUnit):
         if self.device is None:
             return
 
-        self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
+        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
         if self.program_ is None:
             defines = {
@@ -247,11 +240,7 @@ class EvaluatorMSE(OpenCLUnit):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
-        itype = opencl_types.get_itype_from_size(
-            (self.y.v.size // self.y.v.shape[0]))
-        itype2 = opencl_types.get_itype_from_size(
-            self.max_samples_per_epoch)
-        self.cl_sources_["evaluator.cl"] = {"itype": itype, "itype2": itype2}
+        self.cl_sources_["evaluator.cl"] = {}
 
         if (self.err_y.v is None or
                 self.err_y.v.size != self.y.v.size):
@@ -273,13 +262,9 @@ class EvaluatorMSE(OpenCLUnit):
 
         if (self.labels is not None and self.class_target is not None and
                 (self.n_err.v is None or self.n_err.v.size < 2)):
-            itype0 = opencl_types.get_itype_from_size(len(self.class_target.v))
-            if self.labels.v.dtype != opencl_types.itypes[itype0]:
-                raise error.ErrBadFormat("Incorrectly set labels.dtype "
-                                         "(probably in Loader).")
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=opencl_types.itypes[itype2])
-            self.cl_sources_["mse_find_closest.cl"] = {"itype0": itype0}
+            self.n_err.v = numpy.zeros(2, dtype=numpy.int32)
+            self.cl_sources_["mse_find_closest.cl"] = {}
             self.class_target.initialize(self.device)
             self.labels.initialize(self.device)
             self.n_err.initialize(self.device)
@@ -293,7 +278,7 @@ class EvaluatorMSE(OpenCLUnit):
         if not self.device:
             return
 
-        self.krn_constants_i_ = numpy.zeros(1, opencl_types.itypes[itype2])
+        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
         if self.program_ is None:
             defines = {

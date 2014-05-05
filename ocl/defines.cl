@@ -1,6 +1,5 @@
 /*
  * General definitions.
- * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
  */
 
 #ifndef _DEFINES_
@@ -168,7 +167,6 @@ inline double2 atom_add_double2(__global double2 *addr, double2 vle) {
 
 
 /// @brief Sets all elements of array to zero.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 __kernel
 void array_clear(__global c_dtype /*OUT*/ *arr) {
   arr[get_global_id(0)] = c_from_re(0);

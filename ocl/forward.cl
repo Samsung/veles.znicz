@@ -5,7 +5,6 @@
 ///        linear activation: x;
 ///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
 ///        because: f(1) = 1, f(-1) = -1 and f"(x) maximum at x = 1.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param h input.
 /// @param weights weights.
 /// @param y output.

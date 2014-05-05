@@ -3,7 +3,6 @@
 
 /* TODO(a.kazantsev): implement properly.
 /// @brief For each sample, outputs the distances to the targets.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y matrix of samples
 /// @param t matrix of targets
 /// @param distances matrix of distances
@@ -14,24 +13,22 @@ void mse_find_distances(__global c_dtype *y, __global c_dtype *t,
 
 
 /// @brief For the given distances, outputs the index of the closest target.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param distances matrix of distances to targets.
 /// @param indexes vector of indexes of the closest target.
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void mse_find_closest(__global dtype *distances,
-                      __global itype *indexes) {
+                      __global int *indexes) {
 }
 */
 
 /// FIXME(a.kazantsev): The following code is very slow.
 /// @brief For the given distances, outputs the index of the closest target.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param y matrix of samples
 /// @param t matrix of targets
 /// @param n_err number of errors.
 __kernel
 void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
-                      __global itype0 *labels, __global volatile itype2 *n_err) {
+                      __global int *labels, __global volatile int *n_err) {
   int i_sample = get_global_id(0);
   int y_offs = SAMPLE_SIZE * i_sample;
   int t_offs = 0;
@@ -48,10 +45,6 @@ void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
     }
   }
   if (labels[i_sample] != i_min) {
-  	#if (itype2 == short) || (itype2 == char)
-    atom_inc((__global volatile int*)n_err);
-  	#else
   	atom_inc(n_err);
-  	#endif
   }
 }

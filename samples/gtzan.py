@@ -207,9 +207,7 @@ class Loader(loader.Loader):
 
         self.minibatch_indexes.reset()
         sh = [self.minibatch_maxsize]
-        self.minibatch_indexes.v = numpy.zeros(
-            sh, dtype=opencl_types.itypes[
-                opencl_types.get_itype_from_size(len(self.data["files"]))])
+        self.minibatch_indexes.v = numpy.zeros(sh, dtype=numpy.int32)
 
     def shuffle(self):
         pass

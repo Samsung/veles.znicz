@@ -2,7 +2,6 @@
 #include "highlight.cl"
 
 /* @brief Kernels for convolutional layer gradient descent.
- * @author Kazantsev Alexey <a.kazantsev@samsung.com>
  * @details Should be defined externally:
  *          BLOCK_SIZE - size of the block for matrix multiplication,
  *          BATCH - minibatch size,
@@ -49,7 +48,6 @@
 /// @param err_y backpropagated error of the output layer.
 /// @param weights weights.
 /// @param err_h resulted backpropagated error for previous layer.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @details err_h = err_y * weights
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
@@ -88,7 +86,6 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
 
 /// @brief Calculate gradient for weights update.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y backpropagated error
 /// @param h layer input
 /// @param weights layer weights
@@ -156,7 +153,6 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
 
 /// @brief Calculate gradient for bias update.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param bias layer bias
 /// @param err_y backpropagated error
 /// @param gradient computed gradient to store in if not null

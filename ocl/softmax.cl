@@ -1,11 +1,6 @@
 #include "defines.cl"
 #include "highlight.cl"
 
-/*
- * Applies softmax exponent.
- * @author: Kazantsev Alexey <a.kazantsev@samsung.com>
- */
-
 /// @brief Computes softmax and finds element with maximum real part.
 /// @details For each sample from batch of y:
 ///          1. Find m = max().
@@ -18,9 +13,9 @@
 ///          H - input size,
 ///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void apply_exp(__global c_dtype *y, __global itype *max_idx) {
+void apply_exp(__global c_dtype *y, __global int *max_idx) {
   __local c_dtype AS[BLOCK_SIZE];
-  __local itype IS[BLOCK_SIZE];
+  __local int IS[BLOCK_SIZE];
 
   int bx = get_group_id(0); // from 0 to BATCH / BLOCK_SIZE - 1
   int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
@@ -70,7 +65,7 @@ void apply_exp(__global c_dtype *y, __global itype *max_idx) {
     }
 
     AS[0] = m;
-    max_idx[i_sample] = (itype)im; // output found maximum element index
+    max_idx[i_sample] = im; // output found maximum element index
   }
   // ensure max computed
   barrier(CLK_LOCAL_MEM_FENCE);

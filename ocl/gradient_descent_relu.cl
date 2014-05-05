@@ -2,7 +2,6 @@
 #include "highlight.cl"
 
 /// @brief Updates backpropagated error by activation derivative.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @details err_y *= 1.0 - exp(-y)
 __kernel
 void err_y_update(__global c_dtype /*OUT*/ *err_y, __global c_dtype /*IN*/ *y) {

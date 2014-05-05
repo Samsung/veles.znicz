@@ -3,7 +3,6 @@
 
 /// @brief Computes backprogated error for previous layer:
 ///        err_h = err_y * weights
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @details Should be defined externally:
 ///          BLOCK_SIZE - size of the block for matrix multiplication,
 ///          BATCH - minibatch size,
@@ -42,7 +41,6 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
 
 /// @brief Calculate gradient for weights update.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y backpropagated error
 /// @param h layer input
 /// @param weights layer weights

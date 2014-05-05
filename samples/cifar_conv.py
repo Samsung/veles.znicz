@@ -72,12 +72,9 @@ class Loader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load data.
         """
-        n_classes = 10
         self.original_data = numpy.zeros([60000, 32, 32, 3],
                                          dtype=numpy.float32)
-        self.original_labels = numpy.zeros(
-            60000, dtype=opencl_types.itypes[
-                opencl_types.get_itype_from_size(n_classes)])
+        self.original_labels = numpy.zeros(60000, dtype=numpy.int32)
 
         # Load Validation
         fin = open(root.cifar_conv.path_for_load_data.validation, "rb")

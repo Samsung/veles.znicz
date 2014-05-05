@@ -24,7 +24,6 @@
 
 
 /// @brief Backpropagates max pooling.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y error on current level.
 /// @param err_h backpropagated error for previous layer.
 /// @param h_offs indexes of err_h max values.
@@ -53,7 +52,6 @@ void gd_max_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
 
 
 /// @brief Backpropagates avg pooling.
-/// @author Kazantsev Alexey <a.kazantsev@samsung.com>
 /// @param err_y error on current level.
 /// @param err_h backpropagated error for previous layer.
 /// @details err_h should be filled with zeros before calling this function if

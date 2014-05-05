@@ -69,8 +69,8 @@ class TestRandom(unittest.TestCase):
         offs = 0
         for i in range(self.n_states):
             s = states[i]
+            self.p = 0
             for j in range(self.n_rounds):
-                self.p = 0
                 for k in range(16):
                     output[offs] = self._next_rand(s)
                     offs += 1

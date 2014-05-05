@@ -298,14 +298,13 @@ class All2AllSoftmax(All2All):
 
     def initialize(self, device, **kwargs):
         # Always use 32-bit signed integers for output
-        itype = opencl_types.numpy_dtype_to_opencl(numpy.int32)
-        self.cl_sources_["softmax.cl"] = {"itype": itype}
+        self.cl_sources_["softmax.cl"] = {}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
 
         if (self.max_idx.v is None or
                 self.max_idx.v.size != self.output.v.shape[0]):
             self.max_idx.v = numpy.zeros(self.output.v.shape[0],
-                                         dtype=opencl_types.itypes[itype])
+                                         dtype=numpy.int32)
             self.max_idx.v_ = None
 
         self.max_idx.initialize(self.device)
