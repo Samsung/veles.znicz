@@ -27,6 +27,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
+import veles.znicz.nn_plotting_units as nn_plotting_units
 
 root.defaults = {"decision": {"fail_iterations": 1000,
                               "snapshot_prefix": "kanji",
@@ -269,7 +270,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt[0].clear_plot = True
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_mx = plotting_units.Weights2D(
+        self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
@@ -336,7 +337,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_img.gate_block = ~self.decision.epoch_ended
         """
         # Histogram plotter
-        self.plt_hist = plotting_units.MSEHistogram(self, name="Histogram")
+        self.plt_hist = nn_plotting_units.MSEHistogram(self, name="Histogram")
         self.plt_hist.link_from(self.decision)
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended

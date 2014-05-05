@@ -20,6 +20,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
+import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.samples.mnist as mnist
 
 root.defaults = {"decision": {"fail_iterations": 25,
@@ -177,7 +178,7 @@ class Workflow(nn_units.NNWorkflow):
         # Weights plotter
         # """
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_mx = plotting_units.Weights2D(
+        self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))

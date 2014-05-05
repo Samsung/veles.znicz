@@ -15,7 +15,6 @@ import pickle
 from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
-import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -24,6 +23,7 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_units as nn_units
+import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.accumulator as accumulator
 
 train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
@@ -230,7 +230,7 @@ class Workflow(nn_units.NNWorkflow):
         # Matrix plotter
 
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_w = plotting_units.Weights2D(
+        self.plt_w = nn_plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
         self.plt_w.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))

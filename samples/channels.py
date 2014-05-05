@@ -43,6 +43,7 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_units as nn_units
+import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
@@ -856,7 +857,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx = []
         for i in range(0, len(layers)):
             self.decision.vectors_to_sync[self.gds[0].weights] = 1
-            plt_mx = plotting_units.Weights2D(
+            plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)

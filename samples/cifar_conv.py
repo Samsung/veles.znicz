@@ -15,7 +15,6 @@ import pickle
 from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
-import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
@@ -29,6 +28,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
+import veles.znicz.nn_plotting_units as nn_plotting_units
 
 train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
@@ -298,7 +298,7 @@ class Workflow(nn_units.NNWorkflow):
         """
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_mx = plotting_units.Weights2D(
+        self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "v"
