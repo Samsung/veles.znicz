@@ -109,7 +109,7 @@ class DropoutForward(Dropout):
         self.states.unmap()
         self.weights.unmap()
         self.output.unmap()
-        self._threshold_arg_[0] = 18446744073709551616.0 * self.dropout_ratio
+        self._threshold_arg_[0] = ((1 << 64) + 0.) * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.krn_.set_arg(1, self._threshold_arg_)
         self.krn_.set_arg(2, self._pass_arg_)

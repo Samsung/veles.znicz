@@ -27,7 +27,6 @@ class TestNormalization(unittest.TestCase):
         workflow = DummyWorkflow()
         fwd_dropout = DropoutForward(workflow, dropout_ratio=0.5)
         fwd_dropout.input = Vector()
-        fwd_dropout.output = Vector()
         in_vector = np.zeros(shape=(1, 1, 5, 5), dtype=np.float64)
 
         for i in range(5):
