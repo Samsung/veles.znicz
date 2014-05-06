@@ -403,6 +403,8 @@ class KohonenInputMaps(plotter.Plotter):
 
     Should be assigned before initialize():
         input
+        width
+        height
     """
 
     def __init__(self, workflow, **kwargs):
@@ -410,7 +412,7 @@ class KohonenInputMaps(plotter.Plotter):
         kwargs["name"] = name
         super(KohonenInputMaps, self).__init__(workflow, **kwargs)
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
-        self._color_grid = kwargs.get("color_grid", "black")
+        self._color_grid = kwargs.get("color_grid", "none")
         self._input = None
         self.width = 0
         self.height = 0
@@ -441,7 +443,6 @@ class KohonenInputMaps(plotter.Plotter):
 
     def redraw(self):
         fig = self.pp.figure(self.name)
-        self._scheme = getattr(self.cm, self.color_scheme)
         fig.clf()
         length = self.input.shape[1]
         if length < 3:
@@ -460,23 +461,130 @@ class KohonenInputMaps(plotter.Plotter):
             max_weight = numpy.max(weights)
             delta = max_weight - min_weight
             weights /= max_weight
-            # Add hexagons one by one
+
+            patches = []
+            # Add hexagons to patches one by one
             for y in range(self.height):
                 for x in range(self.width):
                     value = self.input[y * self.width + x, index]
                     value = (value - min_weight) / delta
-                    self._add_hexagon(axes, x, y, value)
+                    self._add_hexagon(axes, patches, x, y, value)
+            # Add the collection
+            col = self.matplotlib.collections.PatchCollection(
+                patches, cmap=getattr(self.cm, self.color_scheme),
+                edgecolor=self.color_grid)
+            axes.add_collection(col)
 
             axes.set_xlim(-1.0, self.width + 0.5)
             axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
             axes.set_xticks([])
             axes.set_yticks([])
 
-    def _add_hexagon(self, axes, vertices, x, y, value):
+    def _add_hexagon(self, axes, patches, x, y, value):
         r = 1.0 / numpy.sqrt(3)
         cx = x if not (y & 1) else x + 0.5
         cy = y * (1.5 / numpy.sqrt(3))
-        hexp = self.patches.RegularPolygon(
-            (cx, cy), 6, radius=r,
-            facecolor=self._scheme(value), edgecolor=self.color_grid)
-        axes.add_patch(hexp)
+        patches.append(self.patches.RegularPolygon((cx, cy), 6, radius=r))
+
+
+class KohonenNeighborMap(plotter.Plotter):
+    """Draws the Kohonen neighbor weight distances.
+
+    Should be assigned before initialize():
+        input
+        width
+        height
+    """
+
+    NEURON_SIZE = 0.2
+
+    def __init__(self, workflow, **kwargs):
+        name = kwargs.get("name", "Kohonen Neighbor Weight Distances")
+        kwargs["name"] = name
+        super(KohonenHits, self).__init__(workflow, **kwargs)
+        self._color_neurons = kwargs.get("color_neurons", "#666699")
+        self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
+        self._input = None
+        self._width = 0
+        self._height = 0
+
+    @property
+    def input(self):
+        return self._input
+
+    @input.setter
+    def input(self, value):
+        self._input = value
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def color_neurons(self):
+        return self._color_neurons
+
+    @color_neurons.setter
+    def color_neurons(self, value):
+        self._color_neurons = value
+
+    @property
+    def color_scheme(self):
+        return self._color_scheme
+
+    @color_scheme.setter
+    def color_scheme(self, value):
+        self._color_scheme = value
+
+    def redraw(self):
+        self._scheme = getattr(self.cm, self.color_scheme)
+        fig = self.pp.figure(self.name)
+        fig.clf()
+        axes = fig.add_subplot(111)
+
+        # Draw the neurons
+        vertices = numpy.empty((self.width * self.height, 6, 2))
+        for y in range(self.height):
+            for x in range(self.width):
+                self._add_hexagon(axes, vertices, x, y)
+        col = self.matplotlib.collections.PolyCollection(
+            vertices, closed=True, edgecolors='none',
+            facecolors=self.color_neurons)
+        col.set_transform(axes.transData)
+        axes.add_collection(col)
+
+        # Draw the links
+        links = []
+
+        # Add the collection
+        col = self.matplotlib.collections.PatchCollection(
+            links, cmap=getattr(self.cm, self.color_scheme),
+            edgecolor='none')
+        axes.add_collection(col)
+
+        axes.set_xlim(-1.0, self.width + 0.5)
+        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
+        axes.set_xticks([])
+        axes.set_yticks([])
+
+    def _add_hexagon(self, axes, vertices, x, y):
+        size = KohonenNeighborMap.NEURON_SIZE
+        index = y * self.width + x
+        hsz = size / 2
+        diag = size / numpy.sqrt(3)
+        cx = x if not (y & 1) else x + 0.5
+        cy = y * (1.5 / numpy.sqrt(3))
+        vertices[index, 0, :] = (cx, cy - diag)
+        vertices[index, 1, :] = (cx - hsz, cy - diag / 2)
+        vertices[index, 2, :] = (cx - hsz, cy + diag / 2)
+        vertices[index, 3, :] = (cx, cy + diag)
+        vertices[index, 4, :] = (cx + hsz, cy + diag / 2)
+        vertices[index, 5, :] = (cx + hsz, cy - diag / 2)
+
+    def _add_link(self, axes, links, x, y, value):
+        # TODO(v.markovtsev): implement this
+        pass
