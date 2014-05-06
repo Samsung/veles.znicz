@@ -73,11 +73,9 @@ class DropoutForward(Dropout):
         self.mask.initialize(device)
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
         self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
-        sample_size = self.input.v.size // self.input.v.shape[0]
 
         self.build_program(
-            {}, "%s/dropout_forward_%d.cl" %
-            (config.root.common.cache_dir, sample_size),
+            {}, "%s/dropout_forward.cl" % config.root.common.cache_dir,
             dtype=self.input.v.dtype)
 
         self.krn_ = self.get_kernel("dropout_forward")
