@@ -1,14 +1,13 @@
 #!/usr/bin/python3.3 -O
 # encoding: utf-8
 """
-Created on Apr 18, 2014
+Created on May 6, 2014
 
-This workflow should clone the Imagenet example in CAFFE tool.
+A workflow to test first layer in simple line detection
 """
 
 from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
-from veles.znicz import normalization, dropout
 from veles.znicz.samples.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -16,22 +15,22 @@ import logging
 
 root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "imagenet_caffe",
+                              "snapshot_prefix": "lines",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
-                 "imagenet_caffe": {"global_alpha": 0.01,
+                 "lines": {"global_alpha": 0.01,
                                     "global_lambda": 0.0}}
 
 
 class Workflow(StandardWorkflow):
-    """Workflow for ImageNet dataset.
+    """Workflow for Lines dataset.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        kwargs["name"] = kwargs.get("name", "ImageNet")
+        kwargs["name"] = kwargs.get("name", "Lines")
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
@@ -48,7 +47,7 @@ class Workflow(StandardWorkflow):
         # FORWARD LAYERS
 
         # Layer 1 (CONV + POOL)
-        conv1 = conv.ConvRELU(self, n_kernels=96, kx=11, ky=11,
+        conv1 = conv.ConvRELU(self, n_kernels=32, kx=11, ky=11,
                               sliding=(4, 4), padding=(0, 0, 0, 0),
                               weights_filling="gaussian", weights_stddev=0.01,
                               device=device)
@@ -58,66 +57,15 @@ class Workflow(StandardWorkflow):
                                    device=device)
         self._add_forward_unit(pool1)
 
-        norm1 = normalization.LRNormalizerForward(self, device=device)
-        self._add_forward_unit(norm1)
-
-        # Layer 2 (CONV + POOL)
-        conv2 = conv.ConvRELU(self, n_kernels=256, kx=5, ky=5,
-                              sliding=(1, 1), padding=(2, 2, 2, 2),
-                              weights_filling="gaussian", weights_stddev=0.01,
-                              device=device)
-        self._add_forward_unit(conv2)
-
-        pool2 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
-                                   device=device)
-        self._add_forward_unit(pool2)
-
-        # Layer 3 (CONV)
-        conv3 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
-                              sliding=(1, 1), padding=(1, 1, 1, 1),
-                              weights_filling="gaussian", weights_stddev=0.01,
-                              device=device)
-        self._add_forward_unit(conv3)
-
-        # Layer 4 (CONV)
-        conv4 = conv.ConvRELU(self, n_kernels=384, kx=3, ky=3,
-                              sliding=(1, 1), padding=(1, 1, 1, 1),
-                              weights_filling="gaussian", weights_stddev=0.01,
-                              device=device)
-        self._add_forward_unit(conv4)
-
-        # Layer 5 (CONV + POOL)
-        conv5 = conv.ConvRELU(self, n_kernels=256, kx=3, ky=3,
-                              sliding=(1, 1), padding=(1, 1, 1, 1),
-                              weights_filling="gaussian", weights_stddev=0.01,
-                              device=device)
-        self._add_forward_unit(conv5)
-
-        pool5 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
-                                   device=device)
-        self._add_forward_unit(pool5)
-
-        # Layer 6 (FULLY CONNECTED + 50% dropout)
-        fc6 = all2all.All2AllRELU(
-            self, output_shape=4096, weights_filling="gaussian",
-            weights_stddev=0.005, device=device)
-        self._add_forward_unit(fc6)
-
-        drop6 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
-        self._add_forward_unit(drop6)
-
-        # Layer 7 (FULLY CONNECTED + 50% dropout)
+        # Layer 7 (FULLY CONNECTED)
         fc7 = all2all.All2AllRELU(
-            self, output_shape=4096, weights_filling="gaussian",
+            self, output_shape=100, weights_filling="gaussian",
             weights_stddev=0.005, device=device)
         self._add_forward_unit(fc7)
 
-        drop7 = dropout.DropoutForward(self, dropout_ratio=0.5, device=device)
-        self._add_forward_unit(drop7)
-
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(
-            self, output_shape=1000, weights_filling="gaussian",
+            self, output_shape=4, weights_filling="gaussian",
             weights_stddev=0.01, device=device)
         self._add_forward_unit(fc8sm)
 
@@ -159,6 +107,6 @@ class Workflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.imagenet_caffe.layers)
-    main(global_alpha=root.imagenet_caffe.global_alpha,
-         global_lambda=root.imagenet_caffe.global_lambda)
+    load(Workflow, layers=root.lines.layers)
+    main(global_alpha=root.lines.global_alpha,
+         global_lambda=root.lines.global_lambda)
