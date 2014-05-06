@@ -51,7 +51,7 @@ class TestDropout(unittest.TestCase):
 
         logging.info("[DropoutForward] output matrix:\n%s",
                      fwd_dropout.output.v)
-        ratio = 1.0 - np.count_nonzero(fwd_dropout.output.v) / \
+        ratio = 1.0 - float(np.count_nonzero(fwd_dropout.output.v)) / \
             fwd_dropout.output.v.size
         logging.info("[DropoutForward] dropout ratio: %.4f", ratio)
         self.assertAlmostEqual(ratio, fwd_dropout.dropout_ratio,
@@ -80,7 +80,7 @@ class TestDropout(unittest.TestCase):
 
         logging.info("[DropoutBackward] modified err_y:")
         logging.info(back_dropout.err_y.v)
-        ratio = 1.0 - np.count_nonzero(back_dropout.err_y.v) / \
+        ratio = 1.0 - float(np.count_nonzero(back_dropout.err_y.v)) / \
             back_dropout.err_y.v.size
         logging.info("[DropoutBackward]  dropout ratio: %.4f", ratio)
         self.assertAlmostEqual(ratio, fwd_dropout.dropout_ratio,
