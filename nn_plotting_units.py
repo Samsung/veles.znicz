@@ -269,8 +269,8 @@ class KohonenHits(plotter.Plotter):
         self._color_bins = kwargs.get("color_bins", "#666699")
         self._color_text = kwargs.get("color_text", "white")
         self._input = None
-        self.width = 0
-        self.height = 0
+        self._width = 0
+        self._height = 0
 
     @property
     def input(self):
@@ -279,8 +279,16 @@ class KohonenHits(plotter.Plotter):
     @input.setter
     def input(self, value):
         self._input = value
-        self.width = self.input.shape[0]
-        self.height = self.input.shape[1]
+        self._width = self.input.shape[0]
+        self._height = self.input.shape[1]
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
 
     @property
     def color_bins(self):
@@ -388,3 +396,87 @@ class KohonenHits(plotter.Plotter):
                           verticalalignment="center",
                           horizontalalignment="center",
                           color=self.color_text, size=12)
+
+
+class KohonenInputMaps(plotter.Plotter):
+    """Draws the Kohonen input weight maps.
+
+    Should be assigned before initialize():
+        input
+    """
+
+    def __init__(self, workflow, **kwargs):
+        name = kwargs.get("name", "Kohonen Maps")
+        kwargs["name"] = name
+        super(KohonenInputMaps, self).__init__(workflow, **kwargs)
+        self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
+        self._color_grid = kwargs.get("color_grid", "black")
+        self._input = None
+        self.width = 0
+        self.height = 0
+
+    @property
+    def input(self):
+        return self._input
+
+    @input.setter
+    def input(self, value):
+        self._input = value
+
+    @property
+    def color_scheme(self):
+        return self._color_scheme
+
+    @color_scheme.setter
+    def color_scheme(self, value):
+        self._color_scheme = value
+
+    @property
+    def color_grid(self):
+        return self._color_grid
+
+    @color_grid.setter
+    def color_grid(self, value):
+        self._color_grid = value
+
+    def redraw(self):
+        fig = self.pp.figure(self.name)
+        self._scheme = getattr(self.cm, self.color_scheme)
+        fig.clf()
+        length = self.input.shape[1]
+        if length < 3:
+            grid_shape = (length, 1)
+        elif length < 5:
+            grid_shape = (2, length - 2)
+        elif length < 7:
+            grid_shape = (3, length - 3)
+        else:
+            grid_shape = (4, int(numpy.ceil(length / 4)))
+        for index in range(length):
+            axes = fig.add_subplot(grid_shape[0], grid_shape[1], index)
+
+            weights = self.input[:, index]
+            min_weight = numpy.min(weights)
+            max_weight = numpy.max(weights)
+            delta = max_weight - min_weight
+            weights /= max_weight
+            # Add hexagons one by one
+            for y in range(self.height):
+                for x in range(self.width):
+                    value = self.input[y * self.width + x, index]
+                    value = (value - min_weight) / delta
+                    self._add_hexagon(axes, x, y, value)
+
+            axes.set_xlim(-1.0, self.width + 0.5)
+            axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
+            axes.set_xticks([])
+            axes.set_yticks([])
+
+    def _add_hexagon(self, axes, vertices, x, y, value):
+        r = 1.0 / numpy.sqrt(3)
+        cx = x if not (y & 1) else x + 0.5
+        cy = y * (1.5 / numpy.sqrt(3))
+        hexp = self.patches.RegularPolygon(
+            (cx, cy), 6, radius=r,
+            facecolor=self._scheme(value), edgecolor=self.color_grid)
+        axes.add_patch(hexp)
