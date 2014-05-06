@@ -18,6 +18,7 @@ root.update = {"all2all": {"weights_magnitude": 0.05},
                             "snapshot_prefix": "lines",
                             "store_samples_mse": True},
                "loader": {"minibatch_maxsize": 60},
+               "weights_plotter": {"limit": 32},
                "lines": {"global_alpha": 0.01,
                          "global_lambda": 0.0,
                          "layers": [100, 10]}}

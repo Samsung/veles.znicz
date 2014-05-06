@@ -3,7 +3,7 @@
 """
 Created on May 6, 2014
 
-A workflow to test first layer in simple line detection
+A workflow to test first layer in simple line detection.
 """
 
 
@@ -14,6 +14,7 @@ from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
+from veles.znicz.nn_plotting_units import Weights2D
 from enum import IntEnum
 
 
@@ -22,11 +23,13 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                               "snapshot_prefix": "lines",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
+                 "weights_plotter": {"limit": 32},
                  "lines": {"global_alpha": 0.01,
                            "global_lambda": 0.0}}
 
 
 class ImageLabel(IntEnum):
+    """Enum for different types of lines"""
     vertical = 0
     horizontal = 1
     tilted_bottom_to_top = 2  # left lower --> right top
@@ -35,8 +38,8 @@ class ImageLabel(IntEnum):
 
 class Loader(ImageLoader):
     def get_label_from_filename(self, filename):
-        print(filename)
-        sys.exit(0)
+        #takes folder name "vertical", "horizontal", "etc"
+        return int(ImageLabel[filename.split("/")[-2]])
 
 
 class Workflow(StandardWorkflow):
@@ -51,10 +54,9 @@ class Workflow(StandardWorkflow):
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
-        print(root.loader.minibatch_maxsize)
         self.loader = Loader(
-            self, train_paths=["/home/agolovizin/LINES_10/learning"],
-            validation_paths=["/home/agolovizin/LINES_10/test"],
+            self, train_paths=["/data/veles/Lines/LINES_10_500/learning"],
+            validation_paths=["/data/veles/Lines/LINES_10_500/test"],
             minibatch_maxsize=root.loader.minibatch_maxsize)
 
         self.loader.setup(level=logging.DEBUG)
@@ -67,7 +69,7 @@ class Workflow(StandardWorkflow):
         # Layer 1 (CONV + POOL)
         conv1 = conv.ConvRELU(self, n_kernels=32, kx=11, ky=11,
                               sliding=(4, 4), padding=(0, 0, 0, 0),
-                              weights_filling="gaussian", weights_stddev=0.01,
+                              weights_filling="gaussian", weights_stddev=0.1,
                               device=device)
         self._add_forward_unit(conv1)
 
@@ -83,7 +85,7 @@ class Workflow(StandardWorkflow):
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(
-            self, output_shape=4, weights_filling="gaussian",
+            self, output_shape=len(ImageLabel), weights_filling="gaussian",
             weights_stddev=0.01, device=device)
         self._add_forward_unit(fc8sm)
 
@@ -111,6 +113,19 @@ class Workflow(StandardWorkflow):
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
+
+        # Weights plotter
+        self.decision.vectors_to_sync[self.gds[0].weights] = 1
+        self.plt_mx = Weights2D(
+            self, name="First Layer Weights", limit=root.weights_plotter.limit)
+        self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
+        self.plt_mx.input_field = "v"
+        self.plt_mx.get_shape_from = (
+            [self.fwds[0].kx, self.fwds[0].ky]
+            if isinstance(self.fwds[0], conv.Conv)
+            else self.fwds[0].input)
+        self.plt_mx.link_from(self.decision)
+        self.plt_mx.gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
