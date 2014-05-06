@@ -303,7 +303,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = (
-            [self.fwds[0].kx, self.fwds[0].ky]
+            [self.fwds[0].kx, self.fwds[0].ky, 3]
             if isinstance(self.fwds[0], conv.Conv)
             else self.fwds[0].input)
         self.plt_mx.link_from(self.decision)

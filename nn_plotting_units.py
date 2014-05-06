@@ -68,8 +68,19 @@ class Weights2D(plotter.Plotter):
             sx = int(numpy.round(numpy.sqrt(value.shape[1])))
             sy = int(value.shape[1]) // sx
         elif type(self.get_shape_from) == list:
-            sx = self.get_shape_from[0]
-            sy = self.get_shape_from[1]
+            if len(self.get_shape_from) == 2:
+                sx = self.get_shape_from[0]
+                sy = self.get_shape_from[1]
+            else:
+                if self.get_shape_from[-1] == 3:
+                    sx = self.get_shape_from[-2]
+                    sy = self.get_shape_from[-3]
+                    interleave = False
+                else:
+                    sx = self.get_shape_from[-1]
+                    sy = self.get_shape_from[-2]
+                    interleave = True
+                color = True
         elif "v" in self.get_shape_from.__dict__:
             if len(self.get_shape_from.v.shape) == 3:
                 sx = self.get_shape_from.v.shape[2]
@@ -80,7 +91,7 @@ class Weights2D(plotter.Plotter):
                     sy = self.get_shape_from.v.shape[-3]
                     interleave = False
                 else:
-                    sx = self.get_shape_from.v.shape[-3]
+                    sx = self.get_shape_from.v.shape[-1]
                     sy = self.get_shape_from.v.shape[-2]
                     interleave = True
                 color = True
