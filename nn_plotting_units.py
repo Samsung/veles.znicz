@@ -251,3 +251,140 @@ class MSEHistogram(plotter.Plotter):
         self.val_min = self.val_mse.min()
 
         super(MSEHistogram, self).run()
+
+
+class KohonenHits(plotter.Plotter):
+    """Draws the Kohonen classification win numbers.
+
+    Should be assigned before initialize():
+        input
+    """
+
+    SIZE_TEXT_THRESHOLD = 0.33
+
+    def __init__(self, workflow, **kwargs):
+        name = kwargs.get("name", "Kohonen Hits")
+        kwargs["name"] = name
+        super(KohonenHits, self).__init__(workflow, **kwargs)
+        self._color_bins = kwargs.get("color_bins", "#666699")
+        self._color_text = kwargs.get("color_text", "white")
+        self._input = None
+        self.width = 0
+        self.height = 0
+
+    @property
+    def input(self):
+        return self._input
+
+    @input.setter
+    def input(self, value):
+        self._input = value
+        self.width = self.input.shape[0]
+        self.height = self.input.shape[1]
+
+    @property
+    def color_bins(self):
+        return self._color_bins
+
+    @color_bins.setter
+    def color_bins(self, value):
+        self._color_bins = value
+
+    @property
+    def color_text(self):
+        return self._color_text
+
+    @color_text.setter
+    def color_text(self, value):
+        self._color_text = value
+
+    def redraw(self):
+        fig = self.pp.figure(self.name)
+        fig.clf()
+        axes = fig.add_subplot(111)
+
+        # Draw the hexbin grid
+        diag = 1.0 / numpy.sqrt(3)
+        vlength = 2 * self.height + 2
+        # Cloned primitive
+        subline = numpy.empty((4, 2))
+        subline[0, 0] = 0.0
+        subline[0, 1] = -diag
+        subline[1, 0] = -0.5
+        subline[1, 1] = -diag / 2
+        subline[2, 0] = -0.5
+        subline[2, 1] = diag / 2
+        subline[3, 0] = 0.0
+        subline[3, 1] = diag
+        # Tile sublines into line
+        line = numpy.empty((vlength, 2))
+        for rep in range(vlength // 4):
+            line[rep * 4:rep * 4 + 4, :] = subline
+            subline[:, 1] += diag * 3
+        if not self.height & 1:
+            line[-2:, :] = subline[:2]
+        # Fill the grid vertices
+        hlength = self.width * 2 + 1
+        vertices = numpy.empty((hlength, vlength, 2))
+        for rep in range(self.width):
+            vertices[rep, :, :] = line
+            # Right side
+            line[1:vlength:4, 0] += 1.0
+            line[2:vlength:4, 0] += 1.0
+            vertices[self.width + 1 + rep, :, :] = line
+            line[0:vlength:4, 0] += 1.0
+            line[3:vlength:4, 0] += 1.0
+        # The last right side
+        vertices[self.width, :vlength - 1, :] = line[1:, :]
+        # Line ending fixes
+        if self.height & 1:
+            vertices[self.width, -2, :] = vertices[self.width, -3, :]
+        else:
+            vertices[0, -1, :] = vertices[0, -2, :]
+        vertices[self.width, -1, :] = vertices[self.width, -2, :]
+        # Add the constructed vertices as PolyCollection
+        col = self.matplotlib.collections.PolyCollection(
+            vertices, closed=False, edgecolors='black', facecolors='none')
+        # Resize together with the axes
+        col.set_transform(axes.transData)
+        axes.add_collection(col)
+
+        # Draw the inner hexagons with text
+        # Initialize sizes
+        hits_max = numpy.max(self.input)
+        sizes = self.input / hits_max
+        self._fill_sizes(sizes)
+        vertices = numpy.empty((self.width * self.height, 6, 2))
+        # Add hexagons one by one
+        for y in range(self.height):
+            for x in range(self.width):
+                self._add_hexagon(axes, vertices, x, y, sizes[x, y],
+                                  self.input[x, y])
+        col = self.matplotlib.collections.PolyCollection(
+            vertices, closed=True, edgecolors='none',
+            facecolors=self.color_bins)
+        col.set_transform(axes.transData)
+        axes.add_collection(col)
+
+        axes.set_xlim(-1.0, self.width + 0.5)
+        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
+        axes.set_xticks([])
+        axes.set_yticks([])
+
+    def _add_hexagon(self, axes, vertices, x, y, size, number):
+        index = y * self.width + x
+        hsz = size / 2
+        diag = size / numpy.sqrt(3)
+        cx = x if not (y & 1) else x + 0.5
+        cy = y * (1.5 / numpy.sqrt(3))
+        vertices[index, 0, :] = (cx, cy - diag)
+        vertices[index, 1, :] = (cx - hsz, cy - diag / 2)
+        vertices[index, 2, :] = (cx - hsz, cy + diag / 2)
+        vertices[index, 3, :] = (cx, cy + diag)
+        vertices[index, 4, :] = (cx + hsz, cy + diag / 2)
+        vertices[index, 5, :] = (cx + hsz, cy - diag / 2)
+        if size > KohonenHits.SIZE_TEXT_THRESHOLD:
+            axes.annotate(number, xy=(cx, cy),
+                          verticalalignment="center",
+                          horizontalalignment="center",
+                          color=self.color_text, size=12)
