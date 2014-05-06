@@ -55,9 +55,10 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
         self.loader = Loader(
-            self, train_paths=["/data/veles/Lines/LINES_10_500/learning"],
-            validation_paths=["/data/veles/Lines/LINES_10_500/test"],
-            minibatch_maxsize=root.loader.minibatch_maxsize)
+            self, train_paths=["/data/veles/Lines/LINES_10_500_NOISY/learning"],
+            validation_paths=["/data/veles/Lines/LINES_10_500_NOISY/test"],
+            minibatch_maxsize=root.loader.minibatch_maxsize,
+            grayscale=False)
 
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
@@ -69,7 +70,7 @@ class Workflow(StandardWorkflow):
         # Layer 1 (CONV + POOL)
         conv1 = conv.ConvRELU(self, n_kernels=32, kx=11, ky=11,
                               sliding=(4, 4), padding=(0, 0, 0, 0),
-                              weights_filling="gaussian", weights_stddev=0.1,
+                              weights_filling="gaussian", weights_stddev=1.0,
                               device=device)
         self._add_forward_unit(conv1)
 
@@ -78,10 +79,10 @@ class Workflow(StandardWorkflow):
         self._add_forward_unit(pool1)
 
         # Layer 7 (FULLY CONNECTED)
-        fc7 = all2all.All2AllRELU(
-            self, output_shape=100, weights_filling="gaussian",
-            weights_stddev=0.005, device=device)
-        self._add_forward_unit(fc7)
+#        fc7 = all2all.All2AllRELU(
+#            self, output_shape=100, weights_filling="gaussian",
+#            weights_stddev=0.005, device=device)
+#        self._add_forward_unit(fc7)
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(
@@ -121,7 +122,7 @@ class Workflow(StandardWorkflow):
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "v"
         self.plt_mx.get_shape_from = (
-            [self.fwds[0].kx, self.fwds[0].ky]
+            [self.fwds[0].kx, self.fwds[0].ky, 3]
             if isinstance(self.fwds[0], conv.Conv)
             else self.fwds[0].input)
         self.plt_mx.link_from(self.decision)
