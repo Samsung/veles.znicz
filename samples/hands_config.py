@@ -14,13 +14,13 @@ from veles.config import root
 
 # optional parameters
 train_dir = [os.path.join(root.common.test_dataset_root,
-                          "hands/Positive/Training/*.raw"),
+                          "hands/Positive/Training"),
              os.path.join(root.common.test_dataset_root,
-                          "hands/Negative/Training/*.raw")]
+                          "hands/Negative/Training")]
 validation_dir = [os.path.join(root.common.test_dataset_root,
-                               "hands/Positive/Testing/*.raw"),
+                               "hands/Positive/Testing"),
                   os.path.join(root.common.test_dataset_root,
-                               "hands/Negative/Testing/*.raw")]
+                               "hands/Negative/Testing")]
 
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "hands"},

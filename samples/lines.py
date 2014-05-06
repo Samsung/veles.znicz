@@ -10,6 +10,8 @@ from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz.samples.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.loader import ImageLoader
+from enum import IntEnum
 
 import logging
 
@@ -20,6 +22,20 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "loader": {"minibatch_maxsize": 60},
                  "lines": {"global_alpha": 0.01,
                                     "global_lambda": 0.0}}
+
+import os, sys
+
+class ImageLabel(IntEnum):
+    vertical = 0
+    horizontal = 1
+    tilted_bottom_to_top = 2  # left lower --> right top
+    tilted_top_to_bottom = 3  # left top --> right bottom
+
+
+class Loader(ImageLoader):
+    def get_label_from_filename(self, filename):
+        print(filename)
+        sys.exit(0)
 
 
 class Workflow(StandardWorkflow):
@@ -34,11 +50,13 @@ class Workflow(StandardWorkflow):
         super(Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
+        print(root.loader.minibatch_maxsize)
+        self.loader = Loader(
+            self, train_paths=["/home/agolovizin/LINES_10/learning"],
+            validation_paths=["/home/agolovizin/LINES_10/test"],
+            minibatch_maxsize=root.loader.minibatch_maxsize)
 
-        self.loader = LoaderDetection(self,
-                                      ipath="/data/imagenet/2013",
-                                      dbpath="/data/imagenet/2013/db",
-                                      year="2013", series="img")
+
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 

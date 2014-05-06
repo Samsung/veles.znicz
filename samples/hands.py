@@ -24,13 +24,13 @@ import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
 train_dir = [os.path.join(root.common.test_dataset_root,
-                          "hands/Positive/Training/*.raw"),
+                          "hands/Positive/Training"),
              os.path.join(root.common.test_dataset_root,
-                          "hands/Negative/Training/*.raw")]
+                          "hands/Negative/Training")]
 validation_dir = [os.path.join(root.common.test_dataset_root,
-                               "hands/Positive/Testing/*.raw"),
+                               "hands/Positive/Testing"),
                   os.path.join(root.common.test_dataset_root,
-                               "hands/Negative/Testing/*.raw")]
+                               "hands/Negative/Testing")]
 
 root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "hands"},
@@ -52,6 +52,9 @@ class Loader(loader.ImageLoader):
         a = hog.hog(a.reshape(sx, sx)).astype(numpy.float32)
         formats.normalize(a)
         return a
+
+    def is_valid_filename(self, filename):
+        return filename[-4:] == ".raw"
 
     def get_label_from_filename(self, filename):
         lbl = 1 if filename.find("Positive") >= 0 else 0

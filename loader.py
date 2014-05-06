@@ -7,8 +7,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import glob
 import numpy
+import os
+import re
 import time
 
 import veles.config as config
@@ -482,6 +483,7 @@ class ImageLoader(FullBatchLoader):
 
     Should be overriden in child class:
         get_label_from_filename()
+        is_valid_filename()
     """
     def __init__(self, workflow, **kwargs):
         test_paths = kwargs.get("test_paths")
@@ -526,11 +528,19 @@ class ImageLoader(FullBatchLoader):
         """
         pass
 
+    def is_valid_filename(self, filename):
+        return True
+
     def load_original(self, pathname):
         """Loads data from original files.
         """
         self.info("Loading from %s..." % (pathname))
-        files = glob.glob(pathname)
+        files = []
+        for basedir, _, filelist in os.walk(pathname):
+            for nme in filelist:
+                fnme = "%s/%s" % (basedir, nme)
+                if self.is_valid_filename(fnme):
+                    files.append(fnme)
         files.sort()
         n_files = len(files)
         if not n_files:
