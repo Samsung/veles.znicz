@@ -18,6 +18,7 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
 
+import logging
 
 root.defaults = {"conv_relu":  {  # "weights_filling": "uniform",
                                 # "weights_magnitude": 0.000001
@@ -127,6 +128,9 @@ class Workflow(StandardWorkflow):
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
+
+#        print(self.gds[0])
+        self.gds[0].global_alpha = 0.02
 
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
