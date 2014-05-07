@@ -6,6 +6,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import numpy
+import numpy.linalg as linalg
 
 import veles.config as config
 import veles.formats as formats
@@ -372,17 +373,14 @@ class KohonenHits(plotter.Plotter):
         # Initialize sizes
         hits_max = numpy.max(self.input)
         sizes = self.input / hits_max
-        self._fill_sizes(sizes)
-        vertices = numpy.empty((self.width * self.height, 6, 2))
+        patches = []
         # Add hexagons one by one
         for y in range(self.height):
             for x in range(self.width):
-                self._add_hexagon(axes, vertices, x, y, sizes[x, y],
+                self._add_hexagon(axes, patches, x, y, sizes[x, y],
                                   self.input[x, y])
-        col = self.matplotlib.collections.PolyCollection(
-            vertices, closed=True, edgecolors='none',
-            facecolors=self.color_bins)
-        col.set_transform(axes.transData)
+        col = self.matplotlib.collections.PatchCollection(
+            patches, edgecolors='none', facecolors=self.color_bins)
         axes.add_collection(col)
 
         axes.set_xlim(-1.0, self.width + 0.5)
@@ -390,18 +388,11 @@ class KohonenHits(plotter.Plotter):
         axes.set_xticks([])
         axes.set_yticks([])
 
-    def _add_hexagon(self, axes, vertices, x, y, size, number):
-        index = y * self.width + x
-        hsz = size / 2
-        diag = size / numpy.sqrt(3)
+    def _add_hexagon(self, axes, patches, x, y, size, number):
+        r = size / numpy.sqrt(3)
         cx = x if not (y & 1) else x + 0.5
         cy = y * (1.5 / numpy.sqrt(3))
-        vertices[index, 0, :] = (cx, cy - diag)
-        vertices[index, 1, :] = (cx - hsz, cy - diag / 2)
-        vertices[index, 2, :] = (cx - hsz, cy + diag / 2)
-        vertices[index, 3, :] = (cx, cy + diag)
-        vertices[index, 4, :] = (cx + hsz, cy + diag / 2)
-        vertices[index, 5, :] = (cx + hsz, cy - diag / 2)
+        patches.append(self.patches.RegularPolygon((cx, cy), 6, radius=r))
         if size > KohonenHits.SIZE_TEXT_THRESHOLD:
             axes.annotate(number, xy=(cx, cy),
                           verticalalignment="center",
@@ -499,7 +490,7 @@ class KohonenNeighborMap(plotter.Plotter):
         height
     """
 
-    NEURON_SIZE = 0.2
+    NEURON_SIZE = 0.4
 
     def __init__(self, workflow, **kwargs):
         name = kwargs.get("name", "Kohonen Neighbor Weight Distances")
@@ -508,8 +499,8 @@ class KohonenNeighborMap(plotter.Plotter):
         self._color_neurons = kwargs.get("color_neurons", "#666699")
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
         self._input = None
-        self._width = 0
-        self._height = 0
+        self.width = 0
+        self.height = 0
 
     @property
     def input(self):
@@ -518,14 +509,6 @@ class KohonenNeighborMap(plotter.Plotter):
     @input.setter
     def input(self, value):
         self._input = value
-
-    @property
-    def width(self):
-        return self._width
-
-    @property
-    def height(self):
-        return self._height
 
     @property
     def color_neurons(self):
@@ -550,23 +533,52 @@ class KohonenNeighborMap(plotter.Plotter):
         axes = fig.add_subplot(111)
 
         # Draw the neurons
-        vertices = numpy.empty((self.width * self.height, 6, 2))
+        patches = []
         for y in range(self.height):
             for x in range(self.width):
-                self._add_hexagon(axes, vertices, x, y)
-        col = self.matplotlib.collections.PolyCollection(
-            vertices, closed=True, edgecolors='none',
-            facecolors=self.color_neurons)
-        col.set_transform(axes.transData)
+                self._add_hexagon(axes, patches, x, y)
+        col = self.matplotlib.collections.PatchCollection(
+            patches, edgecolors='black', facecolors=self.color_neurons)
         axes.add_collection(col)
 
         # Draw the links
         links = []
-
+        link_values = numpy.empty((self.width - 1) * self.height +
+                                  (self.width * 2 - 1) * (self.height - 1))
+        lvi = 0
+        # Add horizontal links
+        for y in range(self.height):
+            for x in range(self.width - 1):
+                n1 = (x, y)
+                n2 = (x + 1, y)
+                self._add_link(axes, links, n1, n2)
+                link_values[lvi] = self._calc_link_value(n1, n2)
+                lvi += 1
+        # Add vertical links
+        for y in range(self.height - 1):
+            for x in range(self.width):
+                n1 = (x, y)
+                n2 = (x, y + 1)
+                self._add_link(axes, links, n1, n2)
+                link_values[lvi] = self._calc_link_value(n1, n2)
+                lvi += 1
+                n1 = (x, y)
+                if y & 1:
+                    if x == self.width - 1:
+                        continue
+                    n2 = (x + 1, y + 1)
+                else:
+                    if x == 0:
+                        continue
+                    n2 = (x - 1, y + 1)
+                self._add_link(axes, links, n1, n2)
+                link_values[lvi] = self._calc_link_value(n1, n2)
+                lvi += 1
         # Add the collection
         col = self.matplotlib.collections.PatchCollection(
             links, cmap=getattr(self.cm, self.color_scheme),
             edgecolor='none')
+        col.set_array(link_values)
         axes.add_collection(col)
 
         axes.set_xlim(-1.0, self.width + 0.5)
@@ -574,20 +586,56 @@ class KohonenNeighborMap(plotter.Plotter):
         axes.set_xticks([])
         axes.set_yticks([])
 
-    def _add_hexagon(self, axes, vertices, x, y):
-        size = KohonenNeighborMap.NEURON_SIZE
-        index = y * self.width + x
-        hsz = size / 2
-        diag = size / numpy.sqrt(3)
+    def _add_hexagon(self, axes, patches, x, y):
+        r = KohonenNeighborMap.NEURON_SIZE / numpy.sqrt(3)
         cx = x if not (y & 1) else x + 0.5
         cy = y * (1.5 / numpy.sqrt(3))
-        vertices[index, 0, :] = (cx, cy - diag)
-        vertices[index, 1, :] = (cx - hsz, cy - diag / 2)
-        vertices[index, 2, :] = (cx - hsz, cy + diag / 2)
-        vertices[index, 3, :] = (cx, cy + diag)
-        vertices[index, 4, :] = (cx + hsz, cy + diag / 2)
-        vertices[index, 5, :] = (cx + hsz, cy - diag / 2)
+        patches.append(self.patches.RegularPolygon((cx, cy), 6, radius=r))
 
-    def _add_link(self, axes, links, x, y, value):
-        # TODO(v.markovtsev): implement this
-        pass
+    def _calc_link_value(self, n1, n2):
+        n1x, n1y = n1
+        n2x, n2y = n2
+        weights1 = self.input[n1y * self.width + n1x, :]
+        weights2 = self.input[n2y * self.width + n2x, :]
+        return linalg.norm(weights1 - weights2)
+
+    def _add_link(self, axes, links, n1, n2):
+        n1x, n1y = n1
+        n2x, n2y = n2
+        vertices = numpy.empty((6, 2))
+        diag = 1.0 / numpy.sqrt(3)
+        ratio = 1.0 - KohonenNeighborMap.NEURON_SIZE
+        # LET THE GEOMETRIC PORN BEGIN!!!
+        if n1y == n2y:
+            # Horizontal hexagon
+            cx = (n1x + n2x) / 2 + (0.5 if n1y & 1 else 0)
+            cy = n1y * (1.5 / numpy.sqrt(3))
+            vertices[0, :] = (cx, cy - diag / 2)
+            vertices[1, :] = (cx - 0.5 * ratio, cy - (diag / 2) * (1 - ratio))
+            vertices[2, :] = (cx - 0.5 * ratio, cy + (diag / 2) * (1 - ratio))
+            vertices[3, :] = (cx, cy + diag / 2)
+            vertices[4, :] = (cx + 0.5 * ratio, cy + (diag / 2) * (1 - ratio))
+            vertices[5, :] = (cx + 0.5 * ratio, cy - (diag / 2) * (1 - ratio))
+        elif (n1x == n2x and n2y & 1) or (n2x > n1x and n1y & 1):
+            # Right hexagon
+            sx = n1x + (0.5 if n1y & 1 else 0)
+            sy = n1y * (1.5 / numpy.sqrt(3)) + diag
+            vertices[0, :] = (sx, sy)
+            vertices[1, :] = (sx + 0.5 * ratio, sy + (diag / 2) * ratio)
+            vertices[2, :] = (sx + 0.5, sy + diag * (ratio - 0.5))
+            vertices[3, :] = (sx + 0.5, sy - diag / 2)
+            vertices[4, :] = (sx + 0.5 * (1 - ratio),
+                              sy - (diag / 2) * (1 + ratio))
+            vertices[5, :] = (sx, sy - diag * ratio)
+        else:
+            # Left hexagon
+            sx = n2x + (0 if n1x == n2x else 0.5)
+            sy = n2y * (1.5 / numpy.sqrt(3)) - diag
+            vertices[0, :] = (sx, sy)
+            vertices[1, :] = (sx, sy + diag * ratio)
+            vertices[2, :] = (sx + 0.5 * (1 - ratio),
+                              sy + (diag / 2) * (1 + ratio))
+            vertices[3, :] = (sx + 0.5, sy + diag / 2)
+            vertices[4, :] = (sx + 0.5, sy - diag * (ratio - 0.5))
+            vertices[5, :] = (sx + 0.5 * ratio, sy - (diag / 2) * ratio)
+        links.append(self.patches.Polygon(vertices))
