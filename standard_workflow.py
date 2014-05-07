@@ -1,7 +1,17 @@
+"""
+Created on May 5, 2014
+
+Standard workflow class definition.
+
+Copyright (c) 2013 Samsung Electronics Co., Ltd.
+"""
+
+
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
+
 
 class StandardWorkflow(nn_units.NNWorkflow):
     """

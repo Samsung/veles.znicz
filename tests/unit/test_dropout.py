@@ -20,6 +20,12 @@ class TestType:
     CPU = 0
     OCL = 1
 
+    def __init__(self):
+        """
+        Needed by PEP8.
+        """
+        pass
+
 
 class TestDropout(unittest.TestCase):
     def setUp(self):
@@ -58,8 +64,8 @@ class TestDropout(unittest.TestCase):
                                delta=fwd_dropout.dropout_ratio / 10,
                                msg='error in DropoutForward results: ratio of '
                                'zero elements in output matrix is {0} '
-                               '(target value is {1})'.format(ratio,
-                               fwd_dropout.dropout_ratio))
+                               '(target value is {1})'.format(
+                                   ratio, fwd_dropout.dropout_ratio))
 
         back_dropout = DropoutBackward(workflow)
         back_dropout.mask = fwd_dropout.mask
@@ -87,8 +93,8 @@ class TestDropout(unittest.TestCase):
                                delta=fwd_dropout.dropout_ratio / 10,
                                msg='error in DropoutBackward results: ratio of'
                                ' zero elements in err_y matrix is {0} '
-                               '(target value is {1})'.format(ratio,
-                               fwd_dropout.dropout_ratio))
+                               '(target value is {1})'.format(
+                                   ratio, fwd_dropout.dropout_ratio))
 
     def test_cpu(self):
         logging.info("start CPU test...")

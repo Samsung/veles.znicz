@@ -87,12 +87,12 @@ class DropoutForward(Dropout):
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
         self.mask.v.ravel()[:] = np.random.uniform(low=-self.dropout_ratio,
-                                        high=leave_ratio,
-                                        size=self.input.v.size)[:]
+                                                   high=leave_ratio,
+                                                   size=self.input.v.size)[:]
         np.maximum(self.mask.v, 0, self.mask.v)
         np.ceil(self.mask.v, self.mask.v)
         self.mask.v = (self.mask.v.astype(self.input.v.dtype) /
-                          leave_ratio)
+                       leave_ratio)
 
     def cpu_run(self):
         self.output.map_invalidate()

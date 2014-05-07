@@ -6,14 +6,16 @@ Created on May 6, 2014
 A workflow to test first layer in simple line detection
 """
 
+
+import logging
+import sys
+
 from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
-from veles.znicz.samples.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
 from enum import IntEnum
 
-import logging
 
 root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "decision": {"fail_iterations": 100,
@@ -21,9 +23,8 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
                  "lines": {"global_alpha": 0.01,
-                                    "global_lambda": 0.0}}
+                           "global_lambda": 0.0}}
 
-import os, sys
 
 class ImageLabel(IntEnum):
     vertical = 0
@@ -55,7 +56,6 @@ class Workflow(StandardWorkflow):
             self, train_paths=["/home/agolovizin/LINES_10/learning"],
             validation_paths=["/home/agolovizin/LINES_10/test"],
             minibatch_maxsize=root.loader.minibatch_maxsize)
-
 
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
