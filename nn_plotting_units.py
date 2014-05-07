@@ -466,24 +466,16 @@ class KohonenInputMaps(plotter.Plotter):
             grid_shape = (4, int(numpy.ceil(length / 4)))
         for index in range(length):
             axes = fig.add_subplot(grid_shape[0], grid_shape[1], index)
-
-            weights = self.input[:, index]
-            min_weight = numpy.min(weights)
-            max_weight = numpy.max(weights)
-            delta = max_weight - min_weight
-            weights /= max_weight
-
             patches = []
             # Add hexagons to patches one by one
             for y in range(self.height):
                 for x in range(self.width):
-                    value = self.input[y * self.width + x, index]
-                    value = (value - min_weight) / delta
-                    self._add_hexagon(axes, patches, x, y, value)
+                    self._add_hexagon(axes, patches, x, y)
             # Add the collection
             col = self.matplotlib.collections.PatchCollection(
                 patches, cmap=getattr(self.cm, self.color_scheme),
                 edgecolor=self.color_grid)
+            col.set_array(self.input[:, index])
             axes.add_collection(col)
 
             axes.set_xlim(-1.0, self.width + 0.5)
@@ -491,7 +483,7 @@ class KohonenInputMaps(plotter.Plotter):
             axes.set_xticks([])
             axes.set_yticks([])
 
-    def _add_hexagon(self, axes, patches, x, y, value):
+    def _add_hexagon(self, axes, patches, x, y):
         r = 1.0 / numpy.sqrt(3)
         cx = x if not (y & 1) else x + 0.5
         cy = y * (1.5 / numpy.sqrt(3))
