@@ -18,27 +18,26 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
 
-import logging
-
-root.defaults = {"conv_relu":  {  # "weights_filling": "uniform",
-                                # "weights_magnitude": 0.000001
-                                "weights_filling": "gaussian",
-                                "weights_stddev": 0.000001},
+root.defaults = {"all2all_relu": {"weights_filling": "uniform",
+                                  "weights_magnitude": 0.05},
+                 "conv_relu":  {"weights_filling": "gaussian",
+                                "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
-                 "lines": {"global_alpha": 0.02,
+                 "lines": {"global_alpha": 0.01,
                            "global_lambda": 0.0,
                            "layers":
-                           [{"type": "conv_relu", "n_kernels": 4,
-                                "kx": 11, "ky": 11, "sliding": (4, 4),
-                                "padding": (0, 0, 0, 0)},
+                           [{"type": "conv_relu", "n_kernels": 32,
+                             "kx": 11, "ky": 11, "sliding": (4, 4),
+                             "padding": (0, 0, 0, 0)},
                             {"type": "max_pooling",
-                                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                             "kx": 3, "ky": 3, "sliding": (2, 2)},
+                            {"type": "relu", "layers": 32},
                             {"type": "softmax", "layers": 4}]},
-                 "softmax": {"weights_filling": "gaussian",
-                             "weights_stddev": 0.01}}
+                 "softmax": {"weights_filling": "uniform",
+                             "weights_magnitude": 0.05}}
 
 
 class ImageLabel(IntEnum):
@@ -94,12 +93,20 @@ class Workflow(StandardWorkflow):
                     self, kx=layer["kx"], ky=layer["ky"],
                     sliding=layer.get("sliding", (layer["kx"], layer["ky"])),
                                       device=device)
+            elif layer["type"] == "relu":
+                aa = all2all.All2AllRELU(
+                    self,
+                    weights_filling=root.all2all_relu.weights_filling,
+                    weights_magnitude=root.all2all_relu.weights_magnitude,
+                    output_shape=[layer["layers"]], device=device)
+
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
                     self,
                     output_shape=[layer["layers"]],
                     weights_filling=root.softmax.weights_filling,
-                    weights_stddev=root.softmax.weights_stddev, device=device)
+                    weights_magnitude=root.softmax.weights_magnitude,
+                    device=device)
             self._add_forward_unit(aa)
 
         # EVALUATOR
@@ -114,7 +121,7 @@ class Workflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix,)
+            snapshot_prefix=root.decision.snapshot_prefix)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -128,9 +135,6 @@ class Workflow(StandardWorkflow):
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
-
-#        print(self.gds[0])
-        self.gds[0].global_alpha = 0.02
 
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
@@ -187,13 +191,10 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def initialize(self, global_alpha, global_lambda, device):
+        self.gds[0].global_alpha = 0.03
         super(Workflow, self).initialize(global_alpha=global_alpha,
                                          global_lambda=global_lambda,
                                          device=device)
-        self.fwds[0].weights.map_invalidate()
-        self.fwds[0].weights.v[:] = 0
-        self.fwds[0].bias.map_invalidate()
-        self.fwds[0].bias.v[:] = 0
 
 
 def run(load, main):

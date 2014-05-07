@@ -12,22 +12,23 @@ from veles.config import root
 
 # optional parameters
 
-root.update = {"conv_relu":  {  #"weights_filling": "uniform",
-                                #"weights_magnitude": 0.000001
-                                "weights_filling": "gaussian",
-                                "weights_stddev": 0.000001},
+root.update = {"all2all_relu": {"weights_filling": "uniform",
+                                "weights_magnitude": 0.05},
+               "conv_relu":  {"weights_filling": "gaussian",
+                              "weights_stddev": 0.2},
                "decision": {"fail_iterations": 100,
                             "snapshot_prefix": "lines"},
                "loader": {"minibatch_maxsize": 60},
                "weights_plotter": {"limit": 32},
-               "lines": {"global_alpha": 0.02,
-                         "global_lambda": 0.1,
+               "lines": {"global_alpha": 0.01,
+                         "global_lambda": 0.0,
                          "layers":
-                         [{"type": "conv_relu", "n_kernels": 4,
+                         [{"type": "conv_relu", "n_kernels": 32,
                            "kx": 11, "ky": 11, "sliding": (4, 4),
                            "padding": (0, 0, 0, 0)},
                           {"type": "max_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},
+                          {"type": "relu", "layers": 32},
                           {"type": "softmax", "layers": 4}]},
-               "softmax": {"weights_filling": "gaussian",
-                           "weights_stddev": 0.01}}
+               "softmax": {"weights_filling": "uniform",
+                           "weights_magnitude": 0.05}}
