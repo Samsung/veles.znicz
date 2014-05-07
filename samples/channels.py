@@ -662,6 +662,7 @@ class Workflow(nn_units.NNWorkflow):
                 aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
                                    kx=layer["kx"], ky=layer["ky"],
                                    weights_filling=root.conv.weights_filling,
+                                   weights_stddev=root.conv.weights_stddev,
                                    sliding=layer.get("sliding", (1, 1, 1, 1)),
                                    padding=layer.get("padding", (0, 0, 0, 0)),
                                    device=device)
@@ -672,7 +673,8 @@ class Workflow(nn_units.NNWorkflow):
                     sliding=layer.get("sliding", (1, 1, 1, 1)),
                     padding=layer.get("padding", (0, 0, 0, 0)),
                     device=device,
-                    weights_filling=root.conv_relu.weights_filling)
+                    weights_filling=root.conv_relu.weights_filling,
+                    weights_stddev=root.conv_relu.weights_stddev,)
             elif layer["type"] == "max_pooling":
                 aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
                                         sliding=layer.get("sliding",
