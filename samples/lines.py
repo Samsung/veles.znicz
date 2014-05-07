@@ -6,10 +6,6 @@ Created on May 6, 2014
 A workflow to test first layer in simple line detection.
 """
 
-
-import logging
-import sys
-
 from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -17,6 +13,7 @@ from veles.znicz.loader import ImageLoader
 from veles.znicz.nn_plotting_units import Weights2D
 from enum import IntEnum
 
+import logging
 
 root.defaults = {"all2all": {"weights_magnitude": 0.05},
                  "decision": {"fail_iterations": 100,
@@ -24,8 +21,8 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
-                 "lines": {"global_alpha": 0.01,
-                           "global_lambda": 0.0}}
+                 "lines": {"global_lambda": 0.1}
+                 }
 
 
 class ImageLabel(IntEnum):
@@ -55,7 +52,8 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
         self.loader = Loader(
-            self, train_paths=["/data/veles/Lines/LINES_10_500_NOISY/learning"],
+            self,
+            train_paths=["/data/veles/Lines/LINES_10_500_NOISY/learning"],
             validation_paths=["/data/veles/Lines/LINES_10_500_NOISY/test"],
             minibatch_maxsize=root.loader.minibatch_maxsize,
             grayscale=False)
@@ -68,21 +66,17 @@ class Workflow(StandardWorkflow):
         # FORWARD LAYERS
 
         # Layer 1 (CONV + POOL)
-        conv1 = conv.ConvRELU(self, n_kernels=32, kx=11, ky=11,
+        conv1 = conv.ConvRELU(self, n_kernels=4, kx=11, ky=11,
                               sliding=(4, 4), padding=(0, 0, 0, 0),
-                              weights_filling="gaussian", weights_stddev=1.0,
+                              weights_filling="gaussian",
+                              weights_stddev=.000001,
                               device=device)
+
         self._add_forward_unit(conv1)
 
         pool1 = pooling.MaxPooling(self, kx=3, ky=3, sliding=(2, 2),
                                    device=device)
         self._add_forward_unit(pool1)
-
-        # Layer 7 (FULLY CONNECTED)
-#        fc7 = all2all.All2AllRELU(
-#            self, output_shape=100, weights_filling="gaussian",
-#            weights_stddev=0.005, device=device)
-#        self._add_forward_unit(fc7)
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(
@@ -115,6 +109,9 @@ class Workflow(StandardWorkflow):
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
 
+#        print(self.gds[0])
+        self.gds[0].global_alpha = 0.02
+
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = Weights2D(
@@ -138,6 +135,10 @@ class Workflow(StandardWorkflow):
         super(Workflow, self).initialize(global_alpha=global_alpha,
                                          global_lambda=global_lambda,
                                          device=device)
+        self.fwds[0].weights.map_invalidate()
+        self.fwds[0].weights.v[:] = 0
+        self.fwds[0].bias.map_invalidate()
+        self.fwds[0].bias.v[:] = 0
 
 
 def run(load, main):
