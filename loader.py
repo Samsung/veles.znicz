@@ -9,7 +9,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import os
-import re
 import time
 
 import veles.config as config

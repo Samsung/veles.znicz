@@ -504,7 +504,7 @@ class KohonenNeighborMap(plotter.Plotter):
     def __init__(self, workflow, **kwargs):
         name = kwargs.get("name", "Kohonen Neighbor Weight Distances")
         kwargs["name"] = name
-        super(KohonenHits, self).__init__(workflow, **kwargs)
+        super(KohonenNeighborMap, self).__init__(workflow, **kwargs)
         self._color_neurons = kwargs.get("color_neurons", "#666699")
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
         self._input = None

@@ -14,6 +14,7 @@ from veles.znicz.samples.imagenet import LoaderDetection
 
 class Test(unittest.TestCase):
     def __init__(self, *args, **kwargs):
+        super(Test, self).__init__(*args, **kwargs)
         self.loader = LoaderDetection(DummyWorkflow(),
                                       ipath="/data/imagenet/2013",
                                       dbpath="/data/imagenet/2013/db",
