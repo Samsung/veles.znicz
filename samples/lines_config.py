@@ -12,9 +12,7 @@ from veles.config import root
 
 # optional parameters
 
-root.update = {  #"all2all_relu": {"weights_filling": "gaussian",
-               #                 "weights_stddev": 0.00001},
-               "conv_relu":  {  #"weights_filling": "uniform",
+root.update = {"conv_relu":  {  #"weights_filling": "uniform",
                                 #"weights_magnitude": 0.000001
                                 "weights_filling": "gaussian",
                                 "weights_stddev": 0.000001},
@@ -30,7 +28,6 @@ root.update = {  #"all2all_relu": {"weights_filling": "gaussian",
                            "padding": (0, 0, 0, 0)},
                           {"type": "max_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},
-                          #{"type": "relu", "layers": 15},
                           {"type": "softmax", "layers": 4}]},
                "softmax": {"weights_filling": "gaussian",
                            "weights_stddev": 0.01}}

@@ -10,6 +10,7 @@ A workflow to test first layer in simple line detection.
 import logging
 
 from veles.config import root
+from veles.mutable import Bool
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
@@ -31,7 +32,6 @@ root.defaults = {"decision": {"fail_iterations": 100,
                                 "padding": (0, 0, 0, 0)},
                             {"type": "max_pooling",
                                 "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            #{"type": "relu", "layers": 50},
                             {"type": "softmax", "layers": 4}]
                            },
                  "softmax": {"weights_filling": "gaussian",
