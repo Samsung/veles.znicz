@@ -857,23 +857,30 @@ class Workflow(nn_units.NNWorkflow):
         """
         # Weights plotter
         self.plt_mx = []
+        prev_channels = 3
         for i in range(0, len(layers)):
-            self.decision.vectors_to_sync[self.gds[0].weights] = 1
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
-            self.plt_mx[i].link_attrs(self.gds[i], ("input", "weights"))
-            self.plt_mx[i].input_field = "v"
-            if layers[i].get("n_kernels") is not None:
-                self.plt_mx[i].get_shape_from = (
-                    [self.fwds[i].kx, self.fwds[i].ky])
+            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
+            self.plt_mx[-1].input_field = "v"
+            if isinstance(self.fwds[i], conv.Conv):
+                self.plt_mx[-1].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
+                prev_channels = self.fwds[i].n_kernels
             if (layers[i].get("layers") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_mx[i].link_attrs(self.fwds[i],
-                                          ("get_shape_from", "input"))
-            self.plt_mx[i].link_from(self.decision)
-            self.plt_mx[i].gate_block = ~self.decision.epoch_ended
+                self.plt_mx[-1].link_attrs(self.fwds[i],
+                                           ("get_shape_from", "input"))
+            #elif isinstance(self.fwds[i], all2all.All2All):
+            #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
         # Histogram plotter
         self.plt_hist = []

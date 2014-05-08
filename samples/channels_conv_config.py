@@ -49,7 +49,7 @@ root.update = {"accumulator": {"n_bars": 30},
                "weights_plotter": {"limit": 64},
                "channels": {"export": False,
                             "find_negative": 0,
-                            "global_alpha": 0.005,
+                            "global_alpha": 0.001,
                             "global_lambda": 0.004,
                             "layers":
                             [{"type": "conv", "n_kernels": 32,
