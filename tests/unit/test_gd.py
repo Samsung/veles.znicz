@@ -24,6 +24,8 @@ class TestGD(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
+        self.W = None
+        self.b = None
 
     def tearDown(self):
         del self.device

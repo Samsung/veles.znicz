@@ -8,9 +8,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-from veles.external.freetype import (Face, FT_Matrix, FT_LOAD_RENDER,
-                                     # pylint: disable=E0611
-                                     FT_Vector, FT_Set_Transform, byref)
+from veles.external.freetype import (
+    Face, FT_Matrix, FT_LOAD_RENDER,  # pylint: disable=E0611
+    FT_Vector, FT_Set_Transform, byref)
 import logging
 import numpy
 import os

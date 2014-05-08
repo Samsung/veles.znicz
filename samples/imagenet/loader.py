@@ -30,6 +30,11 @@ import veles.znicz.loader as loader
 from veles.znicz.external import xmltodict
 
 
+# Needed by average picture calculation in multiple processes
+_shared_mean = None
+_mean_done = None
+
+
 class LoaderBase(loader.Loader):
     """
     Imagenet images and metadata loader.
