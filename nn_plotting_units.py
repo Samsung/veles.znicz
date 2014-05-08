@@ -245,7 +245,7 @@ class MSEHistogram(plotter.Plotter):
         self.show_figure(fig)
         fig.canvas.draw()
         super(MSEHistogram, self).redraw()
-        return figure
+        return fig
 
     def run(self):
         mx = self.mse.v.max()
