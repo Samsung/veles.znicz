@@ -136,6 +136,7 @@ class Weights2D(plotter.Plotter):
         figure.canvas.draw()
 
         super(Weights2D, self).redraw()
+        return figure
 
 
 class MSEHistogram(plotter.Plotter):
@@ -244,6 +245,7 @@ class MSEHistogram(plotter.Plotter):
         self.show_figure(fig)
         fig.canvas.draw()
         super(MSEHistogram, self).redraw()
+        return figure
 
     def run(self):
         mx = self.mse.v.max()
@@ -387,6 +389,8 @@ class KohonenHits(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
+        super(KohonenHits, self).redraw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y, size, number):
         r = size / numpy.sqrt(3)
@@ -473,6 +477,8 @@ class KohonenInputMaps(plotter.Plotter):
             axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
             axes.set_xticks([])
             axes.set_yticks([])
+        super(KohonenInputMaps, self).redraw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = 1.0 / numpy.sqrt(3)
@@ -585,6 +591,8 @@ class KohonenNeighborMap(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
+        super(KohonenNeighborMap, self).redraw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = KohonenNeighborMap.NEURON_SIZE / numpy.sqrt(3)
