@@ -13,7 +13,7 @@ from veles.config import root
 # optional parameters
 
 
-root.update = {"all2all": {"weights_magnitude": 0.05},
+root.update = {"all2all": {"weights_stddev": 0.05},
                "decision": {"fail_iterations": 100,
                             "snapshot_prefix": "imagenet_caffe",
                             "store_samples_mse": True},

@@ -24,7 +24,7 @@ train_image_dir = os.path.join(
 train_label_dir = os.path.join(
     root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
 
-root.update = {"all2all": {"weights_magnitude": 0.05},
+root.update = {"all2all": {"weights_stddev": 0.05},
                "decision": {"fail_iterations": 150,
                             "snapshot_prefix": "mnist_relu"},
                "loader": {"minibatch_maxsize": 60},

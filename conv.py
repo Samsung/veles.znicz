@@ -44,7 +44,7 @@ class Conv(nn_units.Forward):
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
         weights_filling: rand weight filling
                          ("unirofm" (default) or "gaussian")
-        weights_magnitude: magnitude of uniform weight distribution.
+        weights_stddev: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
 
         rand: rnd.Rand() object for initial weights generation.
@@ -59,14 +59,12 @@ class Conv(nn_units.Forward):
         padding = kwargs.get("padding", (0, 0, 0, 0))
         sliding = kwargs.get("sliding", (1, 1))
         weights_filling = kwargs.get("weights_filling", "uniform")
-        weights_magnitude = kwargs.get("weights_magnitude", None)
-        weights_stddev = kwargs.get("weights_stddev", 0.05)
+        weights_stddev = kwargs.get("weights_stddev", None)
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
         kwargs["padding"] = padding
         kwargs["sliding"] = sliding
-        kwargs["weights_magnitude"] = weights_magnitude
         kwargs["weights_filling"] = weights_filling
         kwargs["weights_stddev"] = weights_stddev
         super(Conv, self).__init__(workflow, **kwargs)
@@ -80,7 +78,6 @@ class Conv(nn_units.Forward):
                              "padding", "sliding"))
 
         self.weights_filling = weights_filling
-        self.weights_magnitude = weights_magnitude
         self.weights_stddev = weights_stddev
 
     def init_unpickled(self):
@@ -105,9 +102,9 @@ class Conv(nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(Conv, self).initialize(device=device, **kwargs)
 
-        if self.weights_magnitude is None:
+        if self.weights_stddev is None:
             # Get weights magnitude and cap it to 0.05
-            self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
+            self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
 
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
@@ -118,8 +115,8 @@ class Conv(nn_units.Forward):
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.v, -self.weights_magnitude,
-                               self.weights_magnitude)
+                self.rand.fill(self.weights.v, -self.weights_stddev,
+                               self.weights_stddev)
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
@@ -137,8 +134,8 @@ class Conv(nn_units.Forward):
             self.bias.reset()
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.weights_magnitude,
-                               self.weights_magnitude)
+                self.rand.fill(self.bias.v, -self.weights_stddev,
+                               self.weights_stddev)
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
             else:

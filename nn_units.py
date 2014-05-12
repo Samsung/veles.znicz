@@ -26,14 +26,14 @@ class Forward(OpenCLUnit):
         output: output layer values.
         weights: weights.
         bias: bias.
-        weights_magnitude: magnitude of the random distribution of weights.
+        weights_stddev: magnitude of the random distribution of weights.
         rand: rnd.Rand() object for initial weights generation.
     """
     def __init__(self, workflow, **kwargs):
-        weights_magnitude = kwargs.get("weights_magnitude")
+        weights_stddev = kwargs.get("weights_stddev")
         rand = kwargs.get("rand", rnd.default)
         weights_transposed = kwargs.get("weights_transposed", False)
-        kwargs["weights_magnitude"] = weights_magnitude
+        kwargs["weights_stddev"] = weights_stddev
         kwargs["rand"] = rand
         kwargs["weights_transposed"] = weights_transposed
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
@@ -42,7 +42,7 @@ class Forward(OpenCLUnit):
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
-        self.weights_magnitude = weights_magnitude
+        self.weights_stddev = weights_stddev
         self.rand = rand
         self.weights_transposed = weights_transposed
         self.exports = ["weights", "bias", "weights_transposed"]

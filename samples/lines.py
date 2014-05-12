@@ -19,7 +19,7 @@ from enum import IntEnum
 
 
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
-                                  "weights_magnitude": 0.05},
+                                  "weights_stddev": 0.05},
                  "conv_relu":  {"weights_filling": "gaussian",
                                  "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
@@ -37,7 +37,7 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                             {"type": "relu", "layers": 32},
                             {"type": "softmax", "layers": 4}]},
                  "softmax": {"weights_filling": "uniform",
-                             "weights_magnitude": 0.05}}
+                             "weights_stddev": 0.05}}
 
 
 class ImageLabel(IntEnum):
@@ -106,14 +106,14 @@ class Workflow(StandardWorkflow):
                 aa = all2all.All2AllRELU(
                     self,
                     weights_filling=root.all2all_relu.weights_filling,
-                    weights_magnitude=root.all2all_relu.weights_magnitude,
+                    weights_stddev=root.all2all_relu.weights_stddev,
                     output_shape=[layer["layers"]], device=device)
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
                     self,
                     output_shape=[layer["layers"]],
                     weights_filling=root.softmax.weights_filling,
-                    weights_magnitude=root.softmax.weights_magnitude,
+                    weights_stddev=root.softmax.weights_stddev,
                     device=device)
             else:
                 raise error.ErrBadFormat("Unsupported layer type %s" %

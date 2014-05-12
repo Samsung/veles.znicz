@@ -43,7 +43,7 @@ class All2All(nn_units.Forward):
 
         weights_filling: rand weight filling
                          ("uniform" (default) or "gaussian")
-        weights_magnitude: magnitude of uniform weight distribution.
+        weights_stddev: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
     """
     def __init__(self, workflow, **kwargs):
@@ -51,10 +51,8 @@ class All2All(nn_units.Forward):
         kwargs["output_shape"] = output_shape
 
         weights_filling = kwargs.get("weights_filling", "uniform")
-        weights_magnitude = kwargs.get("weights_magnitude", None)
-        weights_stddev = kwargs.get("weights_stddev", 0.05)
+        weights_stddev = kwargs.get("weights_stddev", None)
 
-        kwargs["weights_magnitude"] = weights_magnitude
         kwargs["weights_filling"] = weights_filling
         kwargs["weights_stddev"] = weights_stddev
 
@@ -62,7 +60,6 @@ class All2All(nn_units.Forward):
         self.input = None
         self.weights_filling = weights_filling
         self.weights_stddev = weights_stddev
-        self.weights_magnitude = weights_magnitude
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
@@ -90,9 +87,9 @@ class All2All(nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(All2All, self).initialize(device=device, **kwargs)
 
-        if self.weights_magnitude is None:
+        if self.weights_stddev is None:
             # Get weights magnitude and cap it to 0.05
-            self.weights_magnitude = min(self.get_weights_magnitude(), 0.05)
+            self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
         output_shape = (self.output_shape.v.shape[1:]
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
@@ -102,8 +99,8 @@ class All2All(nn_units.Forward):
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.v, -self.weights_magnitude,
-                               self.weights_magnitude)
+                self.rand.fill(self.weights.v, -self.weights_stddev,
+                               self.weights_stddev)
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
@@ -120,8 +117,8 @@ class All2All(nn_units.Forward):
             self.bias.reset()
             self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.weights_magnitude,
-                               self.weights_magnitude)
+                self.rand.fill(self.bias.v, -self.weights_stddev,
+                               self.weights_stddev)
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
             else:

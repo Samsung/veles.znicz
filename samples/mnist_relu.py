@@ -32,8 +32,7 @@ train_image_dir = os.path.join(
 train_label_dir = os.path.join(
     root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
 
-root.defaults = {"all2all": {"weights_magnitude": 0.05},
-                 "decision": {"fail_iterations": 150,
+root.defaults = {"decision": {"fail_iterations": 150,
                               "snapshot_prefix": "mnist_relu"},
                  "loader": {"minibatch_maxsize": 60},
                  "mnist_relu": {"learning_rate": 0.01,
@@ -46,7 +45,9 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                                                        "train_images":
                                                        train_image_dir,
                                                        "train_label":
-                                                       train_label_dir}}}
+                                                       train_label_dir}},
+                 "relu": {"weights_stddev": 0.05},
+                 "softmax": {"weights_stddev": 0.05}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -156,11 +157,11 @@ class Workflow(nn_units.NNWorkflow):
             if i < len(layers) - 1:
                 aa = all2all.All2AllRELU(
                     self, output_shape=[layers[i]], device=device,
-                    weights_magnitude=root.all2all.weights_magnitude)
+                    weights_stddev=root.relu.weights_stddev)
             else:
                 aa = all2all.All2AllSoftmax(
                     self, output_shape=[layers[i]], device=device,
-                    weights_magnitude=root.all2all.weights_magnitude)
+                    weights_stddev=root.softmax.weights_stddev)
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])

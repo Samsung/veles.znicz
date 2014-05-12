@@ -36,7 +36,7 @@ train_label_dir = os.path.join(
     root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
 
 
-root.defaults = {"all2all": {"weights_magnitude": 0.05},
+root.defaults = {"all2all": {"weights_stddev": 0.05},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "mnist",
                               "store_samples_mse": True},
