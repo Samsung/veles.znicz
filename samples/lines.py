@@ -7,9 +7,8 @@ A workflow to test first layer in simple line detection.
 """
 
 
-import logging
-
 from veles.config import root
+import veles.error as error
 from veles.mutable import Bool
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -18,11 +17,10 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
 
+
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_magnitude": 0.05},
-                 "conv_relu1":  {"weights_filling": "gaussian",
-                                 "weights_stddev": 0.001},
-                 "conv_relu2":  {"weights_filling": "gaussian",
+                 "conv_relu":  {"weights_filling": "gaussian",
                                  "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
@@ -70,42 +68,40 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
         self.loader = Loader(
             self,
-            train_paths=["/data/veles/Lines/LINES_10_500_NOISY/learning"],
-            validation_paths=["/data/veles/Lines/LINES_10_500_NOISY/test"],
+            train_paths=[
+                "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"],
+            validation_paths=[
+                "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"],
             minibatch_maxsize=root.loader.minibatch_maxsize,
             grayscale=False)
 
-        self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
         self.loader.link_from(self.repeater)
 
+        del self.fwds[:]
         for i in range(0, len(layers)):
             layer = layers[i]
-            if layer["type"] == "conv_relu1":
+            if layer["type"] == "conv_relu":
                 aa = conv.ConvRELU(
                     self, n_kernels=layer["n_kernels"],
                     kx=layer["kx"], ky=layer["ky"],
                     sliding=layer.get("sliding", (1, 1, 1, 1)),
                     padding=layer.get("padding", (0, 0, 0, 0)),
                     device=device,
-                    weights_filling=root.conv_relu1.weights_filling,
-                    weights_stddev=root.conv_relu1.weights_stddev)
-            elif layer["type"] == "conv_relu2":
-                aa = conv.ConvRELU(
-                    self, n_kernels=layer["n_kernels"],
-                    kx=layer["kx"], ky=layer["ky"],
-                    sliding=layer.get("sliding", (1, 1, 1, 1)),
-                    padding=layer.get("padding", (0, 0, 0, 0)),
-                    device=device,
-                    weights_filling=root.conv_relu2.weights_filling,
-                    #weights_magnitude=root.conv_relu2.weights_magnitude)
-                    weights_stddev=root.conv_relu2.weights_stddev)
+                    weights_filling=root.conv_relu.weights_filling,
+                    weights_stddev=root.conv_relu.weights_stddev)
             elif layer["type"] == "max_pooling":
                 aa = pooling.MaxPooling(
                     self, kx=layer["kx"], ky=layer["ky"],
                     sliding=layer.get("sliding", (layer["kx"], layer["ky"])),
                     device=device)
+            elif layer["type"] == "avg_pooling":
+                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
+                                        sliding=layer.get("sliding",
+                                                          (layer["kx"],
+                                                           layer["ky"])),
+                                        device=device)
             elif layer["type"] == "relu":
                 aa = all2all.All2AllRELU(
                     self,
@@ -119,7 +115,19 @@ class Workflow(StandardWorkflow):
                     weights_filling=root.softmax.weights_filling,
                     weights_magnitude=root.softmax.weights_magnitude,
                     device=device)
-            self._add_forward_unit(aa)
+            else:
+                raise error.ErrBadFormat("Unsupported layer type %s" %
+                                         (layer["type"]))
+            self.fwds.append(aa)
+            if i:
+                self.fwds[-1].link_from(self.fwds[-2])
+                self.fwds[-1].link_attrs(self.fwds[-2],
+                                         ("input", "output"))
+            else:
+                self.fwds[-1].link_from(self.loader)
+                self.fwds[-1].link_attrs(self.loader,
+                                         ("input", "minibatch_data"))
+            #self._add_forward_unit(aa)
 
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
@@ -171,7 +179,7 @@ class Workflow(StandardWorkflow):
                 continue
             self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             plt_mx = nn_plotting_units.Weights2D(
-                self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
+                self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
@@ -206,7 +214,7 @@ class Workflow(StandardWorkflow):
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram weights %s %s" % (i + 1,
+                self, name="Histogram %s %s" % (i + 1,
                                                         layers[i]["type"]))
             self.plt_multi_hist.append(multi_hist)
             if layers[i].get("n_kernels") is not None:
