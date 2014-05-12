@@ -133,15 +133,15 @@ class Kohonen(nn_units.Forward):
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                     opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-                'H': self.weights.v.size // self.output_size,
-                'Y': self.output_size,
+                'H': self.weights.v.size // output_size,
+                'Y': output_size,
                 'BATCH': self.output.v.shape[0]}
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(defines, "%s/kohonen_%d_%d.cl" %
                                (config.root.common.cache_dir,
                                 self.input.v.size // self.input.v.shape[0],
-                                self.output_size),
+                                output_size),
                                dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")
@@ -208,6 +208,7 @@ class KohonenTrain(nn_units.GradientDescentBase):
         self.distance = formats.Vector()
         self.argmin = formats.Vector()
         self.coords = formats.Vector()
+        self.sigma = None
 
     def init_unpickled(self):
         super(KohonenTrain, self).init_unpickled()
@@ -265,13 +266,16 @@ class KohonenTrain(nn_units.GradientDescentBase):
             offs = 0
             v = self.coords.v
             for _row in range(rows):
-                x = x_min
+                x = x_min + (x_step * 0.5 if _row & 1 else 0)
                 for _col in range(cols):
                     v[offs, 0] = x
                     v[offs, 1] = y
                     offs += 1
                     x += x_step
                 y += y_step
+        if self.sigma is None:
+            self.sigma = (self.coords.v.ravel().max() -
+                          self.coords.v.ravel().min()) * 1.42
 
         self.weights.initialize(self.device)
         self.h.initialize(self.device)
@@ -285,15 +289,18 @@ class KohonenTrain(nn_units.GradientDescentBase):
 
         if self.program_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
+                opencl_types.numpy_dtype_to_opencl(self.weights.v.dtype)]
             self.reduce_size = min(self.reduce_size, self._output_size)
 
             defines = {
                 'BLOCK_SIZE': block_size,
-                'BATCH': self.err_h.v.shape[0],
+                'BATCH': self.h.v.shape[0],
                 'H': self._input_size,
                 'Y': self._output_size,
-                'REDUCE_SIZE': self.reduce_size
+                'REDUCE_SIZE': self.reduce_size,
+                'coord_type':  "%s%d" %
+                (opencl_types.numpy_dtype_to_opencl(self.coords.v.dtype),
+                 self.coords.v.shape[-1])
             }
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
@@ -313,20 +320,20 @@ class KohonenTrain(nn_units.GradientDescentBase):
             self.krn_argmin_.set_arg(0, self.distance.v_)
             self.krn_argmin_.set_arg(1, self.argmin.v_)
 
-            self.krn_argmin_ = self.get_kernel("compute_gravity")
-            self.krn_argmin_.set_arg(0, self.argmin.v_)
-            self.krn_argmin_.set_arg(1, self.coords.v_)
-            self.krn_argmin_.set_arg(2, self.distance.v_)
+            self.krn_gravity_ = self.get_kernel("compute_gravity")
+            self.krn_gravity_.set_arg(0, self.argmin.v_)
+            self.krn_gravity_.set_arg(1, self.coords.v_)
+            self.krn_gravity_.set_arg(2, self.distance.v_)
 
-            self.krn_compute_gradients_ = self.get_kernel("compute_gradients")
-            self.krn_compute_gradients_.set_arg(0, self.h.v_)
-            self.krn_compute_gradients_.set_arg(1, self.weights.v_)
-            self.krn_compute_gradients_.set_arg(2, self.gradient_weights.v_)
+            self.krn_compute_gradient_ = self.get_kernel("compute_gradient")
+            self.krn_compute_gradient_.set_arg(0, self.h.v_)
+            self.krn_compute_gradient_.set_arg(1, self.weights.v_)
+            self.krn_compute_gradient_.set_arg(2, self.gradient_weights.v_)
 
-            self.krn_apply_gradients_ = self.get_kernel("apply_gradients")
-            self.krn_apply_gradients_.set_arg(0, self.gradient_weights.v_)
-            self.krn_apply_gradients_.set_arg(1, self.weights.v_)
-            self.krn_apply_gradients_.set_arg(2, self.distance.v_)
+            self.krn_apply_gradient_ = self.get_kernel("apply_gradient")
+            self.krn_apply_gradient_.set_arg(0, self.gradient_weights.v_)
+            self.krn_apply_gradient_.set_arg(1, self.weights.v_)
+            self.krn_apply_gradient_.set_arg(2, self.distance.v_)
 
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.weights.v.dtype)]
@@ -337,14 +344,14 @@ class KohonenTrain(nn_units.GradientDescentBase):
             self._ls_distance = [block_size, block_size]
 
             if self.weights_transposed:
-                self._gs_compute_gradients = [
+                self._gs_compute_gradient = [
                     formats.roundup(self._output_size, block_size),
-                    formats.roundup(self.err_h.v.shape[0], block_size)]
+                    formats.roundup(self.h.v.shape[0], block_size)]
             else:
-                self._gs_compute_gradients = [
-                    formats.roundup(self.err_h.v.shape[0], block_size),
+                self._gs_compute_gradient = [
+                    formats.roundup(self.h.v.shape[0], block_size),
                     formats.roundup(self._output_size, block_size)]
-            self._ls_compute_gradients = [block_size, block_size]
+            self._ls_compute_gradient = [block_size, block_size]
 
     def cpu_run(self):
         """Do gradient descent.
@@ -367,15 +374,19 @@ class KohonenTrain(nn_units.GradientDescentBase):
                             self._ls_distance).wait()
         self.execute_kernel(self.krn_argmin_, [self.reduce_size * batch_size],
                             [self.reduce_size]).wait()
+
+        self.krn_const_[0] = self.sigma
+        self.krn_gravity_.set_arg(3, self.krn_const_[0:1])
         self.execute_kernel(self.krn_gravity_, [batch_size, self._output_size],
                             None).wait()
-        self.execute_kernel(self.krn_compute_gradients_,
-                            self._gs_compute_gradients,
-                            self._ls_compute_gradients).wait()
 
-        self.cl_const[0] = -self.global_alpha / batch_size
-        self.cl_const[1] = -self.global_alpha * self.global_lambda
-        self.krn_apply_gradients_.set_arg(3, self.krn_const_[0:1])
-        self.krn_apply_gradients_.set_arg(4, self.krn_const_[1:2])
-        self.execute_kernel(self.krn_apply_gradients_, [self.weights.v.size],
+        self.execute_kernel(self.krn_compute_gradient_,
+                            self._gs_compute_gradient,
+                            self._ls_compute_gradient).wait()
+
+        self.krn_const_[0] = -self.global_alpha / batch_size
+        self.krn_const_[1] = -self.global_alpha * self.global_lambda
+        self.krn_apply_gradient_.set_arg(3, self.krn_const_[0:1])
+        self.krn_apply_gradient_.set_arg(4, self.krn_const_[1:2])
+        self.execute_kernel(self.krn_apply_gradient_, [self.weights.v.size],
                             None).wait()

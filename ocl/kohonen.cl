@@ -65,7 +65,7 @@ void compute_distance(__global const c_dtype    /* IN */    *h,
   #define B_COL
   #endif
 
-  #define MULTIPLY dist2
+  #define MULTIPLY c_dist2
 
   #include "matrix_multiplication.cl"
 
@@ -77,7 +77,7 @@ void compute_distance(__global const c_dtype    /* IN */    *h,
   #undef B
 
   if (valid) {
-    d2[idx] = sum[0];
+    y[idx] = sum[0];
   }
 }
 
@@ -89,8 +89,6 @@ void compute_distance(__global const c_dtype    /* IN */    *h,
 ///          REDUCE_SIZE - size for reduction,
 ///          Y - output size.
 #ifdef REDUCE_SIZE
-#define REDUCE_SIZE 64
-#endif
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void compute_argmin(__global const dtype    /* IN */    *y,
                     __global int            /* OUT */   *argmin) {
@@ -130,7 +128,7 @@ void compute_argmin(__global const dtype    /* IN */    *y,
   barrier(CLK_LOCAL_MEM_FENCE);
 
   // Final reduction
-  int n = MIN(Y_REAL, REDUCE_SIZE);
+  int n = MIN(Y, REDUCE_SIZE);
   while (n > 1) {
     if ((n & 1) && (AS[n - 1] < min_vle)) {
       min_vle = AS[n - 1];
@@ -151,6 +149,7 @@ void compute_argmin(__global const dtype    /* IN */    *y,
     argmin[bx] = min_idx;
   }
 }
+#endif
 
 
 /// @brief Computes gravity function from argmin neuron to all others.
@@ -161,6 +160,7 @@ void compute_argmin(__global const dtype    /* IN */    *y,
 /// @details Should be defined externally:
 ///          Y - output size,
 ///          coord_type - type for coordinates of neuron in space (float2).
+#ifdef coord_type
 __kernel
 void compute_gravity(__global const int           /* IN */    *argmin,
                      __global const coord_type    /* IN */    *coords,
@@ -171,6 +171,7 @@ void compute_gravity(__global const int           /* IN */    *argmin,
   dtype d = distance(coords[argmin[src]], coords[dst]);
   gravity[src * Y + dst] = exp((d * d) / (-2 * sigma * sigma));
 }
+#endif
 
 
 /// @brief Computes gradients for weights.
