@@ -40,8 +40,18 @@ class TestNormalization(unittest.TestCase):
 
         fwd_normalizer.ocl_run()
         fwd_normalizer.output.map_read()
+        ocl_result = np.copy(fwd_normalizer.output.v)
+
+        fwd_normalizer.cpu_run()
+        fwd_normalizer.output.map_read()
+        cpu_result = np.copy(fwd_normalizer.output.v)
+
+        max_delta = np.fabs(cpu_result - ocl_result).max()
+
         logging.info("FORWARD")
-        logging.info(fwd_normalizer.output.v)
+        self.assertLess(max_delta, 0.0001,
+                        "Result differs by %.6f" % (max_delta))
+        logging.info("FwdProp done.")
 
     def test_normalization_backward(self):
 
@@ -55,7 +65,6 @@ class TestNormalization(unittest.TestCase):
 
         back_normalizer = LRNormalizerBackward(self.workflow,
                                                device=self.device, n=3)
-
         back_normalizer.h = Vector()
         back_normalizer.err_y = Vector()
 
@@ -64,10 +73,21 @@ class TestNormalization(unittest.TestCase):
 
         back_normalizer.initialize(device=self.device)
 
+        back_normalizer.cpu_run()
+        back_normalizer.err_h.map_read()
+        cpu_result = np.copy(back_normalizer.err_h.v)
+
         back_normalizer.ocl_run()
         back_normalizer.err_h.map_read()
+        ocl_result = np.copy(back_normalizer.err_h.v)
+
         logging.info("BACK")
-        logging.info(back_normalizer.err_h.v)
+
+        max_delta = np.fabs(cpu_result - ocl_result).max()
+        assert max_delta < 0.0001
+        self.assertLess(max_delta, 0.0001,
+                        "Result differs by %.6f" % (max_delta))
+        logging.info("BackProp done.")
 
 
 if __name__ == "__main__":
