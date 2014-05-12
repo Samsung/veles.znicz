@@ -66,15 +66,21 @@ class StandardWorkflow(nn_units.NNWorkflow):
                                                           (layer["kx"],
                                                            layer["ky"])),
                                         device=self.device)
-            elif layer["type"] == "relu":
+            elif layer["type"] == "all2all_relu":
                 aa = all2all.All2AllRELU(
-                    self, output_shape=[layer["layers"]], device=self.device)
-            elif layer["type"] == "tanh":
+                    self, output_shape=[layer["layers"]], device=self.device,
+                    weights_filling=root.all2all_relu.weights_filling,
+                    weights_stddev=root.all2all_relu.weights_stddev)
+            elif layer["type"] == "all2all_tanh":
                 aa = all2all.All2AllTanh(
-                    self, output_shape=[layer["layers"]], device=self.device)
+                    self, output_shape=[layer["layers"]], device=self.device,
+                    weights_filling=root.all2all_tanh.weights_filling,
+                    weights_stddev=root.all2all_tanh.weights_stddev)
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layer["layers"]], device=self.device)
+                    self, output_shape=[layer["layers"]], device=self.device,
+                    weights_filling=root.softmax.weights_filling,
+                    weights_stddev=root.softmax.weights_stddev)
             else:
                 raise error.ErrBadFormat("Unsupported layer type %s" %
                                          (layer["type"]))

@@ -49,12 +49,18 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
 root.model = "conv"
 
 root.defaults = {"accumulator": {"n_bars": 30},
+                 "all2all_relu": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
+                 "all2all_tanh": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
                  "decision": {"fail_iterations": 1000,
                               "snapshot_prefix": "channels %s" % root.model,
                               "use_dynamic_alpha": False,
                               "do_export_weights": True},
-                 "conv":  {"weights_filling": "uniform"},
-                 "conv_relu":  {"weights_filling": "uniform"},
+                 "conv":  {"weights_filling": "uniform",
+                           "weights_stddev": 0.0001},
+                 "conv_relu":  {"weights_filling": "uniform",
+                                "weights_stddev": 0.0001},
                  "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
                                                "tmp %s/test" % root.model),
@@ -73,6 +79,8 @@ root.defaults = {"accumulator": {"n_bars": 30},
                             "/data/veles/VD/channels/russian_small/train",
                             "rect": (264, 129),
                             "validation_ratio": 0.15},
+                 "softmax": {"weights_filling": "uniform",
+                             "weights_stddev": 0.0001},
                  "weights_plotter": {"limit": 64},
                  "channels": {"export": False,
                               "find_negative": 0,
@@ -94,7 +102,7 @@ root.defaults = {"accumulator": {"n_bars": 30},
                                 "padding": (2, 2, 2, 2)},
                                {"type": "avg_pooling",
                                 "kx": 3, "ky": 3, "sliding": (2, 2)},
-                               {"type": "softmax", "layers": 10}],
+                               {"type": "softmax", "layers": 11}],
                               "snapshot": ""}}
 
 
@@ -752,7 +760,7 @@ class Workflow(StandardWorkflow):
                 continue
             self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             plt_mx = nn_plotting_units.Weights2D(
-                self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
+                self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
@@ -786,7 +794,7 @@ class Workflow(StandardWorkflow):
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram weights %s %s" % (i + 1,
+                self, name="Histogram %s %s" % (i + 1,
                                                         layers[i]["type"]))
             self.plt_multi_hist.append(multi_hist)
             if layers[i].get("n_kernels") is not None:

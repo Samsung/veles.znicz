@@ -18,12 +18,14 @@ from veles.config import root
 root.model = "tanh"
 
 root.update = {"accumulator": {"n_bars": 30},
+               "all2all_relu": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
+               "all2all_tanh": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
                "decision": {"fail_iterations": 1000,
                             "snapshot_prefix": "channels %s" % root.model,
                             "use_dynamic_alpha": False,
                             "do_export_weights": True},
-               "conv":  {"weights_filling": "uniform"},
-               "conv_relu":  {"weights_filling": "uniform"},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,
                                              "tmp %s/test" % root.model),
@@ -47,6 +49,6 @@ root.update = {"accumulator": {"n_bars": 30},
                             "find_negative": 0,
                             "learning_rate": 0.01,
                             "weights_decay": 0.00005,
-                            "layers": [{"type": "tanh", "layers": 54},
+                            "layers": [{"type": "all2all_tanh", "layers": 54},
                                        {"type": "softmax", "layers": 11}],
                             "snapshot": ""}}
