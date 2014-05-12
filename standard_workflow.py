@@ -75,6 +75,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
             self.gds.append(grad_elm)
 
             grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"))
+            grad_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
             # LRN has no weights
             if not isinstance(grad_elm, normalization.LRNormalizerBackward):
