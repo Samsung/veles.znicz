@@ -235,19 +235,19 @@ class KohonenTrain(nn_units.GradientDescentBase):
             self.gradient_weights.v = numpy.zeros_like(self.weights.v)
 
         if (self.distance.v is None or
-            self.distance.v.size != self._output_size):
+                self.distance.v.size != self._output_size):
             self.distance.reset()
             self.distance.v = numpy.zeros(
                 [self.h.v.shape[0], self._output_size],
                 dtype=self.weights.v.dtype)
 
         if (self.argmin.v is None or
-            self.argmin.v.size != self._output_size):
+                self.argmin.v.size != self._output_size):
             self.argmin.reset()
             self.argmin.v = numpy.zeros(self._output_size, dtype=numpy.int32)
 
         if (self.coords.v is None or
-            self.coords.v.size != self._output_size):
+                self.coords.v.size != self._output_size):
             self.coords.reset()
             self.coords.v = numpy.zeros([self._output_size, 2],
                                         dtype=self.weights.v.dtype)
@@ -306,7 +306,8 @@ class KohonenTrain(nn_units.GradientDescentBase):
                 defines['WEIGHTS_TRANSPOSED'] = 1
             self.build_program(
                 defines, "%s/kohonen_train_%d_%d.cl" % (
-                root.common.cache_dir, self._input_size, self._output_size),
+                    root.common.cache_dir,
+                    self._input_size, self._output_size),
                 dtype=self.weights.v.dtype)
 
             self.krn_const_ = numpy.zeros(2, dtype=self.weights.v.dtype)
