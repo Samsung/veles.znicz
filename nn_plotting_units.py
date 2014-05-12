@@ -64,7 +64,7 @@ class Weights2D(plotter.Plotter):
         figure = self.pp.figure(self.name)
         figure.clf()
 
-        color = False
+        n_channels = 1
         if self.get_shape_from is None:
             sx = int(numpy.round(numpy.sqrt(value.shape[1])))
             sy = int(value.shape[1]) // sx
@@ -73,37 +73,22 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[0]
                 sy = self.get_shape_from[1]
             else:
-                if self.get_shape_from[-1] == 3:
-                    sx = self.get_shape_from[-2]
-                    sy = self.get_shape_from[-3]
-                    interleave = False
-                else:
-                    sx = self.get_shape_from[-1]
-                    sy = self.get_shape_from[-2]
-                    interleave = True
-                color = True
+                sx = self.get_shape_from[-2]
+                sy = self.get_shape_from[-3]
+                n_channels = self.get_shape_from[-1]
         elif "v" in self.get_shape_from.__dict__:
             if len(self.get_shape_from.v.shape) == 3:
                 sx = self.get_shape_from.v.shape[2]
                 sy = self.get_shape_from.v.shape[1]
             else:
-                if self.get_shape_from.v.shape[-1] == 3:
-                    sx = self.get_shape_from.v.shape[-2]
-                    sy = self.get_shape_from.v.shape[-3]
-                    interleave = False
-                else:
-                    sx = self.get_shape_from.v.shape[-1]
-                    sy = self.get_shape_from.v.shape[-2]
-                    interleave = True
-                color = True
+                sx = self.get_shape_from.v.shape[-2]
+                sy = self.get_shape_from.v.shape[-3]
+                n_channels = self.get_shape_from.v.shape[-1]
         else:
             sx = self.get_shape_from.shape[1]
             sy = self.get_shape_from.shape[0]
 
-        if color:
-            sz = sx * sy * 3
-        else:
-            sz = sx * sy
+        sz = sx * sy * n_channels
 
         n_cols = int(numpy.round(numpy.sqrt(value.shape[0])))
         n_rows = int(numpy.ceil(value.shape[0] / n_cols))
@@ -115,11 +100,12 @@ class Weights2D(plotter.Plotter):
                 ax.cla()
                 ax.axis('off')
                 v = value[i].ravel()[:sz]
-                if color:
-                    if interleave:
-                        w = formats.interleave(v.reshape(3, sy, sx))
-                    else:
-                        w = v.reshape(sy, sx, 3)
+                if n_channels > 1:
+                    w = v.reshape(sy, sx, n_channels)
+                    if n_channels == 2:
+                        w = w[:, :, 0].reshape(sy, sx)
+                    elif n_channels > 3:
+                        w = w[:, :, :3].reshape(sy, sx, 3)
                     ax.imshow(formats.norm_image(w, self.yuv[0]),
                               interpolation="nearest")
                 else:
@@ -136,7 +122,6 @@ class Weights2D(plotter.Plotter):
         figure.canvas.draw()
 
         super(Weights2D, self).redraw()
-        return figure
 
 
 class MSEHistogram(plotter.Plotter):
@@ -245,7 +230,6 @@ class MSEHistogram(plotter.Plotter):
         self.show_figure(fig)
         fig.canvas.draw()
         super(MSEHistogram, self).redraw()
-        return fig
 
     def run(self):
         mx = self.mse.v.max()
@@ -389,8 +373,6 @@ class KohonenHits(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
-        super(KohonenHits, self).redraw()
-        return fig
 
     def _add_hexagon(self, axes, patches, x, y, size, number):
         r = size / numpy.sqrt(3)
@@ -477,8 +459,6 @@ class KohonenInputMaps(plotter.Plotter):
             axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
             axes.set_xticks([])
             axes.set_yticks([])
-        super(KohonenInputMaps, self).redraw()
-        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = 1.0 / numpy.sqrt(3)
@@ -591,8 +571,6 @@ class KohonenNeighborMap(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
-        super(KohonenNeighborMap, self).redraw()
-        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = KohonenNeighborMap.NEURON_SIZE / numpy.sqrt(3)

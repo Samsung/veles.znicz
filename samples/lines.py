@@ -20,8 +20,10 @@ from enum import IntEnum
 
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_magnitude": 0.05},
-                 "conv_relu":  {"weights_filling": "gaussian",
-                                "weights_stddev": 0.001},
+                 "conv_relu1":  {"weights_filling": "gaussian",
+                                 "weights_stddev": 0.001},
+                 "conv_relu2":  {"weights_filling": "gaussian",
+                                 "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
@@ -80,26 +82,36 @@ class Workflow(StandardWorkflow):
 
         for i in range(0, len(layers)):
             layer = layers[i]
-            if layer["type"] == "conv_relu":
-                aa = conv.ConvRELU(self, n_kernels=layer["n_kernels"],
-                              kx=layer["kx"], ky=layer["ky"],
-                              sliding=layer.get("sliding", (1, 1, 1, 1)),
-                              padding=layer.get("padding", (0, 0, 0, 0)),
-                              device=device,
-                              weights_filling=root.conv_relu.weights_filling,
-                              weights_stddev=root.conv_relu.weights_stddev)
+            if layer["type"] == "conv_relu1":
+                aa = conv.ConvRELU(
+                    self, n_kernels=layer["n_kernels"],
+                    kx=layer["kx"], ky=layer["ky"],
+                    sliding=layer.get("sliding", (1, 1, 1, 1)),
+                    padding=layer.get("padding", (0, 0, 0, 0)),
+                    device=device,
+                    weights_filling=root.conv_relu1.weights_filling,
+                    weights_stddev=root.conv_relu1.weights_stddev)
+            elif layer["type"] == "conv_relu2":
+                aa = conv.ConvRELU(
+                    self, n_kernels=layer["n_kernels"],
+                    kx=layer["kx"], ky=layer["ky"],
+                    sliding=layer.get("sliding", (1, 1, 1, 1)),
+                    padding=layer.get("padding", (0, 0, 0, 0)),
+                    device=device,
+                    weights_filling=root.conv_relu2.weights_filling,
+                    #weights_magnitude=root.conv_relu2.weights_magnitude)
+                    weights_stddev=root.conv_relu2.weights_stddev)
             elif layer["type"] == "max_pooling":
                 aa = pooling.MaxPooling(
                     self, kx=layer["kx"], ky=layer["ky"],
                     sliding=layer.get("sliding", (layer["kx"], layer["ky"])),
-                                      device=device)
+                    device=device)
             elif layer["type"] == "relu":
                 aa = all2all.All2AllRELU(
                     self,
                     weights_filling=root.all2all_relu.weights_filling,
                     weights_magnitude=root.all2all_relu.weights_magnitude,
                     output_shape=[layer["layers"]], device=device)
-
             elif layer["type"] == "softmax":
                 aa = all2all.All2AllSoftmax(
                     self,
@@ -135,7 +147,7 @@ class Workflow(StandardWorkflow):
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
-
+        """
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = nn_plotting_units.Weights2D(
@@ -148,6 +160,32 @@ class Workflow(StandardWorkflow):
             else self.fwds[0].input)
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
+        """
+
+        # Weights plotter
+        self.plt_mx = []
+        prev_channels = 3
+        for i in range(0, len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
+            plt_mx = nn_plotting_units.Weights2D(
+                self, name="%s Layer Weights %s" % (i + 1, layers[i]["type"]),
+                limit=root.weights_plotter.limit)
+            self.plt_mx.append(plt_mx)
+            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
+            self.plt_mx[-1].input_field = "v"
+            if isinstance(self.fwds[i], conv.Conv):
+                self.plt_mx[-1].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
+                prev_channels = self.fwds[i].n_kernels
+            if (layers[i].get("layers") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.plt_mx[-1].link_attrs(self.fwds[i],
+                                           ("get_shape_from", "input"))
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
         # Error plotter
         self.plt = []
