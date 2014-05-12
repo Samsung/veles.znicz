@@ -53,6 +53,10 @@ inline dtype c_norm2(c_dtype a) {
   return a.x * a.x + a.y * a.y;
 }
 
+inline dtype c_dist2(c_dtype a, c_dtype b) {
+  return c_norm2(a - b);
+}
+
 inline dtype c_norm(c_dtype a) {
   return length(a);
 }
@@ -71,6 +75,7 @@ inline c_dtype c_relu(c_dtype a) {
 #define c_exp(a) exp(a)
 #define c_tanh(a) tanh(a)
 #define c_norm2(a) ((a) * (a))
+#define c_dist2(a, b) (((a) - (b)) * ((a) - (b)))
 #define c_norm(a) fabs(a)
 #define c_relu(a) ((a) > 15 ? (a) : log(exp(a) + 1))
 

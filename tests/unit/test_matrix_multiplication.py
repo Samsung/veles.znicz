@@ -126,10 +126,16 @@ class TestMatrixMultiplication(unittest.TestCase):
         N = 1000
         logging.info("Will test %d matrix multiplications "
                      "with BLOCK_SIZE = %d" % (N, block_size))
-        for i in range(0, N, 47):
+        j = 0
+        for i in range(0, N, 29):
             AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
             B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
             A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
+            if j % 2 == 0:
+                AB_WIDTH = formats.roundup(AB_WIDTH, block_size)
+                B_HEIGHT = formats.roundup(B_HEIGHT, block_size)
+                A_HEIGHT = formats.roundup(A_HEIGHT, block_size)
+            j += 1
             logging.info("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
                          (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
                           A_HEIGHT, B_HEIGHT))
