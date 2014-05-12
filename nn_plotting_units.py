@@ -99,6 +99,7 @@ class Weights2D(plotter.Plotter):
                 ax = figure.add_subplot(n_rows, n_cols, i + 1)
                 ax.cla()
                 ax.axis('off')
+                ax.set_title(self.name.replace("Histogram ", ""))
                 v = value[i].ravel()[:sz]
                 if n_channels > 1:
                     w = v.reshape(sy, sx, n_channels)
@@ -207,10 +208,10 @@ class MSEHistogram(plotter.Plotter):
         # B96A9A
         ax.set_xlabel('Errors', fontsize=20)
         ax.set_ylabel('Input Data', fontsize=20)
-        ax.set_title('Histogram', fontsize=25)
+        ax.set_title(self.name.replace("Histogram ", ""))
         ax.axis([xmin, xmax + ((xmax - xmin) / self.n_bars), ymin, ymax])
         ax.grid(True)
-        leg = ax.legend((self.name.replace("Histogram ", "")))
+        leg = ax.legend(self.name.replace("Histogram ", ""))
                         # 'upper center')
         frame = leg.get_frame()
         frame.set_facecolor('#E8D6BB')
