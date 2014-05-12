@@ -37,14 +37,11 @@ import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.gd as gd
-import veles.znicz.gd_conv as gd_conv
-import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
-import veles.znicz.nn_units as nn_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
-import veles.znicz.pooling as pooling
+from veles.znicz.standard_workflow import StandardWorkflow
+
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
@@ -630,7 +627,7 @@ class Loader(loader.FullBatchLoader):
         return formats.norm_image(x, True)
 
 
-class Workflow(nn_units.NNWorkflow):
+class Workflow(StandardWorkflow):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -655,60 +652,8 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
-        for i in range(0, len(layers)):
-            layer = layers[i]
-            if layer["type"] == "conv":
-                aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
-                                   kx=layer["kx"], ky=layer["ky"],
-                                   weights_filling=root.conv.weights_filling,
-                                   weights_stddev=root.conv.weights_stddev,
-                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
-                                   padding=layer.get("padding", (0, 0, 0, 0)),
-                                   device=device)
-            elif layer["type"] == "conv_relu":
-                aa = conv.ConvRELU(
-                    self, n_kernels=layer["n_kernels"],
-                    kx=layer["kx"], ky=layer["ky"],
-                    sliding=layer.get("sliding", (1, 1, 1, 1)),
-                    padding=layer.get("padding", (0, 0, 0, 0)),
-                    device=device,
-                    weights_filling=root.conv_relu.weights_filling,
-                    weights_stddev=root.conv_relu.weights_stddev,)
-            elif layer["type"] == "max_pooling":
-                aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
-                                        sliding=layer.get("sliding",
-                                                          (layer["kx"],
-                                                           layer["ky"])),
-                                        device=device)
-            elif layer["type"] == "avg_pooling":
-                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
-                                        sliding=layer.get("sliding",
-                                                          (layer["kx"],
-                                                           layer["ky"])),
-                                        device=device)
-            elif layer["type"] == "relu":
-                aa = all2all.All2AllRELU(
-                    self, output_shape=[layer["layers"]], device=device)
-            elif layer["type"] == "tanh":
-                aa = all2all.All2AllTanh(
-                    self, output_shape=[layer["layers"]], device=device)
-            elif layer["type"] == "softmax":
-                aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layer["layers"]], device=device)
-            else:
-                raise error.ErrBadFormat("Unsupported layer type %s" %
-                                         (layer["type"]))
 
-            self.fwds.append(aa)
-            if i:
-                self.fwds[-1].link_from(self.fwds[-2])
-                self.fwds[-1].link_attrs(self.fwds[-2],
-                                         ("input", "output"))
-            else:
-                self.fwds[-1].link_from(self.loader)
-                self.fwds[-1].link_attrs(self.loader,
-                                         ("input", "minibatch_data"))
+        self.parsing_forwards_from_congfig()
 
         # Add Accumulator units
         self.accumulator = []
@@ -763,64 +708,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, len(layers)):
             self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
-        # Add gradient descent units
-        del self.gds[:]
-        self.gds.extend(list(None for i in range(0, len(self.fwds))))
-        self.gds[-1] = gd.GDSM(self, device=device)
-        self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
-        self.gds[-1].link_attrs(self.fwds[-1],
-                                ("y", "output"),
-                                ("h", "input"),
-                                "weights", "bias")
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
-            if isinstance(self.fwds[i], conv.ConvTanh):
-                obj = gd_conv.GDTanhConv(
-                    self, n_kernels=self.fwds[i].n_kernels,
-                    kx=self.fwds[i].kx, ky=self.fwds[i].ky,
-                    sliding=self.fwds[i].sliding,
-                    padding=self.fwds[i].padding,
-                    device=device)
-            elif isinstance(self.fwds[i], conv.ConvRELU):
-                obj = gd_conv.GDRELUConv(
-                    self, n_kernels=self.fwds[i].n_kernels,
-                    kx=self.fwds[i].kx, ky=self.fwds[i].ky,
-                    sliding=self.fwds[i].sliding,
-                    padding=self.fwds[i].padding,
-                    device=device)
-            elif isinstance(self.fwds[i], pooling.MaxPooling):
-                obj = gd_pooling.GDMaxPooling(
-                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
-                    sliding=self.fwds[i].sliding,
-                    device=device)
-                obj.link_attrs(self.fwds[i], ("h_offs", "input_offs"))
-            elif isinstance(self.fwds[i], pooling.AvgPooling):
-                obj = gd_pooling.GDAvgPooling(
-                    self, kx=self.fwds[i].kx, ky=self.fwds[i].ky,
-                    sliding=self.fwds[i].sliding,
-                    device=device)
-            elif isinstance(self.fwds[i], all2all.All2AllTanh):
-                obj = gd.GDTanh(self, device=device)
-            elif isinstance(self.fwds[i], all2all.All2AllRELU):
-                obj = gd.GDRELU(self, device=device)
-            elif isinstance(self.fwds[i], all2all.All2AllSoftmax):
-                obj = gd.GradientDescent(self, device=device)
-            else:
-                raise ValueError("Unsupported fwds unit type "
-                                 " encountered: %s" %
-                                 self.fwds[i].__class__.__name__)
-            self.gds[i] = obj
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
-            self.gds[i].link_attrs(self.fwds[i],
-                                   ("y", "output"),
-                                   ("h", "input"),
-                                   "weights", "bias")
-            self.gds[i].link_attrs(self.loader,
-                                  ("batch_size", "minibatch_size"))
-            self.gds[i].gate_skip = self.decision.gd_skip
+        self._create_gradient_descent_units()
 
         self.repeater.link_from(self.gds[0])
 
