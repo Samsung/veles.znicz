@@ -35,8 +35,8 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
 root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "hands"},
                  "loader": {"minibatch_maxsize": 60},
-                 "hands": {"global_alpha": 0.05,
-                           "global_lambda": 0.0,
+                 "hands": {"learning_rate": 0.05,
+                           "weights_decay": 0.0,
                            "layers": [30, 2],
                            "path_for_load_data": {"train": train_dir,
                                                   "validation":
@@ -175,13 +175,13 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.hands.layers)
-    main(global_alpha=root.hands.global_alpha,
-         global_lambda=root.hands.global_lambda)
+    main(learning_rate=root.hands.learning_rate,
+         weights_decay=root.hands.weights_decay)

@@ -385,8 +385,8 @@ class KohonenTrain(nn_units.GradientDescentBase):
                             self._gs_compute_gradient,
                             self._ls_compute_gradient).wait()
 
-        self.krn_const_[0] = -self.global_alpha / batch_size
-        self.krn_const_[1] = -self.global_alpha * self.global_lambda
+        self.krn_const_[0] = -self.learning_rate / batch_size
+        self.krn_const_[1] = -self.learning_rate * self.weights_decay
         self.krn_apply_gradient_.set_arg(3, self.krn_const_[0:1])
         self.krn_apply_gradient_.set_arg(4, self.krn_const_[1:2])
         self.execute_kernel(self.krn_apply_gradient_, [self.weights.v.size],

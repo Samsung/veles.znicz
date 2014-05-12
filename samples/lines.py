@@ -26,8 +26,8 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                               "snapshot_prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
-                 "lines": {"global_alpha": 0.01,
-                           "global_lambda": 0.0,
+                 "lines": {"learning_rate": 0.01,
+                           "weights_decay": 0.0,
                            "layers":
                            [{"type": "conv_relu", "n_kernels": 32,
                              "kx": 11, "ky": 11, "sliding": (4, 4),
@@ -236,14 +236,14 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, global_alpha, global_lambda, device):
-        self.gds[0].global_alpha = 0.03
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        self.gds[0].learning_rate = 0.03
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.lines.layers)
-    main(global_alpha=root.lines.global_alpha,
-         global_lambda=root.lines.global_lambda)
+    main(learning_rate=root.lines.learning_rate,
+         weights_decay=root.lines.weights_decay)

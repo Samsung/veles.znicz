@@ -18,6 +18,6 @@ root.update = {"all2all": {"weights_magnitude": 0.05},
                             "snapshot_prefix": "imagenet_caffe",
                             "store_samples_mse": True},
                "loader": {"minibatch_maxsize": 60},
-               "imagenet_caffe": {"global_alpha": 0.01,
-                                  "global_lambda": 0.0,
+               "imagenet_caffe": {"learning_rate": 0.01,
+                                  "weights_decay": 0.0,
                                   "layers": [100, 10]}}

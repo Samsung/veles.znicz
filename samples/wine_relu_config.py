@@ -20,8 +20,8 @@ root.common.update = {"plotters_disabled": True}
 root.update = {"decision": {"fail_iterations": 250,
                             "snapshot_prefix": "wine_relu"},
                "loader": {"minibatch_maxsize": 1000000},
-               "wine_relu": {"global_alpha": 0.75,
-                             "global_lambda": 0.0,
+               "wine_relu": {"learning_rate": 0.75,
+                             "weights_decay": 0.0,
                              "layers": [10, 3],
                              "path_for_load_data":
                              os.path.join(root.common.veles_dir,

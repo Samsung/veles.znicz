@@ -31,8 +31,8 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                               "snapshot_prefix":  "approximator",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 100},
-                 "approximator": {"global_alpha": 0.01,
-                                  "global_lambda": 0.00005,
+                 "approximator": {"learning_rate": 0.01,
+                                  "weights_decay": 0.00005,
                                   "layers": [810, 9],
                                   "path_for_load_data": {"target": target_dir,
                                                          "train": train_dir}}}
@@ -306,16 +306,16 @@ class Workflow(nn_units.NNWorkflow):
         self.plt.link_from(self.decision)
         self.plt.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.approximator.layers)
-    main(global_alpha=root.approximator.global_alpha,
-         global_lambda=root.approximator.global_lambda,
+    main(learning_rate=root.approximator.learning_rate,
+         weights_decay=root.approximator.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize)

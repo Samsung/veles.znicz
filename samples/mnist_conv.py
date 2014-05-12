@@ -28,8 +28,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "mnist_conv"},
                  "loader": {"minibatch_maxsize": 540},
                  "weights_plotter": {"limit": 64},
-                 "mnist_conv": {"global_alpha": 0.005,
-                                "global_lambda": 0.00005,
+                 "mnist_conv": {"learning_rate": 0.005,
+                                "weights_decay": 0.00005,
                                 "layers":
                                 [{"type": "conv", "n_kernels": 25,
                                   "kx": 9, "ky": 9}, 100, 10]}}
@@ -210,10 +210,10 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
 
@@ -241,6 +241,6 @@ def run(load, main):
     #                     {"type": "conv", "n_kernels": 200, "kx": 3, "ky": 3},
     #                     {"type": "avg_pooling", "kx": 2, "ky": 2},  # 4
     #                     100, 10], device=device)
-    main(global_alpha=root.mnist_conv.global_alpha,
-         global_lambda=root.mnist_conv.global_lambda,
+    main(learning_rate=root.mnist_conv.learning_rate,
+         weights_decay=root.mnist_conv.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize)

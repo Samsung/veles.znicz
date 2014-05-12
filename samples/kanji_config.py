@@ -22,8 +22,8 @@ root.update = {"decision": {"fail_iterations": 1000,
                "loader": {"minibatch_maxsize": 5103,
                           "validation_ratio": 0.15},
                "weights_plotter": {"limit": 16},
-               "kanji": {"global_alpha": 0.001,
-                         "global_lambda": 0.00005,
+               "kanji": {"learning_rate": 0.001,
+                         "weights_decay": 0.00005,
                          "layers": [5103, 2889, 24 * 24],
                          "path_for_load_data":
                          {"target":

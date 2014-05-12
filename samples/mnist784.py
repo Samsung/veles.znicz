@@ -34,8 +34,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "mnist_784"},
                  "loader": {"minibatch_maxsize": 100},
                  "weights_plotter": {"limit": 16},
-                 "mnist784": {"global_alpha": 0.001,
-                              "global_lambda": 0.00005,
+                 "mnist784": {"learning_rate": 0.001,
+                              "weights_decay": 0.00005,
                               "layers": [784, 784],
                               "path_for_load_data":
                               os.path.join(root.common.test_dataset_root,
@@ -289,13 +289,13 @@ class Workflow(nn_units.NNWorkflow):
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
 
-    def initialize(self, global_alpha, global_lambda, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.mnist784.layers)
-    main(global_alpha=root.mnist784.global_alpha,
-         global_lambda=root.mnist784.global_lambda)
+    main(learning_rate=root.mnist784.learning_rate,
+         weights_decay=root.mnist784.weights_decay)

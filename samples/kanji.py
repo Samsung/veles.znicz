@@ -35,8 +35,8 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                  "loader": {"minibatch_maxsize": 5103,
                             "validation_ratio": 0.15},
                  "weights_plotter": {"limit": 16},
-                 "kanji": {"global_alpha": 0.001,
-                           "global_lambda": 0.00005,
+                 "kanji": {"learning_rate": 0.001,
+                           "weights_decay": 0.00005,
                            "layers": [5103, 2889, 24 * 24],
                            "path_for_load_data":
                            {"target":
@@ -342,10 +342,10 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device, weights, bias):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
         if weights is not None:
@@ -375,7 +375,7 @@ def run(load, main):
                     fwds.weights.v.min(), fwds.weights.v.max(),
                     fwds.bias.v.min(), fwds.bias.v.max()))
             w.decision.just_snapshotted << True
-    main(global_alpha=root.kanji.global_alpha,
-         global_lambda=root.kanji.global_lambda,
+    main(learning_rate=root.kanji.learning_rate,
+         weights_decay=root.kanji.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize,
          weights=weights, bias=bias)

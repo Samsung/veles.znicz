@@ -51,8 +51,8 @@ class TestKanji(unittest.TestCase):
 
         w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
                            layers=[30, 30, 24 * 24], device=self.device)
-        w.initialize(global_alpha=root.kanji.global_alpha,
-                     global_lambda=root.kanji.global_lambda,
+        w.initialize(learning_rate=root.kanji.learning_rate,
+                     weights_decay=root.kanji.weights_decay,
                      minibatch_maxsize=root.loader.minibatch_maxsize,
                      device=self.device, weights=None, bias=None)
         w.run()

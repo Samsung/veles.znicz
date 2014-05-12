@@ -46,8 +46,8 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                                   os.path.join(root.common.cache_dir,
                                                "tmp/train")]},
                  "weights_plotter": {"limit": 64},
-                 "cifar_conv": {"global_alpha": 0.001,
-                                "global_lambda": 0.004,
+                 "cifar_conv": {"learning_rate": 0.001,
+                                "weights_decay": 0.004,
                                 "layers":
                                 [{"type": "conv", "n_kernels": 32,
                                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
@@ -309,16 +309,16 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.cifar_conv.layers)
-    main(global_alpha=root.cifar_conv.global_alpha,
-         global_lambda=root.cifar_conv.global_lambda,
+    main(learning_rate=root.cifar_conv.learning_rate,
+         weights_decay=root.cifar_conv.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize)

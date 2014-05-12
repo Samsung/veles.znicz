@@ -195,8 +195,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sx = self.h.v.shape[2]
         n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)
         # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
-        self.cl_const[0] = -self.global_alpha / batch_size
-        self.cl_const[1] = -self.global_alpha * self.global_lambda
+        self.cl_const[0] = -self.learning_rate / batch_size
+        self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
         block_size = self.device.device_info.BLOCK_SIZE[

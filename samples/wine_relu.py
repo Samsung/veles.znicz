@@ -27,8 +27,8 @@ root.common.defaults = {"plotters_disabled": True}
 root.defaults = {"decision": {"fail_iterations": 250,
                               "snapshot_prefix": "wine_relu"},
                  "loader": {"minibatch_maxsize": 1000000},
-                 "wine_relu": {"global_alpha": 0.75,
-                               "global_lambda": 0.0,
+                 "wine_relu": {"learning_rate": 0.75,
+                               "weights_decay": 0.0,
                                "layers": [10, 3],
                                "path_for_load_data":
                                os.path.join(root.common.veles_dir,
@@ -171,13 +171,13 @@ class Workflow(nn_units.NNWorkflow):
 
         self.gds[-1].link_from(self.decision)
 
-    def initialize(self, global_alpha, global_lambda, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.wine_relu.layers)
-    main(global_alpha=root.wine_relu.global_alpha,
-         global_lambda=root.wine_relu.global_lambda)
+    main(learning_rate=root.wine_relu.learning_rate,
+         weights_decay=root.wine_relu.weights_decay)

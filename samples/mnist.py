@@ -41,8 +41,8 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                               "snapshot_prefix": "mnist",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
-                 "mnist": {"global_alpha": 0.01,
-                           "global_lambda": 0.0,
+                 "mnist": {"learning_rate": 0.01,
+                           "weights_decay": 0.0,
                            "layers": [100, 10],
                            "path_for_load_data": {"test_images":
                                                   test_image_dir,
@@ -270,13 +270,13 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
-    def initialize(self, global_alpha, global_lambda, device):
-        return super(Workflow, self).initialize(global_alpha=global_alpha,
-                                                global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        return super(Workflow, self).initialize(learning_rate=learning_rate,
+                                                weights_decay=weights_decay,
                                                 device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.mnist.layers)
-    main(global_alpha=root.mnist.global_alpha,
-         global_lambda=root.mnist.global_lambda)
+    main(learning_rate=root.mnist.learning_rate,
+         weights_decay=root.mnist.weights_decay)

@@ -42,8 +42,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                  "loader": {"minibatch_maxsize": 180},
                  "accumulator": {"n_bars": 30},
                  "weights_plotter": {"limit": 25},
-                 "cifar": {"global_alpha": 0.1,
-                           "global_lambda": 0.00005,
+                 "cifar": {"learning_rate": 0.1,
+                           "weights_decay": 0.00005,
                            "layers": [100, 10],
                            "path_for_load_data": {"train": train_dir,
                                                   "validation":
@@ -274,16 +274,16 @@ class Workflow(nn_units.NNWorkflow):
                 i].output_shape[0]
             self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_maxsize,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.cifar.layers)
-    main(global_alpha=root.cifar.global_alpha,
-         global_lambda=root.cifar.global_lambda,
+    main(learning_rate=root.cifar.learning_rate,
+         weights_decay=root.cifar.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize)

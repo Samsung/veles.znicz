@@ -17,8 +17,8 @@ root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "mnist_conv"},
                "loader": {"minibatch_maxsize": 540},
                "weights_plotter": {"limit": 64},
-               "mnist_conv": {"global_alpha": 0.005,
-                              "global_lambda": 0.00005,
+               "mnist_conv": {"learning_rate": 0.005,
+                              "weights_decay": 0.00005,
                               "layers":
                               [{"type": "conv", "n_kernels": 25,
                                 "kx": 9, "ky": 9}, 100, 10]}}

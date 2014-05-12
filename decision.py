@@ -449,11 +449,11 @@ class Decision(units.Unit):
             for gd in self.workflow.gds:
                 if gd is None:
                     continue
-                gd.global_alpha = numpy.clip(ak * gd.global_alpha,
+                gd.learning_rate = numpy.clip(ak * gd.learning_rate,
                                              0.00001, 0.75)
                 if not alpha:
-                    alpha = gd.global_alpha
-            self.info("new global_alpha: %.6f" % (alpha))
+                    alpha = gd.learning_rate
+            self.info("new learning_rate: %.6f" % (alpha))
         self._sync_vectors()
 
     def _sync_vectors(self):

@@ -19,8 +19,8 @@ root.defaults = {"all2all": {"weights_magnitude": 0.05},
                               "snapshot_prefix": "imagenet_caffe",
                               "store_samples_mse": True},
                  "loader": {"minibatch_maxsize": 60},
-                 "imagenet_caffe": {"global_alpha": 0.01,
-                                    "global_lambda": 0.0}}
+                 "imagenet_caffe": {"learning_rate": 0.01,
+                                    "weights_decay": 0.0}}
 
 
 class Workflow(StandardWorkflow):
@@ -152,13 +152,13 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, global_alpha, global_lambda, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.imagenet_caffe.layers)
-    main(global_alpha=root.imagenet_caffe.global_alpha,
-         global_lambda=root.imagenet_caffe.global_lambda)
+    main(learning_rate=root.imagenet_caffe.learning_rate,
+         weights_decay=root.imagenet_caffe.weights_decay)

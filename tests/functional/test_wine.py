@@ -36,8 +36,8 @@ class TestWine(unittest.TestCase):
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},
                        "loader": {"minibatch_maxsize": 10},
-                       "wine_test": {"global_alpha": 0.75,
-                                     "global_lambda": 0.0,
+                       "wine_test": {"learning_rate": 0.75,
+                                     "weights_decay": 0.0,
                                      "layers":  [8, 3],
                                      "path_for_load_data":
                                      os.path.join(root.common.veles_dir,
@@ -46,8 +46,8 @@ class TestWine(unittest.TestCase):
 
         w = wine.Workflow(dummy_workflow.DummyWorkflow(),
                           layers=root.wine_test.layers)
-        w.initialize(global_alpha=root.wine_test.global_alpha,
-                     global_lambda=root.wine_test.global_lambda,
+        w.initialize(learning_rate=root.wine_test.learning_rate,
+                     weights_decay=root.wine_test.weights_decay,
                      device=self.device)
         w.run()
         epoch = w.decision.epoch_number

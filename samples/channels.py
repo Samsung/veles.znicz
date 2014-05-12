@@ -79,8 +79,8 @@ root.defaults = {"accumulator": {"n_bars": 30},
                  "weights_plotter": {"limit": 64},
                  "channels": {"export": False,
                               "find_negative": 0,
-                              "global_alpha": 0.001,
-                              "global_lambda": 0.004,
+                              "learning_rate": 0.001,
+                              "weights_decay": 0.004,
                               "layers":
                               [{"type": "conv", "n_kernels": 32,
                                 "kx": 5, "ky": 5,
@@ -915,10 +915,10 @@ class Workflow(nn_units.NNWorkflow):
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, global_alpha, global_lambda, minibatch_size,
+    def initialize(self, learning_rate, weights_decay, minibatch_size,
                    w_neg, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          minibatch_maxsize=minibatch_size,
                                          w_neg=w_neg,
                                          device=device)
@@ -971,6 +971,6 @@ def run(load, main):
     fout.close()
     logging.info("Done")
     logging.info("Will execute workflow now")
-    main(global_alpha=root.channels.global_alpha,
-         global_lambda=root.channels.global_lambda,
+    main(learning_rate=root.channels.learning_rate,
+         weights_decay=root.channels.weights_decay,
          minibatch_size=root.loader.minibatch_size, w_neg=w_neg)

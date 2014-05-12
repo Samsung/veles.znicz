@@ -47,8 +47,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                            "features":
                            ["Energy", "Centroid", "Flux", "Rolloff",
                             "ZeroCrossings", "CRP"],
-                           "global_alpha": 0.01,
-                           "global_lambda": 0.00005,
+                           "learning_rate": 0.01,
+                           "weights_decay": 0.00005,
                            "layers": [100, 500, 10],
                            "minibatch_maxsize": 108,
                            "minibatches_in_epoch": 1000,
@@ -374,9 +374,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
-    def initialize(self, global_alpha, global_lambda, device):
-        super(Workflow, self).initialize(global_alpha=global_alpha,
-                                         global_lambda=global_lambda,
+    def initialize(self, learning_rate, weights_decay, device):
+        super(Workflow, self).initialize(learning_rate=learning_rate,
+                                         weights_decay=weights_decay,
                                          device=device)
 
 
@@ -384,5 +384,5 @@ def run(load, main):
     w, _ = load(Workflow, layers=root.gtzan.layers)
     logging.info("norm_add: %s" % (str(w.loader.norm_add)))
     logging.info("norm_mul: %s" % (str(w.loader.norm_mul)))
-    main(global_alpha=root.gtzan.global_alpha,
-         global_lambda=root.gtzan.global_lambda)
+    main(learning_rate=root.gtzan.learning_rate,
+         weights_decay=root.gtzan.weights_decay)

@@ -16,6 +16,6 @@ root.update = {"decision": {"fail_iterations": 25,
                             "snapshot_prefix": "mnist7"},
                "loader": {"minibatch_maxsize": 60},
                "weights_plotter": {"limit": 25},
-               "mnist7": {"global_alpha": 0.0001,
-                          "global_lambda": 0.00005,
+               "mnist7": {"learning_rate": 0.0001,
+                          "weights_decay": 0.00005,
                           "layers": [100, 100, 7]}}

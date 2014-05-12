@@ -71,8 +71,8 @@ class GradientDescentBase(OpenCLUnit):
         weights: weights.
         bias: bias.
         batch_size: current minibatch size.
-        global_alpha: gradient descent speed (positive).
-        global_lambda: coefficient (positive or zero) for weights
+        learning_rate: gradient descent speed (positive).
+        weights_decay: coefficient (positive or zero) for weights
                        regularization term (lambda/2 * sum(weights^2)).
         batch_size: effective batch size (if None, get it from y).
         weights_transposed: assume weights matrix as a transposed one.
@@ -80,13 +80,13 @@ class GradientDescentBase(OpenCLUnit):
         apply_gradient: will apply gradient.
     """
     def __init__(self, workflow, **kwargs):
-        global_alpha = kwargs.get("global_alpha", 0.01)
-        global_lambda = kwargs.get("global_lambda", 0.00005)
+        learning_rate = kwargs.get("learning_rate", 0.01)
+        weights_decay = kwargs.get("weights_decay", 0.00005)
         weights_transposed = kwargs.get("weights_transposed", False)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
-        kwargs["global_alpha"] = global_alpha
-        kwargs["global_lambda"] = global_lambda
+        kwargs["learning_rate"] = learning_rate
+        kwargs["weights_decay"] = weights_decay
         kwargs["weights_transposed"] = weights_transposed
         kwargs["store_gradient"] = store_gradient
         kwargs["apply_gradient"] = apply_gradient
@@ -99,8 +99,8 @@ class GradientDescentBase(OpenCLUnit):
         self.weights = None
         self.bias = None
         self.batch_size = None
-        self.global_alpha = global_alpha
-        self.global_lambda = global_lambda
+        self.learning_rate = learning_rate
+        self.weights_decay = weights_decay
         self.weights_transposed = weights_transposed
         self.store_gradient = store_gradient
         self.apply_gradient = apply_gradient
@@ -109,15 +109,15 @@ class GradientDescentBase(OpenCLUnit):
 
     def initialize(self, device, **kwargs):
         super(GradientDescentBase, self).initialize(device=device, **kwargs)
-        self.global_alpha = kwargs.get("global_alpha", self.global_alpha)
-        self.global_lambda = kwargs.get("global_lambda", self.global_lambda)
+        self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
+        self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
 
     def generate_data_for_slave(self, slave=None):
-        return (self.global_alpha, self.global_lambda)
+        return (self.learning_rate, self.weights_decay)
 
     def apply_data_from_master(self, data):
-        self.global_alpha = data[0]
-        self.global_lambda = data[1]
+        self.learning_rate = data[0]
+        self.weights_decay = data[1]
         if self.gradient_weights.v is None or self.gradient_bias.v is None:
             return
         self.gradient_weights.map_invalidate()

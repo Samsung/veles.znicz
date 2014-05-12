@@ -151,8 +151,8 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         batch_size = self.batch_size or self.y.v.shape[0]
 
-        alpha_batch = -self.global_alpha / batch_size
-        alpha_lambda = -self.global_alpha * self.global_lambda
+        alpha_batch = -self.learning_rate / batch_size
+        alpha_lambda = -self.learning_rate * self.weights_decay
 
         err_y = formats.reshape(
             self.err_y.v, [self.err_y.v.shape[0],
@@ -184,8 +184,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_bias.unmap()
 
         batch_size = self.batch_size or self.y.v.shape[0]
-        self.cl_const[0] = -self.global_alpha / batch_size
-        self.cl_const[1] = -self.global_alpha * self.global_lambda
+        self.cl_const[0] = -self.learning_rate / batch_size
+        self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
         block_size = self.device.device_info.BLOCK_SIZE[

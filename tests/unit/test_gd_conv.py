@@ -77,10 +77,10 @@ class TestGDConv(unittest.TestCase):
         batch_size = c.err_y.v.shape[0]
         b = c.err_y.v.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
-        gradient_weights *= (-1) * (c.global_alpha / batch_size)
-        gradient_weights += weights * (-1) * (c.global_alpha * c.global_lambda)
+        gradient_weights *= (-1) * (c.learning_rate / batch_size)
+        gradient_weights += weights * (-1) * (c.learning_rate * c.weights_decay)
         weights_new = weights + gradient_weights
-        gradient_bias = b.sum(axis=0) * (-1) * (c.global_alpha / batch_size)
+        gradient_bias = b.sum(axis=0) * (-1) * (c.learning_rate / batch_size)
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
@@ -167,10 +167,11 @@ class TestGDConv(unittest.TestCase):
         batch_size = c.err_y.v.shape[0]
         b = c.err_y.v.reshape(12 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
-        gradient_weights *= (-1) * (c.global_alpha / batch_size)
-        gradient_weights += weights * (-1) * (c.global_alpha * c.global_lambda)
+        gradient_weights *= (-1) * (c.learning_rate / batch_size)
+        gradient_weights += weights * (-1) * (c.learning_rate *
+                                              c.weights_decay)
         weights_new = weights + gradient_weights
-        gradient_bias = b.sum(axis=0) * (-1) * (c.global_alpha / batch_size)
+        gradient_bias = b.sum(axis=0) * (-1) * (c.learning_rate / batch_size)
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)

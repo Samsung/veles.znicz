@@ -29,8 +29,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "video_ae"},
                  "loader": {"minibatch_maxsize": 50},
                  "weights_plotter": {"limit": 16},
-                 "video_ae": {"global_alpha": 0.0002,
-                              "global_lambda": 0.00005,
+                 "video_ae": {"learning_rate": 0.0002,
+                              "weights_decay": 0.00005,
                               "layers": [9, 14400],
                               "path_for_load_data":
                               os.path.join(root.common.test_dataset_root,
@@ -212,16 +212,16 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_img.gate_block = ~self.decision.epoch_ended
         """
 
-    def initialize(self, global_alpha, global_lambda, device):
+    def initialize(self, learning_rate, weights_decay, device):
         self.evaluator.device = device
         for g in self.gds:
             g.device = device
-            g.global_alpha = global_alpha
-            g.global_lambda = global_lambda
+            g.learning_rate = learning_rate
+            g.weights_decay = weights_decay
         for forward in self.fwds:
             forward.device = device
         return super(Workflow, self).initialize(
-            global_alpha=global_alpha, global_lambda=global_lambda,
+            learning_rate=learning_rate, weights_decay=weights_decay,
             device=device)
 
 
@@ -232,5 +232,5 @@ def run(load, main):
             logging.info(fwds.weights.v.min(), fwds.weights.v.max(),
                          fwds.bias.v.min(), fwds.bias.v.max())
         w.decision.just_snapshotted << True
-    main(global_alpha=root.video_ae.global_alpha,
-         global_lambda=root.video_ae.global_lambda)
+    main(learning_rate=root.video_ae.learning_rate,
+         weights_decay=root.video_ae.weights_decay)
