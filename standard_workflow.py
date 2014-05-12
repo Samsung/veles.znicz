@@ -7,6 +7,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+from veles.config import root
+import veles.error as error
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
@@ -18,6 +20,75 @@ class StandardWorkflow(nn_units.NNWorkflow):
     A base class for standard workflows with forward and backward propagation.
     Is able to automatically create backward units by pre-created forward units
     """
+    def __init__(self, workflow, **kwargs):
+        self.layers = kwargs.get("layers")
+        self.device = kwargs.get("device")
+        kwargs["layers"] = self.layers
+        kwargs["device"] = self.device
+        super(StandardWorkflow, self).__init__(workflow, **kwargs)
+
+    def parsing_forwards_from_congfig(self):
+        """
+        Parsing forward units from config.
+        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
+        by link_from and link_attrs. If self.fwds is empty, links unit with
+        self.loader
+        """
+        del self.fwds[:]
+        for i in range(0, len(self.layers)):
+            layer = self.layers[i]
+            if layer["type"] == "conv":
+                aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
+                                   kx=layer["kx"], ky=layer["ky"],
+                                   weights_filling=root.conv.weights_filling,
+                                   weights_stddev=root.conv.weights_stddev,
+                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
+                                   padding=layer.get("padding", (0, 0, 0, 0)),
+                                   device=self.device)
+            elif layer["type"] == "conv_relu":
+                aa = conv.ConvRELU(
+                    self, n_kernels=layer["n_kernels"],
+                    kx=layer["kx"], ky=layer["ky"],
+                    sliding=layer.get("sliding", (1, 1, 1, 1)),
+                    padding=layer.get("padding", (0, 0, 0, 0)),
+                    device=self.device,
+                    weights_filling=root.conv_relu.weights_filling,
+                    weights_stddev=root.conv_relu.weights_stddev,)
+            elif layer["type"] == "max_pooling":
+                aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
+                                        sliding=layer.get("sliding",
+                                                          (layer["kx"],
+                                                           layer["ky"])),
+                                        device=self.device)
+            elif layer["type"] == "avg_pooling":
+                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
+                                        sliding=layer.get("sliding",
+                                                          (layer["kx"],
+                                                           layer["ky"])),
+                                        device=self.device)
+            elif layer["type"] == "relu":
+                aa = all2all.All2AllRELU(
+                    self, output_shape=[layer["layers"]], device=self.device)
+            elif layer["type"] == "tanh":
+                aa = all2all.All2AllTanh(
+                    self, output_shape=[layer["layers"]], device=self.device)
+            elif layer["type"] == "softmax":
+                aa = all2all.All2AllSoftmax(
+                    self, output_shape=[layer["layers"]], device=self.device)
+            else:
+                raise error.ErrBadFormat("Unsupported layer type %s" %
+                                         (layer["type"]))
+
+            self.fwds.append(aa)
+            if i:
+                self.fwds[-1].link_from(self.fwds[-2])
+                self.fwds[-1].link_attrs(self.fwds[-2],
+                                         ("input", "output"))
+            else:
+                self.fwds[-1].link_from(self.loader)
+                self.fwds[-1].link_attrs(self.loader,
+                                         ("input", "minibatch_data"))
+
     def _create_gradient_descent_units(self):
         '''
         Creates gradient descent units for previously made self.fwds.
@@ -94,20 +165,3 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.evaluator, "err_y")
-
-    def _add_forward_unit(self, new_unit):
-        """
-        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
-        by link_from and link_attrs. If self.fwds is empty, links unit with
-        self.loader
-        """
-        if self.fwds:
-            prev_forward_unit = self.fwds[-1]
-            new_unit.link_attrs(prev_forward_unit, ("input", "output"))
-        else:
-            assert self.loader is not None
-            prev_forward_unit = self.loader
-            new_unit.link_attrs(self.loader, ("input", "minibatch_data"))
-
-        new_unit.link_from(prev_forward_unit)
-        self.fwds.append(new_unit)
