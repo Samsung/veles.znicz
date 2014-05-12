@@ -58,16 +58,17 @@ class GDPooling(nn_units.GradientDescentBase):
 
     def initialize(self, **kwargs):
         super(GDPooling, self).initialize(**kwargs)
-        batch_size = self.h.v.shape[0]
-        sy = self.h.v.shape[1]
-        sx = self.h.v.shape[2]
-        n_channels = self.h.v.size // (batch_size * sx * sy)
-
-        out_sx = sx // self.sliding[0] + (
-            0 if sx % self.sliding[0] == 0 else 1)
-        out_sy = sy // self.sliding[1] + (
-            0 if sy % self.sliding[1] == 0 else 1)
-        output_size = n_channels * out_sx * out_sy * batch_size
+        self._batch_size = self.h.v.shape[0]
+        self._sy = self.h.v.shape[1]
+        self._sx = self.h.v.shape[2]
+        self._n_channels = self.h.v.size // (self._batch_size * self._sx *
+                                             self._sy)
+        self._out_sx = self._sx // self.sliding[0] + (
+            0 if self._sx % self.sliding[0] == 0 else 1)
+        self._out_sy = self._sy // self.sliding[1] + (
+            0 if self._sy % self.sliding[1] == 0 else 1)
+        output_size = self._n_channels * self._out_sx * self._out_sy * \
+            self._batch_size
 
         if self.err_y.v.size != output_size:
             raise error.ErrBadFormat(
@@ -86,9 +87,9 @@ class GDPooling(nn_units.GradientDescentBase):
 
         if self.program_ is None:
             defines = {
-                'SX': sx,
-                'SY': sy,
-                'N_CHANNELS': n_channels,
+                'SX': self._sx,
+                'SY': self._sy,
+                'N_CHANNELS': self._n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
                 'SLIDE_X': self.sliding[0],
@@ -96,7 +97,8 @@ class GDPooling(nn_units.GradientDescentBase):
             }
             self.build_program(
                 defines, "%s/gd_pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky),
+                (root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                 self.kx, self.ky),
                 dtype=self.err_y.v.dtype)
 
         if self.krn_err_h_clear_ is None:
@@ -183,10 +185,31 @@ class GDMaxPooling(GDPooling):
             self.krn_err_h_.set_arg(2, self.h_offs.v_)
 
     def ocl_run(self):
-        """Do gradient descent.
+        """Do gradient descent on OpenCL device.
         """
         self.h_offs.unmap()  # we will use h_offs
         return super(GDMaxPooling, self).ocl_run()
+
+    def cpu_run(self):
+        """Do gradient descent on CPU.
+        """
+        self.err_y.map_read()
+        self.h_offs.map_read()
+        self.err_h.map_invalidate()
+        self.err_h.v[:] = 0
+
+        if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
+            # self.h_offs cannot contain equal values - simple assignment
+            for err, offset in numpy.nditer([self.err_y.v, self.h_offs]):
+                batch, y, x, ch = numpy.unravel_index(offset,
+                                                      self.err_h.v.shape)
+                self.err_h.v[batch, y, x, ch] = err
+        else:
+            # self.h_offs can contain equal values
+            for err, offset in numpy.nditer([self.err_y.v, self.h_offs]):
+                batch, y, x, ch = numpy.unravel_index(offset,
+                                                      self.err_h.v.shape)
+                self.err_h.v[batch, y, x, ch] += err
 
 
 class GDAvgPooling(GDPooling):
@@ -209,3 +232,35 @@ class GDAvgPooling(GDPooling):
             self.krn_err_h_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_h_.set_arg(0, self.err_y.v_)
             self.krn_err_h_.set_arg(1, self.err_h.v_)
+
+    def cpu_run(self):
+        self.err_y.map_read()
+        self.err_h.map_invalidate()
+
+        if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
+            # disjoint kernels
+            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_y.v):
+                hx1 = x * self.kx
+                hx2 = (x + 1) * self.kx
+                hx2 = hx2 if hx2 < self._sx else self._sx
+                hy1 = y * self.ky
+                hy2 = (y + 1) * self.ky
+                hy2 = hy2 if hy2 < self._sy else self._sy
+                delta = err / float((hx2 - hx1) * (hy2 - hy1))
+                for i, j in ((ii, jj) for ii in range(hy1, hy2)
+                             for jj in range(hx1, hx2)):
+                    self.err_h.v[batch, i, j, ch] = delta
+        else:
+            # joint kernels
+            self.err_h.v[:] = 0
+            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_y.v):
+                hx1 = x * self.kx
+                hx2 = (x + 1) * self.kx
+                hx2 = hx2 if hx2 < self._sx else self._sx
+                hy1 = y * self.ky
+                hy2 = (y + 1) * self.ky
+                hy2 = hy2 if hy2 < self._sy else self._sy
+                delta = err / float((hx2 - hx1) * (hy2 - hy1))
+                for i, j in ((ii, jj) for ii in range(hy1, hy2)
+                             for jj in range(hx1, hx2)):
+                    self.err_h.v[batch, i, j, ch] += delta

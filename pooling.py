@@ -58,20 +58,22 @@ class Pooling(nn_units.Forward):
     def initialize(self, **kwargs):
         super(Pooling, self).initialize(**kwargs)
 
-        batch_size = self.input.v.shape[0]
-        sy = self.input.v.shape[1]
-        sx = self.input.v.shape[2]
-        n_channels = self.input.v.size // (batch_size * sx * sy)
-
-        out_sx = sx // self.sliding[0] + (
-            0 if sx % self.sliding[0] == 0 else 1)
-        out_sy = sy // self.sliding[1] + (
-            0 if sy % self.sliding[1] == 0 else 1)
-        output_size = n_channels * out_sx * out_sy * batch_size
-        if self.output.v is None or self.output.v.size != output_size:
+        self._batch_size = self.input.v.shape[0]
+        self._sy = self.input.v.shape[1]
+        self._sx = self.input.v.shape[2]
+        self._n_channels = self.input.v.size // (self._batch_size * self._sx *
+                                                 self._sy)
+        self._out_sx = self._sx // self.sliding[0] + (
+            0 if self._sx % self.sliding[0] == 0 else 1)
+        self._out_sy = self._sy // self.sliding[1] + (
+            0 if self._sy % self.sliding[1] == 0 else 1)
+        self._output_size = self._n_channels * self._out_sx * self._out_sy * \
+            self._batch_size
+        if self.output.v is None or self.output.v.size != self._output_size:
             self.output.reset()
             self.output.v = numpy.zeros(
-                [batch_size, out_sy, out_sx, n_channels],
+                [self._batch_size, self._out_sy, self._out_sx,
+                 self._n_channels],
                 dtype=self.input.v.dtype)
 
         self.input.initialize(self.device)
@@ -82,9 +84,9 @@ class Pooling(nn_units.Forward):
 
         if self.krn_ is None:
             defines = {
-                'SX': sx,
-                'SY': sy,
-                'N_CHANNELS': n_channels,
+                'SX': self._sx,
+                'SY': self._sy,
+                'N_CHANNELS': self._n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
                 'SLIDE_X': self.sliding[0],
@@ -92,8 +94,8 @@ class Pooling(nn_units.Forward):
             }
             self.build_program(
                 defines, "%s/pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky),
-                dtype=self.input.v.dtype)
+                (root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                 self.kx, self.ky), dtype=self.input.v.dtype)
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -173,6 +175,30 @@ class MaxPooling(Pooling):
         self.input_offs.unmap()  # we will be updating input_offs
         return super(MaxPooling, self).ocl_run()
 
+    def cpu_run(self):
+        self.input.map_read()
+        abs_input = numpy.fabs(self.input.v)
+        self.input_offs.map_invalidate()
+        self.output.map_invalidate()
+        for batch, ch in ((batch, ch) for batch in range(self._batch_size)
+                          for ch in range(self._n_channels)):
+            for out_x, out_y in ((out_x, out_y)
+                                 for out_x in range(self._out_sx)
+                                 for out_y in range(self._out_sy)):
+                x1 = out_x * self.sliding[0]
+                y1 = out_y * self.sliding[1]
+                test_idx = (out_x + 1) * self.sliding[0]
+                x2 = test_idx if test_idx <= self._sx else self._sx
+                test_idx = (out_y + 1) * self.sliding[1]
+                y2 = test_idx if test_idx <= self._sy else self._sy
+                cut = abs_input[batch, y1:y2, x1:x2, ch]
+                i, j = numpy.unravel_index(cut.argmax(), cut.shape)
+                idx = numpy.ravel_multi_index((batch, y1 + i, x1 + j, ch),
+                                              self.input.v.shape)
+                val = numpy.ravel(self.input.v)[idx]
+                self.input_offs.v[batch, out_y, out_x, ch] = idx
+                self.output.v[batch, out_y, out_x, ch] = val
+
 
 class AvgPooling(Pooling):
     """AvgPooling forward propagation.
@@ -194,3 +220,21 @@ class AvgPooling(Pooling):
             self.krn_ = self.get_kernel("do_avg_pooling")
             self.krn_.set_arg(0, self.input.v_)
             self.krn_.set_arg(1, self.output.v_)
+
+    def cpu_run(self):
+        self.input.map_read()
+        self.output.map_invalidate()
+        for batch, ch in ((batch, ch) for batch in range(self._batch_size)
+                          for ch in range(self._n_channels)):
+            for out_x, out_y in ((out_x, out_y)
+                                 for out_x in range(self._out_sx)
+                                 for out_y in range(self._out_sy)):
+                x1 = out_x * self.sliding[0]
+                y1 = out_y * self.sliding[1]
+                test_idx = (out_x + 1) * self.sliding[0]
+                x2 = test_idx if test_idx <= self._sx else self._sx
+                test_idx = (out_y + 1) * self.sliding[1]
+                y2 = test_idx if test_idx <= self._sy else self._sy
+                cut = self.input.v[batch, y1:y2, x1:x2, ch]
+                val = numpy.sum(cut) / cut.size
+                self.output.v[batch, out_y, out_x, ch] = val
