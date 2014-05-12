@@ -38,12 +38,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         err_h
 
     Attributes:
-        weights: weights of the current layer.
-        bias: bias of the current layer.
-        y: output of the current layer as batch of 1D samples.
-        h: input of the current layer as batch of 1D samples.
-        err_y: backpropagation errors for y.
-        err_h: backpropagation errors for h (will compute its).
         krn_err_h_: OpenCL kernel for matrix multiplication.
         krn_weights_: OpenCL kernel for weights update.
         krn_err_y_: OpenCL kernel for err_y update.
@@ -51,13 +45,7 @@ class GradientDescent(nn_units.GradientDescentBase):
     """
     def __init__(self, workflow, **kwargs):
         super(GradientDescent, self).__init__(workflow, **kwargs)
-        self.weights = None  # formats.Vector()
-        self.bias = None  # formats.Vector()
-        self.y = None  # formats.Vector()
-        self.h = None  # formats.Vector()
-        self.err_y = None  # formats.Vector()
-        self.err_h = formats.Vector()
-        self.cl_const = numpy.zeros(2, dtype=opencl_types.dtypes[
+        self.cl_const = numpy.zeros(3, dtype=opencl_types.dtypes[
             root.common.dtype])
         self.reduce_size = 64
 
@@ -164,7 +152,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         gradient *= alpha_batch
         gradient += self.weights.v * alpha_lambda
         if self.store_gradient:
-            self.gradient_weights.v += gradient
+            gradient += self.gradient_weights.v * self.gradient_moment
+            self.gradient_weights.v[:] = gradient[:]
         if self.weights_transposed:
             self.weights.v += gradient.transpose()
         else:
@@ -172,7 +161,8 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         gradient = err_y.sum(axis=0) * alpha_batch
         if self.store_gradient:
-            self.gradient_bias.v += gradient
+            gradient += self.gradient_bias.v * self.gradient_moment
+            self.gradient_bias.v[:] = gradient[:]
         self.bias.v += gradient
 
     def gpu_weights_update(self):
@@ -186,8 +176,10 @@ class GradientDescent(nn_units.GradientDescentBase):
         batch_size = self.batch_size or self.y.v.shape[0]
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
+        self.cl_const[2] = self.gradient_moment
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
+        self.krn_weights_.set_arg(6, self.cl_const[2:3])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         if self.weights_transposed:
@@ -206,6 +198,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0:1])
+        self.krn_bias_.set_arg(4, self.cl_const[2:3])
         global_size = [(self.err_y.v.size // self.err_y.v.shape[0]) *
                        self.reduce_size]
         local_size = [self.reduce_size]

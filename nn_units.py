@@ -83,6 +83,7 @@ class GradientDescentBase(OpenCLUnit):
         learning_rate = kwargs.get("learning_rate", 0.01)
         weights_decay = kwargs.get("weights_decay", 0.00005)
         weights_transposed = kwargs.get("weights_transposed", False)
+        gradient_moment = kwargs.get("gradient_moment", 0)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         kwargs["learning_rate"] = learning_rate
@@ -90,6 +91,7 @@ class GradientDescentBase(OpenCLUnit):
         kwargs["weights_transposed"] = weights_transposed
         kwargs["store_gradient"] = store_gradient
         kwargs["apply_gradient"] = apply_gradient
+        kwargs["gradient_moment"] = gradient_moment
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.h = None
@@ -102,7 +104,9 @@ class GradientDescentBase(OpenCLUnit):
         self.learning_rate = learning_rate
         self.weights_decay = weights_decay
         self.weights_transposed = weights_transposed
-        self.store_gradient = store_gradient
+        self.gradient_moment = gradient_moment
+        self.store_gradient = ((not workflow.is_slave and gradient_moment) or
+                               store_gradient)
         self.apply_gradient = apply_gradient
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
@@ -111,24 +115,27 @@ class GradientDescentBase(OpenCLUnit):
         super(GradientDescentBase, self).initialize(device=device, **kwargs)
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
+        self.gradient_moment = kwargs.get("gradient_moment",
+                                          self.gradient_moment)
 
     def generate_data_for_slave(self, slave=None):
-        return (self.learning_rate, self.weights_decay)
+        return (self.learning_rate, self.weights_decay, self.gradient_moment)
 
     def apply_data_from_master(self, data):
         self.learning_rate = data[0]
         self.weights_decay = data[1]
-        if self.gradient_weights.v is None or self.gradient_bias.v is None:
-            return
-        self.gradient_weights.map_invalidate()
-        self.gradient_weights.v[:] = 0
-        self.gradient_bias.map_invalidate()
-        self.gradient_bias.v[:] = 0
+        self.gradient_moment = data[2]
+        if self.gradient_weights.v is not None:
+            self.gradient_weights.map_invalidate()
+            self.gradient_weights.v[:] = 0
+        if self.gradient_bias.v is not None:
+            self.gradient_bias.map_invalidate()
+            self.gradient_bias.v[:] = 0
 
     def generate_data_for_master(self):
         if (not self.run_was_called or
-                self.gradient_weights.v is None or
-                self.gradient_bias.v is None):
+                (self.gradient_weights.v is None and
+                    self.gradient_bias.v is None)):
             return None
         self.run_was_called = False
         self.gradient_weights.map_read()
@@ -136,10 +143,12 @@ class GradientDescentBase(OpenCLUnit):
         return (self.gradient_weights.v, self.gradient_bias.v)
 
     def apply_data_from_slave(self, data, slave=None):
-        self.weights.map_write()
-        self.bias.map_write()
-        self.weights.v += data[0]
-        self.bias.v += data[1]
+        if self.weights.v is not None:
+            self.weights.map_write()
+            self.weights.v += data[0]
+        if self.bias.v is not None:
+            self.bias.map_write()
+            self.bias.v += data[1]
 
 
 class NNWorkflow(OpenCLWorkflow):

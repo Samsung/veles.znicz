@@ -41,7 +41,7 @@ class TestGD(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = Unit(DummyWorkflow())
+        c = Unit(DummyWorkflow(), gradient_moment=0.9)
         c.h = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],
