@@ -21,7 +21,7 @@ from enum import IntEnum
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_stddev": 0.05},
                  "conv_relu":  {"weights_filling": "gaussian",
-                                 "weights_stddev": 0.001},
+                                "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
@@ -214,8 +214,7 @@ class Workflow(StandardWorkflow):
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1,
-                                                        layers[i]["type"]))
+                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
             self.plt_multi_hist.append(multi_hist)
             if layers[i].get("n_kernels") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)

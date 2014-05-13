@@ -450,7 +450,7 @@ class Decision(units.Unit):
                 if gd is None:
                     continue
                 gd.learning_rate = numpy.clip(ak * gd.learning_rate,
-                                             0.00001, 0.75)
+                                              0.00001, 0.75)
                 if not alpha:
                     alpha = gd.learning_rate
             self.info("new learning_rate: %.6f" % (alpha))

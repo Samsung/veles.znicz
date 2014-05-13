@@ -15,7 +15,7 @@ from veles.config import root
 root.update = {"all2all_relu": {"weights_filling": "uniform",
                                 "weights_stddev": 0.05},
                "conv_relu":  {"weights_filling": "gaussian",
-                               "weights_stddev": 0.001},
+                              "weights_stddev": 0.0001},
                "decision": {"fail_iterations": 100,
                             "snapshot_prefix": "lines"},
                "loader": {"minibatch_maxsize": 60},

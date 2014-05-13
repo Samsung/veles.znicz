@@ -19,9 +19,9 @@ root.model = "tanh"
 
 root.update = {"accumulator": {"n_bars": 30},
                "all2all_relu": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
+                                "weights_stddev": 0.0001},
                "all2all_tanh": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
+                                "weights_stddev": 0.0001},
                "decision": {"fail_iterations": 1000,
                             "snapshot_prefix": "channels %s" % root.model,
                             "use_dynamic_alpha": False,

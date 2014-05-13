@@ -660,8 +660,7 @@ class Workflow(StandardWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-
-        self.parsing_forwards_from_congfig()
+        self._parsing_forwards_from_congfig()
 
         # Add Accumulator units
         self.accumulator = []
@@ -794,8 +793,7 @@ class Workflow(StandardWorkflow):
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1,
-                                                        layers[i]["type"]))
+                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
             self.plt_multi_hist.append(multi_hist)
             if layers[i].get("n_kernels") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
