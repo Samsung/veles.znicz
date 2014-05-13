@@ -34,8 +34,8 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                              "padding": (0, 0, 0, 0)},
                             {"type": "max_pooling",
                              "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            {"type": "relu", "layers": 32},
-                            {"type": "softmax", "layers": 4}]},
+                            {"type": "relu", "output_shape": 32},
+                            {"type": "softmax", "output_shape": 4}]},
                  "softmax": {"weights_filling": "uniform",
                              "weights_stddev": 0.05}}
 
@@ -79,55 +79,7 @@ class Workflow(StandardWorkflow):
 
         self.loader.link_from(self.repeater)
 
-        del self.fwds[:]
-        for i in range(0, len(layers)):
-            layer = layers[i]
-            if layer["type"] == "conv_relu":
-                aa = conv.ConvRELU(
-                    self, n_kernels=layer["n_kernels"],
-                    kx=layer["kx"], ky=layer["ky"],
-                    sliding=layer.get("sliding", (1, 1, 1, 1)),
-                    padding=layer.get("padding", (0, 0, 0, 0)),
-                    device=device,
-                    weights_filling=root.conv_relu.weights_filling,
-                    weights_stddev=root.conv_relu.weights_stddev)
-            elif layer["type"] == "max_pooling":
-                aa = pooling.MaxPooling(
-                    self, kx=layer["kx"], ky=layer["ky"],
-                    sliding=layer.get("sliding", (layer["kx"], layer["ky"])),
-                    device=device)
-            elif layer["type"] == "avg_pooling":
-                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
-                                        sliding=layer.get("sliding",
-                                                          (layer["kx"],
-                                                           layer["ky"])),
-                                        device=device)
-            elif layer["type"] == "relu":
-                aa = all2all.All2AllRELU(
-                    self,
-                    weights_filling=root.all2all_relu.weights_filling,
-                    weights_stddev=root.all2all_relu.weights_stddev,
-                    output_shape=[layer["layers"]], device=device)
-            elif layer["type"] == "softmax":
-                aa = all2all.All2AllSoftmax(
-                    self,
-                    output_shape=[layer["layers"]],
-                    weights_filling=root.softmax.weights_filling,
-                    weights_stddev=root.softmax.weights_stddev,
-                    device=device)
-            else:
-                raise error.ErrBadFormat("Unsupported layer type %s" %
-                                         (layer["type"]))
-            self.fwds.append(aa)
-            if i:
-                self.fwds[-1].link_from(self.fwds[-2])
-                self.fwds[-1].link_attrs(self.fwds[-2],
-                                         ("input", "output"))
-            else:
-                self.fwds[-1].link_from(self.loader)
-                self.fwds[-1].link_attrs(self.loader,
-                                         ("input", "minibatch_data"))
-            #self._add_forward_unit(aa)
+        self._parsing_forwards_from_congfig()
 
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
@@ -188,7 +140,7 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            if (layers[i].get("layers") is not None and
+            if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
@@ -223,9 +175,9 @@ class Workflow(StandardWorkflow):
                                                   ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("layers") is not None:
+            if layers[i].get("output_shape") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["layers"]
+                self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended

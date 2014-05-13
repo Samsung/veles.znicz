@@ -69,5 +69,5 @@ root.update = {"accumulator": {"n_bars": 30},
                               "padding": (1, 1, 1, 1)},
                              {"type": "max_pooling",
                               "kx": 3, "ky": 3, "sliding": (2, 2)},
-                             {"type": "softmax", "layers": 11}],
+                             {"type": "softmax", "output_shape": 11}],
                             "snapshot": ""}}

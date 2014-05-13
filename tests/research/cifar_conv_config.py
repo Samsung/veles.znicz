@@ -48,6 +48,6 @@ root.update = {"conv":  {"weights_filling": "uniform",
                            "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                           {"type": "avg_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},
-                          {"type": "softmax", "layers": 10}],
+                          {"type": "softmax", "output_shape": 10}],
                          "path_for_load_data": {"train": train_dir,
                                                 "validation": validation_dir}}}

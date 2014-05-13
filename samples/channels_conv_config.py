@@ -60,6 +60,6 @@ root.update = {"accumulator": {"n_bars": 30},
                              # "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                              #{"type": "avg_pooling",
                              # "kx": 3, "ky": 3, "sliding": (2, 2)},
-                             {"type": "all2all_tanh", "layers": 20},
-                             {"type": "softmax", "layers": 11}],
+                             {"type": "all2all_tanh", "output_shape": 20},
+                             {"type": "softmax", "output_shape": 11}],
                             "snapshot": ""}}

@@ -55,8 +55,9 @@ root.defaults = {"accumulator": {"n_bars": 30},
                  "weights_plotter": {"limit": 25},
                  "cifar": {"learning_rate": 0.1,
                            "weights_decay": 0.00005,
-                           "layers": [{"type": "all2all_tanh", "layers": 100},
-                                      {"type": "softmax", "layers": 10}],
+                           "layers": [{"type": "all2all_tanh",
+                                       "output_shape": 100},
+                                      {"type": "softmax", "output_shape": 10}],
                            "path_for_load_data": {"train": train_dir,
                                                   "validation":
                                                   validation_dir}}}
@@ -249,7 +250,7 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            if (layers[i].get("layers") is not None and
+            if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
@@ -271,9 +272,9 @@ class Workflow(StandardWorkflow):
                                                   ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("layers") is not None:
+            if layers[i].get("output_shape") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["layers"]
+                self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended

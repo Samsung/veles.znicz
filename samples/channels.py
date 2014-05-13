@@ -102,7 +102,7 @@ root.defaults = {"accumulator": {"n_bars": 30},
                                 "padding": (2, 2, 2, 2)},
                                {"type": "avg_pooling",
                                 "kx": 3, "ky": 3, "sliding": (2, 2)},
-                               {"type": "softmax", "layers": 11}],
+                               {"type": "softmax", "output_shape": 11}],
                               "snapshot": ""}}
 
 
@@ -768,7 +768,7 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            if (layers[i].get("layers") is not None and
+            if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
@@ -802,9 +802,9 @@ class Workflow(StandardWorkflow):
                                                   ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("layers") is not None:
+            if layers[i].get("output_shape") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["layers"]
+                self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
