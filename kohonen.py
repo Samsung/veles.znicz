@@ -183,7 +183,7 @@ class KohonenTrain(nn_units.GradientDescentBase):
     """Kohonen train pass.
 
     Should be assigned before initialize():
-        h
+        input
         weights
         batch_size
 
@@ -192,7 +192,7 @@ class KohonenTrain(nn_units.GradientDescentBase):
 
     Attributes:
         weights: weights of the current layer.
-        h: input of the current layer as batch of 1D samples.
+        input: input of the current layer as batch of 1D samples.
         krn_dist_: computes distances between input and neuron weights.
         krn_argmin_: finds indexes of minimal computed distances.
         krn_gravity_: computes gravity to the winner neuron.
@@ -201,11 +201,14 @@ class KohonenTrain(nn_units.GradientDescentBase):
     """
     def __init__(self, workflow, **kwargs):
         super(KohonenTrain, self).__init__(workflow, **kwargs)
-        self.reduce_size = 64
-        self.distance = formats.Vector()
+        self.distances = formats.Vector()
         self.argmin = formats.Vector()
         self.coords = formats.Vector()
         self.sigma = None
+        self.input = None
+        self.time = 1
+        self.time_step = 0.05
+        self.learning_rate = 1.0
 
     def init_unpickled(self):
         super(KohonenTrain, self).init_unpickled()
@@ -219,36 +222,32 @@ class KohonenTrain(nn_units.GradientDescentBase):
     def initialize(self, device, **kwargs):
         super(KohonenTrain, self).initialize(device=device, **kwargs)
 
+        batch_size = self.input.v.shape[0]
         if self.weights_transposed:
-            self._input_size = self.weights.v.shape[0]
-            self._output_size = self.weights.v.shape[1]
+            self._sample_length = self.weights.v.shape[0]
+            self._neurons_number = self.weights.v.shape[1]
         else:
-            self._input_size = self.weights.v.shape[1]
-            self._output_size = self.weights.v.shape[0]
+            self._sample_length = self.weights.v.shape[1]
+            self._neurons_number = self.weights.v.shape[0]
 
-        if (self.gradient_weights.v is None or
-                self.gradient_weights.v.size != self.weights.v.size):
-            self.gradient_weights.reset()
-            self.gradient_weights.v = numpy.zeros_like(self.weights.v)
-
-        if (self.distance.v is None or
-                self.distance.v.size != self._output_size):
-            self.distance.reset()
-            self.distance.v = numpy.zeros(
-                [self.h.v.shape[0], self._output_size],
+        if (self.distances.v is None or
+                self.distances.v.size != self._neurons_number):
+            self.distances.reset()
+            self.distances.v = numpy.zeros(
+                [batch_size, self._neurons_number],
                 dtype=self.weights.v.dtype)
 
         if (self.argmin.v is None or
-                self.argmin.v.size != self._output_size):
+                self.argmin.v.size != batch_size):
             self.argmin.reset()
-            self.argmin.v = numpy.zeros(self._output_size, dtype=numpy.int32)
+            self.argmin.v = numpy.zeros(batch_size, dtype=numpy.int32)
 
         if (self.coords.v is None or
-                self.coords.v.size != self._output_size):
+                self.coords.v.size != self._neurons_number):
             self.coords.reset()
-            self.coords.v = numpy.zeros([self._output_size, 2],
+            self.coords.v = numpy.zeros([self._neurons_number, 2],
                                         dtype=self.weights.v.dtype)
-            sz = self._output_size
+            sz = self._neurons_number
             rows = int(numpy.round(numpy.sqrt(sz)))
             cols = sz // rows
             if sz % rows != 0:
@@ -275,11 +274,10 @@ class KohonenTrain(nn_units.GradientDescentBase):
                           self.coords.v.ravel().min()) * 1.42
 
         self.weights.initialize(self.device)
-        self.h.initialize(self.device)
-        self.distance.initialize(self.device)
+        self.input.initialize(self.device)
+        self.distances.initialize(self.device)
         self.argmin.initialize(self.device)
         self.coords.initialize(self.device)
-        self.gradient_weights.initialize(self.device)
 
         if self.device is None:
             return
@@ -287,14 +285,19 @@ class KohonenTrain(nn_units.GradientDescentBase):
         if self.program_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.weights.v.dtype)]
-            self.reduce_size = min(self.reduce_size, self._output_size)
+            if self._neurons_number // self.device.max_group_size == 0:
+                chunk_size = self._neurons_number // 2 + 1
+            else:
+                chunk_size = self._neurons_number // self.device.max_group_size
+            self.chunked_group_size = int(numpy.ceil(self._neurons_number /
+                                                     chunk_size))
 
             defines = {
                 'BLOCK_SIZE': block_size,
-                'BATCH': self.h.v.shape[0],
-                'H': self._input_size,
-                'Y': self._output_size,
-                'REDUCE_SIZE': self.reduce_size,
+                'BATCH': batch_size,
+                'SAMPLE_LENGTH': self._sample_length,
+                'NEURONS_NUMBER': self._neurons_number,
+                'CHUNK_SIZE': chunk_size,
                 'coord_type':  "%s%d" %
                 (opencl_types.numpy_dtype_to_opencl(self.coords.v.dtype),
                  self.coords.v.shape[-1])
@@ -304,87 +307,84 @@ class KohonenTrain(nn_units.GradientDescentBase):
             self.build_program(
                 defines, "%s/kohonen_train_%d_%d.cl" % (
                     root.common.cache_dir,
-                    self._input_size, self._output_size),
+                    self._sample_length, self._neurons_number),
                 dtype=self.weights.v.dtype)
 
-            self.krn_const_ = numpy.zeros(2, dtype=self.weights.v.dtype)
+            self.ocl_consts_ = numpy.zeros(2, dtype=self.weights.v.dtype)
 
             self.krn_distance_ = self.get_kernel("compute_distance")
-            self.krn_distance_.set_arg(0, self.h.v_)
+            self.krn_distance_.set_arg(0, self.input.v_)
             self.krn_distance_.set_arg(1, self.weights.v_)
-            self.krn_distance_.set_arg(2, self.distance.v_)
+            self.krn_distance_.set_arg(2, self.distances.v_)
 
             self.krn_argmin_ = self.get_kernel("compute_argmin")
-            self.krn_argmin_.set_arg(0, self.distance.v_)
+            self.krn_argmin_.set_arg(0, self.distances.v_)
             self.krn_argmin_.set_arg(1, self.argmin.v_)
 
             self.krn_gravity_ = self.get_kernel("compute_gravity")
             self.krn_gravity_.set_arg(0, self.argmin.v_)
             self.krn_gravity_.set_arg(1, self.coords.v_)
-            self.krn_gravity_.set_arg(2, self.distance.v_)
-
-            self.krn_compute_gradient_ = self.get_kernel("compute_gradient")
-            self.krn_compute_gradient_.set_arg(0, self.h.v_)
-            self.krn_compute_gradient_.set_arg(1, self.weights.v_)
-            self.krn_compute_gradient_.set_arg(2, self.gradient_weights.v_)
+            self.krn_gravity_.set_arg(3, self.distances.v_)
 
             self.krn_apply_gradient_ = self.get_kernel("apply_gradient")
-            self.krn_apply_gradient_.set_arg(0, self.gradient_weights.v_)
-            self.krn_apply_gradient_.set_arg(1, self.weights.v_)
-            self.krn_apply_gradient_.set_arg(2, self.distance.v_)
+            self.krn_apply_gradient_.set_arg(0, self.input.v_)
+            self.krn_apply_gradient_.set_arg(1, self.distances.v_)
+            self.krn_apply_gradient_.set_arg(3, self.weights.v_)
 
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.weights.v.dtype)]
 
             self._gs_distance = [
-                formats.roundup(self._input_size, block_size),
-                formats.roundup(self._output_size, block_size)]
+                formats.roundup(self._sample_length, block_size),
+                formats.roundup(self._neurons_number, block_size)]
             self._ls_distance = [block_size, block_size]
 
-            if self.weights_transposed:
-                self._gs_compute_gradient = [
-                    formats.roundup(self._output_size, block_size),
-                    formats.roundup(self.h.v.shape[0], block_size)]
-            else:
-                self._gs_compute_gradient = [
-                    formats.roundup(self.h.v.shape[0], block_size),
-                    formats.roundup(self._output_size, block_size)]
-            self._ls_compute_gradient = [block_size, block_size]
-
     def cpu_run(self):
-        """Do gradient descent.
+        """Does Kohonen's learning iteration.
         """
-        raise error.ErrNotImplemented()
+        batch_size = self.input.v.shape[0]
+        neurons_number = self.weights.v.shape[0]
+        dists = numpy.empty(neurons_number)
+        gradients = numpy.zeros(self.weights.v.shape)
+        for sindex in range(batch_size):
+            dist = self.weights.v - self.input[sindex]
+            winner = numpy.argmin(numpy.linalg.norm(dist, axis=1))
+            winner_coords = self.coords.v[winner]
+            for nindex in range(neurons_number):
+                dist = self.coords.v[nindex] - winner_coords
+                dists[nindex] = numpy.sum(dist * dist)
+            gravity = numpy.exp(dists / (-2 * self.sigma * self.sigma))
+            gradients += gravity.reshape((1, neurons_number)).transpose() * \
+                (self.input[sindex] - self.weights.v) * self.learning_rate / \
+                self.time
+        self.weights.v += gradients
+        self.time += self.time_step
 
     def ocl_run(self):
-        """Do gradient descent.
+        """Does Kohonen's learning iteration.
         """
-        self.h.unmap()
+        self.input.unmap()
         self.weights.unmap()
-        self.distance.unmap()
+        self.distances.unmap()
         self.argmin.unmap()
-        self.gradient_weights.unmap()
         self.coords.unmap()
 
-        batch_size = self.batch_size or self.h.v.shape[0]
+        batch_size = self.input.v.shape[0]
 
         self.execute_kernel(self.krn_distance_, self._gs_distance,
                             self._ls_distance).wait()
-        self.execute_kernel(self.krn_argmin_, [self.reduce_size * batch_size],
-                            [self.reduce_size]).wait()
+        self.execute_kernel(self.krn_argmin_, [self.chunked_group_size],
+                            [self.chunked_group_size]).wait()
 
-        self.krn_const_[0] = self.sigma
-        self.krn_gravity_.set_arg(3, self.krn_const_[0:1])
-        self.execute_kernel(self.krn_gravity_, [batch_size, self._output_size],
+        self.ocl_consts_[0] = self.sigma
+        self.krn_gravity_.set_arg(2, self.ocl_consts_[0:1])
+        self.execute_kernel(self.krn_gravity_,
+                            [batch_size, self._neurons_number],
                             None).wait()
 
-        self.execute_kernel(self.krn_compute_gradient_,
-                            self._gs_compute_gradient,
-                            self._ls_compute_gradient).wait()
-
-        self.krn_const_[0] = -self.learning_rate / batch_size
-        self.krn_const_[1] = -self.learning_rate * self.weights_decay
-        self.krn_apply_gradient_.set_arg(3, self.krn_const_[0:1])
-        self.krn_apply_gradient_.set_arg(4, self.krn_const_[1:2])
-        self.execute_kernel(self.krn_apply_gradient_, [self.weights.v.size],
+        self.ocl_consts_[0] = self.learning_rate / self.time
+        self.time += self.time_step
+        self.krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
+        self.execute_kernel(self.krn_apply_gradient_,
+                            [self.chunked_group_size],
                             None).wait()

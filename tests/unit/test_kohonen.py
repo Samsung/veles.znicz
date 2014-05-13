@@ -46,18 +46,17 @@ class TestKohonen(unittest.TestCase):
                                    [2, 12, 4, 1, 1, 7, 1, 5, 3],
                                    [2, 6, 2, 0, 1, 3, 1, 4, 3]],
                                   dtype=self.dtype)
-
-        # TODO(a.kazantsev): put right values here
-        self.gradient_weights = numpy.array([[1, 0, 2, 1, -1],
-                                             [3, 1, 0, 2, 3],
-                                             [-1, 2, 0, 1, 3],
-                                             [0, 1, -1, 0, 1],
-                                             [-1, -1, 1, 1, 1],
-                                             [1, -2, -1, -1, 3],
-                                             [-1, -2, 1, 3, 1],
-                                             [-1, -1, 3, 0, 2],
-                                             [1, 0, 3, 2, -1]],
-                                            dtype=self.dtype)
+        self.new_weights = numpy.array(
+            [[0.0095, 3.4077, -1.1363, -0.2331, 7.291],
+             [-7.3005, -0.141, 6.3435, -3.8349, -7.3005],
+             [7.0286, -3.361, 6.0806, 0.0389, -6.5709],
+             [3.7339, -0.0242, 10.1774, 3.7097, 0.],
+             [7.3563, 7.3657, 2.8212, 0.121, 0.1115],
+             [0.2757, 9.8744, 9.1679, 6.6905, -6.0922],
+             [6.6781, 10.1743, 2.6081, -6.4829, 0.0152],
+             [6.8938, 7.1, -4.0215, 3.6939, -3.3245],
+             [0.213, 3.6071, -3.4613, -2.7033, 6.5233]],
+            dtype=self.dtype)
 
     def tearDown(self):
         del self.device
@@ -88,26 +87,35 @@ class TestKohonen(unittest.TestCase):
         logging.info("Will test Kohonen unit train pass")
         inp = formats.Vector()
         inp.v = self.input.copy()
-        out = formats.Vector()
-        out.v = self.output.copy()
+
         c = kohonen.KohonenTrain(DummyWorkflow())
-        c.h = inp
-        c.y = out
+        c.input = inp
+        c.learning_rate = 1.0
         c.weights = formats.Vector()
         c.weights.v = self.weights.copy()
 
         c.initialize(device=self.device)
 
-        c.run()
+        c.cpu_run()
 
-        c.gradient_weights.map_read()  # get results back
+        c.weights.map_read()  # get results back
 
-        gradient_weights = c.gradient_weights.v.ravel()
-
-        max_diff = numpy.fabs(self.gradient_weights.ravel() -
-                              gradient_weights.ravel()).max()
+        weights = c.weights.v.ravel()
+        max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
+
+        c.weights.map_invalidate()
+        c.weights.v[:] = self.weights
+        c.time = 1
+        c.ocl_run()
+        c.weights.map_read()
+        weights = c.weights.v.ravel()
+
+        max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Result differs by %.6f" % (max_diff))
+
         logging.info("All Ok")
 
 
