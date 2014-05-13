@@ -240,11 +240,11 @@ class GDAvgPooling(GDPooling):
         if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
             # disjoint kernels
             for (batch, y, x, ch), err in numpy.ndenumerate(self.err_y.v):
-                hx1 = x * self.kx
-                hx2 = (x + 1) * self.kx
+                hx1 = x * self.sliding[0]
+                hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
-                hy1 = y * self.ky
-                hy2 = (y + 1) * self.ky
+                hy1 = y * self.sliding[1]
+                hy2 = hy1 + self.ky
                 hy2 = hy2 if hy2 < self._sy else self._sy
                 delta = err / float((hx2 - hx1) * (hy2 - hy1))
                 for i, j in ((ii, jj) for ii in range(hy1, hy2)
@@ -254,11 +254,11 @@ class GDAvgPooling(GDPooling):
             # joint kernels
             self.err_h.v[:] = 0
             for (batch, y, x, ch), err in numpy.ndenumerate(self.err_y.v):
-                hx1 = x * self.kx
-                hx2 = (x + 1) * self.kx
+                hx1 = x * self.sliding[0]
+                hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
-                hy1 = y * self.ky
-                hy2 = (y + 1) * self.ky
+                hy1 = y * self.sliding[1]
+                hy2 = hy1 + self.ky
                 hy2 = hy2 if hy2 < self._sy else self._sy
                 delta = err / float((hx2 - hx1) * (hy2 - hy1))
                 for i, j in ((ii, jj) for ii in range(hy1, hy2)

@@ -187,9 +187,9 @@ class MaxPooling(Pooling):
                                  for out_y in range(self._out_sy)):
                 x1 = out_x * self.sliding[0]
                 y1 = out_y * self.sliding[1]
-                test_idx = (out_x + 1) * self.sliding[0]
+                test_idx = x1 + self.kx
                 x2 = test_idx if test_idx <= self._sx else self._sx
-                test_idx = (out_y + 1) * self.sliding[1]
+                test_idx = y1 + self.ky
                 y2 = test_idx if test_idx <= self._sy else self._sy
                 cut = abs_input[batch, y1:y2, x1:x2, ch]
                 i, j = numpy.unravel_index(cut.argmax(), cut.shape)
@@ -231,9 +231,9 @@ class AvgPooling(Pooling):
                                  for out_y in range(self._out_sy)):
                 x1 = out_x * self.sliding[0]
                 y1 = out_y * self.sliding[1]
-                test_idx = (out_x + 1) * self.sliding[0]
+                test_idx = x1 + self.kx
                 x2 = test_idx if test_idx <= self._sx else self._sx
-                test_idx = (out_y + 1) * self.sliding[1]
+                test_idx = y1 + self.ky
                 y2 = test_idx if test_idx <= self._sy else self._sy
                 cut = self.input.v[batch, y1:y2, x1:x2, ch]
                 val = numpy.sum(cut) / cut.size
