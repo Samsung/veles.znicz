@@ -8,7 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from veles.config import root
-import veles.error as error
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
@@ -27,7 +26,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         kwargs["device"] = self.device
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
 
-    def parsing_forwards_from_congfig(self):
+    def _parsing_forwards_from_congfig(self):
         """
         Parsing forward units from config.
         Adds a new fowrard unit to self.fwds, links it with previous fwd unit
@@ -37,63 +36,76 @@ class StandardWorkflow(nn_units.NNWorkflow):
         del self.fwds[:]
         for i in range(0, len(self.layers)):
             layer = self.layers[i]
-            if layer["type"] == "conv":
-                aa = conv.ConvTanh(self, n_kernels=layer["n_kernels"],
-                                   kx=layer["kx"], ky=layer["ky"],
-                                   weights_filling=root.conv.weights_filling,
-                                   weights_stddev=root.conv.weights_stddev,
-                                   sliding=layer.get("sliding", (1, 1, 1, 1)),
-                                   padding=layer.get("padding", (0, 0, 0, 0)),
-                                   device=self.device)
-            elif layer["type"] == "conv_relu":
-                aa = conv.ConvRELU(
-                    self, n_kernels=layer["n_kernels"],
-                    kx=layer["kx"], ky=layer["ky"],
-                    sliding=layer.get("sliding", (1, 1, 1, 1)),
-                    padding=layer.get("padding", (0, 0, 0, 0)),
-                    device=self.device,
-                    weights_filling=root.conv_relu.weights_filling,
-                    weights_stddev=root.conv_relu.weights_stddev,)
-            elif layer["type"] == "max_pooling":
-                aa = pooling.MaxPooling(self, kx=layer["kx"], ky=layer["ky"],
-                                        sliding=layer.get("sliding",
-                                                          (layer["kx"],
-                                                           layer["ky"])),
-                                        device=self.device)
-            elif layer["type"] == "avg_pooling":
-                aa = pooling.AvgPooling(self, kx=layer["kx"], ky=layer["ky"],
-                                        sliding=layer.get("sliding",
-                                                          (layer["kx"],
-                                                           layer["ky"])),
-                                        device=self.device)
-            elif layer["type"] == "all2all_relu":
-                aa = all2all.All2AllRELU(
-                    self, output_shape=[layer["layers"]], device=self.device,
-                    weights_filling=root.all2all_relu.weights_filling,
-                    weights_stddev=root.all2all_relu.weights_stddev)
-            elif layer["type"] == "all2all_tanh":
-                aa = all2all.All2AllTanh(
-                    self, output_shape=[layer["layers"]], device=self.device,
-                    weights_filling=root.all2all_tanh.weights_filling,
-                    weights_stddev=root.all2all_tanh.weights_stddev)
-            elif layer["type"] == "softmax":
-                aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layer["layers"]], device=self.device,
-                    weights_filling=root.softmax.weights_filling,
-                    weights_stddev=root.softmax.weights_stddev)
-            else:
-                raise error.ErrBadFormat("Unsupported layer type %s" %
-                                         (layer["type"]))
+            layer_ct = {"conv": lambda layer:
+                        conv.ConvTanh(
+                            self, n_kernels=layer["n_kernels"],
+                            kx=layer["kx"], ky=layer["ky"],
+                            weights_filling=root.conv.weights_filling,
+                            weights_stddev=root.conv.weights_stddev,
+                            sliding=layer.get("sliding", (1, 1, 1, 1)),
+                            padding=layer.get("padding", (0, 0, 0, 0)),
+                            device=self.device),
+                        "conv_relu": lambda layer:
+                        conv.ConvRELU(
+                            self, n_kernels=layer["n_kernels"],
+                            kx=layer["kx"], ky=layer["ky"],
+                            sliding=layer.get("sliding", (1, 1, 1, 1)),
+                            padding=layer.get("padding", (0, 0, 0, 0)),
+                            device=self.device,
+                            weights_filling=root.conv_relu.weights_filling,
+                            weights_stddev=root.conv_relu.weights_stddev),
+                        "max_pooling": lambda layer:
+                        pooling.MaxPooling(
+                            self,
+                            kx=layer["kx"], ky=layer["ky"],
+                            sliding=layer.get("sliding", (layer["kx"],
+                                                          layer["ky"])),
+                            device=self.device),
+                        "avg_pooling": lambda layer:
+                        pooling.AvgPooling(
+                            self, kx=layer["kx"],
+                            ky=layer["ky"],
+                            sliding=layer.get("sliding", (layer["kx"],
+                                                          layer["ky"])),
+                            device=self.device),
+                        "all2all_relu": lambda layer:
+                        all2all.All2AllRELU(
+                            self,
+                            output_shape=[layer["layers"]],
+                            device=self.device,
+                            weights_filling=root.all2all_relu.weights_filling,
+                            weights_stddev=root.all2all_relu.weights_stddev),
+                        "all2all_tanh": lambda layer:
+                        all2all.All2AllTanh(
+                            self, output_shape=[layer["layers"]],
+                            device=self.device,
+                            weights_filling=root.all2all_tanh.weights_filling,
+                            weights_stddev=root.all2all_tanh.weights_stddev),
+                        "softmax": lambda layer:
+                        all2all.All2AllSoftmax(
+                            self, output_shape=[layer["layers"]],
+                            device=self.device,
+                            weights_filling=root.softmax.weights_filling,
+                            weights_stddev=root.softmax.weights_stddev)}
+            unit = layer_ct[layer["type"]](layer)
+            self._add_forward_unit(unit)
 
-            self.fwds.append(aa)
-            if i:
-                self.fwds[-1].link_from(self.fwds[-2])
-                self.fwds[-1].link_attrs(self.fwds[-2],
-                                         ("input", "output"))
-            else:
-                self.fwds[-1].link_from(self.loader)
-                self.fwds[-1].link_attrs(self.loader,
-                                         ("input", "minibatch_data"))
+    def _add_forward_unit(self, new_unit):
+        """    88
+        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
+        by link_from and link_attrs. If self.fwds is empty, links unit with
+        self.loader
+        """
+        if self.fwds:
+            prev_forward_unit = self.fwds[-1]
+            new_unit.link_attrs(prev_forward_unit, ("input", "output"))
+        else:
+            assert self.loader is not None
+            prev_forward_unit = self.loader
+            new_unit.link_attrs(self.loader, ("input", "minibatch_data"))
+
+        new_unit.link_from(prev_forward_unit)
+        self.fwds.append(new_unit)
 
     def _create_gradient_descent_units(self):
         '''
