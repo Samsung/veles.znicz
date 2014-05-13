@@ -16,12 +16,10 @@ from veles.config import root
 import veles.formats as formats
 import veles.error as error
 import veles.plotting_units as plotting_units
-import veles.znicz.nn_units as nn_units
-import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.gd as gd
 import veles.znicz.loader as loader
+from veles.znicz.standard_workflow import StandardWorkflow
 
 test_image_dir = os.path.join(
     root.common.veles_dir, "veles/znicz/samples/MNIST/t10k-images.idx3-ubyte")
@@ -32,22 +30,32 @@ train_image_dir = os.path.join(
 train_label_dir = os.path.join(
     root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
 
-root.defaults = {"decision": {"fail_iterations": 150,
+root.defaults = {"all2all_relu": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
+                 "all2all_tanh": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.0001},
+                 "conv":  {"weights_filling": "uniform",
+                           "weights_stddev": 0.0001},
+                 "conv_relu":  {"weights_filling": "uniform",
+                                "weights_stddev": 0.0001},
+                 "decision": {"fail_iterations": 150,
                               "snapshot_prefix": "mnist_relu"},
                  "loader": {"minibatch_maxsize": 60},
-                 "mnist_relu": {"learning_rate": 0.01,
-                                "weights_decay": 0.0,
-                                "layers": [100, 10],
-                                "path_for_load_data": {"test_images":
-                                                       test_image_dir,
-                                                       "test_label":
-                                                       test_label_dir,
-                                                       "train_images":
-                                                       train_image_dir,
-                                                       "train_label":
-                                                       train_label_dir}},
-                 "relu": {"weights_stddev": 0.05},
-                 "softmax": {"weights_stddev": 0.05}}
+                 "softmax": {"weights_filling": "uniform",
+                             "weights_stddev": 0.0001},
+                 "mnist": {"learning_rate": 0.01,
+                           "weights_decay": 0.0,
+                           "layers":
+                           [{"type": "all2all_tanh", "output_shape": 100},
+                            {"type": "softmax", "output_shape": 10}],
+                           "path_for_load_data": {"test_images":
+                                                  test_image_dir,
+                                                  "test_label":
+                                                  test_label_dir,
+                                                  "train_images":
+                                                  train_image_dir,
+                                                  "train_label":
+                                                  train_label_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -123,18 +131,18 @@ class Loader(loader.FullBatchLoader):
         self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
 
         self.load_original(0, 10000,
-                           root.mnist_relu.path_for_load_data.test_label,
-                           root.mnist_relu.path_for_load_data.test_images)
+                           root.mnist.path_for_load_data.test_label,
+                           root.mnist.path_for_load_data.test_images)
         self.load_original(10000, 60000,
-                           root.mnist_relu.path_for_load_data.train_label,
-                           root.mnist_relu.path_for_load_data.train_images)
+                           root.mnist.path_for_load_data.train_label,
+                           root.mnist.path_for_load_data.train_images)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 10000
         self.class_samples[2] = 60000
 
 
-class Workflow(nn_units.NNWorkflow):
+class Workflow(StandardWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, **kwargs):
@@ -152,25 +160,7 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
-        for i in range(0, len(layers)):
-            if i < len(layers) - 1:
-                aa = all2all.All2AllRELU(
-                    self, output_shape=[layers[i]], device=device,
-                    weights_stddev=root.relu.weights_stddev)
-            else:
-                aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layers[i]], device=device,
-                    weights_stddev=root.softmax.weights_stddev)
-            self.fwds.append(aa)
-            if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1],
-                                        ("input", "output"))
-            else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+        self._parsing_forwards_from_congfig()
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
@@ -197,28 +187,8 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_max_err_y_sum", "max_err_y_sum"))
 
         # Add gradient descent units
-        del self.gds[:]
-        self.gds.extend(list(None for i in range(0, len(self.fwds))))
-        self.gds[-1] = gd.GDSM(self, device=device)
-        self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.fwds[-1],
-                                ("y", "output"),
-                                ("h", "input"),
-                                "weights", "bias")
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDRELU(self, device=device)
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.fwds[i],
-                                   ("y", "output"),
-                                   ("h", "input"),
-                                   "weights", "bias")
-            self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                 "minibatch_size"))
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
-            self.gds[i].gate_skip = self.decision.gd_skip
+        self._create_gradient_descent_units()
+
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.gds[0])
@@ -269,6 +239,6 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist_relu.layers)
-    main(learning_rate=root.mnist_relu.learning_rate,
-         weights_decay=root.mnist_relu.weights_decay)
+    load(Workflow, layers=root.mnist.layers)
+    main(learning_rate=root.mnist.learning_rate,
+         weights_decay=root.mnist.weights_decay)

@@ -28,9 +28,11 @@ root.update = {"all2all": {"weights_stddev": 0.05},
                "decision": {"fail_iterations": 150,
                             "snapshot_prefix": "mnist_relu"},
                "loader": {"minibatch_maxsize": 60},
-               "mnist_relu": {"learning_rate": 0.01,
+               "mnist": {"learning_rate": 0.01,
                               "weights_decay": 0.0,
-                              "layers": [100, 10],
+                              "layers":
+                              [{"type": "all2all_relu", "output_shape": 100},
+                               {"type": "softmax", "output_shape": 10}],
                               "path_for_load_data": {"test_images":
                                                      test_image_dir,
                                                      "test_label":
