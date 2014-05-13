@@ -16,21 +16,29 @@ from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-import veles.znicz.all2all as all2all
+#import veles.znicz.accumulator as accumulator
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
-import veles.znicz.nn_units as nn_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
-import veles.znicz.accumulator as accumulator
+from veles.znicz.standard_workflow import StandardWorkflow
+
 
 train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.defaults = {"decision": {"fail_iterations": 100,
+root.defaults = {"accumulator": {"n_bars": 30},
+                 "all2all_relu": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.05},
+                 "all2all_tanh": {"weights_filling": "uniform",
+                                  "weights_stddev": 0.05},
+                 "conv":  {"weights_filling": "gaussian",
+                           "weights_stddev": 0.0001},
+                 "conv_relu":  {"weights_filling": "gaussian",
+                                "weights_stddev": 0.0001},
+                 "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "cifar"},
                  "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
@@ -40,11 +48,13 @@ root.defaults = {"decision": {"fail_iterations": 100,
                                   os.path.join(root.common.cache_dir,
                                                "tmp/train")]},
                  "loader": {"minibatch_maxsize": 180},
-                 "accumulator": {"n_bars": 30},
+                 "softmax": {"weights_filling": "uniform",
+                             "weights_stddev": 0.05},
                  "weights_plotter": {"limit": 25},
                  "cifar": {"learning_rate": 0.1,
                            "weights_decay": 0.00005,
-                           "layers": [100, 10],
+                           "layers": [{"type": "all2all_tanh", "layers": 100},
+                                      {"type": "softmax", "layers": 10}],
                            "path_for_load_data": {"train": train_dir,
                                                   "validation":
                                                   validation_dir}}}
@@ -95,7 +105,7 @@ class Loader(loader.FullBatchLoader):
             formats.normalize(sample)
 
 
-class Workflow(nn_units.NNWorkflow):
+class Workflow(StandardWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -111,25 +121,10 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
-        for i in range(0, len(layers)):
-            if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
-                                         device=device)
-            else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
-                                            device=device)
-            self.fwds.append(aa)
-            if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1],
-                                        ("input", "output"))
-            else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+        self._parsing_forwards_from_congfig()
 
         # Add Accumulator units
+        """
         self.accumulator = []
         for i in range(0, len(layers)):
             accum = accumulator.RangeAccumulator(self,
@@ -142,11 +137,12 @@ class Workflow(nn_units.NNWorkflow):
 
             self.accumulator[i].link_attrs(self.fwds[i],
                                            ("input", "output"))
-
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        self.image_saver.link_from(self.accumulator[-1])
+        #self.image_saver.link_from(self.accumulator[-1])
+        self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
         self.image_saver.link_attrs(self.loader,
@@ -181,32 +177,12 @@ class Workflow(nn_units.NNWorkflow):
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
-        for i in range(0, len(layers)):
-            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
+        #for i in range(0, len(layers)):
+        #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
-        del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.fwds)))
-        self.gds[-1] = gd.GDSM(self, device=device)
-        self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.fwds[-1],
-                                ("y", "output"),
-                                ("h", "input"),
-                                "weights", "bias")
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self, device=device)
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.fwds[i],
-                                   ("y", "output"),
-                                   ("h", "input"),
-                                   "weights", "bias")
-            self.gds[i].link_attrs(self.loader, ("batch_size",
-                                                 "minibatch_size"))
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
-            self.gds[i].gate_skip = self.decision.gd_skip
+        self._create_gradient_descent_units()
+
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.decision)
@@ -227,8 +203,8 @@ class Workflow(nn_units.NNWorkflow):
                                        else Bool(False))
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
-        # Matrix plotter
 
+        # Matrix plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_w = nn_plotting_units.Weights2D(
             self, name="First Layer Weights", limit=root.weights_plotter.limit)
@@ -248,7 +224,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-
+        """
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
@@ -260,19 +236,26 @@ class Workflow(nn_units.NNWorkflow):
                                         ("input", "output"),
                                         ("x", "input"), "n_bars")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
-
+        """
         # MultiHistogram plotter
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram weights %s" % (i + 1))
+                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
             self.plt_multi_hist.append(multi_hist)
-            self.plt_multi_hist[i].link_from(self.decision)
-            self.plt_multi_hist[i].link_attrs(self.fwds[i],
-                                              ("input", "weights"))
-            self.plt_multi_hist[i].hist_number = self.fwds[
-                i].output_shape[0]
-            self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
+            if layers[i].get("n_kernels") is not None:
+                self.plt_multi_hist[i].link_from(self.decision)
+                self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
+                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                                                  ("input", "weights"))
+                end_epoch = ~self.decision.epoch_ended
+                self.plt_multi_hist[i].gate_block = end_epoch
+            if layers[i].get("layers") is not None:
+                self.plt_multi_hist[i].link_from(self.decision)
+                self.plt_multi_hist[i].hist_number = layers[i]["layers"]
+                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                                                  ("input", "weights"))
+                self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):

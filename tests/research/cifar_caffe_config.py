@@ -31,7 +31,7 @@ root.update = {"decision": {"fail_iterations": 1000,
                                              "tmp/train")]},
                "loader": {"minibatch_maxsize": 100},
                "weights_plotter": {"limit": 64},
-               "cifar_caffe": {"learning_rate": 0.001,
+               "cifar": {"learning_rate": 0.001,
                                "weights_decay": 0.004,
                                "layers":
                                [{"type": "conv_relu", "n_kernels": 32,
@@ -45,7 +45,8 @@ root.update = {"decision": {"fail_iterations": 1000,
                                 {"type": "conv_relu", "n_kernels": 64,
                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
                                 {"type": "avg_pooling",
-                                 "kx": 3, "ky": 3, "sliding": (2, 2)}, 10],
+                                 "kx": 3, "ky": 3, "sliding": (2, 2)},
+                                {"type": "softmax", "layers": 10}],
                                "path_for_load_data": {"train": train_dir,
                                                       "validation":
                                                       validation_dir}}}
