@@ -19,7 +19,9 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.update = {"decision": {"fail_iterations": 1000,
+root.update = {"conv":  {"weights_filling": "uniform",
+                         "weights_stddev": 0.05},
+               "decision": {"fail_iterations": 1000,
                             "snapshot_prefix": "cifar_conv",
                             "do_export_weights": True},
                "loader": {"minibatch_maxsize": 100},

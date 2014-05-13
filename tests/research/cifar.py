@@ -17,7 +17,9 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 #import veles.znicz.accumulator as accumulator
+import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
+import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
@@ -204,16 +206,7 @@ class Workflow(StandardWorkflow):
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
 
-        # Matrix plotter
-        self.decision.vectors_to_sync[self.gds[0].weights] = 1
-        self.plt_w = nn_plotting_units.Weights2D(
-            self, name="First Layer Weights", limit=root.weights_plotter.limit)
-        self.plt_w.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_w.link_attrs(self.fwds[0], ("get_shape_from", "input"))
-        self.plt_w.input_field = "v"
-        self.plt_w.link_from(self.decision)
-        self.plt_w.gate_block = ~self.decision.epoch_ended
-
+        """
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
@@ -224,7 +217,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        """
+
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
@@ -237,6 +230,34 @@ class Workflow(StandardWorkflow):
                                         ("x", "input"), "n_bars")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
         """
+
+        # Weights plotter
+        self.plt_mx = []
+        prev_channels = 3
+        for i in range(0, len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
+            plt_mx = nn_plotting_units.Weights2D(
+                self, name="%s %s" % (i + 1, layers[i]["type"]),
+                limit=root.weights_plotter.limit)
+            self.plt_mx.append(plt_mx)
+            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
+            self.plt_mx[-1].input_field = "v"
+            if isinstance(self.fwds[i], conv.Conv):
+                self.plt_mx[-1].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
+                prev_channels = self.fwds[i].n_kernels
+            if (layers[i].get("layers") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.plt_mx[-1].link_attrs(self.fwds[i],
+                                           ("get_shape_from", "input"))
+            #elif isinstance(self.fwds[i], all2all.All2All):
+            #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+
         # MultiHistogram plotter
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
