@@ -71,19 +71,19 @@ class StandardWorkflow(nn_units.NNWorkflow):
                         "all2all_relu": lambda layer:
                         all2all.All2AllRELU(
                             self,
-                            output_shape=[layer["layers"]],
+                            output_shape=layer["output_shape"],
                             device=self.device,
                             weights_filling=root.all2all_relu.weights_filling,
                             weights_stddev=root.all2all_relu.weights_stddev),
                         "all2all_tanh": lambda layer:
                         all2all.All2AllTanh(
-                            self, output_shape=[layer["layers"]],
+                            self, output_shape=layer["output_shape"],
                             device=self.device,
                             weights_filling=root.all2all_tanh.weights_filling,
                             weights_stddev=root.all2all_tanh.weights_stddev),
                         "softmax": lambda layer:
                         all2all.All2AllSoftmax(
-                            self, output_shape=[layer["layers"]],
+                            self, output_shape=layer["output_shape"],
                             device=self.device,
                             weights_filling=root.softmax.weights_filling,
                             weights_stddev=root.softmax.weights_stddev)}
@@ -114,49 +114,54 @@ class StandardWorkflow(nn_units.NNWorkflow):
         '''
         self.gds = []
         for i, fwd_elm in enumerate(self.fwds):
+            layer = self.layers[i]
+            kwargs = {}
+            for name in ("learning_rate", "weights_decay", "gradient_moment"):
+                if name in layer:
+                    kwargs[name] = layer[name]
             if isinstance(fwd_elm, conv.ConvRELU):
                 grad_elm = gd_conv.GDRELUConv(
                     self, n_kernels=fwd_elm.n_kernels, kx=fwd_elm.kx,
                     ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device)
+                    padding=fwd_elm.padding, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, conv.ConvTanh):
                 grad_elm = gd_conv.GDTanhConv(
                     self, n_kernels=fwd_elm.n_kernels,
                     kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device)
+                    padding=fwd_elm.padding, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, all2all.All2AllRELU):
-                grad_elm = gd.GDRELU(self, device=self.device)
+                grad_elm = gd.GDRELU(self, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, all2all.All2AllSoftmax):
-                grad_elm = gd.GDSM(self, device=self.device)
+                grad_elm = gd.GDSM(self, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, all2all.All2AllTanh):
-                grad_elm = gd.GDTanh(self, device=self.device)
+                grad_elm = gd.GDTanh(self, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, pooling.MaxPooling):
                 grad_elm = gd_pooling.GDMaxPooling(
                     self, kx=fwd_elm.kx, ky=fwd_elm.ky,
                     sliding=fwd_elm.sliding,
-                    device=self.device)
-                grad_elm.link_attrs(fwd_elm, ("h_offs", "input_offs"))  # WHY?!
+                    device=self.device, **kwargs)
+                grad_elm.link_attrs(fwd_elm, ("h_offs", "input_offs"))
 
             elif isinstance(fwd_elm, pooling.AvgPooling):
                 grad_elm = gd_pooling.GDAvgPooling(
                     self, kx=fwd_elm.kx, ky=fwd_elm.ky,
                     sliding=fwd_elm.sliding,
-                    device=self.device)
+                    device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, normalization.LRNormalizerForward):
                 grad_elm = normalization.LRNormalizerBackward(
                     self, alpha=fwd_elm.alpha, beta=fwd_elm.beta,
-                    k=fwd_elm.k, n=fwd_elm.n)
+                    k=fwd_elm.k, n=fwd_elm.n, **kwargs)
 
             elif isinstance(fwd_elm, dropout.DropoutForward):
                 grad_elm = dropout.DropoutBackward(
                     self, dropout_ratio=fwd_elm.dropout_ratio,
-                    device=self.device)
+                    device=self.device, **kwargs)
 
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
