@@ -50,8 +50,9 @@
 /// @param err_h resulted backpropagated error for previous layer.
 /// @details err_h = err_y * weights
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weights,
-                  __global c_dtype /*OUT*/ *err_h) {
+void err_h_update(__global const c_dtype    /* IN */    *err_y,
+                  __global const c_dtype    /* IN */    *weights,
+                  __global c_dtype         /* OUT */    *err_h) {
 
   #define A_WIDTH (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
   #define B_WIDTH ELEMENTS_PER_KERNEL
@@ -86,17 +87,23 @@ void err_h_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/ *weigh
 
 
 /// @brief Calculate gradient for weights update.
-/// @param err_y backpropagated error
-/// @param h layer input
-/// @param weights layer weights
-/// @param gradient computed gradient to store in if not null
-/// @param alpha_batch (-global_alpha / batch_size)
-/// @param alpha_lambda (-global_alpha * global_lambda)
-/// @details gradient = err_y * h * alpha_batch + weights * alpha_lambda
+/// @param err_y Backpropagated error.
+/// @param h Layer input.
+/// @param weights Layer weights.
+/// @param gradient Computed gradient.
+/// @param alpha_batch (-global_alpha / batch_size).
+/// @param alpha_lambda (-global_alpha * global_lambda).
+/// @param gradient_moment Moment for gradient.
+/// @details gradient = previous_gradient * gradient_moment +
+///                     err_y * h * alpha_batch + weights * alpha_lambda.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
-                    __global c_dtype /*IO*/ *weights, __global c_dtype /*OUT*/ *gradient,
-                    const dtype alpha_batch, const dtype alpha_lambda) {
+void weights_update(__global const c_dtype    /* IN */    *err_y,
+                    __global const c_dtype    /* IN */    *h,
+                    __global c_dtype     /* IN, OUT */    *weights,
+                    __global c_dtype     /* IN, OUT */    *gradient,
+                    const dtype               /* IN */    alpha_batch,
+                    const dtype               /* IN */    alpha_lambda,
+                    const dtype               /* IN */    gradient_moment) {
   #ifdef WEIGHTS_TRANSPOSED
 
   #define A_WIDTH ELEMENTS_PER_KERNEL
@@ -143,7 +150,8 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
     c_dtype weight = weights[idx];
     c_dtype gd = sum[0] * alpha_batch + weight * alpha_lambda;
     #ifdef STORE_GRADIENT
-    gradient[idx] += gd;
+    gd += gradient[idx] * gradient_moment;
+    gradient[idx] = gd;
     #endif
     #ifdef APPLY_GRADIENT
     weights[idx] = weight + gd;
@@ -153,14 +161,22 @@ void weights_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IN*/  *h,
 
 
 /// @brief Calculate gradient for bias update.
-/// @param bias layer bias
-/// @param err_y backpropagated error
-/// @param gradient computed gradient to store in if not null
-/// @param alpha_batch (-global_alpha / batch_size)
-/// @details gradient = sum(err_y) * alpha_batch
+/// @param bias Layer bias.
+/// @param err_y Backpropagated error.
+/// @param gradient Computed gradient to store in if not null.
+/// @param alpha_batch (-global_alpha / batch_size).
+/// @details gradient = previous_gradient * gradient_moment +
+///                     sum(err_y) * alpha_batch.
+///          Should be defined externally:
+///          REDUCE_SIZE - size of the block for matrix reduce,
+///          BATCH - minibatch size,
+///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
-void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
-                 __global c_dtype /*OUT*/ *gradient, const dtype alpha_batch) {
+void bias_update(__global const c_dtype    /* IN */    *err_y,
+                 __global c_dtype     /* IN, OUT */    *bias,
+                 __global c_dtype     /* IN, OUT */    *gradient,
+                 const dtype               /* IN */    alpha_batch,
+                 const dtype               /* IN */    gradient_moment) {
 
   #define A err_y
   #define A_WIDTH N_KERNELS
@@ -179,7 +195,8 @@ void bias_update(__global c_dtype /*IN*/ *err_y, __global c_dtype /*IO*/ *bias,
 
     c_dtype gd = sum * alpha_batch;
     #ifdef STORE_GRADIENT
-    gradient[bx] += gd;
+    gd += gradient[bx] * gradient_moment;
+    gradient[bx] = gd;
     #endif
     #ifdef APPLY_GRADIENT
     bias[bx] += gd;

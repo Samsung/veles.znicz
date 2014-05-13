@@ -66,7 +66,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.padding = tuple(padding)
         self.sliding = tuple(sliding)
         self.cl_const = numpy.zeros(
-            2, dtype=opencl_types.dtypes[root.common.dtype])
+            3, dtype=opencl_types.dtypes[root.common.dtype])
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -197,8 +197,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
+        self.cl_const[2] = self.gradient_moment
         self.krn_weights_.set_arg(4, self.cl_const[0:1])
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
+        self.krn_weights_.set_arg(6, self.cl_const[2:3])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
         if self.weights_transposed:
@@ -215,6 +217,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
 
         self.krn_bias_.set_arg(3, self.cl_const[0:1])
+        self.krn_bias_.set_arg(4, self.cl_const[2:3])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
         ev2 = self.execute_kernel(self.krn_bias_, global_size, local_size)

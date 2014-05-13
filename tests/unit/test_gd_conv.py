@@ -55,7 +55,7 @@ class TestGDConv(unittest.TestCase):
         bias = numpy.array([10, -10], dtype=dtype)
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3)
+                                        kx=3, ky=3, gradient_moment=0.9)
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[[-1, 3],
                                   [8, 2],
@@ -143,7 +143,7 @@ class TestGDConv(unittest.TestCase):
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
-                                        sliding=(2, 3))
+                                        sliding=(2, 3), gradient_moment=0.9)
         c.err_y = formats.Vector()
         c.err_y.v = numpy.array([[[-1, 3],
                                   [8, 2],

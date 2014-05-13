@@ -47,7 +47,7 @@ void err_h_update(__global const c_dtype    /* IN */    *err_y,
 /// @param err_y Backpropagated error.
 /// @param h Layer input.
 /// @param weights Layer weights.
-/// @param gradient Computed gradient to store in if not null.
+/// @param gradient Computed gradient.
 /// @param alpha_batch (-global_alpha / batch_size).
 /// @param alpha_lambda (-global_alpha * global_lambda).
 /// @param gradient_moment Moment for gradient.
@@ -62,7 +62,7 @@ __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void weights_update(__global const c_dtype    /* IN */    *err_y,
                     __global const c_dtype    /* IN */    *h,
                     __global c_dtype     /* IN, OUT */    *weights,
-                    __global c_dtype         /* OUT */    *gradient,
+                    __global c_dtype     /* IN, OUT */    *gradient,
                     const dtype               /* IN */    alpha_batch,
                     const dtype               /* IN */    alpha_lambda,
                     const dtype               /* IN */    gradient_moment) {
@@ -123,7 +123,7 @@ void weights_update(__global const c_dtype    /* IN */    *err_y,
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void bias_update(__global const c_dtype    /* IN */    *err_y,
                  __global c_dtype     /* IN, OUT */    *bias,
-                 __global c_dtype         /* OUT */    *gradient,
+                 __global c_dtype     /* IN, OUT */    *gradient,
                  const dtype               /* IN */    alpha_batch,
                  const dtype               /* IN */    gradient_moment) {
  
