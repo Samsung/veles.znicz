@@ -71,24 +71,31 @@ class StandardWorkflow(nn_units.NNWorkflow):
                         "all2all_relu": lambda layer:
                         all2all.All2AllRELU(
                             self,
-                            output_shape=layer["output_shape"],
+                            output_shape=self._as_list(layer["output_shape"]),
                             device=self.device,
                             weights_filling=root.all2all_relu.weights_filling,
                             weights_stddev=root.all2all_relu.weights_stddev),
                         "all2all_tanh": lambda layer:
                         all2all.All2AllTanh(
-                            self, output_shape=layer["output_shape"],
+                            self,
+                            output_shape=self._as_list(layer["output_shape"]),
                             device=self.device,
                             weights_filling=root.all2all_tanh.weights_filling,
                             weights_stddev=root.all2all_tanh.weights_stddev),
                         "softmax": lambda layer:
                         all2all.All2AllSoftmax(
-                            self, output_shape=layer["output_shape"],
+                            self,
+                            output_shape=self._as_list(layer["output_shape"]),
                             device=self.device,
                             weights_filling=root.softmax.weights_filling,
                             weights_stddev=root.softmax.weights_stddev)}
             unit = layer_ct[layer["type"]](layer)
             self._add_forward_unit(unit)
+
+    def _as_list(self, vle):
+        if type(vle) in (int, float, str):
+            return [vle]
+        return vle
 
     def _add_forward_unit(self, new_unit):
         """    88
