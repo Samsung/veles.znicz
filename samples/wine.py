@@ -113,9 +113,7 @@ class Workflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1],
-                                  ("y", "output"),
-                                  "max_idx")
+        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
@@ -133,17 +131,15 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_y_sum"))
+            ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDSM(self, device=device)
         self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
-        self.gds[-1].link_attrs(self.fwds[-1],
-                                ("y", "output"),
-                                ("h", "input"),
+        self.gds[-1].link_attrs(self.evaluator, "err_output")
+        self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
@@ -151,10 +147,8 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
-                                   ("err_y", "err_h"))
-            self.gds[i].link_attrs(self.fwds[i],
-                                   ("y", "output"),
-                                   ("h", "input"),
+                                   ("err_output", "err_input"))
+            self.gds[i].link_attrs(self.fwds[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))

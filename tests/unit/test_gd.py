@@ -42,15 +42,15 @@ class TestGD(unittest.TestCase):
             inp.v[:] = self.x[:]
 
         c = Unit(DummyWorkflow(), gradient_moment=0.9)
-        c.h = inp
+        c.input = inp
 
         weights = numpy.array([[1, 0, 2, 1, -1],
                               [3, 1, 0, 2, 3],
                               [-1, 2, 0, 1, 3],
                               [1, -1, 3, 2, 4]], dtype=dtype)
         bias = numpy.array([10, -10, 5, 2], dtype=dtype)
-        c.err_y = formats.Vector()
-        c.err_y.v = numpy.array([[-1, 3, 0, 2],
+        c.err_output = formats.Vector()
+        c.err_output.v = numpy.array([[-1, 3, 0, 2],
                                  [8, 2, 1, 3],
                                  [0, 1, -2, 1],
                                  [2, 3, -1, 0],
@@ -60,8 +60,8 @@ class TestGD(unittest.TestCase):
         c.weights.v = weights
         c.bias = formats.Vector()
         c.bias.v = bias
-        c.y = formats.Vector()
-        c.y.v = c.err_y.v.copy()
+        c.output = formats.Vector()
+        c.output.v = c.err_output.v.copy()
         c.initialize(device=device)
 
         if device is None:
@@ -82,14 +82,14 @@ class TestGD(unittest.TestCase):
             self.W_gpu = c.weights.v.copy()
             c.bias.map_read()
             self.b_gpu = c.bias.v.copy()
-        c.err_h.map_read()  # get results back
+        c.err_input.map_read()  # get results back
 
-        return c.err_h.v
+        return c.err_input.v
 
     def _do_test_gpu_cpu(self, Unit):
-        y_gpu = self._do_tst(self.device, Unit)
-        y_cpu = self._do_tst(None, Unit)
-        max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
+        output_gpu = self._do_tst(self.device, Unit)
+        output_cpu = self._do_tst(None, Unit)
+        max_diff = numpy.fabs(output_gpu.ravel() - output_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(self.W_gpu.ravel() - self.W_cpu.ravel()).max()

@@ -157,7 +157,7 @@ class Workflow(StandardWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("labels", "minibatch_labels"),

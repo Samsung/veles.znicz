@@ -24,4 +24,4 @@ root.update = {"decision": {"fail_iterations": 100,
                             "layers": [9, 14400],
                             "path_for_load_data":
                             os.path.join(root.common.test_dataset_root,
-                                         "video/video_ae/img/*.png")}}
+                                         "video/video_ae/img")}}

@@ -22,27 +22,27 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     """Gradient Descent.
 
     Should be assigned before initialize():
-        y
-        h
-        err_y
+        output
+        input
+        err_output
         weights
         bias
         batch_size
 
     Updates after run():
-        err_h
-        err_y
+        err_input
+        err_output
         weights
         bias
 
     Creates within initialize():
-        err_h
+        err_input
 
     Attributes:
-        krn_err_h_clear_: OpenCL kernel for setting err_h with zeros.
-        krn_err_h_: OpenCL kernel for computing err_h.
+        krn_err_input_clear_: OpenCL kernel for setting err_input with zeros.
+        krn_err_input_: OpenCL kernel for computing err_input.
         krn_weights_: OpenCL kernel for weights update.
-        krn_err_y_: OpenCL kernel for err_y update.
+        krn_err_output_: OpenCL kernel for err_output update.
         krn_bias_: OpenCL kernel for bias update.
         n_kernels: number of convolutional kernels.
         kx: kernel width.
@@ -72,18 +72,18 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def init_unpickled(self):
         super(GradientDescentConv, self).init_unpickled()
         self.cl_sources_["gradient_descent_conv.cl"] = {}
-        self.krn_err_h_clear_ = None
-        self.krn_err_h_ = None
+        self.krn_err_input_clear_ = None
+        self.krn_err_input_ = None
         self.krn_weights_ = None
-        self.krn_err_y_ = None
+        self.krn_err_output_ = None
         self.krn_bias_ = None
 
     def initialize(self, **kwargs):
         super(GradientDescentConv, self).initialize(**kwargs)
-        batch_size = self.h.v.shape[0]
-        sy = self.h.v.shape[1]
-        sx = self.h.v.shape[2]
-        n_channels = self.h.v.size // (batch_size * sx * sy)
+        batch_size = self.input.v.shape[0]
+        sy = self.input.v.shape[1]
+        sx = self.input.v.shape[2]
+        n_channels = self.input.v.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
         if self.weights.v.size != n_weights:
             raise error.ErrBadFormat(
@@ -91,16 +91,16 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 "input, n_kernels, kx, ky parameters")
         if self.bias.v.size != self.n_kernels:
             raise error.ErrBadFormat("Expected bias to match n_kernels")
-        if self.h.v.size != batch_size * sy * sx * n_channels:
+        if self.input.v.size != batch_size * sy * sx * n_channels:
             raise error.ErrBadFormat(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
-        if (self.err_h.v is None or
-                self.err_h.v.size != self.h.v.size):
-            self.err_h.reset()
-            self.err_h.v = numpy.zeros(self.h.v.shape,
-                                       dtype=self.err_y.v.dtype)
+        if (self.err_input.v is None or
+                self.err_input.v.size != self.input.v.size):
+            self.err_input.reset()
+            self.err_input.v = numpy.zeros(self.input.v.shape,
+                                       dtype=self.err_output.v.dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.v is None or
@@ -116,10 +116,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
-        self.y.initialize(self.device)
-        self.h.initialize(self.device)
-        self.err_y.initialize(self.device)
-        self.err_h.initialize(self.device)
+        self.output.initialize(self.device)
+        self.input.initialize(self.device)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
         if self.store_gradient:
             self.gradient_weights.initialize(self.device)
             self.gradient_bias.initialize(self.device)
@@ -129,7 +129,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         if self.program_ is None:
             block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
+                opencl_types.numpy_dtype_to_opencl(self.err_output.v.dtype)]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
@@ -159,41 +159,41 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 defines['STORE_GRADIENT'] = 1
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
                 root.common.cache_dir,
-                self.h.v.size // self.h.v.shape[0],
-                self.y.v.size // self.y.v.shape[0]),
-                dtype=self.err_y.v.dtype)
+                self.input.v.size // self.input.v.shape[0],
+                self.output.v.size // self.output.v.shape[0]),
+                dtype=self.err_output.v.dtype)
 
-            self.krn_err_h_clear_ = self.get_kernel("array_clear")
-            self.krn_err_h_clear_.set_arg(0, self.err_h.v_)
+            self.krn_err_input_clear_ = self.get_kernel("array_clear")
+            self.krn_err_input_clear_.set_arg(0, self.err_input.v_)
 
-            self.krn_err_h_ = self.get_kernel("err_h_update")
-            self.krn_err_h_.set_arg(0, self.err_y.v_)
-            self.krn_err_h_.set_arg(1, self.weights.v_)
-            self.krn_err_h_.set_arg(2, self.err_h.v_)
+            self.krn_err_input_ = self.get_kernel("err_h_update")
+            self.krn_err_input_.set_arg(0, self.err_output.v_)
+            self.krn_err_input_.set_arg(1, self.weights.v_)
+            self.krn_err_input_.set_arg(2, self.err_input.v_)
 
             self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_arg(0, self.err_y.v_)
-            self.krn_weights_.set_arg(1, self.h.v_)
+            self.krn_weights_.set_arg(0, self.err_output.v_)
+            self.krn_weights_.set_arg(1, self.input.v_)
             self.krn_weights_.set_arg(2, self.weights.v_)
             self.krn_weights_.set_arg(3, self.gradient_weights.v_)
 
             self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_arg(0, self.err_y.v_)
+            self.krn_bias_.set_arg(0, self.err_output.v_)
             self.krn_bias_.set_arg(1, self.bias.v_)
             self.krn_bias_.set_arg(2, self.gradient_bias.v_)
 
     def gpu_weights_update(self):
-        self.h.unmap()
-        self.err_y.unmap()
+        self.input.unmap()
+        self.err_output.unmap()
         self.weights.unmap()
         self.bias.unmap()
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = self.batch_size or self.y.v.shape[0]
-        sy = self.h.v.shape[1]
-        sx = self.h.v.shape[2]
-        n_channels = self.h.v.size // (self.h.v.shape[0] * sx * sy)
+        batch_size = self.batch_size or self.output.v.shape[0]
+        sy = self.input.v.shape[1]
+        sx = self.input.v.shape[2]
+        n_channels = self.input.v.size // (self.input.v.shape[0] * sx * sy)
         # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
@@ -202,7 +202,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.krn_weights_.set_arg(5, self.cl_const[1:2])
         self.krn_weights_.set_arg(6, self.cl_const[2:3])
         block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
+            opencl_types.numpy_dtype_to_opencl(self.err_output.v.dtype)]
         if self.weights_transposed:
             global_size = [
                 formats.roundup(self.n_kernels, block_size),
@@ -225,24 +225,24 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev1.wait()
         ev2.wait()
 
-    def gpu_err_h_update(self):
-        """Backpropagate error (will compute err_h).
+    def gpu_err_input_update(self):
+        """Backpropagate error (will compute err_input).
         """
-        self.err_h.unmap()
-        self.err_y.unmap()
+        self.err_input.unmap()
+        self.err_output.unmap()
         self.weights.unmap()
 
         # Clear the resulting matrix
         event = self.execute_kernel(
-            self.krn_err_h_clear_, [self.err_h.v.size], None)
+            self.krn_err_input_clear_, [self.err_input.v.size], None)
         event.wait()
 
-        batch_size = self.h.v.shape[0]
-        sy = self.h.v.shape[1]
-        sx = self.h.v.shape[2]
-        n_channels = self.h.v.size // (batch_size * sx * sy)
+        batch_size = self.input.v.shape[0]
+        sy = self.input.v.shape[1]
+        sx = self.input.v.shape[2]
+        n_channels = self.input.v.size // (batch_size * sx * sy)
         block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_y.v.dtype)]
+            opencl_types.numpy_dtype_to_opencl(self.err_output.v.dtype)]
         kernel_size = self.kx * self.ky * n_channels
         global_size = [
             formats.roundup(kernel_size, block_size),
@@ -254,7 +254,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                  self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_err_h_, global_size, local_size)
+        event = self.execute_kernel(self.krn_err_input_, global_size, local_size)
         event.wait()
 
     def print_times(self, t_start):
@@ -268,8 +268,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.debug(
                 "BP %d_%d in %.2f sec: min avg max: "
                 "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                (self.h.v.size // self.h.v.shape[0],
-                 self.y.v.size // self.y.v.shape[0],
+                (self.input.v.size // self.input.v.shape[0],
+                 self.output.v.size // self.output.v.shape[0],
                  time.time() - t_start, min(weights.real.min(),
                                             weights.imag.min()),
                  (numpy.average(weights.real) +
@@ -282,28 +282,28 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.debug(
                 "BP %d_%d in %.2f sec: min avg max: "
                 "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                (self.h.v.size // self.h.v.shape[0],
-                 self.y.v.size // self.y.v.shape[0],
+                (self.input.v.size // self.input.v.shape[0],
+                 self.output.v.size // self.output.v.shape[0],
                  time.time() - t_start, weights.min(), numpy.average(weights),
                  weights.max(), bias.min(), numpy.average(bias), bias.max()))
 
-    def gpu_err_y_update(self):
-        """Multiply err_y by activation derivative by y.
+    def gpu_err_output_update(self):
+        """Multiply err_output by activation derivative by output.
         """
-        if self.krn_err_y_ is None:
+        if self.krn_err_output_ is None:
             return
-        self.y.unmap()
-        self.err_y.unmap()
-        ev = self.execute_kernel(self.krn_err_y_,
-                                 [self.err_y.v.size], None)
+        self.output.unmap()
+        self.err_output.unmap()
+        ev = self.execute_kernel(self.krn_err_output_,
+                                 [self.err_output.v.size], None)
         ev.wait()
 
     def ocl_run(self):
         """Do gradient descent.
         """
         t1 = time.time()
-        self.gpu_err_y_update()
-        self.gpu_err_h_update()
+        self.gpu_err_output_update()
+        self.gpu_err_input_update()
         self.gpu_weights_update()
         self.print_times(t1)
 
@@ -322,22 +322,22 @@ class GDTanhConv(GradientDescentConv):
           = y * y * (-b / a) + (a * b)
           = y * y * (-0.388484177) + 1.14381894
     """
-    def cpu_err_y_update(self):
-        """Multiply err_y by activation derivative by s interms of y.
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by s interms of output.
         """
-        self.y.map_read()
-        self.err_y.map_write()
-        y = self.y.v
-        self.err_y.v *= y * y * (-0.388484177) + 1.14381894
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.v
+        self.err_output.v *= output * output * (-0.388484177) + 1.14381894
 
     def initialize(self, **kwargs):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
         super(GDTanhConv, self).initialize(**kwargs)
         if self.device is None:
             return
-        self.krn_err_y_ = self.get_kernel("err_y_update")
-        self.krn_err_y_.set_arg(0, self.err_y.v_)
-        self.krn_err_y_.set_arg(1, self.y.v_)
+        self.krn_err_output_ = self.get_kernel("err_y_update")
+        self.krn_err_output_.set_arg(0, self.err_output.v_)
+        self.krn_err_output_.set_arg(1, self.output.v_)
 
 
 class GDRELUConv(GradientDescentConv):
@@ -346,19 +346,20 @@ class GDRELUConv(GradientDescentConv):
 
     f'(s) = 1.0 / (1.0 + exp(-s)) = 1.0 - exp(-y)
     """
-    def cpu_err_y_update(self):
-        """Multiply err_y by activation derivative by s in terms of y.
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by s
+        in terms of output.
         """
-        self.y.map_read()
-        self.err_y.map_write()
-        y = self.y.v
-        self.err_y.v *= 1.0 - numpy.exp(-y)
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.v
+        self.err_output.v *= 1.0 - numpy.exp(-output)
 
     def initialize(self, **kwargs):
         self.cl_sources_["gradient_descent_relu.cl"] = {}
         super(GDRELUConv, self).initialize(**kwargs)
         if self.device is None:
             return
-        self.krn_err_y_ = self.get_kernel("err_y_update")
-        self.krn_err_y_.set_arg(0, self.err_y.v_)
-        self.krn_err_y_.set_arg(1, self.y.v_)
+        self.krn_err_output_ = self.get_kernel("err_y_update")
+        self.krn_err_output_.set_arg(0, self.err_output.v_)
+        self.krn_err_output_.set_arg(1, self.output.v_)

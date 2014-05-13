@@ -9,7 +9,7 @@ This workflow should clone the Imagenet example in CAFFE tool.
 from veles.config import root
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import normalization, dropout
-from veles.znicz.samples.imagenet.loader import LoaderDetection
+from veles.znicz.tests.research.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
 
 import logging
@@ -124,7 +124,7 @@ class Workflow(StandardWorkflow):
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(fc8sm)
-        self.evaluator.link_attrs(fc8sm, ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(fc8sm, "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
@@ -141,7 +141,7 @@ class Workflow(StandardWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_y_sum"))
+            ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()

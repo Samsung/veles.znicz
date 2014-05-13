@@ -34,7 +34,7 @@ root.defaults = {"decision": {"fail_iterations": 100,
                               "layers": [9, 14400],
                               "path_for_load_data":
                               os.path.join(root.common.test_dataset_root,
-                                           "video/video_ae/img/*.png")}}
+                                           "video/video_ae/img")}}
 
 
 class Loader(loader.ImageLoader):
@@ -46,6 +46,9 @@ class Loader(loader.ImageLoader):
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
         self.lbl_re_ = re.compile("(\d+)\.\w+$")
+
+    def is_valid_filename(self, filename):
+        return filename[-4:] == ".png"
 
     def get_label_from_filename(self, filename):
         res = self.lbl_re_.search(filename)
@@ -68,7 +71,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             train_paths=[root.video_ae.path_for_load_data],
+                             train_paths=(root.video_ae.path_for_load_data,),
                              minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 
@@ -102,7 +105,7 @@ class Workflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
         self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"))
+        self.evaluator.link_attrs(self.fwds[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("target", "minibatch_data"),
@@ -129,23 +132,20 @@ class Workflow(nn_units.NNWorkflow):
         self.gds = list(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDTanh(self, device=device)
         self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.fwds[-1],
-                                ("y", "output"),
-                                ("h", "input"),
+        self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
+        self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.fwds) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.fwds[i],
-                                   ("y", "output"),
-                                   ("h", "input"),
+            self.gds[i].link_attrs(self.fwds[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
                                                  "minibatch_size"))
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.gds[i + 1],
+                                   ("err_output", "err_input"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
 

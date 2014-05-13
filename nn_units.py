@@ -64,10 +64,10 @@ class GradientDescentBase(OpenCLUnit):
     """Base class for gradient descent units.
 
     Attributes:
-        h: input layer values.
-        y: output layer values.
-        err_y: error to backpropagate.
-        err_h: backpropagated error.
+        input: input layer values.
+        output: output layer values.
+        err_output: error to backpropagate.
+        err_input: backpropagated error.
         weights: weights.
         bias: bias.
         batch_size: current minibatch size.
@@ -94,10 +94,10 @@ class GradientDescentBase(OpenCLUnit):
         kwargs["gradient_moment"] = gradient_moment
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
-        self.h = None
-        self.y = None
-        self.err_y = None  # formats.Vector()
-        self.err_h = formats.Vector()
+        self.input = None
+        self.output = None
+        self.err_output = None  # formats.Vector()
+        self.err_input = formats.Vector()
         self.weights = None
         self.bias = None
         self.batch_size = None

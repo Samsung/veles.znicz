@@ -84,7 +84,7 @@ class Workflow(StandardWorkflow):
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], ("y", "output"), "max_idx")
+        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
@@ -103,7 +103,7 @@ class Workflow(StandardWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_y_sum"))
+            ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()

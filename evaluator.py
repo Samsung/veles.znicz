@@ -18,35 +18,35 @@ class EvaluatorSoftmax(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
-        y
+        output
         labels
         batch_size
         max_idx
         max_samples_per_epoch
 
     Updates after run():
-        err_y
+        err_output
         n_err
         confusion_matrix
-        max_err_y_sum
+        max_err_output_sum
 
     Creates within initialize():
-        err_y
+        err_output
         n_err
         confusion_matrix
-        max_err_y_sum
+        max_err_output_sum
 
     Attributes:
         labels: labels for Batch.
-        y: output of the network_common as Batch.
-        err_y: backpropagation errors based on labels.
-        batch_size: number of elements in y to evaluate.
+        output: output of the network_common as Batch.
+        err_output: backpropagation errors based on labels.
+        batch_size: number of elements in output to evaluate.
         max_samples_per_epoch: maximum number of samples per epoch,
             will choose n_err element type based on it.
         confusion_matrix: confusion matrix for the output.
         compute_confusion_matrix: compute confusion matrix or not.
         max_idx: indexes of element with maximum real value for each sample.
-        max_err_y_sum: maximum of backpropagated error sum by sample.
+        max_err_output_sum: maximum of backpropagated error sum by sample.
         krn_constants_i_: numpy array for constant arguments to kernel.
     """
     def __init__(self, workflow, **kwargs):
@@ -55,8 +55,8 @@ class EvaluatorSoftmax(OpenCLUnit):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
         super(EvaluatorSoftmax, self).__init__(workflow, **kwargs)
         self.labels = None  # formats.Vector()
-        self.y = None  # formats.Vector()
-        self.err_y = formats.Vector()
+        self.output = None  # formats.Vector()
+        self.err_output = formats.Vector()
         self.batch_size = 0
         self.max_samples_per_epoch = 0
         self.compute_confusion_matrix = compute_confusion_matrix
@@ -64,22 +64,23 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.n_err = formats.Vector()
         self.max_idx = None  # formats.Vector()
         self.krn_constants_i_ = None
-        self.max_err_y_sum = formats.Vector()
+        self.max_err_output_sum = formats.Vector()
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
-        if (self.err_y.v is None or
-                self.err_y.v.size != self.y.v.size):
-            self.err_y.reset()
-            self.err_y.v = numpy.zeros(self.y.v.shape, dtype=self.y.v.dtype)
+        if (self.err_output.v is None or
+                self.err_output.v.size != self.output.v.size):
+            self.err_output.reset()
+            self.err_output.v = numpy.zeros(self.output.v.shape,
+                                            dtype=self.output.v.dtype)
 
         if self.n_err.v is None or self.n_err.v.size < 2:
             self.n_err.reset()
             self.n_err.v = numpy.zeros(2, dtype=numpy.int32)
 
-        out_size = self.y.v.size // self.y.v.shape[0]
+        out_size = self.output.v.size // self.output.v.shape[0]
         if self.compute_confusion_matrix:
             if (self.confusion_matrix.v is None or
                     self.confusion_matrix.v.size != out_size * out_size):
@@ -89,18 +90,19 @@ class EvaluatorSoftmax(OpenCLUnit):
         else:
             self.confusion_matrix.reset()
 
-        if self.max_err_y_sum.v is None or self.max_err_y_sum.v.size < 1:
-            self.max_err_y_sum.reset()
-            self.max_err_y_sum.v = numpy.zeros(
+        if (self.max_err_output_sum.v is None or
+                self.max_err_output_sum.v.size < 1):
+            self.max_err_output_sum.reset()
+            self.max_err_output_sum.v = numpy.zeros(
                 1, dtype=opencl_types.dtypes[root.common.dtype])
 
-        self.y.initialize(self.device)
-        self.err_y.initialize(self.device)
+        self.output.initialize(self.device)
+        self.err_output.initialize(self.device)
         self.confusion_matrix.initialize(self.device)
         self.n_err.initialize(self.device)
         self.max_idx.initialize(self.device)
         self.labels.initialize(self.device)
-        self.max_err_y_sum.initialize(self.device)
+        self.max_err_output_sum.initialize(self.device)
 
         if self.device is None:
             return
@@ -111,50 +113,50 @@ class EvaluatorSoftmax(OpenCLUnit):
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)],
-                'BATCH': self.err_y.v.shape[0],
-                'Y': self.err_y.v.size // self.err_y.v.shape[0],
+                    opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)],
+                'BATCH': self.err_output.v.shape[0],
+                'Y': self.err_output.v.size // self.err_output.v.shape[0],
             }
             self.build_program(defines, "%s/ev_%d.cl" %
                                (root.common.cache_dir,
-                                self.y.v.size // self.y.v.shape[0]),
-                               dtype=self.y.v.dtype)
+                                self.output.v.size // self.output.v.shape[0]),
+                               dtype=self.output.v.dtype)
 
             self.krn_ = self.get_kernel("ev_sm")
-            self.krn_.set_arg(0, self.y.v_)
+            self.krn_.set_arg(0, self.output.v_)
             self.krn_.set_arg(1, self.max_idx.v_)
             self.krn_.set_arg(2, self.labels.v_)
-            self.krn_.set_arg(3, self.err_y.v_)
+            self.krn_.set_arg(3, self.err_output.v_)
             self.krn_.set_arg(4, self.n_err.v_)
             self.krn_.set_arg(5, self.confusion_matrix.v_)
-            self.krn_.set_arg(6, self.max_err_y_sum.v_)
+            self.krn_.set_arg(6, self.max_err_output_sum.v_)
 
     def ocl_run(self):
-        self.err_y.unmap()
-        self.y.unmap()
+        self.err_output.unmap()
+        self.output.unmap()
         self.max_idx.unmap()
         self.labels.unmap()
         self.n_err.unmap()
         self.confusion_matrix.unmap()
-        self.max_err_y_sum.unmap()
+        self.max_err_output_sum.unmap()
 
         self.krn_constants_i_[0] = self.batch_size
         self.krn_.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)]]
+            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()
 
     def cpu_run(self):
-        self.err_y.map_invalidate()
-        self.y.map_read()
+        self.err_output.map_invalidate()
+        self.output.map_read()
         self.max_idx.map_read()
         self.labels.map_read()
         self.n_err.map_write()
         self.confusion_matrix.map_write()
-        self.max_err_y_sum.map_write()
+        self.max_err_output_sum.map_write()
 
         batch_size = self.batch_size
         labels = self.labels.v
@@ -162,8 +164,8 @@ class EvaluatorSoftmax(OpenCLUnit):
 
         n_ok = 0
         for i in range(batch_size):  # loop by batch
-            y = formats.ravel(self.y[i])
-            err_y = formats.ravel(self.err_y[i])
+            output = formats.ravel(self.output[i])
+            err_output = formats.ravel(self.err_output[i])
 
             max_idx = self.max_idx[i]
             confusion_matrix[max_idx, labels[i]] += 1
@@ -171,17 +173,17 @@ class EvaluatorSoftmax(OpenCLUnit):
                 n_ok += 1
 
             # Compute softmax output error gradient
-            err_y[:] = y[:]
-            err_y[labels[i]] -= 1.0
-            if err_y.dtype in (numpy.complex64, numpy.complex128):
-                self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
-                                            numpy.linalg.norm(err_y))
+            err_output[:] = output[:]
+            err_output[labels[i]] -= 1.0
+            if err_output.dtype in (numpy.complex64, numpy.complex128):
+                self.max_err_output_sum[0] = max(self.max_err_output_sum[0],
+                                            numpy.linalg.norm(err_output))
             else:
-                self.max_err_y_sum[0] = max(self.max_err_y_sum[0],
-                                            (numpy.fabs(err_y)).sum())
+                self.max_err_output_sum[0] = max(self.max_err_output_sum[0],
+                                            (numpy.fabs(err_output)).sum())
         # Set errors for excessive samples to zero
-        if batch_size < self.err_y.v.shape[0]:
-            self.err_y.v[batch_size:] = 0.0
+        if batch_size < self.err_output.v.shape[0]:
+            self.err_output.v[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
 
 
@@ -189,7 +191,7 @@ class EvaluatorMSE(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
     Should be assigned before initialize():
-        y
+        output
         target
         batch_size
         max_samples_per_epoch
@@ -197,21 +199,21 @@ class EvaluatorMSE(OpenCLUnit):
         class_target (may be None)
 
     Updates after run():
-        err_y
+        err_output
         confusion_matrix
-        max_err_y_sum
+        max_err_output_sum
         n_err (only if labels and class_target is not None)
 
     Creates within initialize():
-        err_y
+        err_output
         n_err (only if labels and class_target is not None)
-        max_err_y_sum
+        max_err_output_sum
 
     Attributes:
-        y: output of the network_common as Batch.
+        output: output of the network_common as Batch.
         target: target for the current Batch.
-        err_y: backpropagation errors.
-        batch_size: number of elements in y to evaluate.
+        err_output: backpropagation errors.
+        batch_size: number of elements in output to evaluate.
         metrics: [0] - sum of sample's mse, [1] - max of sample's mse,
                  [2] - min of sample's mse.
         mse: array of mse for each sample in minibatch.
@@ -226,9 +228,9 @@ class EvaluatorMSE(OpenCLUnit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
         super(EvaluatorMSE, self).__init__(workflow, **kwargs)
-        self.y = None  # formats.Vector()
+        self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
-        self.err_y = formats.Vector()
+        self.err_output = formats.Vector()
         self.batch_size = None  # [0]
         self.krn_constants_i_ = None
         self.metrics = formats.Vector()
@@ -242,10 +244,11 @@ class EvaluatorMSE(OpenCLUnit):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
-        if (self.err_y.v is None or
-                self.err_y.v.size != self.y.v.size):
-            self.err_y.reset()
-            self.err_y.v = numpy.zeros(self.y.v.shape, dtype=self.y.v.dtype)
+        if (self.err_output.v is None or
+                self.err_output.v.size != self.output.v.size):
+            self.err_output.reset()
+            self.err_output.v = numpy.zeros(self.output.v.shape,
+                                            dtype=self.output.v.dtype)
 
         if self.metrics.v is None or self.metrics.v.size < 3:
             self.metrics.reset()
@@ -254,10 +257,10 @@ class EvaluatorMSE(OpenCLUnit):
             self.metrics[2] = 1.0e30  # mse_min
 
         if (self.mse.v is None or
-                self.mse.v.size != self.err_y.v.shape[0]):
+                self.mse.v.size != self.err_output.v.shape[0]):
             self.mse.reset()
             self.mse.v = numpy.zeros(
-                self.err_y.v.shape[0],
+                self.err_output.v.shape[0],
                 dtype=opencl_types.dtypes[root.common.dtype])
 
         if (self.labels is not None and self.class_target is not None and
@@ -269,8 +272,8 @@ class EvaluatorMSE(OpenCLUnit):
             self.labels.initialize(self.device)
             self.n_err.initialize(self.device)
 
-        self.y.initialize(self.device)
-        self.err_y.initialize(self.device)
+        self.output.initialize(self.device)
+        self.err_output.initialize(self.device)
         self.target.initialize(self.device)
         self.metrics.initialize(self.device)
         self.mse.initialize(self.device)
@@ -284,34 +287,35 @@ class EvaluatorMSE(OpenCLUnit):
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)],
-                'BATCH': self.err_y.v.shape[0],
-                'Y': self.err_y.v.size // self.err_y.v.shape[0],
+                    opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)],
+                'BATCH': self.err_output.v.shape[0],
+                'Y': self.err_output.v.size // self.err_output.v.shape[0],
                 'SAMPLE_SIZE': 'Y',
                 'N_TARGETS': (self.class_target.v.shape[0]
                               if self.class_target is not None else 0)}
             self.build_program(
-                defines, "%s/ev_%d.cl" % (root.common.cache_dir,
-                                          self.y.v.size // self.y.v.shape[0]),
-                dtype=self.y.v.dtype)
+                defines, "%s/ev_%d.cl" %
+                (root.common.cache_dir,
+                 self.output.v.size // self.output.v.shape[0]),
+                dtype=self.output.v.dtype)
 
             self.krn_ = self.get_kernel("ev_mse")
-            self.krn_.set_arg(0, self.y.v_)
+            self.krn_.set_arg(0, self.output.v_)
             self.krn_.set_arg(1, self.target.v_)
-            self.krn_.set_arg(2, self.err_y.v_)
+            self.krn_.set_arg(2, self.err_output.v_)
             self.krn_.set_arg(3, self.metrics.v_)
             self.krn_.set_arg(4, self.mse.v_)
 
             if self.labels is not None and self.class_target is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
-                self.krn_find_closest_.set_arg(0, self.y.v_)
+                self.krn_find_closest_.set_arg(0, self.output.v_)
                 self.krn_find_closest_.set_arg(1, self.class_target.v_)
                 self.krn_find_closest_.set_arg(2, self.labels.v_)
                 self.krn_find_closest_.set_arg(3, self.n_err.v_)
 
     def ocl_run(self):
-        self.err_y.unmap()
-        self.y.unmap()
+        self.err_output.unmap()
+        self.output.unmap()
         self.target.unmap()
         self.metrics.unmap()
         self.mse.unmap()
@@ -321,7 +325,7 @@ class EvaluatorMSE(OpenCLUnit):
         self.krn_.set_arg(5, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.y.v.dtype)]]
+            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(self.krn_, global_size, local_size)
         event.wait()

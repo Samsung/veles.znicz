@@ -56,8 +56,8 @@ class TestGDConv(unittest.TestCase):
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, gradient_moment=0.9)
-        c.err_y = formats.Vector()
-        c.err_y.v = numpy.array([[[-1, 3],
+        c.err_output = formats.Vector()
+        c.err_output.v = numpy.array([[[-1, 3],
                                   [8, 2],
                                   [0, 1],
                                   [4, -1],
@@ -66,16 +66,16 @@ class TestGDConv(unittest.TestCase):
                                   [-2, 3],
                                   [1, 2],
                                   [1, 1]]], dtype=dtype)
-        c.h = inp
+        c.input = inp
         c.weights = formats.Vector()
         c.weights.v = weights
         c.bias = formats.Vector()
         c.bias.v = bias
-        c.y = formats.Vector()
-        c.y.v = c.err_y.v.copy()
+        c.output = formats.Vector()
+        c.output.v = c.err_output.v.copy()
 
-        batch_size = c.err_y.v.shape[0]
-        b = c.err_y.v.reshape(9 * batch_size, 2)
+        batch_size = c.err_output.v.shape[0]
+        b = c.err_output.v.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -85,9 +85,9 @@ class TestGDConv(unittest.TestCase):
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
-        c.gpu_err_h_update()
+        c.gpu_err_input_update()
         c.gpu_weights_update()
-        c.err_h.map_read()
+        c.err_input.map_read()
         c.weights.map_read()
         c.bias.map_read()
 
@@ -96,10 +96,10 @@ class TestGDConv(unittest.TestCase):
                           [22, 45, 18, 28, 7],
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_h.v.ravel()).max()
+        max_diff = numpy.fabs(t.ravel() - c.err_input.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        logging.info("Err_h is right")
+        logging.info("Err_input is right")
 
         max_diff = numpy.fabs(weights_new.ravel() - c.weights.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
@@ -144,8 +144,8 @@ class TestGDConv(unittest.TestCase):
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
                                         sliding=(2, 3), gradient_moment=0.9)
-        c.err_y = formats.Vector()
-        c.err_y.v = numpy.array([[[-1, 3],
+        c.err_output = formats.Vector()
+        c.err_output.v = numpy.array([[[-1, 3],
                                   [8, 2],
                                   [0, 1],
                                   [4, -1],
@@ -157,16 +157,16 @@ class TestGDConv(unittest.TestCase):
                                   [1, -2],
                                   [0, 5],
                                   [2, 3]]], dtype=dtype)
-        c.h = inp
+        c.input = inp
         c.weights = formats.Vector()
         c.weights.v = weights
         c.bias = formats.Vector()
         c.bias.v = bias
-        c.y = formats.Vector()
-        c.y.v = c.err_y.v.copy()
+        c.output = formats.Vector()
+        c.output.v = c.err_output.v.copy()
 
-        batch_size = c.err_y.v.shape[0]
-        b = c.err_y.v.reshape(12 * batch_size, 2)
+        batch_size = c.err_output.v.shape[0]
+        b = c.err_output.v.reshape(12 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -176,9 +176,9 @@ class TestGDConv(unittest.TestCase):
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
-        c.gpu_err_h_update()
+        c.gpu_err_input_update()
         c.gpu_weights_update()
-        c.err_h.map_read()
+        c.err_input.map_read()
         c.weights.map_read()
         c.bias.map_read()
 
@@ -187,12 +187,12 @@ class TestGDConv(unittest.TestCase):
                           [-9, 2.5, -0.5, 0, -17.5],
                           [-1.8, 2.8, -1.4, 7.15, -2.2],
                           [1.1, -1.1, -5.2, -1.7, 10.5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_h.v.ravel()).max()
+        max_diff = numpy.fabs(t.ravel() - c.err_input.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
-                         " ".join("%.2f" % x for x in c.err_h.v.ravel())))
-        logging.info("Err_h is right")
+                         " ".join("%.2f" % x for x in c.err_input.v.ravel())))
+        logging.info("Err_input is right")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()
         self.assertLess(max_diff, 0.0001,

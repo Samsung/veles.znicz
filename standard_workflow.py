@@ -152,7 +152,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
                     self, kx=fwd_elm.kx, ky=fwd_elm.ky,
                     sliding=fwd_elm.sliding,
                     device=self.device, **kwargs)
-                grad_elm.link_attrs(fwd_elm, ("h_offs", "input_offs"))
+                grad_elm.link_attrs(fwd_elm, "input_offs")
 
             elif isinstance(fwd_elm, pooling.AvgPooling):
                 grad_elm = gd_pooling.GDAvgPooling(
@@ -175,7 +175,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
             self.gds.append(grad_elm)
 
-            grad_elm.link_attrs(fwd_elm, ("y", "output"), ("h", "input"))
+            grad_elm.link_attrs(fwd_elm, "output", "input")
             grad_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
             # LRN has no weights
@@ -191,7 +191,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         for i in range(len(self.gds) - 1):
             self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.gds[i + 1], ("err_y", "err_h"))
+            self.gds[i].link_attrs(self.gds[i + 1],
+                                   ("err_output", "err_input"))
 
         self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.evaluator, "err_y")
+        self.gds[-1].link_attrs(self.evaluator, "err_output")
