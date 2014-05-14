@@ -192,9 +192,8 @@ class Conv(nn_units.Forward):
             }
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
-                root.common.cache_dir, sx, sy, n_channels, self.kx, self.ky,
-                self.n_kernels),
+            self.build_program(defines, "conv_%dx%dx%d_%dx%d_%d.cl" % (
+                sx, sy, n_channels, self.kx, self.ky, self.n_kernels),
                 dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")

@@ -96,8 +96,8 @@ class GDPooling(nn_units.GradientDescentBase):
                 'SLIDE_Y': self.sliding[1]
             }
             self.build_program(
-                defines, "%s/gd_pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                defines, "gd_pooling_%dx%dx%d_%dx%d.cl" %
+                (self._sx, self._sy, self._n_channels,
                  self.kx, self.ky),
                 dtype=self.err_output.v.dtype)
 

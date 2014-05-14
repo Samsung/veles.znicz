@@ -148,9 +148,8 @@ class All2All(nn_units.Forward):
                 'BATCH': self.output.v.shape[0]}
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/feed_%d_%d.cl" %
-                               (config.root.common.cache_dir,
-                                self.input.v.size // self.input.v.shape[0],
+            self.build_program(defines, "feed_%d_%d.cl" %
+                               (self.input.v.size // self.input.v.shape[0],
                                 output_size),
                                dtype=self.input.v.dtype)
 

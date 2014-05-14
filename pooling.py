@@ -93,8 +93,8 @@ class Pooling(nn_units.Forward):
                 'SLIDE_Y': self.sliding[1]
             }
             self.build_program(
-                defines, "%s/pooling_%dx%dx%d_%dx%d.cl" %
-                (root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                defines, "pooling_%dx%dx%d_%dx%d.cl" %
+                (self._sx, self._sy, self._n_channels,
                  self.kx, self.ky), dtype=self.input.v.dtype)
 
     def print_times(self, t_start):

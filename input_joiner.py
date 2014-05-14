@@ -97,9 +97,8 @@ class InputJoiner(OpenCLUnit):
                 opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
             }
             self.build_program(
-                defines, "%s/join_%s.cl" %
-                (root.common.cache_dir,
-                 "_".join(str(x) for x in self.output_sample_shape)))
+                defines, "join_%s.cl" %
+                "_".join(str(x) for x in self.output_sample_shape))
 
             self.krn_ = self.get_kernel("join2")
             self.krn_.set_arg(0, self.output.v_)

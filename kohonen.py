@@ -135,16 +135,13 @@ class Kohonen(nn_units.Forward):
                 'BATCH': self.output.v.shape[0]}
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/kohonen_%d_%d.cl" %
-                               (config.root.common.cache_dir,
-                                self.input.v.size // self.input.v.shape[0],
+            self.build_program(defines, "kohonen_%d_%d.cl" %
+                               (self.input.v.size // self.input.v.shape[0],
                                 output_size),
                                dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.weights.v_)
-            self.krn_.set_arg(2, self.output.v_)
+            self.krn_.set_args(self.input.v_, self.weights.v_, self.output.v_)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]

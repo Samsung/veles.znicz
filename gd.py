@@ -108,8 +108,8 @@ class GradientDescent(nn_units.GradientDescentBase):
                 defines['WEIGHTS_TRANSPOSED'] = 1
             if self.store_gradient:
                 defines['STORE_GRADIENT'] = 1
-            self.build_program(defines, "%s/gd_%d_%d.cl" % (
-                root.common.cache_dir,
+
+            self.build_program(defines, "gd_%d_%d.cl" % (
                 self.input.v.size // self.input.v.shape[0],
                 self.output.v.size // self.output.v.shape[0]),
                 dtype=self.err_output.v.dtype)

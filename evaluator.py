@@ -117,9 +117,9 @@ class EvaluatorSoftmax(OpenCLUnit):
                 'BATCH': self.err_output.v.shape[0],
                 'Y': self.err_output.v.size // self.err_output.v.shape[0],
             }
-            self.build_program(defines, "%s/ev_%d.cl" %
-                               (root.common.cache_dir,
-                                self.output.v.size // self.output.v.shape[0]),
+
+            self.build_program(defines, "ev_%d.cl" %
+                               (self.output.v.size // self.output.v.shape[0]),
                                dtype=self.output.v.dtype)
 
             self.krn_ = self.get_kernel("ev_sm")
@@ -293,11 +293,10 @@ class EvaluatorMSE(OpenCLUnit):
                 'SAMPLE_SIZE': 'Y',
                 'N_TARGETS': (self.class_target.v.shape[0]
                               if self.class_target is not None else 0)}
-            self.build_program(
-                defines, "%s/ev_%d.cl" %
-                (root.common.cache_dir,
-                 self.output.v.size // self.output.v.shape[0]),
-                dtype=self.output.v.dtype)
+
+            self.build_program(defines, "ev_%d.cl" %
+                               (self.output.v.size // self.output.v.shape[0]),
+                               dtype=self.output.v.dtype)
 
             self.krn_ = self.get_kernel("ev_mse")
             self.krn_.set_arg(0, self.output.v_)

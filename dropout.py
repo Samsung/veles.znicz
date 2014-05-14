@@ -74,9 +74,7 @@ class DropoutForward(Dropout):
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
         self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
 
-        self.build_program(
-            {}, "%s/dropout_forward.cl" % config.root.common.cache_dir,
-            dtype=self.input.v.dtype)
+        self.build_program({}, "dropout_forward.cl", dtype=self.input.v.dtype)
 
         self.krn_ = self.get_kernel("dropout_forward")
         self.krn_.set_arg(0, self.input.v_)
@@ -126,9 +124,7 @@ class DropoutBackward(Dropout):
         super(DropoutBackward, self).initialize(device=device, **kwargs)
         self.err_y.initialize(device)
 
-        self.build_program(
-            {}, "%s/dropout_backward.cl" % (config.root.common.cache_dir),
-            dtype=self.err_y.v.dtype)
+        self.build_program({}, "dropout_backward.cl", dtype=self.err_y.v.dtype)
 
         self.krn_ = self.get_kernel("dropout_backward")
         self.krn_.set_arg(0, self.mask.v_)
