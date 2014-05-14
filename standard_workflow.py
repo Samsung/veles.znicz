@@ -36,13 +36,14 @@ class StandardWorkflow(nn_units.NNWorkflow):
         del self.fwds[:]
         for i in range(0, len(self.layers)):
             layer = self.layers[i]
-            layer_ct = {
-                        "conv": lambda layer:
+            kwargs = {"weights_filling": layer.get("weights_filling"),
+                      "weights_stddev": layer.get("weights_stddev"),
+                      "bias_filling": layer.get("bias_filling"),
+                      "bias_stddev": layer.get("bias_stddev")}
+            layer_ct = {"conv": lambda layer:
                         conv.ConvTanh(
                             self, n_kernels=layer["n_kernels"],
                             kx=layer["kx"], ky=layer["ky"],
-                            weights_filling=layer["weights_filling"],
-                            weights_stddev=layer["weights_stddev"],
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
                             padding=layer.get("padding", (0, 0, 0, 0)),
                             device=self.device, **kwargs),
@@ -55,6 +56,12 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             weights_filling=layer["weights_filling"],
                             weights_stddev=layer["weights_stddev"],
                             device=self.device, **kwargs),
+                        "norm": lambda layer:
+                        normalization.LRNormalizerForward(self,
+                                                          device=self.device),
+                        "dropout": lambda layer:
+                        dropout.DropoutForward(self, dropout_ratio=0.5,
+                                               device=self.device),
                         "max_pooling": lambda layer:
                         pooling.MaxPooling(
                             self, kx=layer["kx"], ky=layer["ky"],
@@ -71,22 +78,17 @@ class StandardWorkflow(nn_units.NNWorkflow):
                         all2all.All2AllRELU(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            weights_filling=layer["weights_filling"],
-                            weights_stddev=layer["weights_stddev"],
                             device=self.device, **kwargs),
                         "all2all_tanh": lambda layer:
                         all2all.All2AllTanh(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            weights_filling=root.all2all_tanh.weights_filling,
-                            weights_stddev=root.all2all_tanh.weights_stddev,
                             device=self.device, **kwargs),
                         "softmax": lambda layer:
                         all2all.All2AllSoftmax(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device, **kwargs)
-                        }
+                            device=self.device, **kwargs)}
 
             unit = layer_ct[layer["type"]](layer)
             self._add_forward_unit(unit)
@@ -122,7 +124,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
         for i, fwd_elm in enumerate(self.fwds):
             layer = self.layers[i]
             kwargs = {}
-            for name in ("learning_rate", "weights_decay", "gradient_moment"):
+            for name in ("learning_rate", "weights_decay", "gradient_moment",
+                         "learning_rate_bias", "weights_decay_bias",
+                         "gradient_moment_bias"):
                 if name in layer:
                     kwargs[name] = layer[name]
             if isinstance(fwd_elm, conv.ConvRELU):
@@ -178,7 +182,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
             grad_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
             # LRN has no weights
-            if not isinstance(grad_elm, normalization.LRNormalizerBackward):
+            if not (isinstance(grad_elm, dropout.DropoutBackward) or
+                    isinstance(grad_elm, normalization.LRNormalizerBackward)):
                 grad_elm.link_attrs(fwd_elm, "weights")
 
             # LRN and droupout units have no biases

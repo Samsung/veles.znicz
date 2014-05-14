@@ -16,6 +16,8 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
 
+train = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/learn"
+valid = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/test"
 
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_stddev": 0.05},
@@ -33,18 +35,28 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                              "padding": (0, 0, 0, 0)},
                             {"type": "max_pooling",
                              "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            {"type": "relu", "output_shape": 32},
-                            {"type": "softmax", "output_shape": 4}]},
+                            {"type": "all2all_relu", "output_shape": 32},
+                            {"type": "softmax", "output_shape": 11}],
+                           "path_for_load_data": {"validation": valid,
+                                                  "train": train}},
                  "softmax": {"weights_filling": "uniform",
                              "weights_stddev": 0.05}}
 
+print(root.all2all_relu.weights_filling)
 
 class ImageLabel(IntEnum):
-    """Enum for different types of lines"""
-    vertical = 0
-    horizontal = 1
-    tilted_bottom_to_top = 2  # left lower --> right top
-    tilted_top_to_bottom = 3  # left top --> right bottom
+    """An enum for different figure primitive classes"""
+    vertical = 0  # |
+    horizontal = 1  # --
+    tilted_bottom_to_top = 2  # left lower --> right top (/)
+    tilted_top_to_bottom = 3  # left top --> right bottom (\)
+    straight_grid = 4  # 0 and 90 deg lines simultaneously
+    tilted_grid = 5  # +45 and -45 deg lines simultaneously
+    circle = 6
+    square = 7
+    right_angle = 8
+    triangle = 9
+    sinusoid = 10
 
 
 class Loader(ImageLoader):
@@ -67,10 +79,8 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
         self.loader = Loader(
             self,
-            train_paths=[
-                "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"],
-            validation_paths=[
-                "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"],
+            train_paths=[root.lines.path_for_load_data.train],
+            validation_paths=[root.lines.path_for_load_data.validation],
             minibatch_maxsize=root.loader.minibatch_maxsize,
             grayscale=False)
 
@@ -187,7 +197,7 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device):
-        self.gds[0].learning_rate = 0.03
+        #self.gds[0].learning_rate = 0.03
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)
