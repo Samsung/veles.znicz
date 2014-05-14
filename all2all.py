@@ -14,6 +14,7 @@ import time
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
+import veles.error as error
 
 
 class All2All(nn_units.Forward):
@@ -48,20 +49,7 @@ class All2All(nn_units.Forward):
     def __init__(self, workflow, **kwargs):
         output_shape = kwargs.get("output_shape")
         kwargs["output_shape"] = output_shape
-
-        weights_filling = kwargs.get("weights_filling", "uniform")
-        weights_stddev = kwargs.get("weights_stddev", None)
-
-        kwargs["weights_filling"] = weights_filling
-        kwargs["weights_stddev"] = weights_stddev
-
         super(All2All, self).__init__(workflow, **kwargs)
-        self.input = None
-        self.weights_filling = weights_filling
-        self.weights_stddev = weights_stddev
-        self.output = formats.Vector()
-        self.weights = formats.Vector()
-        self.bias = formats.Vector()
         self.output_shape = output_shape
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.append("s_activation")
@@ -73,22 +61,28 @@ class All2All(nn_units.Forward):
 
     def get_weights_magnitude(self):
         """
-        Returns: weights amplitude for initial random distribution,
+        Returns: weights range magnitude for initial random distribution,
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
-            return (1.0 / self.input.supposed_maxvle /
-                    (self.input.v.size // self.input.v.shape[0]))
-        return (9.0 / self.input.supposed_maxvle /
-                (self.input.v.size // self.input.v.shape[0]))
+            vle = (1.0 / self.input.supposed_maxvle /
+                   (self.input.v.size // self.input.v.shape[0]))
+        else:
+            vle = (9.0 / self.input.supposed_maxvle /
+                   (self.input.v.size // self.input.v.shape[0]))
+        if self.weights_filling == "gaussian":
+            vle /= 3
+        return vle
 
     def initialize(self, device, **kwargs):
         super(All2All, self).initialize(device=device, **kwargs)
 
         if self.weights_stddev is None:
-            # Get weights magnitude and cap it to 0.05
             self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
+        if self.bias_stddev is None:
+            self.bias_stddev = self.weights_stddev
+
         output_shape = (self.output_shape.v.shape[1:]
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
@@ -103,8 +97,10 @@ class All2All(nn_units.Forward):
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
+            elif self.weights_filling == "constant":
+                self.weights.v[:] = self.weights_stddev
             else:
-                assert False
+                raise error.ErrBadFormat("Invalid weights filling type")
             self.weights.v = self.weights.v.reshape([
                 output_size, self.input.v.size // self.input.v.shape[0]])
             # Reshape weights as a matrix:
@@ -115,13 +111,15 @@ class All2All(nn_units.Forward):
         if (self.bias.v is None or self.bias.v.size != output_size):
             self.bias.reset()
             self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
+            if self.bias_filling == "uniform":
+                self.rand.fill(self.bias.v, -self.bias_stddev,
+                               self.bias_stddev)
+            elif self.bias_filling == "gaussian":
+                self.rand.fill_normal_real(self.bias.v, 0, self.bias_stddev)
+            elif self.bias_filling == "constant":
+                self.bias.v[:] = self.bias_stddev
             else:
-                assert False
+                raise error.ErrBadFormat("Invalid bias filling type")
 
         if (self.output.v is None or
                 self.output.v.size != self.input.v.shape[0] * output_size):
@@ -233,10 +231,15 @@ class All2AllTanh(All2All):
 
     def get_weights_magnitude(self):
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
-            return (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
-                    (self.input.v.size // self.input.v.shape[0]))
-        return (All2AllTanh.C / (self.input.supposed_maxvle * All2AllTanh.B *
-                                 self.input.v.size // self.input.v.shape[0]))
+            vle = (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
+                   (self.input.v.size // self.input.v.shape[0]))
+        else:
+            vle = (All2AllTanh.C /
+                   (self.input.supposed_maxvle * All2AllTanh.B *
+                    self.input.v.size // self.input.v.shape[0]))
+        if self.weights_filling == "gaussian":
+            vle /= 3
+        return vle
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -292,7 +295,6 @@ class All2AllSoftmax(All2All):
         self.krn_sm_ = None
 
     def initialize(self, device, **kwargs):
-        # Always use 32-bit signed integers for output
         self.cl_sources_["softmax.cl"] = {}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
 

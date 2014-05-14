@@ -165,8 +165,10 @@ void weights_update(__global const c_dtype    /* IN */    *err_y,
 /// @param err_y Backpropagated error.
 /// @param gradient Computed gradient to store in if not null.
 /// @param alpha_batch (-global_alpha / batch_size).
+/// @param alpha_lambda (-global_alpha * global_lambda).
+/// @param gradient_moment Moment for gradient.
 /// @details gradient = previous_gradient * gradient_moment +
-///                     sum(err_y) * alpha_batch.
+///                     sum(err_y) * alpha_batch + bias * alpha_lambda.
 ///          Should be defined externally:
 ///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          BATCH - minibatch size,
@@ -176,6 +178,7 @@ void bias_update(__global const c_dtype    /* IN */    *err_y,
                  __global c_dtype     /* IN, OUT */    *bias,
                  __global c_dtype     /* IN, OUT */    *gradient,
                  const dtype               /* IN */    alpha_batch,
+                 const dtype               /* IN */    alpha_lambda,
                  const dtype               /* IN */    gradient_moment) {
 
   #define A err_y
@@ -192,14 +195,14 @@ void bias_update(__global const c_dtype    /* IN */    *err_y,
 
   if (!tx) {
     sum += AS[0];
-
-    c_dtype gd = sum * alpha_batch;
+    c_dtype weight = bias[bx];
+    c_dtype gd = sum * alpha_batch + weight * alpha_lambda;
     #ifdef STORE_GRADIENT
     gd += gradient[bx] * gradient_moment;
     gradient[bx] = gd;
     #endif
     #ifdef APPLY_GRADIENT
-    bias[bx] += gd;
+    bias[bx] = weight + gd;
     #endif
   }
 }

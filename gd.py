@@ -140,6 +140,7 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         batch_size = self.batch_size or self.output.v.shape[0]
 
+        # weights
         alpha_batch = -self.learning_rate / batch_size
         alpha_lambda = -self.learning_rate * self.weights_decay
 
@@ -147,25 +148,32 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.err_output.v,
             [self.err_output.v.shape[0],
              self.err_output.v.size // self.err_output.v.shape[0]])
-        input = formats.reshape(
+        inp = formats.reshape(
             self.input.v, [self.input.v.shape[0],
                            self.input.v.size // self.input.v.shape[0]])
-        gradient = numpy.dot(err_output.transpose(), input)
+        gradient = numpy.dot(err_output.transpose(), inp)
         gradient *= alpha_batch
         gradient += self.weights.v * alpha_lambda
         if self.store_gradient:
             gradient += self.gradient_weights.v * self.gradient_moment
             self.gradient_weights.v[:] = gradient[:]
-        if self.weights_transposed:
-            self.weights.v += gradient.transpose()
-        else:
-            self.weights.v += gradient
+        if self.apply_gradient:
+            if self.weights_transposed:
+                self.weights.v += gradient.transpose()
+            else:
+                self.weights.v += gradient
+
+        # bias
+        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
         gradient = err_output.sum(axis=0) * alpha_batch
+        gradient += self.bias.v * alpha_lambda
         if self.store_gradient:
             gradient += self.gradient_bias.v * self.gradient_moment
             self.gradient_bias.v[:] = gradient[:]
-        self.bias.v += gradient
+        if self.apply_gradient:
+            self.bias.v += gradient
 
     def gpu_weights_update(self):
         self.input.unmap()
@@ -201,8 +209,12 @@ class GradientDescent(nn_units.GradientDescentBase):
         local_size = [block_size, block_size]
         ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
 
+        self.cl_const[0] = -self.learning_rate_bias / batch_size
+        self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
+        self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_arg(3, self.cl_const[0:1])
-        self.krn_bias_.set_arg(4, self.cl_const[2:3])
+        self.krn_bias_.set_arg(4, self.cl_const[1:2])
+        self.krn_bias_.set_arg(5, self.cl_const[2:3])
         global_size = [(self.err_output.v.size // self.err_output.v.shape[0]) *
                        self.reduce_size]
         local_size = [self.reduce_size]

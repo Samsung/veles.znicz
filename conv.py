@@ -58,15 +58,11 @@ class Conv(nn_units.Forward):
         ky = kwargs.get("ky", 5)
         padding = kwargs.get("padding", (0, 0, 0, 0))
         sliding = kwargs.get("sliding", (1, 1))
-        weights_filling = kwargs.get("weights_filling", "uniform")
-        weights_stddev = kwargs.get("weights_stddev", None)
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
         kwargs["padding"] = padding
         kwargs["sliding"] = sliding
-        kwargs["weights_filling"] = weights_filling
-        kwargs["weights_stddev"] = weights_stddev
         super(Conv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
@@ -76,9 +72,6 @@ class Conv(nn_units.Forward):
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
                              "padding", "sliding"))
-
-        self.weights_filling = weights_filling
-        self.weights_stddev = weights_stddev
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
@@ -94,17 +87,22 @@ class Conv(nn_units.Forward):
         n_channels = (self.input.v.size // (self.input.v.shape[0] *
                       self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
-            return (1.0 / self.input.supposed_maxvle /
-                    (self.kx * self.ky * n_channels))
-        return (9.0 / self.input.supposed_maxvle /
-                (self.kx * self.ky * n_channels))
+            vle = (1.0 / self.input.supposed_maxvle /
+                   (self.kx * self.ky * n_channels))
+        else:
+            vle = (9.0 / self.input.supposed_maxvle /
+                   (self.kx * self.ky * n_channels))
+        if self.weights_filling == "gaussian":
+            vle /= 3
+        return vle
 
     def initialize(self, device, **kwargs):
         super(Conv, self).initialize(device=device, **kwargs)
 
         if self.weights_stddev is None:
-            # Get weights magnitude and cap it to 0.05
             self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
+        if self.bias_stddev is None:
+            self.bias_stddev = self.weights_stddev
 
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]
@@ -120,8 +118,10 @@ class Conv(nn_units.Forward):
             elif self.weights_filling == "gaussian":
                 self.rand.fill_normal_real(self.weights.v, 0,
                                            self.weights_stddev)
+            elif self.weights_filling == "constant":
+                self.weights.v[:] = self.weights_stddev
             else:
-                raise Exception("Invalid weight filling type")
+                raise error.ErrBadFormat("Invalid weights filling type")
             self.weights.v = self.weights.v.reshape(
                 self.n_kernels, self.kx * self.ky * n_channels)
             # Reshape weights as a matrix:
@@ -133,13 +133,15 @@ class Conv(nn_units.Forward):
                 self.bias.v.size != self.n_kernels):
             self.bias.reset()
             self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.v, 0, self.weights_stddev)
+            if self.bias_filling == "uniform":
+                self.rand.fill(self.bias.v, -self.bias_stddev,
+                               self.bias_stddev)
+            elif self.bias_filling == "gaussian":
+                self.rand.fill_normal_real(self.bias.v, 0, self.bias_stddev)
+            elif self.bias_filling == "constant":
+                self.bias.v[:] = self.bias_stddev
             else:
-                raise Exception("Invalid weight filling type")
+                raise error.ErrBadFormat("Invalid bias filling type")
 
         if root.common.unit_test:
             batch_size <<= 1  # check for overflow
@@ -272,10 +274,14 @@ class ConvTanh(Conv):
         n_channels = (self.input.v.size // (self.input.v.shape[0] *
                       self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
-            return (1.0 / (self.input.supposed_maxvle * 0.6666) /
-                    (self.kx * self.ky * n_channels))
-        return (9.0 / (self.input.supposed_maxvle * 0.6666) /
-                (self.kx * self.ky * n_channels))
+            vle = (1.0 / (self.input.supposed_maxvle * 0.6666) /
+                   (self.kx * self.ky * n_channels))
+        else:
+            vle = (9.0 / (self.input.supposed_maxvle * 0.6666) /
+                   (self.kx * self.ky * n_channels))
+        if self.weights_filling == "gaussian":
+            vle /= 3
+        return vle
 
 
 class ConvRELU(Conv):

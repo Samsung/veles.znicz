@@ -36,59 +36,51 @@ class StandardWorkflow(nn_units.NNWorkflow):
         del self.fwds[:]
         for i in range(0, len(self.layers)):
             layer = self.layers[i]
+            kwargs = {"weights_filling": layer.get("weights_filling"),
+                      "weights_stddev": layer.get("weights_stddev"),
+                      "bias_filling": layer.get("bias_filling"),
+                      "bias_stddev": layer.get("bias_stddev")}
             layer_ct = {"conv": lambda layer:
                         conv.ConvTanh(
                             self, n_kernels=layer["n_kernels"],
                             kx=layer["kx"], ky=layer["ky"],
-                            weights_filling=root.conv.weights_filling,
-                            weights_stddev=root.conv.weights_stddev,
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
                             padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device),
+                            device=self.device, **kwargs),
                         "conv_relu": lambda layer:
                         conv.ConvRELU(
                             self, n_kernels=layer["n_kernels"],
                             kx=layer["kx"], ky=layer["ky"],
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
                             padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device,
-                            weights_filling=root.conv_relu.weights_filling,
-                            weights_stddev=root.conv_relu.weights_stddev),
+                            device=self.device, **kwargs),
                         "max_pooling": lambda layer:
                         pooling.MaxPooling(
-                            self,
-                            kx=layer["kx"], ky=layer["ky"],
+                            self, kx=layer["kx"], ky=layer["ky"],
                             sliding=layer.get("sliding", (layer["kx"],
                                                           layer["ky"])),
-                            device=self.device),
+                            device=self.device, **kwargs),
                         "avg_pooling": lambda layer:
                         pooling.AvgPooling(
-                            self, kx=layer["kx"],
-                            ky=layer["ky"],
+                            self, kx=layer["kx"], ky=layer["ky"],
                             sliding=layer.get("sliding", (layer["kx"],
                                                           layer["ky"])),
-                            device=self.device),
+                            device=self.device, **kwargs),
                         "all2all_relu": lambda layer:
                         all2all.All2AllRELU(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device,
-                            weights_filling=root.all2all_relu.weights_filling,
-                            weights_stddev=root.all2all_relu.weights_stddev),
+                            device=self.device, **kwargs),
                         "all2all_tanh": lambda layer:
                         all2all.All2AllTanh(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device,
-                            weights_filling=root.all2all_tanh.weights_filling,
-                            weights_stddev=root.all2all_tanh.weights_stddev),
+                            device=self.device, **kwargs),
                         "softmax": lambda layer:
                         all2all.All2AllSoftmax(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device,
-                            weights_filling=root.softmax.weights_filling,
-                            weights_stddev=root.softmax.weights_stddev)}
+                            device=self.device, **kwargs)}
             unit = layer_ct[layer["type"]](layer)
             self._add_forward_unit(unit)
 
@@ -123,7 +115,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
         for i, fwd_elm in enumerate(self.fwds):
             layer = self.layers[i]
             kwargs = {}
-            for name in ("learning_rate", "weights_decay", "gradient_moment"):
+            for name in ("learning_rate", "weights_decay", "gradient_moment",
+                         "learning_rate_bias", "weights_decay_bias",
+                         "gradient_moment_bias"):
                 if name in layer:
                     kwargs[name] = layer[name]
             if isinstance(fwd_elm, conv.ConvRELU):

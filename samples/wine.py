@@ -163,6 +163,8 @@ class Workflow(nn_units.NNWorkflow):
     def initialize(self, learning_rate, weights_decay, device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
+                                         learning_rate_bias=learning_rate,
+                                         weights_decay_bias=weights_decay,
                                          device=device)
 
 

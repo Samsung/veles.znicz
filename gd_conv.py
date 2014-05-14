@@ -195,6 +195,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sx = self.input.v.shape[2]
         n_channels = self.input.v.size // (self.input.v.shape[0] * sx * sy)
         # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
+
+        # weights
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
@@ -216,8 +218,13 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         local_size = [block_size, block_size]
         ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
 
+        # bias
+        self.cl_const[0] = -self.learning_rate_bias / batch_size
+        self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
+        self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_arg(3, self.cl_const[0:1])
-        self.krn_bias_.set_arg(4, self.cl_const[2:3])
+        self.krn_bias_.set_arg(4, self.cl_const[1:2])
+        self.krn_bias_.set_arg(5, self.cl_const[2:3])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
         ev2 = self.execute_kernel(self.krn_bias_, global_size, local_size)
@@ -324,7 +331,8 @@ class GDTanhConv(GradientDescentConv):
           = y * y * (-0.388484177) + 1.14381894
     """
     def cpu_err_output_update(self):
-        """Multiply err_output by activation derivative by s interms of output.
+        """Multiply err_output by activation derivative by s
+           in terms of output.
         """
         self.output.map_read()
         self.err_output.map_write()

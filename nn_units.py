@@ -26,14 +26,21 @@ class Forward(OpenCLUnit):
         output: output layer values.
         weights: weights.
         bias: bias.
-        weights_stddev: magnitude of the random distribution of weights.
+        weights_stddev: magnitude of the random distribution for weights.
+        bias_stddev: magnitude of the random distribution for bias.
         rand: rnd.Rand() object for initial weights generation.
     """
     def __init__(self, workflow, **kwargs):
         weights_stddev = kwargs.get("weights_stddev")
+        bias_stddev = kwargs.get("bias_stddev", weights_stddev)
+        weights_filling = kwargs.get("weights_filling", "uniform")
+        bias_filling = kwargs.get("bias_filling", "uniform")
         rand = kwargs.get("rand", rnd.default)
         weights_transposed = kwargs.get("weights_transposed", False)
         kwargs["weights_stddev"] = weights_stddev
+        kwargs["bias_stddev"] = bias_stddev
+        kwargs["weights_filling"] = weights_filling
+        kwargs["bias_filling"] = bias_filling
         kwargs["rand"] = rand
         kwargs["weights_transposed"] = weights_transposed
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
@@ -43,6 +50,9 @@ class Forward(OpenCLUnit):
         self.weights = formats.Vector()
         self.bias = formats.Vector()
         self.weights_stddev = weights_stddev
+        self.bias_stddev = bias_stddev
+        self.weights_filling = weights_filling
+        self.bias_filling = bias_filling
         self.rand = rand
         self.weights_transposed = weights_transposed
         self.exports = ["weights", "bias", "weights_transposed"]
@@ -81,17 +91,24 @@ class GradientDescentBase(OpenCLUnit):
     """
     def __init__(self, workflow, **kwargs):
         learning_rate = kwargs.get("learning_rate", 0.01)
+        learning_rate_bias = kwargs.get("learning_rate_bias", learning_rate)
         weights_decay = kwargs.get("weights_decay", 0.00005)
+        weights_decay_bias = kwargs.get("weights_decay_bias", 0.0)
         weights_transposed = kwargs.get("weights_transposed", False)
         gradient_moment = kwargs.get("gradient_moment", 0)
+        gradient_moment_bias = kwargs.get("gradient_moment_bias",
+                                          gradient_moment)
         store_gradient = kwargs.get("store_gradient", workflow.is_slave)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         kwargs["learning_rate"] = learning_rate
+        kwargs["learning_rate_bias"] = learning_rate_bias
         kwargs["weights_decay"] = weights_decay
+        kwargs["weights_decay_bias"] = weights_decay_bias
         kwargs["weights_transposed"] = weights_transposed
         kwargs["store_gradient"] = store_gradient
         kwargs["apply_gradient"] = apply_gradient
         kwargs["gradient_moment"] = gradient_moment
+        kwargs["gradient_moment_bias"] = gradient_moment_bias
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.input = None
@@ -102,10 +119,14 @@ class GradientDescentBase(OpenCLUnit):
         self.bias = None
         self.batch_size = None
         self.learning_rate = learning_rate
+        self.learning_rate_bias = learning_rate_bias
         self.weights_decay = weights_decay
+        self.weights_decay_bias = weights_decay_bias
         self.weights_transposed = weights_transposed
         self.gradient_moment = gradient_moment
-        self.store_gradient = ((not workflow.is_slave and gradient_moment) or
+        self.gradient_moment_bias = gradient_moment_bias
+        self.store_gradient = ((not workflow.is_slave and
+                                (gradient_moment or gradient_moment_bias)) or
                                store_gradient)
         self.apply_gradient = apply_gradient
         self.gradient_weights = formats.Vector()
@@ -117,14 +138,25 @@ class GradientDescentBase(OpenCLUnit):
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
         self.gradient_moment = kwargs.get("gradient_moment",
                                           self.gradient_moment)
+        self.learning_rate_bias = kwargs.get("learning_rate_bias",
+                                             self.learning_rate_bias)
+        self.weights_decay_bias = kwargs.get("weights_decay_bias",
+                                             self.weights_decay_bias)
+        self.gradient_moment = kwargs.get("gradient_moment_bias",
+                                          self.gradient_moment_bias)
 
     def generate_data_for_slave(self, slave=None):
-        return (self.learning_rate, self.weights_decay, self.gradient_moment)
+        return (self.learning_rate, self.weights_decay, self.gradient_moment,
+                self.learning_rate_bias, self.weights_decay_bias,
+                self.gradient_moment_bias)
 
     def apply_data_from_master(self, data):
         self.learning_rate = data[0]
         self.weights_decay = data[1]
         self.gradient_moment = data[2]
+        self.learning_rate_bias = data[3]
+        self.weights_decay_bias = data[4]
+        self.gradient_moment_bias = data[5]
         if self.gradient_weights.v is not None:
             self.gradient_weights.map_invalidate()
             self.gradient_weights.v[:] = 0
