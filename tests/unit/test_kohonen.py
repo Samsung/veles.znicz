@@ -90,7 +90,7 @@ class TestKohonen(unittest.TestCase):
 
         c = kohonen.KohonenTrain(DummyWorkflow())
         c.input = inp
-        c.learning_rate = 1.0
+        c.gradient_decay = lambda t: 1.0 / (1.0 + t)
         c.weights = formats.Vector()
         c.weights.v = self.weights.copy()
 
@@ -107,7 +107,7 @@ class TestKohonen(unittest.TestCase):
 
         c.weights.map_invalidate()
         c.weights.v[:] = self.weights
-        c.time = 1
+        c.time = 0
         c.ocl_run()
         c.weights.map_read()
         weights = c.weights.v.ravel()

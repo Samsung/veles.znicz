@@ -12,14 +12,14 @@
 ///          SAMPLE_LENGTH - input size,
 ///          NEURONS_NUMBER - output size.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void feed_layer(__global c_dtype    /* IN */    *h,
+void feed_layer(__global c_dtype    /* IN */    *input,
                 __global c_dtype    /* IN */    *weights,
-                __global c_dtype   /* OUT */    *y) {
+                __global c_dtype   /* OUT */    *output) {
   #define A_WIDTH BATCH
   #define B_WIDTH NEURONS_NUMBER
   #define AB_COMMON SAMPLE_LENGTH
 
-  #define A h
+  #define A input
   #define B weights
 
   #ifdef WEIGHTS_TRANSPOSED
@@ -36,11 +36,11 @@ void feed_layer(__global c_dtype    /* IN */    *h,
   #undef B
 
   if (valid) {
-    y[idx] = sum[0];
+    output[idx] = sum[0];
   }
 }
 
-
+#ifdef TRAIN
 /// @brief Computes distances between input and neuron weights.
 /// @param h input.
 /// @param weights weights.
@@ -218,3 +218,5 @@ void apply_gradient(__global const c_dtype /* IN */      *input,
     }
   }
 }
+
+#endif  // TRAIN
