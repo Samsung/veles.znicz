@@ -8,14 +8,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import logging
+import math
 import numpy
 import time
 
 from veles.config import root
+
 import veles.error as error
 import veles.formats as formats
-import veles.znicz.nn_units as nn_units
 import veles.opencl_types as opencl_types
+import veles.znicz.nn_units as nn_units
 
 
 class Conv(nn_units.Forward):
@@ -104,11 +106,12 @@ class Conv(nn_units.Forward):
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
-        batch_size = self.input.v.shape[0]
-        sy = self.input.v.shape[1]
-        sx = self.input.v.shape[2]
-        n_channels = self.input.v.size // (batch_size * sx * sy)
-        n_weights = self.n_kernels * self.kx * self.ky * n_channels
+        self._batch_size = self.input.v.shape[0]
+        self._sy = self.input.v.shape[1]
+        self._sx = self.input.v.shape[2]
+        self._n_channels = self.input.v.size // (self._batch_size * self._sx *
+                                                 self._sy)
+        n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
         if self.weights.v is None or self.weights.v.size != n_weights:
             self.weights.reset()
             self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
@@ -123,7 +126,7 @@ class Conv(nn_units.Forward):
             else:
                 raise error.ErrBadFormat("Invalid weights filling type")
             self.weights.v = self.weights.v.reshape(
-                self.n_kernels, self.kx * self.ky * n_channels)
+                self.n_kernels, self.kx * self.ky * self._n_channels)
             # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.v.transpose().copy()
@@ -144,12 +147,12 @@ class Conv(nn_units.Forward):
                 raise error.ErrBadFormat("Invalid bias filling type")
 
         if root.common.unit_test:
-            batch_size <<= 1  # check for overflow
+            self._batch_size <<= 1  # check for overflow
         output_shape = [
-            batch_size,
-            (sy + self.padding[1] + self.padding[3] - self.ky) //
+            self._batch_size,
+            (self._sy + self.padding[1] + self.padding[3] - self.ky) //
             self.sliding[1] + 1,
-            (sx + self.padding[0] + self.padding[2] - self.kx) //
+            (self._sx + self.padding[0] + self.padding[2] - self.kx) //
             self.sliding[0] + 1,
             self.n_kernels]
         output_size = int(numpy.prod(output_shape))
@@ -165,9 +168,9 @@ class Conv(nn_units.Forward):
         self.bias.initialize(self.device)
 
         if root.common.unit_test:
-            batch_size >>= 1
+            self._batch_size >>= 1
             self.output.vv = self.output.v
-            self.output.v = self.output.v[:batch_size]
+            self.output.v = self.output.v[:self._batch_size]
             formats.assert_addr(self.output.v, self.output.vv)
 
         if self.device is None:
@@ -178,10 +181,10 @@ class Conv(nn_units.Forward):
                 self.s_activation: 1,
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                     opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-                'BATCH': batch_size,
-                'SX': sx,
-                'SY': sy,
-                'N_CHANNELS': n_channels,
+                'BATCH': self._batch_size,
+                'SX': self._sx,
+                'SY': self._sy,
+                'N_CHANNELS': self._n_channels,
                 'KX': self.kx,
                 'KY': self.ky,
                 'N_KERNELS': self.n_kernels,
@@ -194,8 +197,9 @@ class Conv(nn_units.Forward):
             }
             if self.weights_transposed:
                 defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "conv_%dx%dx%d_%dx%d_%d.cl" % (
-                sx, sy, n_channels, self.kx, self.ky, self.n_kernels),
+            self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
+                root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                self.kx, self.ky, self.n_kernels),
                 dtype=self.input.v.dtype)
 
             self.krn_ = self.get_kernel("feed_layer")
@@ -247,7 +251,57 @@ class Conv(nn_units.Forward):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        raise error.ErrNotImplemented()
+        self.input.map_read()
+        self.weights.map_read()
+        self.bias.map_read()
+        self.output.map_invalidate()
+
+        sx_full = self.padding[0] + self._sx + self.padding[2]
+        sy_full = self.padding[1] + self._sy + self.padding[3]
+        nx = (sx_full - self.kx) // self.sliding[0] + 1
+        ny = (sy_full - self.ky) // self.sliding[1] + 1
+
+        assert(self.kx >= 0 and self.ky >= 0)
+        for batch, ch in ((batch, ch)
+                          for batch in range(self._batch_size)
+                          for ch in range(self._n_channels)):
+            for k, kernel in enumerate(self.weights.v):
+                for i, j in ((i, j) for i in range(ny) for j in range(nx)):
+                    y1, y2 = (i * self.sliding[1],
+                              i * self.sliding[1] + self.ky)
+                    x1, x2 = (j * self.sliding[0],
+                              j * self.sliding[0] + self.kx)
+                    i1, i2 = (min(max(y1 - self.padding[1], 0), self._sy),
+                              min(max(y2 - self.padding[1], 0), self._sy))
+                    j1, j2 = (min(max(x1 - self.padding[0], 0), self._sx),
+                              min(max(x2 - self.padding[0], 0), self._sx))
+                    if i2 - i1 > 0 or j2 - j1 > 0:
+                        cut = self.input.v[batch, i1:i2, j1:j2]
+                        assert(cut.size == kernel.size)
+                        conv = numpy.sum(numpy.multiply(cut.ravel(),
+                                                        kernel.ravel()))
+                        self.output.v[batch, i, j, k] = conv
+
+                        # add bias and apply activation function
+                        if self.s_activation == "ACTIVATION_LINEAR":
+                            self.output.v[batch, i, j, k] = (conv +
+                                                             self.bias.v[k])
+                        elif self.s_activation == "ACTIVATION_TANH":
+                            self.output.v[batch, i, j, k] = \
+                                math.tanh((conv + self.bias.v[k])
+                                          * 0.6666) * 1.7159
+                        elif self.s_activation == "ACTIVATION_RELU":
+                            tmp_val = conv + self.bias.v[k]
+                            if tmp_val > 15:
+                                self.output.v[batch, i, j, k] = tmp_val
+                            else:
+                                self.output.v[batch, i, j, k] = \
+                                    math.log(math.exp(tmp_val) + 1)
+                        else:
+                            raise ValueError("unknown type of activation "
+                                             "function")
+                    else:
+                        break
 
     def run(self):
         t1 = time.time()
@@ -271,14 +325,14 @@ class ConvTanh(Conv):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        n_channels = (self.input.v.size // (self.input.v.shape[0] *
+        self._n_channels = (self.input.v.size // (self.input.v.shape[0] *
                       self.input.v.shape[1] * self.input.v.shape[2]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / (self.input.supposed_maxvle * 0.6666) /
-                   (self.kx * self.ky * n_channels))
+                   (self.kx * self.ky * self._n_channels))
         else:
             vle = (9.0 / (self.input.supposed_maxvle * 0.6666) /
-                   (self.kx * self.ky * n_channels))
+                   (self.kx * self.ky * self._n_channels))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle

@@ -75,6 +75,49 @@ class TestConv(unittest.TestCase):
 
         logging.info("All Ok")
 
+    def test_fixed_cpu(self):
+        logging.info("Will test CPU convolutional layer forward propagation")
+
+        inp = formats.Vector()
+        dtype = opencl_types.dtypes[root.common.dtype]
+        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+                              [0, 1, 2, 1, 0],
+                              [0, 1, 0, 1, 0],
+                              [2, 0, 1, 0, 2],
+                              [1, 0, 1, 0, 1]]], dtype=dtype)
+
+        weights = numpy.array([[[-1, -1, -1],
+                                [-1, 8, -1],
+                                [-1, -1, -1]],
+                               [[1.1, 2.1, 3.1],
+                                [-1.1, -0.5, 1.3],
+                                [1.7, -1.4, 0.05]]], dtype=dtype)
+        bias = numpy.array([10, -10], dtype=dtype)
+
+        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
+        c.input = inp
+
+        c.initialize(device=None)
+
+        c.weights.map_invalidate()  # rewrite weights
+        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.bias.map_invalidate()  # rewrite bias
+        c.bias.v[:] = bias[:]
+
+        c.run()
+        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        self.assertEqual(nz, 0, "Overflow occured")
+
+        y = c.output.v.ravel()
+        t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
+                         12, 1.25, 3, -2.8, 12, -4.4,
+                         4, -7.05, 15, -7.7, 4, -4.65], dtype=dtype)
+        max_diff = numpy.fabs(t - y).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Result differs by %.6f" % (max_diff))
+
+        logging.info("All Ok")
+
     def test_padding_sliding(self):
         logging.info("Will test convolutional layer forward propagation")
 
