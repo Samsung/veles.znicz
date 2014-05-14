@@ -9,7 +9,7 @@ import logging
 import unittest
 
 from veles.tests import DummyWorkflow
-from veles.znicz.samples.imagenet import LoaderDetection
+from veles.znicz.tests.research.imagenet import LoaderDetection
 
 
 class Test(unittest.TestCase):
