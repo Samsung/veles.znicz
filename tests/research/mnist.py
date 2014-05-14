@@ -160,7 +160,7 @@ class Workflow(StandardWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self._parsing_forwards_from_congfig()
+        self._parse_forwards_from_config()
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
