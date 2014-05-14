@@ -11,7 +11,6 @@ import logging
 import numpy
 import time
 
-from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.znicz.nn_units as nn_units

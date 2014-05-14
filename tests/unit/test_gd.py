@@ -50,11 +50,12 @@ class TestGD(unittest.TestCase):
                               [1, -1, 3, 2, 4]], dtype=dtype)
         bias = numpy.array([10, -10, 5, 2], dtype=dtype)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array([[-1, 3, 0, 2],
-                                 [8, 2, 1, 3],
-                                 [0, 1, -2, 1],
-                                 [2, 3, -1, 0],
-                                 [1, 0, 1, 1]], dtype=dtype)
+        c.err_output.v = numpy.array(
+            [[-1, 3, 0, 2],
+             [8, 2, 1, 3],
+             [0, 1, -2, 1],
+             [2, 3, -1, 0],
+             [1, 0, 1, 1]], dtype=dtype)
 
         c.weights = formats.Vector()
         c.weights.v = weights

@@ -8,9 +8,8 @@ A workflow to test first layer in simple line detection.
 
 
 from veles.config import root
-import veles.error as error
 from veles.mutable import Bool
-from veles.znicz import conv, pooling, all2all, evaluator, decision
+from veles.znicz import conv, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
 import veles.znicz.nn_plotting_units as nn_plotting_units

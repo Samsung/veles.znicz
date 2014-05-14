@@ -10,7 +10,7 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 
 import numpy as np
 
-from veles import config, formats, OpenCLUnit
+from veles import formats, OpenCLUnit
 import veles.rnd as rnd
 
 

@@ -11,7 +11,6 @@ import logging
 import numpy
 import time
 
-import veles.config as config
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units

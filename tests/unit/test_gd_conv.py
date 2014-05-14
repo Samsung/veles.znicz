@@ -58,14 +58,14 @@ class TestGDConv(unittest.TestCase):
                                         kx=3, ky=3, gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.v = numpy.array([[[-1, 3],
-                                  [8, 2],
-                                  [0, 1],
-                                  [4, -1],
-                                  [-1, 2],
-                                  [0, 1],
-                                  [-2, 3],
-                                  [1, 2],
-                                  [1, 1]]], dtype=dtype)
+                                       [8, 2],
+                                       [0, 1],
+                                       [4, -1],
+                                       [-1, 2],
+                                       [0, 1],
+                                       [-2, 3],
+                                       [1, 2],
+                                       [1, 1]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
         c.weights.v = weights
@@ -146,17 +146,17 @@ class TestGDConv(unittest.TestCase):
                                         sliding=(2, 3), gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.v = numpy.array([[[-1, 3],
-                                  [8, 2],
-                                  [0, 1],
-                                  [4, -1],
-                                  [-1, 2],
-                                  [0, 1],
-                                  [-2, 3],
-                                  [1, 2],
-                                  [1, 1],
-                                  [1, -2],
-                                  [0, 5],
-                                  [2, 3]]], dtype=dtype)
+                                       [8, 2],
+                                       [0, 1],
+                                       [4, -1],
+                                       [-1, 2],
+                                       [0, 1],
+                                       [-2, 3],
+                                       [1, 2],
+                                       [1, 1],
+                                       [1, -2],
+                                       [0, 5],
+                                       [2, 3]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
         c.weights.v = weights

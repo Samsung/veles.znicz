@@ -149,7 +149,7 @@ class GradientDescent(nn_units.GradientDescentBase):
              self.err_output.v.size // self.err_output.v.shape[0]])
         input = formats.reshape(
             self.input.v, [self.input.v.shape[0],
-                       self.input.v.size // self.input.v.shape[0]])
+                           self.input.v.size // self.input.v.shape[0]])
         gradient = numpy.dot(err_output.transpose(), input)
         gradient *= alpha_batch
         gradient += self.weights.v * alpha_lambda
@@ -222,8 +222,9 @@ class GradientDescent(nn_units.GradientDescentBase):
             [self.err_output.v.shape[0],
              self.err_output.v.size // self.err_output.v.shape[0]])
         err_input = formats.reshape(
-            self.err_input.v, [self.err_input.v.shape[0],
-                           self.err_input.v.size // self.err_input.v.shape[0]])
+            self.err_input.v,
+            [self.err_input.v.shape[0],
+             self.err_input.v.size // self.err_input.v.shape[0]])
         if self.weights_transposed:
             err_input[:] = numpy.dot(err_output, self.weights.v.transpose())[:]
         else:

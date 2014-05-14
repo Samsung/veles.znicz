@@ -51,5 +51,6 @@ root.update = {"accumulator": {"n_bars": 30},
                             "weights_decay": 0.00005,
                             "layers": [{"type": "all2all_tanh",
                                         "output_shape": 54},
-                                       {"type": "softmax", "output_shape": 11}],
+                                       {"type": "softmax",
+                                        "output_shape": 11}],
                             "snapshot": ""}}

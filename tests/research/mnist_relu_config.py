@@ -29,15 +29,13 @@ root.update = {"all2all": {"weights_stddev": 0.05},
                             "snapshot_prefix": "mnist_relu"},
                "loader": {"minibatch_maxsize": 60},
                "mnist": {"learning_rate": 0.01,
-                              "weights_decay": 0.0,
-                              "layers":
-                              [{"type": "all2all_relu", "output_shape": 100},
-                               {"type": "softmax", "output_shape": 10}],
-                              "path_for_load_data": {"test_images":
-                                                     test_image_dir,
-                                                     "test_label":
-                                                     test_label_dir,
-                                                     "train_images":
-                                                     train_image_dir,
-                                                     "train_label":
-                                                     train_label_dir}}}
+                         "weights_decay": 0.0,
+                         "layers":
+                         [{"type": "all2all_relu", "output_shape": 100},
+                          {"type": "softmax", "output_shape": 10}],
+                         "path_for_load_data": {"test_images": test_image_dir,
+                                                "test_label": test_label_dir,
+                                                "train_images":
+                                                train_image_dir,
+                                                "train_label":
+                                                train_label_dir}}}

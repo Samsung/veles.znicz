@@ -56,15 +56,16 @@ class TestGDConv(unittest.TestCase):
 
         c = gd_conv.GDRELUConv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array([[[-1, 3],
-                                  [8, 2],
-                                  [0, 1],
-                                  [4, -1],
-                                  [-1, 2],
-                                  [0, 1],
-                                  [-2, 3],
-                                  [1, 2],
-                                  [1, 1]]], dtype=dtype)
+        c.err_output.v = numpy.array(
+            [[[-1, 3],
+              [8, 2],
+              [0, 1],
+              [4, -1],
+              [-1, 2],
+              [0, 1],
+              [-2, 3],
+              [1, 2],
+              [1, 1]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
         c.weights.v = weights

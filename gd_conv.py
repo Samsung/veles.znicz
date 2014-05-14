@@ -100,7 +100,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.v.size != self.input.v.size):
             self.err_input.reset()
             self.err_input.v = numpy.zeros(self.input.v.shape,
-                                       dtype=self.err_output.v.dtype)
+                                           dtype=self.err_output.v.dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.v is None or
@@ -254,7 +254,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                  self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_err_input_, global_size, local_size)
+        event = self.execute_kernel(self.krn_err_input_, global_size,
+                                    local_size)
         event.wait()
 
     def print_times(self, t_start):

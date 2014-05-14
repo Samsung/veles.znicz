@@ -11,7 +11,6 @@ import logging
 import numpy
 import time
 
-from veles.config import root
 import veles.error as error
 import veles.znicz.nn_units as nn_units
 
@@ -62,7 +61,7 @@ class GDPooling(nn_units.GradientDescentBase):
         self._sy = self.input.v.shape[1]
         self._sx = self.input.v.shape[2]
         self._n_channels = self.input.v.size // (self._batch_size * self._sx *
-                                             self._sy)
+                                                 self._sy)
         self._out_sx = self._sx // self.sliding[0] + (
             0 if self._sx % self.sliding[0] == 0 else 1)
         self._out_sy = self._sy // self.sliding[1] + (
@@ -75,7 +74,8 @@ class GDPooling(nn_units.GradientDescentBase):
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
 
-        if self.err_input.v is None or self.err_input.v.size != self.input.v.size:
+        if (self.err_input.v is None or
+                self.err_input.v.size != self.input.v.size):
             self.err_input.reset()
             self.err_input.v = numpy.zeros_like(self.input.v)
 

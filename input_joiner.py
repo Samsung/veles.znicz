@@ -9,7 +9,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 
-from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
