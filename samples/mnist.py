@@ -63,51 +63,48 @@ class Loader(loader.FullBatchLoader):
         self.info("Loading from original MNIST files...")
 
         # Reading labels:
-        fin = open(labels_fnme, "rb")
+        with open(labels_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2049:
+                raise error.ErrBadFormat("Wrong header in train-labels")
 
-        header, = struct.unpack(">i", fin.read(4))
-        if header != 2049:
-            raise error.ErrBadFormat("Wrong header in train-labels")
+            n_labels, = struct.unpack(">i", fin.read(4))
+            if n_labels != labels_count:
+                raise error.ErrBadFormat("Wrong number of labels in "
+                                         "train-labels")
 
-        n_labels, = struct.unpack(">i", fin.read(4))
-        if n_labels != labels_count:
-            raise error.ErrBadFormat("Wrong number of labels in train-labels")
-
-        arr = numpy.zeros(n_labels, dtype=numpy.byte)
-        n = fin.readinto(arr)
-        if n != n_labels:
-            raise error.ErrBadFormat("EOF reached while reading labels from "
-                                     "train-labels")
-        self.original_labels[offs:offs + labels_count] = arr[:]
-        if self.original_labels.min() != 0 or self.original_labels.max() != 9:
-            raise error.ErrBadFormat("Wrong labels range in train-labels.")
-
-        fin.close()
+            arr = numpy.zeros(n_labels, dtype=numpy.byte)
+            n = fin.readinto(arr)
+            if n != n_labels:
+                raise error.ErrBadFormat("EOF reached while reading labels "
+                                         "from train-labels")
+            self.original_labels[offs:offs + labels_count] = arr[:]
+            if (self.original_labels.min() != 0 or
+                self.original_labels.max() != 9):
+                raise error.ErrBadFormat("Wrong labels range in train-labels.")
 
         # Reading images:
-        fin = open(images_fnme, "rb")
+        with open(images_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2051:
+                raise error.ErrBadFormat("Wrong header in train-images")
 
-        header, = struct.unpack(">i", fin.read(4))
-        if header != 2051:
-            raise error.ErrBadFormat("Wrong header in train-images")
+            n_images, = struct.unpack(">i", fin.read(4))
+            if n_images != n_labels:
+                raise error.ErrBadFormat("Wrong number of images in "
+                                         "train-images")
 
-        n_images, = struct.unpack(">i", fin.read(4))
-        if n_images != n_labels:
-            raise error.ErrBadFormat("Wrong number of images in train-images")
+            n_rows, n_cols = struct.unpack(">2i", fin.read(8))
+            if n_rows != 28 or n_cols != 28:
+                raise error.ErrBadFormat("Wrong images size in train-images, "
+                                         "should be 28*28")
 
-        n_rows, n_cols = struct.unpack(">2i", fin.read(8))
-        if n_rows != 28 or n_cols != 28:
-            raise error.ErrBadFormat("Wrong images size in train-images, "
-                                     "should be 28*28")
-
-        # 0 - white, 255 - black
-        pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
-        n = fin.readinto(pixels)
-        if n != n_images * n_rows * n_cols:
-            raise error.ErrBadFormat("EOF reached while reading images "
-                                     "from train-images")
-
-        fin.close()
+            # 0 - white, 255 - black
+            pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
+            n = fin.readinto(pixels)
+            if n != n_images * n_rows * n_cols:
+                raise error.ErrBadFormat("EOF reached while reading images "
+                                         "from train-images")
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
