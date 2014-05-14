@@ -29,7 +29,7 @@ class TestWine(unittest.TestCase):
 
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
-        rnd.default.seed(numpy.fromfile("%s/veles/znicz/samples/seed" %
+        rnd.default.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                         (root.common.veles_dir),
                                         dtype=numpy.int32, count=1024))
 
@@ -41,8 +41,8 @@ class TestWine(unittest.TestCase):
                                      "layers":  [8, 3],
                                      "path_for_load_data":
                                      os.path.join(root.common.veles_dir,
-                                                  "veles/znicz/samples/wine" +
-                                                  "/wine.data")}}
+                                                  "veles/znicz/tests/research"
+                                                  + "/wine/wine.data")}}
 
         w = wine.Workflow(dummy_workflow.DummyWorkflow(),
                           layers=root.wine_test.layers)

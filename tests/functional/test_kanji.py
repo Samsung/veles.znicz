@@ -30,10 +30,10 @@ class TestKanji(unittest.TestCase):
 
     def test_kanji(self):
         logging.info("Will test loader, decision, evaluator units")
-        rnd.default.seed(numpy.fromfile("%s/veles/znicz/samples/seed"
+        rnd.default.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed"
                                         % (root.common.veles_dir),
                                         dtype=numpy.int32, count=1024))
-        rnd.default2.seed(numpy.fromfile("%s/veles/znicz/samples/seed2"
+        rnd.default2.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2"
                                          % (root.common.veles_dir),
                                          dtype=numpy.int32, count=1024))
         root.decision.fail_iterations = -1
