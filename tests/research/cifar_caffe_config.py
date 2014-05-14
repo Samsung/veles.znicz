@@ -30,6 +30,7 @@ root.update = {
     "loader": {"minibatch_maxsize": 100},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers":
+
               [{"type": "conv_relu", "n_kernels": 32,
                 "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
                 "weights_filling": "gaussian", "weights_stddev": 0.0001,
@@ -39,6 +40,7 @@ root.update = {
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
                {"type": "max_pooling",
                 "kx": 3, "ky": 3, "sliding": (2, 2)},
+
                {"type": "conv_relu", "n_kernels": 32,
                 "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
@@ -48,20 +50,23 @@ root.update = {
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
                {"type": "avg_pooling",
                 "kx": 3, "ky": 3, "sliding": (2, 2)},
+
                {"type": "conv_relu", "n_kernels": 64,
                 "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
                 "bias_filling": "constant", "bias_stddev": 0,
-                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "learning_rate": 0.001, "learning_rate_bias": 0.001,
                 "weights_decay": 0.004, "weights_decay_bias": 0,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
                {"type": "avg_pooling",
                 "kx": 3, "ky": 3, "sliding": (2, 2)},
+
                {"type": "softmax", "output_shape": 10,
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
                 "bias_filling": "constant", "bias_stddev": 0,
                 "learning_rate": 0.001, "learning_rate_bias": 0.002,
                 "weights_decay": 250.0, "weights_decay_bias": 0,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9}],
+
               "path_for_load_data": {"train": train_dir,
                                      "validation": validation_dir}}}
