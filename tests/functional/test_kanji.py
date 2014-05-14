@@ -14,7 +14,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.samples.kanji as kanji
 import veles.tests.dummy_workflow as dummy_workflow
 
@@ -30,10 +30,10 @@ class TestKanji(unittest.TestCase):
 
     def test_kanji(self):
         logging.info("Will test loader, decision, evaluator units")
-        rnd.default.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed"
+        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed"
                                         % (root.common.veles_dir),
                                         dtype=numpy.int32, count=1024))
-        rnd.default2.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2"
+        rnd.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2"
                                          % (root.common.veles_dir),
                                          dtype=numpy.int32, count=1024))
         root.decision.fail_iterations = -1

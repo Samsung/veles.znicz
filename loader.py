@@ -15,7 +15,7 @@ import veles.config as config
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.units as units
 
 
@@ -73,7 +73,7 @@ class Loader(units.Unit):
         kwargs["view_group"] = "LOADER"
         super(Loader, self).__init__(workflow, **kwargs)
 
-        self._rnd = [kwargs.get("rnd", rnd.default)]
+        self._rnd = [kwargs.get("rnd", rnd.get())]
         self._normalize = kwargs.get("normalize", True)
         self.minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
         self.validation_ratio = kwargs.get("validation_ratio", 0.15)

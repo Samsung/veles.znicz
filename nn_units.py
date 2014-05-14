@@ -14,7 +14,7 @@ import yaml
 import veles.config as config
 import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
-import veles.rnd as rnd
+import veles.random_generator as rnd
 from veles.units import Repeater
 
 
@@ -31,30 +31,18 @@ class Forward(OpenCLUnit):
         rand: rnd.Rand() object for initial weights generation.
     """
     def __init__(self, workflow, **kwargs):
-        weights_stddev = kwargs.get("weights_stddev")
-        bias_stddev = kwargs.get("bias_stddev", weights_stddev)
-        weights_filling = kwargs.get("weights_filling", "uniform")
-        bias_filling = kwargs.get("bias_filling", "uniform")
-        rand = kwargs.get("rand", rnd.default)
-        weights_transposed = kwargs.get("weights_transposed", False)
-        kwargs["weights_stddev"] = weights_stddev
-        kwargs["bias_stddev"] = bias_stddev
-        kwargs["weights_filling"] = weights_filling
-        kwargs["bias_filling"] = bias_filling
-        kwargs["rand"] = rand
-        kwargs["weights_transposed"] = weights_transposed
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
         super(Forward, self).__init__(workflow, **kwargs)
+        self.weights_stddev = kwargs.get("weights_stddev")
+        self.bias_stddev = kwargs.get("bias_stddev", self.weights_stddev)
+        self.weights_filling = kwargs.get("weights_filling", "uniform")
+        self.bias_filling = kwargs.get("bias_filling", "uniform")
+        self.rand = kwargs.get("rand", rnd.get())
+        self.weights_transposed = kwargs.get("weights_transposed", False)
         self.input = None
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
-        self.weights_stddev = weights_stddev
-        self.bias_stddev = bias_stddev
-        self.weights_filling = weights_filling
-        self.bias_filling = bias_filling
-        self.rand = rand
-        self.weights_transposed = weights_transposed
         self.exports = ["weights", "bias", "weights_transposed"]
 
     def generate_data_for_slave(self, slave=None):

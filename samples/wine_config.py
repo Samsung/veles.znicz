@@ -11,7 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 
 from veles.config import root
-import veles.rnd as rnd
+import veles.random_generator as rnd
 
 
 # optional parameters
@@ -21,7 +21,7 @@ root.common.update = {"plotters_disabled": True}
 root.update = {"decision": {"fail_iterations": 200,
                             "snapshot_prefix": "wine"},
                "loader": {"minibatch_maxsize": 1000000,
-                          "rnd": rnd.default,
+                          "rnd": rnd.get(),
                           "view_group": "LOADER"},
                "wine": {"learning_rate": 0.5,
                         "weights_decay": 0.0,

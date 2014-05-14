@@ -17,7 +17,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.conv as conv
 from veles.tests.dummy_workflow import DummyWorkflow
 
@@ -171,7 +171,7 @@ class TestConv(unittest.TestCase):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
-        rnd.default.fill(inp.v)
+        rnd.get().fill(inp.v)
 
         c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9)
         c.input = inp
@@ -230,7 +230,7 @@ class TestConv(unittest.TestCase):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
-        rnd.default.fill(inp.v)
+        rnd.get().fill(inp.v)
 
         c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3)
         c.input = inp

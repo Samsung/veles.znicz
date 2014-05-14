@@ -17,7 +17,7 @@ import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
-import veles.rnd as rnd
+import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -59,17 +59,17 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.a = formats.Vector()
         self.a.v = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH], dtype=dtype)
-        rnd.default.fill(self.a.v, -0.1, 0.1)
+        rnd.get().fill(self.a.v, -0.1, 0.1)
         self.a.v = self.a.v.reshape([self.A_HEIGHT, self.AB_WIDTH])
 
         self.b = formats.Vector()
         self.b.v = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH], dtype=dtype)
-        rnd.default.fill(self.b.v, -0.1, 0.1)
+        rnd.get().fill(self.b.v, -0.1, 0.1)
         self.b.v = self.b.v.reshape([self.B_HEIGHT, self.AB_WIDTH])
 
         self.bias = formats.Vector()
         self.bias.v = numpy.zeros([self.B_HEIGHT], dtype=dtype)
-        rnd.default.fill(self.bias.v, -0.1, 0.1)
+        rnd.get().fill(self.bias.v, -0.1, 0.1)
 
         self.c = formats.Vector()
         self.c.v = numpy.zeros([2, self.A_HEIGHT, self.B_HEIGHT], dtype=dtype)

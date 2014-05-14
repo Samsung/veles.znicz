@@ -16,7 +16,7 @@ import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
-import veles.rnd as rnd
+import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -107,7 +107,7 @@ class TestMatrixReduce(unittest.TestCase):
 
         a = formats.Vector()
         a.v = numpy.zeros([3337, 775], dtype=dtype)
-        rnd.default.fill(a.v)
+        rnd.get().fill(a.v)
 
         t_col = numpy.sum(a.v, axis=0)
         t = numpy.sum(a.v, axis=1)

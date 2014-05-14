@@ -13,7 +13,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.samples.wine as wine
 import veles.tests.dummy_workflow as dummy_workflow
 
@@ -24,12 +24,12 @@ class TestWine(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    #def tearDown(self):
+    # def tearDown(self):
     #    del self.device
 
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
-        rnd.default.seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
+        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                         (root.common.veles_dir),
                                         dtype=numpy.int32, count=1024))
 

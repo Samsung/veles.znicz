@@ -20,7 +20,7 @@ import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -113,7 +113,7 @@ class Loader(loader.Loader):
 
         self.info("Found %d samples. Extracting 15%% for validation..." % (
             len(self.index_map)))
-        self.extract_validation_from_train(rnd.default2)
+        self.extract_validation_from_train(rnd.get(2))
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_samples)))
 

@@ -20,7 +20,7 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -67,7 +67,7 @@ class Loader(loader.Loader):
         minibatch_max_size = kwargs.get("minibatch_max_size", 100)
         minibatches_in_epoch = kwargs.get("minibatches_in_epoch", 1000)
         window_size = kwargs.get("window_size", 100)
-        rnd_ = kwargs.get("rnd", rnd.default2)
+        rnd_ = kwargs.get("rnd", rnd.get(2))
         labels = kwargs.get("labels", {"blues": 0,
                                        "country": 1,
                                        "jazz": 2,

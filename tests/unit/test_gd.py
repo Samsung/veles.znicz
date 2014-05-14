@@ -14,7 +14,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.znicz.gd as gd
 from veles.tests.dummy_workflow import DummyWorkflow
 
@@ -34,7 +34,7 @@ class TestGD(unittest.TestCase):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([5, 5], dtype=dtype)
-        rnd.default.fill(inp.v)
+        rnd.get().fill(inp.v)
 
         if device is not None:
             self.x = inp.v.copy()

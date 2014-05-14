@@ -16,14 +16,14 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 from veles.opencl_units import OpenCLUnit
-import veles.rnd as rnd
+import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
 class TestRandom(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
-        #rnd.default.seed(numpy.fromfile("%s/veles/znicz/samples/seed" %
+        #rnd.get().seed(numpy.fromfile("%s/veles/znicz/samples/seed" %
         #                                (root.common.veles_dir),
         #                                dtype=numpy.int32, count=1024))
 
@@ -92,7 +92,7 @@ class TestRandom(unittest.TestCase):
     def test(self):
         self.n_states = 5
         self.n_rounds = 3
-        self.states = rnd.default.randint(
+        self.states = rnd.get().randint(
             0, 0x100000000, self.n_states * 128 // 4).astype(
             numpy.uint32).view(numpy.uint64).reshape(self.n_states, 16)
         v_gpu = self._gpu()

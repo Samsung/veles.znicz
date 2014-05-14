@@ -30,7 +30,7 @@ import veles.formats as formats
 import veles.image as image
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-import veles.rnd as rnd
+import veles.random_generator as rnd
 import veles.thread_pool as thread_pool
 import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
@@ -570,7 +570,7 @@ class Loader(loader.FullBatchLoader):
 
         # Randomly generate validation set from train.
         self.info("Will extract validation set from train")
-        self.extract_validation_from_train(rnd.default2)
+        self.extract_validation_from_train(rnd.get(2))
 
         # Saving all the samples
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
