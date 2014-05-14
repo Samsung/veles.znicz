@@ -9,12 +9,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 
-import veles.config as config
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
 import veles.error as error
-from veles.config import root
 
 
 class Kohonen(nn_units.Forward):
