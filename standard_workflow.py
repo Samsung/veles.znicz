@@ -53,8 +53,6 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             kx=layer["kx"], ky=layer["ky"],
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
                             padding=layer.get("padding", (0, 0, 0, 0)),
-                            weights_filling=layer["weights_filling"],
-                            weights_stddev=layer["weights_stddev"],
                             device=self.device, **kwargs),
                         "norm": lambda layer:
                         normalization.LRNormalizerForward(self,

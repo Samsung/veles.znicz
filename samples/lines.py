@@ -7,11 +7,14 @@ A workflow to test first layer in simple line detection.
 """
 
 
+import os
+
 from veles.config import root
 from veles.mutable import Bool
 from veles.znicz import conv, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
+import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
@@ -19,12 +22,22 @@ from enum import IntEnum
 train = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/learn"
 valid = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/test"
 
+root.model = "lines"
+
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_stddev": 0.05},
                  "conv_relu":  {"weights_filling": "gaussian",
                                 "weights_stddev": 0.001},
                  "decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
+                 "image_saver": {"out_dirs":
+                                 [os.path.join(root.common.cache_dir,
+                                               "tmp %s/test" % root.model),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp %s/validation" %
+                                               root.model),
+                                  os.path.join(root.common.cache_dir,
+                                               "tmp %s/train" % root.model)]},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
                  "lines": {"learning_rate": 0.01,
@@ -42,7 +55,6 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                  "softmax": {"weights_filling": "uniform",
                              "weights_stddev": 0.05}}
 
-print(root.all2all_relu.weights_filling)
 
 class ImageLabel(IntEnum):
     """An enum for different figure primitive classes"""
@@ -52,11 +64,11 @@ class ImageLabel(IntEnum):
     tilted_top_to_bottom = 3  # left top --> right bottom (\)
     straight_grid = 4  # 0 and 90 deg lines simultaneously
     tilted_grid = 5  # +45 and -45 deg lines simultaneously
-    circle = 6
-    square = 7
-    right_angle = 8
-    triangle = 9
-    sinusoid = 10
+    #circle = 6
+    #square = 7
+    #right_angle = 8
+    #triangle = 9
+    #sinusoid = 10
 
 
 class Loader(ImageLoader):
@@ -85,14 +97,25 @@ class Workflow(StandardWorkflow):
             grayscale=False)
 
         self.loader.load_data()
-
         self.loader.link_from(self.repeater)
 
         self._parse_forwards_from_config()
 
+        # Add Image Saver unit
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=root.image_saver.out_dirs)
+        self.image_saver.link_from(self.fwds[-1])
+        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.image_saver.link_attrs(
+            self.loader,
+            ("input", "minibatch_data"),
+            ("indexes", "minibatch_indexes"),
+            ("labels", "minibatch_labels"),
+            "minibatch_class", "minibatch_size")
+
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
