@@ -70,29 +70,29 @@ class TestDropout(unittest.TestCase):
         back_dropout = DropoutBackward(workflow)
         back_dropout.mask = fwd_dropout.mask
 
-        err_y = np.zeros(shape=(1, 1, sz, sz), dtype=np.float64)
+        err_output = np.zeros(shape=(1, 1, sz, sz), dtype=np.float64)
         for i in range(sz):
-            err_y[0, 0, i, :] = np.linspace(0, sz * 2, sz) * (i + 1)
-        back_dropout.err_y = Vector()
-        back_dropout.err_y.v = err_y
-        logging.info("[DropoutBackward] err_y matrix:\n%s", err_y)
+            err_output[0, 0, i, :] = np.linspace(0, sz * 2, sz) * (i + 1)
+        back_dropout.err_output = Vector()
+        back_dropout.err_output.v = err_output
+        logging.info("[DropoutBackward] err_y matrix:\n%s", err_output)
 
         back_dropout.initialize(device)
         if test_type == TestType.OCL:
             back_dropout.ocl_run()
-            back_dropout.err_y.map_read()
+            back_dropout.err_input.map_read()
         else:
             back_dropout.cpu_run()
 
-        logging.info("[DropoutBackward] modified err_y:")
-        logging.info(back_dropout.err_y.v)
-        ratio = 1.0 - float(np.count_nonzero(back_dropout.err_y.v)) / \
-            back_dropout.err_y.v.size
+        logging.info("[DropoutBackward] err_input:")
+        logging.info(back_dropout.err_input.v)
+        ratio = 1.0 - float(np.count_nonzero(back_dropout.err_input.v)) / \
+            back_dropout.err_input.v.size
         logging.info("[DropoutBackward]  dropout ratio: %.4f", ratio)
         self.assertAlmostEqual(ratio, fwd_dropout.dropout_ratio,
                                delta=fwd_dropout.dropout_ratio / 10,
                                msg='error in DropoutBackward results: ratio of'
-                               ' zero elements in err_y matrix is {0} '
+                               ' zero elements in err_input matrix is {0} '
                                '(target value is {1})'.format(
                                    ratio, fwd_dropout.dropout_ratio))
 

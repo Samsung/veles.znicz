@@ -11,7 +11,7 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 import numpy as np
 
 from veles import formats, OpenCLUnit
-import veles.rnd as rnd
+from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
 class Dropout(OpenCLUnit):
@@ -41,34 +41,32 @@ class Dropout(OpenCLUnit):
         self._dropout_ratio = value
 
 
-class DropoutForward(Dropout):
+class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
     """
     def __init__(self, workflow, **kwargs):
-        self.input = None  # input value of forward layer
         self.mask = formats.Vector()  # dropout mask
         self.states = formats.Vector()
-        self.rnd = kwargs.get("rnd", rnd.default)
         super(DropoutForward, self).__init__(workflow, **kwargs)
 
     @Dropout.dropout_ratio.setter
     def dropout_ratio(self, value):
         Dropout.dropout_ratio.fset(self, value)
-        if self.input is not None:
+        if hasattr(self, "input") and self.input is not None:
             self.calc_mask()
-
-    @property
-    def output(self):
-        return self.input
 
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
         self.mask.v = np.empty_like(self.input.v)
-        self.states.v = self.rnd.randint(
+        self.states.v = self.rand.randint(
             low=0, high=0x100000000,
             size=self.input.v.size * 4).astype(np.uint32)
+        if (self.output.v is None or self.output.v.size != self.input.v.size):
+            self.output.reset()
+            self.output.v = np.zeros_like(self.input.v)
         self.input.initialize(device)
+        self.output.initialize(device)
         self.states.initialize(device)
         self.mask.initialize(device)
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
@@ -84,9 +82,7 @@ class DropoutForward(Dropout):
 
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
-        self.mask.v.ravel()[:] = np.random.uniform(low=-self.dropout_ratio,
-                                                   high=leave_ratio,
-                                                   size=self.input.v.size)[:]
+        self.rand.fill(self.mask.v, -self.dropout_ratio, leave_ratio)
         np.maximum(self.mask.v, 0, self.mask.v)
         np.ceil(self.mask.v, self.mask.v)
         self.mask.v = (self.mask.v.astype(self.input.v.dtype) /
@@ -97,46 +93,60 @@ class DropoutForward(Dropout):
         self.mask.map_invalidate()
         self.input.map_read()
         self.calc_mask()
-        self.output.v = self.input.v * self.mask.v
+        np.multiply(self.input.v.ravel(), self.mask.v.ravel(),
+                    formats.ravel(self.output.v))
 
     def ocl_run(self):
         self.input.unmap()
         self.states.unmap()
         self.mask.unmap()
         self.output.unmap()
-        self._threshold_arg_[0] = ((1 << 64) + 0.) * self.dropout_ratio
+        self._threshold_arg_[0] = (0.0 + (1 << 64)) * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.krn_.set_arg(1, self._threshold_arg_)
         self.krn_.set_arg(2, self._pass_arg_)
         self.execute_kernel(self.krn_, (self.input.v.size,), None).wait()
 
 
-class DropoutBackward(Dropout):
+class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.
     """
     def __init__(self, workflow, **kwargs):
         self.mask = None  # dropout mask (should be given from forward unit)
-        self.err_y = None  # output error of fwd layer, our input error
         super(DropoutBackward, self).__init__(workflow, **kwargs)
 
     def initialize(self, device, **kwargs):
         super(DropoutBackward, self).initialize(device=device, **kwargs)
-        self.err_y.initialize(device)
 
-        self.build_program({}, "dropout_backward.cl", dtype=self.err_y.v.dtype)
+        if (self.err_input.v is None or
+            self.err_input.v.size != self.err_output.v.size):
+            self.err_input.reset()
+            self.err_input.v = np.zeros_like(self.err_output.v)
+
+        self.err_output.initialize(device)
+        self.err_input.initialize(device)
+
+        self.build_program({}, "dropout_backward.cl",
+                           dtype=self.err_output.v.dtype)
 
         self.krn_ = self.get_kernel("dropout_backward")
         self.krn_.set_arg(0, self.mask.v_)
-        self.krn_.set_arg(1, self.err_y.v_)
+        self.krn_.set_arg(1, self.err_output.v_)
+        self.krn_.set_arg(2, self.err_input.v_)
 
     def cpu_run(self):
-        self.err_y.map_read()
+        if formats.eq_addr(self.err_input.v, self.err_output.v):
+            self.err_output.map_write()
+        else:
+            self.err_output.map_read()
+            self.err_input.map_invalidate()
         self.mask.map_read()
-        np.multiply(self.err_y.v.ravel(), self.mask.v.ravel(),
-                    formats.ravel(self.err_y.v))
+        np.multiply(self.err_output.v.ravel(), self.mask.v.ravel(),
+                    formats.ravel(self.err_input.v))
 
     def ocl_run(self):
-        self.err_y.unmap()
+        self.err_output.unmap()
+        self.err_input.unmap()
         self.mask.unmap()
-        self.execute_kernel(self.krn_, (self.err_y.v.size,), None).wait()
+        self.execute_kernel(self.krn_, (self.err_output.v.size,), None).wait()

@@ -24,7 +24,8 @@ __kernel void dropout_forward(__global const c_dtype /* IN */    *inputs,
 }
 
 __kernel void dropout_backward(__global const c_dtype *mask,
-                               __global c_dtype *err_y) {
+                               __global const c_dtype *err_y,
+                               __global c_dtype *err_h) {
   int idx = get_global_id(0);
-  err_y[idx] *= mask[idx];
+  err_h[idx] = err_y[idx] * mask[idx];
 }
