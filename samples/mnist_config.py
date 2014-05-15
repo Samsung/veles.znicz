@@ -11,7 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 from veles.config import root
 
-mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MNIST")
+mnist_dir = os.path.join(os.path.dirname(__file__), "MNIST")
 
 # optional parameters
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")

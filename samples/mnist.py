@@ -26,7 +26,7 @@ from veles.interaction import Shell
 from veles.external.progressbar import ProgressBar
 
 
-mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MNIST")
+mnist_dir = os.path.join(os.path.dirname(__file__), "MNIST")
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")

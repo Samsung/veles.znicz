@@ -21,7 +21,8 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
-mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MNIST")
+mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                         "samples/MNIST")
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
