@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import logging
+from prettytable import PrettyTable
 import time
 
 from veles.config import root
@@ -256,40 +257,41 @@ class GradientDescent(nn_units.GradientDescentBase):
                                     self.krn_err_input_)
         event.wait()
 
-    def print_times(self, t_start):
+    def print_debug_data(self, t_start):
+        """
+        Show weights statistics
+        """
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.weights.map_read()
         self.bias.map_read()
+        self.gradient_bias.map_read()
+        self.gradient_weights.map_read()
         weights = self.weights.v
         bias = self.bias.v
-        if weights.dtype in (numpy.complex64, numpy.complex128):
-            self.debug(
-                "BP %d_%d in %.2f sec: min avg max: "
-                "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                (self.input.v.size // self.input.v.shape[0],
-                 self.output.v.size // self.output.v.shape[0],
-                 time.time() - t_start,
-                 min(weights.real.min(), weights.imag.min()),
-                 (numpy.average(weights.real) +
-                  numpy.average(weights.imag)) * 0.5,
-                 max(weights.real.max(), weights.imag.max()),
-                 min(bias.real.min(), bias.imag.min()),
-                 (numpy.average(bias.real) + numpy.average(bias.imag)) * 0.5,
-                 max(bias.real.max(), bias.imag.max())))
-        else:
-            self.debug(
-                "BP %d_%d in %.2f sec: min avg max: "
-                "W: %.6f %.6f %.6f B: %.6f %.6f %.6f" %
-                (self.input.v.size // self.input.v.shape[0],
-                 self.output.v.size // self.output.v.shape[0],
-                 time.time() - t_start,
-                 weights.min(),
-                 numpy.average(weights),
-                 weights.max(),
-                 bias.min(),
-                 numpy.average(bias),
-                 bias.max()))
+        grad_weights = self.gradient_weights.v
+        grad_bias = self.gradient_bias.v
+
+        n_input = self.input.v.size // self.input.v.shape[0]
+        n_output = self.output.v.size // self.output.v.shape[0]
+        delta_time = time.time() - t_start
+
+        stats_table = PrettyTable(["n_input", "n_output", "time"])
+        stats_table.float_format = ".3"
+        stats_table.add_row([n_input, n_output, delta_time])
+        self.debug("\n" + stats_table.get_string())
+
+        weight_table = PrettyTable(["TYPE", "Mean", "StdDev", "Min", "Max"])
+        weight_table.float_format = ".10"
+        for (w_name, w_array) in [("Weight", weights), ("Bias", bias),
+                                  ("Grad Weight", grad_weights),
+                                  ("Grad Bias", grad_bias)]:
+            w_mean = numpy.mean(w_array)
+            w_stddev = numpy.std(w_array)
+            w_min = numpy.min(w_array)
+            w_max = numpy.max(w_array)
+            weight_table.add_row([w_name, w_mean, w_stddev, w_min, w_max])
+        self.debug("\n" + weight_table.get_string())
 
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by output.
@@ -314,7 +316,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
-        self.print_times(t1)
+        self.print_debug_data(t1)
 
     def ocl_run(self):
         """Do gradient descent.
@@ -323,7 +325,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
-        self.print_times(t1)
+        self.print_debug_data(t1)
 
 
 class GDSM(GradientDescent):

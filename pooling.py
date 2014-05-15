@@ -93,7 +93,7 @@ class Pooling(nn_units.Forward):
             (self._sx, self._sy, self._n_channels,
              self.kx, self.ky), dtype=self.input.v.dtype)
 
-    def print_times(self, t_start):
+    def print_debug_data(self, t_start):
         """Show some statistics.
         """
         if not self.log.isEnabledFor(logging.DEBUG):
@@ -125,7 +125,7 @@ class Pooling(nn_units.Forward):
         retval = super(Pooling, self).run()
         if retval:
             return retval
-        self.print_times(t1)
+        self.print_debug_data(t1)
 
 
 class MaxPooling(Pooling):

@@ -105,7 +105,7 @@ class GDPooling(nn_units.GradientDescentBase):
             self.krn_err_input_clear_ = self.get_kernel("array_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.v_)
 
-    def print_times(self, t_start):
+    def print_debug_data(self, t_start):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         output = self.err_input.v
@@ -142,7 +142,7 @@ class GDPooling(nn_units.GradientDescentBase):
         retval = super(GDPooling, self).run()
         if retval:
             return retval
-        self.print_times(t1)
+        self.print_debug_data(t1)
 
 
 class GDMaxPooling(GDPooling):

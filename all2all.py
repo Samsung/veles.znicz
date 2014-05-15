@@ -158,7 +158,7 @@ class All2All(nn_units.Forward):
                                               block_size)]
         self._local_size_ = [block_size, block_size]
 
-    def print_times(self, t_start):
+    def print_debug_data(self, t_start):
         """Show some statistics.
         """
         if not self.log.isEnabledFor(logging.DEBUG):

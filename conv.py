@@ -202,7 +202,7 @@ class Conv(nn_units.Forward):
         self.assign_kernel("feed_layer")
         self.set_args(self.input, self.weights, self.output, self.bias)
 
-    def print_times(self, t_start):
+    def print_debug_data(self, t_start):
         """Show some statistics.
         """
         if not self.log.isEnabledFor(logging.DEBUG):
@@ -301,7 +301,7 @@ class Conv(nn_units.Forward):
         retval = super(Conv, self).run()
         if retval:
             return retval
-        self.print_times(t1)
+        self.print_debug_data(t1)
 
 
 class ConvTanh(Conv):
