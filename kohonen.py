@@ -40,6 +40,7 @@ class Kohonen(nn_units.Forward):
     def __init__(self, workflow, **kwargs):
         super(Kohonen, self).__init__(workflow, **kwargs)
         self._shape = kwargs["shape"]
+        self.weights = formats.Vector()
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.weights_stddev = kwargs.get("weights_stddev", None)
         self.input = None
@@ -76,26 +77,26 @@ class Kohonen(nn_units.Forward):
             # Get weights magnitude and cap it to 0.05
             self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
         n_weights = (self.input.v.size // self.input.v.shape[0] * output_size)
-        if self.weights.v is None or self.weights.v.size != n_weights:
-            self.weights.reset()
-            self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.v, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.v, 0,
-                                           self.weights_stddev)
-            else:
-                raise error.ErrBadFormat(
-                    "Unknown weights_filling = %s encountered" %
-                    self.weights_filling)
-            self.weights.v = self.weights.v.reshape([
-                output_size, self.input.v.size // self.input.v.shape[0]])
-            # Reshape weights as a matrix:
-            if self.weights_transposed:
-                a = self.weights.v.transpose().copy()
-                self.weights.v.shape = a.shape
-                self.weights.v[:] = a[:]
+
+        self.weights.reset()
+        self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
+        if self.weights_filling == "uniform":
+            self.rand.fill(self.weights.v, -self.weights_stddev,
+                           self.weights_stddev)
+        elif self.weights_filling == "gaussian":
+            self.rand.fill_normal_real(self.weights.v, 0,
+                                       self.weights_stddev)
+        else:
+            raise error.ErrBadFormat(
+                "Unknown weights_filling = %s encountered" %
+                self.weights_filling)
+        self.weights.v = self.weights.v.reshape([
+            output_size, self.input.v.size // self.input.v.shape[0]])
+        # Reshape weights as a matrix:
+        if self.weights_transposed:
+            a = self.weights.v.transpose().copy()
+            self.weights.v.shape = a.shape
+            self.weights.v[:] = a[:]
 
         if (self.output.v is None or
                 self.output.v.size != self.input.v.shape[0] * output_size):
@@ -184,6 +185,7 @@ class KohonenTrain(nn_units.GradientDescentBase):
         self.argmin = formats.Vector()
         self.coords = formats.Vector()
         self.input = None
+        self.weights = None
         self.time = 0
         self._sigma = 0
         self.gradient_decay = kwargs.get("gradient_decay",
