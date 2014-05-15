@@ -325,8 +325,8 @@ class ConvTanh(Conv):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        self._n_channels = (self.input.v.size // (self.input.v.shape[0] *
-                      self.input.v.shape[1] * self.input.v.shape[2]))
+        self._n_channels = (self.input.v.size //
+                            numpy.prod(self.input.v.shape[:3]))
         if self.input.v.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / (self.input.supposed_maxvle * 0.6666) /
                    (self.kx * self.ky * self._n_channels))

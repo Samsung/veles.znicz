@@ -42,9 +42,9 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                            "weights_decay": 0.0,
                            "layers": [100, 10],
                            "data_paths": {"test_images": test_image_dir,
-                                            "test_label": test_label_dir,
-                                            "train_images": train_image_dir,
-                                            "train_label": train_label_dir}}}
+                                          "test_label": test_label_dir,
+                                          "train_images": train_image_dir,
+                                          "train_label": train_label_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -73,7 +73,7 @@ class Loader(loader.FullBatchLoader):
                                          "from train-labels")
             self.original_labels[offs:offs + labels_count] = arr[:]
             if (self.original_labels.min() != 0 or
-                self.original_labels.max() != 9):
+                    self.original_labels.max() != 9):
                 raise error.ErrBadFormat("Wrong labels range in train-labels.")
 
         # Reading images:

@@ -120,7 +120,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
         super(DropoutBackward, self).initialize(device=device, **kwargs)
 
         if (self.err_input.v is None or
-            self.err_input.v.size != self.err_output.v.size):
+                self.err_input.v.size != self.err_output.v.size):
             self.err_input.reset()
             self.err_input.v = np.zeros_like(self.err_output.v)
 

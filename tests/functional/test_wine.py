@@ -30,8 +30,8 @@ class TestWine(unittest.TestCase):
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                        (root.common.veles_dir),
-                                        dtype=numpy.int32, count=1024))
+                                      root.common.veles_dir,
+                                      dtype=numpy.int32, count=1024))
 
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},

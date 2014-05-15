@@ -66,7 +66,7 @@ class TestMaxPooling(unittest.TestCase):
              [[[140, 157], [146, 161], [148, 151], [152, 153]],
               [[184, 185], [172, 175], [190, 193], [180, 181]],
               [[198, 197], [200, 203], [204, 207], [208, 209]]]],
-                                      dtype=numpy.int32)
+            dtype=numpy.int32)
 
     def tearDown(self):
         pass
