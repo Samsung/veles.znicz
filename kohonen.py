@@ -206,6 +206,11 @@ class KohonenTrain(nn_units.GradientDescentBase):
         self.krn_gravity_ = None
         self.krn_compute_gradients_ = None
         self.krn_apply_gradients_ = None
+        numpy_version = [int(v) for v in numpy.__version__.split('.')]
+        if numpy_version[0] == 1 and numpy_version[1] < 8:
+            self._numpy_linalg_norm = self._numpy_legacy_linalg_norm
+        else:
+            self._numpy_linalg_norm = self._numpy_1_8_linalg_norm
 
     @property
     def gravity_radius(self):
@@ -332,6 +337,12 @@ class KohonenTrain(nn_units.GradientDescentBase):
             return result
         return wrapped
 
+    def _numpy_1_8_linalg_norm(self, dist):
+        return numpy.linalg.norm(dist, axis=1)
+
+    def _numpy_legacy_linalg_norm(self, dist):
+        return [numpy.linalg.norm(dist[i]) for i in range(dist.shape[0])]
+
     @iteration
     def cpu_run(self):
         """Does Kohonen's learning iteration on CPU.
@@ -344,7 +355,7 @@ class KohonenTrain(nn_units.GradientDescentBase):
         gmult = self.gradient_multiplier
         for sindex in range(batch_size):
             dist = self.weights.v - self.input[sindex]
-            winner = numpy.argmin(numpy.linalg.norm(dist, axis=1))
+            winner = numpy.argmin(self._numpy_linalg_norm(dist))
             winner_coords = self.coords.v[winner]
             for nindex in range(neurons_number):
                 dist = self.coords.v[nindex] - winner_coords
