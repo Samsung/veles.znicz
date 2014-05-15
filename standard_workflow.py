@@ -54,11 +54,16 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             padding=layer.get("padding", (0, 0, 0, 0)),
                             device=self.device, **kwargs),
                         "norm": lambda layer:
-                        normalization.LRNormalizerForward(self,
-                                                          device=self.device),
+                        normalization.LRNormalizerForward(
+                            self, alpha=layer.get("alpha", (0.00005)),
+                            beta=layer.get("beta", (0.75)),
+                            n=layer.get("n", (3)),
+                            device=self.device),
                         "dropout": lambda layer:
-                        dropout.DropoutForward(self, dropout_ratio=0.5,
-                                               device=self.device),
+                        dropout.DropoutForward(
+                            self,
+                            dropout_ratio=layer.get("dropout_ratio", (0.5)),
+                            device=self.device),
                         "max_pooling": lambda layer:
                         pooling.MaxPooling(
                             self, kx=layer["kx"], ky=layer["ky"],
