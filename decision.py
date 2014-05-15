@@ -200,9 +200,10 @@ class Decision(units.Unit):
             self.sample_output = numpy.zeros_like(
                 self.workflow.fwds[-1].output[0])
         evaluator = self.evaluator or self.workflow.evaluator
-        if (evaluator.__dict__.get("target") is not None
-                and evaluator.target in self.vectors_to_sync
-                and evaluator.target.v is not None):
+        if (evaluator is not None and
+                evaluator.__dict__.get("target") is not None and
+                evaluator.target in self.vectors_to_sync and
+                evaluator.target.v is not None):
             self.sample_target = numpy.zeros_like(evaluator.target[0])
 
         timestamp = time.time()
@@ -465,11 +466,12 @@ class Decision(units.Unit):
         if self.sample_output is not None:
             self.sample_output[:] = self.workflow.fwds[-1].output[0]
         evaluator = self.evaluator or self.workflow.evaluator
-        if self.sample_target is not None:
-            self.sample_target[:] = evaluator.target[0]
-        if (evaluator.__dict__.get("labels") in
-                self.vectors_to_sync.keys()):
-            self.sample_label = evaluator.labels[0]
+        if evaluator is not None:
+            if self.sample_target is not None:
+                self.sample_target[:] = evaluator.target[0]
+            if (evaluator.__dict__.get("labels") in
+                    self.vectors_to_sync.keys()):
+                self.sample_label = evaluator.labels[0]
 
     def _on_last_minibatch(self, minibatch_class):
         # Copy confusion matrix
