@@ -53,8 +53,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         n_kernels = kwargs["n_kernels"]
         kx = kwargs["kx"]
         ky = kwargs["ky"]
-        padding = kwargs.get("padding", (0, 0, 0, 0))
-        sliding = kwargs.get("sliding", (1, 1))
+        padding = kwargs.get("padding", (0, 0, 0, 0))  # Left Top Right Bottom
+        sliding = kwargs.get("sliding", (1, 1))  # X Y
         kwargs["n_kernels"] = n_kernels
         kwargs["kx"] = kx
         kwargs["ky"] = ky
@@ -86,6 +86,15 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sx = self.input.v.shape[2]
         n_channels = self.input.v.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
+        """
+        sx_full = sx + self.padding[0] + self.padding[2]
+        sy_full = sy + self.padding[1] + self.padding[3]
+        kernel_applies_per_width = (sx_full - self.kx) / self.sliding[0] + 1
+        kernel_applies_per_height = (sy_full - self.ky) / self.sliding[1] + 1
+        self._batch_multiplier = (kernel_applies_per_width *
+                                  kernel_applies_per_height)
+        """
+        self._batch_multiplier = 1
         if self.weights.v.size != n_weights:
             raise error.ErrBadFormat(
                 "Expected number of weights to match "
@@ -189,14 +198,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_bias.unmap()
 
         batch_size = self.batch_size or self.output.v.shape[0]
+        batch_size *= self._batch_multiplier
         sy = self.input.v.shape[1]
         sx = self.input.v.shape[2]
         n_channels = self.input.v.size // (self.input.v.shape[0] * sx * sy)
-        # batch_size *= (sy - self.ky + 1) * (sx - self.kx + 1)
 
         # weights
-        self.cl_const[0] = -self.learning_rate / batch_size
-        self.cl_const[1] = -self.learning_rate * self.weights_decay
+        alpha_batch = -self.learning_rate / batch_size
+        alpha_lambda = -self.learning_rate * self.weights_decay
+
+        self.cl_const[0] = alpha_batch
+        self.cl_const[1] = alpha_lambda
         self.cl_const[2] = self.gradient_moment
         self.krn_weights_.set_args(None, None, None, None, self.cl_const[0:1],
                                    self.cl_const[1:2], self.cl_const[2:3])
@@ -216,8 +228,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
 
         # bias
-        self.cl_const[0] = -self.learning_rate_bias / batch_size
-        self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
+        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
+
+        self.cl_const[0] = alpha_batch
+        self.cl_const[1] = alpha_lambda
         self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_args(None, None, None, self.cl_const[0:1],
                                 self.cl_const[1:2], self.cl_const[2:3])

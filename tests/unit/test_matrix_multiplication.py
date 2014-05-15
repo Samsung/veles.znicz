@@ -18,8 +18,8 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
-import veles.znicz  # pylint: disable=W0611
 from veles.tests.dummy_workflow import DummyWorkflow
+import veles.znicz
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -44,6 +44,10 @@ class TestMatrixMultiplication(unittest.TestCase):
         bias = numpy.empty(self.bias.v.shape, dtype=dtype)
         bias[:] = self.bias.v[:]
         c = numpy.empty(self.c[0].shape, dtype=dtype)
+        if self.a_col:
+            a = a.transpose()
+        if self.b_col:
+            b = b.transpose()
         numpy.dot(a, b, c)
         c[:] += bias
         c *= 0.6666
@@ -52,28 +56,38 @@ class TestMatrixMultiplication(unittest.TestCase):
         return c
 
     def _prepare_tsts(self, BLOCK_SIZE,
-                      dtype=opencl_types.dtypes[root.common.dtype],
-                      AB_WIDTH=1371, B_HEIGHT=11735, A_HEIGHT=171):
+                      AB_WIDTH, B_HEIGHT, A_HEIGHT, a_col, b_col):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
         self.A_HEIGHT = A_HEIGHT
+        self.a_col = a_col
+        self.b_col = b_col
 
         self.a = formats.Vector()
-        self.a.v = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH], dtype=dtype)
+        self.a.v = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
+                               dtype=self.dtype)
         rnd.get().fill(self.a.v, -0.1, 0.1)
-        self.a.v = self.a.v.reshape([self.A_HEIGHT, self.AB_WIDTH])
+        if a_col:
+            self.a.v.shape = (self.AB_WIDTH, self.A_HEIGHT)
+        else:
+            self.a.v.shape = (self.A_HEIGHT, self.AB_WIDTH)
 
         self.b = formats.Vector()
-        self.b.v = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH], dtype=dtype)
+        self.b.v = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
+                               dtype=self.dtype)
         rnd.get().fill(self.b.v, -0.1, 0.1)
-        self.b.v = self.b.v.reshape([self.B_HEIGHT, self.AB_WIDTH])
+        if b_col:
+            self.b.v.shape = (self.AB_WIDTH, self.B_HEIGHT)
+        else:
+            self.b.v.shape = (self.B_HEIGHT, self.AB_WIDTH)
 
         self.bias = formats.Vector()
-        self.bias.v = numpy.zeros([self.B_HEIGHT], dtype=dtype)
+        self.bias.v = numpy.zeros([self.B_HEIGHT], dtype=self.dtype)
         rnd.get().fill(self.bias.v, -0.1, 0.1)
 
         self.c = formats.Vector()
-        self.c.v = numpy.zeros([2, self.A_HEIGHT, self.B_HEIGHT], dtype=dtype)
+        self.c.v = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
+                              dtype=self.dtype)
 
     def _cleanup_after_tsts(self):
         del(self.c)
@@ -84,7 +98,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         del(self.B_HEIGHT)
         del(self.AB_WIDTH)
 
-    def _do_test(self, device, BLOCK_SIZE):
+    def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
         self.a.initialize(device)
@@ -102,8 +116,13 @@ class TestMatrixMultiplication(unittest.TestCase):
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
             "BATCH": self.A_HEIGHT}
-        obj.build_program(defines, os.path.join(root.common.cache_dir,
-                                                "test.cl"))
+        if self.a_col:
+            defines["A_COL"] = 1
+        if self.b_col:
+            defines["B_COL"] = 1
+        obj.build_program(
+            defines, os.path.join(root.common.cache_dir, "test.cl"),
+            dtype=self.dtype, show_ocl_logs=False)
 
         krn = obj.get_kernel("feed_layer")
         krn.set_arg(0, self.a.v_)
@@ -115,45 +134,64 @@ class TestMatrixMultiplication(unittest.TestCase):
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
 
-        self.device.queue_.execute_kernel(global_size, local_size, krn).wait()
+        event = self.device.queue_.execute_kernel(krn, global_size, local_size)
+        event.wait()
 
         self.c.map_read()
 
-    def test_matrix_multiplication(self):
-        self.rnd = rnd.RandomGenerator("test")
-        self.rnd.seed("/dev/urandom", dtype=numpy.int32, count=1024)
-        block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
-        N = 1000
+    def _tst_matrix_multiplication(self, block_size):
+        N = 500
         logging.info("Will test %d matrix multiplications "
-                     "with BLOCK_SIZE = %d" % (N, block_size))
+                     "with BLOCK_SIZE = %d, dtype=%s" %
+                     (N // 22, block_size, str(self.dtype)))
         j = 0
-        for i in range(0, N, 29):
-            AB_WIDTH = self.rnd.randint(1, ((i // 10) + 1) * 100)
-            B_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
-            A_HEIGHT = self.rnd.randint(1, ((i // 10) + 1) * 10)
+        for i in range(0, N, 22):
+            AB_WIDTH = rnd.get().randint(1, ((i // 10) + 1) * 100)
+            B_HEIGHT = rnd.get().randint(1, ((i // 10) + 1) * 10)
+            A_HEIGHT = rnd.get().randint(1, ((i // 10) + 1) * 10)
             if j % 2 == 0:
                 AB_WIDTH = formats.roundup(AB_WIDTH, block_size)
                 B_HEIGHT = formats.roundup(B_HEIGHT, block_size)
                 A_HEIGHT = formats.roundup(A_HEIGHT, block_size)
+            if j % 4 == 0:
+                a_col = False
+                b_col = False
+            elif j % 4 == 1:
+                a_col = True
+                b_col = False
+            elif j % 4 == 2:
+                a_col = False
+                b_col = True
+            else:
+                a_col = True
+                b_col = True
             j += 1
             logging.info("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
                          (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
                           A_HEIGHT, B_HEIGHT))
-            self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
-                               B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
+            self._prepare_tsts(BLOCK_SIZE=block_size, AB_WIDTH=AB_WIDTH,
+                               B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT,
+                               a_col=a_col, b_col=b_col)
             c = self._do_cpu_tst()
-            self._do_test(self.device, block_size)
+            self._do_tst(self.device, block_size)
             max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
-            num_nz = numpy.count_nonzero(self.c[1].ravel())
+            num_nz = numpy.count_nonzero(self.c[1].ravel() - 1)
             self.assertEqual(
                 num_nz, 0,
                 "Written some values outside of the target array bounds")
             self._cleanup_after_tsts()
 
+    def test(self):
+        #opt_block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
+        for dtype in (numpy.float32, numpy.float64):
+            self.dtype = dtype
+            for block_size in range(8, 32):
+                self._tst_matrix_multiplication(block_size)
+
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
