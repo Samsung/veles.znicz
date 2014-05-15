@@ -18,6 +18,7 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
+import veles.znicz
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
@@ -120,7 +121,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.map_read()
 
     def test_matrix_multiplication(self):
-        self.rnd = rnd.Rand()
+        self.rnd = rnd.RandomGenerator("test")
         self.rnd.seed("/dev/urandom", dtype=numpy.int32, count=1024)
         block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         N = 1000
