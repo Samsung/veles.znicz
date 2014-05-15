@@ -19,17 +19,15 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.plotting_units as plotting_units
 from enum import IntEnum
 
-train = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/learn"
-valid = "/data/veles/Lines/FIGURES_500_NOISE_BLUR_min_valid/test"
+train = "/data/veles/Lines/Grid/learn"
+valid = "/data/veles/Lines/Grid/test"
 
-root.model = "lines"
+root.model = "grid"
 
-root.defaults = {"all2all_relu": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.05},
-                 "conv_relu":  {"weights_filling": "gaussian",
-                                "weights_stddev": 0.001},
-                 "decision": {"fail_iterations": 100,
+root.defaults = {"decision": {"fail_iterations": 100,
                               "snapshot_prefix": "lines"},
+                 "loader": {"minibatch_maxsize": 60},
+                 "weights_plotter": {"limit": 32},
                  "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
                                                "tmp %s/test" % root.model),
@@ -38,22 +36,45 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                                root.model),
                                   os.path.join(root.common.cache_dir,
                                                "tmp %s/train" % root.model)]},
-                 "loader": {"minibatch_maxsize": 60},
-                 "weights_plotter": {"limit": 32},
-                 "lines": {"learning_rate": 0.01,
-                           "weights_decay": 0.0,
+                 "lines": {"learning_rate": 0.01, "weights_decay": 0.0,
                            "layers":
                            [{"type": "conv_relu", "n_kernels": 32,
-                             "kx": 11, "ky": 11, "sliding": (4, 4),
-                             "padding": (0, 0, 0, 0)},
+                             "kx": 13, "ky": 13,
+                             "sliding": (2, 2), "padding": (1, 1, 1, 1),
+                             "learning_rate": 0.01, "learning_rate_bias": 0.02,
+                             "gradient_moment": 0.9,
+                             "weights_filling": "gaussian",
+                             "weights_stddev": 0.0001,
+                             "bias_filling": "constant", "bias_stddev": 0.0001,
+                             "weights_decay": 0.0, "weights_decay_bias": 0.0},
                             {"type": "max_pooling",
+                             "kx": 5, "ky": 5, "sliding": (2, 2)},
+                            {"type": "avg_pooling",
+                             "kx": 5, "ky": 5, "sliding": (2, 2)},
+                            {"type": "norm",
+                             "alpha": 0.00005, "beta": 0.75, "n": 3},
+                            {"type": "conv_relu", "n_kernels": 32,
+                             "kx": 7, "ky": 7,
+                             "sliding": (1, 1), "padding": (2, 2, 2, 2),
+                             "learning_rate": 0.01, "learning_rate_bias": 0.02,
+                             "gradient_moment": 0.9,
+                             "weights_filling": "gaussian",
+                             "weights_stddev": 0.01,
+                             "bias_filling": "constant", "bias_stddev": 0.01,
+                             "weights_decay": 0.0, "weights_decay_bias": 0.0},
+                            {"type": "avg_pooling",
                              "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            {"type": "all2all_relu", "output_shape": 32},
-                            {"type": "softmax", "output_shape": 11}],
+                            {"type": "norm",
+                             "alpha": 0.00005, "beta": 0.75, "n": 3},
+                            {"type": "softmax", "output_shape": 6,
+                             "gradient_moment": 0.9,
+                             "weights_filling": "uniform",
+                             "weights_stddev": 0.05,
+                             "bias_filling": "constant", "bias_stddev": 0.05,
+                             "learning_rate": 0.01, "learning_rate_bias": 0.02,
+                             "weights_decay": 1, "weights_decay_bias": 0}],
                            "path_for_load_data": {"validation": valid,
-                                                  "train": train}},
-                 "softmax": {"weights_filling": "uniform",
-                             "weights_stddev": 0.05}}
+                                                  "train": train}}}
 
 
 class ImageLabel(IntEnum):
