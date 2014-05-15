@@ -18,7 +18,7 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
-import veles.znicz
+import veles.znicz  # pylint: disable=W0611
 from veles.tests.dummy_workflow import DummyWorkflow
 
 

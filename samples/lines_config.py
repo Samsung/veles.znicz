@@ -25,13 +25,13 @@ root.update = {"decision": {"fail_iterations": 100,
                "loader": {"minibatch_maxsize": 60},
                "weights_plotter": {"limit": 32},
                "image_saver": {"out_dirs":
-                                 [os.path.join(root.common.cache_dir,
-                                               "tmp %s/test" % root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/validation" %
-                                               root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/train" % root.model)]},
+                               [os.path.join(root.common.cache_dir,
+                                             "tmp %s/test" % root.model),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp %s/validation" %
+                                             root.model),
+                                os.path.join(root.common.cache_dir,
+                                             "tmp %s/train" % root.model)]},
                "lines": {"learning_rate": 0.01,
                          "weights_decay": 0.0,
                          "layers":
