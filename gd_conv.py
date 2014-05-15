@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
-from prettytable import PrettyTable
+from veles.external.prettytable import PrettyTable
 import time
 
 from veles.config import root
@@ -251,9 +251,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.weights.unmap()
 
         # Clear the resulting matrix
-        event = self.execute_kernel(
-            self.krn_err_input_clear_, [self.err_input.v.size], None)
-        event.wait()
+        self.execute_kernel([self.err_input.v.size], None,
+                            self.krn_err_input_clear_).wait()
 
         batch_size = self.input.v.shape[0]
         sy = self.input.v.shape[1]

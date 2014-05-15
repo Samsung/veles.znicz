@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import logging
-from prettytable import PrettyTable
+from veles.external.prettytable import PrettyTable
 import time
 
 from veles.config import root
