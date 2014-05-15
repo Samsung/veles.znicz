@@ -270,9 +270,12 @@ class Conv(nn_units.Forward):
                               min(max(x2 - self.padding[0], 0), self._sx))
                     if i2 - i1 > 0 or j2 - j1 > 0:
                         cut = self.input.v[batch, i1:i2, j1:j2]
-                        assert(cut.size == kernel.size)
+                        kernel_2d = kernel.reshape(self.ky, self.kx)
+                        cutted_kernel = kernel_2d[(i1 - y1):(i2 - y1),
+                                                  (j1 - x1):(j2 - x1)]
+                        assert(cut.size == cutted_kernel.size)
                         conv = numpy.sum(numpy.multiply(cut.ravel(),
-                                                        kernel.ravel()))
+                                                        cutted_kernel.ravel()))
                         self.output.v[batch, i, j, k] = conv
 
                         # add bias and apply activation function
