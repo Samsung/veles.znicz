@@ -83,7 +83,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         del(self.B_HEIGHT)
         del(self.AB_WIDTH)
 
-    def _do_tst(self, device, BLOCK_SIZE):
+    def _do_test(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
         self.a.initialize(device)
@@ -142,7 +142,7 @@ class TestMatrixMultiplication(unittest.TestCase):
             self._prepare_tsts(block_size, AB_WIDTH=AB_WIDTH,
                                B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT)
             c = self._do_cpu_tst()
-            self._do_tst(self.device, block_size)
+            self._do_test(self.device, block_size)
             max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))

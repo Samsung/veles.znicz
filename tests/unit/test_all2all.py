@@ -67,7 +67,7 @@ class TestAll2All(unittest.TestCase):
                         "Result differs by %.6f" % (max_diff))
         logging.info("All Ok")
 
-    def _do_tst(self, device, Unit):
+    def _do_test(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([101, 235], dtype=dtype)
@@ -97,8 +97,8 @@ class TestAll2All(unittest.TestCase):
         return c.output.v
 
     def _do_gpu_cpu(self, Unit):
-        y_gpu = self._do_tst(self.device, Unit)
-        y_cpu = self._do_tst(None, Unit)
+        y_gpu = self._do_test(self.device, Unit)
+        y_cpu = self._do_test(None, Unit)
         max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))

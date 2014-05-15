@@ -30,7 +30,7 @@ class TestGD(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def _do_tst(self, device, Unit):
+    def _do_test(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.v = numpy.empty([5, 5], dtype=dtype)
@@ -88,8 +88,8 @@ class TestGD(unittest.TestCase):
         return c.err_input.v
 
     def _do_test_gpu_cpu(self, Unit):
-        output_gpu = self._do_tst(self.device, Unit)
-        output_cpu = self._do_tst(None, Unit)
+        output_gpu = self._do_test(self.device, Unit)
+        output_cpu = self._do_test(None, Unit)
         max_diff = numpy.fabs(output_gpu.ravel() - output_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))

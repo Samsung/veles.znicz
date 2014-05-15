@@ -25,7 +25,7 @@ class TestInputJoiner(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def _do_tst(self, device):
+    def _do_test(self, device):
         a = formats.Vector()
         a.v = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
         b = formats.Vector()
@@ -114,11 +114,11 @@ class TestInputJoiner(unittest.TestCase):
 
     def testGPU(self):
         logging.info("Will test InputJoiner() on GPU.")
-        self._do_tst(self.device)
+        self._do_test(self.device)
 
     def testCPU(self):
         logging.info("Will test InputJoiner() on CPU.")
-        self._do_tst(None)
+        self._do_test(None)
 
     def testGPU2(self):
         logging.info("Will test InputJoiner() on GPU "
