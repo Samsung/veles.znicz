@@ -113,10 +113,10 @@ class LRNormalizerBackward(LocalResponseNormalizer):
     Backward-propagation for local response normalization.
     """
     def __init__(self, workflow, **kwargs):
-        self.y = None  # output of forward layer
-        self.h = None  # input of forward layer
-        self.err_y = None  # output error of fwd layer, our input error
-        self.err_h = formats.Vector()  # input error of fwd layer, our output
+        self.output = None  # output of forward layer
+        self.input = None  # input of forward layer
+        self.err_output = None  # output error of fwd layer, our input error
+        self.err_input = formats.Vector()  # input error of fwd layer, our output
 
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
@@ -126,63 +126,65 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
-        self.err_h.v = np.ndarray(shape=self.err_y.v.shape,
-                                  dtype=self.err_y.v.dtype)
+        self.err_input.v = np.ndarray(shape=self.err_output.v.shape,
+                                  dtype=self.err_output.v.dtype)
 
-        self.err_y.initialize(self.device)
-        self.h.initialize(self.device)
-        self.err_h.initialize(self.device)
+        self.err_output.initialize(self.device)
+        self.input.initialize(self.device)
+        self.err_input.initialize(self.device)
 
-        self._num_of_chans = self.h.v.shape[3]
+        self._num_of_chans = self.input.v.shape[3]
 
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
-        self.build_program(defines, dtype=self.h.v.dtype)
+        self.build_program(defines, dtype=self.input.v.dtype)
         self.assign_kernel("backward")
-        self.set_args(self.err_y, self.h, self.err_h)
+        self.set_args(self.err_output, self.input, self.err_input)
 
-        self._global_size_ = [self.err_h.v.size // self._num_of_chans]
+        self._global_size_ = [self.err_input.v.size // self._num_of_chans]
         self._local_size_ = None
 
     def cpu_run(self):
-        self.err_h.map_invalidate()
-        self.err_y.map_read()
-        self.h.map_read()
+        self.err_input.map_invalidate()
+        self.err_output.map_read()
+        self.input.map_read()
 
-        assert len(self.h.v.shape) == 4
-        assert self.h.v.shape == self.err_y.v.shape
+        assert len(self.input.v.shape) == 4
+        assert self.input.v.shape == self.err_output.v.shape
 
-        num_of_chans = self.h.v.shape[3]
-        self.err_h.v = np.zeros(shape=self.h.v.shape, dtype=np.float64)
+        num_of_chans = self.input.v.shape[3]
+        self.err_input.v = np.zeros(shape=self.input.v.shape, dtype=np.float64)
 
-        h_squared = np.square(self.h.v)
+        input_squared = np.square(self.input.v)
 
-        h_subsums = self._subsums(h_squared, self.n)
+        input_subsums = self._subsums(input_squared, self.n)
 
-        h_subsums *= self.alpha
-        h_subsums += self.k
+        input_subsums *= self.alpha
+        input_subsums += self.k
 
-        h_subsums_powered = np.power(h_subsums, (self.beta + 1))
+        input_subsums_powered = np.power(input_subsums, (self.beta + 1))
 
-        delta_h = self.err_h.v
-        delta_y = self.err_y.v
+        delta_input = self.err_input.v
+        delta_output = self.err_output.v
 
         for i in range(num_of_chans):
             min_index = max(0, i - int(self.n / 2))
             max_index = min(i + int(self.n / 2), num_of_chans - 1)
 
-            dh = np.zeros(dtype=np.float64, shape=delta_h[:, :, :, i].shape)
+            dh = np.zeros(dtype=np.float64,
+                          shape=delta_input[:, :, :, i].shape)
             for j in range(min_index, max_index + 1):
                 if i == j:
-                    dh += h_subsums[:, :, :, j]
-                dh -= (2 * self.beta * self.alpha * self.h.v[:, :, :, i] *
-                       self.h.v[:, :, :, j])
-                dh *= delta_y[:, :, :, j] / h_subsums_powered[:, :, :, j]
-            delta_h[:, :, :, i] += dh
+                    dh += input_subsums[:, :, :, j]
+                dh -= (2 * self.beta * self.alpha * self.input.v[:, :, :, i] *
+                       self.input.v[:, :, :, j])
+                dh *= (delta_output[:, :, :, j] /
+                       input_subsums_powered[:, :, :, j])
+            delta_input[:, :, :, i] += dh
 
     def ocl_run(self):
-        self.err_y.unmap()
-        self.h.unmap()
-        self.err_h.unmap()
+        self.err_output.unmap()
+        self.input.unmap()
+        self.err_input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_).wait()
