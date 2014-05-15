@@ -15,7 +15,7 @@ import pickle
 import re
 import six
 
-from veles.config import root, get
+from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types

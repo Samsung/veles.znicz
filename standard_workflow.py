@@ -7,7 +7,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-from veles.config import root
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
