@@ -122,14 +122,10 @@ class EvaluatorSoftmax(OpenCLUnit):
                                (self.output.v.size // self.output.v.shape[0]),
                                dtype=self.output.v.dtype)
 
-            self.krn_ = self.get_kernel("ev_sm")
-            self.krn_.set_arg(0, self.output.v_)
-            self.krn_.set_arg(1, self.max_idx.v_)
-            self.krn_.set_arg(2, self.labels.v_)
-            self.krn_.set_arg(3, self.err_output.v_)
-            self.krn_.set_arg(4, self.n_err.v_)
-            self.krn_.set_arg(5, self.confusion_matrix.v_)
-            self.krn_.set_arg(6, self.max_err_output_sum.v_)
+            self.assign_kernel("ev_sm")
+            self.set_args(self.output, self.max_idx, self.labels,
+                          self.err_output, self.n_err, self.confusion_matrix,
+                          self.max_err_output_sum)
 
     def ocl_run(self):
         self.err_output.unmap()
@@ -141,12 +137,12 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.max_err_output_sum.unmap()
 
         self.krn_constants_i_[0] = self.batch_size
-        self.krn_.set_arg(7, self.krn_constants_i_[0:1])
+        self.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
         global_size = [local_size[0]]
-        event = self.execute_kernel(self.krn_, global_size, local_size)
+        event = self.execute_kernel(global_size, local_size)
         event.wait()
 
     def cpu_run(self):
@@ -298,19 +294,15 @@ class EvaluatorMSE(OpenCLUnit):
                                (self.output.v.size // self.output.v.shape[0]),
                                dtype=self.output.v.dtype)
 
-            self.krn_ = self.get_kernel("ev_mse")
-            self.krn_.set_arg(0, self.output.v_)
-            self.krn_.set_arg(1, self.target.v_)
-            self.krn_.set_arg(2, self.err_output.v_)
-            self.krn_.set_arg(3, self.metrics.v_)
-            self.krn_.set_arg(4, self.mse.v_)
+            self.assign_kernel("ev_mse")
+            self.set_args(self.output, self.target, self.err_output,
+                          self.metrics, self.mse.v_)
 
             if self.labels is not None and self.class_target is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
-                self.krn_find_closest_.set_arg(0, self.output.v_)
-                self.krn_find_closest_.set_arg(1, self.class_target.v_)
-                self.krn_find_closest_.set_arg(2, self.labels.v_)
-                self.krn_find_closest_.set_arg(3, self.n_err.v_)
+                self.krn_find_closest_.set_args(
+                    self.output.v_, self.class_target.v_, self.labels.v_,
+                    self.n_err.v_)
 
     def ocl_run(self):
         self.err_output.unmap()
@@ -321,12 +313,12 @@ class EvaluatorMSE(OpenCLUnit):
 
         batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
-        self.krn_.set_arg(5, self.krn_constants_i_[0:1])
+        self.set_arg(5, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
         global_size = [local_size[0]]
-        event = self.execute_kernel(self.krn_, global_size, local_size)
+        event = self.execute_kernel(global_size, local_size)
         event.wait()
 
         # Do the following part on CPU (GPU version not implemented currently)
@@ -334,9 +326,8 @@ class EvaluatorMSE(OpenCLUnit):
             self.class_target.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            event = self.execute_kernel(self.krn_find_closest_,
-                                        [batch_size], None)
-            event.wait()
+            self.execute_kernel([batch_size], None,
+                                self.krn_find_closest_).wait()
 
     def cpu_run(self):
         raise error.ErrNotImplemented()

@@ -50,7 +50,6 @@ class Conv(nn_units.Forward):
         weights_stddev: StdDev of normal weight distributtion
 
         rand: rnd.Rand() object for initial weights generation.
-        krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
@@ -78,7 +77,6 @@ class Conv(nn_units.Forward):
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
         self.cl_sources_["conv.cl"] = {}
-        self.krn_ = None
 
     def get_weights_magnitude(self):
         """
@@ -176,37 +174,33 @@ class Conv(nn_units.Forward):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            defines = {
-                self.s_activation: 1,
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-                'BATCH': self._batch_size,
-                'SX': self._sx,
-                'SY': self._sy,
-                'N_CHANNELS': self._n_channels,
-                'KX': self.kx,
-                'KY': self.ky,
-                'N_KERNELS': self.n_kernels,
-                'PAD_LEFT': self.padding[0],
-                'PAD_TOP': self.padding[1],
-                'PAD_RIGHT': self.padding[2],
-                'PAD_BOTTOM': self.padding[3],
-                'SLIDE_X': self.sliding[0],
-                'SLIDE_Y': self.sliding[1]
-            }
-            if self.weights_transposed:
-                defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
-                root.common.cache_dir, self._sx, self._sy, self._n_channels,
-                self.kx, self.ky, self.n_kernels),
-                dtype=self.input.v.dtype)
+        defines = {
+            self.s_activation: 1,
+            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
+            'BATCH': self._batch_size,
+            'SX': self._sx,
+            'SY': self._sy,
+            'N_CHANNELS': self._n_channels,
+            'KX': self.kx,
+            'KY': self.ky,
+            'N_KERNELS': self.n_kernels,
+            'PAD_LEFT': self.padding[0],
+            'PAD_TOP': self.padding[1],
+            'PAD_RIGHT': self.padding[2],
+            'PAD_BOTTOM': self.padding[3],
+            'SLIDE_X': self.sliding[0],
+            'SLIDE_Y': self.sliding[1]
+        }
+        if self.weights_transposed:
+            defines['WEIGHTS_TRANSPOSED'] = 1
+        self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
+            root.common.cache_dir, self._sx, self._sy, self._n_channels,
+            self.kx, self.ky, self.n_kernels),
+            dtype=self.input.v.dtype)
 
-            self.krn_ = self.get_kernel("feed_layer")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.weights.v_)
-            self.krn_.set_arg(2, self.output.v_)
-            self.krn_.set_arg(3, self.bias.v_)
+        self.assign_kernel("feed_layer")
+        self.set_args(self.input, self.weights, self.output, self.bias)
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -245,8 +239,7 @@ class Conv(nn_units.Forward):
                        formats.roundup(self.output.v.size // self.n_kernels,
                                        block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_, global_size, local_size)
-        event.wait()
+        self.execute_kernel(global_size, local_size).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -262,9 +255,9 @@ class Conv(nn_units.Forward):
         ny = (sy_full - self.ky) // self.sliding[1] + 1
 
         assert(self.kx >= 0 and self.ky >= 0)
-        for batch, ch in ((batch, ch)
-                          for batch in range(self._batch_size)
-                          for ch in range(self._n_channels)):
+        for batch, _ in ((batch, ch)
+                         for batch in range(self._batch_size)
+                         for ch in range(self._n_channels)):
             for k, kernel in enumerate(self.weights.v):
                 for i, j in ((i, j) for i in range(ny) for j in range(nx)):
                     y1, y2 = (i * self.sliding[1],

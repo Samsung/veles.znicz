@@ -85,9 +85,8 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
-            ev = self.device.queue_.execute_kernel(krn, global_size,
-                                                   local_size)
-            ev.wait()
+            self.device.queue_.execute_kernel(global_size, local_size,
+                                              krn).wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t).max()
             self.assertLess(max_diff, 0.0001,
@@ -123,9 +122,8 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
             local_size = [reduce_size]
-            ev = self.device.queue_.execute_kernel(krn, global_size,
-                                                   local_size)
-            ev.wait()
+            self.device.queue_.execute_kernel(global_size, local_size,
+                                              krn).wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[1]] - t_col).max()
             self.assertLess(max_diff, 0.0003,  # in case of float
@@ -140,9 +138,8 @@ class TestMatrixReduce(unittest.TestCase):
                                       reduce_size)
             global_size = [a.v.shape[0] * reduce_size]
             local_size = [reduce_size]
-            ev = self.device.queue_.execute_kernel(krn, global_size,
-                                                   local_size)
-            ev.wait()
+            self.device.queue_.execute_kernel(global_size, local_size,
+                                              krn).wait()
             b.map_write()
             max_diff = numpy.fabs(b[:a.v.shape[0]] - t).max()
             self.assertLess(max_diff, 0.0003,  # in case of float

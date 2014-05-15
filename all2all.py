@@ -37,7 +37,6 @@ class All2All(nn_units.Forward):
         weights: matrix of weights.
         bias: bias.
         output_shape: shape of the output layer (may be Vector).
-        krn_: OpenCL kernel.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
 
@@ -57,7 +56,6 @@ class All2All(nn_units.Forward):
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
         self.cl_sources_["forward.cl"] = {}
-        self.krn_ = None
 
     def get_weights_magnitude(self):
         """
@@ -135,26 +133,22 @@ class All2All(nn_units.Forward):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            defines = {
-                self.s_activation: 1,
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-                'H': self.weights.v.size // output_size,
-                'Y': output_size,
-                'BATCH': self.output.v.shape[0]}
-            if self.weights_transposed:
-                defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "feed_%d_%d.cl" %
-                               (self.input.v.size // self.input.v.shape[0],
-                                output_size),
-                               dtype=self.input.v.dtype)
+        defines = {
+            self.s_activation: 1,
+            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
+            'H': self.weights.v.size // output_size,
+            'Y': output_size,
+            'BATCH': self.output.v.shape[0]}
+        if self.weights_transposed:
+            defines['WEIGHTS_TRANSPOSED'] = 1
+        self.build_program(defines, "feed_%d_%d.cl" %
+                           (self.input.v.size // self.input.v.shape[0],
+                            output_size),
+                           dtype=self.input.v.dtype)
 
-            self.krn_ = self.get_kernel("feed_layer")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.weights.v_)
-            self.krn_.set_arg(2, self.output.v_)
-            self.krn_.set_arg(3, self.bias.v_)
+        self.assign_kernel("feed_layer")
+        self.set_args(self.input, self.weights, self.output, self.bias)
 
         output_size = int(self.output.v.size // self.output.v.shape[0])
         block_size = self.device.device_info.BLOCK_SIZE[
@@ -196,8 +190,7 @@ class All2All(nn_units.Forward):
         self.weights.unmap()
         self.bias.unmap()
 
-        self.execute_kernel(self.krn_, self._global_size_,
-                            self._local_size_).wait()
+        self.execute_kernel(self._global_size_, self._local_size_).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -310,8 +303,7 @@ class All2AllSoftmax(All2All):
             return
 
         self.krn_sm_ = self.get_kernel("apply_exp")
-        self.krn_sm_.set_arg(0, self.output.v_)
-        self.krn_sm_.set_arg(1, self.max_idx.v_)
+        self.krn_sm_.set_args(self.output.v_, self.max_idx.v_)
 
     def cpu_apply_exp(self):
         self.output.map_write()
@@ -333,7 +325,7 @@ class All2AllSoftmax(All2All):
             opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
         global_size = [self.output.v.shape[0] * block_size]
         local_size = [block_size]
-        event = self.execute_kernel(self.krn_sm_, global_size, local_size)
+        event = self.execute_kernel(global_size, local_size, self.krn_sm_)
         event.wait()
 
     def cpu_run(self):

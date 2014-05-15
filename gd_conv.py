@@ -167,20 +167,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.krn_err_input_clear_.set_arg(0, self.err_input.v_)
 
             self.krn_err_input_ = self.get_kernel("err_h_update")
-            self.krn_err_input_.set_arg(0, self.err_output.v_)
-            self.krn_err_input_.set_arg(1, self.weights.v_)
-            self.krn_err_input_.set_arg(2, self.err_input.v_)
+            self.krn_err_input_.set_args(self.err_output.v_, self.weights.v_,
+                                         self.err_input.v_)
 
             self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_arg(0, self.err_output.v_)
-            self.krn_weights_.set_arg(1, self.input.v_)
-            self.krn_weights_.set_arg(2, self.weights.v_)
-            self.krn_weights_.set_arg(3, self.gradient_weights.v_)
+            self.krn_weights_.set_args(self.err_output.v_, self.input.v_,
+                                       self.weights.v_,
+                                       self.gradient_weights.v_)
 
             self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_arg(0, self.err_output.v_)
-            self.krn_bias_.set_arg(1, self.bias.v_)
-            self.krn_bias_.set_arg(2, self.gradient_bias.v_)
+            self.krn_bias_.set_args(self.err_output.v_, self.bias.v_,
+                                    self.gradient_bias.v_)
 
     def gpu_weights_update(self):
         self.input.unmap()
@@ -200,9 +197,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
-        self.krn_weights_.set_arg(4, self.cl_const[0:1])
-        self.krn_weights_.set_arg(5, self.cl_const[1:2])
-        self.krn_weights_.set_arg(6, self.cl_const[2:3])
+        self.krn_weights_.set_args(None, None, None, None, self.cl_const[0:1],
+                                   self.cl_const[1:2], self.cl_const[2:3])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_output.v.dtype)]
         if self.weights_transposed:
@@ -216,18 +212,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                 block_size),
                 formats.roundup(self.n_kernels, block_size)]
         local_size = [block_size, block_size]
-        ev1 = self.execute_kernel(self.krn_weights_, global_size, local_size)
+        ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
 
         # bias
         self.cl_const[0] = -self.learning_rate_bias / batch_size
         self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
         self.cl_const[2] = self.gradient_moment_bias
-        self.krn_bias_.set_arg(3, self.cl_const[0:1])
-        self.krn_bias_.set_arg(4, self.cl_const[1:2])
-        self.krn_bias_.set_arg(5, self.cl_const[2:3])
+        self.krn_bias_.set_args(None, None, None, self.cl_const[0:1],
+                                self.cl_const[1:2], self.cl_const[2:3])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
-        ev2 = self.execute_kernel(self.krn_bias_, global_size, local_size)
+        ev2 = self.execute_kernel(global_size, local_size, self.krn_bias_)
 
         ev1.wait()
         ev2.wait()
@@ -261,8 +256,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                  self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
-        event = self.execute_kernel(self.krn_err_input_, global_size,
-                                    local_size)
+        event = self.execute_kernel(global_size, local_size,
+                                    self.krn_err_input_)
         event.wait()
 
     def print_times(self, t_start):
@@ -302,8 +297,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             return
         self.output.unmap()
         self.err_output.unmap()
-        ev = self.execute_kernel(self.krn_err_output_,
-                                 [self.err_output.v.size], None)
+        ev = self.execute_kernel([self.err_output.v.size], None,
+                                 self.krn_err_output_)
         ev.wait()
 
     def ocl_run(self):
@@ -345,8 +340,7 @@ class GDTanhConv(GradientDescentConv):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_arg(0, self.err_output.v_)
-        self.krn_err_output_.set_arg(1, self.output.v_)
+        self.krn_err_output_.set_args(self.err_output.v_, self.output.v_)
 
 
 class GDRELUConv(GradientDescentConv):
@@ -370,5 +364,4 @@ class GDRELUConv(GradientDescentConv):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_arg(0, self.err_output.v_)
-        self.krn_err_output_.set_arg(1, self.output.v_)
+        self.krn_err_output_.set_args(self.err_output.v_, self.output.v_)

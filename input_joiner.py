@@ -51,7 +51,6 @@ class InputJoiner(OpenCLUnit):
     def init_unpickled(self):
         super(InputJoiner, self).init_unpickled()
         self.cl_sources_["join.cl"] = {}
-        self.krn_ = None
 
     def initialize(self, **kwargs):
         if not len(self.inputs):
@@ -90,17 +89,16 @@ class InputJoiner(OpenCLUnit):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            defines = {
-                'etype':
-                opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
-            }
-            self.build_program(
-                defines, "join_%s.cl" %
-                "_".join(str(x) for x in self.output_sample_shape))
+        defines = {
+            'etype':
+            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
+        }
+        self.build_program(
+            defines, "join_%s.cl" %
+            "_".join(str(x) for x in self.output_sample_shape))
 
-            self.krn_ = self.get_kernel("join2")
-            self.krn_.set_arg(0, self.output.v_)
+        self.assign_kernel("join2")
+        self.set_args(self.output)
 
     def cpu_run(self):
         self.output.map_invalidate()  # we will update output on CPU
@@ -122,7 +120,7 @@ class InputJoiner(OpenCLUnit):
         low = 0
         output_sample_size = self.output.v.size // self.output.v.shape[0]
         self.cl_const[3] = output_sample_size
-        self.krn_.set_arg(6, self.cl_const[3:4])
+        self.set_arg(6, self.cl_const[3:4])
         a = None
         a_size = 0
         b = None
@@ -141,14 +139,10 @@ class InputJoiner(OpenCLUnit):
             self.cl_const[0] = a_size
             self.cl_const[1] = b_size
             self.cl_const[2] = low
-            self.krn_.set_arg(1, a.v_)
-            self.krn_.set_arg(2, b.v_)
-            self.krn_.set_arg(3, self.cl_const[0:1])
-            self.krn_.set_arg(4, self.cl_const[1:2])
-            self.krn_.set_arg(5, self.cl_const[2:3])
+            self.set_args(None, a, b, self.cl_const[0:1], self.cl_const[1:2],
+                          self.cl_const[2:3])
             global_size = [high - low, minibatch_size]
-            event = self.execute_kernel(self.krn_, global_size, None)
-            event.wait()
+            self.execute_kernel(global_size, None).wait()
             low = high
             a = None
             a_size = 0
@@ -161,11 +155,9 @@ class InputJoiner(OpenCLUnit):
                 self.cl_const[0] = a_size
                 self.cl_const[1] = b_size
                 self.cl_const[2] = low
-                self.krn_.set_arg(1, a.v_)
-                self.krn_.set_arg(2, b.v_ if b is not None else None)
-                self.krn_.set_arg(3, self.cl_const[0:1])
-                self.krn_.set_arg(4, self.cl_const[1:2])
-                self.krn_.set_arg(5, self.cl_const[2:3])
+                self.set_args(None, a, b, self.cl_const[0:1],
+                              self.cl_const[1:2], self.cl_const[2:3])
+                if b is None:
+                    self.set_arg(2, None)
                 global_size = [high - low, minibatch_size]
-                event = self.execute_kernel(self.krn_, global_size, None)
-                event.wait()
+                self.execute_kernel(global_size, None).wait()

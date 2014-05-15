@@ -123,15 +123,15 @@ class GDPooling(nn_units.GradientDescentBase):
         self.err_output.unmap()  # we will use err_output
 
         # Clear err_h
-        event = self.execute_kernel(self.krn_err_input_clear_,
-                                    [self.err_input.v.size], None)
+        event = self.execute_kernel([self.err_input.v.size], None,
+                                    self.krn_err_input_clear_)
         event.wait()
 
         # Compute err_h
         event = self.execute_kernel(
-            self.krn_err_input_,
             [(self.batch_size or self.err_output.v.shape[0]) *
-             (self.err_output.v.size // self.err_output.v.shape[0])], None)
+             (self.err_output.v.size // self.err_output.v.shape[0])], None,
+            self.krn_err_input_)
         event.wait()
 
     def cpu_run(self):
@@ -181,9 +181,8 @@ class GDMaxPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_max_pooling")
-            self.krn_err_input_.set_arg(0, self.err_output.v_)
-            self.krn_err_input_.set_arg(1, self.err_input.v_)
-            self.krn_err_input_.set_arg(2, self.input_offs.v_)
+            self.krn_err_input_.set_args(self.err_output.v_, self.err_input.v_,
+                                         self.input_offs.v_)
 
     def ocl_run(self):
         """Do gradient descent on OpenCL device.
@@ -233,8 +232,7 @@ class GDAvgPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_avg_pooling")
-            self.krn_err_input_.set_arg(0, self.err_output.v_)
-            self.krn_err_input_.set_arg(1, self.err_input.v_)
+            self.krn_err_input_.set_args(self.err_output.v_, self.err_input.v_)
 
     def cpu_run(self):
         self.err_output.map_read()

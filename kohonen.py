@@ -16,7 +16,7 @@ import veles.error as error
 
 
 class Kohonen(nn_units.Forward):
-    """Kohonen.
+    """Kohonen forward layer.
 
     Should be assigned before initialize():
         input
@@ -26,27 +26,20 @@ class Kohonen(nn_units.Forward):
 
     Creates within initialize():
         weights
-        bias
         output
 
     Attributes:
         input: input as batch of samples.
         output: output as batch of samples.
-        weights: matrix of weights.
-        bias: bias.
-        output_shape: shape of the output layer (may be Vector).
-        krn_: OpenCL kernel.
-        s_activation: activation define for OpenCL source.
+        shape: shape of the output layer (may be Vector).
         weights_transposed: assume weights matrix as a transposed one.
-
         weights_filling: rand weight filling
                          ("uniform" (default) or "gaussian")
         weights_stddev: magnitude of uniform weight distribution.
-        weights_stddev: StdDev of normal weight distributtion
     """
     def __init__(self, workflow, **kwargs):
         super(Kohonen, self).__init__(workflow, **kwargs)
-        self.output_shape = kwargs["output_shape"]
+        self._shape = kwargs["shape"]
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.weights_stddev = kwargs.get("weights_stddev", None)
         self.input = None
@@ -54,7 +47,10 @@ class Kohonen(nn_units.Forward):
     def init_unpickled(self):
         super(Kohonen, self).init_unpickled()
         self.cl_sources_["kohonen.cl"] = {}
-        self.krn_ = None
+
+    @property
+    def shape(self):
+        return self._shape
 
     def get_weights_magnitude(self):
         """
@@ -74,7 +70,7 @@ class Kohonen(nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(Kohonen, self).initialize(device=device, **kwargs)
 
-        output_size = int(numpy.prod(self.output_shape))
+        output_size = int(numpy.prod(self._shape))
 
         if self.weights_stddev is None:
             # Get weights magnitude and cap it to 0.05
@@ -110,27 +106,25 @@ class Kohonen(nn_units.Forward):
         self.input.initialize(self.device)
         self.output.initialize(self.device)
         self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
 
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            defines = {
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-                'BATCH': self.output.v.shape[0],
-                'SAMPLE_LENGTH': self.weights.v.size // output_size,
-                'NEURONS_NUMBER': output_size}
-            if self.weights_transposed:
-                defines['WEIGHTS_TRANSPOSED'] = 1
-            self.build_program(defines, "kohonen_%d_%d.cl" %
-                               (self.input.v.size // self.input.v.shape[0],
-                                output_size),
-                               dtype=self.input.v.dtype)
+        defines = {
+            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
+            'BATCH': self.output.v.shape[0],
+            'SAMPLE_LENGTH': self.weights.v.size // output_size,
+            'NEURONS_NUMBER': output_size}
+        if self.weights_transposed:
+            defines['WEIGHTS_TRANSPOSED'] = 1
+        self.build_program(defines, "kohonen_%d_%d.cl" %
+                           (self.input.v.size // self.input.v.shape[0],
+                            output_size),
+                           dtype=self.input.v.dtype)
 
-            self.krn_ = self.get_kernel("feed_layer")
-            self.krn_.set_args(self.input.v_, self.weights.v_, self.output.v_)
+        self.assign_kernel("feed_layer")
+        self.set_args(self.input, self.weights, self.output)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
@@ -146,8 +140,7 @@ class Kohonen(nn_units.Forward):
         self.input.unmap()
         self.weights.unmap()
 
-        self.execute_kernel(self.krn_, self._global_size_,
-                            self._local_size_).wait()
+        self.execute_kernel(self._global_size_, self._local_size_).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -371,19 +364,17 @@ class KohonenTrain(nn_units.GradientDescentBase):
         """
         batch_size = self.input.v.shape[0]
 
-        self.execute_kernel(self.krn_distance_, self._gs_distance,
-                            self._ls_distance).wait()
-        self.execute_kernel(self.krn_argmin_, [self.chunked_group_size],
-                            [self.chunked_group_size]).wait()
+        self.execute_kernel(self._gs_distance, self._ls_distance,
+                            self.krn_distance_).wait()
+        self.execute_kernel([self.chunked_group_size],
+                            [self.chunked_group_size], self.krn_argmin_).wait()
         self.ocl_consts_[0] = self.gravity_radius
         self.krn_gravity_.set_arg(2, self.ocl_consts_[0:1])
-        self.execute_kernel(self.krn_gravity_,
-                            [batch_size, self._neurons_number],
-                            None).wait()
+        self.execute_kernel([batch_size, self._neurons_number], None,
+                            self.krn_gravity_).wait()
         self.ocl_consts_[0] = self.gradient_multiplier
         self.krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
-        self.execute_kernel(self.krn_apply_gradient_,
-                            [self.chunked_group_size],
-                            None).wait()
+        self.execute_kernel([self.chunked_group_size], None,
+                            self.krn_apply_gradient_).wait()
 
     iteration = staticmethod(iteration)

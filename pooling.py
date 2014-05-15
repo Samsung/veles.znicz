@@ -34,7 +34,6 @@ class Pooling(nn_units.Forward):
         kx: pooling kernel width.
         ky: pooling kernel height.
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
-        krn_: OpenCL kernel.
     """
     def __init__(self, workflow, **kwargs):
         kx = kwargs.get("kx", 2)
@@ -52,7 +51,6 @@ class Pooling(nn_units.Forward):
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
         self.cl_sources_["pooling.cl"] = {}
-        self.krn_ = None
 
     def initialize(self, **kwargs):
         super(Pooling, self).initialize(**kwargs)
@@ -81,20 +79,19 @@ class Pooling(nn_units.Forward):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            defines = {
-                'SX': self._sx,
-                'SY': self._sy,
-                'N_CHANNELS': self._n_channels,
-                'KX': self.kx,
-                'KY': self.ky,
-                'SLIDE_X': self.sliding[0],
-                'SLIDE_Y': self.sliding[1]
-            }
-            self.build_program(
-                defines, "pooling_%dx%dx%d_%dx%d.cl" %
-                (self._sx, self._sy, self._n_channels,
-                 self.kx, self.ky), dtype=self.input.v.dtype)
+        defines = {
+            'SX': self._sx,
+            'SY': self._sy,
+            'N_CHANNELS': self._n_channels,
+            'KX': self.kx,
+            'KY': self.ky,
+            'SLIDE_X': self.sliding[0],
+            'SLIDE_Y': self.sliding[1]
+        }
+        self.build_program(
+            defines, "pooling_%dx%dx%d_%dx%d.cl" %
+            (self._sx, self._sy, self._n_channels,
+             self.kx, self.ky), dtype=self.input.v.dtype)
 
     def print_times(self, t_start):
         """Show some statistics.
@@ -116,8 +113,7 @@ class Pooling(nn_units.Forward):
         self.input.unmap()  # we will use input
         y = self.output.v
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
-        event = self.execute_kernel(self.krn_, global_size, None)
-        event.wait()
+        self.execute_kernel(global_size, None).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -164,11 +160,8 @@ class MaxPooling(Pooling):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            self.krn_ = self.get_kernel("do_max_pooling")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.output.v_)
-            self.krn_.set_arg(2, self.input_offs.v_)
+        self.assign_kernel("do_max_pooling")
+        self.set_args(self.input, self.output, self.input_offs)
 
     def ocl_run(self):
         self.input_offs.unmap()  # we will be updating input_offs
@@ -215,10 +208,8 @@ class AvgPooling(Pooling):
         if self.device is None:
             return
 
-        if self.krn_ is None:
-            self.krn_ = self.get_kernel("do_avg_pooling")
-            self.krn_.set_arg(0, self.input.v_)
-            self.krn_.set_arg(1, self.output.v_)
+        self.assign_kernel("do_avg_pooling")
+        self.set_args(self.input, self.output)
 
     def cpu_run(self):
         self.input.map_read()

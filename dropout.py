@@ -74,11 +74,9 @@ class DropoutForward(Forward, Dropout):
 
         self.build_program({}, "dropout_forward.cl", dtype=self.input.v.dtype)
 
-        self.krn_ = self.get_kernel("dropout_forward")
-        self.krn_.set_arg(0, self.input.v_)
-        self.krn_.set_arg(3, self.states.v_)
-        self.krn_.set_arg(4, self.mask.v_)
-        self.krn_.set_arg(5, self.output.v_)
+        self.assign_kernel("dropout_forward")
+        self.set_args(self.input, None, None, self.states, self.mask,
+                      self.output)
 
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
@@ -103,9 +101,9 @@ class DropoutForward(Forward, Dropout):
         self.output.unmap()
         self._threshold_arg_[0] = (0.0 + (1 << 64)) * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
-        self.krn_.set_arg(1, self._threshold_arg_)
-        self.krn_.set_arg(2, self._pass_arg_)
-        self.execute_kernel(self.krn_, (self.input.v.size,), None).wait()
+        self.set_arg(1, self._threshold_arg_)
+        self.set_arg(2, self._pass_arg_)
+        self.execute_kernel((self.input.v.size,), None).wait()
 
 
 class DropoutBackward(GradientDescentBase, Dropout):
@@ -130,10 +128,8 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.build_program({}, "dropout_backward.cl",
                            dtype=self.err_output.v.dtype)
 
-        self.krn_ = self.get_kernel("dropout_backward")
-        self.krn_.set_arg(0, self.mask.v_)
-        self.krn_.set_arg(1, self.err_output.v_)
-        self.krn_.set_arg(2, self.err_input.v_)
+        self.assign_kernel("dropout_backward")
+        self.set_args(self.mask, self.err_output, self.err_input)
 
     def cpu_run(self):
         if formats.eq_addr(self.err_input.v, self.err_output.v):
@@ -149,4 +145,4 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.err_output.unmap()
         self.err_input.unmap()
         self.mask.unmap()
-        self.execute_kernel(self.krn_, (self.err_output.v.size,), None).wait()
+        self.execute_kernel((self.err_output.v.size,), None).wait()
