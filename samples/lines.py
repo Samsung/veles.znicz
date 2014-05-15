@@ -200,6 +200,31 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
+        # Weights plotter
+        self.plt_gd = []
+        prev_channels = 3
+        for i in range(0, len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
+            plt_gd = nn_plotting_units.Weights2D(
+                self, name="%s gd %s" % (i + 1, layers[i]["type"]),
+                limit=root.weights_plotter.limit)
+            self.plt_gd.append(plt_gd)
+            self.plt_gd[-1].link_attrs(self.gds[i], ("input", "weights"))
+            self.plt_gd[-1].input_field = "v"
+            if isinstance(self.fwds[i], conv.Conv):
+                self.plt_gd[-1].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
+                prev_channels = self.fwds[i].n_kernels
+            if (layers[i].get("output_shape") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.plt_gd[-1].link_attrs(self.fwds[i],
+                                           ("get_shape_from", "input"))
+            self.plt_gd[-1].link_from(self.decision)
+            self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
+
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
