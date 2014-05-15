@@ -38,7 +38,7 @@ root.defaults = {"decision": {"fail_iterations": 100,
                  "hands": {"learning_rate": 0.05,
                            "weights_decay": 0.0,
                            "layers": [30, 2],
-                           "path_for_load_data": {"train": train_dir,
+                           "data_paths": {"train": train_dir,
                                                   "validation":
                                                   validation_dir}}}
 
@@ -74,8 +74,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(
-            self, validation_paths=root.hands.path_for_load_data.validation,
-            train_paths=root.hands.path_for_load_data.train,
+            self, validation_paths=root.hands.data_paths.validation,
+            train_paths=root.hands.data_paths.train,
             minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 

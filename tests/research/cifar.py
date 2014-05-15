@@ -16,7 +16,7 @@ from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-#import veles.znicz.accumulator as accumulator
+# import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.conv as conv
@@ -31,36 +31,33 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.defaults = {"accumulator": {"n_bars": 30},
-                 "all2all_relu": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.05},
-                 "all2all_tanh": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.05},
-                 "conv":  {"weights_filling": "gaussian",
-                           "weights_stddev": 0.0001},
-                 "conv_relu":  {"weights_filling": "gaussian",
-                                "weights_stddev": 0.0001},
-                 "decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "cifar"},
-                 "image_saver": {"out_dirs":
-                                 [os.path.join(root.common.cache_dir,
-                                               "tmp/test"),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp/validation"),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp/train")]},
-                 "loader": {"minibatch_maxsize": 180},
-                 "softmax": {"weights_filling": "uniform",
-                             "weights_stddev": 0.05},
-                 "weights_plotter": {"limit": 25},
-                 "cifar": {"learning_rate": 0.1,
-                           "weights_decay": 0.00005,
-                           "layers": [{"type": "all2all_tanh",
-                                       "output_shape": 100},
-                                      {"type": "softmax", "output_shape": 10}],
-                           "path_for_load_data": {"train": train_dir,
-                                                  "validation":
-                                                  validation_dir}}}
+root.defaults = {
+    "accumulator": {"n_bars": 30},
+    "all2all_relu": {"weights_filling": "uniform",
+                     "weights_stddev": 0.05},
+    "all2all_tanh": {"weights_filling": "uniform",
+                     "weights_stddev": 0.05},
+    "conv":  {"weights_filling": "gaussian",
+              "weights_stddev": 0.0001},
+    "conv_relu":  {"weights_filling": "gaussian",
+                   "weights_stddev": 0.0001},
+    "decision": {"fail_iterations": 100,
+                 "snapshot_prefix": "cifar"},
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.cache_dir, "tmp/test"),
+                     os.path.join(root.common.cache_dir, "tmp/validation"),
+                     os.path.join(root.common.cache_dir, "tmp/train")]},
+    "loader": {"minibatch_maxsize": 180},
+    "softmax": {"weights_filling": "uniform",
+                "weights_stddev": 0.05},
+    "weights_plotter": {"limit": 25},
+    "cifar": {"learning_rate": 0.1,
+              "weights_decay": 0.00005,
+              "layers": [{"type": "all2all_tanh",
+                          "output_shape": 100},
+                         {"type": "softmax", "output_shape": 10}],
+              "data_paths": {"train": train_dir,
+                             "validation": validation_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -74,7 +71,7 @@ class Loader(loader.FullBatchLoader):
         self.original_labels = numpy.zeros(60000, dtype=numpy.int32)
 
         # Load Validation
-        fin = open(root.cifar.path_for_load_data.validation, "rb")
+        fin = open(root.cifar.data_paths.validation, "rb")
         u = pickle._Unpickler(fin)
         u.encoding = 'latin1'
         vle = u.load()
@@ -85,7 +82,7 @@ class Loader(loader.FullBatchLoader):
 
         # Load Train
         for i in range(1, 6):
-            fin = open(os.path.join(root.cifar.path_for_load_data.train,
+            fin = open(os.path.join(root.cifar.data_paths.train,
                                     ("data_batch_%d" % i)), "rb")
             u = pickle._Unpickler(fin)
             u.encoding = 'latin1'
@@ -144,7 +141,7 @@ class Workflow(StandardWorkflow):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        #self.image_saver.link_from(self.accumulator[-1])
+        # self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
@@ -180,7 +177,7 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
-        #for i in range(0, len(layers)):
+        # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
@@ -254,7 +251,7 @@ class Workflow(StandardWorkflow):
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
-            #elif isinstance(self.fwds[i], all2all.All2All):
+            # elif isinstance(self.fwds[i], all2all.All2All):
             #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended

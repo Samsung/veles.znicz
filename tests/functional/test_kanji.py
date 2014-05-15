@@ -37,16 +37,16 @@ class TestKanji(unittest.TestCase):
                                          % (root.common.veles_dir),
                                          dtype=numpy.int32, count=1024))
         root.decision.fail_iterations = -1
-        root.kanji.path_for_load_data.target = os.path.join(
+        root.kanji.data_paths.target = os.path.join(
             root.common.veles_dir,
             ("veles/znicz/tests/data/kanji/target/targets.%d.pickle" %
              (3 if six.PY3 else 2)))
 
-        root.kanji.path_for_load_data.train = os.path.join(
+        root.kanji.data_paths.train = os.path.join(
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
         root.kanji.index_map = os.path.join(
-            root.kanji.path_for_load_data.train, "index_map.%d.pickle" %
+            root.kanji.data_paths.train, "index_map.%d.pickle" %
             (3 if six.PY3 else 2))
 
         w = kanji.Workflow(dummy_workflow.DummyWorkflow(),

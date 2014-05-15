@@ -28,5 +28,5 @@ root.update = {"decision": {"fail_iterations": 100,
                "hands": {"learning_rate": 0.05,
                          "weights_decay": 0.0,
                          "layers": [30, 2],
-                         "path_for_load_data": {"train": train_dir,
+                         "data_paths": {"train": train_dir,
                                                 "validation": validation_dir}}}

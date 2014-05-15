@@ -22,6 +22,6 @@ root.update = {"decision": {"fail_iterations": 100,
                "video_ae": {"learning_rate": 0.0002,
                             "weights_decay": 0.00005,
                             "layers": [9, 14400],
-                            "path_for_load_data":
+                            "data_paths":
                             os.path.join(root.common.test_dataset_root,
                                          "video/video_ae/img")}}

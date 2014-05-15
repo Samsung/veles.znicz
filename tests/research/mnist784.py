@@ -37,7 +37,7 @@ root.defaults = {"decision": {"fail_iterations": 100,
                  "mnist784": {"learning_rate": 0.001,
                               "weights_decay": 0.00005,
                               "layers": [784, 784],
-                              "path_for_load_data":
+                              "data_paths":
                               os.path.join(root.common.test_dataset_root,
                                            "arial.ttf")}}
 
@@ -112,7 +112,7 @@ class Loader(mnist.Loader):
         self.class_target.v = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, 10):
-            img = do_plot(root.mnist784.path_for_load_data,
+            img = do_plot(root.mnist784.data_paths,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_target[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.dtype])

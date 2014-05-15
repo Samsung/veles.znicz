@@ -69,7 +69,7 @@ root.forward_gtzan.defaults = {"colors": ["blue",
                                "file_name": path_file,
                                "graphics": 1,
                                "limit": 2000000000,
-                               "path_for_load_data": {"features":
+                               "data_paths": {"features":
                                                       features_dir},
                                "plotter_window_name": "",
                                "shift_size": 10,
@@ -261,7 +261,7 @@ def main():
     device = None if l.is_master else opencl.Device()
     w = Workflow(l, device=device)
     w.initialize(file=root.forward_gtzan.file_name,
-                 feature_file=root.forward_gtzan.path_for_load_data.features,
+                 feature_file=root.forward_gtzan.data_paths.features,
                  W=W, b=b, window_size=root.forward_gtzan.window_size,
                  shift_size=root.forward_gtzan.shift_size)
     l.run()

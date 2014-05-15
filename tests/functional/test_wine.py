@@ -39,7 +39,7 @@ class TestWine(unittest.TestCase):
                        "wine_test": {"learning_rate": 0.75,
                                      "weights_decay": 0.0,
                                      "layers":  [8, 3],
-                                     "path_for_load_data":
+                                     "data_paths":
                                      os.path.join(root.common.veles_dir,
                                                   "veles/znicz/tests/research"
                                                   + "/wine/wine.data")}}

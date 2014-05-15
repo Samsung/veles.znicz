@@ -68,5 +68,5 @@ root.update = {
                 "weights_decay": 250.0, "weights_decay_bias": 0,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9}],
 
-              "path_for_load_data": {"train": train_dir,
+              "data_paths": {"train": train_dir,
                                      "validation": validation_dir}}}

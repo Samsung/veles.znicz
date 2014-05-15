@@ -32,7 +32,7 @@ root.defaults = {"decision": {"fail_iterations": 100,
                  "video_ae": {"learning_rate": 0.0002,
                               "weights_decay": 0.00005,
                               "layers": [9, 14400],
-                              "path_for_load_data":
+                              "data_paths":
                               os.path.join(root.common.test_dataset_root,
                                            "video/video_ae/img")}}
 
@@ -71,7 +71,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             train_paths=(root.video_ae.path_for_load_data,),
+                             train_paths=(root.video_ae.data_paths,),
                              minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 

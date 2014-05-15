@@ -36,5 +36,5 @@ root.update = {"decision": {"fail_iterations": 100,
                          "layers": [{"type": "all2all_tanh",
                                      "output_shape": 100},
                                     {"type": "softmax", "output_shape": 10}],
-                         "path_for_load_data": {"train": train_dir,
-                                                "validation": validation_dir}}}
+                         "data_paths": {"train": train_dir,
+                                        "validation": validation_dir}}}

@@ -30,7 +30,7 @@ root.defaults = {"decision": {"fail_iterations": 200,
                  "wine": {"learning_rate": 0.5,
                           "weights_decay": 0.0,
                           "layers": [8, 3],
-                          "path_for_load_data":
+                          "data_paths":
                           os.path.join(root.common.veles_dir,
                                        "veles/znicz/samples/wine/wine.data")}}
 
@@ -39,7 +39,7 @@ class Loader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
-        fin = open(root.wine.path_for_load_data, "r")
+        fin = open(root.wine.data_paths, "r")
         lines = []
         max_lbl = 0
         while True:

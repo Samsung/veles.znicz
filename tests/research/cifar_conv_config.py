@@ -49,5 +49,5 @@ root.update = {"conv":  {"weights_filling": "uniform",
                           {"type": "avg_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},
                           {"type": "softmax", "output_shape": 10}],
-                         "path_for_load_data": {"train": train_dir,
-                                                "validation": validation_dir}}}
+                         "data_paths": {"train": train_dir,
+                                        "validation": validation_dir}}}

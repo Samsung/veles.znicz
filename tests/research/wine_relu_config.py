@@ -23,7 +23,7 @@ root.update = {"decision": {"fail_iterations": 250,
                "wine_relu": {"learning_rate": 0.75,
                              "weights_decay": 0.0,
                              "layers": [10, 3],
-                             "path_for_load_data":
+                             "data_paths":
                              os.path.join(root.common.veles_dir,
                                           "veles/znicz/samples/wine/wine.data")
                              }}

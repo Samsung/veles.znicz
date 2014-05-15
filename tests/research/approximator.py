@@ -34,7 +34,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                  "approximator": {"learning_rate": 0.01,
                                   "weights_decay": 0.00005,
                                   "layers": [810, 9],
-                                  "path_for_load_data": {"target": target_dir,
+                                  "data_paths": {"target": target_dir,
                                                          "train": train_dir}}}
 
 
@@ -158,8 +158,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(
-            self, train_paths=root.approximator.path_for_load_data.train,
-            target_paths=root.approximator.path_for_load_data.target)
+            self, train_paths=root.approximator.data_paths.train,
+            target_paths=root.approximator.data_paths.target)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

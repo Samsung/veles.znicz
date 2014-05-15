@@ -48,62 +48,57 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
 
 root.model = "conv"
 
-root.defaults = {"accumulator": {"n_bars": 30},
-                 "all2all_relu": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
-                 "all2all_tanh": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
-                 "decision": {"fail_iterations": 1000,
-                              "snapshot_prefix": "channels %s" % root.model,
-                              "use_dynamic_alpha": False,
-                              "do_export_weights": True},
-                 "conv":  {"weights_filling": "uniform",
-                           "weights_stddev": 0.0001},
-                 "conv_relu":  {"weights_filling": "uniform",
-                                "weights_stddev": 0.0001},
-                 "image_saver": {"out_dirs":
-                                 [os.path.join(root.common.cache_dir,
-                                               "tmp %s/test" % root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/validation" %
-                                               root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/train" % root.model)]},
-                 "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                       "channels_%s.pickle"
-                                                       % root.model),
-                            "grayscale": False,
-                            "minibatch_size": 81,
-                            "n_threads": 32,
-                            "channels_dir":
-                            "/data/veles/VD/channels/russian_small/train",
-                            "rect": (264, 129),
-                            "validation_ratio": 0.15},
-                 "softmax": {"weights_filling": "uniform",
-                             "weights_stddev": 0.0001},
-                 "weights_plotter": {"limit": 64},
-                 "channels": {"export": False,
-                              "find_negative": 0,
-                              "learning_rate": 0.001,
-                              "weights_decay": 0.004,
-                              "layers":
-                              [{"type": "conv", "n_kernels": 32,
-                                "kx": 5, "ky": 5,
-                                "padding": (2, 2, 2, 2)},
-                               {"type": "max_pooling",
-                                "kx": 3, "ky": 3, "sliding": (2, 2)},
-                               {"type": "conv", "n_kernels": 32,
-                                "kx": 5, "ky": 5, "padding":
-                                (2, 2, 2, 2)},
-                               {"type": "avg_pooling",
-                                "kx": 3, "ky": 3, "sliding": (2, 2)},
-                               {"type": "conv", "n_kernels": 64,
-                                "kx": 5, "ky": 5,
-                                "padding": (2, 2, 2, 2)},
-                               {"type": "avg_pooling",
-                                "kx": 3, "ky": 3, "sliding": (2, 2)},
-                               {"type": "softmax", "output_shape": 11}],
-                              "snapshot": ""}}
+root.defaults = {
+    "accumulator": {"n_bars": 30},
+    "all2all_relu": {"weights_filling": "uniform",
+                     "weights_stddev": 0.0001},
+    "all2all_tanh": {"weights_filling": "uniform",
+                     "weights_stddev": 0.0001},
+    "decision": {"fail_iterations": 1000,
+                 "snapshot_prefix": "channels %s" % root.model,
+                 "use_dynamic_alpha": False,
+                 "do_export_weights": True},
+    "conv":  {"weights_filling": "uniform",
+              "weights_stddev": 0.0001},
+    "conv_relu":  {"weights_filling": "uniform",
+                   "weights_stddev": 0.0001},
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.cache_dir,
+                                  "tmp %s/test" % root.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/validation" % root.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/train" % root.model)]},
+    "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
+                                          "channels_%s.pickle" % root.model),
+               "grayscale": False,
+               "minibatch_size": 81,
+               "n_threads": 32,
+               "channels_dir":
+               "/data/veles/VD/channels/russian_small/train",
+               "rect": (264, 129),
+               "validation_ratio": 0.15},
+    "softmax": {"weights_filling": "uniform",
+                "weights_stddev": 0.0001},
+    "weights_plotter": {"limit": 64},
+    "channels": {"export": False,
+                 "find_negative": 0,
+                 "learning_rate": 0.001,
+                 "weights_decay": 0.004,
+                 "layers":
+                 [{"type": "conv", "n_kernels": 32,
+                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                  {"type": "max_pooling",
+                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "conv", "n_kernels": 32,
+                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                  {"type": "avg_pooling",
+                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "conv", "n_kernels": 64,
+                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+                  {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "softmax", "output_shape": 11}],
+                 "snapshot": ""}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -772,7 +767,7 @@ class Workflow(StandardWorkflow):
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
-            #elif isinstance(self.fwds[i], all2all.All2All):
+            # elif isinstance(self.fwds[i], all2all.All2All):
             #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended

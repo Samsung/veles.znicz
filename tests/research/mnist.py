@@ -21,14 +21,11 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
-test_image_dir = os.path.join(
-    root.common.veles_dir, "veles/znicz/samples/MNIST/t10k-images.idx3-ubyte")
-test_label_dir = os.path.join(
-    root.common.veles_dir, "veles/znicz/samples/MNIST/t10k-labels.idx1-ubyte")
-train_image_dir = os.path.join(
-    root.common.veles_dir, "veles/znicz/samples/MNIST/train-images.idx3-ubyte")
-train_label_dir = os.path.join(
-    root.common.veles_dir, "veles/znicz/samples/MNIST/train-labels.idx1-ubyte")
+mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "MNIST")
+test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
+test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
+train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
+train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                                   "weights_stddev": 0.0001},
@@ -48,14 +45,10 @@ root.defaults = {"all2all_relu": {"weights_filling": "uniform",
                            "layers":
                            [{"type": "all2all_tanh", "output_shape": 100},
                             {"type": "softmax", "output_shape": 10}],
-                           "path_for_load_data": {"test_images":
-                                                  test_image_dir,
-                                                  "test_label":
-                                                  test_label_dir,
-                                                  "train_images":
-                                                  train_image_dir,
-                                                  "train_label":
-                                                  train_label_dir}}}
+                           "data_paths": {"test_images":  test_image_dir,
+                                          "test_label": test_label_dir,
+                                          "train_images": train_image_dir,
+                                          "train_label": train_label_dir}}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -131,11 +124,11 @@ class Loader(loader.FullBatchLoader):
         self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
 
         self.load_original(0, 10000,
-                           root.mnist.path_for_load_data.test_label,
-                           root.mnist.path_for_load_data.test_images)
+                           root.mnist.data_paths.test_label,
+                           root.mnist.data_paths.test_images)
         self.load_original(10000, 60000,
-                           root.mnist.path_for_load_data.train_label,
-                           root.mnist.path_for_load_data.train_images)
+                           root.mnist.data_paths.train_label,
+                           root.mnist.data_paths.train_images)
 
         self.class_samples[0] = 0
         self.class_samples[1] = 10000

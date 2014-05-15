@@ -23,5 +23,5 @@ root.update = {"decision": {"fail_iterations": 1000,
                "approximator": {"learning_rate": 0.01,
                                 "weights_decay": 0.00005,
                                 "layers": [810, 9],
-                                "path_for_load_data": {"target": target,
+                                "data_paths": {"target": target,
                                                        "train": train}}}

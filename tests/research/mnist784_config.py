@@ -21,6 +21,6 @@ root.update = {"decision": {"fail_iterations": 100,
                "mnist784": {"learning_rate": 0.001,
                             "weights_decay": 0.00005,
                             "layers": [784, 784],
-                            "path_for_load_data":
+                            "data_paths":
                             os.path.join(root.common.test_dataset_root,
                                          "arial.ttf")}}
