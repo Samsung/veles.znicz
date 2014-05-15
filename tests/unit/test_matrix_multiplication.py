@@ -15,7 +15,6 @@ import unittest
 from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
-import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
@@ -103,7 +102,6 @@ class TestMatrixMultiplication(unittest.TestCase):
         """
         self.a.initialize(device)
         self.b.initialize(device)
-        self.c[:] = 0
         self.c.initialize(device)
         self.bias.initialize(device)
 
