@@ -374,6 +374,8 @@ class KohonenHits(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
+        self.show_figure(fig)
+        fig.canvas.draw()
 
     def _add_hexagon(self, axes, patches, x, y, size, number):
         r = size / numpy.sqrt(3)
@@ -392,8 +394,7 @@ class KohonenInputMaps(plotter.Plotter):
 
     Should be assigned before initialize():
         input
-        width
-        height
+        shape
     """
 
     def __init__(self, workflow, **kwargs):
@@ -402,17 +403,16 @@ class KohonenInputMaps(plotter.Plotter):
         super(KohonenInputMaps, self).__init__(workflow, **kwargs)
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
         self._color_grid = kwargs.get("color_grid", "none")
-        self._input = None
-        self.width = 0
-        self.height = 0
+        self.input = None
+        self.shape = None
 
     @property
-    def input(self):
-        return self._input
+    def width(self):
+        return self.shape[0]
 
-    @input.setter
-    def input(self, value):
-        self._input = value
+    @property
+    def height(self):
+        return self.shape[1]
 
     @property
     def color_scheme(self):
@@ -460,6 +460,8 @@ class KohonenInputMaps(plotter.Plotter):
             axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
             axes.set_xticks([])
             axes.set_yticks([])
+        self.show_figure(fig)
+        fig.canvas.draw()
 
     def _add_hexagon(self, axes, patches, x, y):
         r = 1.0 / numpy.sqrt(3)
@@ -473,8 +475,7 @@ class KohonenNeighborMap(plotter.Plotter):
 
     Should be assigned before initialize():
         input
-        width
-        height
+        shape
     """
 
     NEURON_SIZE = 0.4
@@ -485,17 +486,16 @@ class KohonenNeighborMap(plotter.Plotter):
         super(KohonenNeighborMap, self).__init__(workflow, **kwargs)
         self._color_neurons = kwargs.get("color_neurons", "#666699")
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
-        self._input = None
-        self.width = 0
-        self.height = 0
+        self.input = None
+        self.shape = None
 
     @property
-    def input(self):
-        return self._input
+    def width(self):
+        return self.shape[0]
 
-    @input.setter
-    def input(self, value):
-        self._input = value
+    @property
+    def height(self):
+        return self.shape[1]
 
     @property
     def color_neurons(self):
@@ -572,6 +572,8 @@ class KohonenNeighborMap(plotter.Plotter):
         axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
         axes.set_xticks([])
         axes.set_yticks([])
+        self.show_figure(fig)
+        fig.canvas.draw()
 
     def _add_hexagon(self, axes, patches, x, y):
         r = KohonenNeighborMap.NEURON_SIZE / numpy.sqrt(3)
