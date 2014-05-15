@@ -107,6 +107,9 @@ class LRNormalizerForward(LocalResponseNormalizer):
         self.input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_).wait()
 
+    def run(self):
+        self.ocl_run()
+
 
 class LRNormalizerBackward(LocalResponseNormalizer):
     """
@@ -115,8 +118,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
     def __init__(self, workflow, **kwargs):
         self.output = None  # output of forward layer
         self.input = None  # input of forward layer
-        self.err_output = None  # output error of fwd layer, our input error
-        self.err_input = formats.Vector()  # input error of fwd layer, our output
+        self.err_output = None  # output error of fwd unit, our input error
+        self.err_input = formats.Vector()  # input error of fwd unit, our output
 
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
@@ -172,19 +175,24 @@ class LRNormalizerBackward(LocalResponseNormalizer):
             min_index = max(0, i - int(self.n / 2))
             max_index = min(i + int(self.n / 2), num_of_chans - 1)
 
-            dh = np.zeros(dtype=np.float64,
+            delta_h = np.zeros(dtype=np.float64,
                           shape=delta_input[:, :, :, i].shape)
             for j in range(min_index, max_index + 1):
+                dh = np.zeros(shape=delta_h.shape, dtype=np.float64)
                 if i == j:
                     dh += input_subsums[:, :, :, j]
                 dh -= (2 * self.beta * self.alpha * self.input.v[:, :, :, i] *
                        self.input.v[:, :, :, j])
                 dh *= (delta_output[:, :, :, j] /
                        input_subsums_powered[:, :, :, j])
-            delta_input[:, :, :, i] += dh
+                delta_h += dh
+            delta_input[:, :, :, i] += delta_h
 
     def ocl_run(self):
         self.err_output.unmap()
         self.input.unmap()
         self.err_input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_).wait()
+
+    def run(self):
+        self.ocl_run()

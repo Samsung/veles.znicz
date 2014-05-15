@@ -51,7 +51,6 @@ __kernel void forward(__global const c_dtype* in_data, __global c_dtype* out_dat
   int global_index = get_global_id(0);
   int global_offset = global_index * NUM_OF_CHANS;
 
-
   c_dtype h[NUM_OF_CHANS];
   for(int i = 0; i < NUM_OF_CHANS; i++) {
     h[i] = in_data[global_offset + i];
@@ -97,11 +96,13 @@ __kernel void backward(__global const c_dtype* in_err_y, __global const c_dtype*
     int max_index = min(i + N / 2, NUM_OF_CHANS - 1);
 
     for(int j = min_index; j <= max_index; j++) {
+      c_dtype dh = 0;
       if(i == j) {
-        delta_h += subsums[j];
+        dh += subsums[j];
       }
-      delta_h -= 2 * ALPHA * BETA * h[i] * h[j];
-      delta_h *= local_err_y[j] / pow(subsums[j], BETA + 1);
+      dh -= 2 * ALPHA * BETA * h[i] * h[j];
+      dh *= local_err_y[j] / pow(subsums[j], BETA + 1);
+      delta_h += dh;
     }
     out_err_h[global_offset + i] = delta_h;
   }
