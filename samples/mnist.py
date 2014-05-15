@@ -134,11 +134,7 @@ class Loader(loader.FullBatchLoader):
 class Workflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
-    def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        device = kwargs.get("device")
-        kwargs["layers"] = layers
-        kwargs["device"] = device
+    def __init__(self, workflow, layers, **kwargs):
         kwargs["name"] = kwargs.get("name", "MNIST")
         super(Workflow, self).__init__(workflow, **kwargs)
 
@@ -152,12 +148,10 @@ class Workflow(nn_units.NNWorkflow):
         del self.fwds[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
-                                         device=device)
+                aa = all2all.All2AllTanh(self, output_shape=[layers[i]])
             else:
                 aa = all2all.All2AllSoftmax(self,
-                                            output_shape=[layers[i]],
-                                            device=device)
+                                            output_shape=[layers[i]])
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
@@ -169,7 +163,7 @@ class Workflow(nn_units.NNWorkflow):
                                         ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator = evaluator.EvaluatorSoftmax(self)
         self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
@@ -197,7 +191,7 @@ class Workflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.fwds))))
-        self.gds[-1] = gd.GDSM(self, device=device)
+        self.gds[-1] = gd.GDSM(self)
         self.gds[-1].link_from(self.ipython)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.fwds[-1],
@@ -207,7 +201,7 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].gate_skip = self.decision.gd_skip
         self.gds[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self, device=device)
+            self.gds[i] = gd.GDTanh(self)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
