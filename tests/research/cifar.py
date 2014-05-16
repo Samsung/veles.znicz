@@ -174,7 +174,7 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
         # for i in range(0, len(layers)):

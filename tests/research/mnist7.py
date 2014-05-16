@@ -129,7 +129,7 @@ class Workflow(nn_units.NNWorkflow):
                                     "minibatch_class", "minibatch_size")
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.gate_skip = ~self.decision.improved
 
         # Add gradient descent units
         del self.gds[:]

@@ -62,10 +62,10 @@ class TestKohonen(unittest.TestCase):
         del self.device
 
     def test_forward(self):
-        logging.info("Will test Kohonen unit forward pass")
+        logging.info("Will test KohonenForward unit forward pass")
         inp = formats.Vector()
         inp.v = self.input.copy()
-        c = kohonen.Kohonen(DummyWorkflow(), output_shape=[3, 3])
+        c = kohonen.KohonenForward(DummyWorkflow(), output_shape=[3, 3])
         c.input = inp
 
         c.initialize(device=self.device)
@@ -84,7 +84,7 @@ class TestKohonen(unittest.TestCase):
         logging.info("All Ok")
 
     def test_train(self):
-        logging.info("Will test Kohonen unit train pass")
+        logging.info("Will test KohonenForward unit train pass")
         inp = formats.Vector()
         inp.v = self.input.copy()
 

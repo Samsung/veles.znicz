@@ -14,6 +14,7 @@ import os
 from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -24,8 +25,8 @@ import veles.znicz.loader as loader
 
 root.common.defaults = {"plotters_disabled": True}
 
-root.defaults = {"decision": {"fail_iterations": 200,
-                              "snapshot_prefix": "wine"},
+root.defaults = {"decision": {"fail_iterations": 200},
+                 "snapshotter": {"prefix": "wine"},
                  "loader": {"minibatch_maxsize": 1000000},
                  "wine": {"learning_rate": 0.5,
                           "weights_decay": 0.0,
@@ -121,9 +122,7 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self,
-            snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                  "no_more_minibatches_left", "class_samples")
@@ -132,6 +131,14 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]

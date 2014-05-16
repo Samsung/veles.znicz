@@ -126,7 +126,7 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_metrics", "metrics"))
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.gate_skip = ~self.decision.improved
 
         # Add gradient descent units
         self.gds = list(None for i in range(0, len(self.fwds)))
@@ -231,6 +231,6 @@ def run(load, main):
         for fwds in w.fwds:
             logging.info(fwds.weights.v.min(), fwds.weights.v.max(),
                          fwds.bias.v.min(), fwds.bias.v.max())
-        w.decision.just_snapshotted << True
+        w.decision.improved << True
     main(learning_rate=root.video_ae.learning_rate,
          weights_decay=root.video_ae.weights_decay)

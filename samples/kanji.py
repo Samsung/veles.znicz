@@ -21,6 +21,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.random_generator as rnd
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -31,8 +32,8 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 
 root.defaults = {
     "decision": {"fail_iterations": 1000,
-                 "snapshot_prefix": "kanji",
                  "store_samples_mse": True},
+    "snapshotter": {"prefix": "kanji"},
     "loader": {"minibatch_maxsize": 5103,
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 16},
@@ -207,8 +208,7 @@ class Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
-            store_samples_mse=root.decision.store_samples_mse,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -221,6 +221,13 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]
@@ -369,7 +376,7 @@ def run(load, main):
                 logging.info("%f %f %f %f" % (
                     fwds.weights.v.min(), fwds.weights.v.max(),
                     fwds.bias.v.min(), fwds.bias.v.max()))
-            w.decision.just_snapshotted << True
+            w.decision.improved << True
     main(learning_rate=root.kanji.learning_rate,
          weights_decay=root.kanji.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize,

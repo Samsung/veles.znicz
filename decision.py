@@ -22,36 +22,160 @@ import veles.units as units
 from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
 
 
-if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
-    FileNotFoundError = IOError  # pylint: disable=W0622
+class DecisionBase(units.Unit):
+    """Base class for epoch decision units. Keeps track of learning epochs,
+    that is, complete dataset passes.
 
+    Defines:
+        epoch_number - current epoch number
+        epoch_ended (mutable.Bool trigger) - an epoch's been just ended flag
+        complete (mutable.Bool trigger) - everything's over flag
+        improved (mutable.Bool trigger) - indicates whether the previous
+            epoch's results are better than those of the epoch before it.
+        snapshot_suffix - the suitable suffix for the snapshot file name.
 
-class Decision(units.Unit):
-    """Decides on the learning behavior.
+    Must be set before initialize():
+        no_more_minibatches_left - minibatch classes exhausted flags
+        minibatch_class - current minibatch class
+        class_samples - number of samples per class
 
     Attributes:
-        complete: completed.
-        minibatch_class: current minibatch class.
-        no_more_minibatches_left: if current minibatch is last in it's class.
+        max_epochs - max number of epochs for training (stop if exceeded)
+    """
+    def __init__(self, workflow, **kwargs):
+        kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
+        super(DecisionBase, self).__init__(workflow, **kwargs)
+        self.max_epochs = kwargs.get("max_epochs", None)
+        self.improved = Bool(False)
+        self.snapshot_suffix = ""
+        self.epoch_number = 0
+        self.epoch_ended = Bool(False)
+        self.complete = Bool(False)
+
+    def init_unpickled(self):
+        super(DecisionBase, self).init_unpickled()
+        self.minibatches_balance_ = [0, 0, 0]
+        self.slave_minibatch_class_ = {}
+
+    def initialize(self, **kwargs):
+        super(DecisionBase, self).initialize(**kwargs)
+        timestamp = time.time()
+        self.epoch_timestamps = [timestamp, timestamp, timestamp]
+
+    def run(self):
+        self.epoch_ended << False
+        self.on_run()
+        if self.no_more_minibatches_left[self.minibatch_class]:
+            self._on_last_minibatch()
+
+    def on_run(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def on_last_minibatch(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def on_test_validation_processed(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def on_training_finished(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def on_epoch_ended(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def fill_statistics(self, stats):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def fill_snapshot_suffixes(self, suffixes):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def stop_condition(self):
+        """This method is supposed to be overriden in inherited classes.
+        """
+        pass
+
+    def _on_last_minibatch(self):
+        self.on_last_minibatch()
+
+        minibatch_class = self.minibatch_class
+        # Test and Validation sets processed
+        if ((self.class_samples[VALID] and minibatch_class == VALID) or
+                (not self.class_samples[VALID] and minibatch_class >= VALID)):
+            self.improved << False
+            self.on_test_validation_processed()
+            if self.improved:
+                suffixes = []
+                self.fill_snapshot_suffixes(suffixes)
+                self.snapshot_suffix = '_'.join(suffixes)
+            self.complete << self._stop_condition()
+
+        # Training set processed
+        if self.minibatch_class == TRAIN:
+            self.on_training_finished()
+
+        self._print_statistics()
+        if all(self.no_more_minibatches_left):
+            self._end_epoch()
+
+    def _stop_condition(self):
+        if self.stop_condition():
+            return True
+        # stop if max epoch number was reached
+        if (self.max_epochs is not None and
+                self.epoch_number >= self.max_epochs):
+            return True
+        return False
+
+    def _print_statistics(self):
+        stats = []
+        self.fill_statistics(stats)
+        timestamp = time.time()
+        self.info("Epoch %d class %s %s in %.2f sec" %
+                  (self.epoch_number, CLASS_NAME[self.minibatch_class],
+                   " ".join(stats),
+                   timestamp - self.epoch_timestamps[self.minibatch_class]))
+        self.epoch_timestamps[self.minibatch_class] = timestamp
+
+    def _end_epoch(self):
+        assert all(self.no_more_minibatches_left)
+        if not self.is_slave:
+            self.no_more_minibatches_left[:] = \
+                [False] * len(self.no_more_minibatches_left)
+            self.on_epoch_ended()
+            self.epoch_ended << True
+            self.epoch_number += 1
+        else:
+            self.complete << True
+
+
+class Decision(DecisionBase):
+    """Rules the gradient descent learning process.
+
+    Attributes:
         gd_skip: skip gradient descent or not.
-        epoch_number: epoch number.
-        epoch_ended: if an epoch has just ended.
         epoch_min_mse: minimum mse by class per epoch.
         minibatch_n_err: number of errors for a minibatch.
         epoch_n_err: number of errors for an epoch.
         epoch_n_err_pt: number of errors for an epoch in percents.
         minibatch_metrics: [0] - mse, [1] - max of sum of sample graidents.
-        class_samples: number of samples per class.
         fail_iterations: number of consequent iterations with non-decreased
                          validation error.
-        max_epochs: max number of epochs for training (stop if exceeded).
         epoch_metrics: metrics for an epoch (same as minibatch_metrics).
-        workflow: reference to workflow to snapshot.
-        snapshot_prefix: prefix for the snapshots.
-        fnme: filename of the last snapshot.
         fnmeWb: filename of the last weights + bias snapshot.
-        just_snapshotted: True after snapshot.
-        snapshot_time: time of the last snapshot.
         confusion_matrixes: confusion matrixes.
         minibatch_confusion_matrix: confusion matrix for a minibatch.
         epoch_samples_mse: mse for each sample in the previous epoch
@@ -72,24 +196,11 @@ class Decision(units.Unit):
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, workflow, **kwargs):
-        fail_iterations = kwargs.get("fail_iterations", 100)
-        snapshot_prefix = kwargs.get("snapshot_prefix", "")
-        store_samples_mse = kwargs.get("store_samples_mse", False)
-        use_dynamic_alpha = kwargs.get("use_dynamic_alpha", False)
-        max_epochs = kwargs.get("max_epochs", None)
-        kwargs["fail_iterations"] = fail_iterations
-        kwargs["snapshot_prefix"] = snapshot_prefix
-        kwargs["store_samples_mse"] = store_samples_mse
-        kwargs["use_dynamic_alpha"] = use_dynamic_alpha
-        kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
-        kwargs["max_epochs"] = max_epochs
         super(Decision, self).__init__(workflow, **kwargs)
-        self.class_samples = None  # [0, 0, 0]
-        self.fail_iterations = fail_iterations
-        self.complete = Bool(False)
+        self.fail_iterations = kwargs.get("fail_iterations", 100)
+        self.store_samples_mse = kwargs.get("store_samples_mse", False)
+        self.use_dynamic_alpha = kwargs.get("use_dynamic_alpha", False)
         self.gd_skip = Bool(False)
-        self.epoch_number = 0
-        self.epoch_ended = Bool(False)
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
@@ -101,27 +212,20 @@ class Decision(units.Unit):
         self.min_validation_n_err = 1.0e30
         self.min_validation_n_err_epoch_number = -1
         self.min_train_n_err = 1.0e30
-        self.snapshot_prefix = snapshot_prefix
-        self._do_snapshots = kwargs.get("do_snapshots", True)
         self._do_export_weights = kwargs.get("do_export_weights", False)
-        self.fnme = None
         self.fnmeWb = None
         self.epoch_metrics = [None, None, None]
-        self.just_snapshotted = Bool(False)
-        self.snapshot_time = 0
         self.minibatch_mse = None
         self.epoch_samples_mse = ([formats.Vector(),
                                    formats.Vector(),
                                    formats.Vector()]
-                                  if store_samples_mse
+                                  if self.store_samples_mse
                                   else [])
         self.tmp_epoch_samples_mse = ([formats.Vector(),
                                        formats.Vector(),
                                        formats.Vector()]
-                                      if store_samples_mse
+                                      if self.store_samples_mse
                                       else [])
-        self.minibatch_offset = None
-        self.minibatch_size = None
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
         self.max_err_y_sums = [0, 0, 0]
@@ -131,15 +235,8 @@ class Decision(units.Unit):
         self.sample_output = None
         self.sample_target = None
         self.sample_label = None
-        self.use_dynamic_alpha = use_dynamic_alpha
         self.prev_train_err = 1.0e30
         self.evaluator = None
-        self.max_epochs = max_epochs  # max epochs to learn
-
-    def init_unpickled(self):
-        super(Decision, self).init_unpickled()
-        self.minibatches_balance_ = [0, 0, 0]
-        self.slave_minibatch_class_ = {}
 
     def initialize(self, **kwargs):
         super(Decision, self).initialize(**kwargs)
@@ -206,56 +303,139 @@ class Decision(units.Unit):
                 evaluator.target.v is not None):
             self.sample_target = numpy.zeros_like(evaluator.target[0])
 
-        timestamp = time.time()
-        self.epoch_timestamps = [timestamp, timestamp, timestamp]
-
-    def run(self):
-        self.epoch_ended << False
-        minibatch_class = self.minibatch_class
-
-        self._copy_minibatch_mse(minibatch_class, self.minibatch_size,
-                                 self.minibatch_offset)
+    def on_run(self):
+        self._copy_minibatch_mse()
 
         # Check skip gradient descent or not
-        self.gd_skip << (minibatch_class != TRAIN)
+        self.gd_skip << (self.minibatch_class != TRAIN)
 
-        if self.no_more_minibatches_left[minibatch_class]:
-            self._on_last_minibatch(minibatch_class)
+    def on_last_minibatch(self):
+        minibatch_class = self.minibatch_class
+        # Copy confusion matrix
+        if (self.minibatch_confusion_matrix is not None and
+                self.minibatch_confusion_matrix.v is not None):
+            self.minibatch_confusion_matrix.map_read()
+            self.confusion_matrixes[minibatch_class][:] = (
+                self.minibatch_confusion_matrix.v[:])
 
-    def _on_snapshot(self, minibatch_class):
-        to_rm = []
-        if self.fnme is not None:
-            to_rm.append("%s.bak" % (self.fnme))
-            try:
-                os.unlink(to_rm[-1])
-            except OSError:
-                pass
-            try:
-                os.rename(self.fnme, to_rm[-1])
-            except OSError:
-                pass
-        ss = []
-        if self.minibatch_metrics is not None:
-            ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
+        if (self.minibatch_metrics is not None and
+                self.minibatch_metrics.v is not None):
+            self.minibatch_metrics.map_read()
+            self.epoch_min_mse[minibatch_class] = (
+                min(self.minibatch_metrics[0] /
+                    self.class_samples[minibatch_class],
+                    self.epoch_min_mse[minibatch_class]))
+            # Copy metrics
+            self.epoch_metrics[minibatch_class][:] = (
+                self.minibatch_metrics.v[:])
+            # Compute average mse
+            self.epoch_metrics[minibatch_class][0] = (
+                self.epoch_metrics[minibatch_class][0] /
+                self.class_samples[minibatch_class])
+
+        if (self.minibatch_n_err is not None and
+                self.minibatch_n_err.v is not None):
+            self.minibatch_n_err.map_read()
+            self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
+            # Compute error in percents
+            if self.class_samples[minibatch_class]:
+                self.epoch_n_err_pt[minibatch_class] = (
+                    100.0 * self.epoch_n_err[minibatch_class] /
+                    self.class_samples[minibatch_class])
+
+        # Store maximum of backpropagated gradient
+        if (self.minibatch_max_err_y_sum is not None and
+                self.minibatch_max_err_y_sum.v is not None):
+            self.minibatch_max_err_y_sum.map_read()
+            self.max_err_y_sums[minibatch_class] = (
+                self.minibatch_max_err_y_sum[0])
+
+    def on_test_validation_processed(self):
+        minibatch_class = self.minibatch_class
+        if (self.minibatch_metrics is not None and
+            (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
+             (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
+              and self.epoch_min_mse[2] < self.min_train_mse))):
+            self.min_validation_mse = self.epoch_min_mse[minibatch_class]
+            self.min_validation_mse_epoch_number = self.epoch_number
+            self.min_train_mse = self.epoch_min_mse[2]
+            self.improved << True
+        if (self.minibatch_n_err is not None and
+            (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
+             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
+              and self.epoch_n_err[2] < self.min_train_n_err))):
+            self.min_validation_n_err = self.epoch_n_err[minibatch_class]
+            self.min_validation_n_err_epoch_number = self.epoch_number
+            self.min_train_n_err = self.epoch_n_err[2]
+            self.improved << True
+        if self.improved and self._do_export_weights:
+            self._on_export_weights(minibatch_class)
+
+    def on_training_finished(self):
+        if self.use_dynamic_alpha:
+            if (self.minibatch_metrics is not None and
+                    self.minibatch_metrics.v is not None):
+                this_train_err = self.epoch_metrics[2][0]
+            elif (self.minibatch_n_err is not None and
+                  self.minibatch_n_err.v is not None):
+                this_train_err = self.epoch_n_err[2]
+            else:
+                this_train_err = self.prev_train_err
+            if self.prev_train_err:
+                k = this_train_err / self.prev_train_err
+            else:
+                k = 1.0
+            if k < 1.04:
+                ak = 1.05
+            else:
+                ak = 0.7
+            self.prev_train_err = this_train_err
+            alpha = 0
+            for gd in self.workflow.gds:
+                if gd is None:
+                    continue
+                gd.learning_rate = numpy.clip(ak * gd.learning_rate,
+                                              0.00001, 0.75)
+                if not alpha:
+                    alpha = gd.learning_rate
+            self.info("new learning_rate: %.6f" % (alpha))
+        self._sync_vectors()
+
+    def on_epoch_ended(self):
+        for i in range(len(self.epoch_n_err)):
+            self.epoch_n_err[i] = 0
+
+    def stop_condition(self):
+        if (self.epoch_number - self.min_validation_mse_epoch_number >
+                self.fail_iterations and
+                self.epoch_number - self.min_validation_n_err_epoch_number >
+                self.fail_iterations):
+            return True
+
+        if (self.min_validation_n_err <= 0 or self.min_validation_mse <= 0):
+            return True
+
+        return False
+
+    def fill_statistics(self, ss):
+        minibatch_class = self.minibatch_class
+        if self.epoch_metrics[minibatch_class] is not None:
+            ss.append("AvgMSE %.6f MaxMSE %.6f "
+                      "MinMSE %.3e" % (self.epoch_metrics[minibatch_class][0],
+                                       self.epoch_metrics[minibatch_class][1],
+                                       self.epoch_metrics[minibatch_class][2]))
         if self.minibatch_n_err is not None:
-            ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        self.fnme = os.path.join(config.root.common.snapshot_dir,
-                                 "%s_%s.%d.pickle" %
-                                 (self.snapshot_prefix, "_".join(ss),
-                                  3 if six.PY3 else 2))
-        self.info("Snapshotting to %s" % (self.fnme))
-        with open(self.fnme, "wb") as fout:
-            pickle.dump(self.workflow, fout)
-        fnme_link = os.path.join(config.root.common.snapshot_dir,
-                                 "%s_current.%d.pickle" %
-                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
-        try:
-            os.remove(fnme_link)
-        except:
-            pass
-        os.symlink("%s_%s.%d.pickle" % (self.snapshot_prefix,
-                                        "_".join(ss), 3 if six.PY3 else 2),
-                   fnme_link)
+            ss.append("n_err %d (%.2f%%)" %
+                      (self.epoch_n_err[minibatch_class],
+                       self.epoch_n_err_pt[minibatch_class]))
+        if not self.is_slave:  # we will need them in generate_data_for_master
+            self._reset_statistics(self.minibatch_class)
+
+    def fill_snapshot_suffixes(self, ss):
+        if self.minibatch_metrics is not None:
+            ss.append("%.6f" % (self.epoch_metrics[self.minibatch_class][0]))
+        if self.minibatch_n_err is not None:
+            ss.append("%.2fpt" % (self.epoch_n_err_pt[self.minibatch_class]))
 
     def _on_export_weights(self, minibatch_class):
         to_rm = []
@@ -278,7 +458,7 @@ class Decision(units.Unit):
                                    "%s_%s_Wb.%d.pickle" %
                                    (self.snapshot_prefix, "_".join(ss),
                                     3 if six.PY3 else 2))
-        self.info("Exporting weights to %s" % (self.fnmeWb))
+        self.info("Exporting weights to %s" % self.fnmeWb)
         weights = []
         bias = []
         for forward in self.workflow.fwds:
@@ -327,77 +507,6 @@ class Decision(units.Unit):
                                            "_".join(ss), 3 if six.PY3 else 2),
                    fnme_link)
 
-    def _on_export(self, minibatch_class):
-        if self.workflow is None:
-            return
-        if self._do_snapshots:
-            self._on_snapshot(minibatch_class)
-        if self._do_export_weights:
-            self._on_export_weights(minibatch_class)
-        self.just_snapshotted << True
-        self.snapshot_time = time.time()
-
-    def _stop_condition(self, minibatch_class):
-        if (self.epoch_number - self.min_validation_mse_epoch_number >
-                self.fail_iterations and
-                self.epoch_number - self.min_validation_n_err_epoch_number >
-                self.fail_iterations):
-            return True
-
-        if (self.min_validation_n_err <= 0 or
-                self.min_validation_mse <= 0):
-            return True
-
-        # stop if max epoch number reached     333
-        if (self.max_epochs is not None and
-                self.epoch_number >= self.max_epochs):
-            return True
-        return False
-
-    def _on_test_validation_processed(self, minibatch_class):
-        if self.just_snapshotted:
-            self.just_snapshotted << False
-        do_snapshot = False
-        if (self.minibatch_metrics is not None and
-            (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
-             (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
-              and self.epoch_min_mse[2] < self.min_train_mse))):
-            self.min_validation_mse = self.epoch_min_mse[minibatch_class]
-            self.min_validation_mse_epoch_number = self.epoch_number
-            self.min_train_mse = self.epoch_min_mse[2]
-            do_snapshot = True
-        if (self.minibatch_n_err is not None and
-            (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
-             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
-              and self.epoch_n_err[2] < self.min_train_n_err))):
-            self.min_validation_n_err = self.epoch_n_err[minibatch_class]
-            self.min_validation_n_err_epoch_number = self.epoch_number
-            self.min_train_n_err = self.epoch_n_err[2]
-            do_snapshot = True
-        if do_snapshot:
-            # Export workflow and weights
-            self._on_export(minibatch_class)
-        # Stop condition
-        self.complete << self._stop_condition(minibatch_class)
-
-    def _print_statistics(self, minibatch_class):
-        ss = []
-        if self.epoch_metrics[minibatch_class] is not None:
-            ss.append("AvgMSE %.6f MaxMSE %.6f "
-                      "MinMSE %.3e" % (self.epoch_metrics[minibatch_class][0],
-                                       self.epoch_metrics[minibatch_class][1],
-                                       self.epoch_metrics[minibatch_class][2]))
-        if self.minibatch_n_err is not None:
-            ss.append("n_err %d (%.2f%%)" %
-                      (self.epoch_n_err[minibatch_class],
-                       self.epoch_n_err_pt[minibatch_class]))
-        timestamp = time.time()
-        self.info("Epoch %d class %s %s in %.2f sec" %
-                  (self.epoch_number, CLASS_NAME[minibatch_class],
-                   " ".join(ss),
-                   timestamp - self.epoch_timestamps[minibatch_class]))
-        self.epoch_timestamps[minibatch_class] = timestamp
-
     def _reset_statistics(self, minibatch_class):
         # Reset statistics per class
         if (self.minibatch_n_err is not None and
@@ -427,36 +536,6 @@ class Decision(units.Unit):
             self.minibatch_confusion_matrix.map_invalidate()
             self.minibatch_confusion_matrix.v[:] = 0
 
-    def _on_training_finished(self):
-        if self.use_dynamic_alpha:
-            if (self.minibatch_metrics is not None and
-                    self.minibatch_metrics.v is not None):
-                this_train_err = self.epoch_metrics[2][0]
-            elif (self.minibatch_n_err is not None and
-                  self.minibatch_n_err.v is not None):
-                this_train_err = self.epoch_n_err[2]
-            else:
-                this_train_err = self.prev_train_err
-            if self.prev_train_err:
-                k = this_train_err / self.prev_train_err
-            else:
-                k = 1.0
-            if k < 1.04:
-                ak = 1.05
-            else:
-                ak = 0.7
-            self.prev_train_err = this_train_err
-            alpha = 0
-            for gd in self.workflow.gds:
-                if gd is None:
-                    continue
-                gd.learning_rate = numpy.clip(ak * gd.learning_rate,
-                                              0.00001, 0.75)
-                if not alpha:
-                    alpha = gd.learning_rate
-            self.info("new learning_rate: %.6f" % (alpha))
-        self._sync_vectors()
-
     def _sync_vectors(self):
         # Sync vectors
         for vector in self.vectors_to_sync.keys():
@@ -473,88 +552,17 @@ class Decision(units.Unit):
                     self.vectors_to_sync.keys()):
                 self.sample_label = evaluator.labels[0]
 
-    def _on_last_minibatch(self, minibatch_class):
-        # Copy confusion matrix
-        if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
-            self.minibatch_confusion_matrix.map_read()
-            self.confusion_matrixes[minibatch_class][:] = (
-                self.minibatch_confusion_matrix.v[:])
-
-        if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.v is not None):
-            self.minibatch_metrics.map_read()
-            self.epoch_min_mse[minibatch_class] = (
-                min(self.minibatch_metrics[0] /
-                    self.class_samples[minibatch_class],
-                    self.epoch_min_mse[minibatch_class]))
-            # Copy metrics
-            self.epoch_metrics[minibatch_class][:] = (
-                self.minibatch_metrics.v[:])
-            # Compute average mse
-            self.epoch_metrics[minibatch_class][0] = (
-                self.epoch_metrics[minibatch_class][0] /
-                self.class_samples[minibatch_class])
-
-        if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.v is not None):
-            self.minibatch_n_err.map_read()
-            self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
-            # Compute error in percents
-            if self.class_samples[minibatch_class]:
-                self.epoch_n_err_pt[minibatch_class] = (
-                    100.0 * self.epoch_n_err[minibatch_class] /
-                    self.class_samples[minibatch_class])
-
-        # Store maximum of backpropagated gradient
-        if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.v is not None):
-            self.minibatch_max_err_y_sum.map_read()
-            self.max_err_y_sums[minibatch_class] = (
-                self.minibatch_max_err_y_sum[0])
-
-        # Test and Validation sets processed
-        if ((self.class_samples[VALID] and minibatch_class == VALID) or
-                (not self.class_samples[VALID] and minibatch_class >= VALID)):
-            self._on_test_validation_processed(minibatch_class)
-
-        # Training set processed
-        if self.minibatch_class == TRAIN:
-            self._on_training_finished()
-
-        # Print some statistics
-        self._print_statistics(minibatch_class)
-        if not self.is_slave:  # we will need them in generate_data_for_master
-            self._reset_statistics(minibatch_class)
-
-        if all(self.no_more_minibatches_left):
-            self._end_epoch()
-
-    def _end_epoch(self):
-        assert all(self.no_more_minibatches_left)
-        if not self.is_slave:
-            self.no_more_minibatches_left[:] = \
-                [False] * len(self.no_more_minibatches_left)
-            self.epoch_ended << True
-            self.epoch_number += 1
-            # Reset n_err
-            for i in range(len(self.epoch_n_err)):
-                self.epoch_n_err[i] = 0
-        else:
-            self.complete << True
-
-    def _copy_minibatch_mse(self, minibatch_class, minibatch_size,
-                            minibatch_offset):
+    def _copy_minibatch_mse(self):
         if self.epoch_samples_mse:
-            minibatch_offset -= minibatch_size
+            self.minibatch_offset -= self.minibatch_size
             self.minibatch_mse.map_read()
-            offset = minibatch_offset
-            for i in range(minibatch_class):
+            offset = self.minibatch_offset
+            for i in range(self.minibatch_class):
                 offset -= self.class_samples[i]
-            self.tmp_epoch_samples_mse[minibatch_class].map_write()
-            self.tmp_epoch_samples_mse[minibatch_class][
-                offset:offset
-                + minibatch_size] = self.minibatch_mse[:minibatch_size]
+            self.tmp_epoch_samples_mse[self.minibatch_class].map_write()
+            self.tmp_epoch_samples_mse[self.minibatch_class][
+                offset:offset + self.minibatch_size] = \
+                self.minibatch_mse[:self.minibatch_size]
 
     def generate_data_for_master(self):
         self._sync_vectors()
@@ -633,12 +641,11 @@ class Decision(units.Unit):
         if data["sample_label"] is not None:
             for i, d in enumerate(data["sample_label"]):
                 self.sample_label[i] = d
-        minibatch_class = data["minibatch_class"]
-        minibatch_size = data["minibatch_size"]
-        minibatch_offset = data["minibatch_offset"]
-        assert minibatch_class == self.slave_minibatch_class_[slave.id]
-        self._copy_minibatch_mse(minibatch_class, minibatch_size,
-                                 minibatch_offset)
+        self.minibatch_class = data["minibatch_class"]
+        self.minibatch_size = data["minibatch_size"]
+        self.minibatch_offset = data["minibatch_offset"]
+        assert self.minibatch_class == self.slave_minibatch_class_[slave.id]
+        self._copy_minibatch_mse()
         self.epoch_ended << False
         self._finalize_job(slave)
         # we evaluate this condition before _on_last_minibatch since it may
@@ -646,9 +653,9 @@ class Decision(units.Unit):
         has_data_for_slave = (all(self.no_more_minibatches_left) and
                               not any(self.minibatches_balance_) and
                               not self.complete)
-        if (self.no_more_minibatches_left[minibatch_class] and
-                self.minibatches_balance_[minibatch_class] == 0):
-            self._on_last_minibatch(minibatch_class)
+        if (self.no_more_minibatches_left[self.minibatch_class] and
+                self.minibatches_balance_[self.minibatch_class] == 0):
+            self._on_last_minibatch(self.minibatch_class)
         if has_data_for_slave:
             self.has_data_for_slave = has_data_for_slave
 

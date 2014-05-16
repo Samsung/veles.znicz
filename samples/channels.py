@@ -31,6 +31,7 @@ import veles.image as image
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.random_generator as rnd
+from veles.snapshotter import Snapshotter
 import veles.thread_pool as thread_pool
 import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
@@ -55,9 +56,9 @@ root.defaults = {
     "all2all_tanh": {"weights_filling": "uniform",
                      "weights_stddev": 0.0001},
     "decision": {"fail_iterations": 1000,
-                 "snapshot_prefix": "channels %s" % root.model,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
+    "snapshotter": {"prefix": "channels %s" % root.model},
     "conv":  {"weights_filling": "uniform",
               "weights_stddev": 0.0001},
     "conv_relu":  {"weights_filling": "uniform",
@@ -691,7 +692,6 @@ class Workflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.Decision(
             self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix,
             use_dynamic_alpha=root.decision.use_dynamic_alpha,
             do_export_weights=root.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
@@ -703,8 +703,15 @@ class Workflow(StandardWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
         for i in range(0, len(layers)):

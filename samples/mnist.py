@@ -16,6 +16,7 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -35,8 +36,8 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.defaults = {"all2all": {"weights_stddev": 0.05},
                  "decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "mnist",
                               "store_samples_mse": True},
+                 "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_maxsize": 60},
                  "mnist": {"learning_rate": 0.01,
                            "weights_decay": 0.0,
@@ -183,6 +184,14 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)

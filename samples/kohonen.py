@@ -75,19 +75,24 @@ class Workflow(nn_units.NNWorkflow):
                              minibatch_maxsize=root.loader.minibatch_maxsize)
         self.loader.link_from(self.repeater)
 
-        self.fwds.append(kohonen.Kohonen(
+        # Kohonen training layer
+        train = kohonen.KohonenTrain(
             self,
             shape=root.forward.shape,
             weights_filling=root.forward.weights_filling,
-            weights_stddev=root.forward.weights_stddev))
-        self.fwds[0].link_from(self.loader)
-        self.fwds[0].link_attrs(self.loader, ("input", "minibatch_data"))
+            weights_stddev=root.forward.weights_stddev,
+            gradient_decay=root.train.gradient_decay,
+            radius_decay=root.train.radius_decay)
+        train.link_from(self.loader)
+        train.link_attrs(self.loader, ("input", "minibatch_data"))
+        train.gate_skip = self.decision.gd_skip
+        train.batch_size = self.loader.minibatch_size
 
-        # Add decision unit
+        # Loop decision
         self.decision = decision.Decision(
             self, snapshot_prefix=root.decision.snapshot_prefix,
             max_epochs=root.decision.epochs)
-        self.decision.link_from(self.fwds[0])
+        self.decision.link_from(train)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "no_more_minibatches_left",
                                               "class_samples")
@@ -96,19 +101,9 @@ class Workflow(nn_units.NNWorkflow):
         self.ipython.link_from(self.decision)
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
-        # Add gradient descent units
-        self.gds.append(kohonen.KohonenTrain(
-            self,
-            gradient_decay=root.train.gradient_decay,
-            radius_decay=root.train.radius_decay))
-        self.gds[-1].link_from(self.ipython)
-        self.gds[-1].link_attrs(self.fwds[-1], "input", "weights")
-        self.gds[-1].gate_skip = self.decision.gd_skip
-        self.gds[-1].batch_size = self.loader.minibatch_size
+        self.repeater.link_from(self.ipython)
 
-        self.repeater.link_from(self.gds[0])
-
-        self.end_point.link_from(self.gds[0])
+        self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
@@ -118,8 +113,7 @@ class Workflow(nn_units.NNWorkflow):
                          # nn_plotting_units.KohonenInputMaps(),
                          nn_plotting_units.KohonenNeighborMap(self)]
         # self.plotters[0].link_attrs()
-        self.plotters[-1].link_attrs(self.fwds[0], ("input", "weights"),
-                                     "shape")
+        self.plotters[-1].link_attrs(self.train, ("input", "weights"), "shape")
         self.plotters[-1].link_from(self.decision)
         self.plotters[-1].gate_block = ~self.decision.epoch_ended
 

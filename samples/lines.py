@@ -11,6 +11,7 @@ import os
 
 from veles.config import root
 from veles.mutable import Bool
+from veles.snapshotter import Snapshotter
 from veles.znicz import conv, all2all, evaluator, decision
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz.loader import ImageLoader
@@ -24,8 +25,8 @@ valid = "/data/veles/Lines/Grid/test"
 
 root.model = "grid"
 
-root.defaults = {"decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "lines"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
                  "image_saver": {"out_dirs":
@@ -85,16 +86,16 @@ class ImageLabel(IntEnum):
     tilted_top_to_bottom = 3  # left top --> right bottom (\)
     straight_grid = 4  # 0 and 90 deg lines simultaneously
     tilted_grid = 5  # +45 and -45 deg lines simultaneously
-    #circle = 6
-    #square = 7
-    #right_angle = 8
-    #triangle = 9
-    #sinusoid = 10
+    # circle = 6
+    # square = 7
+    # right_angle = 8
+    # triangle = 9
+    # sinusoid = 10
 
 
 class Loader(ImageLoader):
     def get_label_from_filename(self, filename):
-        #takes folder name "vertical", "horizontal", "etc"
+        # takes folder name "vertical", "horizontal", "etc"
         return int(ImageLabel[filename.split("/")[-2]])
 
 
@@ -145,8 +146,7 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.Decision(
-            self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -157,6 +157,13 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
@@ -266,7 +273,7 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device):
-        #self.gds[0].learning_rate = 0.03
+        # self.gds[0].learning_rate = 0.03
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)
