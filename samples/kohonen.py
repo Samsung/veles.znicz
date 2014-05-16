@@ -16,7 +16,6 @@ import veles.error as error
 from veles.interaction import Shell
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
-import veles.znicz.decision as decision
 import veles.znicz.kohonen as kohonen
 import veles.znicz.loader as loader
 
@@ -76,27 +75,24 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
-        train = kohonen.KohonenTrain(
+        self.trainer = kohonen.KohonenTrainer(
             self,
             shape=root.forward.shape,
             weights_filling=root.forward.weights_filling,
             weights_stddev=root.forward.weights_stddev,
             gradient_decay=root.train.gradient_decay,
             radius_decay=root.train.radius_decay)
-        train.link_from(self.loader)
-        train.link_attrs(self.loader, ("input", "minibatch_data"))
-        train.gate_skip = self.decision.gd_skip
-        train.batch_size = self.loader.minibatch_size
+        self.trainer.link_from(self.loader)
+        self.trainer.link_attrs(self.loader, ("input", "minibatch_data"))
 
         # Loop decision
-        self.decision = decision.Decision(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
-            max_epochs=root.decision.epochs)
-        self.decision.link_from(train)
+        self.decision = kohonen.KohonenDecision(
+            self, max_epochs=root.decision.epochs)
+        self.decision.link_from(self.trainer)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "no_more_minibatches_left",
                                               "class_samples")
-
+        self.decision.link_attrs(self.trainer, "weights", "winners")
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)
         self.ipython.gate_skip = ~self.decision.epoch_ended
@@ -109,13 +105,17 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.gate_block = self.decision.complete
 
         # Error plotter
-        self.plotters = [  # nn_plotting_units.KohonenHits(),
-                         # nn_plotting_units.KohonenInputMaps(),
+        self.plotters = [nn_plotting_units.KohonenHits(self),
+                         nn_plotting_units.KohonenInputMaps(self),
                          nn_plotting_units.KohonenNeighborMap(self)]
-        # self.plotters[0].link_attrs()
-        self.plotters[-1].link_attrs(self.train, ("input", "weights"), "shape")
-        self.plotters[-1].link_from(self.decision)
-        self.plotters[-1].gate_block = ~self.decision.epoch_ended
+        self.plotters[0].link_attrs(self.trainer, ("input", "winners"),
+                                    "shape")
+        self.plotters[0].link_from(self.decision)
+        self.plotters[0].gate_block = ~self.decision.epoch_ended
+        self.plotters[2].link_attrs(self.trainer, ("input", "weights"),
+                                    "shape")
+        self.plotters[2].link_from(self.decision)
+        self.plotters[2].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, device):
         return super(Workflow, self).initialize(device=device)

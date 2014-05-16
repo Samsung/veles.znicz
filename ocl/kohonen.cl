@@ -40,6 +40,10 @@ void feed_layer(__global c_dtype    /* IN */    *input,
   }
 }
 
+#ifndef __OPENCL_VERSION__
+#define TRAIN
+#endif
+
 #ifdef TRAIN
 /// @brief Computes distances between input and neuron weights.
 /// @param h input.
@@ -95,7 +99,8 @@ void compute_distance(__global const c_dtype    /* IN */    *input,
 #endif
 __kernel __attribute__((reqd_work_group_size(WORK_GROUP_SIZE, 1, 1)))
 void compute_argmin(__global const dtype /* IN */   *dists,
-                    __global int         /* OUT */  *argmin) {
+                    __global int         /* OUT */  *argmin,
+                    __global volatile int/* OUT */  *winners) {
 
   int tx = get_local_id(0); // from 0 to WORK_GROUP_SIZE - 1
 
@@ -132,6 +137,7 @@ void compute_argmin(__global const dtype /* IN */   *dists,
       }
     }
     argmin[sample] = min_index;
+    atom_inc(winners + min_index);
   }
 }
 #undef WORK_GROUP_SIZE

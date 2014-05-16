@@ -57,21 +57,22 @@ class TestKohonen(unittest.TestCase):
              [6.8938, 7.1, -4.0215, 3.6939, -3.3245],
              [0.213, 3.6071, -3.4613, -2.7033, 6.5233]],
             dtype=self.dtype)
+        self.winners = numpy.array([2, 1, 0, 1, 0, 0, 0, 0, 1],
+                                   dtype=numpy.int)
 
     def tearDown(self):
         del self.device
 
     def test_forward(self):
         logging.info("Will test KohonenForward unit forward pass")
-        inp = formats.Vector()
-        inp.v = self.input.copy()
         c = kohonen.KohonenForward(DummyWorkflow(), output_shape=[3, 3])
-        c.input = inp
-
+        c.input = formats.Vector()
+        c.input.v = self.input[:]
+        c.weights = formats.Vector()
+        c.weights.v = self.weights[:]
+        c.shape = (3, 3)
+        c.epoch_ended = False
         c.initialize(device=self.device)
-
-        c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = self.weights.reshape(c.weights.v.shape)[:]
 
         c.run()
         c.output.map_read()  # get results back
@@ -81,42 +82,48 @@ class TestKohonen(unittest.TestCase):
         max_diff = numpy.fabs(self.output.ravel() - y.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        logging.info("All Ok")
 
     def test_train(self):
         logging.info("Will test KohonenForward unit train pass")
-        inp = formats.Vector()
-        inp.v = self.input.copy()
 
-        c = kohonen.KohonenTrain(DummyWorkflow())
-        c.input = inp
+        c = kohonen.KohonenTrainer(DummyWorkflow(), shape=(3, 3))
+        c.input = formats.Vector()
+        c.input.v = self.input[:]
         c.gradient_decay = lambda t: 1.0 / (1.0 + t)
-        c.weights = formats.Vector()
-        c.weights.v = self.weights.copy()
+        c.weights.v = self.weights[:]
 
         c.initialize(device=self.device)
 
         c.cpu_run()
 
-        c.weights.map_read()  # get results back
-
         weights = c.weights.v.ravel()
+        winners = c.winners.v
         max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
+        self.assertTrue(all(winners == self.winners),
+                        "Wrong winners %s" % str(winners))
 
         c.weights.map_invalidate()
         c.weights.v[:] = self.weights
+        c.winners.map_invalidate()
+        c.winners.v[:] = 0
+        c.weights.unmap()
+        c.winners.unmap()
         c.time = 0
+
         c.ocl_run()
+
         c.weights.map_read()
+        c.winners.map_read()
         weights = c.weights.v.ravel()
+        winners = c.winners.v
 
         max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-
-        logging.info("All Ok")
+        self.assertTrue(all(winners == self.winners),
+                        "Wrong winners %s" % str(winners))
 
 
 if __name__ == "__main__":
