@@ -53,8 +53,8 @@ class TestRandom(unittest.TestCase):
         krn.set_arg(1, output.v_)
         krn.set_arg(2, n_rounds)
 
-        self.device.queue_.execute_kernel((states.v.shape[0],), None,
-                                          krn).wait()
+        self.device.queue_.execute_kernel(krn, (states.v.shape[0],),
+                                          None).wait()
 
         output.map_read()
         logging.debug("gpu output:")
