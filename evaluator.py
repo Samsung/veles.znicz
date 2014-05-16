@@ -17,7 +17,7 @@ from veles.opencl_units import OpenCLUnit
 class EvaluatorSoftmax(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         output
         labels
         batch_size
@@ -186,7 +186,7 @@ class EvaluatorSoftmax(OpenCLUnit):
 class EvaluatorMSE(OpenCLUnit):
     """Evaluator for nn softmax output from the batch labels.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         output
         target
         batch_size

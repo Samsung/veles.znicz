@@ -20,7 +20,7 @@ import veles.error as error
 class All2All(nn_units.Forward):
     """All2All with linear activation f(x) = x.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
 
     Updates after run():
@@ -267,7 +267,7 @@ class All2AllRELU(All2All):
 class All2AllSoftmax(All2All):
     """All2All with linear activation and softmax normalization.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
 
     Updates after run():
         max_idx

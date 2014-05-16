@@ -21,7 +21,7 @@ import veles.znicz.nn_units as nn_units
 class GradientDescent(nn_units.GradientDescentBase):
     """Gradient Descent.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         output
         input
         err_output

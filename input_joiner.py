@@ -18,7 +18,7 @@ from veles.opencl_units import OpenCLUnit
 class InputJoiner(OpenCLUnit):
     """Joins several minibatch inputs into one continuous minibatch output.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         inputs
 
     Updates after run():

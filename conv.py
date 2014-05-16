@@ -23,7 +23,7 @@ import veles.znicz.nn_units as nn_units
 class Conv(nn_units.Forward):
     """Convolutional forward propagation with linear activation f(x) = x.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
 
     Updates after run():

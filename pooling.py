@@ -19,7 +19,7 @@ import veles.znicz.nn_units as nn_units
 class Pooling(nn_units.Forward):
     """Pooling forward propagation.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
 
     Updates after run():
@@ -131,7 +131,7 @@ class Pooling(nn_units.Forward):
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
 
     Updates after run():
         input_offs
@@ -195,7 +195,7 @@ class MaxPooling(Pooling):
 class AvgPooling(Pooling):
     """AvgPooling forward propagation.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
 
     Updates after run():
 

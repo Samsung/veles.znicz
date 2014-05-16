@@ -17,7 +17,7 @@ import veles.opencl_types as opencl_types
 class Weights2D(plotter.Plotter):
     """Plotter for drawing weights as 2D.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
         input_field
 
@@ -128,7 +128,7 @@ class Weights2D(plotter.Plotter):
 class MSEHistogram(plotter.Plotter):
     """Plotter for drawing histogram.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         mse
 
     Updates after run():
@@ -255,7 +255,7 @@ class MSEHistogram(plotter.Plotter):
 class KohonenHits(plotter.Plotter):
     """Draws the Kohonen classification win numbers.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
     """
 
@@ -392,7 +392,7 @@ class KohonenHits(plotter.Plotter):
 class KohonenInputMaps(plotter.Plotter):
     """Draws the Kohonen input weight maps.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
         shape
     """
@@ -473,7 +473,7 @@ class KohonenInputMaps(plotter.Plotter):
 class KohonenNeighborMap(plotter.Plotter):
     """Draws the Kohonen neighbor weight distances.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input
         shape
     """

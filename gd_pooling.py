@@ -18,7 +18,7 @@ import veles.znicz.nn_units as nn_units
 class GDPooling(nn_units.GradientDescentBase):
     """Gradient Descent for pooling unit.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         err_output
         input
 
@@ -148,7 +148,7 @@ class GDPooling(nn_units.GradientDescentBase):
 class GDMaxPooling(GDPooling):
     """Gradient Descent for max pooling unit.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
         input_offs
 
     Updates after run():
@@ -217,7 +217,7 @@ class GDMaxPooling(GDPooling):
 class GDAvgPooling(GDPooling):
     """Gradient Descent for avg pooling unit.
 
-    Should be assigned before initialize():
+    Must be assigned before initialize():
 
     Updates after run():
 
