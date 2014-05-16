@@ -54,7 +54,7 @@ class TestMatrixReduce(unittest.TestCase):
         tmp = OpenCLUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
         tmp.cl_sources_[fnme] = {}
-        tmp.build_program(defines, fnme)
+        tmp.build_program(defines, fnme, show_ocl_logs=False)
 
         krn = tmp.get_kernel("test")
         krn.set_arg(0, a.v_)
@@ -74,7 +74,7 @@ class TestMatrixReduce(unittest.TestCase):
                            [-1, -2, -3],
                            [7, 7, 7]], dtype=dtype)
         b = formats.Vector()
-        b.v = numpy.zeros(a.v.shape[1] * 2, dtype=dtype)
+        b.v = numpy.ones(a.v.shape[1] * 2, dtype=dtype)
 
         t = numpy.array([12, 9, 6], dtype=dtype)
 
@@ -93,9 +93,8 @@ class TestMatrixReduce(unittest.TestCase):
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
+                numpy.count_nonzero(b.v[a.v.shape[1]:] - 1), 0,
                 "Written some values outside of the target array bounds")
-            b.v[:] = 0
             b.unmap()
 
         logging.info("test_fixed() succeeded")
@@ -106,19 +105,20 @@ class TestMatrixReduce(unittest.TestCase):
         dtype = opencl_types.dtypes[root.common.precision_type]
 
         a = formats.Vector()
-        a.v = numpy.zeros([3337, 775], dtype=dtype)
+        a.v = numpy.zeros([3131, 1001], dtype=dtype)
         rnd.get().fill(a.v)
 
         t_col = numpy.sum(a.v, axis=0)
         t = numpy.sum(a.v, axis=1)
 
         b = formats.Vector()
-        b.v = numpy.zeros(numpy.max(a.v.shape) * 2, dtype=dtype)
+        b.v = numpy.ones(numpy.max(a.v.shape) * 2, dtype=dtype)
 
         a.initialize(self.device)
         b.initialize(self.device)
 
-        for reduce_size in range(4, 65, 4):
+        for reduce_size in range(4, 64, 1):
+            logging.info("reduce_size = %d", reduce_size)
             krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], True,
                                       reduce_size)
             global_size = [a.v.shape[1] * reduce_size]
@@ -130,9 +130,9 @@ class TestMatrixReduce(unittest.TestCase):
             self.assertLess(max_diff, 0.00032,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[1]:]), 0,
+                numpy.count_nonzero(b.v[a.v.shape[1]:] - 1), 0,
                 "Written some values outside of the target array bounds")
-            b.v[:] = 0
+            b[:] = 1
             b.unmap()
 
             krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], False,
@@ -146,15 +146,15 @@ class TestMatrixReduce(unittest.TestCase):
             self.assertLess(max_diff, 0.00032,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[0]:]), 0,
+                numpy.count_nonzero(b.v[a.v.shape[0]:] - 1), 0,
                 "Written some values outside of the target array bounds")
-            b.v[:] = 0
+            b[:] = 1
             b.unmap()
 
         logging.info("test_random() succeeded")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
