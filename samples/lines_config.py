@@ -15,10 +15,10 @@ from veles.config import root
 
 # optional parameters
 
-train = "/data/veles/Lines/Grid/learn"
-valid = "/data/veles/Lines/Grid/test"
+train = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"
+valid = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"
 
-root.model = "grid"
+root.model = "lines"
 
 root.update = {"decision": {"fail_iterations": 100,
                             "snapshot_prefix": "lines"},
@@ -51,9 +51,27 @@ root.update = {"decision": {"fail_iterations": 100,
                            "kx": 5, "ky": 5, "sliding": (2, 2)},
                           {"type": "avg_pooling",
                            "kx": 5, "ky": 5, "sliding": (2, 2)},
-                        {"type": "norm",
-                         "alpha": 0.00005, "beta": 0.75, "k": 2, "n": 5},
+                          {"type": "norm",
+                           "alpha": 0.00005, "beta": 0.75, "k":2, "n": 5},
+                          #{"type": "conv_relu", "n_kernels": 32,
+                          # "kx": 11, "ky": 11,
+                          # "sliding": (1, 1),
+                          # "padding": (2, 2, 2, 2),
+                          # "learning_rate": 0.01,
+                          # "learning_rate_bias": 0.02,
+                          # "gradient_moment": 0.9,
+                          # "weights_filling": "gaussian",
+                          # "weights_stddev": 0.01,
+                          # "bias_filling": "constant",
+                          # "bias_stddev": 0.01,
+                          # "weights_decay": 0.0,
+                          # "weights_decay_bias": 0.0},
+                          #{"type": "avg_pooling",
+                          # "kx": 3, "ky": 3, "sliding": (2, 2)},
+                          #{"type": "norm",
+                          # "alpha": 0.00005, "beta": 0.75, "n": 3},
                          {"type": "softmax", "output_shape": 6,
+                           #"learning_rate": 0.01, "weights_decay": 0.0,
                            "gradient_moment": 0.9,
                            "weights_filling": "gaussian",
                            "weights_stddev": 0.01,

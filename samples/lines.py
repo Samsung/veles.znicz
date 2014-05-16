@@ -84,13 +84,13 @@ class ImageLabel(IntEnum):
     horizontal = 1  # --
     tilted_bottom_to_top = 2  # left lower --> right top (/)
     tilted_top_to_bottom = 3  # left top --> right bottom (\)
-    straight_grid = 4  # 0 and 90 deg lines simultaneously
-    tilted_grid = 5  # +45 and -45 deg lines simultaneously
-    # circle = 6
-    # square = 7
-    # right_angle = 8
-    # triangle = 9
-    # sinusoid = 10
+    #straight_grid = 4  # 0 and 90 deg lines simultaneously
+    #tilted_grid = 5  # +45 and -45 deg lines simultaneously
+    #circle = 6
+    #square = 7
+    #right_angle = 8
+    #triangle = 9
+    #sinusoid = 10
 
 
 class Loader(ImageLoader):
@@ -168,6 +168,10 @@ class Workflow(StandardWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_block = \
             (~self.decision.epoch_ended | ~self.decision.improved)
+		
+\       self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.link_attrs(self.decision,
+                                    ("this_save_time", "snapshot_time"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
