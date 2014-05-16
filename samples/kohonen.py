@@ -93,6 +93,9 @@ class Workflow(nn_units.NNWorkflow):
                                               "no_more_minibatches_left",
                                               "class_samples")
         self.decision.link_attrs(self.trainer, "weights", "winners")
+
+        self.trainer.epoch_ended = self.decision.epoch_ended
+
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)
         self.ipython.gate_skip = ~self.decision.epoch_ended
