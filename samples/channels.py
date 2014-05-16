@@ -42,6 +42,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
+from veles.external.progressbar import ProgressBar
 
 
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
@@ -250,7 +251,7 @@ class Loader(loader.FullBatchLoader):
 
     def from_jp2_async(self, fnme, pos, sz, data_lock, stat_lock,
                        i_sample, lbl, n_files, total_files,
-                       n_negative, rand):
+                       n_negative, rand, progress):
         """Loads, crops and normalizes image in the parallel thread.
         """
         a = self.from_jp2(fnme)
@@ -295,12 +296,9 @@ class Loader(loader.FullBatchLoader):
                 fnme = "%s/0_as_%d.%d.png" % (dirnme, l, ii)
                 scipy.misc.imsave(fnme, self.as_image(s))
 
-        stat_lock.acquire()
-        n_files[0] += 1
-        if n_files[0] % 10 == 0:
-            self.info("Read %d files (%.2f%%)" % (
-                n_files[0], 100.0 * n_files[0] / total_files))
-        stat_lock.release()
+        with stat_lock:
+            n_files[0] += 1
+            progress.inc()
 
     def get_labels_from_samples(self, samples):
         weights = self.w_neg[0]
@@ -520,7 +518,7 @@ class Loader(loader.FullBatchLoader):
         self.info("Found %d files" % (total_files))
 
         # Read samples in parallel
-        rand = rnd.Rand()
+        rand = rnd.get()
         rand.seed(numpy.fromfile("/dev/urandom", dtype=numpy.int32,
                                  count=1024))
         # FIXME(a.kazantsev): numpy.dot is thread-safe with this value
@@ -533,6 +531,8 @@ class Loader(loader.FullBatchLoader):
         n_files = [0]
         n_negative = [0]
         i_sample = 0
+        progress = ProgressBar(maxval=total_files, term_width=27)
+        progress.start()
         for subdir in sorted(self.subdir_conf_.keys()):
             subdir_conf = self.subdir_conf_[subdir]
             for dirnme in sorted(subdir_conf["channel_map"].keys()):
@@ -544,9 +544,10 @@ class Loader(loader.FullBatchLoader):
                         fnme, pos[subdir], sz[subdir],
                         data_lock, stat_lock,
                         0 + i_sample, 0 + lbl, n_files, total_files,
-                        n_negative, rand))
+                        n_negative, rand, progress))
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
+        progress.finish()
 
         if (len(self.original_data) != len(self.original_labels) or
                 len(self.file_map) != len(self.original_labels)):
@@ -716,8 +717,8 @@ class Workflow(StandardWorkflow):
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         self.image_saver.gate_skip = ~self.decision.improved
-        self.image_saver.link_attrs(self.decision,
-                                    ("this_save_time", "snapshot_time"))
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
         for i in range(0, len(layers)):
             self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
