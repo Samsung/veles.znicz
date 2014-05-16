@@ -292,7 +292,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                           self.weights.v * alpha_lambda)
         if self.store_gradient:
             gd_weights_reg += self.gradient_weights.v * self.gradient_moment
-            self.gradient_weights.v = gd_weights_reg
+            self.gradient_weights.v[:] = gd_weights_reg[:]
         if self.apply_gradient:
             self.weights.v += gd_weights_reg
 
@@ -306,7 +306,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         gd_bias_reg = gd_bias * alpha_batch + self.bias.v * alpha_lambda
         if self.store_gradient:
             gd_bias_reg += self.gradient_bias.v * self.gradient_moment_bias
-            self.gradient_bias.v = gd_bias_reg
+            self.gradient_bias.v[:] = gd_bias_reg[:]
         if self.apply_gradient:
             self.bias.v += gd_bias_reg
 
