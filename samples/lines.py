@@ -169,7 +169,7 @@ class Workflow(StandardWorkflow):
         self.snapshotter.gate_block = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 		
-\       self.image_saver.gate_skip = ~self.decision.just_snapshotted
+        self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
 
@@ -222,12 +222,13 @@ class Workflow(StandardWorkflow):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
-            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
+            self.decision.vectors_to_sync[self.gds[i].weights] = 1
             plt_gd = nn_plotting_units.Weights2D(
                 self, name="%s gd %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
             self.plt_gd.append(plt_gd)
-            self.plt_gd[-1].link_attrs(self.gds[i], ("input", "weights"))
+            self.plt_gd[-1].link_attrs(self.gds[i],
+                                       ("input", "gradient_weights"))
             self.plt_gd[-1].input_field = "v"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_gd[-1].get_shape_from = (
@@ -258,8 +259,10 @@ class Workflow(StandardWorkflow):
         # MultiHistogram plotter
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
+            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
+                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]),
+                limit=4)
             self.plt_multi_hist.append(multi_hist)
             if layers[i].get("n_kernels") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
@@ -274,6 +277,30 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
+
+        # MultiHistogram plotter
+        self.plt_multi_hist_gd = []
+        for i in range(0, len(layers)):
+            self.decision.vectors_to_sync[self.gds[i].weights] = 1
+            multi_hist_gd = plotting_units.MultiHistogram(
+                self, name="GD %s %s" % (i + 1, layers[i]["type"]), limit=4)
+            self.plt_multi_hist_gd.append(multi_hist_gd)
+            if layers[i].get("n_kernels") is not None:
+                self.plt_multi_hist_gd[i].link_from(self.decision)
+                self.plt_multi_hist_gd[i].hist_number = layers[i]["n_kernels"]
+                self.plt_multi_hist_gd[i].link_attrs(self.gds[i],
+                                                ("input", "gradient_weights"))
+                end_epoch = ~self.decision.epoch_ended
+                self.plt_multi_hist_gd[i].gate_block = end_epoch
+            if layers[i].get("output_shape") is not None:
+                self.plt_multi_hist_gd[i].link_from(self.decision)
+                self.plt_multi_hist_gd[i].hist_number = layers[i][
+                    "output_shape"]
+                self.plt_multi_hist_gd[i].link_attrs(self.gds[i],
+                                                ("input", "gradient_weights"))
+                end_epoch = ~self.decision.epoch_ended
+                self.plt_multi_hist_gd[i].gate_block = end_epoch
+
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
         self.end_point.link_from(self.gds[0])
