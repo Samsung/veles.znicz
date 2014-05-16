@@ -175,10 +175,9 @@ class Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.Decision(self)
         self.decision.link_from(self.evaluator)
-        self.decision.link_attrs(self.loader,
-                                 "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples")
+        self.decision.link_attrs(
+            self.loader, "minibatch_class", "minibatch_size",
+            "minibatch_offset", "no_more_minibatches_left", "class_samples")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
