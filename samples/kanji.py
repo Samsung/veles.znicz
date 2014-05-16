@@ -221,6 +221,10 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
         self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
                                        directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)

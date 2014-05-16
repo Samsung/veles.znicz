@@ -11,7 +11,6 @@ import numpy
 import os
 import six
 from six.moves import cPickle as pickle
-import sys
 import time
 
 import veles.config as config
@@ -24,7 +23,7 @@ from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
 
 class DecisionBase(units.Unit):
     """Base class for epoch decision units. Keeps track of learning epochs,
-    that is, complete dataset passes.
+    that is, dataset passes.
 
     Defines:
         epoch_number - current epoch number
@@ -362,13 +361,13 @@ class Decision(DecisionBase):
                 self.epoch_samples_mse[i].v[:] = 0
 
         # Initialize sample_input, sample_output, sample_target if necessary
-        if self.workflow.fwds[0].input in self.vectors_to_sync:
+        if self.fwds[0].input in self.vectors_to_sync:
             self.sample_input = numpy.zeros_like(
-                self.workflow.fwds[0].input[0])
-        if self.workflow.fwds[-1].output in self.vectors_to_sync:
+                self.fwds[0].input[0])
+        if self.fwds[-1].output in self.vectors_to_sync:
             self.sample_output = numpy.zeros_like(
-                self.workflow.fwds[-1].output[0])
-        evaluator = self.evaluator or self.workflow.evaluator
+                self.fwds[-1].output[0])
+        evaluator = self.evaluator
         if (evaluator is not None and
                 evaluator.__dict__.get("target") is not None and
                 evaluator.target in self.vectors_to_sync and
@@ -463,7 +462,7 @@ class Decision(DecisionBase):
                 ak = 0.7
             self.prev_train_err = this_train_err
             alpha = 0
-            for gd in self.workflow.gds:
+            for gd in self.gds:
                 if gd is None:
                     continue
                 gd.learning_rate = numpy.clip(ak * gd.learning_rate,
@@ -595,7 +594,7 @@ class Decision(DecisionBase):
         self.info("Exporting weights to %s" % self.fnmeWb)
         weights = []
         bias = []
-        for forward in self.workflow.fwds:
+        for forward in self.fwds:
             if forward.weights is not None:
                 forward.weights.map_read()
                 weights.append(forward.weights.v)
@@ -675,16 +674,15 @@ class Decision(DecisionBase):
         for vector in self.vectors_to_sync.keys():
             vector.map_read()
         if self.sample_input is not None:
-            self.sample_input[:] = self.workflow.fwds[0].input[0]
+            self.sample_input[:] = self.fwds[0].input[0]
         if self.sample_output is not None:
-            self.sample_output[:] = self.workflow.fwds[-1].output[0]
-        evaluator = self.evaluator or self.workflow.evaluator
-        if evaluator is not None:
+            self.sample_output[:] = self.fwds[-1].output[0]
+        if self.evaluator is not None:
             if self.sample_target is not None:
-                self.sample_target[:] = evaluator.target[0]
-            if (evaluator.__dict__.get("labels") in
+                self.sample_target[:] = self.evaluator.target[0]
+            if (self.evaluator.__dict__.get("labels") in
                     self.vectors_to_sync.keys()):
-                self.sample_label = evaluator.labels[0]
+                self.sample_label = self.evaluator.labels[0]
 
     def _copy_minibatch_mse(self):
         if self.epoch_samples_mse:

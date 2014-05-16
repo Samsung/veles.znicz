@@ -183,6 +183,9 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
 
         self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
                                        directory=root.common.snapshot_dir)

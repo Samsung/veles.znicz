@@ -703,6 +703,10 @@ class Workflow(StandardWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
         self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
                                        directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
