@@ -282,13 +282,16 @@ class All2AllSoftmax(All2All):
     def __init__(self, workflow, **kwargs):
         super(All2AllSoftmax, self).__init__(workflow, **kwargs)
         self.max_idx = formats.Vector()
+        self.reduce_size = 64
 
     def init_unpickled(self):
         super(All2AllSoftmax, self).init_unpickled()
         self.krn_sm_ = None
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["softmax.cl"] = {}
+        self.reduce_size = min(self.reduce_size,
+                               int(numpy.prod(self.output_shape)))
+        self.cl_sources_["softmax.cl"] = {"REDUCE_SIZE": self.reduce_size}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
 
         if (self.max_idx.v is None or
@@ -321,10 +324,8 @@ class All2AllSoftmax(All2All):
     def gpu_apply_exp(self):
         self.output.unmap()
         self.max_idx.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
-        global_size = [self.output.v.shape[0] * block_size]
-        local_size = [block_size]
+        global_size = [self.output.v.shape[0] * self.reduce_size]
+        local_size = [self.reduce_size]
         event = self.execute_kernel(global_size, local_size, self.krn_sm_)
         event.wait()
 

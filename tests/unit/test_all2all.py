@@ -70,7 +70,7 @@ class TestAll2All(unittest.TestCase):
     def _do_test(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.empty([101, 235], dtype=dtype)
+        inp.v = numpy.empty([1999, 1777], dtype=dtype)
         rnd.get().fill(inp.v)
 
         if device is not None:
@@ -78,7 +78,7 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_shape=[11, 77])
+        c = Unit(DummyWorkflow(), output_shape=[1, 1])
         c.input = inp
         c.initialize(device=device)
 

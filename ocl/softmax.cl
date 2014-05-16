@@ -1,6 +1,7 @@
 #include "defines.cl"
 #include "highlight.cl"
 
+
 /// @brief Computes softmax and finds element with maximum real part.
 /// @details For each sample from batch of y:
 ///          1. Find m = max().
@@ -8,100 +9,129 @@
 ///          3. Compute sum of all x.
 ///          4. Divide x by sum.
 ///          Should be defined externally:
-///          BLOCK_SIZE - block size,
+///          REDUCE_SIZE - size for reduction,
 ///          BATCH - minibatch size,
-///          H - input size,
 ///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
+__kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void apply_exp(__global c_dtype *y, __global int *max_idx) {
-  __local c_dtype AS[BLOCK_SIZE];
-  __local int IS[BLOCK_SIZE];
+  __local c_dtype AS[REDUCE_SIZE];
+  __local int IS[REDUCE_SIZE];
 
-  int bx = get_group_id(0); // from 0 to BATCH / BLOCK_SIZE - 1
+  int bx = get_group_id(0); // from 0 to number of resulting output elements
   int tx = get_local_id(0); // from 0 to BLOCK_SIZE - 1
 
-  int i_sample = bx;
-  int sample_offs = i_sample * Y;
-  int start_offs = sample_offs + tx;
 
-  c_dtype m = c_from_re(-MAXFLOAT);
-  int im = 0;
-  int offs = start_offs;
-  for (int i = 0; i < Y / BLOCK_SIZE; i++, offs += BLOCK_SIZE) {
-    //m = max(m, y[offs]);
-    c_dtype vle = y[offs];
-    if (c_re(m) < c_re(vle)) {
-      m = vle;
-      im = offs - sample_offs;
+  // 1. Find the maximum element
+
+  c_dtype max_vle = c_from_re(-MAXFLOAT);
+  int max_vle_idx = 0;
+
+  int offs = bx * Y + tx;
+  for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
+    if (c_re(max_vle) < c_re(y[offs])) {
+      max_vle = y[offs];
+      max_vle_idx = offs;
     }
   }
   // Process the remaining part
-  #if (Y % BLOCK_SIZE) != 0
-  if (tx < Y % BLOCK_SIZE) {
-    //m = max(m, y[offs]);
-    c_dtype vle = y[offs];
-    if (c_re(m) < c_re(vle)) {
-      m = vle;
-      im = offs - sample_offs;
+  #if (Y % REDUCE_SIZE) != 0
+  if (tx < Y % REDUCE_SIZE) {
+    if (c_re(max_vle) < c_re(y[offs])) {
+      max_vle = y[offs];
+      max_vle_idx = offs;
     }
   }
   #endif
-  AS[tx] = m;
-  IS[tx] = im;
+
+  AS[tx] = max_vle;
+  IS[tx] = max_vle_idx;
   // ensure all shared loaded
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  if (!tx) {
-    m = AS[0];
-    im = IS[0];
-
-    #pragma unroll
-    for (int k = 1; k < MIN(BLOCK_SIZE, Y); k++) {
-      //m = max(m, AS[k]);
-      if (c_re(m) < c_re(AS[k])) {
-        m = AS[k];
-        im = IS[k];
+  // Process found elements
+  int n = MIN(Y, REDUCE_SIZE);
+  while (n > 1) {
+    if (n & 1) {
+      if (c_re(max_vle) < c_re(AS[n - 1])) {
+        max_vle = AS[n - 1];
+        max_vle_idx = IS[n - 1];
       }
     }
-
-    AS[0] = m;
-    max_idx[i_sample] = im; // output found maximum element index
+    n >>= 1;
+    if (tx < n) {
+      if (c_re(AS[tx]) < c_re(AS[n + tx])) {
+        AS[tx] = AS[n + tx];
+        IS[tx] = IS[n + tx];
+      }
+    }
+    // ensure all shared updated
+    barrier(CLK_LOCAL_MEM_FENCE);
   }
-  // ensure max computed
+  if (!tx) {
+    if (c_re(AS[0]) < c_re(max_vle)) {
+      AS[0] = max_vle;
+      IS[0] = max_vle_idx;
+    }
+    max_idx[bx] = IS[0];
+  }
+  // ensure all shared updated
   barrier(CLK_LOCAL_MEM_FENCE);
-  m = AS[0];
 
+  max_vle = AS[0];
+
+  // ensure all shared read 'cause we will update AS later
+  barrier(CLK_LOCAL_MEM_FENCE);
+
+  // 2. Find the sum(exp(x - max))
   c_dtype sum = c_from_re(0);
-  offs = start_offs;
-  for (int i = 0; i < Y / BLOCK_SIZE; i++, offs += BLOCK_SIZE)
-    sum += c_exp(y[offs] - m);
-  #if (Y % BLOCK_SIZE) != 0
-  if (tx < Y % BLOCK_SIZE)
-    sum += c_exp(y[offs] - m);
+
+  offs = bx * Y + tx;
+  for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
+    sum += c_exp(y[offs] - max_vle);
+  }
+  // Process the remaining part
+  #if (Y % REDUCE_SIZE) != 0
+  if (tx < Y % REDUCE_SIZE) {
+    sum += c_exp(y[offs] - max_vle);
+  }
   #endif
+
   AS[tx] = sum;
   // ensure all shared loaded
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  if (!tx) {
-    sum = AS[0];
-
-    #pragma unroll
-    for (int k = 1; k < MIN(BLOCK_SIZE, Y); k++)
-      sum += AS[k];
-
-    AS[0] = sum;
+  // Process found elements
+  sum = c_from_re(0);
+  n = MIN(Y, REDUCE_SIZE);
+  while (n > 1) {
+    if (n & 1) {
+      sum += AS[n - 1];
+    }
+    n >>= 1;
+    if (tx < n) {
+      AS[tx] += AS[n + tx];
+    }
+    // ensure all shared summed
+    barrier(CLK_LOCAL_MEM_FENCE);
   }
-  // ensure sum computed
+  if (!tx) {
+    AS[0] += sum;
+  }
+  // ensure all shared updated
   barrier(CLK_LOCAL_MEM_FENCE);
+
   sum = AS[0];
 
-  offs = start_offs;
-  for (int i = 0; i < Y / BLOCK_SIZE; i++, offs += BLOCK_SIZE) {
-    y[offs] = c_div(c_exp(y[offs] - m), sum);
+
+  // 3. Output exp(x - max) / sum
+  offs = bx * Y + tx;
+  for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
+    y[offs] = c_div(c_exp(y[offs] - max_vle), sum);
   }
-  #if (Y % BLOCK_SIZE) != 0
-  if (tx < Y % BLOCK_SIZE)
-    y[offs] = c_div(c_exp(y[offs] - m), sum);
+  // Process the remaining part
+  #if (Y % REDUCE_SIZE) != 0
+  if (tx < Y % REDUCE_SIZE) {
+    y[offs] = c_div(c_exp(y[offs] - max_vle), sum);
+  }
   #endif
 }
