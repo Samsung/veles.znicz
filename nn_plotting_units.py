@@ -257,6 +257,7 @@ class KohonenHits(plotter.Plotter):
 
     Must be assigned before initialize():
         input
+        shape
     """
 
     SIZE_TEXT_THRESHOLD = 0.33
@@ -267,27 +268,16 @@ class KohonenHits(plotter.Plotter):
         super(KohonenHits, self).__init__(workflow, **kwargs)
         self._color_bins = kwargs.get("color_bins", "#666699")
         self._color_text = kwargs.get("color_text", "white")
-        self._input = None
-        self._width = 0
-        self._height = 0
-
-    @property
-    def input(self):
-        return self._input
-
-    @input.setter
-    def input(self, value):
-        self._input = value
-        self._width = self.input.shape[0]
-        self._height = self.input.shape[1]
+        self.input = None
+        self.shape = None
 
     @property
     def width(self):
-        return self._width
+        return self.shape[0]
 
     @property
     def height(self):
-        return self._height
+        return self.shape[1]
 
     @property
     def color_bins(self):
@@ -306,74 +296,82 @@ class KohonenHits(plotter.Plotter):
         self._color_text = value
 
     def redraw(self):
+        fast_redraw = self.name in self.pp.get_figlabels()
         fig = self.pp.figure(self.name)
-        fig.clf()
         axes = fig.add_subplot(111)
 
-        # Draw the hexbin grid
-        diag = 1.0 / numpy.sqrt(3)
-        vlength = 2 * self.height + 2
-        # Cloned primitive
-        subline = numpy.empty((4, 2))
-        subline[0, 0] = 0.0
-        subline[0, 1] = -diag
-        subline[1, 0] = -0.5
-        subline[1, 1] = -diag / 2
-        subline[2, 0] = -0.5
-        subline[2, 1] = diag / 2
-        subline[3, 0] = 0.0
-        subline[3, 1] = diag
-        # Tile sublines into line
-        line = numpy.empty((vlength, 2))
-        for rep in range(vlength // 4):
-            line[rep * 4:rep * 4 + 4, :] = subline
-            subline[:, 1] += diag * 3
-        if not self.height & 1:
-            line[-2:, :] = subline[:2]
-        # Fill the grid vertices
-        hlength = self.width * 2 + 1
-        vertices = numpy.empty((hlength, vlength, 2))
-        for rep in range(self.width):
-            vertices[rep, :, :] = line
-            # Right side
-            line[1:vlength:4, 0] += 1.0
-            line[2:vlength:4, 0] += 1.0
-            vertices[self.width + 1 + rep, :, :] = line
-            line[0:vlength:4, 0] += 1.0
-            line[3:vlength:4, 0] += 1.0
-        # The last right side
-        vertices[self.width, :vlength - 1, :] = line[1:, :]
-        # Line ending fixes
-        if self.height & 1:
-            vertices[self.width, -2, :] = vertices[self.width, -3, :]
-        else:
-            vertices[0, -1, :] = vertices[0, -2, :]
-        vertices[self.width, -1, :] = vertices[self.width, -2, :]
-        # Add the constructed vertices as PolyCollection
-        col = self.matplotlib.collections.PolyCollection(
-            vertices, closed=False, edgecolors='black', facecolors='none')
-        # Resize together with the axes
-        col.set_transform(axes.transData)
-        axes.add_collection(col)
+        if not fast_redraw:
+            # Draw the hexbin grid
+            diag = 1.0 / numpy.sqrt(3)
+            vlength = 2 * self.height + 2
+            # Cloned primitive
+            subline = numpy.empty((4, 2))
+            subline[0, 0] = 0.0
+            subline[0, 1] = -diag
+            subline[1, 0] = -0.5
+            subline[1, 1] = -diag / 2
+            subline[2, 0] = -0.5
+            subline[2, 1] = diag / 2
+            subline[3, 0] = 0.0
+            subline[3, 1] = diag
+            # Tile sublines into line
+            line = numpy.empty((vlength, 2))
+            for rep in range(vlength // 4):
+                line[rep * 4:rep * 4 + 4, :] = subline
+                subline[:, 1] += diag * 3
+            if not self.height & 1:
+                line[-2:, :] = subline[:2]
+            # Fill the grid vertices
+            hlength = self.width * 2 + 1
+            vertices = numpy.empty((hlength, vlength, 2))
+            for rep in range(self.width):
+                vertices[rep, :, :] = line
+                # Right side
+                line[1:vlength:4, 0] += 1.0
+                line[2:vlength:4, 0] += 1.0
+                vertices[self.width + 1 + rep, :, :] = line
+                line[0:vlength:4, 0] += 1.0
+                line[3:vlength:4, 0] += 1.0
+            # The last right side
+            vertices[self.width, :vlength - 1, :] = line[1:, :]
+            # Line ending fixes
+            if self.height & 1:
+                vertices[self.width, -2, :] = vertices[self.width, -3, :]
+            else:
+                vertices[0, -1, :] = vertices[0, -2, :]
+            vertices[self.width, -1, :] = vertices[self.width, -2, :]
+            # Add the constructed vertices as PolyCollection
+            col = self.matplotlib.collections.PolyCollection(
+                vertices, closed=False, edgecolors='black', facecolors='none')
+            # Resize together with the axes
+            col.set_transform(axes.transData)
+            axes.add_collection(col)
+            axes.set_xlim(-1.0, self.width + 0.5)
+            axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.) / 2.))
+            axes.set_xticks([])
+            axes.set_yticks([])
+
+        if fast_redraw:
+            while len(axes.texts):
+                axes.texts[0].remove()
 
         # Draw the inner hexagons with text
         # Initialize sizes
         hits_max = numpy.max(self.input)
-        sizes = self.input / hits_max
+        sizes = self.input[:] / hits_max
         patches = []
         # Add hexagons one by one
         for y in range(self.height):
             for x in range(self.width):
-                self._add_hexagon(axes, patches, x, y, sizes[x, y],
-                                  self.input[x, y])
+                self._add_hexagon(axes, patches, x, y,
+                                  sizes[y * self.width + x],
+                                  self.input[y * self.width + x])
         col = self.matplotlib.collections.PatchCollection(
             patches, edgecolors='none', facecolors=self.color_bins)
+        if fast_redraw:
+            axes.collections[-1].remove()
         axes.add_collection(col)
 
-        axes.set_xlim(-1.0, self.width + 0.5)
-        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
-        axes.set_xticks([])
-        axes.set_yticks([])
         self.show_figure(fig)
         fig.canvas.draw()
 
@@ -515,30 +513,24 @@ class KohonenNeighborMap(plotter.Plotter):
 
     def redraw(self):
         self._scheme = getattr(self.cm, self.color_scheme)
+
+        fast_redraw = self.name in self.pp.get_figlabels()
         fig = self.pp.figure(self.name)
-        fig.clf()
         axes = fig.add_subplot(111)
 
-        # Draw the neurons
-        patches = []
-        for y in range(self.height):
-            for x in range(self.width):
-                self._add_hexagon(axes, patches, x, y)
-        col = self.matplotlib.collections.PatchCollection(
-            patches, edgecolors='black', facecolors=self.color_neurons)
-        axes.add_collection(col)
-
-        # Draw the links
-        links = []
+        # Calculate the links patches
         link_values = numpy.empty((self.width - 1) * self.height +
                                   (self.width * 2 - 1) * (self.height - 1))
+
+        links = []
         lvi = 0
         # Add horizontal links
         for y in range(self.height):
             for x in range(self.width - 1):
                 n1 = (x, y)
                 n2 = (x + 1, y)
-                self._add_link(axes, links, n1, n2)
+                if not fast_redraw:
+                    self._add_link(axes, links, n1, n2)
                 link_values[lvi] = self._calc_link_value(n1, n2)
                 lvi += 1
         # Add vertical links
@@ -546,7 +538,8 @@ class KohonenNeighborMap(plotter.Plotter):
             for x in range(self.width):
                 n1 = (x, y)
                 n2 = (x, y + 1)
-                self._add_link(axes, links, n1, n2)
+                if not fast_redraw:
+                    self._add_link(axes, links, n1, n2)
                 link_values[lvi] = self._calc_link_value(n1, n2)
                 lvi += 1
                 n1 = (x, y)
@@ -558,20 +551,34 @@ class KohonenNeighborMap(plotter.Plotter):
                     if x == 0:
                         continue
                     n2 = (x - 1, y + 1)
-                self._add_link(axes, links, n1, n2)
+                if not fast_redraw:
+                    self._add_link(axes, links, n1, n2)
                 link_values[lvi] = self._calc_link_value(n1, n2)
                 lvi += 1
-        # Add the collection
-        col = self.matplotlib.collections.PatchCollection(
-            links, cmap=getattr(self.cm, self.color_scheme),
-            edgecolor='none')
-        col.set_array(link_values)
-        axes.add_collection(col)
 
-        axes.set_xlim(-1.0, self.width + 0.5)
-        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2.0))
-        axes.set_xticks([])
-        axes.set_yticks([])
+        if not fast_redraw:
+            # Draw the neurons
+            patches = []
+            for y in range(self.height):
+                for x in range(self.width):
+                    self._add_hexagon(axes, patches, x, y)
+            col = self.matplotlib.collections.PatchCollection(
+                patches, edgecolors='black', facecolors=self.color_neurons)
+            axes.add_collection(col)
+
+            # Draw the links
+            col = self.matplotlib.collections.PatchCollection(
+                links, cmap=getattr(self.cm, self.color_scheme),
+                edgecolor='none')
+            axes.add_collection(col)
+            axes.set_xlim(-1.0, self.width + 0.5)
+            axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.) / 2.))
+            axes.set_xticks([])
+            axes.set_yticks([])
+        else:
+            col = axes.collections[-1]
+        col.set_array(link_values)
+
         self.show_figure(fig)
         fig.canvas.draw()
 
