@@ -16,13 +16,17 @@ from veles.config import root
 import veles.formats as formats
 import veles.error as error
 import veles.plotting_units as plotting_units
+import veles.znicz.nn_plotting_units as nn_plotting_units
+import veles.znicz.conv as conv
+import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
-mnist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                         "samples/MNIST")
+mnist_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "samples/MNIST")
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
@@ -203,6 +207,7 @@ class Workflow(StandardWorkflow):
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
         # Confusion matrix plotter
+        """
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
@@ -212,6 +217,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+        """
         # err_y plotter
         self.plt_err_y = []
         for i in range(1, 3):
@@ -225,6 +231,32 @@ class Workflow(StandardWorkflow):
             self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
+        # Weights plotter
+        self.plt_mx = []
+        prev_channels = 1
+        for i in range(len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            self.decision.vectors_to_sync[self.gds[i].gradient_weights] = 1
+            nme = "%s %s" % (i + 1, layers[i]["type"])
+            print("Added:", nme)
+            plt_mx = nn_plotting_units.Weights2D(
+                self, name=nme, limit=root.weights_plotter.limit)
+            self.plt_mx.append(plt_mx)
+            self.plt_mx[-1].link_attrs(self.gds[i], ("input",
+                                                     "gradient_weights"))
+            self.plt_mx[-1].input_field = "v"
+            if isinstance(self.fwds[i], conv.Conv):
+                self.plt_mx[-1].get_shape_from = (
+                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
+                prev_channels = self.fwds[i].n_kernels
+            if (layers[i].get("output_shape") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.plt_mx[-1].link_attrs(self.fwds[i],
+                                           ("get_shape_from", "input"))
+            self.plt_mx[-1].link_from(self.decision)
+            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, learning_rate, weights_decay, device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
