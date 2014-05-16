@@ -57,15 +57,15 @@ class TestNormalization(unittest.TestCase):
 
     def test_normalization_backward(self):
 
-        h = np.zeros(shape=(1, 2, 5, 5), dtype=np.float64)
+        h = np.zeros(shape=(2, 1, 5, 5), dtype=np.float64)
         for i in range(5):
             h[0, 0, i, :] = np.linspace(10, 50, 5) * (i + 1)
-            h[0, 1, i, :] = np.linspace(10, 50, 5) * (i + 1) + 1
+            h[1, 0, i, :] = np.linspace(10, 50, 5) * (i + 1) + 1
 
-        err_y = np.zeros(shape=(1, 2, 5, 5), dtype=np.float64)
+        err_y = np.zeros(shape=(2, 1, 5, 5), dtype=np.float64)
         for i in range(5):
             err_y[0, 0, i, :] = np.linspace(2, 10, 5) * (i + 1)
-            err_y[0, 1, i, :] = np.linspace(2, 10, 5) * (i + 1) + 1
+            err_y[1, 0, i, :] = np.linspace(2, 10, 5) * (i + 1) + 1
 
         back_normalizer = LRNormalizerBackward(self.workflow,
                                                device=self.device, n=3)
@@ -78,23 +78,23 @@ class TestNormalization(unittest.TestCase):
         back_normalizer.initialize(device=self.device)
 
         back_normalizer.cpu_run()
-        back_normalizer.err_input.map_read()
-        cpu_result = np.copy(back_normalizer.err_input.v)
+        cpu_result = back_normalizer.err_input.v.copy()
+
+        back_normalizer.err_input.map_invalidate()
+        back_normalizer.err_input.v[:] = 100
 
         back_normalizer.ocl_run()
         back_normalizer.err_input.map_read()
-        ocl_result = np.copy(back_normalizer.err_input.v)
+        ocl_result = back_normalizer.err_input.v.copy()
 
         logging.info("BACK")
 
         max_delta = np.fabs(cpu_result - ocl_result).max()
-        assert max_delta < 0.0001
         self.assertLess(max_delta, 0.0001,
                         "Result differs by %.6f" % (max_delta))
-
-        print(err_y)
-        print(cpu_result)
-        print(ocl_result)
+#        print(err_y)
+#        print(cpu_result)
+#        print(ocl_result)
 
         logging.info("BackProp done.")
 

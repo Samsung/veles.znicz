@@ -97,8 +97,7 @@ class LRNormalizerForward(LocalResponseNormalizer):
         subsums += self.k
         subsums **= self.beta
 
-        np.copyto(self.output.v, self.input.v)
-        self.output.v /= subsums
+        np.copyto(self.output.v, self.input.v / subsums)
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
@@ -119,7 +118,7 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.output = None  # output of forward layer
         self.input = None  # input of forward layer
         self.err_output = None  # output error of fwd unit, our input error
-        self.err_input = formats.Vector()  # input error of fwd unit, our output
+        self.err_input = formats.Vector()  # in error of fwd unit, our output
 
         super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
 
@@ -129,8 +128,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
-        self.err_input.v = np.ndarray(shape=self.err_output.v.shape,
-                                  dtype=self.err_output.v.dtype)
+        self.err_input.v = np.zeros(self.err_output.v.shape,
+                                    dtype=self.err_output.v.dtype)
 
         self.err_output.initialize(self.device)
         self.input.initialize(self.device)
@@ -157,10 +156,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         assert self.input.v.shape == self.err_output.v.shape
 
         num_of_chans = self.input.v.shape[3]
-        self.err_input.v = np.zeros(shape=self.input.v.shape, dtype=np.float64)
 
         input_squared = np.square(self.input.v)
-
         input_subsums = self._subsums(input_squared, self.n)
 
         input_subsums *= self.alpha
@@ -168,25 +165,25 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
         input_subsums_powered = np.power(input_subsums, (self.beta + 1))
 
-        delta_input = self.err_input.v
-        delta_output = self.err_output.v
+        err_h = self.err_input.v
+        err_y = self.err_output.v
 
         for i in range(num_of_chans):
             min_index = max(0, i - int(self.n / 2))
             max_index = min(i + int(self.n / 2), num_of_chans - 1)
 
             delta_h = np.zeros(dtype=np.float64,
-                          shape=delta_input[:, :, :, i].shape)
+                          shape=err_h[:, :, :, i].shape)
             for j in range(min_index, max_index + 1):
                 dh = np.zeros(shape=delta_h.shape, dtype=np.float64)
                 if i == j:
                     dh += input_subsums[:, :, :, j]
                 dh -= (2 * self.beta * self.alpha * self.input.v[:, :, :, i] *
                        self.input.v[:, :, :, j])
-                dh *= (delta_output[:, :, :, j] /
+                dh *= (err_y[:, :, :, j] /
                        input_subsums_powered[:, :, :, j])
                 delta_h += dh
-            delta_input[:, :, :, i] += delta_h
+            np.copyto(err_h[:, :, :, i], delta_h)
 
     def ocl_run(self):
         self.err_output.unmap()
