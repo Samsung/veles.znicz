@@ -74,9 +74,9 @@ class TestGDConv(unittest.TestCase):
         c.output = formats.Vector()
         c.output.v = c.err_output.v.copy()
 
-        c.err_output.v *= 1.0 - numpy.exp(-c.output.v)
-        batch_size = c.err_output.v.shape[0]
-        b = c.err_output.v.reshape(9 * batch_size, 2)
+        err_output = c.err_output.v * (1.0 - numpy.exp(-c.output.v))
+        batch_size = err_output.shape[0]
+        b = err_output.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -86,6 +86,7 @@ class TestGDConv(unittest.TestCase):
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
+        c.gpu_err_output_update()
         c.gpu_err_input_update()
         c.gpu_weights_update()
         c.err_input.map_read()

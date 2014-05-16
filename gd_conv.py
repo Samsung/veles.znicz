@@ -182,12 +182,12 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
             self.krn_weights_ = self.get_kernel("weights_update")
             self.krn_weights_.set_args(self.err_output.v_, self.input.v_,
-                                       self.weights.v_,
-                                       self.gradient_weights.v_)
+                                       self.weights.v_)
+            self.krn_weights_.set_arg(3, self.gradient_weights.v_)
 
             self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_args(self.err_output.v_, self.bias.v_,
-                                    self.gradient_bias.v_)
+            self.krn_bias_.set_args(self.err_output.v_, self.bias.v_)
+            self.krn_bias_.set_arg(2, self.gradient_bias.v_)
 
     def gpu_weights_update(self):
         self.input.unmap()
@@ -377,7 +377,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             w_max = numpy.max(w_array)
             weight_table.add_row([w_name, w_mean, w_stddev, w_min, w_max])
         self.debug("\n" + weight_table.get_string())
-
 
     def gpu_err_output_update(self):
         """Multiply err_output by activation derivative by output.
