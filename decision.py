@@ -1,7 +1,7 @@
 """
 Created on Aug 15, 2013
 
-Decision unit.
+DecisionGD unit.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -233,7 +233,7 @@ class DecisionBase(units.Unit):
         self.slave_minibatch_class_[slave.id] = None
 
 
-class Decision(DecisionBase):
+class DecisionGD(DecisionBase):
     """Rules the gradient descent learning process.
 
     Attributes:
@@ -267,7 +267,7 @@ class Decision(DecisionBase):
         use_dynamic_alpha: will adjust alpha according to previous train error.
     """
     def __init__(self, workflow, **kwargs):
-        super(Decision, self).__init__(workflow, **kwargs)
+        super(DecisionGD, self).__init__(workflow, **kwargs)
         self.fail_iterations = kwargs.get("fail_iterations", 100)
         self.store_samples_mse = kwargs.get("store_samples_mse", False)
         self.use_dynamic_alpha = kwargs.get("use_dynamic_alpha", False)
@@ -310,7 +310,7 @@ class Decision(DecisionBase):
         self.evaluator = None
 
     def initialize(self, **kwargs):
-        super(Decision, self).initialize(**kwargs)
+        super(DecisionGD, self).initialize(**kwargs)
         # Reset errors
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]

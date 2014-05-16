@@ -145,7 +145,7 @@ class Workflow(StandardWorkflow):
                                   ("labels", "minibatch_labels"))
 
         # Add decision unit
-        self.decision = decision.Decision(
+        self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,

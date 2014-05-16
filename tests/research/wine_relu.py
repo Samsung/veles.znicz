@@ -123,7 +123,7 @@ class Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.Decision(
+        self.decision = decision.DecisionGD(
             self,
             snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)

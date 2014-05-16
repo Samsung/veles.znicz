@@ -690,7 +690,7 @@ class Workflow(StandardWorkflow):
                                   ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.Decision(
+        self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations,
             use_dynamic_alpha=root.decision.use_dynamic_alpha,
             do_export_weights=root.decision.do_export_weights)

@@ -187,7 +187,7 @@ class Workflow(nn_units.NNWorkflow):
                                   ("target", "minibatch_target"))
 
         # Add decision unit
-        self.decision = decision.Decision(
+        self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations,
             store_samples_mse=root.decision.store_samples_mse,
             snapshot_prefix=root.decision.snapshot_prefix)

@@ -173,7 +173,7 @@ class Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.Decision(self)
+        self.decision = decision.DecisionGD(self)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(
             self.loader, "minibatch_class", "minibatch_size",

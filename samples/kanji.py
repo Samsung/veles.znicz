@@ -206,7 +206,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.fwds[-1], "output")
 
         # Add decision unit
-        self.decision = decision.Decision(
+        self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations,
             store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
