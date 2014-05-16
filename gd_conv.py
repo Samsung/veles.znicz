@@ -243,6 +243,73 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev1.wait()
         ev2.wait()
 
+    def cpu_weights_update(self):
+        self.input.map_read()
+        self.err_output.map_read()
+        self.weights.map_write()
+        self.bias.map_write()
+        self.gradient_weights.map_write()
+        self.gradient_bias.map_write()
+
+        batch_size = self.batch_size or self.output.v.shape[0]
+        sy = self.input.v.shape[1]
+        sx = self.input.v.shape[2]
+        n_channels = self.input.v.size // (self.input.v.shape[0] * sx * sy)
+
+        sx_full = self.padding[0] + sx + self.padding[2]
+        sy_full = self.padding[1] + sy + self.padding[3]
+        nx = (sx_full - self.kx) // self.sliding[0] + 1
+        ny = (sy_full - self.ky) // self.sliding[1] + 1
+        sample_shape = (nx * ny, self.kx * self.ky * n_channels)
+
+        # calculate gradient for weights
+        gd_weights = numpy.zeros(self.weights.v.shape)
+        for batch in range(batch_size):
+            # input data unrolling
+            sample = numpy.empty(sample_shape)
+            for by, bx in ((by, bx) for by in range(ny) for bx in range(nx)):
+                y1, y2 = (by * self.sliding[1],
+                          by * self.sliding[1] + self.ky)
+                x1, x2 = (bx * self.sliding[0],
+                          bx * self.sliding[0] + self.kx)
+                i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
+                          min(max(y2 - self.padding[1], 0), sy))
+                j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
+                          min(max(x2 - self.padding[0], 0), sx))
+                cut = numpy.zeros((self.ky, self.kx, n_channels),
+                                  dtype=self.input.v.dtype)
+                cut[(i1 - y1):(i2 - y1), (j1 - x1):(j2 - x1)] = \
+                    self.input.v[batch, i1:i2, j1:j2].reshape(cut.shape)
+                sample[by * nx + bx] = cut.ravel()
+            # TODO: consider case of transposed weights
+            gd_weights += numpy.dot(self.err_output.v[batch].transpose(),
+                                    sample)
+
+        # update weights
+        alpha_batch = -self.learning_rate / batch_size
+        alpha_lambda = -self.learning_rate * self.weights_decay
+        gd_weights_reg = (gd_weights * alpha_batch +
+                          self.weights.v * alpha_lambda)
+        if self.store_gradient:
+            gd_weights_reg += self.gradient_weights.v * self.gradient_moment
+            self.gradient_weights.v = gd_weights_reg
+        if self.apply_gradient:
+            self.weights.v += gd_weights_reg
+
+        # calculate gradient for bias
+        gd_bias = numpy.zeros(self.bias.v.shape)
+        for batch in range(batch_size):
+            gd_bias += numpy.add.reduce(self.err_output.v[batch])
+        # update bias
+        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
+        gd_bias_reg = gd_bias * alpha_batch + self.bias.v * alpha_lambda
+        if self.store_gradient:
+            gd_bias_reg += self.gradient_bias.v * self.gradient_moment_bias
+            self.gradient_bias.v = gd_bias_reg
+        if self.apply_gradient:
+            self.bias.v += gd_bias_reg
+
     def gpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """

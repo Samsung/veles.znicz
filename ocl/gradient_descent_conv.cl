@@ -195,14 +195,14 @@ void bias_update(__global const c_dtype    /* IN */    *err_y,
 
   if (!tx) {
     sum += AS[0];
-    c_dtype weight = bias[bx];
-    c_dtype gd = sum * alpha_batch + weight * alpha_lambda;
+    c_dtype cur_bias = bias[bx];
+    c_dtype gd = sum * alpha_batch + cur_bias * alpha_lambda;
     #ifdef STORE_GRADIENT
     gd += gradient[bx] * gradient_moment;
     gradient[bx] = gd;
     #endif
     #ifdef APPLY_GRADIENT
-    bias[bx] = weight + gd;
+    bias[bx] = cur_bias + gd;
     #endif
   }
 }
