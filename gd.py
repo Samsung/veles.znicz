@@ -276,12 +276,12 @@ class GradientDescent(nn_units.GradientDescentBase):
         n_output = self.output.v.size // self.output.v.shape[0]
         delta_time = time.time() - t_start
 
-        stats_table = PrettyTable(["n_input", "n_output", "time"])
+        stats_table = PrettyTable("n_input", "n_output", "time")
         stats_table.float_format = ".3"
-        stats_table.add_row([n_input, n_output, delta_time])
+        stats_table.add_row(n_input, n_output, delta_time)
         self.debug("\n" + stats_table.get_string())
 
-        weight_table = PrettyTable(["TYPE", "Mean", "StdDev", "Min", "Max"])
+        weight_table = PrettyTable("TYPE", "Mean", "StdDev", "Min", "Max")
         weight_table.float_format = ".10"
         for (w_name, w_array) in [("Weight", weights), ("Bias", bias),
                                   ("Grad Weight", grad_weights),
@@ -290,7 +290,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             w_stddev = numpy.std(w_array)
             w_min = numpy.min(w_array)
             w_max = numpy.max(w_array)
-            weight_table.add_row([w_name, w_mean, w_stddev, w_min, w_max])
+            weight_table.add_row(w_name, w_mean, w_stddev, w_min, w_max)
         self.debug("\n" + weight_table.get_string())
 
     def cpu_err_output_update(self):
