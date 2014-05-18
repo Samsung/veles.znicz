@@ -60,8 +60,8 @@ class GradientDescent(nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         super(GradientDescent, self).initialize(device=device, **kwargs)
-        if (self.err_input.v is None or
-                self.err_input.v.size != self.input.v.size):
+        if (self.need_err_input and (self.err_input.v is None or
+                self.err_input.v.size != self.input.v.size)):
             self.err_input.reset()
             self.err_input.v = numpy.zeros(self.input.v.shape,
                                            dtype=self.err_output.v.dtype)
@@ -98,9 +98,9 @@ class GradientDescent(nn_units.GradientDescentBase):
 
             defines = {
                 'BLOCK_SIZE': block_size,
-                'BATCH': self.err_input.v.shape[0],
-                'H': self.err_input.v.size // self.err_input.v.shape[0],
-                'Y': self.err_output.v.size // self.err_output.v.shape[0],
+                'BATCH': self.input.v.shape[0],
+                'H': self.input.v.size // self.input.v.shape[0],
+                'Y': self.output.v.size // self.output.v.shape[0],
                 'REDUCE_SIZE': self.reduce_size
             }
             if self.apply_gradient:
@@ -115,9 +115,10 @@ class GradientDescent(nn_units.GradientDescentBase):
                 self.output.v.size // self.output.v.shape[0]),
                 dtype=self.err_output.v.dtype)
 
-            self.krn_err_input_ = self.get_kernel("err_h_update")
-            self.krn_err_input_.set_args(self.err_output.v_, self.weights.v_,
-                                         self.err_input.v_)
+            if self.need_err_input:
+                self.krn_err_input_ = self.get_kernel("err_h_update")
+                self.krn_err_input_.set_args(
+                    self.err_output.v_, self.weights.v_, self.err_input.v_)
 
             self.krn_weights_ = self.get_kernel("weights_update")
             self.krn_weights_.set_args(self.err_output.v_, self.input.v_,
@@ -224,6 +225,8 @@ class GradientDescent(nn_units.GradientDescentBase):
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
+        if not self.need_err_input:
+            return
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.weights.map_read()
@@ -243,6 +246,8 @@ class GradientDescent(nn_units.GradientDescentBase):
     def gpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
+        if not self.need_err_input:
+            return
         self.err_input.unmap()
         self.err_output.unmap()
         self.weights.unmap()

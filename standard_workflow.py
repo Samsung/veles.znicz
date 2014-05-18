@@ -202,3 +202,5 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
+
+        self.gds[0].need_err_input = False

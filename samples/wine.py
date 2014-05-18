@@ -163,6 +163,7 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
+        self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
 
         self.end_point.link_from(self.gds[0])
