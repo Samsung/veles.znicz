@@ -94,14 +94,20 @@ class TestAll2All(unittest.TestCase):
         c.run()
         c.output.map_read()  # get results back
 
-        return c.output.v
+        if hasattr(c, "max_idx"):
+            c.max_idx.map_read()
+            return (c.output.v.copy(), c.max_idx.v.copy())
+
+        return (c.output.v.copy(),)
 
     def _do_gpu_cpu(self, Unit):
-        y_gpu = self._do_test(self.device, Unit)
-        y_cpu = self._do_test(None, Unit)
-        max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        y_gpus = self._do_test(self.device, Unit)
+        y_cpus = self._do_test(None, Unit)
+        for i, y_gpu in enumerate(y_gpus):
+            y_cpu = y_cpus[i]
+            max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
+            self.assertLess(max_diff, 0.0001,
+                            "Result differs by %.6f" % (max_diff))
         logging.info("All Ok")
 
     def test_linear(self):

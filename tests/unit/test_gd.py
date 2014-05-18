@@ -26,14 +26,17 @@ class TestGD(unittest.TestCase):
         self.device = opencl.Device()
         self.W = None
         self.b = None
+        self.state = rnd.get().state
 
     def tearDown(self):
         del self.device
 
     def _do_test(self, device, Unit):
+        rnd.get().state = self.state
+
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.empty([5, 5], dtype=dtype)
+        inp.v = numpy.empty([1, 1], dtype=dtype)
         rnd.get().fill(inp.v)
 
         if device is not None:
@@ -41,21 +44,16 @@ class TestGD(unittest.TestCase):
         else:
             inp.v[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), gradient_moment=0.9)
+        c = Unit(DummyWorkflow(), gradient_moment=0.0)
         c.input = inp
 
-        weights = numpy.array([[1, 0, 2, 1, -1],
-                              [3, 1, 0, 2, 3],
-                              [-1, 2, 0, 1, 3],
-                              [1, -1, 3, 2, 4]], dtype=dtype)
-        bias = numpy.array([10, -10, 5, 2], dtype=dtype)
+        weights = numpy.empty([1, 1], dtype=dtype)
+        rnd.get().fill(weights)
+        bias = numpy.empty(1, dtype=dtype)
+        rnd.get().fill(bias)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array(
-            [[-1, 3, 0, 2],
-             [8, 2, 1, 3],
-             [0, 1, -2, 1],
-             [2, 3, -1, 0],
-             [1, 0, 1, 1]], dtype=dtype)
+        c.err_output.v = numpy.empty([1, 1], dtype=dtype)
+        rnd.get().fill(c.err_output.v)
 
         c.weights = formats.Vector()
         c.weights.v = weights
@@ -85,7 +83,7 @@ class TestGD(unittest.TestCase):
             self.b_gpu = c.bias.v.copy()
         c.err_input.map_read()  # get results back
 
-        return c.err_input.v
+        return c.err_input.v.copy()
 
     def _do_test_gpu_cpu(self, Unit):
         output_gpu = self._do_test(self.device, Unit)
@@ -116,6 +114,6 @@ class TestGD(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

@@ -26,11 +26,11 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   c_dtype max_vle = c_from_re(-MAXFLOAT);
   int max_vle_idx = 0;
 
-  int offs = bx * Y + tx;
-  for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
+  int offs = bx * Y + tx, i_offs = tx;
+  for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE, i_offs += REDUCE_SIZE) {
     if (c_re(max_vle) < c_re(y[offs])) {
       max_vle = y[offs];
-      max_vle_idx = offs;
+      max_vle_idx = i_offs;
     }
   }
   // Process the remaining part
@@ -38,7 +38,7 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   if (tx < Y % REDUCE_SIZE) {
     if (c_re(max_vle) < c_re(y[offs])) {
       max_vle = y[offs];
-      max_vle_idx = offs;
+      max_vle_idx = i_offs;
     }
   }
   #endif
