@@ -309,7 +309,8 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         self.krn_gravity_.set_arg(3, self._distances.devmem)
 
         self.krn_apply_gradient_ = self.get_kernel("apply_gradient")
-        self.krn_apply_gradient_.set_args(self.input.devmem, self._distances.devmem)
+        self.krn_apply_gradient_.set_args(self.input.devmem,
+                                          self._distances.devmem)
         self.krn_apply_gradient_.set_arg(3, self.weights.devmem)
 
         block_size = self.device.device_info.BLOCK_SIZE[
@@ -322,11 +323,6 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
     def iteration(fn):
         def wrapped(self, *args, **kwargs):
-            self.input.unmap()
-            self.weights.unmap()
-            self._distances.unmap()
-            self._argmin.unmap()
-            self._coords.unmap()
             result = fn(self, *args, **kwargs)
             self.time += 1
             return result
@@ -342,6 +338,9 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         gradients = numpy.zeros(self.weights.mem.shape)
         sigma = self.gravity_radius
         gmult = self.gradient_multiplier
+        self.input.map_read()
+        self.weights.map_invalidate()
+        self.winners.map_invalidate()
 
         if self.epoch_ended:
             self.winners.mem[:] = 0
@@ -363,9 +362,16 @@ class KohonenTrainer(nn_units.GradientDescentBase):
     def ocl_run(self):
         """Does Kohonen's learning iteration using OpenCL.
         """
+        self.input.unmap()
+        self.weights.unmap()
+        self.winners.unmap()
+        self._distances.unmap()
+        self._argmin.unmap()
+        self._coords.unmap()
+
         batch_size = self.input.mem.shape[0]
         if self.epoch_ended:
-            self.winners.map_write()
+            self.winners.map_invalidate()
             self.winners.mem[:] = 0
             self.winners.unmap()
 
@@ -406,10 +412,15 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
 
 class KohonenDecision(decision.DecisionBase):
+    def __init__(self, workflow, **kwargs):
+        super(KohonenDecision, self).__init__(workflow, **kwargs)
+        self.weights_copy = formats.Vector()
+        self.winners_copy = formats.Vector()
+
     def on_training_finished(self):
         """This method is supposed to be overriden in inherited classes.
         """
-        self.winners.map_read()
         self.weights.map_read()
-        self.winners.unmap()
-        self.weights.unmap()
+        self.winners.map_read()
+        self.weights_copy.mem = numpy.copy(self.weights.mem)
+        self.winners_copy.mem = numpy.copy(self.winners.mem)

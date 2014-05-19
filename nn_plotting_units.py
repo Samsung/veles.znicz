@@ -358,14 +358,18 @@ class KohonenHits(plotter.Plotter):
         # Draw the inner hexagons with text
         # Initialize sizes
         hits_max = numpy.max(self.input)
-        sizes = self.input[:] / hits_max
+        if hits_max == 0:
+            hits_max = 1
         patches = []
         # Add hexagons one by one
         for y in range(self.height):
             for x in range(self.width):
+                number = self.input[y * self.width + x]
+                # square is proportional to the square root of the linear
+                # size / the hits number
                 self._add_hexagon(axes, patches, x, y,
-                                  sizes[y * self.width + x],
-                                  self.input[y * self.width + x])
+                                  numpy.sqrt(number / hits_max),
+                                  number)
         col = self.matplotlib.collections.PatchCollection(
             patches, edgecolors='none', facecolors=self.color_bins)
         if fast_redraw:
