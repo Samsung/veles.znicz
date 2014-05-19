@@ -16,6 +16,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.error as error
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
@@ -32,24 +33,22 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.defaults = {"all2all_relu": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
-                 "all2all_tanh": {"weights_filling": "uniform",
-                                  "weights_stddev": 0.0001},
-                 "conv":  {"weights_filling": "uniform",
-                           "weights_stddev": 0.0001},
-                 "conv_relu":  {"weights_filling": "uniform",
-                                "weights_stddev": 0.0001},
-                 "decision": {"fail_iterations": 150,
-                              "snapshot_prefix": "mnist_relu"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_maxsize": 60},
-                 "softmax": {"weights_filling": "uniform",
-                             "weights_stddev": 0.0001},
                  "mnist": {"learning_rate": 0.01,
                            "weights_decay": 0.0,
                            "layers":
-                           [{"type": "all2all_tanh", "output_shape": 100},
-                            {"type": "softmax", "output_shape": 10}],
+                           [{"type": "all2all_tanh", "output_shape": 100,
+                             "learning_rate": 0.03, "weights_decay": 0.0,
+                             "gradient_moment": 0.9,
+                             "weights_filling": "uniform",
+                             "bias_filling": "uniform"},
+                            {"type": "softmax", "output_shape": 10,
+                             "learning_rate": 0.01, "weights_decay": 0.0,
+                             "gradient_moment": 0.9,
+                             "weights_filling": "uniform",
+                             "bias_filling": "uniform"}],
                            "data_paths": {"test_images":  test_image_dir,
                                           "test_label": test_label_dir,
                                           "train_images": train_image_dir,
@@ -171,8 +170,7 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -183,6 +181,14 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         self._create_gradient_descent_units()
@@ -231,6 +237,7 @@ class Workflow(StandardWorkflow):
             self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
+
         # Weights plotter
         self.plt_mx = []
         prev_channels = 1
