@@ -295,11 +295,11 @@ class ForwardExporter(SnapshotterBase):
     """
 
     CODECS = {
-        None: lambda n, l: tarfile.TarFile.open(n, "wb"),
-        "": lambda n, l: tarfile.TarFile.open(n, "wb"),
-        "gz": lambda n, l: tarfile.TarFile.gzopen(n, "wb", compresslevel=l),
-        "bz2": lambda n, l: tarfile.TarFile.bz2open(n, "wb", compresslevel=l),
-        "xz": lambda n, l: tarfile.TarFile.xzopen(n, "wb", preset=l)
+        None: lambda n, l: tarfile.TarFile.open(n, "w"),
+        "": lambda n, l: tarfile.TarFile.open(n, "w"),
+        "gz": lambda n, l: tarfile.TarFile.gzopen(n, "w", compresslevel=l),
+        "bz2": lambda n, l: tarfile.TarFile.bz2open(n, "w", compresslevel=l),
+        "xz": lambda n, l: tarfile.TarFile.xzopen(n, "w", preset=l)
     }
 
     def __init__(self, workflow, **kwargs):
@@ -315,8 +315,8 @@ class ForwardExporter(SnapshotterBase):
             for index, fwd in enumerate(self.forwards):
                 weights, bias = fwd.generate_data_for_slave()
                 fileobj = six.BytesIO()
-                numpy.savez(fileobj, weights, bias)
-                ti = tarfile.TarInfo("%03d_%s.npz" % (index, fwd.name))
+                numpy.savez(fileobj, weights=weights, bias=bias)
+                ti = tarfile.TarInfo("%03d_%s.npz" % (index + 1, fwd.name))
                 ti.size = fileobj.tell()
                 ti.mode = int("666", 8)
                 fileobj.seek(0)
