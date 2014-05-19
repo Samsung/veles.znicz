@@ -169,7 +169,7 @@ class TestGDConv(unittest.TestCase):
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
-        c.gpu_err_input_update()
+        c.cpu_err_input_update()
         c.cpu_weights_update()
         c.err_input.map_read()
         c.weights.map_read()

@@ -342,6 +342,45 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                     self.krn_err_input_)
         event.wait()
 
+    def cpu_err_input_update(self):
+        """Backpropagate error (will compute err_input).
+        """
+        self.err_input.map_invalidate()
+        self.err_output.map_read()
+        self.weights.map_read()
+
+        batch_size = self.input.v.shape[0]
+        sy = self.input.v.shape[1]
+        sx = self.input.v.shape[2]
+        n_channels = self.input.v.size // (batch_size * sx * sy)
+        sx_full = self.padding[0] + sx + self.padding[2]
+        sy_full = self.padding[1] + sy + self.padding[3]
+        nx = (sx_full - self.kx) // self.sliding[0] + 1
+        ny = (sy_full - self.ky) // self.sliding[1] + 1
+
+        self.err_input.v[:] = 0
+        for batch in range(batch_size):
+            # calculate unrolled input error
+            unrolled_err = numpy.dot(self.err_output.v[batch], self.weights.v)
+            # roll array of input errors
+            for idx, cut in enumerate(unrolled_err):
+                cut = cut.reshape(self.ky, self.kx, n_channels)
+
+                by, bx = numpy.unravel_index(idx, (ny, nx))
+                y1, y2 = (by * self.sliding[1],
+                          by * self.sliding[1] + self.ky)
+                x1, x2 = (bx * self.sliding[0],
+                          bx * self.sliding[0] + self.kx)
+                i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
+                          min(max(y2 - self.padding[1], 0), sy))
+                j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
+                          min(max(x2 - self.padding[0], 0), sx))
+                cut = cut[(i1 - y1):(i2 - y1), (j1 - x1):(j2 - x1)]
+                true_cut_shape = self.err_input.v[batch, i1:i2, j1:j2].shape
+                self.err_input.v[batch, i1:i2, j1:j2] += \
+                    cut.reshape(true_cut_shape)
+
+
     def print_debug_data(self, t_start):
         """
         Show weights statistics
@@ -388,6 +427,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev = self.execute_kernel([self.err_output.mem.size], None,
                                  self.krn_err_output_)
         ev.wait()
+
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by output.
+        """
+        pass
 
     def ocl_run(self):
         """Do gradient descent.
