@@ -6,6 +6,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
+import math
 
 from veles.config import root
 import veles.error as error
@@ -244,7 +245,7 @@ class EvaluatorMSE(OpenCLUnit):
                 self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                            dtype=self.output.mem.dtype)
+                                              dtype=self.output.mem.dtype)
 
         if self.metrics.mem is None or self.metrics.mem.size < 3:
             self.metrics.reset()
@@ -330,4 +331,31 @@ class EvaluatorMSE(OpenCLUnit):
                                 self.krn_find_closest_).wait()
 
     def cpu_run(self):
-        raise error.ErrNotImplemented()
+        self.output.map_read()
+        self.target.map_read()
+        self.metrics.map_write()
+        self.err_output.map_invalidate()
+        self.mse.map_invalidate()
+
+        assert(self.output.mem.size == self.target.mem.size ==
+               self.err_output.mem.size)
+        for i in range(self.err_output.mem.shape[0]):
+            if i < self.batch_size:
+                it = numpy.nditer([self.output.mem[i], self.target.mem[i],
+                                   self.err_output.mem[i], self.mse.mem[i]],
+                                  op_flags=[['readonly'], ['readonly'],
+                                            ['writeonly'], ['writeonly']])
+                sum_err2 = 0
+                counter = 0
+                for y, t, err_y in it:
+                    err_y[...] = y - t
+                    sum_err2 += err_y * err_y
+                    counter += 1
+                self.mse.mem[i] = math.sqrt(sum_err2 / counter)
+            else:
+                self.err_output.mem[i] = 0
+                self.mse.mem[i] = 0
+        self.metrics.mem[0] += numpy.sum(self.mse.mem)
+        self.metrics.mem[1] = max(self.metrics.mem[1], self.mse.mem.max())
+        self.metrics.mem[2] = min(self.metrics.mem[2], self.mse.mem.min())
+

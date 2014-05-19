@@ -122,7 +122,7 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global int /*IN*/ *max_idx, __global in
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
 void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
-            __global c_dtype /*OUT*/ *err_y, __global c_dtype /*IO*/ *metrics,
+            __global c_dtype /*OUT*/ *err_y, __global dtype /*IO*/ *metrics,
             __global dtype /*OUT*/ *mse, const int batch_size) {
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
@@ -142,14 +142,16 @@ void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
         sample_sse += c_norm2(vle);
         err_y[y_start + j] = vle;
       }
-      dtype sample_mse = sqrt(sample_sse) / Y;
+      dtype sample_mse = sqrt(sample_sse / Y);
       mse[i_sample] = sample_mse;
       mse_sum += sample_mse;
       mse_max = max(mse_max, sample_mse);
       mse_min = min(mse_min, sample_mse);
     } else if (i_sample < BATCH) {
-      for (int j = 0; j < Y; j++)
+      for (int j = 0; j < Y; j++) {
         err_y[y_start + j] = 0;
+      }
+      mse[isample] = 0;
     }
   }
   // Compute metrics
