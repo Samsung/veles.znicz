@@ -148,29 +148,17 @@ class ImageSaver(units.Unit):
             offs = (xyt.shape[1] - x.shape[1]) >> 1
             xyt[:x.shape[0], offs:offs + x.shape[1]] = x[:, :]
             img = xyt[:x.shape[0], offs:offs + x.shape[1]]
-            # img *= -1.0
-            img += 1.0
-            img *= 127.5
-            numpy.clip(img, 0, 255, img)
             if self.max_idx is None and y is not None and len(y.shape) != 1:
                 offs = (xyt.shape[1] - y.shape[1]) >> 1
                 xyt[x.shape[0]:x.shape[0] + y.shape[0],
                     offs:offs + y.shape[1]] = y[:, :]
                 img = xyt[x.shape[0]:x.shape[0] + y.shape[0],
                           offs:offs + y.shape[1]]
-                # img *= -1.0
-                img += 1.0
-                img *= 127.5
-                numpy.clip(img, 0, 255, img)
             if (self.max_idx is None and t is not None and
                     len(t.shape) != 1 and self.input != self.target):
                 offs = (xyt.shape[1] - t.shape[1]) >> 1
                 xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]] = t[:, :]
                 img = xyt[x.shape[0] + y.shape[0]:, offs:offs + t.shape[1]]
-                # img *= -1.0
-                img += 1.0
-                img *= 127.5
-                numpy.clip(img, 0, 255, img)
             if self.max_idx is None:
                 fnme = "%s/%.6f_%d_%d.png" % (
                     self.out_dirs[self.minibatch_class], mse, lbl, idx)
