@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import os
 import shutil
+import six
 import tarfile
 import yaml
 
@@ -16,6 +17,7 @@ import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.random_generator as rnd
 from veles.units import Repeater
+from veles.snapshotter import SnapshotterBase
 
 
 class Forward(OpenCLUnit):
@@ -272,3 +274,61 @@ class NNWorkflow(OpenCLWorkflow):
         with open("%s/%s" % (path, numpy_vector_name), "wb") as f:
             f.write(array_to_save)
         return numpy_vector_name
+
+
+class ForwardExporter(SnapshotterBase):
+    """Saves weights and biases from Forward units.
+
+    Defines:
+        file_name - the file name of the last export.
+        time - the time of the last export
+
+    Must be defined before initialize():
+        suffix - the file name suffix where to export weights and biases
+        forwards - the list of Forward units to take weights and biases from
+
+    Attributes:
+        compress - the compression applied to pickles: None or '', gz, bz2, xz
+        compress_level - the compression level in [0..9]
+        interval - take only one snapshot within this run() invocation number
+        time_interval - take no more than one snapshot within this time window
+    """
+
+    CODECS = {
+        None: lambda n, l: tarfile.TarFile.open(n, "wb"),
+        "": lambda n, l: tarfile.TarFile.open(n, "wb"),
+        "gz": lambda n, l: tarfile.TarFile.gzopen(n, "wb", compresslevel=l),
+        "bz2": lambda n, l: tarfile.TarFile.bz2open(n, "wb", compresslevel=l),
+        "xz": lambda n, l: tarfile.TarFile.xzopen(n, "wb", preset=l)
+    }
+
+    def __init__(self, workflow, **kwargs):
+        super(ForwardExporter, self).__init__(workflow, **kwargs)
+        self.forwards = []
+
+    def export(self):
+        ext = ("." + self.compress) if self.compress else ""
+        rel_file_name = "%s_%s_wb.%d.tar%s" % (
+            self.prefix, self.suffix, 3 if six.PY3 else 2, ext)
+        self.file_name = os.path.join(self.directory, rel_file_name)
+        with self._open_file() as tar:
+            for index, fwd in enumerate(self.forwards):
+                weights, bias = fwd.generate_data_for_slave()
+                fileobj = six.BytesIO()
+                numpy.savez(fileobj, weights, bias)
+                ti = tarfile.TarInfo("%03d_%s.npz" % (index, fwd.name))
+                ti.size = fileobj.tell()
+                ti.mode = int("666", 8)
+                fileobj.seek(0)
+                tar.addfile(ti, fileobj=fileobj)
+        self.info("Wrote %s" % self.file_name)
+        file_name_link = os.path.join(
+            self.directory, "%s_current_wb.%d.tar%s" % (
+                self.prefix, 3 if six.PY3 else 2, ext))
+        if os.path.exists(file_name_link):
+            os.remove(file_name_link)
+        os.symlink(rel_file_name, file_name_link)
+
+    def _open_file(self):
+        return ForwardExporter.CODECS[self.compress](self.file_name,
+                                                     self.compress_level)

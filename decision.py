@@ -244,7 +244,6 @@ class DecisionGD(DecisionBase):
         fail_iterations: number of consequent iterations with non-decreased
                          validation error.
         epoch_metrics: metrics for an epoch (same as minibatch_metrics).
-        fnmeWb: filename of the last weights + bias snapshot.
         confusion_matrixes: confusion matrixes.
         minibatch_confusion_matrix: confusion matrix for a minibatch.
         minibatch_max_err_y_sum: maximum of backpropagated gradient
@@ -272,8 +271,6 @@ class DecisionGD(DecisionBase):
         self.min_validation_n_err = 1.0e30
         self.min_validation_n_err_epoch_number = -1
         self.min_train_n_err = 1.0e30
-        self._do_export_weights = kwargs.get("do_export_weights", False)
-        self.fnmeWb = None
         self.epoch_metrics = [None, None, None]
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
@@ -372,8 +369,6 @@ class DecisionGD(DecisionBase):
             self.min_validation_n_err_epoch_number = self.epoch_number
             self.min_train_n_err = self.epoch_n_err[2]
             self.improved << True
-        if self.improved and self._do_export_weights:
-            self._on_export_weights(minibatch_class)
 
     def on_training_finished(self):
         if self.use_dynamic_alpha:
@@ -504,76 +499,6 @@ class DecisionGD(DecisionBase):
                 self.minibatch_confusion_matrix.v is not None):
             self.minibatch_confusion_matrix.map_invalidate()
             self.minibatch_confusion_matrix.v[:] = 0
-
-    def _on_export_weights(self, minibatch_class):
-        to_rm = []
-        if self.fnmeWb is not None:
-            to_rm.append("%s.bak" % (self.fnmeWb))
-            try:
-                os.unlink(to_rm[-1])
-            except OSError:
-                pass
-            try:
-                os.rename(self.fnmeWb, to_rm[-1])
-            except FileNotFoundError:
-                pass
-        ss = []
-        if self.minibatch_metrics is not None:
-            ss.append("%.6f" % (self.epoch_metrics[minibatch_class][0]))
-        if self.minibatch_n_err is not None:
-            ss.append("%.2fpt" % (self.epoch_n_err_pt[minibatch_class]))
-        self.fnmeWb = os.path.join(config.root.common.snapshot_dir,
-                                   "%s_%s_Wb.%d.pickle" %
-                                   (self.snapshot_prefix, "_".join(ss),
-                                    3 if six.PY3 else 2))
-        self.info("Exporting weights to %s" % self.fnmeWb)
-        weights = []
-        bias = []
-        for forward in self.fwds:
-            if forward.weights is not None:
-                forward.weights.map_read()
-                weights.append(forward.weights.v)
-            else:
-                weights.append(None)
-            if forward.bias is not None:
-                forward.bias.map_read()
-                bias.append(forward.bias.v)
-            else:
-                bias.append(None)
-            if (forward.weights is None or forward.bias is None or
-               forward.weights.v is None or forward.bias.v is None):
-                continue
-            if forward.weights.v.dtype in (numpy.complex64, numpy.complex128):
-                self.info("%f %f %f %f" % (
-                    min(forward.weights.v.real.min(),
-                        forward.weights.v.imag.min()),
-                    max(forward.weights.v.real.max(),
-                        forward.weights.v.imag.max()),
-                    min(forward.bias.v.real.min(),
-                        forward.bias.v.imag.min()),
-                    max(forward.bias.v.real.max(),
-                        forward.bias.v.imag.max())))
-            else:
-                self.info("%f %f %f %f" % (
-                    forward.weights.v.min(), forward.weights.v.max(),
-                    forward.bias.v.min(), forward.bias.v.max()))
-        with open(self.fnmeWb, "wb") as fout:
-            pickle.dump((weights, bias), fout)
-        for fnme in to_rm:
-            try:
-                os.unlink(fnme)
-            except OSError:
-                pass
-        fnme_link = os.path.join(config.root.common.snapshot_dir,
-                                 "%s_current_Wb.%d.pickle" %
-                                 (self.snapshot_prefix, 3 if six.PY3 else 2))
-        try:
-            os.remove(fnme_link)
-        except:
-            pass
-        os.symlink("%s_%s_Wb.%d.pickle" % (self.snapshot_prefix,
-                                           "_".join(ss), 3 if six.PY3 else 2),
-                   fnme_link)
 
     def _sync_vectors(self):
         # Sync vectors
