@@ -13,8 +13,8 @@ from veles.config import root
 
 # optional parameters
 
-root.update = {"decision": {"fail_iterations": 100,
-                            "snapshot_prefix": "mnist_conv"},
+root.update = {"decision": {"fail_iterations": 100},
+               "snapshotter": {"prefix": "mnist_conv"},
                "loader": {"minibatch_maxsize": 540},
                "weights_plotter": {"limit": 64},
                "mnist": {"learning_rate": 0.005,
@@ -33,7 +33,8 @@ root.update = {"decision": {"fail_iterations": 100,
                            "bias_filling": "uniform",
                            #"bias_stddev": 0.0001,
                            "weights_decay": 0.00005,
-                           "weights_decay_bias": 0.0},
+                           "weights_decay_bias": 0.0
+                           },
                           #{"type": "avg_pooling",
                           # "kx": 2, "ky": 2, "sliding": (1, 1)},
                           {"type": "all2all_tanh",

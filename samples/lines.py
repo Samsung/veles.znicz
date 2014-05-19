@@ -192,10 +192,10 @@ class Workflow(StandardWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_block = \
             (~self.decision.epoch_ended | ~self.decision.improved)
-		
-        self.image_saver.gate_skip = ~self.decision.just_snapshotted
-        self.image_saver.link_attrs(self.decision,
-                                    ("this_save_time", "snapshot_time"))
+
+        self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
         for i in range(0, len(layers)):
             self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
