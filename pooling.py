@@ -55,10 +55,10 @@ class Pooling(nn_units.Forward):
     def initialize(self, **kwargs):
         super(Pooling, self).initialize(**kwargs)
 
-        self._batch_size = self.input.v.shape[0]
-        self._sy = self.input.v.shape[1]
-        self._sx = self.input.v.shape[2]
-        self._n_channels = self.input.v.size // (self._batch_size * self._sx *
+        self._batch_size = self.input.mem.shape[0]
+        self._sy = self.input.mem.shape[1]
+        self._sx = self.input.mem.shape[2]
+        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
                                                  self._sy)
         self._out_sx = self._sx // self.sliding[0] + (
             0 if self._sx % self.sliding[0] == 0 else 1)
@@ -66,12 +66,12 @@ class Pooling(nn_units.Forward):
             0 if self._sy % self.sliding[1] == 0 else 1)
         self._output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
-        if self.output.v is None or self.output.v.size != self._output_size:
+        if self.output.mem is None or self.output.mem.size != self._output_size:
             self.output.reset()
-            self.output.v = numpy.zeros(
+            self.output.mem = numpy.zeros(
                 [self._batch_size, self._out_sy, self._out_sx,
                  self._n_channels],
-                dtype=self.input.v.dtype)
+                dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -91,14 +91,14 @@ class Pooling(nn_units.Forward):
         self.build_program(
             defines, "pooling_%dx%dx%d_%dx%d.cl" %
             (self._sx, self._sy, self._n_channels,
-             self.kx, self.ky), dtype=self.input.v.dtype)
+             self.kx, self.ky), dtype=self.input.mem.dtype)
 
     def print_debug_data(self, t_start):
         """Show some statistics.
         """
         if not self.log.isEnabledFor(logging.DEBUG):
             return
-        y = self.input.v
+        y = self.input.mem
         self.debug(
             "%s: %d samples of size %dx%dx%d vs "
             "pooling window of size %dx%d and sliding %dx%d in %.2f sec" %
@@ -111,7 +111,7 @@ class Pooling(nn_units.Forward):
         """
         self.output.unmap()  # we will be updating output
         self.input.unmap()  # we will use input
-        y = self.output.v
+        y = self.output.mem
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
         self.execute_kernel(global_size, None).wait()
 
@@ -149,10 +149,10 @@ class MaxPooling(Pooling):
     def initialize(self, **kwargs):
         super(MaxPooling, self).initialize(**kwargs)
 
-        if (self.input_offs.v is None or
-                self.input_offs.v.size != self.output.v.size):
+        if (self.input_offs.mem is None or
+                self.input_offs.mem.size != self.output.mem.size):
             self.input_offs.reset()
-            self.input_offs.v = numpy.zeros(self.output.v.shape,
+            self.input_offs.mem = numpy.zeros(self.output.mem.shape,
                                             dtype=numpy.int32)
 
         self.input_offs.initialize(self.device)
@@ -169,7 +169,7 @@ class MaxPooling(Pooling):
 
     def cpu_run(self):
         self.input.map_read()
-        abs_input = numpy.fabs(self.input.v)
+        abs_input = numpy.fabs(self.input.mem)
         self.input_offs.map_invalidate()
         self.output.map_invalidate()
         for batch, ch in ((batch, ch) for batch in range(self._batch_size)
@@ -186,10 +186,10 @@ class MaxPooling(Pooling):
                 cut = abs_input[batch, y1:y2, x1:x2, ch]
                 i, j = numpy.unravel_index(cut.argmax(), cut.shape)
                 idx = numpy.ravel_multi_index((batch, y1 + i, x1 + j, ch),
-                                              self.input.v.shape)
-                val = numpy.ravel(self.input.v)[idx]
-                self.input_offs.v[batch, out_y, out_x, ch] = idx
-                self.output.v[batch, out_y, out_x, ch] = val
+                                              self.input.mem.shape)
+                val = numpy.ravel(self.input.mem)[idx]
+                self.input_offs.mem[batch, out_y, out_x, ch] = idx
+                self.output.mem[batch, out_y, out_x, ch] = val
 
 
 class AvgPooling(Pooling):
@@ -225,6 +225,6 @@ class AvgPooling(Pooling):
                 x2 = test_idx if test_idx <= self._sx else self._sx
                 test_idx = y1 + self.ky
                 y2 = test_idx if test_idx <= self._sy else self._sy
-                cut = self.input.v[batch, y1:y2, x1:x2, ch]
+                cut = self.input.mem[batch, y1:y2, x1:x2, ch]
                 val = numpy.sum(cut) / cut.size
-                self.output.v[batch, out_y, out_x, ch] = val
+                self.output.mem[batch, out_y, out_x, ch] = val

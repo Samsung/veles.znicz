@@ -85,7 +85,7 @@ class Loader(loader.Loader):
         self.class_target.reset()
         sh = [len(targets)]
         sh.extend(targets[0].shape)
-        self.class_target.v = numpy.empty(
+        self.class_target.mem = numpy.empty(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
         for i, target in enumerate(targets):
             self.class_target[i] = target
@@ -121,21 +121,21 @@ class Loader(loader.Loader):
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize]
         sh.extend(self.first_sample.shape)
-        self.minibatch_data.v = numpy.zeros(
+        self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
         sh = [self.minibatch_maxsize]
         sh.extend(self.class_target[0].shape)
-        self.minibatch_target.v = numpy.zeros(
+        self.minibatch_target.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
         sh = [self.minibatch_maxsize]
-        self.minibatch_labels.v = numpy.zeros(sh, dtype=numpy.int32)
+        self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
         self.minibatch_indexes.reset()
-        self.minibatch_indexes.v = numpy.zeros(len(self.index_map),
+        self.minibatch_indexes.mem = numpy.zeros(len(self.index_map),
                                                dtype=numpy.int32)
 
     def fill_minibatch(self):
@@ -143,7 +143,7 @@ class Loader(loader.Loader):
         """
         minibatch_size = self.minibatch_size
 
-        idxs = self.minibatch_indexes.v
+        idxs = self.minibatch_indexes.mem
         idxs[:minibatch_size] = self.shuffled_indexes[
             self.minibatch_offset - minibatch_size:self.minibatch_offset]
 
@@ -280,7 +280,7 @@ class Workflow(nn_units.NNWorkflow):
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_mx.input_field = "v"
+        self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
         # Max plotter
@@ -357,11 +357,11 @@ class Workflow(nn_units.NNWorkflow):
         if weights is not None:
             for i, fwds in enumerate(self.fwds):
                 fwds.weights.map_invalidate()
-                fwds.weights.v[:] = weights[i][:]
+                fwds.weights.mem[:] = weights[i][:]
         if bias is not None:
             for i, fwds in enumerate(self.fwds):
                 fwds.bias.map_invalidate()
-                fwds.bias.v[:] = bias[i][:]
+                fwds.bias.mem[:] = bias[i][:]
 
 
 def run(load, main):
@@ -378,8 +378,8 @@ def run(load, main):
             logging.info("Weights and bias ranges per layer are:")
             for fwds in w.fwds:
                 logging.info("%f %f %f %f" % (
-                    fwds.weights.v.min(), fwds.weights.v.max(),
-                    fwds.bias.v.min(), fwds.bias.v.max()))
+                    fwds.weights.mem.min(), fwds.weights.mem.max(),
+                    fwds.bias.mem.min(), fwds.bias.mem.max()))
             w.decision.improved << True
     main(learning_rate=root.kanji.learning_rate,
          weights_decay=root.kanji.weights_decay,

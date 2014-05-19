@@ -27,11 +27,11 @@ class TestInputJoiner(unittest.TestCase):
 
     def _do_test(self, device):
         a = formats.Vector()
-        a.v = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
+        a.mem = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
         b = formats.Vector()
-        b.v = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
+        b.mem = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
         c = formats.Vector()
-        c.v = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
+        c.mem = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
@@ -40,23 +40,23 @@ class TestInputJoiner(unittest.TestCase):
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
-            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
-        self.assertEqual(nz, a.v.size, "Failed")
+            numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
+        self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
-                                          b.v.shape[1]]))
-        self.assertEqual(nz, b.v.size, "Failed")
+            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
+                                          b.mem.shape[1]]))
+        self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(c.v, obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
-        self.assertEqual(nz, c.v.size, "Failed")
+            numpy.equal(c.mem, obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:]))
+        self.assertEqual(nz, c.mem.size, "Failed")
 
     def _do_tst2(self, device):
         a = formats.Vector()
-        a.v = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
+        a.mem = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
         b = formats.Vector()
-        b.v = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
+        b.mem = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
         c = formats.Vector()
-        c.v = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
+        c.mem = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
@@ -66,28 +66,28 @@ class TestInputJoiner(unittest.TestCase):
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
-            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
-        self.assertEqual(nz, a.v.size, "Failed")
+            numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
+        self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
-                                          b.v.shape[1]]))
-        self.assertEqual(nz, b.v.size, "Failed")
+            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
+                                          b.mem.shape[1]]))
+        self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
             numpy.equal(
-                c.v, obj.output.v[:, a.v.shape[1] + b.v.shape[1]:
-                                  a.v.shape[1] + b.v.shape[1] + c.v.shape[1]]))
-        self.assertEqual(nz, c.v.size, "Failed")
+                c.mem, obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:
+                                  a.mem.shape[1] + b.mem.shape[1] + c.mem.shape[1]]))
+        self.assertEqual(nz, c.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            obj.output.v[:, a.v.shape[1] + b.v.shape[1] + c.v.shape[1]:])
+            obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1] + c.mem.shape[1]:])
         self.assertEqual(nz, 0, "Failed")
 
     def _do_tst3(self, device):
         a = formats.Vector()
-        a.v = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
+        a.mem = numpy.arange(250, dtype=numpy.float32).reshape(10, 25)
         b = formats.Vector()
-        b.v = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
+        b.mem = numpy.arange(50, dtype=numpy.float32).reshape(10, 5)
         c = formats.Vector()
-        c.v = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
+        c.mem = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
         a.initialize(device)
         b.initialize(device)
         c.initialize(device)
@@ -97,20 +97,20 @@ class TestInputJoiner(unittest.TestCase):
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
-            numpy.equal(a.v, obj.output.v[:, :a.v.shape[1]]))
-        self.assertEqual(nz, a.v.size, "Failed")
+            numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
+        self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.v, obj.output.v[:, a.v.shape[1]:a.v.shape[1] +
-                                          b.v.shape[1]]))
-        self.assertEqual(nz, b.v.size, "Failed")
+            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
+                                          b.mem.shape[1]]))
+        self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(c.v[:, :obj.output.v.shape[1] -
-                            (a.v.shape[1] + b.v.shape[1])],
-                        obj.output.v[:, a.v.shape[1] + b.v.shape[1]:]))
+            numpy.equal(c.mem[:, :obj.output.mem.shape[1] -
+                            (a.mem.shape[1] + b.mem.shape[1])],
+                        obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:]))
         self.assertEqual(
-            nz, obj.output.v.shape[0] * (
-                obj.output.v.shape[1] -
-                (a.v.shape[1] + b.v.shape[1])), "Failed")
+            nz, obj.output.mem.shape[0] * (
+                obj.output.mem.shape[1] -
+                (a.mem.shape[1] + b.mem.shape[1])), "Failed")
 
     def testGPU(self):
         logging.info("Will test InputJoiner() on GPU.")

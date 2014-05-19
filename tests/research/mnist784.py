@@ -109,7 +109,7 @@ class Loader(mnist.Loader):
         """
         super(Loader, self).load_data()
         self.class_target.reset()
-        self.class_target.v = numpy.zeros(
+        self.class_target.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, 10):
             img = do_plot(root.mnist784.data_paths,
@@ -118,7 +118,7 @@ class Loader(mnist.Loader):
                 opencl_types.dtypes[root.common.dtype])
             formats.normalize(self.class_target[i])
         self.original_target = numpy.zeros(
-            [self.original_labels.shape[0], self.class_target.v.shape[1]],
+            [self.original_labels.shape[0], self.class_target.mem.shape[1]],
             dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
@@ -241,7 +241,7 @@ class Workflow(nn_units.NNWorkflow):
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_mx.input_field = "v"
+        self.plt_mx.input_field = "mem"
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended

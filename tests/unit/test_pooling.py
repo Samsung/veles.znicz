@@ -27,7 +27,7 @@ class TestMaxPooling(unittest.TestCase):
 
         self._inp = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.dtype]
-        self._inp.v = numpy.array(
+        self._inp.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
              (-3), 2, -1, 4, 2, 0, -3, 3, 1, -3, -4, -3, 0, -3,
@@ -82,12 +82,12 @@ class TestMaxPooling(unittest.TestCase):
         c.output.map_read()
 
         max_diff = numpy.fabs(self._gold_output.ravel() -
-                              c.output.v.ravel()).max()
+                              c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         c.input_offs.map_read()
         max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offs.v.ravel()).max()
+                              c.input_offs.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
@@ -101,11 +101,11 @@ class TestMaxPooling(unittest.TestCase):
         c.run()
 
         max_diff = numpy.fabs(self._gold_output.ravel() -
-                              c.output.v.ravel()).max()
+                              c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offs.v.ravel()).max()
+                              c.input_offs.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
@@ -118,7 +118,7 @@ class TestGDMaxPooling(unittest.TestCase):
 
         self._inp = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.dtype]
-        self._inp.v = numpy.array(
+        self._inp.mem = numpy.array(
             [[[3, 3, -1, 1, 2, 3, 4],
               [-2, 4, -2, 3, -3, 1, -2],
               [-3, -1, 2, -3, 1, -4, 0],
@@ -134,15 +134,15 @@ class TestGDMaxPooling(unittest.TestCase):
               [-1, 1, -4, -4, 2, 2, 1],
               [1, -4, 1, -3, -4, -1, -1],
               [-1, 4, 2, -2, 3, 3, 4]]], dtype=self._dtype)
-        self._inp.v = self._inp.v.reshape(3, 5, 7, 1)
+        self._inp.mem = self._inp.mem.reshape(3, 5, 7, 1)
         self._input_offs = formats.Vector()
-        self._input_offs.v = numpy.array(
+        self._input_offs.mem = numpy.array(
             [8, 10, 5, 6, 14, 17, 19, 27, 29, 30, 33, 34,
              35, 38, 39, 48, 56, 51, 60, 55, 63, 65, 68, 69,
              70, 73, 74, 76, 92, 86, 95, 90, 99, 100,
              102, 104], dtype=numpy.int32)
         self._err_output = formats.Vector()
-        self._err_output.v = numpy.array(
+        self._err_output.mem = numpy.array(
             [1, 3, 0.5, -4, 1, -2, -3, -1, -1, 3, -3, -0.5,
              4, -4, -0.3, -3, -1, -3, 2, -2, -4, 2, -1, -3,
              (-4), 2, 3, 2, -1, -1, -3, 4, -2, 2, 0.3, -4], dtype=self._dtype)
@@ -176,11 +176,11 @@ class TestGDMaxPooling(unittest.TestCase):
         cur_device = opencl.Device()
         c.initialize(device=cur_device)
         c.err_input.map_write()
-        c.err_input.v[:] = 1.0e30
+        c.err_input.mem[:] = 1.0e30
         c.run()
         c.err_input.map_read()  # get results back
         max_diff = numpy.fabs(self._gold_err_input.ravel() -
-                              c.err_input.v.ravel()).max()
+                              c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "max difference in err_input is %.6f" % (max_diff))
         logging.info("test passed")
@@ -193,11 +193,11 @@ class TestGDMaxPooling(unittest.TestCase):
         c.input_offs = self._input_offs
         c.err_output = self._err_output
         c.initialize(device=None)
-        c.err_input.v[:] = 1.0e30
+        c.err_input.mem[:] = 1.0e30
         c.run()
 
         max_diff = numpy.fabs(self._gold_err_input.ravel() -
-                              c.err_input.v.ravel()).max()
+                              c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "max difference in err_input is %.6f" % (max_diff))
         logging.info("test passed")
@@ -210,7 +210,7 @@ class TestAvgPooling(unittest.TestCase):
 
         self._inp = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.dtype]
-        self._inp.v = numpy.array(
+        self._inp.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
              (-3), 2, -1, 4, 2, 0, -3, 3, 1, -3, -4, -3, 0, -3,
@@ -252,7 +252,7 @@ class TestAvgPooling(unittest.TestCase):
         c.run()
         c.output.map_read()
         max_diff = numpy.fabs(self._gold_output.ravel() -
-                              c.output.v.ravel()).max()
+                              c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
@@ -266,7 +266,7 @@ class TestAvgPooling(unittest.TestCase):
 
         c.run()
         max_diff = numpy.fabs(self._gold_output.ravel() -
-                              c.output.v.ravel()).max()
+                              c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
@@ -279,7 +279,7 @@ class TestGDAvgPooling(unittest.TestCase):
 
         self._inp = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.dtype]
-        self._inp.v = numpy.array([
+        self._inp.mem = numpy.array([
             [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
              [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
              [[-3, -6], [-1, -2], [2, 4], [-3, -6], [1, 2], [-4, -8], [0, 0]],
@@ -299,7 +299,7 @@ class TestGDAvgPooling(unittest.TestCase):
              [[-1, -2], [4, 8], [2, 2], [-2, -4],
               [3, 6], [3, 6], [4, 8]]]], dtype=self._dtype)
         self._err_output = formats.Vector()
-        self._err_output.v = numpy.array(
+        self._err_output.mem = numpy.array(
             [[[[1, 2], [3, 6], [0.5, 1], [-4, -8]],
               [[1, 2], [-2, -4], [-3, -6], [-1, -2]],
               [[-1, -2], [3, 6], [-3, -6], [-0.5, -1]]],
@@ -353,12 +353,12 @@ class TestGDAvgPooling(unittest.TestCase):
         cur_device = opencl.Device()
         c.initialize(device=cur_device)
         c.err_input.map_write()
-        c.err_input.v[:] = 1.0e30
+        c.err_input.mem[:] = 1.0e30
         c.run()
         c.err_input.map_read()  # get results back
 
         max_diff = numpy.fabs(self._gold_err_input.ravel() -
-                              c.err_input.v.ravel()).max()
+                              c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in err_input matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
@@ -370,11 +370,11 @@ class TestGDAvgPooling(unittest.TestCase):
         c.input = self._inp
         c.err_output = self._err_output
         c.initialize(device=None)
-        c.err_input.v[:] = 1.0e30
+        c.err_input.mem[:] = 1.0e30
         c.run()
 
         max_diff = numpy.fabs(self._gold_err_input.ravel() -
-                              c.err_input.v.ravel()).max()
+                              c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "max difference in err_input is %.6f" % (max_diff))
         logging.info("test passed")

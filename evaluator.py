@@ -70,30 +70,30 @@ class EvaluatorSoftmax(OpenCLUnit):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
-        if (self.err_output.v is None or
-                self.err_output.v.size != self.output.v.size):
+        if (self.err_output.mem is None or
+                self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
-            self.err_output.v = numpy.zeros(self.output.v.shape,
-                                            dtype=self.output.v.dtype)
+            self.err_output.mem = numpy.zeros(self.output.mem.shape,
+                                            dtype=self.output.mem.dtype)
 
-        if self.n_err.v is None or self.n_err.v.size < 2:
+        if self.n_err.mem is None or self.n_err.mem.size < 2:
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=numpy.int32)
+            self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
 
-        out_size = self.output.v.size // self.output.v.shape[0]
+        out_size = self.output.mem.size // self.output.mem.shape[0]
         if self.compute_confusion_matrix:
-            if (self.confusion_matrix.v is None or
-                    self.confusion_matrix.v.size != out_size * out_size):
+            if (self.confusion_matrix.mem is None or
+                    self.confusion_matrix.mem.size != out_size * out_size):
                 self.confusion_matrix.reset()
-                self.confusion_matrix.v = numpy.zeros(
+                self.confusion_matrix.mem = numpy.zeros(
                     [out_size, out_size], dtype=numpy.int32)
         else:
             self.confusion_matrix.reset()
 
-        if (self.max_err_output_sum.v is None or
-                self.max_err_output_sum.v.size < 1):
+        if (self.max_err_output_sum.mem is None or
+                self.max_err_output_sum.mem.size < 1):
             self.max_err_output_sum.reset()
-            self.max_err_output_sum.v = numpy.zeros(
+            self.max_err_output_sum.mem = numpy.zeros(
                 1, dtype=opencl_types.dtypes[root.common.dtype])
 
         self.output.initialize(self.device)
@@ -113,14 +113,14 @@ class EvaluatorSoftmax(OpenCLUnit):
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)],
-                'BATCH': self.err_output.v.shape[0],
-                'Y': self.err_output.v.size // self.err_output.v.shape[0],
+                    opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
+                'BATCH': self.err_output.mem.shape[0],
+                'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
             }
 
             self.build_program(defines, "ev_%d.cl" %
-                               (self.output.v.size // self.output.v.shape[0]),
-                               dtype=self.output.v.dtype)
+                               (self.output.mem.size // self.output.mem.shape[0]),
+                               dtype=self.output.mem.dtype)
 
             self.assign_kernel("ev_sm")
             self.set_args(self.output, self.max_idx, self.labels,
@@ -140,7 +140,7 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.set_arg(7, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
+            opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(global_size, local_size)
         event.wait()
@@ -155,8 +155,8 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.max_err_output_sum.map_write()
 
         batch_size = self.batch_size
-        labels = self.labels.v
-        confusion_matrix = self.confusion_matrix.v
+        labels = self.labels.mem
+        confusion_matrix = self.confusion_matrix.mem
 
         n_ok = 0
         for i in range(batch_size):  # loop by batch
@@ -178,8 +178,8 @@ class EvaluatorSoftmax(OpenCLUnit):
                 self.max_err_output_sum[0] = max(
                     self.max_err_output_sum[0], (numpy.fabs(err_output)).sum())
         # Set errors for excessive samples to zero
-        if batch_size < self.err_output.v.shape[0]:
-            self.err_output.v[batch_size:] = 0.0
+        if batch_size < self.err_output.mem.shape[0]:
+            self.err_output.mem[batch_size:] = 0.0
         self.n_err[0] += batch_size - n_ok
 
 
@@ -240,29 +240,29 @@ class EvaluatorMSE(OpenCLUnit):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
-        if (self.err_output.v is None or
-                self.err_output.v.size != self.output.v.size):
+        if (self.err_output.mem is None or
+                self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
-            self.err_output.v = numpy.zeros(self.output.v.shape,
-                                            dtype=self.output.v.dtype)
+            self.err_output.mem = numpy.zeros(self.output.mem.shape,
+                                            dtype=self.output.mem.dtype)
 
-        if self.metrics.v is None or self.metrics.v.size < 3:
+        if self.metrics.mem is None or self.metrics.mem.size < 3:
             self.metrics.reset()
-            self.metrics.v = numpy.zeros(
+            self.metrics.mem = numpy.zeros(
                 3, dtype=opencl_types.dtypes[root.common.dtype])
             self.metrics[2] = 1.0e30  # mse_min
 
-        if (self.mse.v is None or
-                self.mse.v.size != self.err_output.v.shape[0]):
+        if (self.mse.mem is None or
+                self.mse.mem.size != self.err_output.mem.shape[0]):
             self.mse.reset()
-            self.mse.v = numpy.zeros(
-                self.err_output.v.shape[0],
+            self.mse.mem = numpy.zeros(
+                self.err_output.mem.shape[0],
                 dtype=opencl_types.dtypes[root.common.dtype])
 
         if (self.labels is not None and self.class_target is not None and
-                (self.n_err.v is None or self.n_err.v.size < 2)):
+                (self.n_err.mem is None or self.n_err.mem.size < 2)):
             self.n_err.reset()
-            self.n_err.v = numpy.zeros(2, dtype=numpy.int32)
+            self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
             self.cl_sources_["mse_find_closest.cl"] = {}
             self.class_target.initialize(self.device)
             self.labels.initialize(self.device)
@@ -283,26 +283,26 @@ class EvaluatorMSE(OpenCLUnit):
             defines = {
                 'BLOCK_SIZE':
                 self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)],
-                'BATCH': self.err_output.v.shape[0],
-                'Y': self.err_output.v.size // self.err_output.v.shape[0],
+                    opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
+                'BATCH': self.err_output.mem.shape[0],
+                'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
                 'SAMPLE_SIZE': 'Y',
-                'N_TARGETS': (self.class_target.v.shape[0]
+                'N_TARGETS': (self.class_target.mem.shape[0]
                               if self.class_target is not None else 0)}
 
             self.build_program(defines, "ev_%d.cl" %
-                               (self.output.v.size // self.output.v.shape[0]),
-                               dtype=self.output.v.dtype)
+                               (self.output.mem.size // self.output.mem.shape[0]),
+                               dtype=self.output.mem.dtype)
 
             self.assign_kernel("ev_mse")
             self.set_args(self.output, self.target, self.err_output,
-                          self.metrics, self.mse.v_)
+                          self.metrics, self.mse.devmem)
 
             if self.labels is not None and self.class_target is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
                 self.krn_find_closest_.set_args(
-                    self.output.v_, self.class_target.v_, self.labels.v_,
-                    self.n_err.v_)
+                    self.output.devmem, self.class_target.devmem, self.labels.devmem,
+                    self.n_err.devmem)
 
     def ocl_run(self):
         self.err_output.unmap()
@@ -316,7 +316,7 @@ class EvaluatorMSE(OpenCLUnit):
         self.set_arg(5, self.krn_constants_i_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)]]
+            opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
         global_size = [local_size[0]]
         event = self.execute_kernel(global_size, local_size)
         event.wait()

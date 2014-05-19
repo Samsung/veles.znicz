@@ -33,7 +33,7 @@ class TestGDConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[-1, 0, 2, 0, 3],
+        inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],
                               [-1, 1, 1, 0, 2],
@@ -57,7 +57,7 @@ class TestGDConv(unittest.TestCase):
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, gradient_moment=0.9)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array([[[-1, 3],
+        c.err_output.mem = numpy.array([[[-1, 3],
                                        [8, 2],
                                        [0, 1],
                                        [4, -1],
@@ -68,14 +68,14 @@ class TestGDConv(unittest.TestCase):
                                        [1, 1]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
-        c.weights.v = weights
+        c.weights.mem = weights
         c.bias = formats.Vector()
-        c.bias.v = bias
+        c.bias.mem = bias
         c.output = formats.Vector()
-        c.output.v = c.err_output.v.copy()
+        c.output.mem = c.err_output.mem.copy()
 
-        batch_size = c.err_output.v.shape[0]
-        b = c.err_output.v.reshape(9 * batch_size, 2)
+        batch_size = c.err_output.mem.shape[0]
+        b = c.err_output.mem.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -97,17 +97,17 @@ class TestGDConv(unittest.TestCase):
                           [22, 45, 18, 28, 7],
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_input.v.ravel()).max()
+        max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Err_input is right")
 
-        max_diff = numpy.fabs(weights_new.ravel() - c.weights.v.ravel()).max()
+        max_diff = numpy.fabs(weights_new.ravel() - c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Weights is right")
 
-        max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()
+        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Bias is right")
@@ -117,7 +117,7 @@ class TestGDConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[-1, 0, 2, 0, 3],
+        inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],
                               [-1, 1, 1, 0, 2],
@@ -141,7 +141,7 @@ class TestGDConv(unittest.TestCase):
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, gradient_moment=0.9)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array([[[-1, 3],
+        c.err_output.mem = numpy.array([[[-1, 3],
                                        [8, 2],
                                        [0, 1],
                                        [4, -1],
@@ -152,14 +152,14 @@ class TestGDConv(unittest.TestCase):
                                        [1, 1]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
-        c.weights.v = weights
+        c.weights.mem = weights
         c.bias = formats.Vector()
-        c.bias.v = bias
+        c.bias.mem = bias
         c.output = formats.Vector()
-        c.output.v = c.err_output.v.copy()
+        c.output.mem = c.err_output.mem.copy()
 
-        batch_size = c.err_output.v.shape[0]
-        b = c.err_output.v.reshape(9 * batch_size, 2)
+        batch_size = c.err_output.mem.shape[0]
+        b = c.err_output.mem.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -180,17 +180,17 @@ class TestGDConv(unittest.TestCase):
                           [22, 45, 18, 28, 7],
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_input.v.ravel()).max()
+        max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Err_input is right")
 
-        max_diff = numpy.fabs(weights_new.ravel() - c.weights.v.ravel()).max()
+        max_diff = numpy.fabs(weights_new.ravel() - c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Weights is right")
 
-        max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()
+        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Bias is right")
@@ -200,7 +200,7 @@ class TestGDConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
                               [2, 0, 1, 0, 2],
@@ -229,7 +229,7 @@ class TestGDConv(unittest.TestCase):
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
                                         sliding=(2, 3), gradient_moment=0.9)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.array([[[-1, 3],
+        c.err_output.mem = numpy.array([[[-1, 3],
                                        [8, 2],
                                        [0, 1],
                                        [4, -1],
@@ -243,14 +243,14 @@ class TestGDConv(unittest.TestCase):
                                        [2, 3]]], dtype=dtype)
         c.input = inp
         c.weights = formats.Vector()
-        c.weights.v = weights
+        c.weights.mem = weights
         c.bias = formats.Vector()
-        c.bias.v = bias
+        c.bias.mem = bias
         c.output = formats.Vector()
-        c.output.v = c.err_output.v.copy()
+        c.output.mem = c.err_output.mem.copy()
 
-        batch_size = c.err_output.v.shape[0]
-        b = c.err_output.v.reshape(12 * batch_size, 2)
+        batch_size = c.err_output.mem.shape[0]
+        b = c.err_output.mem.reshape(12 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
@@ -271,19 +271,19 @@ class TestGDConv(unittest.TestCase):
                           [-9, 2.5, -0.5, 0, -17.5],
                           [-1.8, 2.8, -1.4, 7.15, -2.2],
                           [1.1, -1.1, -5.2, -1.7, 10.5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_input.v.ravel()).max()
+        max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
-                         " ".join("%.2f" % x for x in c.err_input.v.ravel())))
+                         " ".join("%.2f" % x for x in c.err_input.mem.ravel())))
         logging.info("Err_input is right")
 
-        max_diff = numpy.fabs(bias_new.ravel() - c.bias.v.ravel()).max()
+        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Bias is right")
 
-        max_diff = numpy.fabs(weights_new.ravel() - c.weights.v.ravel()).max()
+        max_diff = numpy.fabs(weights_new.ravel() - c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Weights is right")

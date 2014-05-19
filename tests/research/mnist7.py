@@ -41,7 +41,7 @@ class Loader(mnist.Loader):
         super(Loader, self).load_data()
         self.class_target.reset()
         print("root.common.dtype", root.common.dtype)
-        self.class_target.v = numpy.array(
+        self.class_target.mem = numpy.array(
             [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
              [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
              [1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0],  # 2
@@ -178,7 +178,7 @@ class Workflow(nn_units.NNWorkflow):
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_mx.input_field = "v"
+        self.plt_mx.input_field = "mem"
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended

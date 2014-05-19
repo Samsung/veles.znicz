@@ -84,9 +84,9 @@ class Conv(nn_units.Forward):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        n_channels = (self.input.v.size // (self.input.v.shape[0] *
-                      self.input.v.shape[1] * self.input.v.shape[2]))
-        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+        n_channels = (self.input.mem.size // (self.input.mem.shape[0] *
+                      self.input.mem.shape[1] * self.input.mem.shape[2]))
+        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / self.input.supposed_maxvle /
                    (self.kx * self.ky * n_channels))
         else:
@@ -104,43 +104,43 @@ class Conv(nn_units.Forward):
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
-        self._batch_size = self.input.v.shape[0]
-        self._sy = self.input.v.shape[1]
-        self._sx = self.input.v.shape[2]
-        self._n_channels = self.input.v.size // (self._batch_size * self._sx *
+        self._batch_size = self.input.mem.shape[0]
+        self._sy = self.input.mem.shape[1]
+        self._sx = self.input.mem.shape[2]
+        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
                                                  self._sy)
         n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
-        if self.weights.v is None or self.weights.v.size != n_weights:
+        if self.weights.mem is None or self.weights.mem.size != n_weights:
             self.weights.reset()
-            self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
+            self.weights.mem = numpy.zeros(n_weights, dtype=self.input.mem.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.v, -self.weights_stddev,
+                self.rand.fill(self.weights.mem, -self.weights_stddev,
                                self.weights_stddev)
             elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.v, 0,
+                self.rand.fill_normal_real(self.weights.mem, 0,
                                            self.weights_stddev)
             elif self.weights_filling == "constant":
-                self.weights.v[:] = self.weights_stddev
+                self.weights.mem[:] = self.weights_stddev
             else:
                 raise error.ErrBadFormat("Invalid weights filling type")
-            self.weights.v = self.weights.v.reshape(
+            self.weights.mem = self.weights.mem.reshape(
                 self.n_kernels, self.kx * self.ky * self._n_channels)
             # Reshape weights as a matrix:
             if self.weights_transposed:
-                a = self.weights.v.transpose().copy()
-                self.weights.v.shape = a.shape
-                self.weights.v[:] = a[:]
-        if (self.bias.v is None or
-                self.bias.v.size != self.n_kernels):
+                a = self.weights.mem.transpose().copy()
+                self.weights.mem.shape = a.shape
+                self.weights.mem[:] = a[:]
+        if (self.bias.mem is None or
+                self.bias.mem.size != self.n_kernels):
             self.bias.reset()
-            self.bias.v = numpy.zeros(self.n_kernels, dtype=self.input.v.dtype)
+            self.bias.mem = numpy.zeros(self.n_kernels, dtype=self.input.mem.dtype)
             if self.bias_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.bias_stddev,
+                self.rand.fill(self.bias.mem, -self.bias_stddev,
                                self.bias_stddev)
             elif self.bias_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.v, 0, self.bias_stddev)
+                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
             elif self.bias_filling == "constant":
-                self.bias.v[:] = self.bias_stddev
+                self.bias.mem[:] = self.bias_stddev
             else:
                 raise error.ErrBadFormat("Invalid bias filling type")
 
@@ -154,9 +154,9 @@ class Conv(nn_units.Forward):
             self.sliding[0] + 1,
             self.n_kernels]
         output_size = int(numpy.prod(output_shape))
-        if self.output.v is None or self.output.v.size != output_size:
+        if self.output.mem is None or self.output.mem.size != output_size:
             self.output.reset()
-            self.output.v = numpy.zeros(output_shape, dtype=self.input.v.dtype)
+            self.output.mem = numpy.zeros(output_shape, dtype=self.input.mem.dtype)
         del output_size
         del output_shape
 
@@ -167,9 +167,9 @@ class Conv(nn_units.Forward):
 
         if root.common.unit_test:
             self._batch_size >>= 1
-            self.output.vv = self.output.v
-            self.output.v = self.output.v[:self._batch_size]
-            formats.assert_addr(self.output.v, self.output.vv)
+            self.output.vv = self.output.mem
+            self.output.mem = self.output.mem[:self._batch_size]
+            formats.assert_addr(self.output.mem, self.output.vv)
 
         if self.device is None:
             return
@@ -177,7 +177,7 @@ class Conv(nn_units.Forward):
         defines = {
             self.s_activation: 1,
             'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
+                opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
             'BATCH': self._batch_size,
             'SX': self._sx,
             'SY': self._sy,
@@ -197,7 +197,7 @@ class Conv(nn_units.Forward):
         self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
             root.common.cache_dir, self._sx, self._sy, self._n_channels,
             self.kx, self.ky, self.n_kernels),
-            dtype=self.input.v.dtype)
+            dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
         self.set_args(self.input, self.weights, self.output, self.bias)
@@ -208,13 +208,13 @@ class Conv(nn_units.Forward):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.output.map_read()
-        y = self.output.v
+        y = self.output.mem
         if y.dtype in (numpy.complex64, numpy.complex128):
             self.debug(
                 "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
-                 self.weights.v.size, time.time() - t_start,
+                 self.weights.mem.size, time.time() - t_start,
                  min(y.real.min(), y.imag.min()),
                  (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
                  max(y.real.max(), y.imag.max())))
@@ -223,7 +223,7 @@ class Conv(nn_units.Forward):
                 "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
-                 self.weights.v.size, time.time() - t_start,
+                 self.weights.mem.size, time.time() - t_start,
                  y.min(), numpy.average(y), y.max()))
 
     def ocl_run(self):
@@ -234,9 +234,9 @@ class Conv(nn_units.Forward):
         self.weights.unmap()  # we will use weights
         self.bias.unmap()  # we will use bias
         block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
+            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
         global_size = [formats.roundup(self.n_kernels, block_size),
-                       formats.roundup(self.output.v.size // self.n_kernels,
+                       formats.roundup(self.output.mem.size // self.n_kernels,
                                        block_size)]
         local_size = [block_size, block_size]
         self.execute_kernel(global_size, local_size).wait()
@@ -258,7 +258,7 @@ class Conv(nn_units.Forward):
         for batch, _ in ((batch, ch)
                          for batch in range(self._batch_size)
                          for ch in range(self._n_channels)):
-            for k, kernel in enumerate(self.weights.v):
+            for k, kernel in enumerate(self.weights.mem):
                 for i, j in ((i, j) for i in range(ny) for j in range(nx)):
                     y1, y2 = (i * self.sliding[1],
                               i * self.sliding[1] + self.ky)
@@ -269,29 +269,29 @@ class Conv(nn_units.Forward):
                     j1, j2 = (min(max(x1 - self.padding[0], 0), self._sx),
                               min(max(x2 - self.padding[0], 0), self._sx))
                     if i2 - i1 > 0 or j2 - j1 > 0:
-                        cut = self.input.v[batch, i1:i2, j1:j2]
+                        cut = self.input.mem[batch, i1:i2, j1:j2]
                         kernel_2d = kernel.reshape(self.ky, self.kx)
                         cutted_kernel = kernel_2d[(i1 - y1):(i2 - y1),
                                                   (j1 - x1):(j2 - x1)]
                         assert(cut.size == cutted_kernel.size)
                         conv = numpy.sum(numpy.multiply(cut.ravel(),
                                                         cutted_kernel.ravel()))
-                        self.output.v[batch, i, j, k] = conv
+                        self.output.mem[batch, i, j, k] = conv
 
                         # add bias and apply activation function
                         if self.s_activation == "ACTIVATION_LINEAR":
-                            self.output.v[batch, i, j, k] = (conv +
-                                                             self.bias.v[k])
+                            self.output.mem[batch, i, j, k] = (conv +
+                                                             self.bias.mem[k])
                         elif self.s_activation == "ACTIVATION_TANH":
-                            self.output.v[batch, i, j, k] = \
-                                math.tanh((conv + self.bias.v[k])
+                            self.output.mem[batch, i, j, k] = \
+                                math.tanh((conv + self.bias.mem[k])
                                           * 0.6666) * 1.7159
                         elif self.s_activation == "ACTIVATION_RELU":
-                            tmp_val = conv + self.bias.v[k]
+                            tmp_val = conv + self.bias.mem[k]
                             if tmp_val > 15:
-                                self.output.v[batch, i, j, k] = tmp_val
+                                self.output.mem[batch, i, j, k] = tmp_val
                             else:
-                                self.output.v[batch, i, j, k] = \
+                                self.output.mem[batch, i, j, k] = \
                                     math.log(math.exp(tmp_val) + 1)
                         else:
                             raise ValueError("unknown type of activation "
@@ -321,9 +321,9 @@ class ConvTanh(Conv):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        self._n_channels = (self.input.v.size //
-                            numpy.prod(self.input.v.shape[:3]))
-        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+        self._n_channels = (self.input.mem.size //
+                            numpy.prod(self.input.mem.shape[:3]))
+        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / (self.input.supposed_maxvle * 0.6666) /
                    (self.kx * self.ky * self._n_channels))
         else:

@@ -28,35 +28,35 @@ class TestImageSaver(unittest.TestCase):
 
     def data(self):
         self.minibatch_data = formats.Vector()
-        self.minibatch_data.v = numpy.zeros([20, 32, 32], dtype=numpy.float32)
-        rnd.get().fill(self.minibatch_data.v)
+        self.minibatch_data.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
+        rnd.get().fill(self.minibatch_data.mem)
 
         self.lbls = formats.Vector()
-        self.lbls.v = numpy.array([1, 0, 0, 2, 4,
+        self.lbls.mem = numpy.array([1, 0, 0, 2, 4,
                                    7, 9, 3, 6, 8,
                                    6, 3, 5, 5, 5,
                                    9, 0, 1, 1, 0], dtype=numpy.int8)
 
         self.max_idx = formats.Vector()
-        self.max_idx.v = numpy.array([1, 2, 1, 2, 4,
+        self.max_idx.mem = numpy.array([1, 2, 1, 2, 4,
                                       7, 8, 3, 6, 8,
                                       6, 1, 5, 5, 9,
-                                      9, 0, 1, 4, 0], dtype=self.lbls.v.dtype)
+                                      9, 0, 1, 4, 0], dtype=self.lbls.mem.dtype)
 
         self.indexes = formats.Vector()
-        self.indexes.v = numpy.array([0, 1, 2, 3, 4,
+        self.indexes.mem = numpy.array([0, 1, 2, 3, 4,
                                       5, 6, 7, 8, 9,
                                       0, 1, 2, 3, 4,
-                                      5, 6, 7, 8, 9], dtype=self.lbls.v.dtype)
+                                      5, 6, 7, 8, 9], dtype=self.lbls.mem.dtype)
 
         self.output = formats.Vector()
-        self.output.v = numpy.zeros([20, 10], dtype=numpy.float32)
-        rnd.get().fill(self.output.v)
-        self.output.v -= self.output.v.max()
-        numpy.exp(self.output.v, self.output.v)
-        smm = self.output.v.sum()
+        self.output.mem = numpy.zeros([20, 10], dtype=numpy.float32)
+        rnd.get().fill(self.output.mem)
+        self.output.mem -= self.output.mem.max()
+        numpy.exp(self.output.mem, self.output.mem)
+        smm = self.output.mem.sum()
         if smm != 0:
-            self. output.v /= smm
+            self. output.mem /= smm
 
     def remove_dir(self):
         for i in range(0, 2):
@@ -122,8 +122,8 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.output = self.output
         self.img_saver_MSE.this_save_time = time.time()
         self.target = formats.Vector()
-        self.target.v = numpy.zeros([20, 10], dtype=numpy.float32)
-        rnd.get().fill(self.target.v)
+        self.target.mem = numpy.zeros([20, 10], dtype=numpy.float32)
+        rnd.get().fill(self.target.mem)
         self.img_saver_MSE.minibatch_class = 0
         self.img_saver_MSE.target = self.target
         self.img_saver_MSE.initialize()

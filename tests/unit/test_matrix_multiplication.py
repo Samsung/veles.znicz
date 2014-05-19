@@ -33,15 +33,15 @@ class TestMatrixMultiplication(unittest.TestCase):
     def _do_cpu_tst(self):
         """Pure single core CPU test
         """
-        dtype = (numpy.complex128 if self.a.v.dtype in (
+        dtype = (numpy.complex128 if self.a.mem.dtype in (
             numpy.complex64, numpy.complex128) else numpy.float64)
-        a = numpy.empty(self.a.v.shape, dtype=dtype)
-        a[:] = self.a.v[:]
-        bt = self.b.v.transpose()
+        a = numpy.empty(self.a.mem.shape, dtype=dtype)
+        a[:] = self.a.mem[:]
+        bt = self.b.mem.transpose()
         b = numpy.empty(bt.shape, dtype=dtype)
         b[:] = bt[:]
-        bias = numpy.empty(self.bias.v.shape, dtype=dtype)
-        bias[:] = self.bias.v[:]
+        bias = numpy.empty(self.bias.mem.shape, dtype=dtype)
+        bias[:] = self.bias.mem[:]
         c = numpy.empty(self.c[0].shape, dtype=dtype)
         if self.a_col:
             a = a.transpose()
@@ -63,29 +63,29 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.b_col = b_col
 
         self.a = formats.Vector()
-        self.a.v = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
+        self.a.mem = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
                                dtype=self.dtype)
-        rnd.get().fill(self.a.v, -0.1, 0.1)
+        rnd.get().fill(self.a.mem, -0.1, 0.1)
         if a_col:
-            self.a.v.shape = (self.AB_WIDTH, self.A_HEIGHT)
+            self.a.mem.shape = (self.AB_WIDTH, self.A_HEIGHT)
         else:
-            self.a.v.shape = (self.A_HEIGHT, self.AB_WIDTH)
+            self.a.mem.shape = (self.A_HEIGHT, self.AB_WIDTH)
 
         self.b = formats.Vector()
-        self.b.v = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
+        self.b.mem = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
                                dtype=self.dtype)
-        rnd.get().fill(self.b.v, -0.1, 0.1)
+        rnd.get().fill(self.b.mem, -0.1, 0.1)
         if b_col:
-            self.b.v.shape = (self.AB_WIDTH, self.B_HEIGHT)
+            self.b.mem.shape = (self.AB_WIDTH, self.B_HEIGHT)
         else:
-            self.b.v.shape = (self.B_HEIGHT, self.AB_WIDTH)
+            self.b.mem.shape = (self.B_HEIGHT, self.AB_WIDTH)
 
         self.bias = formats.Vector()
-        self.bias.v = numpy.zeros([self.B_HEIGHT], dtype=self.dtype)
-        rnd.get().fill(self.bias.v, -0.1, 0.1)
+        self.bias.mem = numpy.zeros([self.B_HEIGHT], dtype=self.dtype)
+        rnd.get().fill(self.bias.mem, -0.1, 0.1)
 
         self.c = formats.Vector()
-        self.c.v = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
+        self.c.mem = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
                               dtype=self.dtype)
 
     def _cleanup_after_tsts(self):
@@ -123,10 +123,10 @@ class TestMatrixMultiplication(unittest.TestCase):
             dtype=self.dtype, show_ocl_logs=False)
 
         krn = obj.get_kernel("feed_layer")
-        krn.set_arg(0, self.a.v_)
-        krn.set_arg(1, self.b.v_)
-        krn.set_arg(2, self.c.v_)
-        krn.set_arg(3, self.bias.v_)
+        krn.set_arg(0, self.a.devmem)
+        krn.set_arg(1, self.b.devmem)
+        krn.set_arg(2, self.c.devmem)
+        krn.set_arg(3, self.bias.devmem)
 
         global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]

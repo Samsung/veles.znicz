@@ -50,14 +50,14 @@ class Forward(OpenCLUnit):
     def generate_data_for_slave(self, slave=None):
         self.weights.map_read()
         self.bias.map_read()
-        data = (self.weights.v.copy(), self.bias.v.copy())
+        data = (self.weights.mem.copy(), self.bias.mem.copy())
         return data
 
     def apply_data_from_master(self, data):
         self.weights.map_invalidate()
         self.bias.map_invalidate()
-        numpy.copyto(self.weights.v, data[0])
-        numpy.copyto(self.bias.v, data[1])
+        numpy.copyto(self.weights.mem, data[0])
+        numpy.copyto(self.bias.mem, data[1])
 
 
 class GradientDescentBase(OpenCLUnit):
@@ -150,30 +150,30 @@ class GradientDescentBase(OpenCLUnit):
         self.learning_rate_bias = data[3]
         self.weights_decay_bias = data[4]
         self.gradient_moment_bias = data[5]
-        if self.gradient_weights.v is not None:
+        if self.gradient_weights.mem is not None:
             self.gradient_weights.map_invalidate()
-            self.gradient_weights.v[:] = 0
-        if self.gradient_bias.v is not None:
+            self.gradient_weights.mem[:] = 0
+        if self.gradient_bias.mem is not None:
             self.gradient_bias.map_invalidate()
-            self.gradient_bias.v[:] = 0
+            self.gradient_bias.mem[:] = 0
 
     def generate_data_for_master(self):
         if (not self.run_was_called or
-                (self.gradient_weights.v is None and
-                    self.gradient_bias.v is None)):
+                (self.gradient_weights.mem is None and
+                    self.gradient_bias.mem is None)):
             return None
         self.run_was_called = False
         self.gradient_weights.map_read()
         self.gradient_bias.map_read()
-        return (self.gradient_weights.v, self.gradient_bias.v)
+        return (self.gradient_weights.mem, self.gradient_bias.mem)
 
     def apply_data_from_slave(self, data, slave=None):
-        if self.weights.v is not None:
+        if self.weights.mem is not None:
             self.weights.map_write()
-            self.weights.v += data[0]
-        if self.bias.v is not None:
+            self.weights.mem += data[0]
+        if self.bias.mem is not None:
             self.bias.map_write()
-            self.bias.v += data[1]
+            self.bias.mem += data[1]
 
 
 class NNWorkflow(OpenCLWorkflow):
@@ -220,10 +220,10 @@ class NNWorkflow(OpenCLWorkflow):
                     self.debug("%s in attributes to export" % (key))
                     # Save numpy array to binary file
                     if type(getattr(u, key)) == formats.Vector and i >= 1:
-                        for j in range(len(getattr(u, key).v.shape)):
+                        for j in range(len(getattr(u, key).mem.shape)):
                             name = key + "_shape_" + str(j)
                             self.info(name)
-                            dict_temp[name] = getattr(u, key).v.shape[j]
+                            dict_temp[name] = getattr(u, key).mem.shape[j]
 
                         link_to_numpy = "unit" + str(i - 1) + key + ".bin"
 
@@ -231,7 +231,7 @@ class NNWorkflow(OpenCLWorkflow):
 
                         files_to_save.append(
                             self._save_numpy_to_file(
-                                getattr(u, key).v, link_to_numpy, tmppath))
+                                getattr(u, key).mem, link_to_numpy, tmppath))
                     else:
                         dict_temp[key] = getattr(u, key)
             temp__ = {}

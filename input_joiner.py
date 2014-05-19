@@ -59,9 +59,9 @@ class InputJoiner(OpenCLUnit):
         super(InputJoiner, self).initialize(**kwargs)
 
         if self.minibatch_size[0] is None:
-            minibatch_size = self.inputs[0].v.shape[0]
+            minibatch_size = self.inputs[0].mem.shape[0]
             for i in range(1, len(self.inputs)):
-                minibatch_size = min(minibatch_size, self.inputs[i].v.shape[0])
+                minibatch_size = min(minibatch_size, self.inputs[i].mem.shape[0])
             self.minibatch_size[0] = minibatch_size
         else:
             minibatch_size = self.minibatch_size[0]
@@ -69,20 +69,20 @@ class InputJoiner(OpenCLUnit):
         if self.output_sample_shape is None:
             self.output_sample_shape = [0]
             for inp in self.inputs:
-                if inp.v is None:
+                if inp.mem is None:
                     raise error.ErrBadFormat(
                         "output_sample_shape should be provided "
                         "if any of the inputs was not initialized "
                         "before this point")
-                self.output_sample_shape[0] += inp.v.size // inp.v.shape[0]
+                self.output_sample_shape[0] += inp.mem.size // inp.mem.shape[0]
 
         sh = [minibatch_size]
         sh.extend(self.output_sample_shape)
-        if (self.output.v is None or self.output.v.size != numpy.prod(sh)):
+        if (self.output.mem is None or self.output.mem.size != numpy.prod(sh)):
             self.output.reset()
-            self.output.v = numpy.zeros(sh, dtype=self.inputs[0].v.dtype)
+            self.output.mem = numpy.zeros(sh, dtype=self.inputs[0].mem.dtype)
         else:
-            self.output.v = formats.reshape(self.output.v, sh)
+            self.output.mem = formats.reshape(self.output.mem, sh)
 
         self.output.initialize(self.device)
 
@@ -91,7 +91,7 @@ class InputJoiner(OpenCLUnit):
 
         defines = {
             'etype':
-            opencl_types.numpy_dtype_to_opencl(self.output.v.dtype)
+            opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)
         }
         self.build_program(
             defines, "join_%s.cl" %
@@ -104,13 +104,13 @@ class InputJoiner(OpenCLUnit):
         self.output.map_invalidate()  # we will update output on CPU
         minibatch_size = self.minibatch_size[0]
         low = 0
-        output_sample_size = self.output.v.size // self.output.v.shape[0]
+        output_sample_size = self.output.mem.size // self.output.mem.shape[0]
         for inp in self.inputs:
             inp.map_read()
-            high = min(low + inp.v.size // inp.v.shape[0], output_sample_size)
+            high = min(low + inp.mem.size // inp.mem.shape[0], output_sample_size)
             if low >= high:
                 break
-            self.output.v[:minibatch_size, low:high] = (
+            self.output.mem[:minibatch_size, low:high] = (
                 inp[:minibatch_size, :high - low])
             low = high
 
@@ -118,7 +118,7 @@ class InputJoiner(OpenCLUnit):
         self.output.unmap()  # we will update output on GPU
         minibatch_size = self.minibatch_size[0]
         low = 0
-        output_sample_size = self.output.v.size // self.output.v.shape[0]
+        output_sample_size = self.output.mem.size // self.output.mem.shape[0]
         self.cl_const[3] = output_sample_size
         self.set_arg(6, self.cl_const[3:4])
         a = None
@@ -128,10 +128,10 @@ class InputJoiner(OpenCLUnit):
             inp.unmap()  # we will use input on GPU
             if a is None:
                 a = inp
-                a_size = a.v.size // a.v.shape[0]
+                a_size = a.mem.size // a.mem.shape[0]
                 continue
             b = inp
-            b_size = b.v.size // b.v.shape[0]
+            b_size = b.mem.size // b.mem.shape[0]
             high = min(low + a_size + b_size,
                        output_sample_size)
             if low >= high:
@@ -148,7 +148,7 @@ class InputJoiner(OpenCLUnit):
             a_size = 0
             b = None
         if a is not None:
-            b_size = (b.v.size // b.v.shape[0] if b is not None else 0)
+            b_size = (b.mem.size // b.mem.shape[0] if b is not None else 0)
             high = min(low + a_size + b_size,
                        output_sample_size)
             if low < high:

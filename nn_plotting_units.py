@@ -76,14 +76,14 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[-2]
                 sy = self.get_shape_from[-3]
                 n_channels = self.get_shape_from[-1]
-        elif "v" in self.get_shape_from.__dict__:
-            if len(self.get_shape_from.v.shape) == 3:
-                sx = self.get_shape_from.v.shape[2]
-                sy = self.get_shape_from.v.shape[1]
+        elif "mem" in self.get_shape_from.__dict__:
+            if len(self.get_shape_from.mem.shape) == 3:
+                sx = self.get_shape_from.mem.shape[2]
+                sy = self.get_shape_from.mem.shape[1]
             else:
-                sx = self.get_shape_from.v.shape[-2]
-                sy = self.get_shape_from.v.shape[-3]
-                n_channels = self.get_shape_from.v.shape[-1]
+                sx = self.get_shape_from.mem.shape[-2]
+                sy = self.get_shape_from.mem.shape[-3]
+                n_channels = self.get_shape_from.mem.shape[-1]
         else:
             sx = self.get_shape_from.shape[1]
             sy = self.get_shape_from.shape[0]
@@ -100,9 +100,9 @@ class Weights2D(plotter.Plotter):
                 ax.cla()
                 ax.axis('off')
                 ax.set_title(self.name.replace("Histogram ", ""))
-                v = value[i].ravel()[:sz]
+                mem = value[i].ravel()[:sz]
                 if n_channels > 1:
-                    w = v.reshape(sy, sx, n_channels)
+                    w = mem.reshape(sy, sx, n_channels)
                     if n_channels == 2:
                         w = w[:, :, 0].reshape(sy, sx)
                     elif n_channels > 3:
@@ -110,7 +110,7 @@ class Weights2D(plotter.Plotter):
                     ax.imshow(formats.norm_image(w, self.yuv[0]),
                               interpolation="nearest")
                 else:
-                    ax.imshow(formats.norm_image(v.reshape(sy, sx),
+                    ax.imshow(formats.norm_image(mem.reshape(sy, sx),
                                                  self.yuv[0]),
                               interpolation="nearest", cmap=self.cm.gray)
                 i += 1
@@ -233,8 +233,8 @@ class MSEHistogram(plotter.Plotter):
         super(MSEHistogram, self).redraw()
 
     def run(self):
-        mx = self.mse.v.max()
-        mi = self.mse.v.min()
+        mx = self.mse.mem.max()
+        mi = self.mse.mem.min()
         self.mse_max = mx
         self.mse_min = mi
         d = mx - mi
@@ -242,7 +242,7 @@ class MSEHistogram(plotter.Plotter):
             return
         d = (self.n_bars - 1) / d
         self.val_mse[:] = 0
-        for mse in self.mse.v:
+        for mse in self.mse.mem:
             i_bar = int(numpy.floor((mse - mi) * d))
             self.val_mse[i_bar] += 1
 

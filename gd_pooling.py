@@ -57,10 +57,10 @@ class GDPooling(nn_units.GradientDescentBase):
 
     def initialize(self, **kwargs):
         super(GDPooling, self).initialize(**kwargs)
-        self._batch_size = self.input.v.shape[0]
-        self._sy = self.input.v.shape[1]
-        self._sx = self.input.v.shape[2]
-        self._n_channels = self.input.v.size // (self._batch_size * self._sx *
+        self._batch_size = self.input.mem.shape[0]
+        self._sy = self.input.mem.shape[1]
+        self._sx = self.input.mem.shape[2]
+        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
                                                  self._sy)
         self._out_sx = self._sx // self.sliding[0] + (
             0 if self._sx % self.sliding[0] == 0 else 1)
@@ -69,15 +69,15 @@ class GDPooling(nn_units.GradientDescentBase):
         output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
 
-        if self.err_output.v.size != output_size:
+        if self.err_output.mem.size != output_size:
             raise error.ErrBadFormat(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
 
-        if (self.err_input.v is None or
-                self.err_input.v.size != self.input.v.size):
+        if (self.err_input.mem is None or
+                self.err_input.mem.size != self.input.mem.size):
             self.err_input.reset()
-            self.err_input.v = numpy.zeros_like(self.input.v)
+            self.err_input.mem = numpy.zeros_like(self.input.mem)
 
         self.err_output.initialize(self.device)
         self.err_input.initialize(self.device)
@@ -99,16 +99,16 @@ class GDPooling(nn_units.GradientDescentBase):
                 defines, "gd_pooling_%dx%dx%d_%dx%d.cl" %
                 (self._sx, self._sy, self._n_channels,
                  self.kx, self.ky),
-                dtype=self.err_output.v.dtype)
+                dtype=self.err_output.mem.dtype)
 
         if self.krn_err_input_clear_ is None:
             self.krn_err_input_clear_ = self.get_kernel("array_clear")
-            self.krn_err_input_clear_.set_arg(0, self.err_input.v_)
+            self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
     def print_debug_data(self, t_start):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
-        output = self.err_input.v
+        output = self.err_input.mem
         self.debug(
             "%s: %d samples of size %dx%dx%d and sliding %dx%d in %.2f sec" % (
                 self.__class__.__name__,
@@ -123,14 +123,14 @@ class GDPooling(nn_units.GradientDescentBase):
         self.err_output.unmap()  # we will use err_output
 
         # Clear err_h
-        event = self.execute_kernel([self.err_input.v.size], None,
+        event = self.execute_kernel([self.err_input.mem.size], None,
                                     self.krn_err_input_clear_)
         event.wait()
 
         # Compute err_h
         event = self.execute_kernel(
-            [(self.batch_size or self.err_output.v.shape[0]) *
-             (self.err_output.v.size // self.err_output.v.shape[0])], None,
+            [(self.batch_size or self.err_output.mem.shape[0]) *
+             (self.err_output.mem.size // self.err_output.mem.shape[0])], None,
             self.krn_err_input_)
         event.wait()
 
@@ -170,7 +170,7 @@ class GDMaxPooling(GDPooling):
     def initialize(self, **kwargs):
         super(GDMaxPooling, self).initialize(**kwargs)
 
-        if self.err_output.v.size != self.input_offs.v.size:
+        if self.err_output.mem.size != self.input_offs.mem.size:
             raise error.ErrBadFormat("Shape of err_output differs from "
                                      "that of input_offs")
 
@@ -181,8 +181,8 @@ class GDMaxPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_max_pooling")
-            self.krn_err_input_.set_args(self.err_output.v_, self.err_input.v_,
-                                         self.input_offs.v_)
+            self.krn_err_input_.set_args(self.err_output.devmem, self.err_input.devmem,
+                                         self.input_offs.devmem)
 
     def ocl_run(self):
         """Do gradient descent on OpenCL device.
@@ -196,22 +196,22 @@ class GDMaxPooling(GDPooling):
         self.err_output.map_read()
         self.input_offs.map_read()
         self.err_input.map_invalidate()
-        self.err_input.v[:] = 0
+        self.err_input.mem[:] = 0
 
         if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
             # self.input_offs cannot contain equal values - simple assignment
-            for err, offset in numpy.nditer([self.err_output.v,
+            for err, offset in numpy.nditer([self.err_output.mem,
                                              self.input_offs]):
                 batch, y, x, ch = numpy.unravel_index(offset,
-                                                      self.err_input.v.shape)
-                self.err_input.v[batch, y, x, ch] = err
+                                                      self.err_input.mem.shape)
+                self.err_input.mem[batch, y, x, ch] = err
         else:
             # self.input_offs can contain equal values
-            for err, offset in numpy.nditer([self.err_output.v,
+            for err, offset in numpy.nditer([self.err_output.mem,
                                              self.input_offs]):
                 batch, y, x, ch = numpy.unravel_index(offset,
-                                                      self.err_input.v.shape)
-                self.err_input.v[batch, y, x, ch] += err
+                                                      self.err_input.mem.shape)
+                self.err_input.mem[batch, y, x, ch] += err
 
 
 class GDAvgPooling(GDPooling):
@@ -232,7 +232,7 @@ class GDAvgPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_avg_pooling")
-            self.krn_err_input_.set_args(self.err_output.v_, self.err_input.v_)
+            self.krn_err_input_.set_args(self.err_output.devmem, self.err_input.devmem)
 
     def cpu_run(self):
         self.err_output.map_read()
@@ -240,7 +240,7 @@ class GDAvgPooling(GDPooling):
 
         if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
             # disjoint kernels
-            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.v):
+            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
                 hx1 = x * self.sliding[0]
                 hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
@@ -250,11 +250,11 @@ class GDAvgPooling(GDPooling):
                 delta = err / float((hx2 - hx1) * (hy2 - hy1))
                 for i, j in ((ii, jj) for ii in range(hy1, hy2)
                              for jj in range(hx1, hx2)):
-                    self.err_input.v[batch, i, j, ch] = delta
+                    self.err_input.mem[batch, i, j, ch] = delta
         else:
             # joint kernels
-            self.err_input.v[:] = 0
-            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.v):
+            self.err_input.mem[:] = 0
+            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
                 hx1 = x * self.sliding[0]
                 hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
@@ -264,4 +264,4 @@ class GDAvgPooling(GDPooling):
                 delta = err / float((hx2 - hx1) * (hy2 - hy1))
                 for i, j in ((ii, jj) for ii in range(hy1, hy2)
                              for jj in range(hx1, hx2)):
-                    self.err_input.v[batch, i, j, ch] += delta
+                    self.err_input.mem[batch, i, j, ch] += delta

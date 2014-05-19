@@ -36,13 +36,13 @@ class TestGD(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.empty([1, 1], dtype=dtype)
-        rnd.get().fill(inp.v)
+        inp.mem = numpy.empty([1, 1], dtype=dtype)
+        rnd.get().fill(inp.mem)
 
         if device is not None:
-            self.x = inp.v.copy()
+            self.x = inp.mem.copy()
         else:
-            inp.v[:] = self.x[:]
+            inp.mem[:] = self.x[:]
 
         c = Unit(DummyWorkflow(), gradient_moment=0.0)
         c.input = inp
@@ -52,38 +52,38 @@ class TestGD(unittest.TestCase):
         bias = numpy.empty(1, dtype=dtype)
         rnd.get().fill(bias)
         c.err_output = formats.Vector()
-        c.err_output.v = numpy.empty([1, 1], dtype=dtype)
-        rnd.get().fill(c.err_output.v)
+        c.err_output.mem = numpy.empty([1, 1], dtype=dtype)
+        rnd.get().fill(c.err_output.mem)
 
         c.weights = formats.Vector()
-        c.weights.v = weights
+        c.weights.mem = weights
         c.bias = formats.Vector()
-        c.bias.v = bias
+        c.bias.mem = bias
         c.output = formats.Vector()
-        c.output.v = c.err_output.v.copy()
+        c.output.mem = c.err_output.mem.copy()
         c.initialize(device=device)
 
         if device is None:
             c.weights.map_invalidate()
             c.bias.map_invalidate()
-            c.weights.v[:] = self.W[:]
-            c.bias.v[:] = self.b[:]
+            c.weights.mem[:] = self.W[:]
+            c.bias.mem[:] = self.b[:]
             c.cpu_run()
             c.weights.map_read()
-            self.W_cpu = c.weights.v.copy()
+            self.W_cpu = c.weights.mem.copy()
             c.bias.map_read()
-            self.b_cpu = c.bias.v.copy()
+            self.b_cpu = c.bias.mem.copy()
         else:
-            self.W = c.weights.v.copy()
-            self.b = c.bias.v.copy()
+            self.W = c.weights.mem.copy()
+            self.b = c.bias.mem.copy()
             c.ocl_run()
             c.weights.map_read()
-            self.W_gpu = c.weights.v.copy()
+            self.W_gpu = c.weights.mem.copy()
             c.bias.map_read()
-            self.b_gpu = c.bias.v.copy()
+            self.b_gpu = c.bias.mem.copy()
         c.err_input.map_read()  # get results back
 
-        return c.err_input.v.copy()
+        return c.err_input.mem.copy()
 
     def _do_test_gpu_cpu(self, Unit):
         output_gpu = self._do_test(self.device, Unit)

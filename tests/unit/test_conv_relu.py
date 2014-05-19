@@ -33,7 +33,7 @@ class TestConvRelu(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
                               [2, 0, 1, 0, 2],
@@ -53,16 +53,16 @@ class TestConvRelu(unittest.TestCase):
         c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = bias[:]
+        c.bias.mem[:] = bias[:]
 
         c.run()
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        y = c.output.v.ravel()
+        y = c.output.mem.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
                          12, 1.25, 3, -2.8, 12, -4.4,
                          4, -7.05, 15, -7.7, 4, -4.65], dtype=dtype)

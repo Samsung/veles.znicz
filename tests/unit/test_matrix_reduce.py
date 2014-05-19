@@ -57,8 +57,8 @@ class TestMatrixReduce(unittest.TestCase):
         tmp.build_program(defines, fnme, show_ocl_logs=False)
 
         krn = tmp.get_kernel("test")
-        krn.set_arg(0, a.v_)
-        krn.set_arg(1, b.v_)
+        krn.set_arg(0, a.devmem)
+        krn.set_arg(1, b.devmem)
         return krn
 
     def test_fixed(self):
@@ -67,14 +67,14 @@ class TestMatrixReduce(unittest.TestCase):
         dtype = opencl_types.dtypes[root.common.precision_type]
 
         a = formats.Vector()
-        a.v = numpy.array([[1, 2, 3],
+        a.mem = numpy.array([[1, 2, 3],
                            [-1, -2, -3],
                            [9, 8, 7],
                            [-3, -4, -5],
                            [-1, -2, -3],
                            [7, 7, 7]], dtype=dtype)
         b = formats.Vector()
-        b.v = numpy.ones(a.v.shape[1] * 2, dtype=dtype)
+        b.mem = numpy.ones(a.mem.shape[1] * 2, dtype=dtype)
 
         t = numpy.array([12, 9, 6], dtype=dtype)
 
@@ -82,18 +82,18 @@ class TestMatrixReduce(unittest.TestCase):
         b.initialize(self.device)
 
         for reduce_size in range(1, 11):
-            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], True,
+            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], True,
                                       reduce_size)
-            global_size = [a.v.shape[1] * reduce_size]
+            global_size = [a.mem.shape[1] * reduce_size]
             local_size = [reduce_size]
             self.device.queue_.execute_kernel(
                 krn, global_size, local_size).wait()
             b.map_write()
-            max_diff = numpy.fabs(b[:a.v.shape[1]] - t).max()
+            max_diff = numpy.fabs(b[:a.mem.shape[1]] - t).max()
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[1]:] - 1), 0,
+                numpy.count_nonzero(b.mem[a.mem.shape[1]:] - 1), 0,
                 "Written some values outside of the target array bounds")
             b.unmap()
 
@@ -105,48 +105,48 @@ class TestMatrixReduce(unittest.TestCase):
         dtype = opencl_types.dtypes[root.common.precision_type]
 
         a = formats.Vector()
-        a.v = numpy.zeros([3131, 1001], dtype=dtype)
-        rnd.get().fill(a.v)
+        a.mem = numpy.zeros([3131, 1001], dtype=dtype)
+        rnd.get().fill(a.mem)
 
-        t_col = numpy.sum(a.v, axis=0)
-        t = numpy.sum(a.v, axis=1)
+        t_col = numpy.sum(a.mem, axis=0)
+        t = numpy.sum(a.mem, axis=1)
 
         b = formats.Vector()
-        b.v = numpy.ones(numpy.max(a.v.shape) * 2, dtype=dtype)
+        b.mem = numpy.ones(numpy.max(a.mem.shape) * 2, dtype=dtype)
 
         a.initialize(self.device)
         b.initialize(self.device)
 
         for reduce_size in range(4, 64, 1):
             logging.info("reduce_size = %d", reduce_size)
-            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], True,
+            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], True,
                                       reduce_size)
-            global_size = [a.v.shape[1] * reduce_size]
+            global_size = [a.mem.shape[1] * reduce_size]
             local_size = [reduce_size]
             self.device.queue_.execute_kernel(
                 krn, global_size, local_size).wait()
             b.map_write()
-            max_diff = numpy.fabs(b[:a.v.shape[1]] - t_col).max()
+            max_diff = numpy.fabs(b[:a.mem.shape[1]] - t_col).max()
             self.assertLess(max_diff, 0.00032,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[1]:] - 1), 0,
+                numpy.count_nonzero(b.mem[a.mem.shape[1]:] - 1), 0,
                 "Written some values outside of the target array bounds")
             b[:] = 1
             b.unmap()
 
-            krn = self._build_program(a, b, a.v.shape[1], a.v.shape[0], False,
+            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], False,
                                       reduce_size)
-            global_size = [a.v.shape[0] * reduce_size]
+            global_size = [a.mem.shape[0] * reduce_size]
             local_size = [reduce_size]
             self.device.queue_.execute_kernel(
                 krn, global_size, local_size).wait()
             b.map_write()
-            max_diff = numpy.fabs(b[:a.v.shape[0]] - t).max()
+            max_diff = numpy.fabs(b[:a.mem.shape[0]] - t).max()
             self.assertLess(max_diff, 0.00032,  # in case of float
                             "Result differs by %.6f" % (max_diff))
             self.assertEqual(
-                numpy.count_nonzero(b.v[a.v.shape[0]:] - 1), 0,
+                numpy.count_nonzero(b.mem[a.mem.shape[0]:] - 1), 0,
                 "Written some values outside of the target array bounds")
             b[:] = 1
             b.unmap()

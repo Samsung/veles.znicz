@@ -63,12 +63,12 @@ class All2All(nn_units.Forward):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / self.input.supposed_maxvle /
-                   (self.input.v.size // self.input.v.shape[0]))
+                   (self.input.mem.size // self.input.mem.shape[0]))
         else:
             vle = (9.0 / self.input.supposed_maxvle /
-                   (self.input.v.size // self.input.v.shape[0]))
+                   (self.input.mem.size // self.input.mem.shape[0]))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -81,49 +81,49 @@ class All2All(nn_units.Forward):
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
-        output_shape = (self.output_shape.v.shape[1:]
+        output_shape = (self.output_shape.mem.shape[1:]
                         if isinstance(self.output_shape, formats.Vector)
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
-        n_weights = (self.input.v.size // self.input.v.shape[0] * output_size)
-        if self.weights.v is None or self.weights.v.size != n_weights:
+        n_weights = (self.input.mem.size // self.input.mem.shape[0] * output_size)
+        if self.weights.mem is None or self.weights.mem.size != n_weights:
             self.weights.reset()
-            self.weights.v = numpy.zeros(n_weights, dtype=self.input.v.dtype)
+            self.weights.mem = numpy.zeros(n_weights, dtype=self.input.mem.dtype)
             if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.v, -self.weights_stddev,
+                self.rand.fill(self.weights.mem, -self.weights_stddev,
                                self.weights_stddev)
             elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.v, 0,
+                self.rand.fill_normal_real(self.weights.mem, 0,
                                            self.weights_stddev)
             elif self.weights_filling == "constant":
-                self.weights.v[:] = self.weights_stddev
+                self.weights.mem[:] = self.weights_stddev
             else:
                 raise error.ErrBadFormat("Invalid weights filling type")
-            self.weights.v = self.weights.v.reshape([
-                output_size, self.input.v.size // self.input.v.shape[0]])
+            self.weights.mem = self.weights.mem.reshape([
+                output_size, self.input.mem.size // self.input.mem.shape[0]])
             # Reshape weights as a matrix:
             if self.weights_transposed:
-                a = self.weights.v.transpose().copy()
-                self.weights.v.shape = a.shape
-                self.weights.v[:] = a[:]
-        if (self.bias.v is None or self.bias.v.size != output_size):
+                a = self.weights.mem.transpose().copy()
+                self.weights.mem.shape = a.shape
+                self.weights.mem[:] = a[:]
+        if (self.bias.mem is None or self.bias.mem.size != output_size):
             self.bias.reset()
-            self.bias.v = numpy.zeros(output_size, dtype=self.input.v.dtype)
+            self.bias.mem = numpy.zeros(output_size, dtype=self.input.mem.dtype)
             if self.bias_filling == "uniform":
-                self.rand.fill(self.bias.v, -self.bias_stddev,
+                self.rand.fill(self.bias.mem, -self.bias_stddev,
                                self.bias_stddev)
             elif self.bias_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.v, 0, self.bias_stddev)
+                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
             elif self.bias_filling == "constant":
-                self.bias.v[:] = self.bias_stddev
+                self.bias.mem[:] = self.bias_stddev
             else:
                 raise error.ErrBadFormat("Invalid bias filling type")
 
-        if (self.output.v is None or
-                self.output.v.size != self.input.v.shape[0] * output_size):
+        if (self.output.mem is None or
+                self.output.mem.size != self.input.mem.shape[0] * output_size):
             self.output.reset()
-            self.output.v = numpy.zeros([self.input.v.shape[0], output_size],
-                                        dtype=self.input.v.dtype)
+            self.output.mem = numpy.zeros([self.input.mem.shape[0], output_size],
+                                        dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -136,25 +136,25 @@ class All2All(nn_units.Forward):
         defines = {
             self.s_activation: 1,
             'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)],
-            'H': self.weights.v.size // output_size,
+                opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
+            'H': self.weights.mem.size // output_size,
             'Y': output_size,
-            'BATCH': self.output.v.shape[0]}
+            'BATCH': self.output.mem.shape[0]}
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
         self.build_program(defines, "feed_%d_%d.cl" %
-                           (self.input.v.size // self.input.v.shape[0],
+                           (self.input.mem.size // self.input.mem.shape[0],
                             output_size),
-                           dtype=self.input.v.dtype)
+                           dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
         self.set_args(self.input, self.weights, self.output, self.bias)
 
-        output_size = int(self.output.v.size // self.output.v.shape[0])
+        output_size = int(self.output.mem.size // self.output.mem.shape[0])
         block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.v.dtype)]
+            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
         self._global_size_ = [formats.roundup(output_size, block_size),
-                              formats.roundup(self.output.v.shape[0],
+                              formats.roundup(self.output.mem.shape[0],
                                               block_size)]
         self._local_size_ = [block_size, block_size]
 
@@ -164,13 +164,13 @@ class All2All(nn_units.Forward):
         if not self.log.isEnabledFor(logging.DEBUG):
             return
         self.output.map_read()
-        y = self.output.v
+        y = self.output.mem
         if y.dtype in (numpy.complex64, numpy.complex128):
             self.debug(
                 "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
-                 self.weights.v.size, time.time() - t_start,
+                 self.weights.mem.size, time.time() - t_start,
                  min(y.real.min(), y.imag.min()),
                  (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
                  max(y.real.max(), y.imag.max())))
@@ -179,7 +179,7 @@ class All2All(nn_units.Forward):
                 "%s: %d samples with %d weights in %.2f sec: "
                 "y: min avg max: %.6f %.6f %.6f" %
                 (self.__class__.__name__, y.shape[0],
-                 self.weights.v.size, time.time() - t_start,
+                 self.weights.mem.size, time.time() - t_start,
                  y.min(), numpy.average(y), y.max()))
 
     def ocl_run(self):
@@ -200,14 +200,14 @@ class All2All(nn_units.Forward):
         self.weights.map_read()
         self.bias.map_read()
         a = formats.reshape(
-            self.input.v, [self.input.v.shape[0],
-                           self.input.v.size // self.input.v.shape[0]])
-        b = self.weights.v
+            self.input.mem, [self.input.mem.shape[0],
+                           self.input.mem.size // self.input.mem.shape[0]])
+        b = self.weights.mem
         if not self.weights_transposed:
             b = b.transpose()
-        v = numpy.dot(a, b)
-        v += self.bias.v
-        self.output.v[:] = v[:]
+        mem = numpy.dot(a, b)
+        mem += self.bias.mem
+        self.output.mem[:] = mem[:]
 
 
 class All2AllTanh(All2All):
@@ -223,13 +223,13 @@ class All2AllTanh(All2All):
         self.output.supposed_maxvle = All2AllTanh.A
 
     def get_weights_magnitude(self):
-        if self.input.v.dtype in (numpy.complex64, numpy.complex128):
+        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
-                   (self.input.v.size // self.input.v.shape[0]))
+                   (self.input.mem.size // self.input.mem.shape[0]))
         else:
             vle = (All2AllTanh.C /
                    (self.input.supposed_maxvle * All2AllTanh.B *
-                    self.input.v.size // self.input.v.shape[0]))
+                    self.input.mem.size // self.input.mem.shape[0]))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -239,11 +239,11 @@ class All2AllTanh(All2All):
         """
         super(All2AllTanh, self).cpu_run()
         self.output.map_write()
-        v = self.output.v.copy()
-        v *= All2AllTanh.B
-        numpy.tanh(v, v)
-        v *= All2AllTanh.A
-        self.output.v[:] = v[:]
+        mem = self.output.mem.copy()
+        mem *= All2AllTanh.B
+        numpy.tanh(mem, mem)
+        mem *= All2AllTanh.A
+        self.output.mem[:] = mem[:]
 
 
 class All2AllRELU(All2All):
@@ -259,9 +259,9 @@ class All2AllRELU(All2All):
         """
         super(All2AllRELU, self).cpu_run()
         self.output.map_write()
-        v = self.output.v.copy()
-        self.output.v[:] = numpy.where(v > 15, v,
-                                       numpy.log(numpy.exp(v) + 1.0))
+        mem = self.output.mem.copy()
+        self.output.mem[:] = numpy.where(mem > 15, mem,
+                                       numpy.log(numpy.exp(mem) + 1.0))
 
 
 class All2AllSoftmax(All2All):
@@ -294,11 +294,11 @@ class All2AllSoftmax(All2All):
         self.cl_sources_["softmax.cl"] = {"REDUCE_SIZE": self.reduce_size}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
 
-        if (self.max_idx.v is None or
-                self.max_idx.v.size != self.output.v.shape[0]):
-            self.max_idx.v = numpy.zeros(self.output.v.shape[0],
+        if (self.max_idx.mem is None or
+                self.max_idx.mem.size != self.output.mem.shape[0]):
+            self.max_idx.mem = numpy.zeros(self.output.mem.shape[0],
                                          dtype=numpy.int32)
-            self.max_idx.v_ = None
+            self.max_idx.devmem = None
 
         self.max_idx.initialize(self.device)
 
@@ -306,12 +306,12 @@ class All2AllSoftmax(All2All):
             return
 
         self.krn_sm_ = self.get_kernel("apply_exp")
-        self.krn_sm_.set_args(self.output.v_, self.max_idx.v_)
+        self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
 
     def cpu_apply_exp(self):
         self.output.map_write()
         self.max_idx.map_invalidate()
-        for i in range(0, self.output.v.shape[0]):
+        for i in range(0, self.output.mem.shape[0]):
             sample = self.output[i]
             im = sample.argmax()
             self.max_idx[i] = im
@@ -324,7 +324,7 @@ class All2AllSoftmax(All2All):
     def gpu_apply_exp(self):
         self.output.unmap()
         self.max_idx.unmap()
-        global_size = [self.output.v.shape[0] * self.reduce_size]
+        global_size = [self.output.mem.shape[0] * self.reduce_size]
         local_size = [self.reduce_size]
         event = self.execute_kernel(global_size, local_size, self.krn_sm_)
         event.wait()

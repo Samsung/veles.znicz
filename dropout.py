@@ -58,21 +58,21 @@ class DropoutForward(Forward, Dropout):
 
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
-        self.mask.v = np.empty_like(self.input.v)
-        self.states.v = self.rand.randint(
+        self.mask.mem = np.empty_like(self.input.mem)
+        self.states.mem = self.rand.randint(
             low=0, high=0x100000000,
-            size=self.input.v.size * 4).astype(np.uint32)
-        if (self.output.v is None or self.output.v.size != self.input.v.size):
+            size=self.input.mem.size * 4).astype(np.uint32)
+        if (self.output.mem is None or self.output.mem.size != self.input.mem.size):
             self.output.reset()
-            self.output.v = np.zeros_like(self.input.v)
+            self.output.mem = np.zeros_like(self.input.mem)
         self.input.initialize(device)
         self.output.initialize(device)
         self.states.initialize(device)
         self.mask.initialize(device)
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
-        self._pass_arg_ = np.empty(1, dtype=self.input.v.dtype)
+        self._pass_arg_ = np.empty(1, dtype=self.input.mem.dtype)
 
-        self.build_program({}, "dropout_forward.cl", dtype=self.input.v.dtype)
+        self.build_program({}, "dropout_forward.cl", dtype=self.input.mem.dtype)
 
         self.assign_kernel("dropout_forward")
         self.set_args(self.input, None, None, self.states, self.mask,
@@ -80,10 +80,10 @@ class DropoutForward(Forward, Dropout):
 
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
-        self.rand.fill(self.mask.v, -self.dropout_ratio, leave_ratio)
-        np.maximum(self.mask.v, 0, self.mask.v)
-        np.ceil(self.mask.v, self.mask.v)
-        self.mask.v = (self.mask.v.astype(self.input.v.dtype) /
+        self.rand.fill(self.mask.mem, -self.dropout_ratio, leave_ratio)
+        np.maximum(self.mask.mem, 0, self.mask.mem)
+        np.ceil(self.mask.mem, self.mask.mem)
+        self.mask.mem = (self.mask.mem.astype(self.input.mem.dtype) /
                        leave_ratio)
 
     def cpu_run(self):
@@ -91,8 +91,8 @@ class DropoutForward(Forward, Dropout):
         self.mask.map_invalidate()
         self.input.map_read()
         self.calc_mask()
-        np.multiply(self.input.v.ravel(), self.mask.v.ravel(),
-                    formats.ravel(self.output.v))
+        np.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
+                    formats.ravel(self.output.mem))
 
     def ocl_run(self):
         self.input.unmap()
@@ -103,7 +103,7 @@ class DropoutForward(Forward, Dropout):
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.set_arg(1, self._threshold_arg_)
         self.set_arg(2, self._pass_arg_)
-        self.execute_kernel((self.input.v.size,), None).wait()
+        self.execute_kernel((self.input.mem.size,), None).wait()
 
 
 class DropoutBackward(GradientDescentBase, Dropout):
@@ -117,32 +117,32 @@ class DropoutBackward(GradientDescentBase, Dropout):
     def initialize(self, device, **kwargs):
         super(DropoutBackward, self).initialize(device=device, **kwargs)
 
-        if (self.err_input.v is None or
-                self.err_input.v.size != self.err_output.v.size):
+        if (self.err_input.mem is None or
+                self.err_input.mem.size != self.err_output.mem.size):
             self.err_input.reset()
-            self.err_input.v = np.zeros_like(self.err_output.v)
+            self.err_input.mem = np.zeros_like(self.err_output.mem)
 
         self.err_output.initialize(device)
         self.err_input.initialize(device)
 
         self.build_program({}, "dropout_backward.cl",
-                           dtype=self.err_output.v.dtype)
+                           dtype=self.err_output.mem.dtype)
 
         self.assign_kernel("dropout_backward")
         self.set_args(self.mask, self.err_output, self.err_input)
 
     def cpu_run(self):
-        if formats.eq_addr(self.err_input.v, self.err_output.v):
+        if formats.eq_addr(self.err_input.mem, self.err_output.mem):
             self.err_output.map_write()
         else:
             self.err_output.map_read()
             self.err_input.map_invalidate()
         self.mask.map_read()
-        np.multiply(self.err_output.v.ravel(), self.mask.v.ravel(),
-                    formats.ravel(self.err_input.v))
+        np.multiply(self.err_output.mem.ravel(), self.mask.mem.ravel(),
+                    formats.ravel(self.err_input.mem))
 
     def ocl_run(self):
         self.err_output.unmap()
         self.err_input.unmap()
         self.mask.unmap()
-        self.execute_kernel((self.err_output.v.size,), None).wait()
+        self.execute_kernel((self.err_output.mem.size,), None).wait()

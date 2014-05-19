@@ -32,7 +32,7 @@ class TestAll2All(unittest.TestCase):
         logging.info("Will test all2all unit")
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[1, 2, 3, 2, 1],
                              [0, 1, 2, 1, 0],
                              [0, 1, 0, 1, 0],
                              [2, 0, 1, 0, 2],
@@ -50,14 +50,14 @@ class TestAll2All(unittest.TestCase):
         c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = bias[:]
+        c.bias.mem[:] = bias[:]
 
         c.run()
         c.output.map_read()  # get results back
 
-        y = c.output.v.ravel()
+        y = c.output.mem.ravel()
         t = numpy.array([18, 2, 13, 15, -7, 8,
                          11, -7, 8, 12, 2, 9,
                          12, -4, 7], dtype=dtype)
@@ -70,35 +70,35 @@ class TestAll2All(unittest.TestCase):
     def _do_test(self, device, Unit):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.empty([1999, 1777], dtype=dtype)
-        rnd.get().fill(inp.v)
+        inp.mem = numpy.empty([1999, 1777], dtype=dtype)
+        rnd.get().fill(inp.mem)
 
         if device is not None:
-            self.x = inp.v.copy()
+            self.x = inp.mem.copy()
         else:
-            inp.v[:] = self.x[:]
+            inp.mem[:] = self.x[:]
 
         c = Unit(DummyWorkflow(), output_shape=[1, 1])
         c.input = inp
         c.initialize(device=device)
 
         if device is not None:
-            self.W = c.weights.v.copy()
-            self.b = c.bias.v.copy()
+            self.W = c.weights.mem.copy()
+            self.b = c.bias.mem.copy()
         else:
             c.weights.map_invalidate()
             c.bias.map_invalidate()
-            c.weights.v[:] = self.W[:]
-            c.bias.v[:] = self.b[:]
+            c.weights.mem[:] = self.W[:]
+            c.bias.mem[:] = self.b[:]
 
         c.run()
         c.output.map_read()  # get results back
 
         if hasattr(c, "max_idx"):
             c.max_idx.map_read()
-            return (c.output.v.copy(), c.max_idx.v.copy())
+            return (c.output.mem.copy(), c.max_idx.mem.copy())
 
-        return (c.output.v.copy(),)
+        return (c.output.mem.copy(),)
 
     def _do_gpu_cpu(self, Unit):
         y_gpus = self._do_test(self.device, Unit)

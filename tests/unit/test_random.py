@@ -34,9 +34,9 @@ class TestRandom(unittest.TestCase):
         states = formats.Vector()
         output = formats.Vector()
 
-        states.v = self.states.copy()
+        states.mem = self.states.copy()
         n_rounds = numpy.array([self.n_rounds], dtype=numpy.int32)
-        output.v = numpy.zeros(states.v.shape[0] * 128 // 8 * n_rounds[0],
+        output.mem = numpy.zeros(states.mem.shape[0] * 128 // 8 * n_rounds[0],
                                dtype=numpy.uint64)
 
         states.initialize(self.device)
@@ -49,18 +49,18 @@ class TestRandom(unittest.TestCase):
                                            "test_random.cl"))
 
         krn = obj.get_kernel("random")
-        krn.set_arg(0, states.v_)
-        krn.set_arg(1, output.v_)
+        krn.set_arg(0, states.devmem)
+        krn.set_arg(1, output.devmem)
         krn.set_arg(2, n_rounds)
 
-        self.device.queue_.execute_kernel(krn, (states.v.shape[0],),
+        self.device.queue_.execute_kernel(krn, (states.mem.shape[0],),
                                           None).wait()
 
         output.map_read()
         logging.debug("gpu output:")
-        logging.debug(output.v)
+        logging.debug(output.mem)
 
-        return output.v
+        return output.mem
 
     def _cpu(self):
         states = self.states.copy()

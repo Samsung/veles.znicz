@@ -68,36 +68,36 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
     def initialize(self, **kwargs):
         super(LRNormalizerForward, self).initialize(**kwargs)
-        self.output.v = np.ndarray(shape=self.input.v.shape,
-                                   dtype=self.input.v.dtype)
+        self.output.mem = np.ndarray(shape=self.input.mem.shape,
+                                   dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
 
-        self._num_of_chans = self.input.v.shape[3]
+        self._num_of_chans = self.input.mem.shape[3]
 
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
-        self.build_program(defines, dtype=self.input.v.dtype)
+        self.build_program(defines, dtype=self.input.mem.dtype)
         self.assign_kernel("forward")
         self.set_args(self.input, self.output)
 
-        self._global_size_ = [self.output.v.size // self._num_of_chans]
+        self._global_size_ = [self.output.mem.size // self._num_of_chans]
         self._local_size_ = None
 
     def cpu_run(self):
         self.output.map_invalidate()
         self.input.map_read()
 
-        assert(len(self.input.v.shape) == 4)
-        input_squared = np.square(self.input.v)
+        assert(len(self.input.mem.shape) == 4)
+        input_squared = np.square(self.input.mem)
         subsums = self._subsums(input_squared, self.n)
         subsums *= self.alpha
         subsums += self.k
         subsums **= self.beta
 
-        np.copyto(self.output.v, self.input.v / subsums)
+        np.copyto(self.output.mem, self.input.mem / subsums)
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
@@ -128,23 +128,23 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
-        self.err_input.v = np.zeros(self.err_output.v.shape,
-                                    dtype=self.err_output.v.dtype)
+        self.err_input.mem = np.zeros(self.err_output.mem.shape,
+                                    dtype=self.err_output.mem.dtype)
 
         self.err_output.initialize(self.device)
         self.input.initialize(self.device)
         self.err_input.initialize(self.device)
 
-        self._num_of_chans = self.input.v.shape[3]
+        self._num_of_chans = self.input.mem.shape[3]
 
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
-        self.build_program(defines, dtype=self.input.v.dtype)
+        self.build_program(defines, dtype=self.input.mem.dtype)
         self.assign_kernel("backward")
         self.set_args(self.err_output, self.input, self.err_input)
 
-        self._global_size_ = [self.err_input.v.size // self._num_of_chans]
+        self._global_size_ = [self.err_input.mem.size // self._num_of_chans]
         self._local_size_ = None
 
     def cpu_run(self):
@@ -152,12 +152,12 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.err_output.map_read()
         self.input.map_read()
 
-        assert len(self.input.v.shape) == 4
-        assert self.input.v.shape == self.err_output.v.shape
+        assert len(self.input.mem.shape) == 4
+        assert self.input.mem.shape == self.err_output.mem.shape
 
-        num_of_chans = self.input.v.shape[3]
+        num_of_chans = self.input.mem.shape[3]
 
-        input_squared = np.square(self.input.v)
+        input_squared = np.square(self.input.mem)
         input_subsums = self._subsums(input_squared, self.n)
 
         input_subsums *= self.alpha
@@ -165,8 +165,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
 
         input_subsums_powered = np.power(input_subsums, (self.beta + 1))
 
-        err_h = self.err_input.v
-        err_y = self.err_output.v
+        err_h = self.err_input.mem
+        err_y = self.err_output.mem
 
         for i in range(num_of_chans):
             min_index = max(0, i - int(self.n / 2))
@@ -178,8 +178,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
                 dh = np.zeros(shape=delta_h.shape, dtype=np.float64)
                 if i == j:
                     dh += input_subsums[:, :, :, j]
-                dh -= (2 * self.beta * self.alpha * self.input.v[:, :, :, i] *
-                       self.input.v[:, :, :, j])
+                dh -= (2 * self.beta * self.alpha * self.input.mem[:, :, :, i] *
+                       self.input.mem[:, :, :, j])
                 dh *= (err_y[:, :, :, j] /
                        input_subsums_powered[:, :, :, j])
                 delta_h += dh

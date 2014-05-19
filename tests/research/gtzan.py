@@ -131,8 +131,8 @@ class Loader(loader.Loader):
         train = self.data["files"]
         was_nans = False
         for fnme in sorted(train.keys()):
-            v = train[fnme]
-            features = v["features"]
+            mem = train[fnme]
+            features = mem["features"]
             nn = 2000000000
             for k in self.features:
                 vles = features[k]["value"]
@@ -154,7 +154,7 @@ class Loader(loader.Loader):
                         "window_size=%d is too large "
                         "for feature %s with size %d in file %s" %
                         (self.window_size, k, nn, fnme))
-            v["limit"] = nn - self.window_size + 1
+            mem["limit"] = nn - self.window_size + 1
             for k in self.features:
                 vles = features[k]["value"][:nn]
                 if k in sums.keys():
@@ -176,8 +176,8 @@ class Loader(loader.Loader):
             df = max(mean - mins[k], maxs[k] - mean)
             self.norm_mul[k] = 1.0 / df if df else 0
 
-        for v in self.data["files"].values():
-            features = v["features"]
+        for mem in self.data["files"].values():
+            features = mem["features"]
             for k in self.features:
                 vles = features[k]["value"]
                 vles += self.norm_add[k]
@@ -195,19 +195,19 @@ class Loader(loader.Loader):
 
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize, nn * self.window_size]
-        self.minibatch_data.v = numpy.zeros(
+        self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_target.reset()
 
         self.minibatch_labels.reset()
         sh = [self.minibatch_maxsize]
-        self.minibatch_labels.v = numpy.zeros(
+        self.minibatch_labels.mem = numpy.zeros(
             sh, dtype=numpy.int8)
 
         self.minibatch_indexes.reset()
         sh = [self.minibatch_maxsize]
-        self.minibatch_indexes.v = numpy.zeros(sh, dtype=numpy.int32)
+        self.minibatch_indexes.mem = numpy.zeros(sh, dtype=numpy.int32)
 
     def shuffle(self):
         pass
@@ -219,21 +219,21 @@ class Loader(loader.Loader):
 
         rand = self.rnd[0]
         n = len(self.fnmes)
-        idxs = self.minibatch_indexes.v
+        idxs = self.minibatch_indexes.mem
         idxs[:] = rand.randint(0, n, minibatch_size)[:]
         files = self.data["files"]
         for i in range(minibatch_size):
             fnme = self.fnmes[idxs[i]]
             self.minibatch_labels[i] = self.file_labels[idxs[i]]
-            v = files[fnme]
-            features = v["features"]
-            limit = v["limit"]
+            mem = files[fnme]
+            features = mem["features"]
+            limit = mem["limit"]
             offs = rand.randint(limit)
             offs2 = offs + self.window_size
             j = 0
             for k in self.features:
                 jj = j + self.norm_add[k].size * self.window_size
-                self.minibatch_data.v[
+                self.minibatch_data.mem[
                     i, j:jj] = features[k]["value"][offs:offs2].ravel()
                 j = jj
 

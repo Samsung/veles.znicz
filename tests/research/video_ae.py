@@ -173,7 +173,7 @@ class Workflow(nn_units.NNWorkflow):
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
-        self.plt_mx.input_field = "v"
+        self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
 
@@ -229,8 +229,8 @@ def run(load, main):
     w, snapshot = load(Workflow, layers=root.video_ae.layers)
     if snapshot:
         for fwds in w.fwds:
-            logging.info(fwds.weights.v.min(), fwds.weights.v.max(),
-                         fwds.bias.v.min(), fwds.bias.v.max())
+            logging.info(fwds.weights.mem.min(), fwds.weights.mem.max(),
+                         fwds.bias.mem.min(), fwds.bias.mem.max())
         w.decision.improved << True
     main(learning_rate=root.video_ae.learning_rate,
          weights_decay=root.video_ae.weights_decay)

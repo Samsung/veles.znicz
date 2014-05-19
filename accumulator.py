@@ -32,7 +32,7 @@ class RangeAccumulator(units.Unit):
 
     def initialize(self, **kwargs):
         super(RangeAccumulator, self).initialize(**kwargs)
-        self.output.v = numpy.zeros([self.bars + 2], dtype=numpy.int64)
+        self.output.mem = numpy.zeros([self.bars + 2], dtype=numpy.int64)
 
     def run(self):
         d = self.max - self.min
@@ -42,9 +42,9 @@ class RangeAccumulator(units.Unit):
         self.input.map_read()
         d = (self.bars - 1) / d
         if self.reset_flag:
-            self.output.v[:] = 0
+            self.output.mem[:] = 0
         self.n_bars[0] = self.bars + 2
-        for y in self.input.v.ravel():
+        for y in self.input.mem.ravel():
             if y < self.min:
                 self.output[0] += 1
                 continue

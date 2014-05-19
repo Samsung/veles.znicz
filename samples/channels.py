@@ -770,7 +770,7 @@ class Workflow(StandardWorkflow):
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            self.plt_mx[-1].input_field = "v"
+            self.plt_mx[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])

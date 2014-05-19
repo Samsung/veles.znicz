@@ -36,7 +36,7 @@ class TestConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
                               [2, 0, 1, 0, 2],
@@ -56,16 +56,16 @@ class TestConv(unittest.TestCase):
         c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = bias[:]
+        c.bias.mem[:] = bias[:]
 
         c.run()
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        y = c.output.v.ravel()
+        y = c.output.mem.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
                          12, 1.25, 3, -2.8, 12, -4.4,
                          4, -7.05, 15, -7.7, 4, -4.65], dtype=dtype)
@@ -80,7 +80,7 @@ class TestConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
                               [2, 0, 1, 0, 2],
@@ -100,15 +100,15 @@ class TestConv(unittest.TestCase):
         c.initialize(device=None)
 
         c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = bias[:]
+        c.bias.mem[:] = bias[:]
 
         c.run()
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        y = c.output.v.ravel()
+        y = c.output.mem.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
                          12, 1.25, 3, -2.8, 12, -4.4,
                          4, -7.05, 15, -7.7, 4, -4.65], dtype=dtype)
@@ -123,7 +123,7 @@ class TestConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.array([[[1, 2, 3, 2, 1],
+        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],
                               [2, 0, 1, 0, 2],
@@ -144,16 +144,16 @@ class TestConv(unittest.TestCase):
         c.initialize(device=self.device)
 
         c.weights.map_invalidate()  # rewrite weights
-        c.weights.v[:] = weights.reshape(c.weights.v.shape)[:]
+        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = bias[:]
+        c.bias.mem[:] = bias[:]
 
         c.run()
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
-        y = c.output.v.ravel()
+        y = c.output.mem.ravel()
         t = numpy.array([[[7, -11.3], [3, -10.7], [7, -8], [10, -10]],
                          [[6, -8.4], [3, -2.8], [6, -12.8], [10, -10]],
                          [[9, -7.9], [9, -7.9], [9, -7.9], [10, -10]]],
@@ -170,16 +170,16 @@ class TestConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.zeros([27, 28, 28], dtype=dtype)
-        rnd.get().fill(inp.v)
+        inp.mem = numpy.zeros([27, 28, 28], dtype=dtype)
+        rnd.get().fill(inp.mem)
 
         c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9)
         c.input = inp
 
         c.initialize(device=self.device)
 
-        weights = c.weights.v.reshape(c.n_kernels, c.ky, c.kx)
-        bias = c.bias.v
+        weights = c.weights.mem.reshape(c.n_kernels, c.ky, c.kx)
+        bias = c.bias.mem
 
         t0 = time.time()
         c.run()
@@ -187,13 +187,13 @@ class TestConv(unittest.TestCase):
         logging.info("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
         logging.info("Numpy")
         t0 = time.time()
         pp = []
-        for v in inp.v:
+        for mem in inp.mem:
             for j, w in enumerate(weights):
                 ww = w.copy()
                 for i in range(w.shape[0]):
@@ -201,7 +201,7 @@ class TestConv(unittest.TestCase):
                 www = ww.copy()
                 for i in range(w.shape[1]):
                     www[:, -(i + 1)] = ww[:, i]
-                out = scipy.signal.convolve2d(v, www, "valid")
+                out = scipy.signal.convolve2d(mem, www, "valid")
                 out += bias[j]
                 out *= 0.6666
                 numpy.tanh(out, out)
@@ -212,11 +212,11 @@ class TestConv(unittest.TestCase):
         logging.info("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
         logging.info("Will compare results")
         offs = 0
-        for vv in c.output.v:
+        for vv in c.output.mem:
             for i_kernel in range(len(weights)):
                 p = pp[offs]
-                v = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
-                max_diff = numpy.fabs(v.ravel() - p.ravel()).max()
+                mem = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
+                max_diff = numpy.fabs(mem.ravel() - p.ravel()).max()
                 self.assertLess(max_diff, 0.0001,
                                 "Result differs by %.6f" % (max_diff))
                 offs += 1
@@ -229,8 +229,8 @@ class TestConv(unittest.TestCase):
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp.v = numpy.zeros([3, 128, 128, 3], dtype=dtype)
-        rnd.get().fill(inp.v)
+        inp.mem = numpy.zeros([3, 128, 128, 3], dtype=dtype)
+        rnd.get().fill(inp.mem)
 
         c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3)
         c.input = inp
@@ -238,7 +238,7 @@ class TestConv(unittest.TestCase):
         c.initialize(device=self.device)
 
         c.bias.map_invalidate()  # rewrite bias
-        c.bias.v[:] = 0
+        c.bias.mem[:] = 0
 
         t0 = time.time()
         c.run()
@@ -246,14 +246,14 @@ class TestConv(unittest.TestCase):
         logging.info("OpenCL convolved in %.2f seconds" % (dt0))
 
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.v.shape[0]:].ravel())
+        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
         self.assertEqual(nz, 0, "Overflow occured")
 
         logging.info("Numpy with FFT")
         t0 = time.time()
         pp = []
-        for v in inp.v:
-            for w_ in c.weights.v:
+        for mem in inp.mem:
+            for w_ in c.weights.mem:
                 w = w_.reshape(c.ky, c.kx, 3)
                 ww = w.copy()
                 for i in range(w.shape[0]):
@@ -264,7 +264,7 @@ class TestConv(unittest.TestCase):
                 wwww = www.copy()
                 for i in range(w.shape[2]):
                     wwww[:, :, -(i + 1)] = www[:, :, i]
-                pp.append(scipy.signal.fftconvolve(v, wwww, "valid"))
+                pp.append(scipy.signal.fftconvolve(mem, wwww, "valid"))
         dt1 = time.time() - t0
         logging.info("Numpy convolved in %.2f seconds" % (dt1))
 
@@ -273,11 +273,11 @@ class TestConv(unittest.TestCase):
         logging.info("Will compare results")
 
         offs = 0
-        for vv in c.output.v:
-            for i_kernel in range(len(c.weights.v)):
+        for vv in c.output.mem:
+            for i_kernel in range(len(c.weights.mem)):
                 p = pp[offs]
-                v = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
-                max_diff = numpy.fabs(v.ravel() - p.ravel()).max()
+                mem = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
+                max_diff = numpy.fabs(mem.ravel() - p.ravel()).max()
                 self.assertLess(max_diff, 0.0001,
                                 "Result differs by %.6f" % (max_diff))
                 offs += 1

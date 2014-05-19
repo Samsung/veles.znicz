@@ -36,16 +36,16 @@ class TestNormalization(unittest.TestCase):
             in_vector[0, 0, i, :] = np.linspace(10, 50, 5) * (i + 1)
             in_vector[0, 1, i, :] = np.linspace(10, 50, 5) * (i + 1) + 1
 
-        fwd_normalizer.input.v = in_vector
+        fwd_normalizer.input.mem = in_vector
         fwd_normalizer.initialize(device=self.device)
 
         fwd_normalizer.ocl_run()
         fwd_normalizer.output.map_read()
-        ocl_result = np.copy(fwd_normalizer.output.v)
+        ocl_result = np.copy(fwd_normalizer.output.mem)
 
         fwd_normalizer.cpu_run()
         fwd_normalizer.output.map_read()
-        cpu_result = np.copy(fwd_normalizer.output.v)
+        cpu_result = np.copy(fwd_normalizer.output.mem)
 
         max_delta = np.fabs(cpu_result - ocl_result).max()
 
@@ -72,20 +72,20 @@ class TestNormalization(unittest.TestCase):
         back_normalizer.input = Vector()
         back_normalizer.err_output = Vector()
 
-        back_normalizer.input.v = h
-        back_normalizer.err_output.v = err_y
+        back_normalizer.input.mem = h
+        back_normalizer.err_output.mem = err_y
 
         back_normalizer.initialize(device=self.device)
 
         back_normalizer.cpu_run()
-        cpu_result = back_normalizer.err_input.v.copy()
+        cpu_result = back_normalizer.err_input.mem.copy()
 
         back_normalizer.err_input.map_invalidate()
-        back_normalizer.err_input.v[:] = 100
+        back_normalizer.err_input.mem[:] = 100
 
         back_normalizer.ocl_run()
         back_normalizer.err_input.map_read()
-        ocl_result = back_normalizer.err_input.v.copy()
+        ocl_result = back_normalizer.err_input.mem.copy()
 
         logging.info("BACK")
 

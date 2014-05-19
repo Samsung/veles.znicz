@@ -537,8 +537,8 @@ class LoaderBase(loader.Loader):
             except KeyError:
                 pass
         self.info("Building labels...")
-        label_map = {v: i for i, v in enumerate(sorted(categories.keys()))
-                     if v}
+        label_map = {mem: i for i, mem in enumerate(sorted(categories.keys()))
+                     if mem}
         self._db_.Put(labels_key, json.dumps(label_map).encode())
         self.info("Initialized %d labels", len(label_map))
 

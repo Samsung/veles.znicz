@@ -422,24 +422,24 @@ class FullBatchLoader(Loader):
         self.minibatch_data.reset()
         sh = [self.minibatch_maxsize]
         sh.extend(self.original_data[0].shape)
-        self.minibatch_data.v = numpy.zeros(
+        self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_target.reset()
         if self.original_target is not None:
             sh = [self.minibatch_maxsize]
             sh.extend(self.original_target[0].shape)
-            self.minibatch_target.v = numpy.zeros(
+            self.minibatch_target.mem = numpy.zeros(
                 sh,
                 dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_labels.reset()
         if self.original_labels is not None:
             sh = [self.minibatch_maxsize]
-            self.minibatch_labels.v = numpy.zeros(sh, dtype=numpy.int32)
+            self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
         self.minibatch_indexes.reset()
-        self.minibatch_indexes.v = numpy.zeros(len(self.original_data),
+        self.minibatch_indexes.mem = numpy.zeros(len(self.original_data),
                                                dtype=numpy.int32)
 
     def fill_minibatch(self):
@@ -447,7 +447,7 @@ class FullBatchLoader(Loader):
 
         minibatch_size = self.minibatch_size
 
-        idxs = self.minibatch_indexes.v
+        idxs = self.minibatch_indexes.mem
 
         assert self.minibatch_offset <= len(self.shuffled_indexes)
         assert (self.minibatch_offset - minibatch_size) >= 0

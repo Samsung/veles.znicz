@@ -291,25 +291,25 @@ class DecisionGD(DecisionBase):
 
         # Allocate arrays for confusion matrixes.
         if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
+                self.minibatch_confusion_matrix.mem is not None):
             for i in range(len(self.confusion_matrixes)):
                 if (self.confusion_matrixes[i] is None or
                         self.confusion_matrixes[i].size !=
-                        self.minibatch_confusion_matrix.v.size):
+                        self.minibatch_confusion_matrix.mem.size):
                     self.confusion_matrixes[i] = (
-                        numpy.zeros_like(self.minibatch_confusion_matrix.v))
+                        numpy.zeros_like(self.minibatch_confusion_matrix.mem))
                 else:
                     self.confusion_matrixes[i][:] = 0
 
         # Allocate arrays for epoch metrics.
         if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.v is not None):
+                self.minibatch_metrics.mem is not None):
             for i in range(len(self.epoch_metrics)):
                 if (self.epoch_metrics[i] is None or
                         self.epoch_metrics[i].size !=
-                        self.minibatch_metrics.v.size):
+                        self.minibatch_metrics.mem.size):
                     self.epoch_metrics[i] = (
-                        numpy.zeros_like(self.minibatch_metrics.v))
+                        numpy.zeros_like(self.minibatch_metrics.mem))
                 else:
                     self.epoch_metrics[i][:] = 0
 
@@ -324,7 +324,7 @@ class DecisionGD(DecisionBase):
         if (evaluator is not None and
                 evaluator.__dict__.get("target") is not None and
                 evaluator.target in self.vectors_to_sync and
-                evaluator.target.v is not None):
+                evaluator.target.mem is not None):
             self.sample_target = numpy.zeros_like(evaluator.target[0])
 
     def on_run(self):
@@ -335,13 +335,13 @@ class DecisionGD(DecisionBase):
         minibatch_class = self.minibatch_class
         # Copy confusion matrix
         if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
+                self.minibatch_confusion_matrix.mem is not None):
             self.minibatch_confusion_matrix.map_read()
             self.confusion_matrixes[minibatch_class][:] = (
-                self.minibatch_confusion_matrix.v[:])
+                self.minibatch_confusion_matrix.mem[:])
 
         if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.v is not None):
+                self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
             # Compute error in percents
@@ -352,7 +352,7 @@ class DecisionGD(DecisionBase):
 
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.v is not None):
+                self.minibatch_max_err_y_sum.mem is not None):
             self.minibatch_max_err_y_sum.map_read()
             self.max_err_y_sums[minibatch_class] = (
                 self.minibatch_max_err_y_sum[0])
@@ -370,10 +370,10 @@ class DecisionGD(DecisionBase):
     def on_training_finished(self):
         if self.use_dynamic_alpha:
             if (self.minibatch_metrics is not None and
-                    self.minibatch_metrics.v is not None):
+                    self.minibatch_metrics.mem is not None):
                 this_train_err = self.epoch_metrics[2][0]
             elif (self.minibatch_n_err is not None and
-                  self.minibatch_n_err.v is not None):
+                  self.minibatch_n_err.mem is not None):
                 this_train_err = self.epoch_n_err[2]
             else:
                 this_train_err = self.prev_train_err
@@ -412,7 +412,7 @@ class DecisionGD(DecisionBase):
             attrval = getattr(self, attr)
             if attrval:
                 attrval.map_read()
-                data[attr] = attrval.v
+                data[attr] = attrval.mem
 
     def on_apply_data_from_master(self, data):
         self.reset_statistics(self.minibatch_class)
@@ -421,9 +421,9 @@ class DecisionGD(DecisionBase):
 
     def on_apply_data_from_slave(self, data, slave=None):
         if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.v is not None):
+                self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_write()
-            self.minibatch_n_err.v += data["minibatch_n_err"]
+            self.minibatch_n_err.mem += data["minibatch_n_err"]
         if self.minibatch_metrics:
             self.minibatch_metrics.map_write()
             self.minibatch_metrics[0] += data["minibatch_metrics"][0]
@@ -433,12 +433,12 @@ class DecisionGD(DecisionBase):
                                             data["minibatch_metrics"][2])
         if self.minibatch_max_err_y_sum:
             self.minibatch_max_err_y_sum.map_write()
-            numpy.maximum(self.minibatch_max_err_y_sum.v,
+            numpy.maximum(self.minibatch_max_err_y_sum.mem,
                           data["minibatch_max_err_y_sum"],
-                          self.minibatch_max_err_y_sum.v)
+                          self.minibatch_max_err_y_sum.mem)
         if self.minibatch_confusion_matrix:
             self.minibatch_confusion_matrix.map_write()
-            self.minibatch_confusion_matrix.v += data[
+            self.minibatch_confusion_matrix.mem += data[
                 "minibatch_confusion_matrix"]
         if data["sample_input"] is not None:
             for i, d in enumerate(data["sample_input"]):
@@ -479,23 +479,23 @@ class DecisionGD(DecisionBase):
     def reset_statistics(self, minibatch_class):
         # Reset statistics per class
         if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.v is not None):
+                self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_invalidate()
-            self.minibatch_n_err.v[:] = 0
+            self.minibatch_n_err.mem[:] = 0
         if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.v is not None):
+                self.minibatch_metrics.mem is not None):
             self.minibatch_metrics.map_invalidate()
-            self.minibatch_metrics.v[:] = 0
+            self.minibatch_metrics.mem[:] = 0
             self.minibatch_metrics[2] = 1.0e30
         if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.v is not None):
+                self.minibatch_max_err_y_sum.mem is not None):
             self.minibatch_max_err_y_sum.map_invalidate()
-            self.minibatch_max_err_y_sum.v[:] = 0
+            self.minibatch_max_err_y_sum.mem[:] = 0
         # Reset confusion matrix
         if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.v is not None):
+                self.minibatch_confusion_matrix.mem is not None):
             self.minibatch_confusion_matrix.map_invalidate()
-            self.minibatch_confusion_matrix.v[:] = 0
+            self.minibatch_confusion_matrix.mem[:] = 0
 
     def _sync_vectors(self):
         # Sync vectors
@@ -549,20 +549,20 @@ class DecisionMSE(DecisionGD):
         for i in range(len(self.epoch_samples_mse)):
             if self.class_samples[i] <= 0:
                 continue
-            if (self.tmp_epoch_samples_mse[i].v is None or
-                    self.tmp_epoch_samples_mse[i].v.size !=
+            if (self.tmp_epoch_samples_mse[i].mem is None or
+                    self.tmp_epoch_samples_mse[i].mem.size !=
                     self.class_samples[i]):
-                self.tmp_epoch_samples_mse[i].v = (
+                self.tmp_epoch_samples_mse[i].mem = (
                     numpy.zeros(
                         self.class_samples[i],
                         dtype=opencl_types.dtypes[config.root.common.dtype]))
-                self.epoch_samples_mse[i].v = (
+                self.epoch_samples_mse[i].mem = (
                     numpy.zeros(
                         self.class_samples[i],
                         dtype=opencl_types.dtypes[config.root.common.dtype]))
             else:
-                self.tmp_epoch_samples_mse[i].v[:] = 0
-                self.epoch_samples_mse[i].v[:] = 0
+                self.tmp_epoch_samples_mse[i].mem[:] = 0
+                self.epoch_samples_mse[i].mem[:] = 0
 
     def on_run(self):
         self._copy_minibatch_mse()
@@ -579,7 +579,7 @@ class DecisionMSE(DecisionGD):
                 self.epoch_min_mse[minibatch_class]))
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
-            self.minibatch_metrics.v[:])
+            self.minibatch_metrics.mem[:])
         # Compute average mse
         self.epoch_metrics[minibatch_class][0] = (
             self.epoch_metrics[minibatch_class][0] /
@@ -601,7 +601,7 @@ class DecisionMSE(DecisionGD):
 
         self.tmp_epoch_samples_mse[self.minibatch_class].map_read()
         data["minibatch_mse"] = self.tmp_epoch_samples_mse[
-            self.minibatch_class].v[:self.minibatch_size]
+            self.minibatch_class].mem[:self.minibatch_size]
 
     def on_apply_data_from_master(self, data):
         super(DecisionMSE, self).on_apply_data_from_master(data)
@@ -611,7 +611,7 @@ class DecisionMSE(DecisionGD):
     def on_apply_data_from_slave(self, data, slave=None):
         super(DecisionMSE, self).on_apply_data_from_slave(data, slave)
         self.minibatch_mse.map_write()
-        self.minibatch_mse.v = data["minibatch_mse"]
+        self.minibatch_mse.mem = data["minibatch_mse"]
         self._copy_minibatch_mse()
 
     def stop_condition(self):
@@ -628,9 +628,9 @@ class DecisionMSE(DecisionGD):
         if len(self.epoch_samples_mse) > minibatch_class:
             self.epoch_samples_mse[minibatch_class].map_invalidate()
             self.tmp_epoch_samples_mse[minibatch_class].map_write()
-            self.epoch_samples_mse[minibatch_class].v[:] = (
-                self.tmp_epoch_samples_mse[minibatch_class].v[:])
-            self.tmp_epoch_samples_mse[minibatch_class].v[:] = 0
+            self.epoch_samples_mse[minibatch_class].mem[:] = (
+                self.tmp_epoch_samples_mse[minibatch_class].mem[:])
+            self.tmp_epoch_samples_mse[minibatch_class].mem[:] = 0
 
     def _copy_minibatch_mse(self):
         self.minibatch_offset -= self.minibatch_size

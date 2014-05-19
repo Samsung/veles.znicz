@@ -56,10 +56,10 @@ def evaluate_file(fnme, ff, window_size, shift_size, W, b):
 
     limit = 2000000000
     for k in features:
-        v = ff[k]["value"]
-        limit = min(len(v), limit)
-        v += norm_add[k]
-        v *= norm_mul[k]
+        mem = ff[k]["value"]
+        limit = min(len(mem), limit)
+        mem += norm_add[k]
+        mem *= norm_mul[k]
 
     x = numpy.arange(0, limit - window_size + 1, shift_size,
                      dtype=numpy.float64)
@@ -71,9 +71,9 @@ def evaluate_file(fnme, ff, window_size, shift_size, W, b):
         offs2 = offs + window_size
         j = 0
         for k in features:
-            v = ff[k]["value"]
+            mem = ff[k]["value"]
             jj = j + window_size
-            inp[j:jj] = v[offs:offs2]
+            inp[j:jj] = mem[offs:offs2]
             j = jj
         if inp.min() < -1:
             logging.info("input is out of range: %.6f" % (inp.min()))
@@ -156,7 +156,7 @@ def draw_plot(figure_label, x, y, i_labels, fnme):
 
     fig = pp.figure(figure_label)
     ax = fig.add_subplot(111)
-    #ax.set_ylim(0, 1)
+    # ax.set_ylim(0, 1)
     ax.set_title(fnme, fontsize=23)
     for i in range(len(y)):
         ax.plot(x, y[i], color=colors[i], label=i_labels[i], linewidth=4)
