@@ -8,9 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
-import os
-import six
-from six.moves import cPickle as pickle
 import time
 
 import veles.config as config
@@ -361,8 +358,7 @@ class DecisionGD(DecisionBase):
 
     def on_test_validation_processed(self):
         minibatch_class = self.minibatch_class
-        if (self.minibatch_n_err is not None and
-            (self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
+        if ((self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
              (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
               and self.epoch_n_err[2] < self.min_train_n_err))):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
