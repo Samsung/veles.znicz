@@ -132,10 +132,10 @@ class Workflow(StandardWorkflow):
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self, limit=4)
+            accum = accumulator.RangeAccumulator(self)
             self.accumulator.append(accum)
-            self.accumulator[i].link_from(self.fwds[i])
-            self.accumulator[i].link_attrs(self.fwds[i],
+            self.accumulator[-1].link_from(self.fwds[i])
+            self.accumulator[-1].link_attrs(self.fwds[i],
                                         ("input", "output"))
         """
         for i in range(0, len(layers)):
@@ -229,7 +229,7 @@ class Workflow(StandardWorkflow):
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            self.plt_mx[-1].input_field = "v"
+            self.plt_mx[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
@@ -255,7 +255,7 @@ class Workflow(StandardWorkflow):
             self.plt_gd.append(plt_gd)
             self.plt_gd[-1].link_attrs(self.gds[i],
                                        ("input", "gradient_weights"))
-            self.plt_gd[-1].input_field = "v"
+            self.plt_gd[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_gd[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])

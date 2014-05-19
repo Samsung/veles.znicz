@@ -181,6 +181,9 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
 
         self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
                                        directory=root.common.snapshot_dir)
@@ -253,7 +256,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.gds[i], ("input",
                                                      "gradient_weights"))
-            self.plt_mx[-1].input_field = "v"
+            self.plt_mx[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
