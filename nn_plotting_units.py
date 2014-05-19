@@ -50,7 +50,7 @@ class Weights2D(plotter.Plotter):
                 return
             value = self.input[self.input_field]
         else:
-            value = self.input.__dict__[self.input_field]
+            value = getattr(self.input, self.input_field)
 
         if type(value) != numpy.ndarray or len(value.shape) != 2:
             return
@@ -76,7 +76,7 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[-2]
                 sy = self.get_shape_from[-3]
                 n_channels = self.get_shape_from[-1]
-        elif "mem" in self.get_shape_from.__dict__:
+        elif hasattr(self.get_shape_from, "mem"):
             if len(self.get_shape_from.mem.shape) == 3:
                 sx = self.get_shape_from.mem.shape[2]
                 sy = self.get_shape_from.mem.shape[1]
