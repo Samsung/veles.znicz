@@ -344,7 +344,7 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         gmult = self.gradient_multiplier
 
         if self.epoch_ended:
-            self.winners[:] = 0
+            self.winners.v[:] = 0
 
         for sindex in range(batch_size):
             dist = self.weights.v - self.input[sindex]
