@@ -429,9 +429,11 @@ class KohonenInputMaps(plotter.Plotter):
         self._color_grid = value
 
     def redraw(self):
+        fast_redraw = self.name in self.pp.get_figlabels()
         fig = self.pp.figure(self.name)
-        fig.clf()
-        length = self.input.shape[1]
+        if not fast_redraw:
+            fig.clf()
+        length = self.input.mem.shape[1]
         if length < 3:
             grid_shape = (length, 1)
         elif length < 5:
@@ -441,23 +443,27 @@ class KohonenInputMaps(plotter.Plotter):
         else:
             grid_shape = (4, int(numpy.ceil(length / 4)))
         for index in range(length):
-            axes = fig.add_subplot(grid_shape[0], grid_shape[1], index)
-            patches = []
-            # Add hexagons to patches one by one
-            for y in range(self.height):
-                for x in range(self.width):
-                    self._add_hexagon(axes, patches, x, y)
-            # Add the collection
-            col = self.matplotlib.collections.PatchCollection(
-                patches, cmap=getattr(self.cm, self.color_scheme),
-                edgecolor=self.color_grid)
+            axes = fig.add_subplot(grid_shape[1], grid_shape[0], index)
+            if not fast_redraw:
+                patches = []
+                # Add hexagons to patches one by one
+                for y in range(self.height):
+                    for x in range(self.width):
+                        self._add_hexagon(axes, patches, x, y)
+                # Add the collection
+                col = self.matplotlib.collections.PatchCollection(
+                    patches, cmap=getattr(self.cm, self.color_scheme),
+                    edgecolor=self.color_grid)
+                axes.add_collection(col)
+            else:
+                col = axes.collections[0]
             col.set_array(self.input[:, index])
-            axes.add_collection(col)
-
-            axes.set_xlim(-1.0, self.width + 0.5)
-            axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.0) / 2))
-            axes.set_xticks([])
-            axes.set_yticks([])
+            if not fast_redraw:
+                axes.set_xlim(-1.0, self.width + 0.5)
+                axes.set_ylim(-1.0,
+                              numpy.round(self.height * numpy.sqrt(3.0) / 2))
+                axes.set_xticks([])
+                axes.set_yticks([])
         self.show_figure(fig)
         fig.canvas.draw()
 

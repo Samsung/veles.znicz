@@ -361,7 +361,7 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
     @iteration
     def ocl_run(self):
-        """Does KohonenForward's learning iteration using OpenCL.
+        """Does Kohonen's learning iteration using OpenCL.
         """
         batch_size = self.input.mem.shape[0]
         if self.epoch_ended:

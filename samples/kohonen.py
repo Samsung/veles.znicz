@@ -115,6 +115,10 @@ class Workflow(nn_units.NNWorkflow):
                                     "shape")
         self.plotters[0].link_from(self.decision)
         self.plotters[0].gate_block = ~self.decision.epoch_ended
+        self.plotters[1].link_attrs(self.trainer, ("input", "weights"),
+                                    "shape")
+        self.plotters[1].link_from(self.decision)
+        self.plotters[1].gate_block = ~self.decision.epoch_ended
         self.plotters[2].link_attrs(self.trainer, ("input", "weights"),
                                     "shape")
         self.plotters[2].link_from(self.decision)
