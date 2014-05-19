@@ -280,6 +280,7 @@ class DecisionGD(DecisionBase):
         self.sample_label = None
         self.prev_train_err = 1.0e30
         self.evaluator = None
+        self.minibatch_metrics = None
 
     def initialize(self, **kwargs):
         super(DecisionGD, self).initialize(**kwargs)
