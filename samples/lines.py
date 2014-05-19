@@ -7,18 +7,19 @@ A workflow to test first layer in simple line detection.
 """
 
 
+from enum import IntEnum
 import os
 
 from veles.config import root
 from veles.mutable import Bool
+import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
 from veles.znicz import conv, all2all, evaluator, decision
-from veles.znicz.standard_workflow import StandardWorkflow
+import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
-import veles.plotting_units as plotting_units
-from enum import IntEnum
+from veles.znicz.standard_workflow import StandardWorkflow
 
 train = "/data/veles/Lines/Grid/learn"
 valid = "/data/veles/Lines/Grid/test"
@@ -98,6 +99,11 @@ class Loader(ImageLoader):
         # takes folder name "vertical", "horizontal", "etc"
         return int(ImageLabel[filename.split("/")[-2]])
 
+    def initialize(self, **kwargs):
+        super(Loader, self).initialize(**kwargs)
+        self.original_data += 1.0
+        self.original_data *= 127.5
+
 
 class Workflow(StandardWorkflow):
     """Workflow for Lines dataset.
@@ -123,9 +129,27 @@ class Workflow(StandardWorkflow):
 
         self._parse_forwards_from_config()
 
+        # Add Accumulator units
+        self.accumulator = []
+        for i in range(0, len(layers)):
+            accum = accumulator.RangeAccumulator(self, limit=4)
+            self.accumulator.append(accum)
+            self.accumulator[i].link_from(self.fwds[i])
+            self.accumulator[i].link_attrs(self.fwds[i],
+                                        ("input", "output"))
+        """
+        for i in range(0, len(layers)):
+            accum = accumulator.RangeAccumulator(self,
+                                                 bars=root.accumulator.n_bars)
+            self.accumulator.append(accum)
+        self.accumulator[-1].link_from(self.fwds[-1])
+        self.accumulator[-1].link_attrs(self.fwds[-1],
+                                        ("input", "output"))
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
+        self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -172,6 +196,8 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.just_snapshotted
         self.image_saver.link_attrs(self.decision,
                                     ("this_save_time", "snapshot_time"))
+        for i in range(0, len(layers)):
+            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
@@ -300,6 +326,18 @@ class Workflow(StandardWorkflow):
                                                 ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
+
+        # Histogram plotter
+        self.plt_hist = []
+        for i in range(0, len(layers)):
+            hist = plotting_units.Histogram(
+                self, name="Y %s %s" % (i + 1, layers[i]["type"]))
+            self.plt_hist.append(hist)
+            self.plt_hist[i].link_from(self.decision)
+            self.plt_hist[i].link_attrs(
+                self.accumulator[i], ("input", "output"),
+                ("x", "input"), "n_bars")
+            self.plt_hist[i].gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
