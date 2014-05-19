@@ -290,7 +290,6 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         }
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
-        print(defines)
         self.build_program(defines, "kohonen_train_%d_%d.cl" %
                            (self._sample_length, self._neurons_number),
                            dtype=self.weights.mem.dtype)
@@ -348,7 +347,6 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
         for sindex in range(batch_size):
             dist = self.weights.mem - self.input[sindex]
-            print(numpy.square(self._numpy_linalg_norm(dist)))
             winner = numpy.argmin(self._numpy_linalg_norm(dist))
             self.winners[winner] += 1
             winner_coords = self._coords.mem[winner]
@@ -379,8 +377,6 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
         self.execute_kernel(self._gs_distance, self._ls_distance,
                             self.krn_distance_).wait()
-        self._distances.map_read()
-        print(self._distances.mem)
         self.execute_kernel([self.chunked_group_size],
                             [self.chunked_group_size], self.krn_argmin_).wait()
         self.ocl_consts_[0] = self.gravity_radius
