@@ -349,19 +349,20 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.err_output.map_read()
         self.weights.map_read()
 
-        batch_size = self.input.v.shape[0]
-        sy = self.input.v.shape[1]
-        sx = self.input.v.shape[2]
-        n_channels = self.input.v.size // (batch_size * sx * sy)
+        batch_size = self.input.mem.shape[0]
+        sy = self.input.mem.shape[1]
+        sx = self.input.mem.shape[2]
+        n_channels = self.input.mem.size // (batch_size * sx * sy)
         sx_full = self.padding[0] + sx + self.padding[2]
         sy_full = self.padding[1] + sy + self.padding[3]
         nx = (sx_full - self.kx) // self.sliding[0] + 1
         ny = (sy_full - self.ky) // self.sliding[1] + 1
 
-        self.err_input.v[:] = 0
+        self.err_input.mem[:] = 0
         for batch in range(batch_size):
             # calculate unrolled input error
-            unrolled_err = numpy.dot(self.err_output.v[batch], self.weights.v)
+            unrolled_err = numpy.dot(self.err_output.mem[batch],
+                                     self.weights.mem)
             # roll array of input errors
             for idx, cut in enumerate(unrolled_err):
                 cut = cut.reshape(self.ky, self.kx, n_channels)
@@ -376,10 +377,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
                           min(max(x2 - self.padding[0], 0), sx))
                 cut = cut[(i1 - y1):(i2 - y1), (j1 - x1):(j2 - x1)]
-                true_cut_shape = self.err_input.v[batch, i1:i2, j1:j2].shape
-                self.err_input.v[batch, i1:i2, j1:j2] += \
+                true_cut_shape = self.err_input.mem[batch, i1:i2, j1:j2].shape
+                self.err_input.mem[batch, i1:i2, j1:j2] += \
                     cut.reshape(true_cut_shape)
-
 
     def print_debug_data(self, t_start):
         """
@@ -472,7 +472,8 @@ class GDTanhConv(GradientDescentConv):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem, self.output.devmem)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
 
 
 class GDRELUConv(GradientDescentConv):
@@ -496,4 +497,5 @@ class GDRELUConv(GradientDescentConv):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem, self.output.devmem)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
