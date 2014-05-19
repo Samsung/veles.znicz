@@ -11,10 +11,12 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import veles.units as units
 from veles.znicz.nn_units import GradientDescentBase
 
+from math import floor
 
 class LearningRateAdjust(units.Unit):
     """
     This unit should be linked from Decision to run with each minibatch.
+    Does nothing if ``lr_function`` is not set.
 
     Args:
         lr_function(:class:`function`): a function that takes :class:`int`
@@ -58,3 +60,49 @@ class LearningRateAdjust(units.Unit):
                 gd_elm.learning_rate = learning_rate
 
         self._minibatches_count += 1
+
+#LEARNING RATE POLICIES:
+
+def exp_adjust_policy(base_lr, gamma, a_ratio):
+    """
+    Creates exponentially decreasing learning ratio policy:
+
+    :math:`LR = LR_{base} \\gamma^{a\\,iter}`
+
+    Returns:
+        :class:`function(iter)`
+    """
+    return lambda iter: base_lr * (gamma ** (a_ratio * iter))
+
+
+def fixed_adjust_policy(base_lr):
+    """
+    Creates fixed learning rate policy
+
+    :math:`LR = LR_{base}`
+
+    Returns:
+        :class:`function(iter)`
+    """
+    return lambda iter: base_lr
+
+
+def step_exp_adjust_policy(base_lr, gamma, step):
+    """
+    Creates step exponential decrease of LR policy
+    :math:`LR = LR_{base} \\gamma^{floor(\\frac{iter}{step})}`
+
+    Returns:
+        :class:`function(iter)`
+    """
+    return lambda iter: base_lr * gamma ** floor(float(iter) / float(step))
+
+
+def inv_adjust_policy(base_lr, gamma, pow_ratio):
+    """
+    :math:`LR = LR_{base} \\dot (1 + \\gamma \\, iter) ^ {-pow}`
+
+    Returns:
+        :class:`function(iter)`
+    """
+    return lambda iter: base_lr * (1.0 + gamma * iter) ** (-pow_ratio)
