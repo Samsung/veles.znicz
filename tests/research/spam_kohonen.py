@@ -2,22 +2,25 @@
 """
 Created on May 12, 2014
 
-Kohonen Spam detection.
+Kohonen Spam detection on Lee Man Ha dataset.
 
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
 
+import lzma
 import numpy
 import os
 
 from veles.config import root
 from veles.interaction import Shell
+import veles.formats as formats
 import veles.units as units
+import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
-from veles.znicz.tests.research.spam import Loader
+from veles.external.progressbar import ProgressBar
 
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
@@ -36,7 +39,83 @@ root.defaults = {
 root.loader.validation_ratio = 0
 
 
+class Loader(loader.FullBatchLoader):
+    def load_data(self):
+        """Here we will load spam data.
+        """
+        file_name = root.loader.file
+        if os.path.splitext(file_name)[1] == '.xz':
+            self.info("Unpacking %s...", root.loader.file)
+            with lzma.open(root.loader.file, "r") as fin:
+                lines = fin.readlines()
+        else:
+            self.info("Reading %s...", root.loader.file)
+            with open(root.loader.file, "rb") as fin:
+                lines = fin.readlines()
+
+        self.info("Parsing the data...")
+        progress = ProgressBar(maxval=len(lines), term_width=17)
+        progress.start()
+        lemmas = set()
+        data = []
+        spam_count = 0
+        avglength = 0
+        for line in lines:
+            fields = line.split(b' ')
+            data.append((int(fields[0]), []))
+            if data[-1][0] == 1:
+                spam_count += 1
+            for field in fields[1:-1]:
+                lemma, weight = field.split(b':')
+                lemma = int(lemma)
+                weight = float(weight)
+                lemmas.add(lemma)
+                data[-1][1].append((lemma, weight))
+            avglength += len(data[-1][1])
+            progress.inc()
+        progress.finish()
+        avglength //= len(lines)
+
+        self.info("Initializing...")
+        progress = ProgressBar(maxval=len(data), term_width=17)
+        progress.start()
+        lemma_indices = {v: i for i, v in enumerate(sorted(lemmas))}
+        self.original_labels = numpy.zeros([len(lines)], dtype=numpy.int32)
+        self.original_data = numpy.zeros([len(lines), len(lemmas)],
+                                         dtype=numpy.float32)
+        for index, sample in enumerate(data):
+            self.original_labels[index] = sample[0]
+            for lemma in sample[1]:
+                self.original_data[index, lemma_indices[lemma[0]]] = lemma[1]
+            progress.inc()
+        progress.finish()
+
+        self.validation_ratio = root.loader.validation_ratio
+        self.class_samples[loader.TEST] = 0
+        self.class_samples[loader.VALID] = self.validation_ratio * len(lines)
+        self.class_samples[loader.TRAIN] = len(lines) - self.class_samples[1]
+        if self.class_samples[loader.VALID] > 0:
+            self.extract_validation_from_train()
+        self.info("Samples: %d (spam: %d), lemmas: %d, "
+                  "average feature vector length: %d", len(lines), spam_count,
+                  len(lemmas), avglength)
+        self.info("Normalizing...")
+        self.IMul, self.IAdd = formats.normalize_pointwise(
+            self.original_data[self.class_samples[loader.VALID]:])
+        self.original_data *= self.IMul
+        self.original_data += self.IAdd
+        if self.class_samples[loader.VALID] > 0:
+            v = self.original_data[:self.class_samples[loader.VALID]]
+            self.info("Range after normalization: validation: [%.6f, %.6f]",
+                      v.min(), v.max())
+        v = self.original_data[self.class_samples[loader.VALID]:]
+        self.info("Range after normalization: train: [%.6f, %.6f]",
+                  v.min(), v.max())
+
+
 class WeightsExporter(units.Unit):
+    """Exports Kohonen network weights to a text file.
+    """
     def __init__(self, workflow, file_name, **kwargs):
         super(WeightsExporter, self).__init__(workflow, **kwargs)
         self.weights = None
