@@ -125,7 +125,14 @@ void compute_argmin(__global const dtype /* IN */   *dists,
   }
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  for (int sample = tx; sample < BATCH; sample += BATCH / WORK_GROUP_SIZE) {
+#if BATCH > WORK_GROUP_SIZE
+  int max_sample_add = 0;
+  if (tx == WORK_GROUP_SIZE - 1) {
+    max_sample_add = BATCH - (BATCH / WORK_GROUP_SIZE) * WORK_GROUP_SIZE;
+  }
+  for (int sample = (BATCH / WORK_GROUP_SIZE) * tx;
+      sample < (BATCH / WORK_GROUP_SIZE) * (tx + 1) + max_sample_add;
+      sample++) {
     int offset = sample * WORK_GROUP_SIZE;
     dtype min_value = MAXFLOAT;
     int min_index = -1;
@@ -139,6 +146,22 @@ void compute_argmin(__global const dtype /* IN */   *dists,
     argmin[sample] = min_index;
     atom_inc(winners + min_index);
   }
+#else
+  if (tx < BATCH) {
+    int offset = tx * WORK_GROUP_SIZE;
+    dtype min_value = MAXFLOAT;
+    int min_index = -1;
+    for (int i = offset; i < offset + WORK_GROUP_SIZE; i++) {
+      dtype value = mins[i];
+      if (value < min_value) {
+        min_value = value;
+        min_index = argmins[i];
+      }
+    }
+    argmin[tx] = min_index;
+    atom_inc(winners + min_index);
+  }
+#endif
 }
 #undef WORK_GROUP_SIZE
 

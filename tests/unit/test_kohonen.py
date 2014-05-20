@@ -220,7 +220,10 @@ class TestKohonen(unittest.TestCase):
         c.winners.map_read()
         self.assertTrue(all(c.winners.mem == valid_winners))
         c.weights.map_read()
-        self.assertTrue(all(c.weights.mem == valid_weights))
+        max_diff = numpy.fabs(
+            valid_weights.ravel() - c.weights.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Result differs by %.6f" % (max_diff))
 
 
 if __name__ == "__main__":
