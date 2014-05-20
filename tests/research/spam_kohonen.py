@@ -13,6 +13,7 @@ import os
 
 from veles.config import root
 from veles.interaction import Shell
+import veles.units as units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
@@ -26,12 +27,24 @@ root.defaults = {
                 "weights_stddev": 0.05,
                 "weights_filling": "uniform"},
     "decision": {"snapshot_prefix": "spam_kohonen",
-                 "epochs": 160},
+                 "epochs": 5},
     "loader": {"minibatch_maxsize": 60,
                "file": os.path.join(spam_dir, "data.txt.xz"),
                "validation_ratio": 0},
-    "train": {"gradient_decay": lambda t: 0.01 / (1.0 + t * 0.00001),
-              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)}}
+    "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
+              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
+    "exporter": {"file": "weights.txt"}}
+
+
+class WeightsExporter(units.Unit):
+    def __init__(self, workflow, file_name, **kwargs):
+        super(WeightsExporter, self).__init__(workflow, **kwargs)
+        self.weights = None
+        self.file_name = file_name
+
+    def run(self):
+        numpy.savetxt(self.file_name, self.weights.mem)
+        self.info("Exported the resulting weights to %s", self.file_name)
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -73,6 +86,11 @@ class Workflow(nn_units.NNWorkflow):
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
         self.repeater.link_from(self.ipython)
+
+        self.exporter = WeightsExporter(self, root.exporter.file)
+        self.exporter.link_from(self.decision)
+        self.exporter.weights = self.trainer.weights
+        self.exporter.gate_block = ~self.decision.complete
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
