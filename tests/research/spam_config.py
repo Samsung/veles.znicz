@@ -14,7 +14,7 @@ from veles.config import root
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
 
-root.defaults = {"all2all": {"weights_stddev": 0.05},
+root.update = {"all2all": {"weights_stddev": 0.05},
                  "decision": {"fail_iterations": 100,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "spam"},
