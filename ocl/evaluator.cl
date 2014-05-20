@@ -151,7 +151,7 @@ void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
       for (int j = 0; j < Y; j++) {
         err_y[y_start + j] = 0;
       }
-      mse[isample] = 0;
+      mse[i_sample] = 0;
     }
   }
   // Compute metrics
