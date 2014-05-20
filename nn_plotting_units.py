@@ -461,13 +461,18 @@ class KohonenInputMaps(plotter.Plotter):
                 axes.add_collection(col)
             else:
                 col = axes.collections[0]
-            col.set_array(self.input[:, index])
+            arr = self.input[:, index]
+            amax = numpy.max(arr)
+            amin = numpy.min(arr)
+            col.set_array((arr - amin) / (amax - amin))
             if not fast_redraw:
                 axes.set_xlim(-1.0, self.width + 0.5)
                 axes.set_ylim(-1.0,
                               numpy.round(self.height * numpy.sqrt(3.0) / 2))
                 axes.set_xticks([])
                 axes.set_yticks([])
+        if not fast_redraw:
+            fig.colorbar(col)
         self.show_figure(fig)
         fig.canvas.draw()
 
@@ -587,7 +592,11 @@ class KohonenNeighborMap(plotter.Plotter):
             axes.set_yticks([])
         else:
             col = axes.collections[-1]
-        col.set_array(link_values)
+        amax = numpy.max(link_values)
+        amin = numpy.min(link_values)
+        col.set_array((link_values - amin) / (amax - amin))
+        if not fast_redraw:
+            fig.colorbar(col)
 
         self.show_figure(fig)
         fig.canvas.draw()
