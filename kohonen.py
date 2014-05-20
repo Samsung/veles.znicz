@@ -56,8 +56,9 @@ class KohonenForward(nn_units.Forward):
 
         neurons_number = self.shape[0] * self.shape[1]
         self.output.reset()
-        self.output.mem = numpy.zeros((self.input.mem.shape[0], neurons_number),
-                                    dtype=self.input.mem.dtype)
+        self.output.mem = numpy.zeros(
+            (self.input.mem.shape[0], neurons_number),
+            dtype=self.input.mem.dtype)
 
         if self.device is None:
             return
@@ -203,7 +204,8 @@ class KohonenTrainer(nn_units.GradientDescentBase):
                                          dtype=self.input.mem.dtype)
             filling = {
                 "uniform": lambda rand: rand.fill(
-                    self.weights.mem, -self.weights_stddev, self.weights_stddev),
+                    self.weights.mem, -self.weights_stddev,
+                    self.weights_stddev),
                 "gaussian": lambda rand: rand.fill_normal_real(
                     self.weights.mem, 0, self.weights_stddev)
             }
@@ -215,8 +217,8 @@ class KohonenTrainer(nn_units.GradientDescentBase):
             wtrncopy = self.weights.mem.transpose().copy()
             self.weights.mem.shape = wtrncopy.shape
             self.weights.mem[:] = wtrncopy[:]
-        self._sample_length = self.weights.mem.shape[0 if self.weights_transposed
-                                                   else 1]
+        self._sample_length = \
+            self.weights.mem.shape[0 if self.weights_transposed else 1]
 
         # Initialize winners
         self.winners.reset()
