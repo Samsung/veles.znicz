@@ -43,9 +43,15 @@ class Loader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load spam data.
         """
-        self.info("Unpacking %s...", root.loader.file)
-        with lzma.open(os.path.join(spam_dir, "data.txt.xz"), "r") as fin:
-            lines = fin.readlines()
+        file_name = root.loader.file
+        if os.path.splitext(file_name)[1] == '.xz':
+            self.info("Unpacking %s...", root.loader.file)
+            with lzma.open(root.loader.file, "r") as fin:
+                lines = fin.readlines()
+        else:
+            self.info("Reading %s...", root.loader.file)
+            with open(root.loader.file, "rb") as fin:
+                lines = fin.readlines()
 
         self.info("Parsing the data...")
         progress = ProgressBar(maxval=len(lines), term_width=17)
@@ -84,10 +90,12 @@ class Loader(loader.FullBatchLoader):
             progress.inc()
         progress.finish()
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = root.loader.validation_ratio * len(lines)
-        self.class_samples[2] = len(lines) - self.class_samples[1]
-        self.extract_validation_from_train()
+        self.validation_ratio = root.loader.validation_ratio
+        self.class_samples[loader.TEST] = 0
+        self.class_samples[loader.VALID] = self.validation_ratio * len(lines)
+        self.class_samples[loader.TRAIN] = len(lines) - self.class_samples[1]
+        if self.class_samples[loader.VALID] > 0:
+            self.extract_validation_from_train()
         self.info("Samples: %d (spam: %d), lemmas: %d, "
                   "average feature vector length: %d", len(lines), spam_count,
                   len(lemmas), avglength)
@@ -96,9 +104,10 @@ class Loader(loader.FullBatchLoader):
             self.original_data[self.class_samples[loader.VALID]:])
         self.original_data *= self.IMul
         self.original_data += self.IAdd
-        v = self.original_data[:self.class_samples[loader.VALID]]
-        self.info("Range after normalization: validation: [%.6f, %.6f]",
-                  v.min(), v.max())
+        if self.class_samples[loader.VALID] > 0:
+            v = self.original_data[:self.class_samples[loader.VALID]]
+            self.info("Range after normalization: validation: [%.6f, %.6f]",
+                      v.min(), v.max())
         v = self.original_data[self.class_samples[loader.VALID]:]
         self.info("Range after normalization: train: [%.6f, %.6f]",
                   v.min(), v.max())
