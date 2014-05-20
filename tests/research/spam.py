@@ -13,6 +13,7 @@ import numpy
 import os
 
 from veles.config import root
+import veles.formats as formats
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
@@ -27,16 +28,15 @@ from veles.external.progressbar import ProgressBar
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
 
-root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 100,
+root.defaults = {"decision": {"fail_iterations": 100,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "spam"},
                  "loader": {"minibatch_maxsize": 60,
                             "file": os.path.join(spam_dir, "data.txt.xz"),
                             "validation_ratio": 0.15},
-                 "spam": {"learning_rate": 0.01,
-                           "weights_decay": 0.0,
-                           "layers": [1000, 100, 2]}}
+                 "spam": {"learning_rate": 0.001,
+                          "weights_decay": 0.0,
+                          "layers": [100, 2]}}
 
 
 class Loader(loader.FullBatchLoader):
@@ -91,6 +91,17 @@ class Loader(loader.FullBatchLoader):
         self.info("Samples: %d (spam: %d), lemmas: %d, "
                   "average feature vector length: %d", len(lines), spam_count,
                   len(lemmas), avglength)
+        self.info("Normalizing...")
+        self.IMul, self.IAdd = formats.normalize_pointwise(
+            self.original_data[self.class_samples[loader.VALID]:])
+        self.original_data *= self.IMul
+        self.original_data += self.IAdd
+        v = self.original_data[:self.class_samples[loader.VALID]]
+        self.info("Range after normalization: validation: [%.6f, %.6f]",
+                  v.min(), v.max())
+        v = self.original_data[self.class_samples[loader.VALID]:]
+        self.info("Range after normalization: train: [%.6f, %.6f]",
+                  v.min(), v.max())
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -111,12 +122,10 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(
-                    self, output_shape=[layers[i]],
-                    weights_stddev=root.all2all.weights_stddev)
+                    self, output_shape=[layers[i]])
             else:
                 aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layers[i]],
-                    weights_stddev=root.all2all.weights_stddev)
+                    self, output_shape=[layers[i]])
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
@@ -166,7 +175,10 @@ class Workflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.fwds))))
-        self.gds[-1] = gd.GDSM(self, learning_rate=root.spam.learning_rate)
+        self.gds[-1] = gd.GDSM(
+            self, learning_rate=root.spam.learning_rate,
+            gradient_moment=root.spam.gradient_moment,
+            gradient_moment_bias=root.spam.gradient_moment_bias)
         self.gds[-1].link_from(self.ipython)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.fwds[-1],
@@ -176,8 +188,10 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].gate_skip = self.decision.gd_skip
         self.gds[-1].batch_size = self.loader.minibatch_size
         for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self,
-                                    learning_rate=root.spam.learning_rate)
+            self.gds[i] = gd.GDTanh(
+                self, learning_rate=root.spam.learning_rate,
+                gradient_moment=root.spam.gradient_moment,
+                gradient_moment_bias=root.spam.gradient_moment_bias)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))

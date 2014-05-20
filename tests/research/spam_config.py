@@ -14,13 +14,15 @@ from veles.config import root
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
 
-root.update = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 100,
-                              "store_samples_mse": True},
-                 "snapshotter": {"prefix": "spam"},
-                 "loader": {"minibatch_maxsize": 60,
-                            "file": os.path.join(spam_dir, "data.txt.xz"),
-                            "validation_ratio": 0.15},
-                 "spam": {"learning_rate": 0.01,
-                           "weights_decay": 0.0,
-                           "layers": [1000, 100, 2]}}
+root.update = {
+    "decision": {"fail_iterations": 100,
+                 "store_samples_mse": True},
+    "snapshotter": {"prefix": "spam"},
+    "loader": {"minibatch_maxsize": 60,
+               "file": os.path.join(spam_dir, "data.txt.xz"),
+               "validation_ratio": 0.15},
+    "spam": {"learning_rate": 0.0001,
+             "weights_decay": 0.00005,
+             "gradient_moment": 0.9,
+             "gradient_moment_bias": 0.9,
+             "layers": [100, 2]}}
