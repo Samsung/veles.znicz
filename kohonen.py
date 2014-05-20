@@ -286,6 +286,7 @@ class KohonenTrainer(nn_units.GradientDescentBase):
             'SAMPLE_LENGTH': self._sample_length,
             'NEURONS_NUMBER': self._neurons_number,
             'CHUNK_SIZE': chunk_size,
+            'GRADIENT_CHUNK_SIZE': self.device.max_group_size,
             'coord_type':  "%s%d" %
             (opencl_types.numpy_dtype_to_opencl(self._coords.mem.dtype),
              self._coords.mem.shape[-1])
@@ -387,8 +388,9 @@ class KohonenTrainer(nn_units.GradientDescentBase):
                             self.krn_gravity_).wait()
         self.ocl_consts_[0] = self.gradient_multiplier
         self.krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
-        self.execute_kernel([self.chunked_group_size], None,
-                            self.krn_apply_gradient_).wait()
+        self.execute_kernel(
+            [int(numpy.ceil(self._sample_length / self.device.max_group_size)),
+            self.device.max_group_size], None, self.krn_apply_gradient_).wait()
 
     iteration = staticmethod(iteration)
 

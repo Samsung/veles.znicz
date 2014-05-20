@@ -192,60 +192,42 @@ void compute_gravity(__global const int           /* IN */    *argmin,
 /// @param time_reciprocal 1 / t
 /// @details Must be defined externally:
 ///          BATCH - the number of samples, the size of argmin,
-///          CHUNK_SIZE - the number of weights processed by each thread,
+///          SAMPLE_LENGTH - the number of weights in each neuron,
+///          GRADIENT_CHUNK_SIZE - the number of weights processed by each thread,
 ///          NEURONS_NUMBER - the number of neurons.
 __kernel
 void apply_gradient(__global const c_dtype /* IN */      *input,
                     __global const dtype   /* IN */      *gravity,
                     const dtype            /* IN */      time_reciprocal,
                     __global c_dtype       /* IN, OUT */ *weights) {
-  int tx = get_global_id(0);
+  int chunk_number = get_global_id(0);
+  int tindex = get_global_id(1);
+  int weight_number = chunk_number * GRADIENT_CHUNK_SIZE + tindex;
+  if (weight_number >= SAMPLE_LENGTH) {
+    return;
+  }
 
-  c_dtype orig_weights[CHUNK_SIZE * SAMPLE_LENGTH];
-  for (int nindex = tx * CHUNK_SIZE;
-       nindex < MIN((tx + 1) * CHUNK_SIZE, NEURONS_NUMBER);
-       nindex++) {
+  c_dtype orig_weights[NEURONS_NUMBER];
+  for (int n = 0; n < NEURONS_NUMBER; n++) {
 #ifndef WEIGHTS_TRANSPOSED
-    int weights_offset = nindex * SAMPLE_LENGTH;
-    for (int windex = weights_offset;
-         windex < weights_offset + SAMPLE_LENGTH;
-         windex++) {
-      orig_weights[(nindex - tx * CHUNK_SIZE) * SAMPLE_LENGTH +
-                   windex - weights_offset] = weights[windex];
-    }
+    int twi = n * SAMPLE_LENGTH + weight_number;
 #else
-    for (int windex = nindex;
-         windex < NEURONS_NUMBER * SAMPLE_LENGTH;
-         windex += NEURONS_NUMBER) {
-      orig_weights[windex + nindex - tx * CHUNK_SIZE] = weights[windex];
-    }
+    int twi = n + weight_number * NEURONS_NUMBER;
 #endif
+    orig_weights[n] = weights[twi];
   }
 
   for (int sample = 0; sample < BATCH; sample++) {
-    for (int nindex = tx * CHUNK_SIZE;
-         nindex < MIN((tx + 1) * CHUNK_SIZE, NEURONS_NUMBER);
-         nindex++) {
+    for (int n = 0; n < NEURONS_NUMBER; n++) {
 #ifndef WEIGHTS_TRANSPOSED
-      int weights_offset = nindex * SAMPLE_LENGTH;
-      for (int windex = 0; windex <  SAMPLE_LENGTH; windex++) {
-        weights[windex + weights_offset] +=
-            gravity[sample * NEURONS_NUMBER + nindex] * time_reciprocal *
-            (input[sample * SAMPLE_LENGTH + windex] -
-             orig_weights[(nindex - tx * CHUNK_SIZE) * SAMPLE_LENGTH + windex]);
-      }
+      int twi = n * SAMPLE_LENGTH + weight_number;
 #else
-      for (int windex = nindex;
-           windex < NEURONS_NUMBER * SAMPLE_LENGTH;
-           windex += NEURONS_NUMBER) {
-        weights[windex] +=
-            gravity[sample * NEURONS_NUMBER + nindex] * time_reciprocal *
-            (input[sample * SAMPLE_LENGTH + windex / NEURONS_NUMBER] -
-             orig_weights[windex + nindex - tx * CHUNK_SIZE]);
-      }
+      int twi = n + weight_number * NEURONS_NUMBER;
 #endif
+      weights[twi] += gravity[sample * NEURONS_NUMBER + n] *
+          time_reciprocal * (input[sample * SAMPLE_LENGTH + weight_number] -
+          orig_weights[n]);
     }
   }
 }
-
 #endif  // TRAIN
