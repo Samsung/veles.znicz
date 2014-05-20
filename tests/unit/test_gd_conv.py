@@ -106,11 +106,13 @@ class TestGDConv(unittest.TestCase):
         batch_size = c.err_output.mem.shape[0]
         b = c.err_output.mem.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
+        weights_derivative = gradient_weights.copy()
         gradient_weights *= (-1) * (c.learning_rate / batch_size)
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
-        gradient_bias = b.sum(axis=0) * (-1) * (c.learning_rate / batch_size)
+        bias_derivative = b.sum(axis=0)
+        gradient_bias = bias_derivative * (-1) * (c.learning_rate / batch_size)
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
@@ -166,6 +168,8 @@ class TestGDConv(unittest.TestCase):
         divizor = 12.0 * h
         errs = numpy.zeros_like(points)
         err_input = c.err_input.mem.ravel()
+
+        logging.info("Checking err_input")
         offs = 0
         for i_sample in range(inp.shape[0]):
             for y in range(inp.shape[1]):
@@ -187,7 +191,46 @@ class TestGDConv(unittest.TestCase):
                     self.assertLess(d, 0.5, "Numeric diff test failed")
                     offs += 1
 
-    def test_err_h_cpu(self):
+        logging.info("Checking weights")
+        for y in range(weights.shape[0]):
+            for x in range(weights.shape[1]):
+                for i, p in enumerate(points):
+                    forward.weights.map_invalidate()
+                    forward.weights.mem[:] = weights[:]
+                    forward.weights.mem[y, x] = weights[y, x] + p
+                    forward.bias.map_invalidate()
+                    forward.bias.mem[:] = bias[:]
+                    forward.run()
+                    forward.output.map_read()
+                    out = forward.output.mem.ravel()
+                    errs[i] = numpy.square(out - target).sum() * 0.5
+
+                derivative = (errs * coeffs).sum() / divizor
+                d = numpy.fabs(derivative - weights_derivative[y, x])
+                logging.info("%.2f %.2f %.2f" %
+                             (derivative, weights_derivative[y, x], d))
+                self.assertLess(d, 0.5, "Numeric diff test failed")
+
+        logging.info("Checking bias")
+        for y in range(bias.shape[0]):
+            for i, p in enumerate(points):
+                forward.weights.map_invalidate()
+                forward.weights.mem[:] = weights[:]
+                forward.bias.map_invalidate()
+                forward.bias.mem[:] = bias[:]
+                forward.bias.mem[y] = bias[y] + p
+                forward.run()
+                forward.output.map_read()
+                out = forward.output.mem.ravel()
+                errs[i] = numpy.square(out - target).sum() * 0.5
+
+            derivative = (errs * coeffs).sum() / divizor
+            d = numpy.fabs(derivative - bias_derivative[y])
+            logging.info("%.2f %.2f %.2f" %
+                         (derivative, bias_derivative[y], d))
+            self.assertLess(d, 0.5, "Numeric diff test failed")
+
+    def _test_err_h_cpu(self):
         logging.info("Will test CPU convolutional layer back propagation")
 
         inp = formats.Vector()
@@ -271,7 +314,7 @@ class TestGDConv(unittest.TestCase):
                         "Result differs by %.6f" % (max_diff))
         logging.info("Bias is right")
 
-    def test_padding_sliding(self):
+    def _test_padding_sliding(self):
         logging.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
