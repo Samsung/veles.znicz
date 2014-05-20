@@ -29,7 +29,16 @@ class TestConvCaffe(unittest.TestCase):
 
     def _read_array(self, array_name, lines, shape):
         """
-            Shape=(n_pics, size_by_i, size_by_j, n_chans)
+        Reads a pic array from from export file, splitted to lines.
+
+        Args:
+            array_name(str): name of array to read
+        lines(array): lines of file to read from
+        shape(tuple): array shape=(n_pics, height, width, n_chans)
+
+        Returns:
+            :class:`numpy.ndarray`
+
         """
         n_pics, height, width, n_chans = shape
 
@@ -63,9 +72,13 @@ class TestConvCaffe(unittest.TestCase):
                         out_array[cur_pic, i, j, cur_chan] = data[j]
         return out_array
 
-    #TODO: prettify
+    def test_caffe_version(self, data_path="data/convtest.txt"):
+        """
+        Compare CAFFE conv layer fwd prop with Veles conv layer.
 
-    def test_caffe_version(self, data_path="/home/agolovizin/convtest.txt"):
+        Args:
+            data_path(str): path to file with data, exported from CAFFE
+        """
         in_file = open(data_path, 'r')
         lines = in_file.readlines()
         in_file.close()
@@ -84,7 +97,7 @@ class TestConvCaffe(unittest.TestCase):
                              n_kernels=2)
 
         fwd_conv.input = Vector()
-        fwd_conv.input.v = bottom
+        fwd_conv.input.mem = bottom
 
         #UNCOMMENT TO SEE CAFFEE DATA
 #        print("bottom shape:", bottom.shape)
@@ -96,19 +109,22 @@ class TestConvCaffe(unittest.TestCase):
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
-        fwd_conv.weights.v[:] = weights.reshape(2, 75)[:]
+        fwd_conv.weights.mem[:] = weights.reshape(2, 75)[:]
         fwd_conv.bias.map_invalidate()
-        fwd_conv.bias.v[:] = 0
+        fwd_conv.bias.mem[:] = 0
         fwd_conv.run()
 
-        logging.info("COMPARED TO CAFFE DATA:")
+        logging.info("Veles vs CAFFE data:")
         fwd_conv.output.map_read()
 
-        logging.info("Veles top shape:" + str(fwd_conv.output.v.shape))
-        print(fwd_conv.output.v - top)
+        logging.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
+        delta_with_veles = fwd_conv.output.mem - top
+
+        logging.info("Difference with Veles: %.2f%%" % (100. *np.sum(np.abs(
+            delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
         logging.info("COMPARED TO HANDMADE CORRELATION:")
-        hand_conv_out = np.zeros(shape=(2, 32, 32, 2), dtype=np.float64)
+        scipy_conv_out = np.zeros(shape=(2, 32, 32, 2), dtype=np.float64)
 
         for pic in range(2):
             for color_chan in range(3):
@@ -116,8 +132,11 @@ class TestConvCaffe(unittest.TestCase):
                     correlation = correlate2d(
                         bottom[pic, :, :, color_chan],
                         weights[weight_id, :, :, color_chan], mode="same")
-                    hand_conv_out[pic, :, :, weight_id] += correlation
-        print(str(fwd_conv.output.v - hand_conv_out))
+                    scipy_conv_out[pic, :, :, weight_id] += correlation
+
+        delta_with_scipy = fwd_conv.output.mem - scipy_conv_out
+        logging.info("Difference with SciPy: %.2f%%" % (100. * np.sum(np.abs(
+            delta_with_scipy)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

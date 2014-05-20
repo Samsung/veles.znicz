@@ -24,8 +24,8 @@ class Test(unittest.TestCase):
         fe.suffix = "tests"
         for _ in range(3):
             fwd = Forward(workflow, name="forward")
-            fwd.weights.v = numpy.ones(1000)
-            fwd.bias.v = numpy.ones(10)
+            fwd.weights.mem = numpy.ones(1000)
+            fwd.bias.mem = numpy.ones(10)
             fe.forwards.append(fwd)
         fe.initialize()
         fe.run()
