@@ -29,11 +29,11 @@ root.defaults = {
     "decision": {"snapshot_prefix": "spam_kohonen",
                  "epochs": 5},
     "loader": {"minibatch_maxsize": 60,
-               "file": os.path.join(spam_dir, "data.txt.xz"),
-               "validation_ratio": 0},
+               "file": os.path.join(spam_dir, "data.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
     "exporter": {"file": "weights.txt"}}
+root.loader.validation_ratio = 0
 
 
 class WeightsExporter(units.Unit):
