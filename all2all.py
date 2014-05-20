@@ -65,10 +65,10 @@ class All2All(nn_units.Forward):
         """
         if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / self.input.supposed_maxvle /
-                   (self.input.mem.size // self.input.mem.shape[0]))
+                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
         else:
             vle = (9.0 / self.input.supposed_maxvle /
-                   (self.input.mem.size // self.input.mem.shape[0]))
+                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -225,11 +225,11 @@ class All2AllTanh(All2All):
     def get_weights_magnitude(self):
         if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
-                   (self.input.mem.size // self.input.mem.shape[0]))
+                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
         else:
             vle = (All2AllTanh.C /
                    (self.input.supposed_maxvle * All2AllTanh.B *
-                    self.input.mem.size // self.input.mem.shape[0]))
+                    numpy.sqrt(self.input.mem.size // self.input.mem.shape[0])))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
