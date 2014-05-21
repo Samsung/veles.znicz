@@ -127,9 +127,72 @@ class Pooling(nn_units.Forward):
             return retval
         self.print_debug_data(t1)
 
-
+#TODO: fix GPU part
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
+
+    Must be assigned before initialize():
+
+    Updates after run():
+        input_offs
+
+    Creates within initialize():
+        input_offs
+
+    Attributes:
+        input_offs: offsets in the input where maximum elements were found.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(MaxPooling, self).__init__(workflow, **kwargs)
+        self.input_offs = formats.Vector()
+
+    def initialize(self, **kwargs):
+        super(MaxPooling, self).initialize(**kwargs)
+
+        if (self.input_offs.mem is None or
+                self.input_offs.mem.size != self.output.mem.size):
+            self.input_offs.reset()
+            self.input_offs.mem = numpy.zeros(self.output.mem.shape,
+                                            dtype=numpy.int32)
+
+        self.input_offs.initialize(self.device)
+
+        if self.device is None:
+            return
+
+        self.assign_kernel("do_max_pooling")
+        self.set_args(self.input, self.output, self.input_offs)
+
+    def ocl_run(self):
+        self.input_offs.unmap()  # we will be updating input_offs
+        return super(MaxPooling, self).ocl_run()
+
+    def cpu_run(self):
+        self.input.map_read()
+        self.input_offs.map_invalidate()
+        self.output.map_invalidate()
+        for batch, ch in ((batch, ch) for batch in range(self._batch_size)
+                          for ch in range(self._n_channels)):
+            for out_x, out_y in ((out_x, out_y)
+                                 for out_x in range(self._out_sx)
+                                 for out_y in range(self._out_sy)):
+                x1 = out_x * self.sliding[0]
+                y1 = out_y * self.sliding[1]
+                test_idx = x1 + self.kx
+                x2 = test_idx if test_idx <= self._sx else self._sx
+                test_idx = y1 + self.ky
+                y2 = test_idx if test_idx <= self._sy else self._sy
+                cut = self.input.mem[batch, y1:y2, x1:x2, ch]
+                i, j = numpy.unravel_index(cut.argmax(), cut.shape)
+                idx = numpy.ravel_multi_index((batch, y1 + i, x1 + j, ch),
+                                              self.input.mem.shape)
+                val = numpy.ravel(self.input.mem)[idx]
+                self.input_offs.mem[batch, out_y, out_x, ch] = idx
+                self.output.mem[batch, out_y, out_x, ch] = val
+
+
+class MaxAbsPooling(Pooling):
+    """MaxAbsPooling forward propagation.
 
     Must be assigned before initialize():
 

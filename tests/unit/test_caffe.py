@@ -22,7 +22,7 @@ import numpy as np
 
 import os, sys
 
-#os.environ["PYOPENCL_CTX"] = "1:0" #uncomment to change device
+#os.environ["PYOPENCL_CTX"] = "1:0"  #uncomment to change device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -132,7 +132,7 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
         delta_with_veles = fwd_conv.output.mem - top
 
-        logging.info("Difference with Veles: %.2f%%" % (100. * np.sum(np.abs(
+        logging.info("CONV: diff with Veles: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
         logging.info("COMPARED TO HANDMADE CORRELATION:")
@@ -147,7 +147,7 @@ class TestConvCaffe(unittest.TestCase):
                     scipy_conv_out[pic, :, :, weight_id] += correlation
 
         delta_with_scipy = fwd_conv.output.mem - scipy_conv_out
-        logging.info("Difference with SciPy: %.2f%%" % (100. * np.sum(np.abs(
+        logging.info("CONV: diff with SciPy: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_scipy)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
     def _test_caffe_pooling(self, data_path="data/pool.txt"):
@@ -177,7 +177,8 @@ class TestConvCaffe(unittest.TestCase):
 
         # do pooling with VELES
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
-                                      ky=kernel_size, sliding=(stride, stride))
+                                      ky=kernel_size, sliding=(stride, stride),
+                                      device=self.device)
         fwd_pool.input = Vector()
         fwd_pool.input.mem = bottom
         fwd_pool.input.map_write()
@@ -251,7 +252,7 @@ class TestConvCaffe(unittest.TestCase):
         fwd_pool.cpu_run()
         fwd_pool.output.map_read()
 
-        logging.info("Fwd pooling: Veles vs CAFFE: %.3f%%" % (100. * (np.sum(
+        logging.info("FWD POOL: Veles vs CAFFE: %.3f%%" % (100. * (np.sum(
                     np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))))
 
 
@@ -298,7 +299,7 @@ class TestConvCaffe(unittest.TestCase):
         grad_pool.cpu_run()
 
         grad_pool.err_input.map_read()
-        logging.info("Back pooling: Veles vs CAFFE, %.3f%%" % (100 * np.sum(
+        logging.info("BACK POOL: Veles vs CAFFE, %.3f%%" % (100 * np.sum(
             np.abs(grad_pool.err_input.mem - bot_err)) / np.sum(
                                                             np.abs(bot_err))))
 
