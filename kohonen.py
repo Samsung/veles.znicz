@@ -277,9 +277,8 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         chunk_size = self._neurons_number // self.device.max_group_size
         if chunk_size < 2:
             chunk_size = self._neurons_number // 2 + 1
-        self.chunked_group_size = int(numpy.ceil(self._neurons_number /
+        self.chunked_group_size = int(numpy.ceil(float(self._neurons_number) /
                                                  chunk_size))
-
         defines = {
             'BLOCK_SIZE': block_size,
             'BATCH': batch_size,

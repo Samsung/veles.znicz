@@ -10,6 +10,7 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 
 import lzma
 import numpy
+import six
 import os
 
 from veles.config import root
@@ -46,8 +47,13 @@ class Loader(loader.FullBatchLoader):
         file_name = root.loader.file
         if os.path.splitext(file_name)[1] == '.xz':
             self.info("Unpacking %s...", root.loader.file)
-            with lzma.open(root.loader.file, "r") as fin:
+            if six.PY3:
+                with lzma.open(root.loader.file, "r") as fin:
+                    lines = fin.readlines()
+            else:
+                fin = lzma.LZMAFile(root.loader.file, "r")
                 lines = fin.readlines()
+                fin.close()
         else:
             self.info("Reading %s...", root.loader.file)
             with open(root.loader.file, "rb") as fin:
