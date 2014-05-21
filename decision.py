@@ -73,7 +73,11 @@ class DecisionBase(units.Unit):
 
     def generate_data_for_slave(self, slave=None):
         sid = slave.id
-        assert self.slave_minibatch_class_.get(sid) is None
+        if self.slave_minibatch_class_.get(sid) is not None:
+            raise RuntimeError(
+                "generate_data_for_slave: consistency violation. "
+                "slave_minibatch_class[%s] = %s." % (sid,
+                self.slave_minibatch_class_[sid]))
         self.slave_minibatch_class_[sid] = self.minibatch_class
         self.minibatches_balance_[self.minibatch_class] += 1
         if all(self.no_more_minibatches_left):
@@ -91,7 +95,13 @@ class DecisionBase(units.Unit):
         self.minibatch_class = data["minibatch_class"]
         self.minibatch_size = data["minibatch_size"]
         self.minibatch_offset = data["minibatch_offset"]
-        assert self.minibatch_class == self.slave_minibatch_class_[slave.id]
+        if self.minibatch_class != self.slave_minibatch_class_[slave.id]:
+            raise RuntimeError(
+                "apply_data_from_slave: consistency violation. "
+                "self.minibatch_class = %s, slave_minibatch_class = %s, "
+                "slave id = %s." % (CLASS_NAME[self.minibatch_class],
+                CLASS_NAME[self.slave_minibatch_class_[slave.id]],
+                slave.id))
         self.on_apply_data_from_slave(data, slave)
         self.epoch_ended << False
         self._finalize_job(slave)
@@ -424,19 +434,19 @@ class DecisionGD(DecisionBase):
                 self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_write()
             self.minibatch_n_err.mem += data["minibatch_n_err"]
-        if self.minibatch_metrics:
+        if self.minibatch_metrics is not None:
             self.minibatch_metrics.map_write()
             self.minibatch_metrics[0] += data["minibatch_metrics"][0]
             self.minibatch_metrics[1] = max(self.minibatch_metrics[1],
                                             data["minibatch_metrics"][1])
             self.minibatch_metrics[2] = min(self.minibatch_metrics[2],
                                             data["minibatch_metrics"][2])
-        if self.minibatch_max_err_y_sum:
+        if self.minibatch_max_err_y_sum is not None:
             self.minibatch_max_err_y_sum.map_write()
             numpy.maximum(self.minibatch_max_err_y_sum.mem,
                           data["minibatch_max_err_y_sum"],
                           self.minibatch_max_err_y_sum.mem)
-        if self.minibatch_confusion_matrix:
+        if self.minibatch_confusion_matrix is not None:
             self.minibatch_confusion_matrix.map_write()
             self.minibatch_confusion_matrix.mem += data[
                 "minibatch_confusion_matrix"]
