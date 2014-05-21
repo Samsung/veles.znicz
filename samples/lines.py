@@ -85,13 +85,13 @@ class ImageLabel(IntEnum):
     horizontal = 1  # --
     tilted_bottom_to_top = 2  # left lower --> right top (/)
     tilted_top_to_bottom = 3  # left top --> right bottom (\)
-    #straight_grid = 4  # 0 and 90 deg lines simultaneously
-    #tilted_grid = 5  # +45 and -45 deg lines simultaneously
-    #circle = 6
-    #square = 7
-    #right_angle = 8
-    #triangle = 9
-    #sinusoid = 10
+    # straight_grid = 4  # 0 and 90 deg lines simultaneously
+    # tilted_grid = 5  # +45 and -45 deg lines simultaneously
+    # circle = 6
+    # square = 7
+    # right_angle = 8
+    # triangle = 9
+    # sinusoid = 10
 
 
 class Loader(ImageLoader):
@@ -175,7 +175,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "class_samples",
-                                 "no_more_minibatches_left")
+                                 "no_more_minibatches_left", two_way=True)
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),

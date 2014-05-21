@@ -91,7 +91,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.trainer)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "no_more_minibatches_left",
-                                              "class_samples")
+                                              "class_samples", two_way=True)
         self.decision.link_attrs(self.trainer, "weights", "winners")
         self.trainer.epoch_ended = self.decision.epoch_ended
 

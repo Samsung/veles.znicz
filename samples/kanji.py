@@ -215,7 +215,7 @@ class Workflow(nn_units.NNWorkflow):
                                  "no_more_minibatches_left",
                                  "minibatch_offset",
                                  "minibatch_size",
-                                 "class_samples")
+                                 "class_samples", two_way=True)
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
