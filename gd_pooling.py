@@ -201,14 +201,14 @@ class GDMaxPooling(GDPooling):
         if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
             # self.input_offs cannot contain equal values - simple assignment
             for err, offset in numpy.nditer([self.err_output.mem,
-                                             self.input_offs]):
+                                             self.input_offs.mem]):
                 batch, y, x, ch = numpy.unravel_index(offset,
                                                       self.err_input.mem.shape)
                 self.err_input.mem[batch, y, x, ch] = err
         else:
             # self.input_offs can contain equal values
             for err, offset in numpy.nditer([self.err_output.mem,
-                                             self.input_offs]):
+                                             self.input_offs.mem]):
                 batch, y, x, ch = numpy.unravel_index(offset,
                                                       self.err_input.mem.shape)
                 self.err_input.mem[batch, y, x, ch] += err
