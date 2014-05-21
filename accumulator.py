@@ -84,7 +84,12 @@ class RangeAccumulator(units.Unit):
         super(RangeAccumulator, self).initialize(**kwargs)
 
     def run(self):
-        self.info("self.reset_flag %s" % (self.reset_flag))
+        if self.reset_flag:
+            self.x.clear()
+            self.y.clear()
+            self.gl_max = sys.float_info.min
+            self.gl_min = sys.float_info.max
+            self.first_minibatch = True
         if self.first_minibatch:
             self.input.map_read()
             in_max = self.input.mem.max()
@@ -98,7 +103,6 @@ class RangeAccumulator(units.Unit):
             for i in range(0, self.bars):
                 self.y.append(0)
                 self.x.append(in_min + self.d / 2 + i * self.d)
-            self.info("############### Y %s X %s" % (len(self.y), len(self.x)))
             for inp in self.input.mem.ravel():
                 i = int(numpy.floor((inp - in_min) / self.d))
                 self.y[i] += 1
@@ -114,21 +118,39 @@ class RangeAccumulator(units.Unit):
             if in_max > x_max:
                 diff = in_max - x_max
                 i_diff = int(numpy.ceil(diff / self.d))
-                for i in range(0, i_diff):
+                for i in range(1, i_diff + 1):
                     self.y.append(0)
                     self.x.append(x_max - self.d / 2 + i * self.d)
             if in_min < x_min:
                 diff = x_min - in_min
                 i_diff = int(numpy.floor(diff / self.d))
-                for i in range(0, i_diff):
+                for i in range(1, i_diff + 1):
                     self.y.insert(0, 0)
                     self.x.insert(0, x_min + self.d / 2 - i * self.d)
-            self.info("&&&&&&&&&&&&&&& Y %s X %s" % (len(self.y), len(self.x)))
             for inp in self.input.mem.ravel():
                 i = int(numpy.floor((inp - numpy.min(self.x)) / self.d))
                 self.y[i] += 1
-        if self.reset_flag:
-            #self.y = [0] * (len(self.y))
-            self.x = []
-            self.y = []
-            self.first_minibatch = True
+        """
+        if len(self.x) > self.bars:
+            segm = int(len(self.x) / self.bars)
+            residue = len(self.x) - segm * self.bars
+            sum_x = 0
+            x_new = []
+            y_new = []
+            for i in range(0, len(self.x) - residue, segm):
+                for j in range(0, segm):
+                    sum_x += self.x(i + j)
+                    y += self.y(i + j)
+                x = sum_x / segm
+                x_new.append(x)
+                y_new.append(y)
+            for j in range(0, residue):
+                sum_x += self.x(len(self.x) - residue + j)
+                y += self.y(len(self.x) - residue + j)
+            x = sum_x / residue
+            x_new.append(x)
+            y_new.append(y)
+            self.x = self.x_new[:]
+            self.y = self.y_new{:]
+        """
+
