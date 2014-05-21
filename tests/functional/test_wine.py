@@ -14,6 +14,7 @@ import unittest
 from veles.config import root
 import veles.opencl as opencl
 import veles.random_generator as rnd
+from veles.tests import timeout
 import veles.znicz.samples.wine as wine
 import veles.tests.dummy_workflow as dummy_workflow
 
@@ -27,6 +28,7 @@ class TestWine(unittest.TestCase):
     # def tearDown(self):
     #    del self.device
 
+    @timeout
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
