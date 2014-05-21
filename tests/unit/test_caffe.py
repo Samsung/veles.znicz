@@ -13,10 +13,11 @@ from veles.formats import Vector
 
 import veles.znicz.conv as conv
 import veles.znicz.pooling as pooling
+import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd_pooling as gd_pooling
 from veles.tests.dummy_workflow import DummyWorkflow
 
-from scipy.signal import correlate2d
+from scipy.signal import correlate2d, convolve2d
 
 import numpy as np
 
@@ -84,7 +85,7 @@ class TestConvCaffe(unittest.TestCase):
                         out_array[cur_pic, i, j, cur_chan] = data[j]
         return out_array
 
-    def test_caffe_conv(self, data_path="data/conv.txt"):
+    def _test_caffe_conv(self, data_path="data/conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
 
@@ -150,6 +151,135 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("CONV: diff with SciPy: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_scipy)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
+
+    def test_caffe_grad_conv(self, data_path="data/conv_grad.txt"):
+        """
+        Compare CAFFE conv layer with Veles conv layer (FwdProp and BackProp).
+
+        Args:
+            data_path(str): path to file with data, exported from CAFFE
+        """
+        in_file = open(data_path, 'r')
+        lines = in_file.readlines()
+        in_file.close()
+
+        #stride = 1
+        bot_size = 32
+        top_size = 32
+        kernel_size = 5
+        padding_size = 2
+        n_kernels = 2
+        batch_size = 2
+
+        bottom = self._read_array("bottom", lines=lines,
+                                  shape=(batch_size, bot_size, bot_size, 3))
+
+        weights = self._read_array("weights", lines=lines,
+                                   shape=(n_kernels, kernel_size, kernel_size, 3))
+        top = self._read_array("top", lines=lines,
+                               shape=(batch_size, top_size, top_size, 2))
+
+        top_err = self._read_array("top_diff", lines=lines,
+                               shape=(batch_size, top_size, top_size, 2))
+
+        bot_err = self._read_array("bottom_diff", lines=lines,
+                            shape=(batch_size, bot_size, bot_size, 3))
+
+        fwd_conv = conv.Conv(self.workflow, kx=kernel_size, ky=kernel_size,
+                             padding=(padding_size, padding_size,
+                                      padding_size, padding_size),
+                             sliding=(1, 1), n_kernels=n_kernels)
+
+        fwd_conv.input = Vector()
+        fwd_conv.input.mem = bottom
+#
+#        #UNCOMMENT TO SEE CAFFEE DATA
+##        print("bottom shape:", bottom.shape)
+##        print(bottom)
+##        print("weights shape:", weights.shape)
+##        print(weights)
+##        print("top shape:", top.shape)
+##        print(top)
+
+        fwd_conv.initialize(self.device)
+        fwd_conv.weights.map_invalidate()
+        fwd_conv.weights.mem[:] = weights.reshape(2, 75)[:]
+        fwd_conv.bias.map_invalidate()
+        fwd_conv.bias.mem[:] = 0
+        fwd_conv.run()
+
+        logging.info("Veles vs CAFFE data:")
+        fwd_conv.output.map_read()
+
+        logging.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
+        delta_with_veles = fwd_conv.output.mem - top
+
+        logging.info("CONV: diff with CAFFE: %.2f%%" % (100. * np.sum(np.abs(
+            delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
+
+        back_conv = gd_conv.GradientDescentConv(self.workflow, kx=kernel_size,
+                                                padding=(padding_size, padding_size,
+                                                         padding_size, padding_size),
+                                                ky=kernel_size, sliding=(1, 1),
+                                                n_kernels=n_kernels,
+                                                device=self.device)
+
+        back_conv.input = Vector()
+        back_conv.input.mem = bottom
+
+        back_conv.output = Vector()
+        back_conv.output.mem = top
+
+        back_conv.err_output = Vector()
+        back_conv.err_output.mem = top_err.reshape(2, 32 * 32, 2)
+
+        back_conv.weights = Vector()
+        back_conv.weights.map_invalidate()
+        back_conv.weights.mem = fwd_conv.weights.mem
+
+        back_conv.bias = Vector()
+        back_conv.bias.map_invalidate()
+        back_conv.bias.mem = fwd_conv.bias.mem
+
+        back_conv.input.map_write()
+        back_conv.output.map_write()
+        back_conv.err_output.map_write()
+        back_conv.weights.map_write()
+        back_conv.bias.map_write()
+
+        back_conv.batch_size = 2
+
+        back_conv.initialize(device=self.device)
+
+        back_conv.cpu_err_input_update()
+
+        back_conv.err_input.map_read()
+
+        #BACKPROP: difference with CAFFE export
+        back_delta = back_conv.err_input.mem - bot_err
+#        print(bot_err)
+#        print("~~~~~~~~~~")
+#        print(back_conv.err_input.mem)
+
+        logging.info("GDCONV: diff with CAFFE: %.3f%%" % (100. * np.sum(np.abs(
+            delta_with_veles)) / np.sum(np.abs(back_conv.err_input.mem)),))
+
+        #perform manual GD CONV
+        manual_bot_err = np.zeros(shape=(2, bot_size, bot_size, 3),
+                                    dtype=np.float64)
+        for pic in range(batch_size):
+            for color_chan in range(3):
+                for weight_id in range(n_kernels):
+                    conv_result = convolve2d(
+                        top_err[pic, :, :, weight_id],
+                        weights[weight_id, :, :, color_chan], mode="same")
+                    manual_bot_err[pic, :, :, color_chan] += conv_result
+
+        caffe_to_manual_delta = manual_bot_err - bot_err
+        logging.info("Manual GDCONV: diff with CAFFE: %.3f%%" % (
+            100. * np.sum(np.abs(manual_bot_err - bot_err)) / np.sum(
+                                                            np.abs(bot_err))))
+
     def _test_caffe_pooling(self, data_path="data/pool.txt"):
         """
         Compare CAFFE pooling unit fwd_prop with Veles one
@@ -214,7 +344,7 @@ class TestConvCaffe(unittest.TestCase):
                         manual_pooling_out[pic, i_out, j_out, chan] = np.max(
                                                                 (zone))
 
-    def test_caffe_grad_pooling(self, data_path="data/pool_grad.txt"):
+    def _test_caffe_grad_pooling(self, data_path="data/pool_grad.txt"):
         """
         Compare CAFFE pooling unit with Veles ones (fwd and back propagations)
 
@@ -255,7 +385,6 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("FWD POOL: Veles vs CAFFE: %.3f%%" % (100. * (np.sum(
                     np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))))
 
-
         #Do MANUAL pooling
         out_height, out_width = top_size, top_size
         manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
@@ -274,10 +403,6 @@ class TestConvCaffe(unittest.TestCase):
 
                         manual_pooling_out[pic, i_out, j_out, chan] = np.max(
                                                                 (zone))
-
-#        logging.info("CAFFE_top - manual")
-#        print(top - manual_pooling_out)
-#        print(fwd_pool.output.mem - manual_pooling_out)
 
         #BACK PROP
         grad_pool = gd_pooling.GDMaxPooling(self.workflow, kx=kernel_size,
