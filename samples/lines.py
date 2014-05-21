@@ -26,7 +26,8 @@ valid = "/data/veles/Lines/Grid/test"
 
 root.model = "grid"
 
-root.defaults = {"decision": {"fail_iterations": 100},
+root.defaults = {"accumulator": {"bars": 20},
+                 "decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 32},
@@ -101,8 +102,8 @@ class Loader(ImageLoader):
 
     def initialize(self, **kwargs):
         super(Loader, self).initialize(**kwargs)
-        self.original_data += 1.0
-        self.original_data *= 127.5
+        #self.original_data += 1.0
+        self.original_data *= 128
 
 
 class Workflow(StandardWorkflow):
@@ -132,25 +133,21 @@ class Workflow(StandardWorkflow):
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self)
+            accum = accumulator.RangeAccumulator(
+                self, bars=root.accumulator.bars)
             self.accumulator.append(accum)
-            self.accumulator[-1].link_from(self.fwds[i])
-            self.accumulator[-1].link_attrs(self.fwds[i],
-                                        ("input", "output"))
-        """
-        for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self,
-                                                 bars=root.accumulator.n_bars)
-            self.accumulator.append(accum)
-        self.accumulator[-1].link_from(self.fwds[-1])
-        self.accumulator[-1].link_attrs(self.fwds[-1],
-                                        ("input", "output"))
-        """
+            self.accumulator[-1].link_from(self.fwds[-1])
+            self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
+
+        self.accumulat = accumulator.RangeAccumulator(
+            self, bars=root.accumulator.bars)
+        self.accumulat.link_from(self.accumulator[-1])
+        self.accumulat.link_attrs(self.loader, ("input", "minibatch_data"))
+
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        self.image_saver.link_from(self.accumulator[-1])
-        self.image_saver.link_from(self.fwds[-1])
+        self.image_saver.link_from(self.accumulat)
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
@@ -197,7 +194,10 @@ class Workflow(StandardWorkflow):
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
         for i in range(0, len(layers)):
-            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
+            self.accumulator[i].link_attrs(self.decision,
+                                           ("reset_flag", "epoch_ended"))
+        self.accumulat.link_attrs(self.decision,
+                                  ("reset_flag", "epoch_ended"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self._create_gradient_descent_units()
@@ -215,7 +215,7 @@ class Workflow(StandardWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
         """
-
+        """
         # Weights plotter
         self.plt_mx = []
         prev_channels = 3
@@ -326,18 +326,26 @@ class Workflow(StandardWorkflow):
                                                 ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
+        """
 
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
             hist = plotting_units.Histogram(
-                self, name="Y %s %s" % (i + 1, layers[i]["type"]))
+                self,
+                name="Y %s %s" % (i + 1, layers[i]["type"]))
             self.plt_hist.append(hist)
             self.plt_hist[i].link_from(self.decision)
-            self.plt_hist[i].link_attrs(
-                self.accumulator[i], ("input", "output"),
-                ("x", "input"), "n_bars")
+            self.plt_hist[i].link_attrs(self.accumulator[i], "y", "x",
+                                        "gl_min", "gl_max")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
+
+        self.plt_hist_load = plotting_units.Histogram(
+                self, name="Y Loader")
+        self.plt_hist_load.link_from(self.decision)
+        self.plt_hist_load.link_attrs(self.accumulat, "y", "x",
+                                        "gl_min", "gl_max")
+        self.plt_hist_load.gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
@@ -346,7 +354,6 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device):
-        # self.gds[0].learning_rate = 0.03
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)

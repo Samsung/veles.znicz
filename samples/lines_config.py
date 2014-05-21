@@ -15,14 +15,18 @@ from veles.config import root
 
 # optional parameters
 
-train = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"
-valid = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"
+#train = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"
+#valid = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"
+
+train = "/data/veles/Lines/lines_super_min/learn"
+valid = "/data/veles/Lines/lines_super_min/test"
 
 root.model = "lines"
 
-root.update = {"decision": {"fail_iterations": 100,
-                            "snapshot_prefix": "lines"},
-               "loader": {"minibatch_maxsize": 60},
+root.update = {"accumulator": {"bars": 20},
+               "decision": {"fail_iterations": 100},
+               "snapshotter": {"prefix": "lines"},
+               "loader": {"minibatch_maxsize": 30},
                "weights_plotter": {"limit": 32},
                "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
@@ -42,9 +46,9 @@ root.update = {"decision": {"fail_iterations": 100,
                            "learning_rate": 0.03, "weights_decay": 0.0,
                            "gradient_moment": 0.9,
                            "weights_filling": "gaussian",
-                           "weights_stddev": 0.001,
+                           "weights_stddev": 0.0001,
                            "bias_filling": "gaussian",
-                           "bias_stddev": 0.001
+                           "bias_stddev": 0.0001
                            },
                           {"type": "max_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -63,7 +67,7 @@ root.update = {"decision": {"fail_iterations": 100,
                            "learning_rate": 0.01, "weights_decay": 0.0,
                            "gradient_moment": 0.9,
                            "weights_filling": "uniform",
-                           #"weights_stddev": 0.05,
+                          #"weights_stddev": 0.05,
                            "bias_filling": "uniform",
                            #"bias_stddev": 0.05
                            },
