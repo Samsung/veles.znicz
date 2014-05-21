@@ -35,9 +35,11 @@ class StandardWorkflow(nn_units.NNWorkflow):
         del self.fwds[:]
         for i in range(0, len(self.layers)):
             layer = self.layers[i]
-            kwargs = {"weights_filling": layer.get("weights_filling"),
+            kwargs = {"weights_filling": layer.get("weights_filling",
+                                                   "uniform"),
                       "weights_stddev": layer.get("weights_stddev"),
-                      "bias_filling": layer.get("bias_filling"),
+                      "bias_filling": layer.get("bias_filling",
+                                                "uniform"),
                       "bias_stddev": layer.get("bias_stddev")}
             layer_ct = {"conv": lambda layer:
                         conv.ConvTanh(
