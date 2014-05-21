@@ -367,16 +367,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             for idx, cut in enumerate(unrolled_err):
                 cut = cut.reshape(self.ky, self.kx, n_channels)
 
-                by, bx = numpy.unravel_index(idx, (ny, nx))
-                y1, y2 = (by * self.sliding[1],
-                          by * self.sliding[1] + self.ky)
-                x1, x2 = (bx * self.sliding[0],
-                          bx * self.sliding[0] + self.kx)
+                out_y, out_x = numpy.unravel_index(idx, (ny, nx))
+                y1, y2 = (out_y * self.sliding[1],
+                          out_y * self.sliding[1] + self.ky)
+                x1, x2 = (out_x * self.sliding[0],
+                          out_x * self.sliding[0] + self.kx)
                 i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
                           min(max(y2 - self.padding[1], 0), sy))
                 j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
                           min(max(x2 - self.padding[0], 0), sx))
-                cut = cut[(i1 - y1):(i2 - y1), (j1 - x1):(j2 - x1)]
+                cut = cut[(i1 - y1 + self.padding[1]):(i2 - y1 + self.padding[1]),
+                          (j1 - x1 + self.padding[0]):(j2 - x1 + self.padding[0])]
                 true_cut_shape = self.err_input.mem[batch, i1:i2, j1:j2].shape
                 self.err_input.mem[batch, i1:i2, j1:j2] += \
                     cut.reshape(true_cut_shape)
