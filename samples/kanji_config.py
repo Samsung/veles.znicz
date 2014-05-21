@@ -18,10 +18,10 @@ from veles.config import root
 
 root.update = {
     "decision": {"fail_iterations": 1000,
-                 "snapshot_prefix": "kanji",
                  "store_samples_mse": True},
     "loader": {"minibatch_maxsize": 5103,
                "validation_ratio": 0.15},
+    "snapshotter": {"prefix": "kanji"},
     "weights_plotter": {"limit": 16},
     "kanji": {"learning_rate": 0.001,
               "weights_decay": 0.00005,
