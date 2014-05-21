@@ -13,11 +13,16 @@ from veles.formats import Vector
 
 import veles.znicz.conv as conv
 import veles.znicz.pooling as pooling
+import veles.znicz.gd_pooling as gd_pooling
 from veles.tests.dummy_workflow import DummyWorkflow
 
 from scipy.signal import correlate2d
 
 import numpy as np
+
+import os, sys
+
+#os.environ["PYOPENCL_CTX"] = "1:0" #uncomment to change device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -31,6 +36,7 @@ class TestConvCaffe(unittest.TestCase):
     def _read_array(self, array_name, lines, shape):
         """
         Reads a pic array from from export file, splitted to lines.
+        NB: last line should be empty
 
         Args:
             array_name(str): name of array to read
@@ -48,8 +54,11 @@ class TestConvCaffe(unittest.TestCase):
         cur_line = None
         for i, line in enumerate(lines):
             line = line.replace("\n", "")
+#            print([array_name, line])
             if line == array_name:
+
                 cur_line = i + 1
+                break
 
         assert cur_line is not None
         assert cur_line < len(lines)
@@ -59,6 +68,7 @@ class TestConvCaffe(unittest.TestCase):
             assert nibbles[0] == "num"
             assert int(nibbles[1]) == cur_pic
             cur_line += 1
+
             for cur_chan in range(n_chans):
                 nibbles = lines[cur_line].split(":")
                 assert nibbles[0] == "channels"
@@ -66,6 +76,7 @@ class TestConvCaffe(unittest.TestCase):
                 cur_line += 1
 
                 for i in range(height):
+#                    print(lines[cur_line].split("\t"))
                     data = [float(x) for x in lines[cur_line].split("\t")]
                     cur_line += 1
 
@@ -73,7 +84,7 @@ class TestConvCaffe(unittest.TestCase):
                         out_array[cur_pic, i, j, cur_chan] = data[j]
         return out_array
 
-    def test_caffe_conv(self, data_path="data/convtest.txt"):
+    def test_caffe_conv(self, data_path="data/conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
 
@@ -121,7 +132,7 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
         delta_with_veles = fwd_conv.output.mem - top
 
-        logging.info("Difference with Veles: %.2f%%" % (100. *np.sum(np.abs(
+        logging.info("Difference with Veles: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
         logging.info("COMPARED TO HANDMADE CORRELATION:")
@@ -139,7 +150,7 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("Difference with SciPy: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_scipy)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
-    def test_caffe_pooling(self, data_path="/home/agolovizin/pooltest.txt"):
+    def _test_caffe_pooling(self, data_path="data/pool.txt"):
         """
         Compare CAFFE pooling unit fwd_prop with Veles one
 
@@ -159,12 +170,10 @@ class TestConvCaffe(unittest.TestCase):
         in_height, in_width = 32, 32
         out_height, out_width = 16, 16
 
-
         bottom = self._read_array("bottom", lines=lines,
                                   shape=(2, in_height, in_width, 2))
         top = self._read_array("top", lines=lines,
                                shape=(2, out_height, out_width, 2))
-
 
         # do pooling with VELES
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
@@ -175,7 +184,7 @@ class TestConvCaffe(unittest.TestCase):
 
         fwd_pool.initialize(device=self.device)
 
-        fwd_pool.run()
+        fwd_pool.cpu_run()
         fwd_pool.output.map_read()
 
         # UNCOMMENT TO SEE EXTRA DEBUG DATA
@@ -194,17 +203,104 @@ class TestConvCaffe(unittest.TestCase):
                 for i_out in range(out_height):
                     for j_out in range(out_width):
                         min_i = i_out * 2
-                        max_i = i_out * 2 + 3
+                        max_i = i_out * 2 + kernel_size - 1
                         min_j = j_out * 2
-                        max_j = j_out * 2 + 3
+                        max_j = j_out * 2 + kernel_size - 1
 
-                        zone = bottom[pic, min_i: max_i, min_j: max_j, chan]
+                        zone = bottom[pic, min_i: max_i + 1, min_j: max_j + 1,
+                                                                        chan]
+
+                        manual_pooling_out[pic, i_out, j_out, chan] = np.max(
+                                                                (zone))
+
+    def test_caffe_grad_pooling(self, data_path="data/pool_grad.txt"):
+        """
+        Compare CAFFE pooling unit with Veles ones (fwd and back propagations)
+
+        Args:
+            data_path(str): path to file with pooling data, exported from CAFFE
+        """
+        bot_size = 32
+        top_size = 16
+        kernel_size = 3
+        stride = 2
+        n_chans = 2
+        n_pics = 2
+
+        lines = open(data_path, 'r').readlines()
+        lines = [line.replace("\t\n", "").replace("\n", "") for line in lines]
+
+        bottom = self._read_array("bottom", lines,
+                                  shape=(n_pics, bot_size, bot_size, n_chans))
+        top = self._read_array("top", lines,
+                               shape=(n_pics, top_size, top_size, n_chans))
+        bot_err = self._read_array("bottom_diff", lines,
+                                   shape=(n_pics, bot_size, bot_size, n_chans))
+        top_err = self._read_array("top_diff", lines,
+                                shape=(n_pics, top_size, top_size, n_chans))
+
+        #FORWARD PROP
+        fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
+                                      ky=kernel_size, sliding=(stride, stride))
+        fwd_pool.input = Vector()
+        fwd_pool.input.mem = bottom
+        fwd_pool.input.map_write()
+
+        fwd_pool.initialize(device=self.device)
+
+        fwd_pool.cpu_run()
+        fwd_pool.output.map_read()
+
+        logging.info("Fwd pooling: Veles vs CAFFE: %.3f%%" % (100. * (np.sum(
+                    np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))))
+
+
+        #Do MANUAL pooling
+        out_height, out_width = top_size, top_size
+        manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
+                                      dtype=np.float64)
+        for pic in range(2):
+            for chan in range(2):
+                for i_out in range(out_height):
+                    for j_out in range(out_width):
+                        min_i = i_out * stride
+                        max_i = i_out * stride + kernel_size - 1
+                        min_j = j_out * stride
+                        max_j = j_out * stride + kernel_size - 1
+
+                        zone = bottom[pic, min_i: max_i + 1, min_j: max_j + 1,
+                                                                        chan]
+
                         manual_pooling_out[pic, i_out, j_out, chan] = np.max(
                                                                 (zone))
 
 #        logging.info("CAFFE_top - manual")
 #        print(top - manual_pooling_out)
+#        print(fwd_pool.output.mem - manual_pooling_out)
 
+        #BACK PROP
+        grad_pool = gd_pooling.GDMaxPooling(self.workflow, kx=kernel_size,
+                                            ky=kernel_size,
+                                            sliding=(stride, stride),
+                                            device=self.device)
+        grad_pool.input = Vector()
+        grad_pool.input.mem = bottom
+        grad_pool.input.map_write()
+
+        grad_pool.err_output = Vector()
+        grad_pool.err_output.mem = top_err
+        grad_pool.err_output.map_write()
+
+        grad_pool.input_offs = fwd_pool.input_offs
+
+        grad_pool.initialize(device=self.device)
+
+        grad_pool.cpu_run()
+
+        grad_pool.err_input.map_read()
+        logging.info("Back pooling: Veles vs CAFFE, %.3f%%" % (100 * np.sum(
+            np.abs(grad_pool.err_input.mem - bot_err)) / np.sum(
+                                                            np.abs(bot_err))))
 
 
 if __name__ == "__main__":
