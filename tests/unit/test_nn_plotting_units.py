@@ -32,6 +32,7 @@ class Test(unittest.TestCase):
         plotter.cm = matplotlib.cm
         plotter.pp = matplotlib.pyplot
         plotter.patches = matplotlib.patches
+        plotter.show_figure = plotter.nothing
         return plotter
 
     def plot(self, plotter):
@@ -47,6 +48,7 @@ class Test(unittest.TestCase):
         kh.input = numpy.digitize(numpy.random.uniform(
             size=kh.input.size), numpy.arange(0.05, 1.05, 0.05)).reshape(
             kh.input.shape)
+        kh.shape = (10, 9)
         self.plot(kh)
 
     def testKohonenInputMaps(self):
@@ -54,7 +56,7 @@ class Test(unittest.TestCase):
         kim.input = numpy.empty((100, 4))
         kim.input = numpy.random.uniform(size=kim.input.size).reshape(
             kim.input.shape)
-        kim.width = kim.height = 10
+        kim.shape = (10, 10)
         self.plot(kim)
 
     def testKohonenNeighborMap(self):
@@ -62,7 +64,7 @@ class Test(unittest.TestCase):
         knm.input = numpy.empty((100, 4))
         knm.input = numpy.random.uniform(size=knm.input.size).reshape(
             knm.input.shape)
-        knm.width = knm.height = 10
+        knm.shape = (10, 10)
         self.plot(knm)
 
 if __name__ == "__main__":

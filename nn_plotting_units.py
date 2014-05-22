@@ -364,7 +364,9 @@ class KohonenHits(plotter.Plotter):
         # Add hexagons one by one
         for y in range(self.height):
             for x in range(self.width):
-                number = self.input[y * self.width + x]
+                number = self.input[x, y] if \
+                    not isinstance(self.input, formats.Vector) \
+                    else self.input[y * self.width + x]
                 # square is proportional to the square root of the linear
                 # size / the hits number
                 self._add_hexagon(axes, patches, x, y,
@@ -437,7 +439,11 @@ class KohonenInputMaps(plotter.Plotter):
         fig = self.pp.figure(self.name)
         if not fast_redraw:
             fig.clf()
-        length = self.input.mem.shape[1]
+        if isinstance(self.input, formats.Vector):
+            input_array = self.input.mem
+        else:
+            input_array = self.input
+        length = input_array.shape[1]
         if length < 3:
             grid_shape = (length, 1)
         elif length < 5:
@@ -461,7 +467,7 @@ class KohonenInputMaps(plotter.Plotter):
                 axes.add_collection(col)
             else:
                 col = axes.collections[0]
-            arr = self.input[:, index]
+            arr = input_array[:, index]
             amax = numpy.max(arr)
             amin = numpy.min(arr)
             col.set_array((arr - amin) / (amax - amin))
