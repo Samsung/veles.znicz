@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
+import scipy.signal
 from veles.external.prettytable import PrettyTable
 import time
 
@@ -355,32 +356,28 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         n_channels = self.input.mem.size // (batch_size * sx * sy)
         sx_full = self.padding[0] + sx + self.padding[2]
         sy_full = self.padding[1] + sy + self.padding[3]
-        nx = (sx_full - self.kx) // self.sliding[0] + 1
-        ny = (sy_full - self.ky) // self.sliding[1] + 1
 
         self.err_input.mem[:] = 0
-        for batch in range(batch_size):
-            # calculate unrolled input error
-            unrolled_err = numpy.dot(self.err_output.mem[batch],
-                                     self.weights.mem)
-            # roll array of input errors
-            for idx, cut in enumerate(unrolled_err):
-                cut = cut.reshape(self.ky, self.kx, n_channels)
-
-                out_y, out_x = numpy.unravel_index(idx, (ny, nx))
-                y1, y2 = (out_y * self.sliding[1],
-                          out_y * self.sliding[1] + self.ky)
-                x1, x2 = (out_x * self.sliding[0],
-                          out_x * self.sliding[0] + self.kx)
-                i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
-                          min(max(y2 - self.padding[1], 0), sy))
-                j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
-                          min(max(x2 - self.padding[0], 0), sx))
-                cut = cut[(i1 - y1 + self.padding[1]):(i2 - y1 + self.padding[1]),
-                          (j1 - x1 + self.padding[0]):(j2 - x1 + self.padding[0])]
-                true_cut_shape = self.err_input.mem[batch, i1:i2, j1:j2].shape
-                self.err_input.mem[batch, i1:i2, j1:j2] += \
-                    cut.reshape(true_cut_shape)
+        # initialize sparse output error
+        sparse_err_output = numpy.zeros((batch_size, sy_full - self.ky + 1,
+                                         sx_full - self.kx + 1, self.n_kernels))
+        print(sparse_err_output.shape)
+        for (batch, i, j, k), err in numpy.ndenumerate(self.err_output.mem):
+            sparse_err_output[batch, i * self.sliding[1],
+                              j * self.sliding[0], k] = err
+        err_sample = numpy.empty((sy_full - self.ky + 1, sx_full - self.kx + 1))
+        for batch, k in ((batch, k)
+                         for batch in range(batch_size)
+                         for k in range(self.n_kernels)):
+            err_sample[:] = sparse_err_output[batch, :, :, k]
+            cur_kernel = self.weights.mem[k].reshape(self.ky, self.kx,
+                                                     n_channels)
+            for ch in range(n_channels):
+                err_input_full = scipy.signal.convolve2d(err_sample,
+                        cur_kernel[:, :, ch], mode='full')
+                self.err_input.mem[batch, :, :, ch] += \
+                        err_input_full[self.padding[1]:(sy_full - self.padding[3]),
+                                       self.padding[0]:(sx_full - self.padding[2])]
 
     def print_debug_data(self, t_start):
         """

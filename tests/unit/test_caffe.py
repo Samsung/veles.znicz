@@ -23,7 +23,7 @@ import numpy as np
 
 import os, sys
 
-#os.environ["PYOPENCL_CTX"] = "1:0"  #uncomment to change device
+# os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -112,7 +112,7 @@ class TestConvCaffe(unittest.TestCase):
         fwd_conv.input = Vector()
         fwd_conv.input.mem = bottom
 
-        #UNCOMMENT TO SEE CAFFEE DATA
+        # UNCOMMENT TO SEE CAFFEE DATA
 #        print("bottom shape:", bottom.shape)
 #        print(bottom)
 #        print("weights shape:", weights.shape)
@@ -163,7 +163,7 @@ class TestConvCaffe(unittest.TestCase):
         lines = in_file.readlines()
         in_file.close()
 
-        #stride = 1
+        # stride = 1
         bot_size = 32
         top_size = 32
         kernel_size = 5
@@ -194,12 +194,12 @@ class TestConvCaffe(unittest.TestCase):
         fwd_conv.input.mem = bottom
 #
 #        #UNCOMMENT TO SEE CAFFEE DATA
-##        print("bottom shape:", bottom.shape)
-##        print(bottom)
-##        print("weights shape:", weights.shape)
-##        print(weights)
-##        print("top shape:", top.shape)
-##        print(top)
+# #        print("bottom shape:", bottom.shape)
+# #        print(bottom)
+# #        print("weights shape:", weights.shape)
+# #        print(weights)
+# #        print("top shape:", top.shape)
+# #        print(top)
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
@@ -231,40 +231,31 @@ class TestConvCaffe(unittest.TestCase):
         back_conv.output.mem = top
 
         back_conv.err_output = Vector()
-        back_conv.err_output.mem = top_err.reshape(2, 32 * 32, 2)
+        back_conv.err_output.mem = top_err
 
         back_conv.weights = Vector()
-        back_conv.weights.map_invalidate()
         back_conv.weights.mem = fwd_conv.weights.mem
 
         back_conv.bias = Vector()
-        back_conv.bias.map_invalidate()
         back_conv.bias.mem = fwd_conv.bias.mem
-
-        back_conv.input.map_write()
-        back_conv.output.map_write()
-        back_conv.err_output.map_write()
-        back_conv.weights.map_write()
-        back_conv.bias.map_write()
-
         back_conv.batch_size = 2
 
         back_conv.initialize(device=self.device)
 
-        back_conv.cpu_err_input_update()
+        back_conv.gpu_err_input_update()
 
         back_conv.err_input.map_read()
 
-        #BACKPROP: difference with CAFFE export
+        # BACKPROP: difference with CAFFE export
         back_delta = back_conv.err_input.mem - bot_err
 #        print(bot_err)
 #        print("~~~~~~~~~~")
 #        print(back_conv.err_input.mem)
 
-        logging.info("GDCONV: diff with CAFFE: %.3f%%" % (100. * np.sum(np.abs(
-            delta_with_veles)) / np.sum(np.abs(back_conv.err_input.mem)),))
+        logging.info("GDCONV: diff with CAFFE: %.3f%%" % (100. * np.sum(np.fabs(
+            back_delta)) / np.sum(np.fabs(back_conv.err_input.mem)),))
 
-        #perform manual GD CONV
+        # perform manual GD CONV
         manual_bot_err = np.zeros(shape=(2, bot_size, bot_size, 3),
                                     dtype=np.float64)
         for pic in range(batch_size):
@@ -277,8 +268,8 @@ class TestConvCaffe(unittest.TestCase):
 
         caffe_to_manual_delta = manual_bot_err - bot_err
         logging.info("Manual GDCONV: diff with CAFFE: %.3f%%" % (
-            100. * np.sum(np.abs(manual_bot_err - bot_err)) / np.sum(
-                                                            np.abs(bot_err))))
+            100. * np.sum(np.fabs(manual_bot_err - bot_err)) / np.sum(
+                                                            np.fabs(bot_err))))
 
     def _test_caffe_pooling(self, data_path="data/pool.txt"):
         """
@@ -288,12 +279,12 @@ class TestConvCaffe(unittest.TestCase):
             data_path(str): path to file with pooling data, exported from CAFFE
         """
 
-        #load pooling data from CAFFE dumps
+        # load pooling data from CAFFE dumps
         in_file = open(data_path, 'r')
         lines = in_file.readlines()
         in_file.close()
 
-        #max pooling: 3x3 kernel, 2x2 stride
+        # max pooling: 3x3 kernel, 2x2 stride
         kernel_size = 3
         stride = 2
 
@@ -326,7 +317,7 @@ class TestConvCaffe(unittest.TestCase):
 #        print(np.sum(np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))
 #        print(fwd_pool.output.mem - top)
 
-        #do MANUAL pooling
+        # do MANUAL pooling
         manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
                                       dtype=np.float64)
         for pic in range(2):
@@ -370,7 +361,7 @@ class TestConvCaffe(unittest.TestCase):
         top_err = self._read_array("top_diff", lines,
                                 shape=(n_pics, top_size, top_size, n_chans))
 
-        #FORWARD PROP
+        # FORWARD PROP
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
                                       ky=kernel_size, sliding=(stride, stride))
         fwd_pool.input = Vector()
@@ -385,7 +376,7 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("FWD POOL: Veles vs CAFFE: %.3f%%" % (100. * (np.sum(
                     np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))))
 
-        #Do MANUAL pooling
+        # Do MANUAL pooling
         out_height, out_width = top_size, top_size
         manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
                                       dtype=np.float64)
@@ -404,7 +395,7 @@ class TestConvCaffe(unittest.TestCase):
                         manual_pooling_out[pic, i_out, j_out, chan] = np.max(
                                                                 (zone))
 
-        #BACK PROP
+        # BACK PROP
         grad_pool = gd_pooling.GDMaxPooling(self.workflow, kx=kernel_size,
                                             ky=kernel_size,
                                             sliding=(stride, stride),
