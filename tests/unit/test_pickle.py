@@ -25,8 +25,10 @@ class PickleTest(units.Pickleable):
         self.c = c
 
     def init_unpickled(self):
+        super(PickleTest, self).init_unpickled()
         global g_pt
         g_pt += 1
+        self.c = None
 
 
 class TestPickle(unittest.TestCase):
@@ -34,21 +36,20 @@ class TestPickle(unittest.TestCase):
         # Test for correct behavior of units.Pickleable
         pt = PickleTest(a="AA", c="CC")
         self.assertEqual(g_pt, 1, "Pickle test failed.")
+        self.assertEqual("CC", pt.c)
         pt.d = "D"
         pt.h_ = "HH"
         try:
             os.mkdir("cache")
         except OSError:
             pass
-        fout = open("cache/test.pickle", "wb")
-        pickle.dump(pt, fout)
-        fout.close()
+        with open("cache/test.pickle", "wb") as fout:
+            pickle.dump(pt, fout)
         del(pt)
-        fin = open("cache/test.pickle", "rb")
-        pt = pickle.load(fin)
-        fin.close()
+        with open("cache/test.pickle", "rb") as fin:
+            pt = pickle.load(fin)
         self.assertListEqual([g_pt, pt.d, pt.c, pt.b, pt.a, pt.h_],
-                             [2, "D", "CC", "B", "AA", None],
+                             [2, "D", None, "B", "AA", None],
                              "Pickle test failed.")
 
 
