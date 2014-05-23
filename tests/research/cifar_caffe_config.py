@@ -69,4 +69,4 @@ root.update = {
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9}],
 
               "data_paths": {"train": train_dir,
-                                     "validation": validation_dir}}}
+                             "validation": validation_dir}}}

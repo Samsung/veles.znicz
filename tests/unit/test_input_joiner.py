@@ -43,11 +43,13 @@ class TestInputJoiner(unittest.TestCase):
             numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
         self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
-                                          b.mem.shape[1]]))
+            numpy.equal(b.mem,
+                        obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
+                                       b.mem.shape[1]]))
         self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(c.mem, obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:]))
+            numpy.equal(c.mem,
+                        obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:]))
         self.assertEqual(nz, c.mem.size, "Failed")
 
     def _do_tst2(self, device):
@@ -69,16 +71,21 @@ class TestInputJoiner(unittest.TestCase):
             numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
         self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
-                                          b.mem.shape[1]]))
+            numpy.equal(b.mem,
+                        obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
+                                       b.mem.shape[1]]))
         self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
             numpy.equal(
                 c.mem, obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:
-                                  a.mem.shape[1] + b.mem.shape[1] + c.mem.shape[1]]))
+                                      a.mem.shape[1] +
+                                      b.mem.shape[1] +
+                                      c.mem.shape[1]]))
         self.assertEqual(nz, c.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1] + c.mem.shape[1]:])
+            obj.output.mem[:, a.mem.shape[1] +
+                           b.mem.shape[1] +
+                           c.mem.shape[1]:])
         self.assertEqual(nz, 0, "Failed")
 
     def _do_tst3(self, device):
@@ -100,12 +107,13 @@ class TestInputJoiner(unittest.TestCase):
             numpy.equal(a.mem, obj.output.mem[:, :a.mem.shape[1]]))
         self.assertEqual(nz, a.mem.size, "Failed")
         nz = numpy.count_nonzero(
-            numpy.equal(b.mem, obj.output.mem[:, a.mem.shape[1]:a.mem.shape[1] +
-                                          b.mem.shape[1]]))
+            numpy.equal(b.mem, obj.output.mem[:,
+                                              a.mem.shape[1]:a.mem.shape[1] +
+                                              b.mem.shape[1]]))
         self.assertEqual(nz, b.mem.size, "Failed")
         nz = numpy.count_nonzero(
             numpy.equal(c.mem[:, :obj.output.mem.shape[1] -
-                            (a.mem.shape[1] + b.mem.shape[1])],
+                              (a.mem.shape[1] + b.mem.shape[1])],
                         obj.output.mem[:, a.mem.shape[1] + b.mem.shape[1]:]))
         self.assertEqual(
             nz, obj.output.mem.shape[0] * (

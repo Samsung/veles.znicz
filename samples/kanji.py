@@ -136,7 +136,7 @@ class Loader(loader.Loader):
 
         self.minibatch_indexes.reset()
         self.minibatch_indexes.mem = numpy.zeros(len(self.index_map),
-                                               dtype=numpy.int32)
+                                                 dtype=numpy.int32)
 
     def fill_minibatch(self):
         """Fill minibatch data labels and indexes according to current shuffle.

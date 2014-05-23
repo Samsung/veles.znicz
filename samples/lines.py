@@ -340,11 +340,10 @@ class Workflow(StandardWorkflow):
                                         "gl_min", "gl_max")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
 
-        self.plt_hist_load = plotting_units.Histogram(
-                self, name="Y Loader")
+        self.plt_hist_load = plotting_units.Histogram(self, name="Y Loader")
         self.plt_hist_load.link_from(self.decision)
         self.plt_hist_load.link_attrs(self.accumulat, "y", "x",
-                                        "gl_min", "gl_max")
+                                      "gl_min", "gl_max")
         self.plt_hist_load.gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block

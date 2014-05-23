@@ -440,7 +440,7 @@ class FullBatchLoader(Loader):
 
         self.minibatch_indexes.reset()
         self.minibatch_indexes.mem = numpy.zeros(len(self.original_data),
-                                               dtype=numpy.int32)
+                                                 dtype=numpy.int32)
 
     def fill_minibatch(self):
         super(FullBatchLoader, self).fill_minibatch()

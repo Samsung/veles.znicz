@@ -13,6 +13,7 @@ from veles.znicz.nn_units import GradientDescentBase
 
 from math import floor
 
+
 class LearningRateAdjust(units.Unit):
     """
     This unit should be linked from Decision to run with each minibatch.
@@ -62,6 +63,7 @@ class LearningRateAdjust(units.Unit):
         self._minibatches_count += 1
 
 #LEARNING RATE POLICIES:
+
 
 def exp_adjust_policy(base_lr, gamma, a_ratio):
     """

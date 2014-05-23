@@ -28,26 +28,29 @@ class TestImageSaver(unittest.TestCase):
 
     def data(self):
         self.minibatch_data = formats.Vector()
-        self.minibatch_data.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
+        self.minibatch_data.mem = numpy.zeros([20, 32, 32],
+                                              dtype=numpy.float32)
         rnd.get().fill(self.minibatch_data.mem)
 
         self.lbls = formats.Vector()
         self.lbls.mem = numpy.array([1, 0, 0, 2, 4,
-                                   7, 9, 3, 6, 8,
-                                   6, 3, 5, 5, 5,
-                                   9, 0, 1, 1, 0], dtype=numpy.int8)
+                                     7, 9, 3, 6, 8,
+                                     6, 3, 5, 5, 5,
+                                     9, 0, 1, 1, 0], dtype=numpy.int8)
 
         self.max_idx = formats.Vector()
         self.max_idx.mem = numpy.array([1, 2, 1, 2, 4,
-                                      7, 8, 3, 6, 8,
-                                      6, 1, 5, 5, 9,
-                                      9, 0, 1, 4, 0], dtype=self.lbls.mem.dtype)
+                                        7, 8, 3, 6, 8,
+                                        6, 1, 5, 5, 9,
+                                        9, 0, 1, 4, 0],
+                                       dtype=self.lbls.mem.dtype)
 
         self.indexes = formats.Vector()
         self.indexes.mem = numpy.array([0, 1, 2, 3, 4,
-                                      5, 6, 7, 8, 9,
-                                      0, 1, 2, 3, 4,
-                                      5, 6, 7, 8, 9], dtype=self.lbls.mem.dtype)
+                                        5, 6, 7, 8, 9,
+                                        0, 1, 2, 3, 4,
+                                        5, 6, 7, 8, 9],
+                                       dtype=self.lbls.mem.dtype)
 
         self.output = formats.Vector()
         self.output.mem = numpy.zeros([20, 10], dtype=numpy.float32)

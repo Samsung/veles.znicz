@@ -39,8 +39,8 @@ root.defaults = {"decision": {"fail_iterations": 100,
                            "weights_decay": 0.0,
                            "layers": [30, 2],
                            "data_paths": {"train": train_dir,
-                                                  "validation":
-                                                  validation_dir}}}
+                                          "validation":
+                                          validation_dir}}}
 
 
 class Loader(loader.ImageLoader):

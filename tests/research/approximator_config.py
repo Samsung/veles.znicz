@@ -24,4 +24,4 @@ root.update = {"decision": {"fail_iterations": 1000,
                                 "weights_decay": 0.00005,
                                 "layers": [810, 9],
                                 "data_paths": {"target": target,
-                                                       "train": train}}}
+                                               "train": train}}}

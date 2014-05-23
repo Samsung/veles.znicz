@@ -61,7 +61,8 @@ class InputJoiner(OpenCLUnit):
         if self.minibatch_size[0] is None:
             minibatch_size = self.inputs[0].mem.shape[0]
             for i in range(1, len(self.inputs)):
-                minibatch_size = min(minibatch_size, self.inputs[i].mem.shape[0])
+                minibatch_size = min(minibatch_size,
+                                     self.inputs[i].mem.shape[0])
             self.minibatch_size[0] = minibatch_size
         else:
             minibatch_size = self.minibatch_size[0]
@@ -107,7 +108,8 @@ class InputJoiner(OpenCLUnit):
         output_sample_size = self.output.mem.size // self.output.mem.shape[0]
         for inp in self.inputs:
             inp.map_read()
-            high = min(low + inp.mem.size // inp.mem.shape[0], output_sample_size)
+            high = min(low + inp.mem.size // inp.mem.shape[0],
+                       output_sample_size)
             if low >= high:
                 break
             self.output.mem[:minibatch_size, low:high] = (

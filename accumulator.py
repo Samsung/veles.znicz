@@ -153,4 +153,3 @@ class RangeAccumulator(units.Unit):
             self.x = self.x_new[:]
             self.y = self.y_new{:]
         """
-

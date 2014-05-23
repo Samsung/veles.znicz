@@ -415,7 +415,8 @@ class TestGDConv(unittest.TestCase):
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
-                        " ".join("%.2f" % x for x in c.err_input.mem.ravel())))
+                         " ".join("%.2f" % x for x in
+                                  c.err_input.mem.ravel())))
         logging.info("Err_input is right")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()

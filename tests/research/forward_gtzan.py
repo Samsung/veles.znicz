@@ -70,7 +70,7 @@ root.forward_gtzan.defaults = {"colors": ["blue",
                                "graphics": 1,
                                "limit": 2000000000,
                                "data_paths": {"features":
-                                                      features_dir},
+                                              features_dir},
                                "plotter_window_name": "",
                                "shift_size": 10,
                                "snapshot": snapshot_dir,
