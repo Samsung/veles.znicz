@@ -111,7 +111,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.mem.size != self.input.mem.size):
             self.err_input.reset()
             self.err_input.mem = numpy.zeros(self.input.mem.shape,
-                                           dtype=self.err_output.mem.dtype)
+                                             dtype=self.err_output.mem.dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.mem is None or
@@ -178,11 +178,13 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
             self.krn_err_input_ = self.get_kernel("err_h_update")
-            self.krn_err_input_.set_args(self.err_output.devmem, self.weights.devmem,
+            self.krn_err_input_.set_args(self.err_output.devmem,
+                                         self.weights.devmem,
                                          self.err_input.devmem)
 
             self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_args(self.err_output.devmem, self.input.devmem,
+            self.krn_weights_.set_args(self.err_output.devmem,
+                                       self.input.devmem,
                                        self.weights.devmem)
             self.krn_weights_.set_arg(3, self.gradient_weights.devmem)
 
@@ -360,12 +362,14 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.err_input.mem[:] = 0
         # initialize sparse output error
         sparse_err_output = numpy.zeros((batch_size, sy_full - self.ky + 1,
-                                         sx_full - self.kx + 1, self.n_kernels))
+                                         sx_full - self.kx + 1,
+                                         self.n_kernels))
         print(sparse_err_output.shape)
         for (batch, i, j, k), err in numpy.ndenumerate(self.err_output.mem):
             sparse_err_output[batch, i * self.sliding[1],
                               j * self.sliding[0], k] = err
-        err_sample = numpy.empty((sy_full - self.ky + 1, sx_full - self.kx + 1))
+        err_sample = numpy.empty((sy_full - self.ky + 1,
+                                  sx_full - self.kx + 1))
         for batch, k in ((batch, k)
                          for batch in range(batch_size)
                          for k in range(self.n_kernels)):
@@ -374,10 +378,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                                      n_channels)
             for ch in range(n_channels):
                 err_input_full = scipy.signal.convolve2d(err_sample,
-                        cur_kernel[:, :, ch], mode='full')
+                                                         cur_kernel[:, :, ch],
+                                                         mode='full')
                 self.err_input.mem[batch, :, :, ch] += \
-                        err_input_full[self.padding[1]:(sy_full - self.padding[3]),
-                                       self.padding[0]:(sx_full - self.padding[2])]
+                    err_input_full[self.padding[1]:(sy_full - self.padding[3]),
+                                   self.padding[0]:(sx_full - self.padding[2])]
 
     def print_debug_data(self, t_start):
         """
