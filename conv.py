@@ -263,19 +263,24 @@ class Conv(nn_units.Forward):
                          for ch in range(self._n_channels)):
             for k, kernel in enumerate(self.weights.mem):
                 for i, j in ((i, j) for i in range(ny) for j in range(nx)):
-                    y1, y2 = (i * self.sliding[1],
-                              i * self.sliding[1] + self.ky)
-                    x1, x2 = (j * self.sliding[0],
-                              j * self.sliding[0] + self.kx)
-                    i1, i2 = (min(max(y1 - self.padding[1], 0), self._sy),
-                              min(max(y2 - self.padding[1], 0), self._sy))
-                    j1, j2 = (min(max(x1 - self.padding[0], 0), self._sx),
-                              min(max(x2 - self.padding[0], 0), self._sx))
-                    if i2 - i1 > 0 or j2 - j1 > 0:
-                        cut = self.input.mem[batch, i1:i2, j1:j2]
-                        kernel_2d = kernel.reshape(self.ky, self.kx)
-                        cutted_kernel = kernel_2d[(i1 - y1):(i2 - y1),
-                                                  (j1 - x1):(j2 - x1)]
+                    full_i1 = i * self.sliding[1]
+                    full_i2 = full_i1 + self.ky
+                    full_j1 = j * self.sliding[0]
+                    full_j2 = full_j1 + self.kx
+                    in_i1 = min(max(full_i1 - self.padding[1], 0), self._sy)
+                    in_i2 = min(max(full_i2 - self.padding[1], 0), self._sy)
+                    in_j1 = min(max(full_j1 - self.padding[0], 0), self._sx)
+                    in_j2 = min(max(full_j2 - self.padding[0], 0), self._sx)
+                    cut_i1, cut_i2 = (in_i1 - full_i1 + self.padding[1],
+                                      in_i2 - full_i1 + self.padding[1])
+                    cut_j1, cut_j2 = (in_j1 - full_j1 + self.padding[0],
+                                      in_j2 - full_j1 + self.padding[0])
+                    if in_i2 - in_i1 > 0 or in_j2 - in_j1 > 0:
+                        cut = self.input.mem[batch, in_i1:in_i2, in_j1:in_j2]
+                        kernel_3d = kernel.reshape(self.ky, self.kx,
+                                                   self._n_channels)
+                        cutted_kernel = kernel_3d[cut_i1:cut_i2,
+                                                  cut_j1:cut_j2, :]
                         assert(cut.size == cutted_kernel.size)
                         conv = numpy.sum(numpy.multiply(cut.ravel(),
                                                         cutted_kernel.ravel()))
