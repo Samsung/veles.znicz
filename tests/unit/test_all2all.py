@@ -33,10 +33,10 @@ class TestAll2All(unittest.TestCase):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
-                             [0, 1, 2, 1, 0],
-                             [0, 1, 0, 1, 0],
-                             [2, 0, 1, 0, 2],
-                             [1, 0, 1, 0, 1]], dtype=dtype)
+                               [0, 1, 2, 1, 0],
+                               [0, 1, 0, 1, 0],
+                               [2, 0, 1, 0, 2],
+                               [1, 0, 1, 0, 1]], dtype=dtype)
 
         weights = numpy.array([[1, 0, 2, 1, -1],
                               [3, 1, 0, 2, 3],

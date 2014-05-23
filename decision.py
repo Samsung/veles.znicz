@@ -76,8 +76,8 @@ class DecisionBase(units.Unit):
         if self.slave_minibatch_class_.get(sid) is not None:
             raise RuntimeError(
                 "generate_data_for_slave: consistency violation. "
-                "slave_minibatch_class[%s] = %s." % (sid,
-                self.slave_minibatch_class_[sid]))
+                "slave_minibatch_class[%s] = %s." %
+                (sid, self.slave_minibatch_class_[sid]))
         self.slave_minibatch_class_[sid] = self.minibatch_class
         self.minibatches_balance_[self.minibatch_class] += 1
         if all(self.no_more_minibatches_left):
@@ -99,9 +99,10 @@ class DecisionBase(units.Unit):
             raise RuntimeError(
                 "apply_data_from_slave: consistency violation. "
                 "self.minibatch_class = %s, slave_minibatch_class = %s, "
-                "slave id = %s." % (CLASS_NAME[self.minibatch_class],
-                CLASS_NAME[self.slave_minibatch_class_[slave.id]],
-                slave.id))
+                "slave id = %s." %
+                (CLASS_NAME[self.minibatch_class],
+                 CLASS_NAME[self.slave_minibatch_class_[slave.id]],
+                 slave.id))
         self.on_apply_data_from_slave(data, slave)
         self.epoch_ended << False
         self._finalize_job(slave)

@@ -58,15 +58,16 @@ class Pooling(nn_units.Forward):
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
-                                                 self._sy)
+        self._n_channels = self.input.mem.size //
+        (self._batch_size * self._sx * self._sy)
         self._out_sx = self._sx // self.sliding[0] + (
             0 if self._sx % self.sliding[0] == 0 else 1)
         self._out_sy = self._sy // self.sliding[1] + (
             0 if self._sy % self.sliding[1] == 0 else 1)
         self._output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
-        if self.output.mem is None or self.output.mem.size != self._output_size:
+        if self.output.mem is None or
+        self.output.mem.size != self._output_size:
             self.output.reset()
             self.output.mem = numpy.zeros(
                 [self._batch_size, self._out_sy, self._out_sx,
@@ -127,6 +128,7 @@ class Pooling(nn_units.Forward):
             return retval
         self.print_debug_data(t1)
 
+
 #TODO: fix GPU part
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
@@ -153,7 +155,7 @@ class MaxPooling(Pooling):
                 self.input_offs.mem.size != self.output.mem.size):
             self.input_offs.reset()
             self.input_offs.mem = numpy.zeros(self.output.mem.shape,
-                                            dtype=numpy.int32)
+                                              dtype=numpy.int32)
 
         self.input_offs.initialize(self.device)
 
@@ -216,7 +218,7 @@ class MaxAbsPooling(Pooling):
                 self.input_offs.mem.size != self.output.mem.size):
             self.input_offs.reset()
             self.input_offs.mem = numpy.zeros(self.output.mem.shape,
-                                            dtype=numpy.int32)
+                                              dtype=numpy.int32)
 
         self.input_offs.initialize(self.device)
 

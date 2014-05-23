@@ -107,12 +107,13 @@ class Conv(nn_units.Forward):
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
-                                                 self._sy)
+        self._n_channels = self.input.mem.size //
+        (self._batch_size * self._sx * self._sy)
         n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
         if self.weights.mem is None or self.weights.mem.size != n_weights:
             self.weights.reset()
-            self.weights.mem = numpy.zeros(n_weights, dtype=self.input.mem.dtype)
+            self.weights.mem = numpy.zeros(n_weights,
+                                           dtype=self.input.mem.dtype)
             if self.weights_filling == "uniform":
                 self.rand.fill(self.weights.mem, -self.weights_stddev,
                                self.weights_stddev)
@@ -133,7 +134,8 @@ class Conv(nn_units.Forward):
         if (self.bias.mem is None or
                 self.bias.mem.size != self.n_kernels):
             self.bias.reset()
-            self.bias.mem = numpy.zeros(self.n_kernels, dtype=self.input.mem.dtype)
+            self.bias.mem = numpy.zeros(self.n_kernels,
+                                        dtype=self.input.mem.dtype)
             if self.bias_filling == "uniform":
                 self.rand.fill(self.bias.mem, -self.bias_stddev,
                                self.bias_stddev)
@@ -156,7 +158,8 @@ class Conv(nn_units.Forward):
         output_size = int(numpy.prod(output_shape))
         if self.output.mem is None or self.output.mem.size != output_size:
             self.output.reset()
-            self.output.mem = numpy.zeros(output_shape, dtype=self.input.mem.dtype)
+            self.output.mem = numpy.zeros(output_shape,
+                                          dtype=self.input.mem.dtype)
         del output_size
         del output_shape
 
@@ -280,8 +283,8 @@ class Conv(nn_units.Forward):
 
                         # add bias and apply activation function
                         if self.s_activation == "ACTIVATION_LINEAR":
-                            self.output.mem[batch, i, j, k] = (conv +
-                                                             self.bias.mem[k])
+                            self.output.mem[batch, i, j, k] =
+                            (conv + self.bias.mem[k])
                         elif self.s_activation == "ACTIVATION_TANH":
                             self.output.mem[batch, i, j, k] = \
                                 math.tanh((conv + self.bias.mem[k])

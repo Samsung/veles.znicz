@@ -64,7 +64,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.a = formats.Vector()
         self.a.mem = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
-                               dtype=self.dtype)
+                                 dtype=self.dtype)
         rnd.get().fill(self.a.mem, -0.1, 0.1)
         if a_col:
             self.a.mem.shape = (self.AB_WIDTH, self.A_HEIGHT)
@@ -73,7 +73,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.b = formats.Vector()
         self.b.mem = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
-                               dtype=self.dtype)
+                                 dtype=self.dtype)
         rnd.get().fill(self.b.mem, -0.1, 0.1)
         if b_col:
             self.b.mem.shape = (self.AB_WIDTH, self.B_HEIGHT)
@@ -86,7 +86,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.c = formats.Vector()
         self.c.mem = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
-                              dtype=self.dtype)
+                                dtype=self.dtype)
 
     def _cleanup_after_tsts(self):
         del(self.c)

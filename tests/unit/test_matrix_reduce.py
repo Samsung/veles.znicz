@@ -68,11 +68,11 @@ class TestMatrixReduce(unittest.TestCase):
 
         a = formats.Vector()
         a.mem = numpy.array([[1, 2, 3],
-                           [-1, -2, -3],
-                           [9, 8, 7],
-                           [-3, -4, -5],
-                           [-1, -2, -3],
-                           [7, 7, 7]], dtype=dtype)
+                             [-1, -2, -3],
+                             [9, 8, 7],
+                             [-3, -4, -5],
+                             [-1, -2, -3],
+                             [7, 7, 7]], dtype=dtype)
         b = formats.Vector()
         b.mem = numpy.ones(a.mem.shape[1] * 2, dtype=dtype)
 
@@ -82,7 +82,8 @@ class TestMatrixReduce(unittest.TestCase):
         b.initialize(self.device)
 
         for reduce_size in range(1, 11):
-            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], True,
+            krn = self._build_program(a, b, a.mem.shape[1],
+                                      a.mem.shape[0], True,
                                       reduce_size)
             global_size = [a.mem.shape[1] * reduce_size]
             local_size = [reduce_size]
@@ -119,7 +120,8 @@ class TestMatrixReduce(unittest.TestCase):
 
         for reduce_size in range(4, 64, 1):
             logging.info("reduce_size = %d", reduce_size)
-            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], True,
+            krn = self._build_program(a, b, a.mem.shape[1],
+                                      a.mem.shape[0], True,
                                       reduce_size)
             global_size = [a.mem.shape[1] * reduce_size]
             local_size = [reduce_size]
@@ -135,7 +137,8 @@ class TestMatrixReduce(unittest.TestCase):
             b[:] = 1
             b.unmap()
 
-            krn = self._build_program(a, b, a.mem.shape[1], a.mem.shape[0], False,
+            krn = self._build_program(a, b, a.mem.shape[1],
+                                      a.mem.shape[0], False,
                                       reduce_size)
             global_size = [a.mem.shape[0] * reduce_size]
             local_size = [reduce_size]

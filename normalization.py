@@ -69,7 +69,7 @@ class LRNormalizerForward(LocalResponseNormalizer):
     def initialize(self, **kwargs):
         super(LRNormalizerForward, self).initialize(**kwargs)
         self.output.mem = np.ndarray(shape=self.input.mem.shape,
-                                   dtype=self.input.mem.dtype)
+                                     dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -129,7 +129,7 @@ class LRNormalizerBackward(LocalResponseNormalizer):
     def initialize(self, **kwargs):
         super(LRNormalizerBackward, self).initialize(**kwargs)
         self.err_input.mem = np.zeros(self.err_output.mem.shape,
-                                    dtype=self.err_output.mem.dtype)
+                                      dtype=self.err_output.mem.dtype)
 
         self.err_output.initialize(self.device)
         self.input.initialize(self.device)
@@ -173,12 +173,13 @@ class LRNormalizerBackward(LocalResponseNormalizer):
             max_index = min(i + int(self.n / 2), num_of_chans - 1)
 
             delta_h = np.zeros(dtype=np.float64,
-                          shape=err_h[:, :, :, i].shape)
+                               shape=err_h[:, :, :, i].shape)
             for j in range(min_index, max_index + 1):
                 dh = np.zeros(shape=delta_h.shape, dtype=np.float64)
                 if i == j:
                     dh += input_subsums[:, :, :, j]
-                dh -= (2 * self.beta * self.alpha * self.input.mem[:, :, :, i] *
+                dh -= (2 * self.beta * self.alpha *
+                       self.input.mem[:, :, :, i] *
                        self.input.mem[:, :, :, j])
                 dh *= (err_y[:, :, :, j] /
                        input_subsums_powered[:, :, :, j])

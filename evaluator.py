@@ -75,7 +75,7 @@ class EvaluatorSoftmax(OpenCLUnit):
                 self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                            dtype=self.output.mem.dtype)
+                                              dtype=self.output.mem.dtype)
 
         if self.n_err.mem is None or self.n_err.mem.size < 2:
             self.n_err.reset()
@@ -120,7 +120,8 @@ class EvaluatorSoftmax(OpenCLUnit):
             }
 
             self.build_program(defines, "ev_%d.cl" %
-                               (self.output.mem.size // self.output.mem.shape[0]),
+                               (self.output.mem.size //
+                                self.output.mem.shape[0]),
                                dtype=self.output.mem.dtype)
 
             self.assign_kernel("ev_sm")
@@ -292,7 +293,8 @@ class EvaluatorMSE(OpenCLUnit):
                               if self.class_target is not None else 0)}
 
             self.build_program(defines, "ev_%d.cl" %
-                               (self.output.mem.size // self.output.mem.shape[0]),
+                               (self.output.mem.size //
+                                self.output.mem.shape[0]),
                                dtype=self.output.mem.dtype)
 
             self.assign_kernel("ev_mse")
@@ -302,7 +304,9 @@ class EvaluatorMSE(OpenCLUnit):
             if self.labels is not None and self.class_target is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
                 self.krn_find_closest_.set_args(
-                    self.output.devmem, self.class_target.devmem, self.labels.devmem,
+                    self.output.devmem,
+                    self.class_target.devmem,
+                    self.labels.devmem,
                     self.n_err.devmem)
 
     def ocl_run(self):
@@ -358,4 +362,3 @@ class EvaluatorMSE(OpenCLUnit):
         self.metrics.mem[0] += numpy.sum(self.mse.mem)
         self.metrics.mem[1] = max(self.metrics.mem[1], self.mse.mem.max())
         self.metrics.mem[2] = min(self.metrics.mem[2], self.mse.mem.min())
-

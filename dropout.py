@@ -62,7 +62,8 @@ class DropoutForward(Forward, Dropout):
         self.states.mem = self.rand.randint(
             low=0, high=0x100000000,
             size=self.input.mem.size * 4).astype(np.uint32)
-        if (self.output.mem is None or self.output.mem.size != self.input.mem.size):
+        if (self.output.mem is None or
+                self.output.mem.size != self.input.mem.size):
             self.output.reset()
             self.output.mem = np.zeros_like(self.input.mem)
         self.input.initialize(device)
@@ -72,7 +73,8 @@ class DropoutForward(Forward, Dropout):
         self._threshold_arg_ = np.empty(1, dtype=np.uint64)
         self._pass_arg_ = np.empty(1, dtype=self.input.mem.dtype)
 
-        self.build_program({}, "dropout_forward.cl", dtype=self.input.mem.dtype)
+        self.build_program({}, "dropout_forward.cl",
+                           dtype=self.input.mem.dtype)
 
         self.assign_kernel("dropout_forward")
         self.set_args(self.input, None, None, self.states, self.mask,
@@ -84,7 +86,7 @@ class DropoutForward(Forward, Dropout):
         np.maximum(self.mask.mem, 0, self.mask.mem)
         np.ceil(self.mask.mem, self.mask.mem)
         self.mask.mem = (self.mask.mem.astype(self.input.mem.dtype) /
-                       leave_ratio)
+                         leave_ratio)
 
     def cpu_run(self):
         self.output.map_invalidate()

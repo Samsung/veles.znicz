@@ -107,7 +107,7 @@ class KohonenForward(nn_units.Forward):
         self.weights.map_read()
         a = formats.reshape(
             self.input.mem, [self.input.mem.shape[0],
-                           self.input.mem.size // self.input.mem.shape[0]])
+                             self.input.mem.size // self.input.mem.shape[0]])
         b = self.weights.mem
         if not self.weights_transposed:
             b = b.transpose()
@@ -201,7 +201,7 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         if self.weights.mem is None:
             self.weights.reset()
             self.weights.mem = numpy.zeros(weights_size,
-                                         dtype=self.input.mem.dtype)
+                                           dtype=self.input.mem.dtype)
             filling = {
                 "uniform": lambda rand: rand.fill(
                     self.weights.mem, -self.weights_stddev,
@@ -236,7 +236,7 @@ class KohonenTrainer(nn_units.GradientDescentBase):
 
         self._coords.reset()
         self._coords.mem = numpy.zeros([self._neurons_number, 2],
-                                    dtype=self.weights.mem.dtype)
+                                       dtype=self.weights.mem.dtype)
         sz = self._neurons_number
         rows = int(numpy.round(numpy.sqrt(sz)))
         cols = sz // rows
@@ -389,7 +389,8 @@ class KohonenTrainer(nn_units.GradientDescentBase):
         self.krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
         self.execute_kernel(
             [int(numpy.ceil(self._sample_length / self.device.max_group_size)),
-            self.device.max_group_size], None, self.krn_apply_gradient_).wait()
+             self.device.max_group_size],
+            None, self.krn_apply_gradient_).wait()
 
     iteration = staticmethod(iteration)
 

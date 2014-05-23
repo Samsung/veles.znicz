@@ -60,8 +60,8 @@ class GDPooling(nn_units.GradientDescentBase):
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size // (self._batch_size * self._sx *
-                                                 self._sy)
+        self._n_channels = self.input.mem.size //
+        (self._batch_size * self._sx * self._sy)
         self._out_sx = self._sx // self.sliding[0] + (
             0 if self._sx % self.sliding[0] == 0 else 1)
         self._out_sy = self._sy // self.sliding[1] + (
@@ -181,7 +181,8 @@ class GDMaxPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_max_pooling")
-            self.krn_err_input_.set_args(self.err_output.devmem, self.err_input.devmem,
+            self.krn_err_input_.set_args(self.err_output.devmem,
+                                         self.err_input.devmem,
                                          self.input_offs.devmem)
 
     def ocl_run(self):
@@ -232,7 +233,8 @@ class GDAvgPooling(GDPooling):
 
         if self.krn_err_input_ is None:
             self.krn_err_input_ = self.get_kernel("gd_avg_pooling")
-            self.krn_err_input_.set_args(self.err_output.devmem, self.err_input.devmem)
+            self.krn_err_input_.set_args(self.err_output.devmem,
+                                         self.err_input.devmem)
 
     def cpu_run(self):
         self.err_output.map_read()
@@ -240,7 +242,8 @@ class GDAvgPooling(GDPooling):
 
         if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
             # disjoint kernels
-            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
+            for (batch, y, x, ch),
+            err in numpy.ndenumerate(self.err_output.mem):
                 hx1 = x * self.sliding[0]
                 hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
@@ -254,7 +257,8 @@ class GDAvgPooling(GDPooling):
         else:
             # joint kernels
             self.err_input.mem[:] = 0
-            for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
+            for (batch, y, x, ch),
+            err in numpy.ndenumerate(self.err_output.mem):
                 hx1 = x * self.sliding[0]
                 hx2 = hx1 + self.kx
                 hx2 = hx2 if hx2 < self._sx else self._sx
