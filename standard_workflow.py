@@ -25,7 +25,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         kwargs["device"] = self.device
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
 
-    def _parse_forwards_from_config(self):
+    def parse_forwards_from_config(self):
         """
         Parsing forward units from config.
         Adds a new fowrard unit to self.fwds, links it with previous fwd unit
@@ -119,7 +119,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         new_unit.link_from(prev_forward_unit)
         self.fwds.append(new_unit)
 
-    def _create_gradient_descent_units(self):
+    def create_gradient_descent_units(self):
         '''
         Creates gradient descent units for previously made self.fwds.
         Feeds their inputs with respect of their order.

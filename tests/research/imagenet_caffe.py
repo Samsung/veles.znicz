@@ -144,7 +144,7 @@ class Workflow(StandardWorkflow):
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
-        self._create_gradient_descent_units()
+        self.create_gradient_descent_units()
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])

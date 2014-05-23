@@ -121,7 +121,7 @@ class Workflow(StandardWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self._parse_forwards_from_config()
+        self.parse_forwards_from_config()
 
         # Add Accumulator units
         """
@@ -181,7 +181,7 @@ class Workflow(StandardWorkflow):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
-        self._create_gradient_descent_units()
+        self.create_gradient_descent_units()
 
         self.repeater.link_from(self.gds[0])
 
