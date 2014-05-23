@@ -60,11 +60,12 @@ class GradientDescent(nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         super(GradientDescent, self).initialize(device=device, **kwargs)
-        if (self.need_err_input and (self.err_input.mem is None or
-                self.err_input.mem.size != self.input.mem.size)):
+        if (self.need_err_input and
+            (self.err_input.mem is None or
+             self.err_input.mem.size != self.input.mem.size)):
             self.err_input.reset()
             self.err_input.mem = numpy.zeros(self.input.mem.shape,
-                                           dtype=self.err_output.mem.dtype)
+                                             dtype=self.err_output.mem.dtype)
 
         if (self.store_gradient and
             (self.gradient_weights.mem is None or
@@ -118,10 +119,12 @@ class GradientDescent(nn_units.GradientDescentBase):
             if self.need_err_input:
                 self.krn_err_input_ = self.get_kernel("err_h_update")
                 self.krn_err_input_.set_args(
-                    self.err_output.devmem, self.weights.devmem, self.err_input.devmem)
+                    self.err_output.devmem, self.weights.devmem,
+                    self.err_input.devmem)
 
             self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_args(self.err_output.devmem, self.input.devmem,
+            self.krn_weights_.set_args(self.err_output.devmem,
+                                       self.input.devmem,
                                        self.weights.devmem)
             # It can be None
             self.krn_weights_.set_arg(3, self.gradient_weights.devmem)
@@ -151,7 +154,7 @@ class GradientDescent(nn_units.GradientDescentBase):
              self.err_output.mem.size // self.err_output.mem.shape[0]])
         inp = formats.reshape(
             self.input.mem, [self.input.mem.shape[0],
-                           self.input.mem.size // self.input.mem.shape[0]])
+                             self.input.mem.size // self.input.mem.shape[0]])
         gradient = numpy.dot(err_output.transpose(), inp)
         gradient *= alpha_batch
         gradient += self.weights.mem * alpha_lambda
@@ -214,7 +217,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_args(None, None, None, self.cl_const[0:1],
                                 self.cl_const[1:2], self.cl_const[2:3])
-        global_size = [(self.err_output.mem.size // self.err_output.mem.shape[0]) *
+        global_size = [(self.err_output.mem.size //
+                        self.err_output.mem.shape[0]) *
                        self.reduce_size]
         local_size = [self.reduce_size]
         ev2 = self.execute_kernel(global_size, local_size, self.krn_bias_)
@@ -239,7 +243,8 @@ class GradientDescent(nn_units.GradientDescentBase):
             [self.err_input.mem.shape[0],
              self.err_input.mem.size // self.err_input.mem.shape[0]])
         if self.weights_transposed:
-            err_input[:] = numpy.dot(err_output, self.weights.mem.transpose())[:]
+            err_input[:] = numpy.dot(err_output,
+                                     self.weights.mem.transpose())[:]
         else:
             err_input[:] = numpy.dot(err_output, self.weights.mem)[:]
 
@@ -366,7 +371,8 @@ class GDTanh(GradientDescent):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem, self.output.devmem)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
 
 
 class GDRELU(GradientDescent):
@@ -390,4 +396,5 @@ class GDRELU(GradientDescent):
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem, self.output.devmem)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
