@@ -76,15 +76,30 @@ class RangeAccumulator(units.Unit):
         self.first_minibatch = True
         self.y = []
         self.d = 0
+        self.x_out = []
+        self.y_out = []
+        self.squash = kwargs.get("squash", True)
         self.reset_flag = Bool(False)
         self.gl_min = sys.float_info.max
         self.gl_max = sys.float_info.min
+        self.residue_bars = 0
+        self.inside_bar = False
 
     def initialize(self, **kwargs):
         super(RangeAccumulator, self).initialize(**kwargs)
 
     def run(self):
         if self.reset_flag:
+            self.x_out.clear()
+            self.y_out.clear()
+            if self.squash:
+                out = self.squash_bars(self.x, self.y)
+                self.x_out = out[0]
+                self.y_out = out[1]
+            else:
+                for i in range(0, len(self.x)):
+                    self.x_out.append(self.x[i])
+                    self.y_out.append(self.y[i])
             self.x.clear()
             self.y.clear()
             self.gl_max = sys.float_info.min
@@ -130,26 +145,55 @@ class RangeAccumulator(units.Unit):
             for inp in self.input.mem.ravel():
                 i = int(numpy.floor((inp - numpy.min(self.x)) / self.d))
                 self.y[i] += 1
-        """
-        if len(self.x) > self.bars:
-            segm = int(len(self.x) / self.bars)
-            residue = len(self.x) - segm * self.bars
+
+    def squash_bars(self, x_inp, y_inp):
+        if len(x_inp) != len(y_inp):
+            raise error.ErrBadFormat(
+                "Shape of X %s not equal shape of Y %s !" %
+                (len(x_inp), len(y_inp)))
+        if len(x_inp) > self.bars:
+            segm = int(numpy.ceil(len(x_inp) / self.bars))
+            segm_min = int(numpy.floor(len(x_inp) / self.bars))
+            residue = 0 if segm == segm_min else (
+                len(x_inp) - segm * int(len(x_inp) / segm))
+            if int(numpy.ceil(len(x_inp) / segm)) < self.bars:
+                self.inside_bar = True
+                residue = len(x_inp) - segm_min * int(self.bars / segm_min)
             sum_x = 0
-            x_new = []
-            y_new = []
-            for i in range(0, len(self.x) - residue, segm):
-                for j in range(0, segm):
-                    sum_x += self.x(i + j)
-                    y += self.y(i + j)
-                x = sum_x / segm
-                x_new.append(x)
-                y_new.append(y)
-            for j in range(0, residue):
-                sum_x += self.x(len(self.x) - residue + j)
-                y += self.y(len(self.x) - residue + j)
-            x = sum_x / residue
-            x_new.append(x)
-            y_new.append(y)
-            self.x = self.x_new[:]
-            self.y = self.y_new{:]
-        """
+            y = 0
+            if self.inside_bar:
+                for i in range(0, len(x_inp) - residue, segm_min):
+                    sum_x, y = [sum(arr[i:i + segm_min])
+                                for arr in [x_inp, y_inp]]
+                    x = sum_x / segm_min
+                    self.x_out.append(x)
+                    self.y_out.append(y)
+                if residue:
+                    for j in range(0, residue):
+                        sum_x = (self.x_out[-1] +
+                                 x_inp[len(x_inp) - residue + j])
+                        y = self.y_out[-1] + y_inp[len(x_inp) - residue + j]
+                    x = sum_x / residue
+                    self.x_out[-1] = x
+                    self.y_out[-1] = y
+            else:
+                for i in range(0, len(x_inp) - residue, segm):
+                    sum_x, y = [sum(arr[i:i + segm])
+                                for arr in [x_inp, y_inp]]
+                    x = sum_x / segm
+                    self.x_out.append(x)
+                    self.y_out.append(y)
+                if residue:
+                    sum_x = 0
+                    y = 0
+                    for j in range(0, residue):
+                        sum_x += x_inp[len(x_inp) - residue + j]
+                        y += y_inp[len(x_inp) - residue + j]
+                    x = sum_x / residue
+                    self.x_out.append(x)
+                    self.y_out.append(y)
+        else:
+            for i in range(0, len(x_inp)):
+                self.x_out.append(x_inp[i])
+                self.y_out.append(y_inp[i])
+        return (self.x_out, self.y_out)
