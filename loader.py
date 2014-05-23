@@ -14,6 +14,7 @@ import time
 import veles.config as config
 import veles.error as error
 import veles.formats as formats
+from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.random_generator as rnd
 import veles.units as units
@@ -99,6 +100,7 @@ class Loader(units.Unit):
         self.original_labels = None
 
         self.samples_served = 0
+        self.epoch_ended = Bool(False)
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -158,6 +160,7 @@ class Loader(units.Unit):
     def run(self):
         """Prepares the minibatch.
         """
+        self.epoch_ended << False
         self._prepare_next_minibatch()
 
         # Fill minibatch according to current random shuffle and offset.
@@ -340,6 +343,7 @@ class Loader(units.Unit):
             self.no_more_minibatches_left[i] |= (not n
                                                  if override_value is None
                                                  else override_value)
+        self.epoch_ended << all(self.no_more_minibatches_left)
 
     def _prepare_next_minibatch(self):
         """Increments minibatch_offset by an appropriate minibatch_size.
@@ -360,6 +364,7 @@ class Loader(units.Unit):
                     if remainder <= self.minibatch_maxsize:
                         self.minibatch_size = remainder
                         self.no_more_minibatches_left[i] = True
+                        self.epoch_ended << all(self.no_more_minibatches_left)
                         self.info("Last minibatch of class %s served",
                                   CLASS_NAME[self.minibatch_class].upper())
                     else:
