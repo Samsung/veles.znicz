@@ -5,6 +5,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
 
+from __future__ import division
 import numpy
 import numpy.linalg as linalg
 
