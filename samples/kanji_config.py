@@ -16,6 +16,8 @@ from veles.config import root
 
 # optional parameters
 
+train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
+
 root.update = {
     "decision": {"fail_iterations": 1000,
                  "store_samples_mse": True},
@@ -31,8 +33,6 @@ root.update = {
                os.path.join(root.common.test_dataset_root,
                             ("kanji/target/targets.%d.pickle" %
                              (3 if six.PY3 else 2))),
-               "train": os.path.join(root.common.test_dataset_root,
-                                     "kanji/train")},
-              "index_map": os.path.join(root.kanji.data_paths.train,
-                                        "index_map.%d.pickle" %
+               "train": train_path},
+              "index_map": os.path.join(train_path, "index_map.%d.pickle" %
                                         (3 if six.PY3 else 2))}}
