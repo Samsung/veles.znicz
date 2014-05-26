@@ -85,8 +85,8 @@ class DropoutForward(Forward, Dropout):
         self.rand.fill(self.mask.mem, -self.dropout_ratio, leave_ratio)
         np.maximum(self.mask.mem, 0, self.mask.mem)
         np.ceil(self.mask.mem, self.mask.mem)
-        self.mask.mem = (self.mask.mem.astype(self.input.mem.dtype) /
-                         leave_ratio)
+        self.mask.mem[:] = (self.mask.mem.astype(self.input.mem.dtype) /
+                            leave_ratio)
 
     def cpu_run(self):
         self.output.map_invalidate()
