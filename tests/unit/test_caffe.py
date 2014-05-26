@@ -15,6 +15,7 @@ import veles.znicz.conv as conv
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd_pooling as gd_pooling
+import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
 # No name -- pylint: disable-msg=C0611
@@ -23,7 +24,7 @@ from scipy.signal import correlate2d, convolve2d
 import numpy as np
 
 
-# os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change device
+#os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change OpenCL device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -85,7 +86,7 @@ class TestConvCaffe(unittest.TestCase):
                         out_array[cur_pic, i, j, cur_chan] = data[j]
         return out_array
 
-    def _test_caffe_conv(self, data_path="data/conv.txt"):
+    def test_caffe_conv(self, data_path="data/conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
 
@@ -282,7 +283,7 @@ class TestConvCaffe(unittest.TestCase):
             100. * np.sum(np.fabs(manual_bot_err - bot_err)) /
             np.sum(np.fabs(bot_err))))
 
-    def _test_caffe_pooling(self, data_path="data/pool.txt"):
+    def test_caffe_pooling(self, data_path="data/pool.txt"):
         """
         Compare CAFFE pooling unit fwd_prop with Veles one
 
@@ -346,7 +347,7 @@ class TestConvCaffe(unittest.TestCase):
                         manual_pooling_out[pic, i_out, j_out,
                                            chan] = np.max((zone))
 
-    def _test_caffe_grad_pooling(self, data_path="data/pool_grad.txt"):
+    def test_caffe_grad_pooling(self, data_path="data/pool_grad.txt"):
         """
         Compare CAFFE pooling unit with Veles ones (fwd and back propagations)
 
@@ -430,6 +431,75 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("BACK POOL: Veles vs CAFFE, %.3f%%" % (100 * np.sum(
             np.abs(grad_pool.err_input.mem - bot_err)) /
             np.sum(np.abs(bot_err))))
+
+    def test_caffe_grad_normalization(self, data_path="data/norm_gd.txt"):
+        """
+        Tests LRU normalization unit: compares it with CAFFE one.
+        Fwd and back props made.
+        """
+        in_file = open(data_path, 'r')
+        lines = in_file.readlines()
+        in_file.close()
+
+        size = 16
+        n_chans = 2
+        n_pics = 2
+
+        max_percent_delta = 2.  # max difference with CAFFE (percents)
+
+        bottom = self._read_array("bottom", lines,
+                                  shape=(n_pics, size, size, n_chans))
+        top = self._read_array("top", lines,
+                               shape=(n_pics, size, size, n_chans))
+
+        bot_err = self._read_array("bottom_diff", lines,
+                                   shape=(n_pics, size, size, n_chans))
+
+        top_err = self._read_array("top_diff", lines,
+                                   shape=(n_pics, size, size, n_chans))
+
+        fwd_norm = normalization.LRNormalizerForward(self.workflow,
+                                                     k=1, device=self.device)
+
+        # FWD PROP
+        fwd_norm.input = Vector()
+        fwd_norm.input.mem = bottom
+
+        fwd_norm.initialize(self.device)
+        fwd_norm.ocl_run()
+
+        fwd_norm.output.map_read()
+
+        fwd_percent_delta = 100. * (np.sum(np.abs(fwd_norm.output.mem - top)) /
+              np.sum(np.abs(top)))
+
+        logging.info("FWD NORM DELTA: %.2f%%" % fwd_percent_delta)
+        self.assertLess(fwd_percent_delta, max_percent_delta,
+                        "Fwd norm differs by %.2f%%" % (fwd_percent_delta))
+
+        #BACK PROP
+        back_norm = normalization.LRNormalizerBackward(self.workflow,
+                                                       k=1, device=self.device)
+        back_norm.output = Vector()
+        back_norm.output.mem = top
+
+        back_norm.input = Vector()
+        back_norm.input.mem = bottom
+
+        back_norm.err_output = Vector()
+        back_norm.err_output.mem = top_err
+
+        back_norm.initialize(self.device)
+        back_norm.ocl_run()
+
+        back_norm.err_input.map_read()
+
+        back_percent_delta = 100. * (np.sum(np.abs(back_norm.err_output.mem -
+                                    bot_err)) / np.sum(np.abs(bot_err)))
+
+        logging.info("BACK NORM DELTA: %.2f%%" % back_percent_delta)
+        self.assertLess(back_percent_delta, max_percent_delta,
+                        "Fwd norm differs by %.2f%%" % (back_percent_delta))
 
 
 if __name__ == "__main__":
