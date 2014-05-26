@@ -6,18 +6,23 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import logging
+import os
+import sys
 import unittest
 
 from veles.tests import DummyWorkflow
 from veles.znicz.tests.research.imagenet import LoaderDetection
 
 
+base_path = "/data/imagenet/2013"
+
+
 class Test(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(Test, self).__init__(*args, **kwargs)
         self.loader = LoaderDetection(DummyWorkflow(),
-                                      ipath="/data/imagenet/2013",
-                                      dbpath="/data/imagenet/2013/db",
+                                      ipath=base_path,
+                                      dbpath=os.path.join(base_path, "db"),
                                       year="2013", series="DET")
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
@@ -48,4 +53,10 @@ class Test(unittest.TestCase):
         self.loader._colorspace = "RGB"
 
 if __name__ == "__main__":
+    lock_file = os.path.join(base_path, "db/LOCK")
+    if os.path.exists(lock_file):
+        try:
+            os.remove(lock_file)
+        except:
+            print("Failed to remove", lock_file, file=sys.stderr)
     unittest.main()
