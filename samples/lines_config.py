@@ -23,10 +23,10 @@ valid = "/data/veles/Lines/lines_super_min/test"
 
 root.model = "lines"
 
-root.update = {"accumulator": {"bars": 20},
+root.update = {"accumulator": {"bars": 20, "squash": False},
                "decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "lines"},
-               "loader": {"minibatch_maxsize": 30},
+               "loader": {"minibatch_maxsize": 60},
                "weights_plotter": {"limit": 32},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,
@@ -46,9 +46,9 @@ root.update = {"accumulator": {"bars": 20},
                            "learning_rate": 0.03, "weights_decay": 0.0,
                            "gradient_moment": 0.9,
                            "weights_filling": "gaussian",
-                           "weights_stddev": 0.0001,
+                           "weights_stddev": 0.001,
                            "bias_filling": "gaussian",
-                           "bias_stddev": 0.0001
+                           "bias_stddev": 0.001
                            },
                           {"type": "max_pooling",
                            "kx": 3, "ky": 3, "sliding": (2, 2)},

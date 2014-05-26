@@ -26,7 +26,7 @@ valid = "/data/veles/Lines/Grid/test"
 
 root.model = "grid"
 
-root.defaults = {"accumulator": {"bars": 20},
+root.defaults = {"accumulator": {"bars": 20, "squash": True},
                  "decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "lines"},
                  "loader": {"minibatch_maxsize": 60},
@@ -128,26 +128,34 @@ class Workflow(StandardWorkflow):
         self.loader.load_data()
         self.loader.link_from(self.repeater)
 
-        self._parse_forwards_from_config()
+        self.parse_forwards_from_config()
 
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
             accum = accumulator.RangeAccumulator(
-                self, bars=root.accumulator.bars)
+                self, bars=root.accumulator.bars,
+                squash=root.accumulator.squash)
             self.accumulator.append(accum)
-            self.accumulator[-1].link_from(self.fwds[-1])
-            self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
+        self.accumulator[0].link_from(self.fwds[-1])
+        self.accumulator[0].link_attrs(self.fwds[0], ("input", "output"))
 
+        """
         self.accumulat = accumulator.RangeAccumulator(
             self, bars=root.accumulator.bars)
-        self.accumulat.link_from(self.accumulator[-1])
+        self.accumulat.link_from(self.squash[0])
         self.accumulat.link_attrs(self.loader, ("input", "minibatch_data"))
 
+        self.squash_bars = accumulator.SquashBars(self)
+        self.squash_bars.link_from(self.accumulat)
+        self.squash_bars.link_attrs(
+            self.accumulat, ("x_inp", "x"), ("y_inp", "y"), "bars")
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        self.image_saver.link_from(self.accumulat)
+        #self.image_saver.link_from(self.squash_bars)
+        self.image_saver.link_from(self.accumulator[0])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
@@ -194,13 +202,13 @@ class Workflow(StandardWorkflow):
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
         for i in range(0, len(layers)):
-            self.accumulator[i].link_attrs(self.decision,
+            self.accumulator[i].link_attrs(self.loader,
                                            ("reset_flag", "epoch_ended"))
-        self.accumulat.link_attrs(self.decision,
-                                  ("reset_flag", "epoch_ended"))
+        #self.accumulat.link_attrs(self.decision,
+        #                          ("reset_flag", "epoch_ended"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
-        self._create_gradient_descent_units()
+        self.create_gradient_descent_units()
         """
         # Weights plotter
         self.decision.vectors_to_sync[self.gds[0].weights] = 1
@@ -326,7 +334,6 @@ class Workflow(StandardWorkflow):
                                                 ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
-        """
 
         # Histogram plotter
         self.plt_hist = []
@@ -336,15 +343,57 @@ class Workflow(StandardWorkflow):
                 name="Y %s %s" % (i + 1, layers[i]["type"]))
             self.plt_hist.append(hist)
             self.plt_hist[i].link_from(self.decision)
-            self.plt_hist[i].link_attrs(self.accumulator[i], "y", "x",
-                                        "gl_min", "gl_max")
+            self.plt_hist[i].link_attrs(
+                self.squash[i], ("y", "y_out"), ("x", "x_out"))
+            self.plt_hist[i].link_attrs(
+                self.accumulator[i], "gl_min", "gl_max")
             self.plt_hist[i].gate_block = ~self.decision.epoch_ended
+        """
+        """
+        self.squash = []
+        for i in range(0, len(layers)):
+            squash = accumulator.SquashBars(self)
+            self.squash.append(squash)
+        self.squash[0].link_from(self.decision)
+        self.squash[0].link_attrs(
+                self.accumulator[0], ("x_inp", "x"), ("y_inp", "y"), "bars")
+        self.squash[0].gate_block = ~self.decision.epoch_ended
+        """
+        # Histogram plotter
+        self.plt_hist = []
+        for i in range(0, len(layers)):
+            hist = plotting_units.Histogram(
+                self,
+                name="Y %s %s" % (i + 1, layers[i]["type"]))
+            self.plt_hist.append(hist)
+        self.plt_hist[0].link_from(self.decision)
+        self.plt_hist[0].link_attrs(
+                self.accumulator[0], "gl_min", "gl_max",
+                ("y", "y_out"), ("x", "x_out"))
+        self.plt_hist[0].gate_block = ~self.decision.epoch_ended
 
-        self.plt_hist_load = plotting_units.Histogram(self, name="Y Loader")
+        """
+        self.plt_hist_load = plotting_units.Histogram(
+                self, name="Y Loader")
         self.plt_hist_load.link_from(self.decision)
-        self.plt_hist_load.link_attrs(self.accumulat, "y", "x",
-                                      "gl_min", "gl_max")
+        self.plt_hist_load.link_attrs(
+            self.squash_bars, ("y", "y_out"), ("x", "x_out"))
+        self.plt_hist_load.link_attrs(
+            self.accumulat, "gl_min", "gl_max")
         self.plt_hist_load.gate_block = ~self.decision.epoch_ended
+        """
+
+        #Table plotter
+        self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
+        self.plt_tab.y.clear()
+        self.plt_tab.col_labels.clear()
+        for i in range(0, len(layers)):
+            obj = self.fwds[i].weights
+            name = "weights %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+        self.plt_tab.link_from(self.decision)
+        self.plt_tab.gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
