@@ -129,7 +129,7 @@ class Pooling(nn_units.Forward):
         self.print_debug_data(t1)
 
 
-#TODO: fix GPU part
+# TODO: fix GPU part
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
 
@@ -208,11 +208,11 @@ class MaxAbsPooling(Pooling):
         input_offs: offsets in the input where maximum elements were found.
     """
     def __init__(self, workflow, **kwargs):
-        super(MaxPooling, self).__init__(workflow, **kwargs)
+        super(MaxAbsPooling, self).__init__(workflow, **kwargs)
         self.input_offs = formats.Vector()
 
     def initialize(self, **kwargs):
-        super(MaxPooling, self).initialize(**kwargs)
+        super(MaxAbsPooling, self).initialize(**kwargs)
 
         if (self.input_offs.mem is None or
                 self.input_offs.mem.size != self.output.mem.size):

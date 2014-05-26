@@ -95,7 +95,7 @@ class TestMaxPooling(unittest.TestCase):
     def test_cpu(self):
         logging.info('starting CPU max pooling layer forward propagation '
                      'test...')
-        c = pooling.MaxPooling(DummyWorkflow(), kx=2, ky=2)
+        c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._inp
         c.initialize(device=None)
         c.run()
