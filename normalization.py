@@ -30,8 +30,8 @@ class LocalResponseNormalizer(nn_units.Forward):
 
         super(LocalResponseNormalizer, self).__init__(workflow, **kwargs)
 
-    def initialize(self, **kwargs):
-        super(LocalResponseNormalizer, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(LocalResponseNormalizer, self).initialize(device, **kwargs)
 
     def _subsums(self, source_array, window_size):
         """
@@ -66,8 +66,8 @@ class LRNormalizerForward(LocalResponseNormalizer):
         super(LRNormalizerForward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}
 
-    def initialize(self, **kwargs):
-        super(LRNormalizerForward, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(LRNormalizerForward, self).initialize(device, **kwargs)
         self.output.mem = np.ndarray(shape=self.input.mem.shape,
                                      dtype=self.input.mem.dtype)
 
@@ -126,8 +126,8 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         super(LRNormalizerBackward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}
 
-    def initialize(self, **kwargs):
-        super(LRNormalizerBackward, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(LRNormalizerBackward, self).initialize(device, **kwargs)
         self.err_input.mem = np.zeros(self.err_output.mem.shape,
                                       dtype=self.err_output.mem.dtype)
 
