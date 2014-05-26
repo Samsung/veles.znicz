@@ -18,19 +18,18 @@ import veles.random_generator as rnd
 import veles.znicz.gd as gd
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.znicz.all2all as all2all
+from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
-class TestGD(unittest.TestCase):
+class TestGD(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self.device = opencl.Device()
         self.W = None
         self.b = None
         self.state = rnd.get().state
-
-    def tearDown(self):
-        del self.device
+        if not hasattr(self, "device"):
+            self.device = opencl.Device()
 
     def _do_test(self, device, Unit, Forward):
         batch_size = 1
@@ -109,30 +108,10 @@ class TestGD(unittest.TestCase):
         forward.run()
         forward.output.map_read()
         target = forward.output.mem.ravel() - err_output.ravel()
-        h = 1.0e-8
-        points = (2.0 * h, h, -h, -2.0 * h)
-        coeffs = numpy.array([-1.0, 8.0, -8.0, 1.0], dtype=numpy.float64)
-        divizor = 12.0 * h
-        errs = numpy.zeros_like(points)
         err_input = c.err_input.mem.ravel()
-        offs = 0
-        for i_sample in range(inp.shape[0]):
-            for x in range(inp.shape[1]):
-                for i, p in enumerate(points):
-                    forward.input.map_invalidate()
-                    forward.input.mem[:] = inp[:]
-                    forward.input.mem[i_sample, x] = inp[i_sample, x] + p
-                    forward.run()
-                    forward.output.map_read()
-                    out = forward.output.mem.ravel()
-                    errs[i] = numpy.square(out - target).sum() * 0.5
 
-                derivative = (errs * coeffs).sum() / divizor
-                d = numpy.fabs(derivative - err_input[offs])
-                logging.info("%.2f %.2f %.2f" %
-                             (derivative, err_input[offs], d))
-                self.assertLess(d, 0.5, "Numeric diff test failed")
-                offs += 1
+        self.numdiff_check_gd(forward, inp, weights, bias, target, err_input,
+                              None, None, logging.info, self.assertLess)
 
         return c.err_input.mem.copy()
 

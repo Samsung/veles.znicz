@@ -69,6 +69,8 @@ class GDNumDiff(object):
         for vector, derivative in ((forward.input, err_input),
                                    (forward.weights, weights_derivative),
                                    (forward.bias, bias_derivative)):
+            if derivative is None:
+                continue
             self.numdiff_check(
                 forward, vector, {forward.input: inp,
                                   forward.weights: weights,
