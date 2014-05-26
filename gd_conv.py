@@ -446,7 +446,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.print_debug_data(t1)
 
     def cpu_run(self):
-        raise error.ErrNotImplemented()
+        t1 = time.time()
+        self.cpu_err_output_update()
+        self.cpu_err_input_update()
+        #self.cpu_weights_update()
+        self.print_debug_data(t1)
 
 
 class GDTanhConv(GradientDescentConv):
