@@ -8,14 +8,17 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
+from zope.interface import implementer
 
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+from veles.opencl_units import IOpenCLUnit, OpenCLUnit
 import veles.znicz.nn_units as nn_units
 import veles.znicz.decision as decision
 import veles.random_generator as rnd
 
 
+@implementer(IOpenCLUnit)
 class KohonenForward(nn_units.Forward):
     """Kohonen forward layer.
 
@@ -115,7 +118,8 @@ class KohonenForward(nn_units.Forward):
         self.output.mem[:] = mem[:]
 
 
-class KohonenTrainer(nn_units.GradientDescentBase):
+@implementer(IOpenCLUnit)
+class KohonenTrainer(OpenCLUnit):
     """KohonenForward train pass.
 
     Must be assigned before initialize():

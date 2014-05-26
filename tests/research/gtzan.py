@@ -13,6 +13,7 @@ import numpy
 import os
 import pickle
 import re
+from zope.interface import implementer
 
 from veles.config import root, get
 import veles.error as error
@@ -59,6 +60,7 @@ root.defaults = {"decision": {"fail_iterations": 100,
                            "window_size": 100}}
 
 
+@implementer(loader.Loader)
 class Loader(loader.Loader):
     """Loads GTZAN dataset.
     """

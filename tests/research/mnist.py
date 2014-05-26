@@ -11,6 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import struct
 import os
+from zope.interface import implementer
 
 from veles.config import root
 import veles.formats as formats
@@ -55,6 +56,7 @@ root.defaults = {"decision": {"fail_iterations": 100},
                                           "train_label": train_label_dir}}}
 
 
+@implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
     """Loads MNIST dataset.
     """

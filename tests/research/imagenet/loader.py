@@ -20,6 +20,7 @@ import threading
 import time
 import os
 from six.moves import cPickle as pickle
+from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats
@@ -35,6 +36,7 @@ _shared_mean = None
 _mean_done = None
 
 
+@implementer(loader.Loader)
 class LoaderBase(loader.Loader):
     """
     Imagenet images and metadata loader.

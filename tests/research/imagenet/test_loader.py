@@ -26,6 +26,7 @@ class Test(unittest.TestCase):
                 os.remove(lock_file)
             except:
                 print("Failed to remove", lock_file, file=sys.stderr)
+                raise
         self.loader = LoaderDetection(DummyWorkflow(),
                                       ipath=base_path,
                                       dbpath=os.path.join(base_path, "db"),

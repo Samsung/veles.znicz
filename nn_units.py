@@ -11,15 +11,18 @@ import shutil
 import six
 import tarfile
 import yaml
+from zope.interface import implementer
 
 import veles.config as config
+from veles.distributable import IDistributable
 import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.random_generator as rnd
-from veles.units import Repeater
+from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase
 
 
+@implementer(IDistributable)
 class Forward(OpenCLUnit):
     """Base class for forward propagation units.
 
@@ -53,13 +56,23 @@ class Forward(OpenCLUnit):
         data = (self.weights.mem.copy(), self.bias.mem.copy())
         return data
 
+    def generate_data_for_master(self):
+        return None
+
     def apply_data_from_master(self, data):
         self.weights.map_invalidate()
         self.bias.map_invalidate()
         numpy.copyto(self.weights.mem, data[0])
         numpy.copyto(self.bias.mem, data[1])
 
+    def apply_data_from_slave(self, data, slave=None):
+        pass
 
+    def drop_slave(self, slave=None):
+        pass
+
+
+@implementer(IDistributable)
 class GradientDescentBase(OpenCLUnit):
     """Base class for gradient descent units.
 
@@ -174,6 +187,9 @@ class GradientDescentBase(OpenCLUnit):
         if self.bias.mem is not None:
             self.bias.map_write()
             self.bias.mem += data[1]
+
+    def drop_slave(self, slave=None):
+        pass
 
 
 class NNWorkflow(OpenCLWorkflow):

@@ -10,13 +10,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import time
+from zope.interface import implementer
 
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 import veles.error as error
 
 
+@implementer(IOpenCLUnit)
 class All2All(nn_units.Forward):
     """All2All with linear activation f(x) = x.
 

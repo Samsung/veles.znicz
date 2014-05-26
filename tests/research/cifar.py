@@ -11,6 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import os
 import pickle
+from zope.interface import implementer
 
 from veles.config import root
 import veles.formats as formats
@@ -60,6 +61,7 @@ root.defaults = {
                              "validation": validation_dir}}}
 
 
+@implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
     """Loads Cifar dataset.
     """

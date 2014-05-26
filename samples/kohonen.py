@@ -10,6 +10,7 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 
 import numpy
 import os
+from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
@@ -35,6 +36,7 @@ root.defaults = {
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}}
 
 
+@implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
     """Loads the sample dataset.
     """

@@ -14,6 +14,7 @@ import os
 import pickle
 import re
 import six
+from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
@@ -52,6 +53,7 @@ root.defaults = {
                                         (3 if six.PY3 else 2))}}
 
 
+@implementer(loader.ILoader)
 class Loader(loader.Loader):
     """Loads dataset.
     """

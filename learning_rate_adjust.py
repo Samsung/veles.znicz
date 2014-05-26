@@ -8,13 +8,15 @@ Created on May 16, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import veles.units as units
+from math import floor
+from zope.interface import implementer
+
+from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
 
-from math import floor
 
-
-class LearningRateAdjust(units.Unit):
+@implementer(IUnit)
+class LearningRateAdjust(Unit):
     """
     This unit should be linked from Decision to run with each minibatch.
     Does nothing if ``lr_function`` is not set.
@@ -50,6 +52,9 @@ class LearningRateAdjust(units.Unit):
             if isinstance(gd_unit, GradientDescentBase):
                 self.add_one_gd_unit(gd_unit)
 
+    def initialize(self, **kwargs):
+        pass
+
     def run(self):
         """
         Adjusts learning rates of GD units according to ``lr_function``
@@ -62,7 +67,7 @@ class LearningRateAdjust(units.Unit):
 
         self._minibatches_count += 1
 
-#LEARNING RATE POLICIES:
+# LEARNING RATE POLICIES:
 
 
 def exp_adjust_policy(base_lr, gamma, a_ratio):

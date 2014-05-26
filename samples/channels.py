@@ -20,6 +20,7 @@ import sys
 import threading
 import time
 import traceback
+from zope.interface import implementer
 
 # FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -103,6 +104,7 @@ root.defaults = {
                  "snapshot": ""}}
 
 
+@implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
     """Loads channels.
     """

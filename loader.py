@@ -10,14 +10,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import os
 import time
+from zope.interface import implementer, Interface
 
 import veles.config as config
+from veles.distributable import IDistributable
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.random_generator as rnd
-import veles.units as units
+from veles.units import Unit, IUnit
 
 
 TRAIN = 2
@@ -34,7 +36,25 @@ class LoaderError(Exception):
     pass
 
 
-class Loader(units.Unit):
+class ILoader(Interface):
+    def load_data():
+        """Load the data here.
+
+        Should be filled here:
+            class_samples[].
+        """
+
+    def create_minibatches():
+        """Allocate arrays for minibatch_data etc. here.
+        """
+
+    def fill_minibatch():
+        """Fill minibatch data labels and indexes according to current shuffle.
+        """
+
+
+@implementer(IUnit, IDistributable)
+class Loader(Unit):
     """Loads data and provides mini-batch output interface.
 
     Attributes:
@@ -73,6 +93,7 @@ class Loader(units.Unit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = "LOADER"
         super(Loader, self).__init__(workflow, **kwargs)
+        self.verify_interface(ILoader)
 
         self._rnd = [kwargs.get("rnd", rnd.get())]
         self._normalize = kwargs.get("normalize", True)
@@ -122,7 +143,6 @@ class Loader(units.Unit):
     def initialize(self, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
-        super(Loader, self).initialize(**kwargs)
         self.minibatch_maxsize = kwargs.get("minibatch_maxsize",
                                             self.minibatch_maxsize)
         self.load_data()
@@ -182,6 +202,9 @@ class Loader(units.Unit):
             if self.minibatch_indexes:
                 self.minibatch_indexes[minibatch_size:] = -1
 
+    def generate_data_for_master(self):
+        return None
+
     def generate_data_for_slave(self, slave=None):
         self._prepare_next_minibatch()
         data = {'shuffled_indexes':
@@ -209,22 +232,10 @@ class Loader(units.Unit):
         self.minibatch_offset -= self.minibatch_size
         self.samples_served -= self.minibatch_size
 
-    def load_data(self):
-        """Load the data here.
-
-        Should be filled here:
-            class_samples[].
-        """
+    def apply_data_from_slave(self, data, slave=None):
         pass
 
-    def create_minibatches(self):
-        """Allocate arrays for minibatch_data etc. here.
-        """
-        pass
-
-    def fill_minibatch(self):
-        """Fill minibatch data labels and indexes according to current shuffle.
-        """
+    def drop_slave(self, slave=None):
         pass
 
     def extract_validation_from_train(self, rand=None):
@@ -392,6 +403,13 @@ class Loader(units.Unit):
                     num, 100.0 * den / self.total_samples))
 
 
+class IFullBatchLoader(Interface):
+    def load_data():
+        """Load the data here.
+        """
+
+
+@implementer(ILoader)
 class FullBatchLoader(Loader):
     """Loads data entire in memory.
 
@@ -407,6 +425,7 @@ class FullBatchLoader(Loader):
     """
     def __init__(self, workflow, **kwargs):
         super(FullBatchLoader, self).__init__(workflow, **kwargs)
+        self.verify_interface(IFullBatchLoader)
 
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
@@ -448,8 +467,6 @@ class FullBatchLoader(Loader):
                                                  dtype=numpy.int32)
 
     def fill_minibatch(self):
-        super(FullBatchLoader, self).fill_minibatch()
-
         minibatch_size = self.minibatch_size
 
         idxs = self.minibatch_indexes.mem
@@ -471,6 +488,7 @@ class FullBatchLoader(Loader):
                 self.minibatch_target[i] = self.original_target[int(ii)]
 
 
+@implementer(IFullBatchLoader)
 class ImageLoader(FullBatchLoader):
     """Loads images from multiple folders as full batch.
 

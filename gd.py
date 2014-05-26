@@ -11,13 +11,16 @@ import numpy
 import logging
 from veles.external.prettytable import PrettyTable
 import time
+from zope.interface import implementer
 
 from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
 
+@implementer(IOpenCLUnit)
 class GradientDescent(nn_units.GradientDescentBase):
     """Gradient Descent.
 

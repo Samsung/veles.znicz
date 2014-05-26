@@ -9,16 +9,65 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import time
+from zope.interface import implementer, Interface
 
 import veles.config as config
+from veles.distributable import IDistributable
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
-import veles.units as units
+from veles.units import Unit, IUnit
 from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
 
 
-class DecisionBase(units.Unit):
+class IDecision(Interface):
+    def on_run():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_last_minibatch():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_test_validation_processed():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_training_finished():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_epoch_ended():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_generate_data_for_master(data):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_apply_data_from_master(data):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def on_apply_data_from_slave(data, slave=None):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def fill_statistics(stats):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def fill_snapshot_suffixes(suffixes):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+    def stop_condition():
+        """This method is supposed to be overriden in inherited classes.
+        """
+
+
+@implementer(IUnit, IDistributable)
+class DecisionBase(Unit):
     """Base class for epoch decision units. Keeps track of learning epochs,
     that is, dataset passes.
 
@@ -41,6 +90,7 @@ class DecisionBase(units.Unit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(DecisionBase, self).__init__(workflow, **kwargs)
+        self.verify_interface(IDecision)
         self.max_epochs = kwargs.get("max_epochs", None)
         self.improved = Bool(False)
         self.snapshot_suffix = ""
@@ -54,7 +104,6 @@ class DecisionBase(units.Unit):
         self.slave_minibatch_class_ = {}
 
     def initialize(self, **kwargs):
-        super(DecisionBase, self).initialize(**kwargs)
         timestamp = time.time()
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
 
@@ -119,61 +168,6 @@ class DecisionBase(units.Unit):
 
     def drop_slave(self, slave=None):
         self._finalize_job(slave)
-
-    def on_run(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_last_minibatch(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_test_validation_processed(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_training_finished(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_epoch_ended(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_generate_data_for_master(self, data):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_apply_data_from_master(self, data):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def on_apply_data_from_slave(self, data, slave=None):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def fill_statistics(self, stats):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def fill_snapshot_suffixes(self, suffixes):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
-
-    def stop_condition(self):
-        """This method is supposed to be overriden in inherited classes.
-        """
-        pass
 
     def _on_last_minibatch(self):
         self.on_last_minibatch()
@@ -241,6 +235,7 @@ class DecisionBase(units.Unit):
         self.slave_minibatch_class_[slave.id] = None
 
 
+@implementer(IDecision)
 class DecisionGD(DecisionBase):
     """Rules the gradient descent learning process.
 

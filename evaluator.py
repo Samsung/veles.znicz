@@ -7,14 +7,17 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import math
+from zope.interface import implementer
 
 from veles.config import root
+from veles.distributable import TriviallyDistributable
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-from veles.opencl_units import OpenCLUnit
+from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 
-class EvaluatorSoftmax(OpenCLUnit):
+@implementer(IOpenCLUnit)
+class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():
@@ -184,7 +187,8 @@ class EvaluatorSoftmax(OpenCLUnit):
         self.n_err[0] += batch_size - n_ok
 
 
-class EvaluatorMSE(OpenCLUnit):
+@implementer(IOpenCLUnit)
+class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():
