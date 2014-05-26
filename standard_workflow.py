@@ -41,7 +41,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
                       "bias_filling": layer.get("bias_filling",
                                                 "uniform"),
                       "bias_stddev": layer.get("bias_stddev")}
-            layer_ct = {"conv": lambda layer:
+            layer_ct = {"conv_tanh": lambda layer:
                         conv.ConvTanh(
                             self, n_kernels=layer["n_kernels"],
                             kx=layer["kx"], ky=layer["ky"],
@@ -50,6 +50,13 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             device=self.device, **kwargs),
                         "conv_relu": lambda layer:
                         conv.ConvRELU(
+                            self, n_kernels=layer["n_kernels"],
+                            kx=layer["kx"], ky=layer["ky"],
+                            sliding=layer.get("sliding", (1, 1, 1, 1)),
+                            padding=layer.get("padding", (0, 0, 0, 0)),
+                            device=self.device, **kwargs),
+                        "conv": lambda layer:
+                        conv.Conv(
                             self, n_kernels=layer["n_kernels"],
                             kx=layer["kx"], ky=layer["ky"],
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
@@ -137,6 +144,12 @@ class StandardWorkflow(nn_units.NNWorkflow):
                 grad_elm = gd_conv.GDRELUConv(
                     self, n_kernels=fwd_elm.n_kernels, kx=fwd_elm.kx,
                     ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    padding=fwd_elm.padding, device=self.device, **kwargs)
+
+            elif isinstance(fwd_elm, conv.Conv):
+                grad_elm = gd_conv.GradientDescentConv(
+                    self, n_kernels=fwd_elm.n_kernels,
+                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
                     padding=fwd_elm.padding, device=self.device, **kwargs)
 
             elif isinstance(fwd_elm, conv.ConvTanh):
