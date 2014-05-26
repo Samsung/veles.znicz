@@ -17,6 +17,7 @@ import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd_pooling as gd_pooling
 from veles.tests.dummy_workflow import DummyWorkflow
 
+# No name -- pylint: disable-msg=C0611
 from scipy.signal import correlate2d, convolve2d
 
 import numpy as np

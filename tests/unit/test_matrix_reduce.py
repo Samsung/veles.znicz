@@ -18,7 +18,6 @@ import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
-import veles.znicz
 
 
 class TestMatrixReduce(unittest.TestCase):

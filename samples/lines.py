@@ -14,6 +14,7 @@ from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
+# Unused import -- pylint: disable-msg=C0611
 from veles.znicz import conv, all2all, evaluator, decision
 import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
