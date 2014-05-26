@@ -107,8 +107,8 @@ class Conv(nn_units.Forward):
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size //
-        (self._batch_size * self._sx * self._sy)
+        self._n_channels = (self.input.mem.size //
+                            (self._batch_size * self._sx * self._sy))
         n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
         if self.weights.mem is None or self.weights.mem.size != n_weights:
             self.weights.reset()
@@ -288,8 +288,8 @@ class Conv(nn_units.Forward):
 
                         # add bias and apply activation function
                         if self.s_activation == "ACTIVATION_LINEAR":
-                            self.output.mem[batch, i, j, k] =
-                            (conv + self.bias.mem[k])
+                            self.output.mem[batch, i, j, k] = (
+                                conv + self.bias.mem[k])
                         elif self.s_activation == "ACTIVATION_TANH":
                             self.output.mem[batch, i, j, k] = \
                                 math.tanh((conv + self.bias.mem[k])
