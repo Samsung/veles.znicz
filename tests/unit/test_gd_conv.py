@@ -18,6 +18,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.conv as conv
 from veles.tests.dummy_workflow import DummyWorkflow
+import veles.random_generator as rnd
 
 
 class TestGDConv(unittest.TestCase):
@@ -29,7 +30,7 @@ class TestGDConv(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def test_err_h(self):
+    def _test_err_h(self):
         logging.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -174,7 +175,8 @@ class TestGDConv(unittest.TestCase):
         target = forward.output.mem.ravel() - err_output.ravel()
         return target
 
-    def _numdiff_check_err_input(self, inp, forward, target, err_input):
+    def _numdiff_check_err_input(self, forward, inp, weights, bias, target,
+                                 err_input):
         numdiff = formats.NumDiff()
 
         logging.info("Checking err_input with numeric differentiation")
@@ -182,25 +184,30 @@ class TestGDConv(unittest.TestCase):
         for i_sample in range(inp.shape[0]):
             for y in range(inp.shape[1]):
                 for x in range(inp.shape[2]):
-                    for i, p in enumerate(numdiff.points):
-                        forward.input.map_invalidate()
-                        forward.input.mem[:] = inp[:]
-                        forward.input.mem[i_sample, y, x] = (
-                            inp[i_sample, y, x] + p)
-                        forward.run()
-                        forward.output.map_read()
-                        out = forward.output.mem.ravel()
-                        numdiff.errs[i] = (numpy.square(out - target).sum() *
-                                           0.5)
+                    for channel in range(inp.shape[3]):
+                        for i, p in enumerate(numdiff.points):
+                            forward.input.map_invalidate()
+                            forward.input.mem[:] = inp[:]
+                            forward.weights.map_invalidate()
+                            forward.weights.mem[:] = weights[:]
+                            forward.bias.map_invalidate()
+                            forward.bias.mem[:] = bias[:]
+                            forward.input.mem[i_sample, y, x, channel] = (
+                                inp[i_sample, y, x, channel] + p)
+                            forward.run()
+                            forward.output.map_read()
+                            out = forward.output.mem.ravel()
+                            numdiff.errs[i] = (
+                                numpy.square(out - target.ravel()).sum() * 0.5)
 
-                    derivative = numdiff.derivative
-                    d = numpy.fabs(derivative - err_input[offs])
-                    logging.info("%.2f %.2f %.2f" %
-                                 (derivative, err_input[offs], d))
-                    self.assertLess(d, 0.5, "Numeric diff test failed")
-                    offs += 1
+                        derivative = numdiff.derivative
+                        d = numpy.fabs(derivative - err_input[offs])
+                        logging.info("%.2f %.2f %.2f" %
+                                     (derivative, err_input[offs], d))
+                        self.assertLess(d, 0.05, "Numeric diff test failed")
+                        offs += 1
 
-    def _numdiff_check_weights(self, weights, forward, bias, target,
+    def _numdiff_check_weights(self, forward, inp, weights, bias, target,
                                weights_derivative):
         numdiff = formats.NumDiff()
 
@@ -208,29 +215,34 @@ class TestGDConv(unittest.TestCase):
         for y in range(weights.shape[0]):
             for x in range(weights.shape[1]):
                 for i, p in enumerate(numdiff.points):
+                    forward.input.map_invalidate()
+                    forward.input.mem[:] = inp[:]
                     forward.weights.map_invalidate()
                     forward.weights.mem[:] = weights[:]
-                    forward.weights.mem[y, x] = weights[y, x] + p
                     forward.bias.map_invalidate()
                     forward.bias.mem[:] = bias[:]
+                    forward.weights.mem[y, x] = weights[y, x] + p
                     forward.run()
                     forward.output.map_read()
                     out = forward.output.mem.ravel()
-                    numdiff.errs[i] = numpy.square(out - target).sum() * 0.5
+                    numdiff.errs[i] = (
+                        numpy.square(out - target.ravel()).sum() * 0.5)
 
                 derivative = numdiff.derivative
                 d = numpy.fabs(derivative - weights_derivative[y, x])
                 logging.info("%.2f %.2f %.2f" %
                              (derivative, weights_derivative[y, x], d))
-                self.assertLess(d, 0.5, "Numeric diff test failed")
+                self.assertLess(d, 0.05, "Numeric diff test failed")
 
-    def _numdiff_check_bias(self, bias, forward, weights, target,
+    def _numdiff_check_bias(self, forward, inp, weights, bias, target,
                             bias_derivative):
         numdiff = formats.NumDiff()
 
         logging.info("Checking bias with numeric differentiation")
         for y in range(bias.shape[0]):
             for i, p in enumerate(numdiff.points):
+                forward.input.map_invalidate()
+                forward.input.mem[:] = inp[:]
                 forward.weights.map_invalidate()
                 forward.weights.mem[:] = weights[:]
                 forward.bias.map_invalidate()
@@ -239,15 +251,16 @@ class TestGDConv(unittest.TestCase):
                 forward.run()
                 forward.output.map_read()
                 out = forward.output.mem.ravel()
-                numdiff.errs[i] = numpy.square(out - target).sum() * 0.5
+                numdiff.errs[i] = (
+                    numpy.square(out - target.ravel()).sum() * 0.5)
 
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - bias_derivative[y])
             logging.info("%.2f %.2f %.2f" %
                          (derivative, bias_derivative[y], d))
-            self.assertLess(d, 0.5, "Numeric diff test failed")
+            self.assertLess(d, 0.05, "Numeric diff test failed")
 
-    def test_err_h_cpu(self):
+    def _test_err_h_cpu(self):
         logging.info("Will test CPU convolutional layer back propagation")
 
         inp = formats.Vector()
@@ -331,7 +344,7 @@ class TestGDConv(unittest.TestCase):
                         "Result differs by %.6f" % (max_diff))
         logging.info("Bias is right")
 
-    def test_padding_sliding(self):
+    def _test_padding_sliding(self):
         logging.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -440,6 +453,63 @@ class TestGDConv(unittest.TestCase):
         self._numdiff_check_weights(weights, forward, bias, target,
                                     weights_derivative)
         self._numdiff_check_bias(bias, forward, weights, target,
+                                 bias_derivative)
+
+    def test_random_numeric(self):
+        logging.info("Will test convolutional layer forward-backward "
+                     "via numeric differentiation")
+
+        dtype = opencl_types.dtypes[root.common.dtype]
+        inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
+        rnd.get().fill(inp)
+        forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+                            padding=(1, 2, 3, 4), sliding=(2, 3))
+        forward.input = formats.Vector()
+        forward.input.mem = inp.copy()
+        forward.initialize(device=self.device)
+        forward.run()
+
+        forward.output.map_read()
+        target = numpy.zeros_like(forward.output.mem)
+        rnd.get().fill(target)
+        err_output = forward.output.mem - target
+        forward.weights.map_read()
+        weights = forward.weights.mem.copy()
+        forward.bias.map_read()
+        bias = forward.bias.mem.copy()
+
+        c = gd_conv.GradientDescentConv(
+            DummyWorkflow(), n_kernels=forward.n_kernels,
+            kx=forward.kx, ky=forward.ky,
+            gradient_moment=0, gradient_moment_bias=0,
+            learning_rate=-1, weights_decay=0,
+            learning_rate_bias=-1, weights_decay_bias=0,
+            padding=forward.padding, sliding=forward.sliding)
+        c.err_output = formats.Vector()
+        c.err_output.mem = err_output.copy()
+        c.input = formats.Vector()
+        c.input.mem = inp.copy()
+        c.weights = formats.Vector()
+        c.weights.mem = weights.copy()
+        c.bias = formats.Vector()
+        c.bias.mem = bias.copy()
+        c.output = formats.Vector()
+        c.output.mem = c.err_output.mem.copy()
+        c.initialize(device=self.device)
+        c.run()
+        c.err_input.map_read()
+        c.weights.map_read()
+        c.bias.map_read()
+
+        err_input = c.err_input.mem.ravel()
+        weights_derivative = (c.weights.mem - weights) * inp.shape[0]
+        bias_derivative = (c.bias.mem - bias) * inp.shape[0]
+
+        self._numdiff_check_err_input(forward, inp, weights, bias, target,
+                                      err_input)
+        self._numdiff_check_weights(forward, inp, weights, bias, target,
+                                    weights_derivative)
+        self._numdiff_check_bias(forward, inp, weights, bias, target,
                                  bias_derivative)
 
 
