@@ -12,6 +12,7 @@ import numpy
 import scipy.signal
 import time
 import unittest
+import operator
 
 from veles.config import root
 import veles.formats as formats
@@ -71,78 +72,138 @@ class TestConvBase(unittest.TestCase):
                               gold_output.ravel()).max()
         self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % (max_diff))
 
-
-class TestConv(TestConvBase):
-    """Tests convolutional layer forward propagation without padding and with
-    sliding = (1, 1).
-    """
-    def _simple_test(self, device):
-        """ Run simple test, which checks trivial cases.
+    def _do_trivial_test(self, device, input_shape, weights_shape,
+                         sliding=(1, 1), padding=(0, 0, 0, 0)):
+        """ Run test, which checks trivial cases with specified padding and
+        sliding.
 
         Args:
             device: OpenCL device instance (if value is equal to None, CPU
                 version of algorithm should be run. In other case -
                 OpenCL version).
+            input_shape: Shape of input data. Its format is
+                (batch_size, y_size, x_size, channels_num).
+            weights_shape: Shape of weights. Its format is
+                (kernels_num, ky, kx, channels_num).
+            sliding: Kernel sliding for selecting input data. Its format is
+                (x_sliding, y_sliging)
+            padding: Expands size of input data with zero fields on the each
+                side with corresponding value (left, top, right, bottom).
         """
-        # set data size
-        batch_size = 3
-        y_size = x_size = 5
-        channels_num = 3
-        kx = ky = 3
-        kernels_num = 2
-        sliding = (1, 1)
-        padding = (0, 0, 0, 0)  # left, top, right, bottom
-
         # calculate x and y size of unit output
-        out_y = (y_size + padding[1] + padding[3] - ky) // sliding[1] + 1
-        out_x = (x_size + padding[0] + padding[2] - kx) // sliding[0] + 1
+        out_y = (input_shape[1] + padding[1] + padding[3] -
+                 weights_shape[1]) // sliding[1] + 1
+        out_x = (input_shape[2] + padding[0] + padding[2] -
+                 weights_shape[2]) // sliding[0] + 1
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=kernels_num, kx=kx, ky=ky,
-                         sliding=sliding)
+        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
+                         ky=weights_shape[1], kx=weights_shape[2],
+                         sliding=sliding, padding=padding)
 
         logging.info("run conv with input = 0, random weights, random bias...")
-        input_data = numpy.zeros((batch_size, y_size, x_size, channels_num))
-        weights = numpy.random.uniform(size=(kernels_num * kx * ky *
-            channels_num)).reshape(kernels_num, kx, ky, channels_num)
-        bias = numpy.random.uniform(size=kernels_num)
-        gold_output = numpy.empty((batch_size, out_y, out_x, kernels_num))
-        for batch, i, j in ((batch, i, j) for batch in range(batch_size)
+        input_data = numpy.zeros(input_shape)
+        weights = numpy.random.uniform(
+                size=numpy.prod(weights_shape)).reshape(weights_shape)
+        bias = numpy.random.uniform(size=weights_shape[0])
+        gold_output = numpy.empty((input_shape[0], out_y, out_x,
+                                   weights_shape[0]))
+        for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
                             for i in range(out_y) for j in range(out_x)):
             gold_output[batch, i, j, :] = bias[:]
         self._run_test(unit, device, input_data, weights, bias, gold_output)
 
         logging.info("run conv with random input, weights = 0, random bias...")
-        input_data = numpy.random.uniform(size=(batch_size * y_size * x_size *
-            channels_num)).reshape(batch_size, y_size, x_size, channels_num)
-        weights = numpy.zeros((kernels_num, kx, ky, channels_num))
-        bias = numpy.random.uniform(size=kernels_num)
-        gold_output = numpy.empty((batch_size, out_y, out_x, kernels_num))
-        for batch, i, j in ((batch, i, j) for batch in range(batch_size)
+        input_data = numpy.random.uniform(
+                size=numpy.prod(input_shape)).reshape(input_shape)
+        weights = numpy.zeros(weights_shape)
+        bias = numpy.random.uniform(size=weights_shape[0])
+        gold_output = numpy.empty((input_shape[0], out_y, out_x,
+                                   weights_shape[0]))
+        for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
                             for i in range(out_y) for j in range(out_x)):
             gold_output[batch, i, j, :] = bias[:]
         self._run_test(unit, device, input_data, weights, bias, gold_output)
 
-        logging.info("run conv with input = 1, weights = 1, bias = 0...")
-        input_data = numpy.empty((batch_size, y_size, x_size, channels_num))
+
+class TestConvNoPadding(TestConvBase):
+    """Tests convolutional layer forward propagation without padding and with
+    sliding = (1, 1) and linear activation function.
+    """
+
+    def test_trivial_cases_ocl(self):
+        logging.info("start trivial OpenCL test [no padding, "
+                     "sliding = (1, 1)]...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        self._do_trivial_test(opencl.Device(), input_shape, weights_shape)
+        logging.info("TEST PASSED")
+
+    def test_trivial_cases_cpu(self):
+        logging.info("start trivial CPU test [no padding, "
+                     "sliding = (1, 1)]...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        self._do_trivial_test(None, input_shape, weights_shape)
+        logging.info("TEST PASSED")
+
+    def _do_test_all_1(self, device, input_shape, weights_shape):
+        """ Run test, which checks result of conv without padding and
+        tricky sliding when input data, weights and bias fills with 1.
+
+        Args:
+            device: OpenCL device instance (if value is equal to None, CPU
+                version of algorithm should be run. In other case -
+                OpenCL version).
+            input_shape: Shape of input data. Its format is
+                (batch_size, y_size, x_size, channels_num).
+            weights_shape: Shape of weights. Its format is
+                (kernels_num, ky, kx, channels_num).
+        """
+        # set data size
+        sliding = (1, 1)  # (sliding_x, sliding_y)
+        padding = (0, 0, 0, 0)  # (left, top, right, bottom)
+
+        # calculate x and y size of unit output
+        out_y = (input_shape[1] + padding[1] + padding[3] -
+                 weights_shape[1]) // sliding[1] + 1
+        out_x = (input_shape[2] + padding[0] + padding[2] -
+                 weights_shape[2]) // sliding[0] + 1
+
+        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
+                         ky=weights_shape[1], kx=weights_shape[2],
+                         sliding=sliding, padding=padding)
+
+        logging.info("run conv with input = 1, weights = 1, bias = 1...")
+        input_data = numpy.empty(input_shape)
         input_data.fill(1)
-        weights = numpy.empty((kernels_num, kx, ky, channels_num))
+        weights = numpy.empty(weights_shape)
         weights.fill(1)
-        bias = numpy.zeros(kernels_num)
-        gold_output = numpy.empty((batch_size, out_y, out_x, kernels_num))
-        gold_output.fill(kx * ky * channels_num)
+        bias = numpy.empty(weights_shape[0])
+        bias_val = 1
+        bias.fill(bias_val)
+        gold_output = numpy.empty((input_shape[0], out_y, out_x,
+                                   weights_shape[0]))
+        gold_output.fill(weights_shape[1] * weights_shape[2] * input_shape[3] +
+                         bias_val)
         self._run_test(unit, device, input_data, weights, bias, gold_output)
 
-    def test_simple_ocl(self):
-        logging.info("start simple OpenCL test...")
-        self._simple_test(opencl.Device())
+    def test_all_1_ocl(self):
+        logging.info("start 'all 1' OpenCL test [no padding, "
+                     "sliding = (1, 1)]...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        self._do_test_all_1(opencl.Device(), input_shape, weights_shape)
         logging.info("TEST PASSED")
 
-    def test_simple_cpu(self):
-        logging.info("start simple CPU test...")
-        self._simple_test(None)
+    def test_all_1_cpu(self):
+        logging.info("start 'all 1' CPU test [no padding, "
+                     "sliding = (1, 1)]...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        self._do_test_all_1(None, input_shape, weights_shape)
         logging.info("TEST PASSED")
 
-    def _1_channel_test(self, device):
+    def _do_1_channel_input_test(self, device):
         """ Run test with 1 channel input without padding and with
         sliding = (1, 1).
 
@@ -163,6 +224,7 @@ class TestConv(TestConvBase):
                                [[1.1, 2.1, 3.1],
                                 [-1.1, -0.5, 1.3],
                                 [1.7, -1.4, 0.05]]], dtype=self._dtype)
+        weights = weights.reshape(2, 3, 3, 1)
         bias = numpy.array([10, -10], dtype=self._dtype)
         gold_output = numpy.array([[[[9, 5.3], [15, 5.65], [9, -3.5]],
                                     [[12, 1.25], [3, -2.8], [12, -4.4]],
@@ -173,61 +235,121 @@ class TestConv(TestConvBase):
                          ky=3)
         self._run_test(unit, device, input_data, weights, bias, gold_output)
 
-    def test_1_channel_ocl(self):
+    def test_1_channel_input_ocl(self):
         logging.info("start OpenCL conv. 1 channel layer forward"
                      "propagation...")
-        self._1_channel_test(opencl.Device())
+        self._do_1_channel_input_test(opencl.Device())
         logging.info("TEST PASSED")
 
-    def test_1_channel_cpu(self):
+    def test_1_channel_input_cpu(self):
         logging.info("start CPU conv. 1 channel layer forward propagation...")
-        self._1_channel_test(None)
+        self._do_1_channel_input_test(None)
         logging.info("TEST PASSED")
 
-    def _test_fixed_cpu(self):
-        logging.info("Will test CPU convolutional layer forward propagation")
 
-        inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
-        inp.mem = numpy.array([[[1, 2, 3, 2, 1],
-                              [0, 1, 2, 1, 0],
-                              [0, 1, 0, 1, 0],
-                              [2, 0, 1, 0, 2],
-                              [1, 0, 1, 0, 1]]], dtype=dtype)
+class TestConvWithPadding(TestConvBase):
+    """Tests convolutional layer forward propagation with padding and tricky
+    sliding and linear activation function.
+    """
 
-        weights = numpy.array([[[-1, -1, -1],
-                                [-1, 8, -1],
-                                [-1, -1, -1]],
-                               [[1.1, 2.1, 3.1],
-                                [-1.1, -0.5, 1.3],
-                                [1.7, -1.4, 0.05]]], dtype=dtype)
-        bias = numpy.array([10, -10], dtype=dtype)
+    def test_trivial_cases_ocl(self):
+        logging.info("start trivial OpenCL test (with padding and tricky "
+                     "sliding)...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        sliding = (2, 3)
+        padding = (2, 3, 1, 2)
+        self._do_trivial_test(opencl.Device(), input_shape, weights_shape,
+                              sliding, padding)
+        logging.info("TEST PASSED")
 
-        c = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
-        c.input = inp
+    def test_trivial_cases_cpu(self):
+        logging.info("start trivial CPU test [no padding, "
+                     "sliding = (1, 1)]...")
+        input_shape = (3, 7, 9, 3)
+        weights_shape = (2, 4, 3, 3)
+        sliding = (2, 3)
+        padding = (2, 3, 1, 2)
+        self._do_trivial_test(None, input_shape, weights_shape, sliding,
+                              padding)
+        logging.info("TEST PASSED")
 
-        c.initialize(device=None)
+    def _do_test_all_1(self, device, input_shape, kernels_num):
+        """Run test, which checks result of conv with specified weights shape,
+        padding and sliding when input data, weights and bias fills with 1.
 
-        c.weights.map_invalidate()  # rewrite weights
-        c.weights.mem[:] = weights.reshape(c.weights.mem.shape)[:]
-        c.bias.map_invalidate()  # rewrite bias
-        c.bias.mem[:] = bias[:]
+        Args:
+            device: OpenCL device instance (if value is equal to None, CPU
+                version of algorithm should be run. In other case -
+                OpenCL version).
+            input_shape: Shape of input data. Its format is
+                (batch_size, size, size, channels_num). Its important that
+                x_size = y_size = size.
+                weights_shape = (kernels_num, size, size, channels_num).
+                sliding = (size / 2, size / 2)
+                padding = (size / 2, size / 2, size / 2, size / 2).
+            kernels_num: Number of conv.kernels (weights.shape[0])
+        """
+        size = input_shape[1]
+        channels_num = input_shape[3]
+        weights_shape = (kernels_num, size, size, channels_num)
+        sliding = (size // 2, size // 2)
+        padding = (size // 2, size // 2, size // 2, size // 2)
 
-        c.run()
-        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
-        self.assertEqual(nz, 0, "Overflow occured")
+        # calculate x and y size of unit output
+        out_y = (input_shape[1] + padding[1] + padding[3] -
+                 weights_shape[1]) // sliding[1] + 1
+        out_x = (input_shape[2] + padding[0] + padding[2] -
+                 weights_shape[2]) // sliding[0] + 1
 
-        y = c.output.mem.ravel()
-        t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,
-                         12, 1.25, 3, -2.8, 12, -4.4,
-                         4, -7.05, 15, -7.7, 4, -4.65], dtype=dtype)
-        max_diff = numpy.fabs(t - y).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
+                         ky=weights_shape[1], kx=weights_shape[2],
+                         sliding=sliding, padding=padding)
 
-        logging.info("All Ok")
+        logging.info("run conv with input = 1, weights = 1, bias = 1...")
+        input_data = numpy.empty(input_shape)
+        input_data.fill(1)
+        weights = numpy.empty(weights_shape)
+        weights.fill(1)
+        bias = numpy.empty(weights_shape[0])
+        bias_val = 1
+        bias.fill(bias_val)
 
-    def _test_padding_sliding(self):
+        gold_output = numpy.empty((input_shape[0], 3, 3, weights_shape[0]))
+        quater_sum = size * size / 4 * channels_num
+        for batch, k in ((batch, k)
+                         for batch in range(input_shape[0])
+                         for k in range(kernels_num)):
+            gold_output[batch, 1, 1, k] = 4 * quater_sum + bias_val
+
+            gold_output[batch, 0, 0, k] = quater_sum + bias_val
+            gold_output[batch, 2, 0, k] = quater_sum + bias_val
+            gold_output[batch, 0, 2, k] = quater_sum + bias_val
+            gold_output[batch, 2, 2, k] = quater_sum + bias_val
+
+            gold_output[batch, 1, 0, k] = 2 * quater_sum + bias_val
+            gold_output[batch, 1, 2, k] = 2 * quater_sum + bias_val
+            gold_output[batch, 0, 1, k] = 2 * quater_sum + bias_val
+            gold_output[batch, 2, 1, k] = 2 * quater_sum + bias_val
+
+        self._run_test(unit, device, input_data, weights, bias, gold_output)
+
+    def test_all_1_ocl(self):
+        logging.info("start 'all 1' OpenCL test [with padding and sliding...")
+        input_shape = (3, 8, 8, 3)
+        kernels_num = 2
+        self._do_test_all_1(opencl.Device(), input_shape, kernels_num)
+        logging.info("TEST PASSED")
+
+    def test_all_1_cpu(self):
+        logging.info("start 'all 1' CPU test [with padding and sliding...")
+        input_shape = (3, 8, 8, 3)
+        kernels_num = 2
+        self._do_test_all_1(None, input_shape, kernels_num)
+        logging.info("TEST PASSED")
+
+    def _do_test_padding_sliding(self):
+        # TODO: refactor this old impl.
         logging.info("Will test convolutional layer forward propagation")
 
         inp = formats.Vector()
@@ -273,137 +395,11 @@ class TestConv(TestConvBase):
 
         logging.info("All Ok")
 
-    def _do_test_vs_python(self, Unit):
-
-        logging.info("OpenCL")
-
-        inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
-        inp.mem = numpy.zeros([27, 28, 28], dtype=dtype)
-        rnd.get().fill(inp.mem)
-
-        c = Unit(DummyWorkflow(), n_kernels=25, kx=9, ky=9)
-        c.input = inp
-
-        c.initialize(device=self.device)
-
-        weights = c.weights.mem.reshape(c.n_kernels, c.ky, c.kx)
-        bias = c.bias.mem
-
-        t0 = time.time()
-        c.run()
-        dt0 = time.time() - t0
-        logging.info("OpenCL convolved in %.2f seconds" % (dt0))
-
-        c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
-        self.assertEqual(nz, 0, "Overflow occured")
-
-        logging.info("Numpy")
-        t0 = time.time()
-        pp = []
-        for mem in inp.mem:
-            for j, w in enumerate(weights):
-                ww = w.copy()
-                for i in range(w.shape[0]):
-                    ww[-(i + 1)] = w[i]
-                www = ww.copy()
-                for i in range(w.shape[1]):
-                    www[:, -(i + 1)] = ww[:, i]
-                out = scipy.signal.convolve2d(mem, www, "valid")
-                out += bias[j]
-                out *= 0.6666
-                numpy.tanh(out, out)
-                out *= 1.7159
-                pp.append(out)
-        dt1 = time.time() - t0
-        logging.info("Numpy convolved in %.2f seconds" % (dt1))
-        logging.info("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
-        logging.info("Will compare results")
-        offs = 0
-        for vv in c.output.mem:
-            for i_kernel in range(len(weights)):
-                p = pp[offs]
-                mem = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
-                max_diff = numpy.fabs(mem.ravel() - p.ravel()).max()
-                self.assertLess(max_diff, 0.0001,
-                                "Result differs by %.6f" % (max_diff))
-                offs += 1
-
-        logging.info("All Ok")
-
-    def _do_test_vs_python_rgb(self, Unit):
-
-        logging.info("OpenCL")
-
-        inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
-        inp.mem = numpy.zeros([3, 128, 128, 3], dtype=dtype)
-        rnd.get().fill(inp.mem)
-
-        c = Unit(DummyWorkflow(), n_kernels=4, kx=3, ky=3)
-        c.input = inp
-
-        c.initialize(device=self.device)
-
-        c.bias.map_invalidate()  # rewrite bias
-        c.bias.mem[:] = 0
-
-        t0 = time.time()
-        c.run()
-        dt0 = time.time() - t0
-        logging.info("OpenCL convolved in %.2f seconds" % (dt0))
-
-        c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
-        self.assertEqual(nz, 0, "Overflow occured")
-
-        logging.info("Numpy with FFT")
-        t0 = time.time()
-        pp = []
-        for mem in inp.mem:
-            for w_ in c.weights.mem:
-                w = w_.reshape(c.ky, c.kx, 3)
-                ww = w.copy()
-                for i in range(w.shape[0]):
-                    ww[-(i + 1)] = w[i]
-                www = ww.copy()
-                for i in range(w.shape[1]):
-                    www[:, -(i + 1)] = ww[:, i]
-                wwww = www.copy()
-                for i in range(w.shape[2]):
-                    wwww[:, :, -(i + 1)] = www[:, :, i]
-                pp.append(scipy.signal.fftconvolve(mem, wwww, "valid"))
-        dt1 = time.time() - t0
-        logging.info("Numpy convolved in %.2f seconds" % (dt1))
-
-        logging.info("OpenCL was %.2f times faster than Numpy" % (dt1 / dt0))
-
-        logging.info("Will compare results")
-
-        offs = 0
-        for vv in c.output.mem:
-            for i_kernel in range(len(c.weights.mem)):
-                p = pp[offs]
-                mem = vv[:, :, i_kernel].reshape(vv.shape[0], vv.shape[1])
-                max_diff = numpy.fabs(mem.ravel() - p.ravel()).max()
-                self.assertLess(max_diff, 0.0001,
-                                "Result differs by %.6f" % (max_diff))
-                offs += 1
-
-        logging.info("All Ok")
-
-    def _test_vs_python_rgb(self):
-        logging.info("Will test linear convolutional"
-                     " layer vs python on color image")
-        self._do_test_vs_python_rgb(conv.Conv)
-
-    def _test_vs_python(self):
-        logging.info("Will test linear convolutional layer vs python on image")
-        self._do_test_vs_python(conv.ConvTanh)
+    def test_compare_ocl_vs_cpu(self):
+        # TODO: implement
+        pass
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
