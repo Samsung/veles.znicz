@@ -9,16 +9,12 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
-import scipy.signal
-import time
 import unittest
-import operator
 
 from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
 import veles.znicz.conv as conv
 from veles.tests.dummy_workflow import DummyWorkflow
 
@@ -32,8 +28,7 @@ class TestConvBase(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _run_test(self, unit, device, input_data, weights, bias,
-                 gold_output):
+    def _run_test(self, unit, device, input_data, weights, bias, gold_output):
         """Run test for specified unit with specified device.
 
         Tested unit should be an instance of conv.Conv class.
@@ -53,7 +48,7 @@ class TestConvBase(unittest.TestCase):
         Raises:
             LessError: if unit output is wrong.
         """
-        assert(unit.__class__ == conv.Conv)
+        assert unit.__class__ == conv.Conv
         # set unit input and start initialization
         input_vector = formats.Vector()
         input_vector.mem = input_data
@@ -103,7 +98,7 @@ class TestConvBase(unittest.TestCase):
         logging.info("run conv with input = 0, random weights, random bias...")
         input_data = numpy.zeros(input_shape)
         weights = numpy.random.uniform(
-                size=numpy.prod(weights_shape)).reshape(weights_shape)
+            size=numpy.prod(weights_shape)).reshape(weights_shape)
         bias = numpy.random.uniform(size=weights_shape[0])
         gold_output = numpy.empty((input_shape[0], out_y, out_x,
                                    weights_shape[0]))
@@ -114,7 +109,7 @@ class TestConvBase(unittest.TestCase):
 
         logging.info("run conv with random input, weights = 0, random bias...")
         input_data = numpy.random.uniform(
-                size=numpy.prod(input_shape)).reshape(input_shape)
+            size=numpy.prod(input_shape)).reshape(input_shape)
         weights = numpy.zeros(weights_shape)
         bias = numpy.random.uniform(size=weights_shape[0])
         gold_output = numpy.empty((input_shape[0], out_y, out_x,

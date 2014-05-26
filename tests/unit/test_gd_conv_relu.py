@@ -105,7 +105,8 @@ class TestGDConv(unittest.TestCase):
         logging.info("Err_h is right")
         """
 
-        max_diff = numpy.fabs(weights_new.ravel() - c.weights.mem.ravel()).max()
+        max_diff = numpy.fabs(weights_new.ravel() -
+                              c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
         logging.info("Weights is right")

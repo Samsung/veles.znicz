@@ -102,7 +102,7 @@ class Loader(ImageLoader):
 
     def initialize(self, **kwargs):
         super(Loader, self).initialize(**kwargs)
-        #self.original_data += 1.0
+        # self.original_data += 1.0
         self.original_data *= 128
 
 
@@ -154,7 +154,7 @@ class Workflow(StandardWorkflow):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        #self.image_saver.link_from(self.squash_bars)
+        # self.image_saver.link_from(self.squash_bars)
         self.image_saver.link_from(self.accumulator[0])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -204,7 +204,7 @@ class Workflow(StandardWorkflow):
         for i in range(0, len(layers)):
             self.accumulator[i].link_attrs(self.loader,
                                            ("reset_flag", "epoch_ended"))
-        #self.accumulat.link_attrs(self.decision,
+        # self.accumulat.link_attrs(self.decision,
         #                          ("reset_flag", "epoch_ended"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
@@ -368,8 +368,8 @@ class Workflow(StandardWorkflow):
             self.plt_hist.append(hist)
         self.plt_hist[0].link_from(self.decision)
         self.plt_hist[0].link_attrs(
-                self.accumulator[0], "gl_min", "gl_max",
-                ("y", "y_out"), ("x", "x_out"))
+            self.accumulator[0], "gl_min", "gl_max",
+            ("y", "y_out"), ("x", "x_out"))
         self.plt_hist[0].gate_block = ~self.decision.epoch_ended
 
         """
@@ -383,7 +383,7 @@ class Workflow(StandardWorkflow):
         self.plt_hist_load.gate_block = ~self.decision.epoch_ended
         """
 
-        #Table plotter
+        # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
         self.plt_tab.y.clear()
         self.plt_tab.col_labels.clear()

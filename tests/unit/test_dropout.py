@@ -16,7 +16,7 @@ from veles.znicz.dropout import DropoutForward, DropoutBackward
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
-class TestType:
+class TestType(object):
     CPU = 0
     OCL = 1
 
@@ -55,7 +55,7 @@ class TestDropout(unittest.TestCase):
             fwd_dropout.cpu_run()
 
         logging.debug("[DropoutForward] output matrix:\n%s",
-                     fwd_dropout.output.mem)
+                      fwd_dropout.output.mem)
         ratio = 1.0 - float(np.count_nonzero(fwd_dropout.output.mem)) / \
             fwd_dropout.output.mem.size
         logging.debug("[DropoutForward] dropout ratio: %.4f", ratio)
