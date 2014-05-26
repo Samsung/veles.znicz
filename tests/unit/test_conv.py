@@ -10,6 +10,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import unittest
+import time
 
 from veles.config import root
 import veles.formats as formats
@@ -28,14 +29,13 @@ class TestConvBase(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _run_test(self, unit, device, input_data, weights, bias, gold_output):
+    def _run_test(self, unit, device, input_data, weights, bias):
         """Run test for specified unit with specified device.
 
         Tested unit should be an instance of conv.Conv class.
         input_data.shape = [batch_size, y_size, x_size, channels_num]
         weights.shape = [kernels_num, ky, kx]
         bias.shape = [kernels_num]
-        gold_output = [batch_size, out_y, out_x, kernels_num]
 
         Args:
             unit: Veles unit which is tested.
@@ -45,8 +45,8 @@ class TestConvBase(unittest.TestCase):
             weights: numpy array which is passed to unit as NN weights.
             bias: numpy array which is passed to unit as NN bias.
 
-        Raises:
-            LessError: if unit output is wrong.
+        Returns:
+            output: output data of unit.run()
         """
         assert unit.__class__ == conv.Conv
         # set unit input and start initialization
@@ -62,8 +62,34 @@ class TestConvBase(unittest.TestCase):
         unit.bias.mem[:] = bias.reshape(unit.bias.mem.shape)
 
         unit.run()
-        unit.output.map_read()
-        max_diff = numpy.fabs(unit.output.mem.ravel() -
+        if device is not None:
+            unit.output.map_read()
+        return unit.output.mem
+
+    def _run_check(self, unit, device, input_data, weights, bias, gold_output):
+        """Run test for specified unit with specified device and compare result
+        with gold_output.
+
+        Tested unit should be an instance of conv.Conv class.
+        input_data.shape = [batch_size, y_size, x_size, channels_num]
+        weights.shape = [kernels_num, ky, kx]
+        bias.shape = [kernels_num]
+        gold_output = [batch_size, out_y, out_x, kernels_num]
+
+        Args:
+            unit: Veles unit which is tested.
+            device: OpenCL device instance (if equals to None - CPU version of
+                algorithm should be run).
+            input_data: numpy array which is passed to unit as its input.
+            weights: numpy array which is passed to unit as NN weights.
+            bias: numpy array which is passed to unit as NN bias.
+            gold_output: gold result (numpy array) of unit execution
+
+        Raises:
+            AssertLess: if unit output is wrong.
+        """
+        output = self._run_test(unit, device, input_data, weights, bias)
+        max_diff = numpy.fabs(output.ravel() -
                               gold_output.ravel()).max()
         self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % (max_diff))
 
@@ -105,7 +131,7 @@ class TestConvBase(unittest.TestCase):
         for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
                             for i in range(out_y) for j in range(out_x)):
             gold_output[batch, i, j, :] = bias[:]
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
         logging.info("run conv with random input, weights = 0, random bias...")
         input_data = numpy.random.uniform(
@@ -117,7 +143,7 @@ class TestConvBase(unittest.TestCase):
         for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
                             for i in range(out_y) for j in range(out_x)):
             gold_output[batch, i, j, :] = bias[:]
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
 
 class TestConvNoPadding(TestConvBase):
@@ -180,7 +206,7 @@ class TestConvNoPadding(TestConvBase):
                                    weights_shape[0]))
         gold_output.fill(weights_shape[1] * weights_shape[2] * input_shape[3] +
                          bias_val)
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_all_1_ocl(self):
         logging.info("start 'all 1' OpenCL test [no padding, "
@@ -228,7 +254,7 @@ class TestConvNoPadding(TestConvBase):
 
         unit = conv.Conv(DummyWorkflow(), n_kernels=weights.shape[0], kx=3,
                          ky=3)
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_1_channel_input_ocl(self):
         logging.info("start OpenCL conv. 1 channel layer forward"
@@ -326,7 +352,7 @@ class TestConvWithPadding(TestConvBase):
             gold_output[batch, 0, 1, k] = 2 * quater_sum + bias_val
             gold_output[batch, 2, 1, k] = 2 * quater_sum + bias_val
 
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_all_1_ocl(self):
         logging.info("start 'all 1' OpenCL test [with padding and sliding...")
@@ -374,7 +400,7 @@ class TestConvWithPadding(TestConvBase):
 
         unit = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
                       padding=(1, 2, 3, 4), sliding=(2, 3))
-        self._run_test(unit, device, input_data, weights, bias, gold_output)
+        self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_fixed_arrays_ocl(self):
         logging.info("start testing OpenCL conv. layer forward propagation "
@@ -389,9 +415,33 @@ class TestConvWithPadding(TestConvBase):
         logging.info("TEST PASSED")
 
     def test_compare_ocl_vs_cpu(self):
-        # TODO: implement
-        pass
+        """Run test with random input data, weights, bias to compare results of
+        CPU and OpenCL versions of algorithm and execution time.
+        """
+        input_shape = (2, 256, 256, 3)
+        weights_shape = (2, 4, 3, 3)
+        sliding = (2, 3)
+        padding = (1, 3, 2, 4)
+        input_data = numpy.random.uniform(
+            size=numpy.prod(input_shape)).reshape(input_shape)
+        weights = numpy.random.uniform(
+            size=numpy.prod(weights_shape)).reshape(weights_shape)
+        bias = numpy.random.uniform(size=weights_shape[0])
 
+        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
+                         ky=weights_shape[1], kx=weights_shape[2],
+                         sliding=sliding, padding=padding)
+        time0 = time.time()
+        ocl_output = self._run_test(unit, opencl.Device(), input_data,
+                                    weights, bias)
+        time1 = time.time()
+        cpu_output = self._run_test(unit, None, input_data, weights, bias)
+        time2 = time.time()
+        logging.info("OpenCL is faster than CPU in %.4f times",
+                     (time2 - time1) / (time1 - time0))
+        max_diff = numpy.fabs(ocl_output.ravel() -
+                              cpu_output.ravel()).max()
+        self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % (max_diff))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
