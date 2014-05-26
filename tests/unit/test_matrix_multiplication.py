@@ -18,7 +18,6 @@ import veles.opencl as opencl
 from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
-import veles.znicz
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -89,13 +88,13 @@ class TestMatrixMultiplication(unittest.TestCase):
                                 dtype=self.dtype)
 
     def _cleanup_after_tsts(self):
-        del(self.c)
-        del(self.bias)
-        del(self.b)
-        del(self.a)
-        del(self.A_HEIGHT)
-        del(self.B_HEIGHT)
-        del(self.AB_WIDTH)
+        del self.c
+        del self.bias
+        del self.b
+        del self.a
+        del self.A_HEIGHT
+        del self.B_HEIGHT
+        del self.AB_WIDTH
 
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context

@@ -90,7 +90,7 @@ class LRNormalizerForward(LocalResponseNormalizer):
         self.output.map_invalidate()
         self.input.map_read()
 
-        assert(len(self.input.mem.shape) == 4)
+        assert len(self.input.mem.shape) == 4
         input_squared = np.square(self.input.mem)
         subsums = self._subsums(input_squared, self.n)
         subsums *= self.alpha

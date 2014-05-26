@@ -79,7 +79,7 @@ class InputJoiner(OpenCLUnit):
 
         sh = [minibatch_size]
         sh.extend(self.output_sample_shape)
-        if (self.output.mem is None or self.output.mem.size != numpy.prod(sh)):
+        if self.output.mem is None or self.output.mem.size != numpy.prod(sh):
             self.output.reset()
             self.output.mem = numpy.zeros(sh, dtype=self.inputs[0].mem.dtype)
         else:

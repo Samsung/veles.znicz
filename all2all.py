@@ -108,7 +108,7 @@ class All2All(nn_units.Forward):
                 a = self.weights.mem.transpose().copy()
                 self.weights.mem.shape = a.shape
                 self.weights.mem[:] = a[:]
-        if (self.bias.mem is None or self.bias.mem.size != output_size):
+        if self.bias.mem is None or self.bias.mem.size != output_size:
             self.bias.reset()
             self.bias.mem = numpy.zeros(output_size,
                                         dtype=self.input.mem.dtype)

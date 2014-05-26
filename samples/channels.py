@@ -858,7 +858,7 @@ def run(load, main):
             logging.error("Valid snapshot should be provided if "
                           "export is True. Will now exit.")
             return
-        if (root.channels.find_negative > 0 and w_neg is None):
+        if root.channels.find_negative > 0 and w_neg is None:
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return

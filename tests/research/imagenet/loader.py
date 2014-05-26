@@ -142,7 +142,7 @@ class LoaderBase(loader.Loader):
             self.fill_class_samples(objects, images)
             progress.inc()
             self._mean = self._init_mean(objects, db_only=True)
-            if (self._mean is not None):
+            if self._mean is not None:
                 progress.finish()
                 return
         progress.finish()
@@ -265,7 +265,7 @@ class LoaderBase(loader.Loader):
     def _key_file_name(self, base, full):
         res = full[len(os.path.commonprefix([base, full])):]
         res = os.path.splitext(res)[0]
-        while (res[0] == os.sep):
+        while res[0] == os.sep:
             res = res[1:]
         return res
 
@@ -614,7 +614,7 @@ class LoaderBase(loader.Loader):
     def _show_mean_progress(self, progress, mean_done):
         value = 0
         progress.start()
-        while (value < progress.maxval):
+        while value < progress.maxval:
             time.sleep(0.5)
             with mean_done.get_lock():
                 value = mean_done.value

@@ -21,8 +21,6 @@ from scipy.signal import correlate2d, convolve2d
 
 import numpy as np
 
-import os
-import sys
 
 # os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change device
 
@@ -435,5 +433,5 @@ class TestConvCaffe(unittest.TestCase):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    logging.info("CAFFE CONV TESTЪ")
+    logging.info("CAFFE CONV TEST")
     unittest.main()

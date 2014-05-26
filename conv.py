@@ -257,7 +257,7 @@ class Conv(nn_units.Forward):
         nx = (sx_full - self.kx) // self.sliding[0] + 1
         ny = (sy_full - self.ky) // self.sliding[1] + 1
 
-        assert(self.kx >= 0 and self.ky >= 0)
+        assert self.kx >= 0 and self.ky >= 0
         for batch, _ in ((batch, ch)
                          for batch in range(self._batch_size)
                          for ch in range(self._n_channels)):
@@ -281,7 +281,7 @@ class Conv(nn_units.Forward):
                                                    self._n_channels)
                         cutted_kernel = kernel_3d[cut_i1:cut_i2,
                                                   cut_j1:cut_j2, :]
-                        assert(cut.size == cutted_kernel.size)
+                        assert cut.size == cutted_kernel.size
                         conv = numpy.sum(numpy.multiply(cut.ravel(),
                                                         cutted_kernel.ravel()))
                         self.output.mem[batch, i, j, k] = conv

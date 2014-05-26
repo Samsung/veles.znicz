@@ -9,7 +9,6 @@ import numpy
 import math
 
 from veles.config import root
-import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit

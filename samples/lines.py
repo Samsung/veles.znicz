@@ -11,14 +11,12 @@ from enum import IntEnum
 import os
 
 from veles.config import root
-from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
 from veles.znicz import conv, all2all, evaluator, decision
 import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
-import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
 
 train = "/data/veles/Lines/Grid/learn"
