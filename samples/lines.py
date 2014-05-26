@@ -11,12 +11,14 @@ from enum import IntEnum
 import os
 
 from veles.config import root
+from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
 from veles.znicz import conv, all2all, evaluator, decision
 import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
+import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
 
 train = "/data/veles/Lines/Grid/learn"
@@ -100,7 +102,7 @@ class Loader(ImageLoader):
 
     def initialize(self, **kwargs):
         super(Loader, self).initialize(**kwargs)
-        # self.original_data += 1.0
+        #self.original_data += 1.0
         self.original_data *= 128
 
 
@@ -127,7 +129,7 @@ class Workflow(StandardWorkflow):
         self.loader.link_from(self.repeater)
 
         self.parse_forwards_from_config()
-
+        """
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
@@ -138,7 +140,6 @@ class Workflow(StandardWorkflow):
         self.accumulator[0].link_from(self.fwds[-1])
         self.accumulator[0].link_attrs(self.fwds[0], ("input", "output"))
 
-        """
         self.accumulat = accumulator.RangeAccumulator(
             self, bars=root.accumulator.bars)
         self.accumulat.link_from(self.squash[0])
@@ -152,8 +153,8 @@ class Workflow(StandardWorkflow):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        # self.image_saver.link_from(self.squash_bars)
-        self.image_saver.link_from(self.accumulator[0])
+        # self.image_saver.link_from(self.accumulator[0])
+        self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
@@ -199,10 +200,10 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        for i in range(0, len(layers)):
-            self.accumulator[i].link_attrs(self.loader,
-                                           ("reset_flag", "epoch_ended"))
-        # self.accumulat.link_attrs(self.decision,
+        #for i in range(0, len(layers)):
+        #    self.accumulator[i].link_attrs(self.loader,
+        #                                   ("reset_flag", "epoch_ended"))
+        #self.accumulat.link_attrs(self.decision,
         #                          ("reset_flag", "epoch_ended"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
@@ -357,6 +358,7 @@ class Workflow(StandardWorkflow):
                 self.accumulator[0], ("x_inp", "x"), ("y_inp", "y"), "bars")
         self.squash[0].gate_block = ~self.decision.epoch_ended
         """
+        """
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
@@ -369,7 +371,7 @@ class Workflow(StandardWorkflow):
             self.accumulator[0], "gl_min", "gl_max",
             ("y", "y_out"), ("x", "x_out"))
         self.plt_hist[0].gate_block = ~self.decision.epoch_ended
-
+        """
         """
         self.plt_hist_load = plotting_units.Histogram(
                 self, name="Y Loader")
@@ -386,8 +388,19 @@ class Workflow(StandardWorkflow):
         self.plt_tab.y.clear()
         self.plt_tab.col_labels.clear()
         for i in range(0, len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
             obj = self.fwds[i].weights
             name = "weights %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+            obj = self.gds[i].gradient_weights
+            name = "gd %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+            obj = self.fwds[i].output
+            name = "Y %s %s" % (i + 1, layers[i]["type"])
             self.plt_tab.y.append(obj)
             self.plt_tab.col_labels.append(name)
         self.plt_tab.link_from(self.decision)
