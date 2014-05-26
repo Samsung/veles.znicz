@@ -500,6 +500,64 @@ class TestConvCaffe(unittest.TestCase):
         self.assertLess(back_percent_delta, max_percent_delta,
                         "Fwd norm differs by %.2f%%" % (back_percent_delta))
 
+    def test_caffe_relu(self, data_path="data/conv_relu.txt"):
+        """
+        Tests CONV+RELU unit: compares it with CAFFE one.
+        Fwd prop only.
+        """
+        in_file = open(data_path, 'r')
+        lines = in_file.readlines()
+        in_file.close()
+
+        in_size = 32
+        out_size = 32
+        n_chans = 3
+        n_kernels = 2
+        n_pics = 2
+        kernel_size = 5
+        padding_size = 2
+
+        max_percent_delta = 2.0
+
+        conv_bottom = self._read_array("conv_bottom", lines,
+                                  shape=(n_pics, in_size, in_size, n_chans))
+        conv_top = self._read_array("conv_top", lines, shape=(n_pics,
+                                                out_size, out_size, n_kernels))
+        relu_top_flat = self._read_array("relu_top_flat", lines,
+                                         shape=(1, 1, conv_top.size, 1))
+        relu_top = relu_top_flat.ravel().reshape(n_pics, in_size, in_size,
+                                                    n_kernels)
+        conv_weights = self._read_array("conv_weights", lines, shape=(
+                                n_kernels, kernel_size, kernel_size, n_chans))
+
+        fwd_conv_relu = conv.Conv(self.workflow,
+                                  kx=kernel_size, ky=kernel_size,
+                                  padding=(padding_size, padding_size,
+                                           padding_size, padding_size),
+                                  sliding=(1, 1), n_kernels=n_kernels,
+                                  device=self.device)
+
+        fwd_conv_relu.input = Vector()
+        fwd_conv_relu.input.mem = conv_bottom
+
+        fwd_conv_relu.initialize(self.device)
+
+        fwd_conv_relu.weights.map_invalidate()
+        fwd_conv_relu.weights.mem[:] = conv_weights.reshape(2, 75)[:]
+        fwd_conv_relu.bias.map_invalidate()
+        fwd_conv_relu.bias.mem[:] = 0
+
+        fwd_conv_relu.run()
+
+        fwd_conv_relu.output.map_read()
+
+        percent_delta = 100. * (np.sum(np.abs(
+            fwd_conv_relu.output.mem - relu_top)) / np.sum(np.abs(relu_top)))
+
+        logging.info("CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
+        self.assertLess(percent_delta, max_percent_delta,
+                        "Fwd ConvRELU differs by %.2f%%" % (percent_delta))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
