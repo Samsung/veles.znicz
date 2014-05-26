@@ -25,12 +25,16 @@ class TestGDConv(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self.device = opencl.Device()
+        if not hasattr(self, "device"):
+            self.device = opencl.Device()
 
-    def tearDown(self):
-        del self.device
+    def test_err_h_gpu(self):
+        self._test_err_h(self.device)
 
-    def _test_err_h(self):
+    def test_err_h_cpu(self):
+        self._test_err_h(None)
+
+    def _test_err_h(self, device):
         logging.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -45,6 +49,7 @@ class TestGDConv(unittest.TestCase):
                             [2, 0, 1, 1, 0],
                             [-1, 1, 1, 0, 2],
                             [1, 0, 1, 0, 1]]], dtype=dtype)
+        inp.shape = inp.shape + (1,)
 
         a = numpy.array([[-1, 0, 2, 0, 1, -2, 2, 0, 1],
                          [0, 2, 0, 1, -2, 1, 0, 1, 1],
@@ -71,25 +76,13 @@ class TestGDConv(unittest.TestCase):
 
         bias = numpy.array([10, -10], dtype=dtype)
 
-        err_output = numpy.array([[[-1, 3],
-                                   [8, 2],
-                                   [0, 1],
-                                   [4, -1],
-                                   [-1, 2],
-                                   [0, 1],
-                                   [-2, 3],
-                                   [1, 2],
-                                   [1, 1]],
+        err_output = numpy.array([[[[-1, 3], [8, 2], [0, 1]],
+                                   [[4, -1], [-1, 2], [0, 1]],
+                                   [[-2, 3], [1, 2], [1, 1]]],
 
-                                  [[-1, 3],
-                                   [8, 2],
-                                   [0, 1],
-                                   [4, -1],
-                                   [-1, 2],
-                                   [0, 1],
-                                   [-2, 3],
-                                   [1, 2],
-                                   [1, 1]]], dtype=dtype)
+                                  [[[-1, 3], [8, 2], [0, 1]],
+                                   [[4, -1], [-1, 2], [0, 1]],
+                                   [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, gradient_moment=0.9)
@@ -116,10 +109,8 @@ class TestGDConv(unittest.TestCase):
         gradient_bias = bias_derivative * (-1) * (c.learning_rate / batch_size)
         bias_new = bias + gradient_bias
 
-        c.initialize(device=self.device)
-        c.gpu_err_output_update()
-        c.gpu_err_input_update()
-        c.gpu_weights_update()
+        c.initialize(device=device)
+        c.run()
         c.err_input.map_read()
         c.weights.map_read()
         c.bias.map_read()
@@ -137,29 +128,30 @@ class TestGDConv(unittest.TestCase):
                           [14, 4, 13, 12, 5]]], dtype=dtype)
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Err_input is right")
+                        "Err_input differs by %.6f" % (max_diff))
+        logging.info("Err_input Ok")
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Weights is right")
+                        "Weights differ by %.6f" % (max_diff))
+        logging.info("Weights Ok")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Bias is right")
+                        "Bias differs by %.6f" % (max_diff))
+        logging.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
         forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
         target = self._numdiff_init_forward(forward, inp, weights, bias,
                                             err_output)
 
-        self._numdiff_check_err_input(inp, forward, target, err_input)
-        self._numdiff_check_weights(weights, forward, bias, target,
+        self._numdiff_check_err_input(forward, inp, weights, bias, target,
+                                      err_input)
+        self._numdiff_check_weights(forward, inp, weights, bias, target,
                                     weights_derivative)
-        self._numdiff_check_bias(bias, forward, weights, target,
+        self._numdiff_check_bias(forward, inp, weights, bias, target,
                                  bias_derivative)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
@@ -260,91 +252,13 @@ class TestGDConv(unittest.TestCase):
                          (derivative, bias_derivative[y], d))
             self.assertLess(d, 0.05, "Numeric diff test failed")
 
-    def _test_err_h_cpu(self):
-        logging.info("Will test CPU convolutional layer back propagation")
+    def test_padding_sliding_gpu(self):
+        self._test_padding_sliding(self.device)
 
-        inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
-        inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
-                              [0, 1, -2, 1, 2],
-                              [2, 0, 1, 1, 0],
-                              [-1, 1, 1, 0, 2],
-                              [1, 0, 1, 0, 1]]], dtype=dtype)
+    def test_padding_sliding_cpu(self):
+        self._test_padding_sliding(None)
 
-        a = numpy.array([[-1, 0, 2, 0, 1, -2, 2, 0, 1],
-                         [0, 2, 0, 1, -2, 1, 0, 1, 1],
-                         [2, 0, 3, -2, 1, 2, 1, 1, 0],
-                         [0, 1, -2, 2, 0, 1, -1, 1, 1],
-                         [1, -2, 1, 0, 1, 1, 1, 1, 0],
-                         [-2, 1, 2, 1, 1, 0, 1, 0, 2],
-                         [2, 0, 1, -1, 1, 1, 1, 0, 1],
-                         [0, 1, 1, 1, 1, 0, 0, 1, 0],
-                         [1, 1, 0, 1, 0, 2, 1, 0, 1]], dtype=dtype)
-
-        weights = numpy.array([[-1, -1, 4, 1, 8, -1, -1, 3, 2],
-                               [2, 1, -1, 3, 0, 1, 4, 1, 3]], dtype=dtype)
-
-        bias = numpy.array([10, -10], dtype=dtype)
-
-        c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3, gradient_moment=0.9)
-        c.err_output = formats.Vector()
-        c.err_output.mem = numpy.array([[[-1, 3],
-                                       [8, 2],
-                                       [0, 1],
-                                       [4, -1],
-                                       [-1, 2],
-                                       [0, 1],
-                                       [-2, 3],
-                                       [1, 2],
-                                       [1, 1]]], dtype=dtype)
-        c.input = inp
-        c.weights = formats.Vector()
-        c.weights.mem = weights
-        c.bias = formats.Vector()
-        c.bias.mem = bias
-        c.output = formats.Vector()
-        c.output.mem = c.err_output.mem.copy()
-
-        batch_size = c.err_output.mem.shape[0]
-        b = c.err_output.mem.reshape(9 * batch_size, 2)
-        gradient_weights = numpy.dot(b.transpose(), a)
-        gradient_weights *= (-1) * (c.learning_rate / batch_size)
-        gradient_weights += weights * (-1) * (c.learning_rate *
-                                              c.weights_decay)
-        weights_new = weights + gradient_weights
-        gradient_bias = b.sum(axis=0) * (-1) * (c.learning_rate / batch_size)
-        bias_new = bias + gradient_bias
-
-        c.initialize(device=self.device)
-        c.cpu_err_input_update()
-        c.cpu_weights_update()
-        c.err_input.map_read()
-        c.weights.map_read()
-        c.bias.map_read()
-
-        t = numpy.array([[[7, 0, -11, 31, -1],
-                          [2, 6, 93, -11, 0],
-                          [22, 45, 18, 28, 7],
-                          [-1, 11, 25, 14, 3],
-                          [14, 4, 13, 12, 5]]], dtype=dtype)
-        max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Err_input is right")
-
-        max_diff = numpy.fabs(weights_new.ravel() -
-                              c.weights.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Weights is right")
-
-        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Bias is right")
-
-    def _test_padding_sliding(self):
+    def _test_padding_sliding(self, device):
         logging.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
@@ -353,6 +267,7 @@ class TestGDConv(unittest.TestCase):
                             [0, 1, 0, 1, 0],
                             [2, 0, 1, 0, 2],
                             [1, 0, 1, 0, 1]]], dtype=dtype)
+        inp.shape = inp.shape + (1,)
 
         a = numpy.array([[0, 0, 0, 0, 0, 0, 0, 1, 2],
                          [0, 0, 0, 0, 0, 0, 2, 3, 2],
@@ -373,18 +288,10 @@ class TestGDConv(unittest.TestCase):
 
         bias = numpy.array([10, -10], dtype=dtype)
 
-        err_output = numpy.array([[[-1, 3],
-                                   [8, 2],
-                                   [0, 1],
-                                   [4, -1],
-                                   [-1, 2],
-                                   [0, 1],
-                                   [-2, 3],
-                                   [1, 2],
-                                   [1, 1],
-                                   [1, -2],
-                                   [0, 5],
-                                   [2, 3]]], dtype=dtype)
+        err_output = numpy.array([[[[-1, 3], [8, 2], [0, 1], [4, -1]],
+                                   [[-1, 2], [0, 1], [-2, 3], [1, 2]],
+                                   [[1, 1], [1, -2], [0, 5], [2, 3]]]],
+                                 dtype=dtype)
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
@@ -412,9 +319,8 @@ class TestGDConv(unittest.TestCase):
         gradient_bias = bias_derivative * (-1) * (c.learning_rate / batch_size)
         bias_new = bias + gradient_bias
 
-        c.initialize(device=self.device)
-        c.gpu_err_input_update()
-        c.gpu_weights_update()
+        c.initialize(device=device)
+        c.run()
         c.err_input.map_read()
         c.weights.map_read()
         c.bias.map_read()
@@ -426,22 +332,22 @@ class TestGDConv(unittest.TestCase):
                           [1.1, -1.1, -5.2, -1.7, 10.5]]], dtype=dtype)
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
+                        "Err_input differs by %.6f\nTarget is:\n%s\nGot:\n%s" %
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
                          " ".join("%.2f" % x for x in
                                   c.err_input.mem.ravel())))
-        logging.info("Err_input is right")
-
-        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Bias is right")
+        logging.info("Err_input Ok")
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("Weights is right")
+                        "Weights differ by %.6f" % (max_diff))
+        logging.info("Weights Ok")
+
+        max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001,
+                        "Bias differs by %.6f" % (max_diff))
+        logging.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
         forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
@@ -449,13 +355,20 @@ class TestGDConv(unittest.TestCase):
         target = self._numdiff_init_forward(forward, inp, weights, bias,
                                             err_output)
 
-        self._numdiff_check_err_input(inp, forward, target, err_input)
-        self._numdiff_check_weights(weights, forward, bias, target,
+        self._numdiff_check_err_input(forward, inp, weights, bias, target,
+                                      err_input)
+        self._numdiff_check_weights(forward, inp, weights, bias, target,
                                     weights_derivative)
-        self._numdiff_check_bias(bias, forward, weights, target,
+        self._numdiff_check_bias(forward, inp, weights, bias, target,
                                  bias_derivative)
 
-    def test_random_numeric(self):
+    def test_random_numeric_gpu(self):
+        return self._test_random_numeric(self.device)
+
+    def test_random_numeric_cpu(self):
+        return self._test_random_numeric(None)
+
+    def _test_random_numeric(self, device):
         logging.info("Will test convolutional layer forward-backward "
                      "via numeric differentiation")
 
@@ -495,7 +408,7 @@ class TestGDConv(unittest.TestCase):
         c.bias.mem = bias.copy()
         c.output = formats.Vector()
         c.output.mem = c.err_output.mem.copy()
-        c.initialize(device=self.device)
+        c.initialize(device=device)
         c.run()
         c.err_input.map_read()
         c.weights.map_read()

@@ -254,6 +254,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_weights.map_write()
         self.gradient_bias.map_write()
 
+        dtype = self.weights.mem.dtype
         batch_size = self.batch_size or self.output.mem.shape[0]
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
@@ -265,27 +266,39 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ny = (sy_full - self.ky) // self.sliding[1] + 1
         sample_shape = (nx * ny, self.kx * self.ky * n_channels)
 
+        sh = self.err_output.mem.shape
+        if len(sh) == 3:
+            sh[1] *= sh[2]
+            sh[2] = 1
+        err_output = formats.reshape(self.err_output.mem,
+                                     (sh[0], sh[1] * sh[2], sh[3]))
+
         # calculate gradient for weights
-        gd_weights = numpy.zeros(self.weights.mem.shape)
+        gd_weights = numpy.zeros_like(self.weights.mem)
+        cut = numpy.empty((self.ky, self.kx, n_channels), dtype=dtype)
+        sample = numpy.empty(sample_shape, dtype=dtype)
         for batch in range(batch_size):
             # input data unrolling
-            sample = numpy.empty(sample_shape)
             for by, bx in ((by, bx) for by in range(ny) for bx in range(nx)):
-                y1, y2 = (by * self.sliding[1],
-                          by * self.sliding[1] + self.ky)
-                x1, x2 = (bx * self.sliding[0],
-                          bx * self.sliding[0] + self.kx)
-                i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
-                          min(max(y2 - self.padding[1], 0), sy))
-                j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
-                          min(max(x2 - self.padding[0], 0), sx))
-                cut = numpy.zeros((self.ky, self.kx, n_channels),
-                                  dtype=self.input.mem.dtype)
-                cut[(i1 - y1):(i2 - y1), (j1 - x1):(j2 - x1)] = \
-                    self.input.mem[batch, i1:i2, j1:j2].reshape(cut.shape)
+                # coordinates over image
+                y1, y2 = (by * self.sliding[1] - self.padding[1],
+                          by * self.sliding[1] + self.ky - self.padding[1])
+                x1, x2 = (bx * self.sliding[0] - self.padding[0],
+                          bx * self.sliding[0] + self.kx - self.padding[0])
+                # coordinates over valid image region
+                i1, i2 = (min(max(y1, 0), sy),
+                          min(max(y2, 0), sy))
+                j1, j2 = (min(max(x1, 0), sx),
+                          min(max(x2, 0), sx))
+                # fill the cut
+                cut[:] = 0
+                if i1 < i2 and j1 < j2:
+                    cut[i1 - y1:i2 - y1, j1 - x1:j2 - x1] = (
+                        self.input.mem[batch, i1:i2, j1:j2])
+
                 sample[by * nx + bx] = cut.ravel()
             # TODO: consider case of transposed weights
-            gd_weights += numpy.dot(self.err_output.mem[batch].transpose(),
+            gd_weights += numpy.dot(err_output[batch].transpose(),
                                     sample)
 
         # update weights
@@ -300,9 +313,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.weights.mem += gd_weights_reg
 
         # calculate gradient for bias
-        gd_bias = numpy.zeros(self.bias.mem.shape)
+        gd_bias = numpy.zeros_like(self.bias.mem)
         for batch in range(batch_size):
-            gd_bias += numpy.add.reduce(self.err_output.mem[batch])
+            gd_bias += numpy.add.reduce(err_output[batch])
         # update bias
         alpha_batch = -self.learning_rate_bias / batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
@@ -361,10 +374,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         self.err_input.mem[:] = 0
         # initialize sparse output error
-        sparse_err_output = numpy.zeros((batch_size, sy_full - self.ky + 1,
-                                         sx_full - self.kx + 1,
-                                         self.n_kernels))
-        print(sparse_err_output.shape)
+        sparse_err_output = numpy.zeros((
+            batch_size, sy_full - self.ky + 1, sx_full - self.kx + 1,
+            self.n_kernels), dtype=self.err_output.mem.dtype)
         for (batch, i, j, k), err in numpy.ndenumerate(self.err_output.mem):
             sparse_err_output[batch, i * self.sliding[1],
                               j * self.sliding[0], k] = err
@@ -449,7 +461,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         t1 = time.time()
         self.cpu_err_output_update()
         self.cpu_err_input_update()
-        #self.cpu_weights_update()
+        self.cpu_weights_update()
         self.print_debug_data(t1)
 
 
