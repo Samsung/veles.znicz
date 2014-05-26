@@ -20,6 +20,12 @@ base_path = "/data/imagenet/2013"
 class Test(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(Test, self).__init__(*args, **kwargs)
+        lock_file = os.path.join(base_path, "db/LOCK")
+        if os.path.exists(lock_file):
+            try:
+                os.remove(lock_file)
+            except:
+                print("Failed to remove", lock_file, file=sys.stderr)
         self.loader = LoaderDetection(DummyWorkflow(),
                                       ipath=base_path,
                                       dbpath=os.path.join(base_path, "db"),
@@ -53,10 +59,4 @@ class Test(unittest.TestCase):
         self.loader._colorspace = "RGB"
 
 if __name__ == "__main__":
-    lock_file = os.path.join(base_path, "db/LOCK")
-    if os.path.exists(lock_file):
-        try:
-            os.remove(lock_file)
-        except:
-            print("Failed to remove", lock_file, file=sys.stderr)
     unittest.main()
