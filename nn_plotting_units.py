@@ -8,6 +8,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 from __future__ import division
 import numpy
 import numpy.linalg as linalg
+from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats
@@ -15,6 +16,7 @@ import veles.plotter as plotter
 import veles.opencl_types as opencl_types
 
 
+@implementer(plotter.IPlotter)
 class Weights2D(plotter.Plotter):
     """Plotter for drawing weights as 2D.
 
@@ -122,10 +124,10 @@ class Weights2D(plotter.Plotter):
 
         self.show_figure(figure)
         figure.canvas.draw()
+        return figure
 
-        super(Weights2D, self).redraw()
 
-
+@implementer(plotter.IPlotter)
 class MSEHistogram(plotter.Plotter):
     """Plotter for drawing histogram.
 
@@ -231,7 +233,7 @@ class MSEHistogram(plotter.Plotter):
 
         self.show_figure(fig)
         fig.canvas.draw()
-        super(MSEHistogram, self).redraw()
+        return fig
 
     def run(self):
         mx = self.mse.mem.max()
@@ -253,6 +255,7 @@ class MSEHistogram(plotter.Plotter):
         super(MSEHistogram, self).run()
 
 
+@implementer(plotter.IPlotter)
 class KohonenHits(plotter.Plotter):
     """Draws the Kohonen classification win numbers.
 
@@ -394,6 +397,7 @@ class KohonenHits(plotter.Plotter):
                           color=self.color_text, size=12)
 
 
+@implementer(plotter.IPlotter)
 class KohonenInputMaps(plotter.Plotter):
     """Draws the Kohonen input weight maps.
 
@@ -490,6 +494,7 @@ class KohonenInputMaps(plotter.Plotter):
         patches.append(self.patches.RegularPolygon((cx, cy), 6, radius=r))
 
 
+@implementer(plotter.IPlotter)
 class KohonenNeighborMap(plotter.Plotter):
     """Draws the Kohonen neighbor weight distances.
 
