@@ -7,10 +7,11 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import logging
-from veles import opencl
 import unittest
-from veles.formats import Vector
+from scipy.signal import correlate2d, convolve2d  # pylint: disable-msg=C0611
 
+from veles import opencl
+from veles.formats import Vector
 import veles.znicz.conv as conv
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_conv as gd_conv
@@ -18,13 +19,10 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
-# No name -- pylint: disable-msg=C0611
-from scipy.signal import correlate2d, convolve2d
-
 import numpy as np
 
 
-#os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change OpenCL device
+# os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change OpenCL device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -471,13 +469,13 @@ class TestConvCaffe(unittest.TestCase):
         fwd_norm.output.map_read()
 
         fwd_percent_delta = 100. * (np.sum(np.abs(fwd_norm.output.mem - top)) /
-              np.sum(np.abs(top)))
+                                    np.sum(np.abs(top)))
 
         logging.info("FWD NORM DELTA: %.2f%%" % fwd_percent_delta)
         self.assertLess(fwd_percent_delta, max_percent_delta,
                         "Fwd norm differs by %.2f%%" % (fwd_percent_delta))
 
-        #BACK PROP
+        # BACK PROP
         back_norm = normalization.LRNormalizerBackward(self.workflow,
                                                        k=1, device=self.device)
         back_norm.output = Vector()

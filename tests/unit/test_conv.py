@@ -399,7 +399,7 @@ class TestConvWithPadding(TestConvBase):
             dtype=self._dtype)
 
         unit = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                      padding=(1, 2, 3, 4), sliding=(2, 3))
+                         padding=(1, 2, 3, 4), sliding=(2, 3))
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_fixed_arrays_ocl(self):
