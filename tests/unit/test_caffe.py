@@ -8,7 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import unittest
-from scipy.signal import correlate2d, convolve2d  # pylint: disable-msg=C0611
+from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 
 from veles import opencl
 from veles.formats import Vector
@@ -493,7 +493,7 @@ class TestConvCaffe(unittest.TestCase):
         back_norm.err_input.map_read()
 
         back_percent_delta = 100. * (np.sum(np.abs(back_norm.err_output.mem -
-                                    bot_err)) / np.sum(np.abs(bot_err)))
+            bot_err)) / np.sum(np.abs(bot_err)))
 
         logging.info("BACK NORM DELTA: %.2f%%" % back_percent_delta)
         self.assertLess(back_percent_delta, max_percent_delta,
