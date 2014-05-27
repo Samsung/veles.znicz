@@ -48,6 +48,8 @@ class GDNumDiff(object):
         for offs in range(mem.shape[0]):
             for i, p in enumerate(numdiff.points):
                 for k, v in vector_value_map.items():
+                    if v is None or k is None or k.mem is None:
+                        continue
                     k.map_invalidate()
                     formats.ravel(k.mem)[:] = v.ravel()[:]
                 mem[offs] = mem[offs] + p
