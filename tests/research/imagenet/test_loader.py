@@ -18,6 +18,8 @@ base_path = "/data/imagenet/2013"
 
 
 class Test(unittest.TestCase):
+    loader = None
+
     def __init__(self, *args, **kwargs):
         super(Test, self).__init__(*args, **kwargs)
         lock_file = os.path.join(base_path, "db/LOCK")
@@ -27,37 +29,38 @@ class Test(unittest.TestCase):
             except:
                 print("Failed to remove", lock_file, file=sys.stderr)
                 raise
-        self.loader = LoaderDetection(DummyWorkflow(),
-                                      ipath=base_path,
-                                      dbpath=os.path.join(base_path, "db"),
-                                      year="2013", series="DET")
-        self.loader.setup(level=logging.DEBUG)
-        self.loader.load_data()
+        if Test.loader is None:
+            Test.loader = LoaderDetection(DummyWorkflow(),
+                                          ipath=base_path,
+                                          dbpath=os.path.join(base_path, "db"),
+                                          year="2013", series="DET")
+            Test.loader.setup(level=logging.DEBUG)
+            Test.loader.load_data()
 
     def test_decode_image(self):
-        data = self.loader._decode_image(0)
+        data = Test.loader._decode_image(0)
         self.assertEqual(3, len(data.shape))
         self.assertEqual(3, data.shape[2])
         self.assertGreater(data.shape[0], 100)
         self.assertGreater(data.shape[1], 100)
 
     def test_get_sample(self):
-        data = self.loader._get_sample(450000)
+        data = Test.loader._get_sample(450000)
         self.assertEqual(3, len(data.shape))
         self.assertEqual(3, data.shape[2])
-        self.assertEqual(self.loader._data_shape[0], data.shape[0])
-        self.assertEqual(self.loader._data_shape[1], data.shape[1])
-        self.assertEqual(self.loader._dtype, data.dtype)
-        self.loader.include_derivative = True
-        self.loader._colorspace = "HSV"
-        data = self.loader._get_sample(450000)
+        self.assertEqual(Test.loader._data_shape[0], data.shape[0])
+        self.assertEqual(Test.loader._data_shape[1], data.shape[1])
+        self.assertEqual(Test.loader._dtype, data.dtype)
+        Test.loader.include_derivative = True
+        Test.loader._colorspace = "HSV"
+        data = Test.loader._get_sample(450000)
         self.assertEqual(3, len(data.shape))
         self.assertEqual(4, data.shape[2])
-        self.assertEqual(self.loader._data_shape[0], data.shape[0])
-        self.assertEqual(self.loader._data_shape[1], data.shape[1])
-        self.assertEqual(self.loader._dtype, data.dtype)
-        self.loader.include_derivative = False
-        self.loader._colorspace = "RGB"
+        self.assertEqual(Test.loader._data_shape[0], data.shape[0])
+        self.assertEqual(Test.loader._data_shape[1], data.shape[1])
+        self.assertEqual(Test.loader._dtype, data.dtype)
+        Test.loader.include_derivative = False
+        Test.loader._colorspace = "RGB"
 
 if __name__ == "__main__":
     unittest.main()

@@ -122,7 +122,7 @@ class LoaderBase(loader.Loader):
     @include_derivative.setter
     def include_derivative(self, value):
         self._include_derivative = value
-        self._mean = self._init_mean(None, db_only=True)
+        self._mean = self._init_mean(None)
 
     @property
     def channels(self):
@@ -259,6 +259,7 @@ class LoaderBase(loader.Loader):
 
     def _get_sample(self, index):
         data = self._get_sample_raw(index)
+        assert self._mean is not None
         data -= self._mean
         if self.normalize:
             formats.normalize(data)
@@ -560,6 +561,8 @@ class LoaderBase(loader.Loader):
             return None
         self.info("Preparing to calculate the mean...")
         actors = mp.cpu_count()
+        if objects is None:
+            objects, _ = self._init_objects(None, None, db_only=True)
         indices = objects["train"]
         indices = indices[:(len(indices) // actors) * actors]
         mean_done = mp.Value('i', 0)
