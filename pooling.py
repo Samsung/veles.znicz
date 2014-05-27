@@ -10,12 +10,15 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import time
+from zope.interface import implementer
 
 import veles.error as error
 import veles.formats as formats
+from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
 
+@implementer(IOpenCLUnit)
 class Pooling(nn_units.Forward):
     """Pooling forward propagation.
 
