@@ -12,7 +12,6 @@ import numpy
 import time
 from zope.interface import implementer
 
-import veles.error as error
 import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
@@ -119,11 +118,6 @@ class Pooling(nn_units.Forward):
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
         self.execute_kernel(global_size, None).wait()
 
-    def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        raise error.ErrNotImplemented()
-
     def run(self):
         t1 = time.time()
         retval = super(Pooling, self).run()
@@ -133,6 +127,7 @@ class Pooling(nn_units.Forward):
 
 
 # TODO: fix GPU part
+@implementer(IOpenCLUnit)
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
 
@@ -196,6 +191,7 @@ class MaxPooling(Pooling):
                 self.output.mem[batch, out_y, out_x, ch] = val
 
 
+@implementer(IOpenCLUnit)
 class MaxAbsPooling(Pooling):
     """MaxAbsPooling forward propagation.
 
@@ -260,6 +256,7 @@ class MaxAbsPooling(Pooling):
                 self.output.mem[batch, out_y, out_x, ch] = val
 
 
+@implementer(IOpenCLUnit)
 class AvgPooling(Pooling):
     """AvgPooling forward propagation.
 

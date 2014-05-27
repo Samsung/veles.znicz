@@ -9,8 +9,10 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 """
 
 import numpy as np
+from zope.interface import implementer
 
 from veles import formats, OpenCLUnit
+from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
@@ -41,6 +43,7 @@ class Dropout(OpenCLUnit):
         self._dropout_ratio = value
 
 
+@implementer(IOpenCLUnit)
 class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
@@ -108,6 +111,7 @@ class DropoutForward(Forward, Dropout):
         self.execute_kernel((self.input.mem.size,), None).wait()
 
 
+@implementer(IOpenCLUnit)
 class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.

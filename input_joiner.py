@@ -8,13 +8,15 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
+from zope.interface import implementer
 
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-from veles.opencl_units import OpenCLUnit
+from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 
+@implementer(IOpenCLUnit)
 class InputJoiner(OpenCLUnit):
     """Joins several minibatch inputs into one continuous minibatch output.
 

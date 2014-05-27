@@ -15,9 +15,9 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
+from veles.znicz.tests.unit import TrivialOpenCLUnit
 
 
 class TestMatrixReduce(unittest.TestCase):
@@ -50,7 +50,7 @@ class TestMatrixReduce(unittest.TestCase):
         fout.write(src)
         fout.close()
 
-        tmp = OpenCLUnit(DummyWorkflow())
+        tmp = TrivialOpenCLUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
         tmp.cl_sources_[fnme] = {}
         tmp.build_program(defines, fnme, show_ocl_logs=False)
