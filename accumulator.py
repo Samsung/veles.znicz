@@ -9,14 +9,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import sys
+from zope.interface import implementer
 
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
-import veles.units as units
+from veles.units import Unit, IUnit
 
 
-class FixAccumulator(units.Unit):
+@implementer(IUnit)
+class FixAccumulator(Unit):
     """
     Range accumulator.
     """
@@ -32,7 +34,6 @@ class FixAccumulator(units.Unit):
         self.min = 0
 
     def initialize(self, **kwargs):
-        super(FixAccumulator, self).initialize(**kwargs)
         self.output.mem = numpy.zeros([self.bars + 2], dtype=numpy.int64)
 
     def run(self):
@@ -65,7 +66,8 @@ class FixAccumulator(units.Unit):
             self.output[self.bars + 1] += 1
 
 
-class RangeAccumulator(units.Unit):
+@implementer(IUnit)
+class RangeAccumulator(Unit):
     """Range accumulator.
     """
     def __init__(self, workflow, **kwargs):
@@ -86,7 +88,7 @@ class RangeAccumulator(units.Unit):
         self.inside_bar = False
 
     def initialize(self, **kwargs):
-        super(RangeAccumulator, self).initialize(**kwargs)
+        pass
 
     def run(self):
         if self.reset_flag:
