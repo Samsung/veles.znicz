@@ -282,26 +282,33 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sample = numpy.empty(sample_shape, dtype=dtype)
         for batch in range(batch_size):
             # input data unrolling
+            sample = numpy.empty(sample_shape)
             for by, bx in ((by, bx) for by in range(ny) for bx in range(nx)):
-                # coordinates over image
-                y1, y2 = (by * self.sliding[1] - self.padding[1],
-                          by * self.sliding[1] + self.ky - self.padding[1])
-                x1, x2 = (bx * self.sliding[0] - self.padding[0],
-                          bx * self.sliding[0] + self.kx - self.padding[0])
-                # coordinates over valid image region
-                i1, i2 = (min(max(y1, 0), sy),
-                          min(max(y2, 0), sy))
-                j1, j2 = (min(max(x1, 0), sx),
-                          min(max(x2, 0), sx))
-                # fill the cut
-                cut[:] = 0
-                if i1 < i2 and j1 < j2:
-                    cut[i1 - y1:i2 - y1, j1 - x1:j2 - x1] = (
-                        self.input.mem[batch, i1:i2, j1:j2])
-
+                y1, y2 = (by * self.sliding[1],
+                          by * self.sliding[1] + self.ky)
+                x1, x2 = (bx * self.sliding[0],
+                          bx * self.sliding[0] + self.kx)
+                i1, i2 = (min(max(y1 - self.padding[1], 0), sy),
+                          min(max(y2 - self.padding[1], 0), sy))
+                j1, j2 = (min(max(x1 - self.padding[0], 0), sx),
+                          min(max(x2 - self.padding[0], 0), sx))
+                cut_i1, cut_i2 = (i1 - y1 + self.padding[1],
+                                  i2 - y1 + self.padding[1])
+                cut_j1, cut_j2 = (j1 - x1 + self.padding[0],
+                                  j2 - x1 + self.padding[0])
+                cut = numpy.zeros((self.ky, self.kx, n_channels),
+                                  dtype=self.input.mem.dtype)
+                cut[cut_i1:cut_i2, cut_j1:cut_j2, :] = \
+                    self.input.mem[batch, i1:i2, j1:j2, :].reshape(i2 - i1,
+                                                                   j2 - j1,
+                                                                   n_channels)
                 sample[by * nx + bx] = cut.ravel()
             # TODO: consider case of transposed weights
-            gd_weights += numpy.dot(err_output[batch].transpose(),
+            err_out_shape = self.err_output.mem.shape
+            out = self.err_output.mem[batch].reshape(err_out_shape[1] *
+                                                     err_out_shape[2],
+                                                     self.n_kernels)
+            gd_weights += numpy.dot(out.transpose(),
                                     sample)
 
         # update weights
@@ -318,7 +325,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         # calculate gradient for bias
         gd_bias = numpy.zeros_like(self.bias.mem)
         for batch in range(batch_size):
-            gd_bias += numpy.add.reduce(err_output[batch])
+            out = self.err_output.mem[batch].reshape(err_out_shape[1] *
+                                                     err_out_shape[2],
+                                                     self.n_kernels)
+            gd_bias += numpy.add.reduce(out)
         # update bias
         alpha_batch = -self.learning_rate_bias / batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
@@ -454,18 +464,21 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def ocl_run(self):
         """Do gradient descent.
         """
-        t1 = time.time()
+#    TODO(a.golovizin): fix debug data output
+#        t1 = time.time()
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
-        self.print_debug_data(t1)
+
+#        self.print_debug_data(t1)
 
     def cpu_run(self):
-        t1 = time.time()
+#    TODO(a.golovizin): fix debug data output
+#        t1 = time.time()
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
-        self.print_debug_data(t1)
+#        self.print_debug_data(t1)
 
 
 class GDTanhConv(GradientDescentConv):
