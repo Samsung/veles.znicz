@@ -29,10 +29,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         if not hasattr(self, "device"):
             self.device = opencl.Device()
 
-    def _test_err_h_gpu(self):
+    def test_err_h_gpu(self):
         self._test_err_h(self.device)
 
-    def _test_err_h_cpu(self):
+    def test_err_h_cpu(self):
         self._test_err_h(None)
 
     def _test_err_h(self, device):
@@ -165,10 +165,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         target = forward.output.mem.ravel() - err_output.ravel()
         return target
 
-    def _test_padding_sliding_gpu(self):
+    def test_padding_sliding_gpu(self):
         self._test_padding_sliding(self.device)
 
-    def _test_padding_sliding_cpu(self):
+    def test_padding_sliding_cpu(self):
         self._test_padding_sliding(None)
 
     def _test_padding_sliding(self, device):
@@ -272,7 +272,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                               err_input, weights_derivative, bias_derivative,
                               logging.info, self.assertLess)
 
-    def _test_random_numeric_gpu(self):
+    def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, conv.Conv,
                                   gd_conv.GradientDescentConv)
 
@@ -280,13 +280,21 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(self.device, conv.ConvTanh,
                                   gd_conv.GDTanhConv)
 
-    def _test_random_numeric_cpu(self):
-        return self._test_random_numeric(None, conv.Conv,
-                                         gd_conv.GradientDescentConv)
+    def test_random_numeric_gpu_relu(self):
+        self._test_random_numeric(self.device, conv.ConvRELU,
+                                  gd_conv.GDRELUConv)
 
-    def _test_random_numeric_cpu_tanh(self):
-        return self._test_random_numeric(None, conv.ConvTanh,
-                                         gd_conv.GDTanhConv)
+    def test_random_numeric_cpu(self):
+        self._test_random_numeric(None, conv.Conv,
+                                  gd_conv.GradientDescentConv)
+
+    def test_random_numeric_cpu_tanh(self):
+        self._test_random_numeric(None, conv.ConvTanh,
+                                  gd_conv.GDTanhConv)
+
+    def test_random_numeric_cpu_relu(self):
+        self._test_random_numeric(None, conv.ConvRELU,
+                                  gd_conv.GDRELUConv)
 
     def _test_random_numeric(self, device, Forward, GD):
         logging.info("Will test convolutional layer forward-backward "
