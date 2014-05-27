@@ -21,8 +21,9 @@ from veles.tests.dummy_workflow import DummyWorkflow
 
 import numpy as np
 
-
-# os.environ["PYOPENCL_CTX"] = "1:0"  # uncomment to change OpenCL device
+# Uncomment to change OpenCL device
+#import os
+#os.environ["PYOPENCL_CTX"] = "1:0"
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -524,13 +525,21 @@ class TestConvCaffe(unittest.TestCase):
         conv_top = self._read_array("conv_top", lines, shape=(n_pics,
                                                 out_size, out_size, n_kernels))
         relu_top_flat = self._read_array("relu_top_flat", lines,
-                                         shape=(1, 1, conv_top.size, 1))
-        relu_top = relu_top_flat.ravel().reshape(n_pics, in_size, in_size,
-                                                    n_kernels)
+                                        shape=(1, 1, conv_top.size, 1)).ravel()
+        relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
+                                                            dtype=np.float64)
+        cur_pos = 0
+        for pic in range(n_pics):
+            for kernel in range(n_kernels):
+                for i in range(out_size):
+                    for j in range(out_size):
+                        relu_top[pic, i, j, kernel] = relu_top_flat[cur_pos]
+                        cur_pos += 1
+
         conv_weights = self._read_array("conv_weights", lines, shape=(
                                 n_kernels, kernel_size, kernel_size, n_chans))
 
-        fwd_conv_relu = conv.Conv(self.workflow,
+        fwd_conv_relu = conv.ConvStrictRELU(self.workflow,
                                   kx=kernel_size, ky=kernel_size,
                                   padding=(padding_size, padding_size,
                                            padding_size, padding_size),
@@ -547,7 +556,7 @@ class TestConvCaffe(unittest.TestCase):
         fwd_conv_relu.bias.map_invalidate()
         fwd_conv_relu.bias.mem[:] = 0
 
-        fwd_conv_relu.run()
+        fwd_conv_relu.ocl_run()
 
         fwd_conv_relu.output.map_read()
 
@@ -557,6 +566,11 @@ class TestConvCaffe(unittest.TestCase):
         logging.info("CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
         self.assertLess(percent_delta, max_percent_delta,
                         "Fwd ConvRELU differs by %.2f%%" % (percent_delta))
+
+        relu_top_manual = np.where(np.greater(conv_top, 0), conv_top, 0)
+        manual_delta = 100. * np.sum(np.abs(relu_top_manual - relu_top)) \
+                                                / (np.sum(np.abs(relu_top)))
+        logging.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
 
 
 if __name__ == "__main__":
