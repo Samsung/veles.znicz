@@ -36,7 +36,7 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 100,
+                 "decision": {"fail_iterations": 20,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_maxsize": 60},
@@ -178,7 +178,8 @@ class Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.DecisionGD(self)
+        self.decision = decision.DecisionGD(
+            self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(
             self.loader, "minibatch_class", "minibatch_size",
