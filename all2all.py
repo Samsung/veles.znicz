@@ -303,6 +303,9 @@ class All2AllSoftmax(All2All):
                                int(numpy.prod(self.output_shape)))
         self.cl_sources_["softmax.cl"] = {"REDUCE_SIZE": self.reduce_size}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
+        if self.output.mem.size // self.output.mem.shape[0] <= 1:
+            raise error.ErrBadFormat(
+                "Output sample size should be greater than 1 for SoftMax.")
 
         if (self.max_idx.mem is None or
                 self.max_idx.mem.size != self.output.mem.shape[0]):

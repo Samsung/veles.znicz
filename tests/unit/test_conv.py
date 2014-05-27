@@ -318,10 +318,10 @@ class TestConvWithPadding(TestConvBase):
         padding = (size // 2, size // 2, size // 2, size // 2)
 
         # calculate x and y size of unit output
-        out_y = (input_shape[1] + padding[1] + padding[3] -
-                 weights_shape[1]) // sliding[1] + 1
-        out_x = (input_shape[2] + padding[0] + padding[2] -
-                 weights_shape[2]) // sliding[0] + 1
+        #out_y = (input_shape[1] + padding[1] + padding[3] -
+        #         weights_shape[1]) // sliding[1] + 1
+        #out_x = (input_shape[2] + padding[0] + padding[2] -
+        #         weights_shape[2]) // sliding[0] + 1
 
         unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
                          ky=weights_shape[1], kx=weights_shape[2],

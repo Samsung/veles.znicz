@@ -29,10 +29,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         if not hasattr(self, "device"):
             self.device = opencl.Device()
 
-    def test_err_h_gpu(self):
+    def _test_err_h_gpu(self):
         self._test_err_h(self.device)
 
-    def test_err_h_cpu(self):
+    def _test_err_h_cpu(self):
         self._test_err_h(None)
 
     def _test_err_h(self, device):
@@ -165,10 +165,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         target = forward.output.mem.ravel() - err_output.ravel()
         return target
 
-    def test_padding_sliding_gpu(self):
+    def _test_padding_sliding_gpu(self):
         self._test_padding_sliding(self.device)
 
-    def test_padding_sliding_cpu(self):
+    def _test_padding_sliding_cpu(self):
         self._test_padding_sliding(None)
 
     def _test_padding_sliding(self, device):
@@ -272,21 +272,31 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                               err_input, weights_derivative, bias_derivative,
                               logging.info, self.assertLess)
 
-    def test_random_numeric_gpu(self):
-        return self._test_random_numeric(self.device)
+    def _test_random_numeric_gpu(self):
+        self._test_random_numeric(self.device, conv.Conv,
+                                  gd_conv.GradientDescentConv)
 
-    def test_random_numeric_cpu(self):
-        return self._test_random_numeric(None)
+    def test_random_numeric_gpu_tanh(self):
+        self._test_random_numeric(self.device, conv.ConvTanh,
+                                  gd_conv.GDTanhConv)
 
-    def _test_random_numeric(self, device):
+    def _test_random_numeric_cpu(self):
+        return self._test_random_numeric(None, conv.Conv,
+                                         gd_conv.GradientDescentConv)
+
+    def _test_random_numeric_cpu_tanh(self):
+        return self._test_random_numeric(None, conv.ConvTanh,
+                                         gd_conv.GDTanhConv)
+
+    def _test_random_numeric(self, device, Forward, GD):
         logging.info("Will test convolutional layer forward-backward "
                      "via numeric differentiation")
 
         dtype = opencl_types.dtypes[root.common.dtype]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
         rnd.get().fill(inp)
-        forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                            padding=(1, 2, 3, 4), sliding=(2, 3))
+        forward = Forward(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+                          padding=(1, 2, 3, 4), sliding=(2, 3))
         forward.input = formats.Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
@@ -295,13 +305,14 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         forward.output.map_read()
         target = numpy.zeros_like(forward.output.mem)
         rnd.get().fill(target)
-        err_output = forward.output.mem - target
+        out = forward.output.mem.copy()
+        err_output = out - target
         forward.weights.map_read()
         weights = forward.weights.mem.copy()
         forward.bias.map_read()
         bias = forward.bias.mem.copy()
 
-        c = gd_conv.GradientDescentConv(
+        c = GD(
             DummyWorkflow(), n_kernels=forward.n_kernels,
             kx=forward.kx, ky=forward.ky,
             gradient_moment=0, gradient_moment_bias=0,
@@ -317,7 +328,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.bias = formats.Vector()
         c.bias.mem = bias.copy()
         c.output = formats.Vector()
-        c.output.mem = c.err_output.mem.copy()
+        c.output.mem = out.copy()
         c.initialize(device=device)
         c.run()
         c.err_input.map_read()

@@ -25,122 +25,103 @@ class TestGD(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self.W = None
-        self.b = None
         self.state = rnd.get().state
         if not hasattr(self, "device"):
             self.device = opencl.Device()
 
-    def _do_test(self, device, Unit, Forward):
-        batch_size = 1
+    def _do_test(self, device, Forward, GD):
+        batch_size = 2
         input_size = 25
         n_neurons = 7
 
         rnd.get().state = self.state
 
         dtype = opencl_types.dtypes[root.common.dtype]
-        inp = numpy.empty([batch_size, input_size], dtype=dtype)
+        inp = numpy.zeros([batch_size, input_size], dtype=dtype)
         rnd.get().fill(inp)
-
-        c = Unit(DummyWorkflow(), gradient_moment=0.0)
-
-        weights = numpy.empty([n_neurons, input_size], dtype=dtype)
-        rnd.get().fill(weights)
-
-        bias = numpy.empty(n_neurons, dtype=dtype)
-        rnd.get().fill(bias)
-
-        err_output = numpy.empty([batch_size, n_neurons], dtype=dtype)
-        rnd.get().fill(err_output)
-
-        if device is not None:
-            self.x = inp.copy()
-            self.weights = weights.copy()
-            self.bias = bias.copy()
-            self.err_output = err_output.copy()
-        else:
-            inp[:] = self.x[:]
-            weights[:] = self.weights[:]
-            bias[:] = self.bias[:]
-            err_output[:] = self.err_output[:]
-
-        c.input = formats.Vector()
-        c.input.mem = inp.copy()
-        c.err_output = formats.Vector()
-        c.err_output.mem = err_output.copy()
-        c.weights = formats.Vector()
-        c.weights.mem = weights
-        c.bias = formats.Vector()
-        c.bias.mem = bias
-        c.output = formats.Vector()
-        c.output.mem = c.err_output.mem.copy()
-        c.initialize(device=device)
-
-        if device is None:
-            c.weights.map_invalidate()
-            c.bias.map_invalidate()
-            c.weights.mem[:] = self.W[:]
-            c.bias.mem[:] = self.b[:]
-            c.cpu_run()
-            c.weights.map_read()
-            self.W_cpu = c.weights.mem.copy()
-            c.bias.map_read()
-            self.b_cpu = c.bias.mem.copy()
-        else:
-            self.W = c.weights.mem.copy()
-            self.b = c.bias.mem.copy()
-            c.ocl_run()
-            c.weights.map_read()
-            self.W_gpu = c.weights.mem.copy()
-            c.bias.map_read()
-            self.b_gpu = c.bias.mem.copy()
-        c.err_input.map_read()  # get results back
-
-        logging.info("Will check with numeric differentiation")
-        forward = Forward(DummyWorkflow(), output_shape=err_output.shape[1:])
+        forward = Forward(DummyWorkflow(), output_shape=[n_neurons])
         forward.input = formats.Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
-        forward.weights.map_invalidate()
-        forward.weights.mem[:] = weights[:]
-        forward.bias.map_invalidate()
-        forward.bias.mem[:] = bias[:]
         forward.run()
+
         forward.output.map_read()
-        target = forward.output.mem.ravel() - err_output.ravel()
+        target = numpy.zeros_like(forward.output.mem)
+        rnd.get().fill(target)
+        if isinstance(forward, all2all.All2AllSoftmax):
+            for sample in target:
+                im = sample.argmax()
+                sample[:] = 0.0
+                sample[im] = 1.0
+        out = forward.output.mem.copy()
+        err_output = out - target
+        forward.weights.map_read()
+        weights = forward.weights.mem.copy()
+        forward.bias.map_read()
+        bias = forward.bias.mem.copy()
+
+        c = GD(DummyWorkflow(),
+               gradient_moment=0, gradient_moment_bias=0,
+               learning_rate=-1, weights_decay=0,
+               learning_rate_bias=-1, weights_decay_bias=0)
+
+        c.err_output = formats.Vector()
+        c.err_output.mem = err_output.copy()
+        c.input = formats.Vector()
+        c.input.mem = inp.copy()
+        c.weights = formats.Vector()
+        c.weights.mem = weights.copy()
+        c.bias = formats.Vector()
+        c.bias.mem = bias.copy()
+        c.output = formats.Vector()
+        c.output.mem = out.copy()
+        c.initialize(device=device)
+        c.run()
+        c.err_input.map_read()
+        c.weights.map_read()
+        c.bias.map_read()
+
         err_input = c.err_input.mem.ravel()
+        weights_derivative = (c.weights.mem - weights) * inp.shape[0]
+        bias_derivative = (c.bias.mem - bias) * inp.shape[0]
 
-        self.numdiff_check_gd(forward, inp, weights, bias, target, err_input,
-                              None, None, logging.info, self.assertLess)
+        self.numdiff_check_gd(forward, inp, weights, bias, target,
+                              err_input, weights_derivative, bias_derivative,
+                              logging.info, self.assertLess)
 
-        return c.err_input.mem.copy()
+        return c.err_input.mem.copy(), c.weights.mem.copy(), c.bias.mem.copy()
 
-    def _do_test_gpu_cpu(self, Unit, Forward):
-        output_gpu = self._do_test(self.device, Unit, Forward)
-        output_cpu = self._do_test(None, Unit, Forward)
-        max_diff = numpy.fabs(output_gpu.ravel() - output_cpu.ravel()).max()
+    def _do_test_gpu_cpu(self, Forward, GD):
+        err_gpu, weights_gpu, bias_gpu = self._do_test(self.device,
+                                                       Forward, GD)
+        err_cpu, weights_cpu, bias_cpu = self._do_test(None,
+                                                       Forward, GD)
+        max_diff = numpy.fabs(err_gpu.ravel() - err_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        max_diff = numpy.fabs(self.W_gpu.ravel() - self.W_cpu.ravel()).max()
+                        "GPU-CPU err_input differs by %.6f" % (max_diff))
+        max_diff = numpy.fabs(weights_gpu.ravel() - weights_cpu.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Weights differs by %.6f" % (max_diff))
+                        "GPU-CPU weights differs by %.6f" % (max_diff))
+        max_diff = numpy.fabs(bias_gpu.ravel() - bias_cpu.ravel()).max()
+        self.assertLess(max_diff, 0.0001,
+                        "GPU-CPU bias differs by %.6f" % (max_diff))
         logging.info("All Ok")
 
     def test_gpu_cpu_linear(self):
         logging.info("Will test linear gd unit for gpu/cpu correctness")
-        self._do_test_gpu_cpu(gd.GradientDescent, all2all.All2All)
+        self._do_test_gpu_cpu(all2all.All2All, gd.GradientDescent)
 
-    def _test_gpu_cpu_relu(self):
+    def test_gpu_cpu_relu(self):
         logging.info("Will test RELU gd unit for gpu/cpu correctness")
-        self._do_test_gpu_cpu(gd.GDRELU, all2all.All2AllRELU)
+        self._do_test_gpu_cpu(all2all.All2AllRELU, gd.GDRELU)
 
-    def _test_gpu_cpu_softmax(self):
+    def test_gpu_cpu_softmax(self):
         logging.info("Will test SoftMax gd unit for gpu/cpu correctness")
-        self._do_test_gpu_cpu(gd.GDSM, all2all.All2AllSoftmax)
+        self._do_test_gpu_cpu(all2all.All2AllSoftmax, gd.GDSM)
 
-    def _test_gpu_cpu_tanh(self):
+    def test_gpu_cpu_tanh(self):
         logging.info("Will test Tanh gd unit for gpu/cpu correctness")
-        self._do_test_gpu_cpu(gd.GDTanh, all2all.All2AllTanh)
+        self._do_test_gpu_cpu(all2all.All2AllTanh, gd.GDTanh)
 
 
 if __name__ == "__main__":

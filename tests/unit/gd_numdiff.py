@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import veles.formats as formats
+import veles.znicz.all2all as all2all
 
 
 class GDNumDiff(object):
@@ -16,7 +17,7 @@ class GDNumDiff(object):
     """
     def numdiff_check(self, forward, vector_to_check, vector_value_map,
                       vector_output, target, derivative_to_check,
-                      logging_info, assertLess):
+                      logging_info, assertLess, error_function):
         """Checks derivative by numeric differentiation based on MSE to target.
 
         Parameters:
@@ -55,13 +56,22 @@ class GDNumDiff(object):
                 mem[offs] = mem[offs] + p
                 forward.run()
                 vector_output.map_read()
-                numdiff.errs[i] = (numpy.square(vector_output.mem.ravel() -
-                                                target.ravel()).sum() * 0.5)
+                numdiff.errs[i] = error_function(vector_output.mem.ravel(),
+                                                 target.ravel())
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2f %.2f %.2f" %
                 (derivative, derivative_to_check[offs], d))
             assertLess(d, 0.05, "Numeric diff test failed")
+
+    @staticmethod
+    def mse(y, t):
+        return numpy.square(y - t).sum() * 0.5
+
+    @staticmethod
+    def cross_entropy(y, t):
+        idx = numpy.nonzero(t)
+        return (t[idx] * numpy.log(t[idx] / y[idx])).sum()
 
     def numdiff_check_gd(self, forward, inp, weights, bias, target,
                          err_input, weights_derivative, bias_derivative,
@@ -78,4 +88,7 @@ class GDNumDiff(object):
                                   forward.weights: weights,
                                   forward.bias: bias},
                 forward.output, target, derivative,
-                logging_info, assertLess)
+                logging_info, assertLess,
+                GDNumDiff.cross_entropy
+                if isinstance(forward, all2all.All2AllSoftmax)
+                else GDNumDiff.mse)
