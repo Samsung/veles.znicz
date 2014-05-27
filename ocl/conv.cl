@@ -90,6 +90,8 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
     y[idx] = c_tanh(s * (dtype)0.6666) * (dtype)1.7159;
     #elif ACTIVATION_RELU > 0
     y[idx] = c_relu(s);
+    #elif ACTIVATION_STRICT_RELU > 0
+      y[idx] = (s > 0) ? s : 0;
     #else
     #error "Activation function should be defined"
     #endif

@@ -298,6 +298,10 @@ class Conv(nn_units.Forward):
                             self.output.mem[batch, i, j, k] = \
                                 math.tanh((conv + self.bias.mem[k])
                                           * 0.6666) * 1.7159
+                        elif self.s_activation == "ACTIVATION_STRICT_RELU":
+                            tmp_val = conv + self.bias.mem[k]
+                            self.output.mem[batch, i, j, k] = numpy.where(
+                                        numpy.greater(tmp_val, 0), tmp_val, 0)
                         elif self.s_activation == "ACTIVATION_RELU":
                             tmp_val = conv + self.bias.mem[k]
                             if tmp_val > 15:
@@ -347,9 +351,20 @@ class ConvTanh(Conv):
 
 
 class ConvRELU(Conv):
-    """Conv with RELU activation f(x) = log(1.0 + exp(x)).
+    """Conv with smooth RELU activation f(x) = log(1.0 + exp(x)).
     """
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
         super(ConvRELU, self).initialize(device=device, **kwargs)
+        self.output.supposed_maxvle = 10
+
+
+class ConvStrictRELU(Conv):
+    """
+    Conv with strict RELU activation f(x) = (x >= 0) ? x : 0
+    (Just like in CAFFE)
+    """
+    def initialize(self, device, **kwargs):
+        self.s_activation = "ACTIVATION_STRICT_RELU"
+        super(ConvStrictRELU, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10
