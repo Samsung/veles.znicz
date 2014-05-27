@@ -6,18 +6,20 @@ DecisionGD unit.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from __future__ import division
 
 import numpy
 import time
 from zope.interface import implementer, Interface
 
-import veles.config as config
 from veles.distributable import IDistributable
-import veles.formats as formats
 from veles.mutable import Bool
-import veles.opencl_types as opencl_types
 from veles.units import Unit, IUnit
 from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
+
+import veles.config as config
+import veles.formats as formats
+import veles.opencl_types as opencl_types
 
 
 class IDecision(Interface):

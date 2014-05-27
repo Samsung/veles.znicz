@@ -6,10 +6,13 @@ Accumulator units.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from __future__ import division
 
 import numpy
 import sys
 from zope.interface import implementer
+
+from veles.mutable import Bool
 
 import veles.error as error
 import veles.formats as formats

@@ -4,6 +4,7 @@ Created on May 5, 2014
 Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
+from __future__ import division
 
 from __future__ import division
 import numpy

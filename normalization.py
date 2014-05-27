@@ -9,6 +9,8 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 "ImageNet Classification with Deep Convolutional Neural Networks"
 """
 
+from __future__ import division
+
 import numpy as np
 from zope.interface import implementer
 

@@ -8,6 +8,8 @@ Created on May 16, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from __future__ import division
+
 from math import floor
 from zope.interface import implementer
 

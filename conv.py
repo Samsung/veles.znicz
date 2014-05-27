@@ -6,6 +6,7 @@ Convolutional layers.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from __future__ import division
 
 import logging
 import math
@@ -14,10 +15,11 @@ import time
 from zope.interface import implementer
 
 from veles.config import root
+from veles.opencl_units import IOpenCLUnit
+
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
 

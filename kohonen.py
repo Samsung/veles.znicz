@@ -6,7 +6,7 @@ Kohonen units.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+from __future__ import division
 import numpy
 from zope.interface import implementer
 

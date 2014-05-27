@@ -6,6 +6,7 @@ Pooling layer.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from __future__ import division
 
 import logging
 import numpy

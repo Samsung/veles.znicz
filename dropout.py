@@ -8,12 +8,15 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 "ImageNet Classification with Deep Convolutional Neural Networks" (sec. 4.2).
 """
 
-import numpy as np
+from __future__ import division
+
 from zope.interface import implementer
 
 from veles import formats, OpenCLUnit
 from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
+
+import numpy as np
 
 
 class Dropout(OpenCLUnit):
