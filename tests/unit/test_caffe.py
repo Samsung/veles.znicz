@@ -201,8 +201,7 @@ class TestConvCaffe(unittest.TestCase):
                                       padding_size, padding_size),
                              sliding=(1, 1), n_kernels=n_kernels)
 
-        fwd_conv.input = Vector()
-        fwd_conv.input.mem = bottom
+        fwd_conv.input = Vector(bottom)
 #
 #        #UNCOMMENT TO SEE CAFFEE DATA
 # #        print("bottom shape:", bottom.shape)
@@ -237,20 +236,17 @@ class TestConvCaffe(unittest.TestCase):
                                                 n_kernels=n_kernels,
                                                 device=self.device)
 
-        back_conv.input = Vector()
-        back_conv.input.mem = bottom
+        back_conv.input = Vector(bottom)
 
-        back_conv.output = Vector()
-        back_conv.output.mem = top
+        back_conv.output = Vector(top)
 
-        back_conv.err_output = Vector()
-        back_conv.err_output.mem = top_err
+        back_conv.err_output = Vector(top_err)
 
         back_conv.weights = Vector()
         back_conv.weights.mem = fwd_conv.weights.mem
 
-        back_conv.bias = Vector()
-        back_conv.bias.mem = fwd_conv.bias.mem
+        back_conv.bias = Vector(fwd_conv.bias.mem)
+
         back_conv.batch_size = 2
 
         back_conv.initialize(device=self.device)
@@ -315,8 +311,7 @@ class TestConvCaffe(unittest.TestCase):
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
                                       ky=kernel_size, sliding=(stride, stride),
                                       device=self.device)
-        fwd_pool.input = Vector()
-        fwd_pool.input.mem = bottom
+        fwd_pool.input = Vector(bottom)
         fwd_pool.input.map_write()
 
         fwd_pool.initialize(device=self.device)
@@ -383,8 +378,7 @@ class TestConvCaffe(unittest.TestCase):
         # FORWARD PROP
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
                                       ky=kernel_size, sliding=(stride, stride))
-        fwd_pool.input = Vector()
-        fwd_pool.input.mem = bottom
+        fwd_pool.input = Vector(bottom)
         fwd_pool.input.map_write()
 
         fwd_pool.initialize(device=self.device)
@@ -420,12 +414,10 @@ class TestConvCaffe(unittest.TestCase):
                                             ky=kernel_size,
                                             sliding=(stride, stride),
                                             device=self.device)
-        grad_pool.input = Vector()
-        grad_pool.input.mem = bottom
+        grad_pool.input = Vector(bottom)
         grad_pool.input.map_write()
 
-        grad_pool.err_output = Vector()
-        grad_pool.err_output.mem = top_err
+        grad_pool.err_output = Vector(top_err)
         grad_pool.err_output.map_write()
 
         grad_pool.input_offs = fwd_pool.input_offs
@@ -473,8 +465,7 @@ class TestConvCaffe(unittest.TestCase):
                                                      k=1, device=self.device)
 
         # FWD PROP
-        fwd_norm.input = Vector()
-        fwd_norm.input.mem = bottom
+        fwd_norm.input = Vector(bottom)
 
         fwd_norm.initialize(self.device)
         fwd_norm.ocl_run()
@@ -491,14 +482,11 @@ class TestConvCaffe(unittest.TestCase):
         # BACK PROP
         back_norm = normalization.LRNormalizerBackward(self.workflow,
                                                        k=1, device=self.device)
-        back_norm.output = Vector()
-        back_norm.output.mem = top
+        back_norm.output = Vector(top)
 
-        back_norm.input = Vector()
-        back_norm.input.mem = bottom
+        back_norm.input = Vector(bottom)
 
-        back_norm.err_output = Vector()
-        back_norm.err_output.mem = top_err
+        back_norm.err_output = Vector(top_err)
 
         back_norm.initialize(self.device)
         back_norm.ocl_run()
@@ -565,8 +553,7 @@ class TestConvCaffe(unittest.TestCase):
                                             n_kernels=n_kernels,
                                             device=self.device)
 
-        fwd_conv_relu.input = Vector()
-        fwd_conv_relu.input.mem = conv_bottom
+        fwd_conv_relu.input = Vector(conv_bottom)
 
         fwd_conv_relu.initialize(self.device)
 
@@ -591,6 +578,164 @@ class TestConvCaffe(unittest.TestCase):
             np.abs(relu_top_manual - relu_top)) / (np.sum(np.abs(relu_top)))
         logging.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
 
+    def test_caffe_grad_relu(self, data_filename="conv_relu.txt"):
+        """
+        Tests CONV+RELU unit: compares it with CAFFE one.
+        Fwd prop only.
+
+        Args:
+            data_filename(str): name to file with pooling data,
+                exported from CAFFE (searched in ``self.data_dir_path``)
+        """
+        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
+        lines = in_file.readlines()
+        in_file.close()
+
+        in_size = 32
+        out_size = 32
+        n_chans = 3
+        n_kernels = 2
+        n_pics = 2
+        kernel_size = 5
+        padding_size = 2
+
+        max_percent_delta = 2.0
+
+        conv_bottom = self._read_array("conv_bottom", lines,
+                                  shape=(n_pics, in_size, in_size, n_chans))
+        conv_top = self._read_array("conv_top", lines, shape=(n_pics,
+                                                out_size, out_size, n_kernels))
+        relu_top_flat = self._read_array("relu_top_flat", lines,
+                                        shape=(1, 1, conv_top.size, 1)).ravel()
+        relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
+                                                            dtype=np.float64)
+        cur_pos = 0
+        for pic in range(n_pics):
+            for kernel in range(n_kernels):
+                for i in range(out_size):
+                    for j in range(out_size):
+                        relu_top[pic, i, j, kernel] = relu_top_flat[cur_pos]
+                        cur_pos += 1
+
+        conv_weights = self._read_array("conv_weights", lines, shape=(
+                                n_kernels, kernel_size, kernel_size, n_chans))
+
+        fwd_conv_relu = conv.ConvStrictRELU(self.workflow,
+                                  kx=kernel_size, ky=kernel_size,
+                                  padding=(padding_size, padding_size,
+                                           padding_size, padding_size),
+                                  sliding=(1, 1), n_kernels=n_kernels,
+                                  device=self.device)
+
+        fwd_conv_relu.input = Vector(conv_bottom)
+
+        fwd_conv_relu.initialize(self.device)
+
+        fwd_conv_relu.weights.map_invalidate()
+        fwd_conv_relu.weights.mem[:] = conv_weights.reshape(2, 75)[:]
+        fwd_conv_relu.bias.map_invalidate()
+        fwd_conv_relu.bias.mem[:] = 0
+
+        fwd_conv_relu.ocl_run()
+
+        fwd_conv_relu.output.map_read()
+
+        percent_delta = 100. * (np.sum(np.abs(
+            fwd_conv_relu.output.mem - relu_top)) / np.sum(np.abs(relu_top)))
+
+        logging.info("CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
+        self.assertLess(percent_delta, max_percent_delta,
+                        "Fwd ConvRELU differs by %.2f%%" % (percent_delta))
+
+        relu_top_manual = np.where(np.greater(conv_top, 0), conv_top, 0)
+        manual_delta = 100. * np.sum(np.abs(relu_top_manual - relu_top)) \
+                                                / (np.sum(np.abs(relu_top)))
+        logging.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
+
+    def test_grad_conv_relu(self, data_filename="conv_relu_grad.txt"):
+        """
+        Tests GDDRELU_CONV unit: compares it with CAFFE one.
+        Backward prop only
+
+        Args:
+            data_filename(str): name to file with pooling data,
+                exported from CAFFE (searched in ``self.data_dir_path``)
+        """
+        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
+        lines = in_file.readlines()
+        in_file.close()
+
+        in_size = 32
+        out_size = 32
+        n_chans = 3
+        n_kernels = 2
+        n_pics = 2
+        kernel_size = 5
+        padding = 2
+
+        max_percent_delta = 2.0
+
+        conv_bot_err = self._read_array("conv_bottom_diff", lines,
+                                        shape=(n_pics, in_size, in_size,
+                                               n_chans))
+        conv_bottom = self._read_array("conv_bottom", lines, shape=(n_pics,
+                                                in_size, in_size, n_chans))
+
+        conv_weights = self._read_array("conv_weights", lines,
+                        shape=(n_kernels, kernel_size, kernel_size, n_chans))
+
+        relu_top_err = self._read_array("relu_top_diff", lines, shape=(n_pics,
+                                                in_size, in_size, n_kernels))
+
+        relu_top_flat = self._read_array("relu_top_flat", lines,
+                                    shape=(1, 1, relu_top_err.size, 1)).ravel()
+
+        relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
+                                                            dtype=np.float64)
+        cur_pos = 0
+        for pic in range(n_pics):
+            for kernel in range(n_kernels):
+                for i in range(out_size):
+                    for j in range(out_size):
+                        relu_top[pic, i, j, kernel] = relu_top_flat[cur_pos]
+                        cur_pos += 1
+
+        back_conv_relu = gd_conv.GDStrictRELUConv(self.workflow,
+                                                  kx=kernel_size,
+                                                  ky=kernel_size,
+                                                  padding=(padding, padding,
+                                                           padding, padding),
+                                                  sliding=(1, 1),
+                                                  n_kernels=n_kernels,
+                                                  device=self.device)
+
+        back_conv_relu.batch_size = n_pics
+
+        back_conv_relu.err_output = Vector(relu_top_err)
+        back_conv_relu.input = Vector(conv_bottom)
+
+        back_conv_relu.weights = Vector(conv_weights.reshape(2, 75))
+        back_conv_relu.bias = Vector(np.zeros(shape=n_kernels))
+
+        back_conv_relu.output = Vector(relu_top)
+
+        back_conv_relu.initialize(device=self.device)
+
+        back_conv_relu.weights.map_invalidate()
+        back_conv_relu.weights.mem[:] = conv_weights.reshape(2, 75)[:]
+        back_conv_relu.bias.map_invalidate()
+        back_conv_relu.bias.mem[:] = 0
+
+        back_conv_relu.cpu_run()
+
+        back_conv_relu.err_input.map_read()
+        result = back_conv_relu.err_input.mem
+
+        percent_delta = 100. * (np.sum(np.abs(result - conv_bot_err)) \
+                                / np.sum(np.abs(result)))
+        logging.info("GD_CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
+        self.assertLess(percent_delta, max_percent_delta,
+                        "Fwd GD_ConvRELU differs by %.2f%%" % (percent_delta))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

@@ -535,3 +535,27 @@ class GDRELUConv(GradientDescentConv):
         self.krn_err_output_ = self.get_kernel("err_y_update")
         self.krn_err_output_.set_args(self.err_output.devmem,
                                       self.output.devmem)
+
+
+class GDStrictRELUConv(GradientDescentConv):
+    """Gradient Descent for strict ReLU (like in CAFFE)
+    f(x) = (s > 0) ? s : 0
+    f'(s) = (s > 0) ? 1 : 0
+    """
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by s
+        in terms of output.
+        """
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.mem
+        self.err_output.mem *= numpy.greater(output, 0)
+
+    def initialize(self, **kwargs):
+        self.cl_sources_["gradient_descent_strict_relu.cl"] = {}
+        super(GDStrictRELUConv, self).initialize(**kwargs)
+        if self.device is None:
+            return
+        self.krn_err_output_ = self.get_kernel("err_y_update")
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
