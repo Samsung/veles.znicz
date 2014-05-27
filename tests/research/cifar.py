@@ -17,6 +17,7 @@ from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 # import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -34,24 +35,14 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 
 root.defaults = {
     "accumulator": {"n_bars": 30},
-    "all2all_relu": {"weights_filling": "uniform",
-                     "weights_stddev": 0.05},
-    "all2all_tanh": {"weights_filling": "uniform",
-                     "weights_stddev": 0.05},
-    "conv":  {"weights_filling": "gaussian",
-              "weights_stddev": 0.0001},
-    "conv_relu":  {"weights_filling": "gaussian",
-                   "weights_stddev": 0.0001},
-    "decision": {"fail_iterations": 100,
-                 "snapshot_prefix": "cifar"},
+    "decision": {"fail_iterations": 100, "do_export_weights": True},
+    "snapshotter": {"prefix": "cifar"},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_maxsize": 180},
-    "softmax": {"weights_filling": "uniform",
-                "weights_stddev": 0.05},
-    "weights_plotter": {"limit": 25},
+    "weights_plotter": {"limit": 64},
     "cifar": {"learning_rate": 0.1,
               "weights_decay": 0.00005,
               "layers": [{"type": "all2all_tanh",
@@ -165,20 +156,32 @@ class Workflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            do_export_weights=root.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples", two_way=True)
+                                 "class_samples",
+                                 "no_more_minibatches_left", two_way=True)
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
-            ("minibatch_confusion_matrix", "confusion_matrix"))
+            ("minibatch_confusion_matrix", "confusion_matrix"),
+            ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         self.image_saver.gate_skip = ~self.decision.improved
-        self.image_saver.link_attrs(self.decision,
-                                    ("this_save_time", "snapshot_time"))
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
@@ -244,7 +247,7 @@ class Workflow(StandardWorkflow):
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            self.plt_mx[-1].input_field = "v"
+            self.plt_mx[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
@@ -277,6 +280,29 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
+
+        # Table plotter
+        self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
+        self.plt_tab.y.clear()
+        self.plt_tab.col_labels.clear()
+        for i in range(0, len(layers)):
+            if (not isinstance(self.fwds[i], conv.Conv) and
+                    not isinstance(self.fwds[i], all2all.All2All)):
+                continue
+            obj = self.fwds[i].weights
+            name = "weights %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+            obj = self.gds[i].gradient_weights
+            name = "gd %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+            obj = self.fwds[i].output
+            name = "Y %s %s" % (i + 1, layers[i]["type"])
+            self.plt_tab.y.append(obj)
+            self.plt_tab.col_labels.append(name)
+        self.plt_tab.link_from(self.decision)
+        self.plt_tab.gate_block = ~self.decision.epoch_ended
 
     def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
                    device):
