@@ -59,8 +59,8 @@ class GDNumDiff(object):
                                                 target.ravel()).sum() * 0.5)
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - derivative_to_check[offs])
-            logging_info("%.2f %.2f %.2f" % (derivative,
-                                             derivative_to_check[offs], d))
+            logging_info("%.2f %.2f %.2f" %
+                (derivative, derivative_to_check[offs], d))
             assertLess(d, 0.05, "Numeric diff test failed")
 
     def numdiff_check_gd(self, forward, inp, weights, bias, target,

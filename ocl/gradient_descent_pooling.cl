@@ -77,13 +77,13 @@ void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
   #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   #define NY KY
   #else
-  #define NY (target_y % OUT_SY < OUT_SY - 1 ? KY : MINIMUM(KY, SY - (OUT_SY - 1) * SLIDE_Y))
+  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
   #endif
 
   #if (OUT_SX - 1) * SLIDE_X + KX == SX
   #define NX KX
   #else
-  #define NX (TARGET_PIXEL_X < OUT_SX - 1 ? KX: MINIMUM(KX, SX - (OUT_SX - 1) * SLIDE_X))
+  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
   #endif
 
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;

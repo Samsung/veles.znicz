@@ -63,7 +63,6 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
     #endif
-      // TODO: continue here.
       c_dtype vle = h[offs + x];
       dtype absvle = c_norm(vle);
       if (absvle > max_absvle) {
@@ -126,13 +125,13 @@ void do_avg_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y) {
   #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   #define NY KY
   #else
-  #define NY (target_y % OUT_SY < OUT_SY - 1 ? KY : MINIMUM(KY, SY - (OUT_SY - 1) * SLIDE_Y))
+  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
   #endif
 
   #if (OUT_SX - 1) * SLIDE_X + KX == SX
   #define NX KX
   #else
-  #define NX (TARGET_PIXEL_X < OUT_SX - 1 ? KX: MINIMUM(KX, SX - (OUT_SX - 1) * SLIDE_X))
+  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
   #endif
 
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;

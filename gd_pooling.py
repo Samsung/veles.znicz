@@ -203,20 +203,12 @@ class GDMaxPooling(GDPooling):
         self.err_input.map_invalidate()
         self.err_input.mem[:] = 0
 
-        if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
-            # self.input_offs cannot contain equal values - simple assignment
-            for err, offset in numpy.nditer([self.err_output.mem,
-                                             self.input_offs.mem]):
-                batch, y, x, ch = numpy.unravel_index(offset,
-                                                      self.err_input.mem.shape)
-                self.err_input.mem[batch, y, x, ch] = err
-        else:
-            # self.input_offs can contain equal values
-            for err, offset in numpy.nditer([self.err_output.mem,
-                                             self.input_offs.mem]):
-                batch, y, x, ch = numpy.unravel_index(offset,
-                                                      self.err_input.mem.shape)
-                self.err_input.mem[batch, y, x, ch] += err
+        # self.input_offs can contain equal values
+        for err, offset in numpy.nditer([self.err_output.mem,
+                                         self.input_offs.mem]):
+            batch, y, x, ch = numpy.unravel_index(offset,
+                                                  self.err_input.mem.shape)
+            self.err_input.mem[batch, y, x, ch] += err
 
 
 class GDAvgPooling(GDPooling):
@@ -243,33 +235,16 @@ class GDAvgPooling(GDPooling):
     def cpu_run(self):
         self.err_output.map_read()
         self.err_input.map_invalidate()
+        self.err_input.mem[:] = 0
 
-        if self.kx <= self.sliding[0] and self.ky <= self.sliding[1]:
-            # disjoint kernels
-            for (batch,
-                 y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
-                hx1 = x * self.sliding[0]
-                hx2 = hx1 + self.kx
-                hx2 = hx2 if hx2 < self._sx else self._sx
-                hy1 = y * self.sliding[1]
-                hy2 = hy1 + self.ky
-                hy2 = hy2 if hy2 < self._sy else self._sy
-                delta = err / float((hx2 - hx1) * (hy2 - hy1))
-                for i, j in ((ii, jj) for ii in range(hy1, hy2)
-                             for jj in range(hx1, hx2)):
-                    self.err_input.mem[batch, i, j, ch] = delta
-        else:
-            # joint kernels
-            self.err_input.mem[:] = 0
-            for (batch,
-                 y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
-                hx1 = x * self.sliding[0]
-                hx2 = hx1 + self.kx
-                hx2 = hx2 if hx2 < self._sx else self._sx
-                hy1 = y * self.sliding[1]
-                hy2 = hy1 + self.ky
-                hy2 = hy2 if hy2 < self._sy else self._sy
-                delta = err / float((hx2 - hx1) * (hy2 - hy1))
-                for i, j in ((ii, jj) for ii in range(hy1, hy2)
-                             for jj in range(hx1, hx2)):
-                    self.err_input.mem[batch, i, j, ch] += delta
+        for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
+            hx1 = x * self.sliding[0]
+            hx2 = hx1 + self.kx
+            hx2 = hx2 if hx2 < self._sx else self._sx
+            hy1 = y * self.sliding[1]
+            hy2 = hy1 + self.ky
+            hy2 = hy2 if hy2 < self._sy else self._sy
+            delta = err / ((hx2 - hx1) * (hy2 - hy1))
+            for i, j in ((ii, jj) for ii in range(hy1, hy2)
+                         for jj in range(hx1, hx2)):
+                self.err_input.mem[batch, i, j, ch] += delta
