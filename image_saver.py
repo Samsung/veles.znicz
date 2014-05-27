@@ -11,6 +11,7 @@ import logging
 import glob
 import numpy
 import os
+from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats

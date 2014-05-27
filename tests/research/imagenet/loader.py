@@ -36,7 +36,7 @@ _shared_mean = None
 _mean_done = None
 
 
-@implementer(loader.Loader)
+@implementer(loader.ILoader)
 class LoaderBase(loader.Loader):
     """
     Imagenet images and metadata loader.
