@@ -15,9 +15,9 @@ import unittest
 from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
-from veles.opencl_units import OpenCLUnit
 import veles.random_generator as rnd
 from veles.tests.dummy_workflow import DummyWorkflow
+from veles.znicz.tests.unit import TrivialOpenCLUnit
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -104,7 +104,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.c.initialize(device)
         self.bias.initialize(device)
 
-        obj = OpenCLUnit(DummyWorkflow())
+        obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
@@ -181,7 +181,7 @@ class TestMatrixMultiplication(unittest.TestCase):
             self._cleanup_after_tsts()
 
     def test(self):
-        #opt_block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
+    # opt_block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         for dtype in (numpy.float32, numpy.float64):
             self.dtype = dtype
             for block_size in range(8, 32):

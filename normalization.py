@@ -10,9 +10,11 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 """
 
 import numpy as np
+from zope.interface import implementer
 
 from veles.znicz import nn_units
 from veles import formats
+from veles.opencl_units import IOpenCLUnit
 
 
 class LocalResponseNormalizer(nn_units.Forward):
@@ -49,6 +51,7 @@ class LocalResponseNormalizer(nn_units.Forward):
         return subsums
 
 
+@implementer(IOpenCLUnit)
 class LRNormalizerForward(LocalResponseNormalizer):
     """
     Forward propagation of local response normalization.
@@ -110,6 +113,7 @@ class LRNormalizerForward(LocalResponseNormalizer):
         self.ocl_run()
 
 
+@implementer(IOpenCLUnit)
 class LRNormalizerBackward(LocalResponseNormalizer):
     """
     Backward-propagation for local response normalization.

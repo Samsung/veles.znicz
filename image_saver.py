@@ -17,6 +17,7 @@ import veles.formats as formats
 import veles.units as units
 
 
+@implementer(IUnit)
 class ImageSaver(units.Unit):
     """Saves input to pngs in the supplied directory.
 
@@ -82,6 +83,9 @@ class ImageSaver(units.Unit):
                     x.shape[1], x.shape[2], 1)[:, :, 0:1]
                 return xx
         return x.ravel()
+
+    def initialize(self, **kwargs):
+        pass
 
     def run(self):
         logging.basicConfig(level=logging.INFO)

@@ -12,9 +12,20 @@ import os
 import tarfile
 import time
 import unittest
+from zope.interface import implementer
 
 from veles.tests import DummyWorkflow
 from veles.znicz.nn_units import Forward, ForwardExporter
+from veles.opencl_units import IOpenCLUnit
+
+
+@implementer(IOpenCLUnit)
+class TrivialForward(Forward):
+    def cpu_run(self):
+        pass
+
+    def ocl_run(self):
+        pass
 
 
 class Test(unittest.TestCase):
@@ -23,7 +34,7 @@ class Test(unittest.TestCase):
         fe = ForwardExporter(workflow, prefix="testp", time_interval=0)
         fe.suffix = "tests"
         for _ in range(3):
-            fwd = Forward(workflow, name="forward")
+            fwd = TrivialForward(workflow, name="forward")
             fwd.weights.mem = numpy.ones(1000)
             fwd.bias.mem = numpy.ones(10)
             fe.forwards.append(fwd)
