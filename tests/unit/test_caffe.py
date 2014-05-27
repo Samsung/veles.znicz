@@ -492,8 +492,9 @@ class TestConvCaffe(unittest.TestCase):
 
         back_norm.err_input.map_read()
 
-        back_percent_delta = 100. * (np.sum(np.abs(back_norm.err_output.mem -
-            bot_err)) / np.sum(np.abs(bot_err)))
+        back_percent_delta = 100. * np.sum(
+            np.abs(back_norm.err_output.mem - bot_err)) / \
+            np.sum(np.abs(bot_err))
 
         logging.info("BACK NORM DELTA: %.2f%%" % back_percent_delta)
         self.assertLess(back_percent_delta, max_percent_delta,
