@@ -15,11 +15,11 @@ from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats
-import veles.units as units
+from veles.units import Unit, IUnit
 
 
 @implementer(IUnit)
-class ImageSaver(units.Unit):
+class ImageSaver(Unit):
     """Saves input to pngs in the supplied directory.
 
     Will remove all existing png files in the supplied directory.
