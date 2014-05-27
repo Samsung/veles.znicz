@@ -22,7 +22,6 @@ from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
-"""
 class TestMaxPooling(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
@@ -264,7 +263,6 @@ class TestAvgPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         logging.info("test passed")
-"""
 
 
 class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
