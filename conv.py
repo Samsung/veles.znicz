@@ -92,10 +92,10 @@ class Conv(nn_units.Forward):
                       self.input.mem.shape[1] * self.input.mem.shape[2]))
         if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             vle = (1.0 / self.input.supposed_maxvle /
-                   (self.kx * self.ky * n_channels))
+                   numpy.sqrt(self.kx * self.ky * n_channels))
         else:
             vle = (9.0 / self.input.supposed_maxvle /
-                   (self.kx * self.ky * n_channels))
+                   numpy.sqrt(self.kx * self.ky * n_channels))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
