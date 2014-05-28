@@ -289,31 +289,8 @@ class Conv(nn_units.Forward):
                         conv = numpy.sum(numpy.multiply(cut.ravel(),
                                                         cutted_kernel.ravel()))
                         self.output.mem[batch, i, j, k] = conv
-
-                        # add bias and apply activation function
-                        if self.s_activation == "ACTIVATION_LINEAR":
-                            self.output.mem[batch, i, j, k] = (
-                                conv + self.bias.mem[k])
-                        elif self.s_activation == "ACTIVATION_TANH":
-                            self.output.mem[batch, i, j, k] = \
-                                math.tanh((conv + self.bias.mem[k])
-                                          * 0.6666) * 1.7159
-                        elif self.s_activation == "ACTIVATION_STRICT_RELU":
-                            tmp_val = conv + self.bias.mem[k]
-                            self.output.mem[batch, i, j, k] = numpy.where(
-                                        numpy.greater(tmp_val, 0), tmp_val, 0)
-                        elif self.s_activation == "ACTIVATION_RELU":
-                            tmp_val = conv + self.bias.mem[k]
-                            if tmp_val > 15:
-                                self.output.mem[batch, i, j, k] = tmp_val
-                            else:
-                                self.output.mem[batch, i, j, k] = \
-                                    math.log(math.exp(tmp_val) + 1)
-                        else:
-                            raise ValueError("unknown type of activation "
-                                             "function")
-                    else:
-                        break
+        # add bias and apply activation function
+        self.apply_activation()
 
     def run(self):
         t1 = time.time()
@@ -321,6 +298,12 @@ class Conv(nn_units.Forward):
         if retval:
             return retval
         self.print_debug_data(t1)
+
+    def apply_activation(self):
+        """Add bias and apply linear activation function.
+        """
+        assert self.s_activation == "ACTIVATION_LINEAR"
+        self.output.mem += self.bias.mem
 
 
 class ConvTanh(Conv):
@@ -349,6 +332,15 @@ class ConvTanh(Conv):
             vle /= 3
         return vle
 
+    def apply_activation(self):
+        """Add bias and apply tanh activation function.
+        """
+        assert self.s_activation == "ACTIVATION_TANH"
+        for k in range(self.n_kernels):
+            for x in numpy.nditer(self.output.mem[:, :, :, k],
+                                  op_flags=['readwrite']):
+                x[...] = math.tanh((x + self.bias.mem[k]) * 0.6666) * 1.7159
+
 
 class ConvRELU(Conv):
     """Conv with smooth RELU activation f(x) = log(1.0 + exp(x)).
@@ -357,6 +349,19 @@ class ConvRELU(Conv):
         self.s_activation = "ACTIVATION_RELU"
         super(ConvRELU, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10
+
+    def apply_activation(self):
+        """Add bias and apply RELU activation function.
+        """
+        assert self.s_activation == "ACTIVATION_RELU"
+        for k in range(self.n_kernels):
+            for x in numpy.nditer(self.output.mem[:, :, :, k],
+                                  op_flags=['readwrite']):
+                tmp_val = x + self.bias.mem[k]
+                if tmp_val > 15:
+                    x[...] = tmp_val
+                else:
+                    x[...] = math.log(math.exp(tmp_val) + 1)
 
 
 class ConvStrictRELU(Conv):
@@ -368,3 +373,13 @@ class ConvStrictRELU(Conv):
         self.s_activation = "ACTIVATION_STRICT_RELU"
         super(ConvStrictRELU, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10
+
+    def apply_activation(self):
+        """Add bias and apply STRICT_RELU activation function.
+        """
+        assert self.s_activation == "ACTIVATION_STRICT_RELU"
+        for k in range(self.n_kernels):
+            for x in numpy.nditer(self.output.mem[:, :, :, k],
+                                  op_flags=['readwrite']):
+                tmp_val = x + self.bias.mem[k]
+                x[...] = numpy.where(numpy.greater(tmp_val, 0), tmp_val, 0)
