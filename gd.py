@@ -343,10 +343,12 @@ class GradientDescent(nn_units.GradientDescentBase):
 
 
 class GDSM(GradientDescent):
-    """Gradient Descent for softmax.
+    """Gradient Descent for SoftMax.
 
-    It is the same as GradientDescent inside.
+    We minimize cross-entropy error function for softmax,
+    so gradient descent is the same as in GradientDescent.
     """
+    pass
 
 
 class GDTanh(GradientDescent):
