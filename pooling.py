@@ -127,7 +127,6 @@ class Pooling(nn_units.Forward):
         self.print_debug_data(t1)
 
 
-# TODO: fix GPU part
 @implementer(IOpenCLUnit)
 class MaxPooling(Pooling):
     """MaxPooling forward propagation.
@@ -225,12 +224,12 @@ class MaxAbsPooling(Pooling):
         if self.device is None:
             return
 
-        self.assign_kernel("do_max_pooling")
+        self.assign_kernel("do_max_abs_pooling")
         self.set_args(self.input, self.output, self.input_offs)
 
     def ocl_run(self):
         self.input_offs.unmap()  # we will be updating input_offs
-        return super(MaxPooling, self).ocl_run()
+        return super(MaxAbsPooling, self).ocl_run()
 
     def cpu_run(self):
         self.input.map_read()

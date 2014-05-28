@@ -20,7 +20,7 @@
 #define TARGET_CHANNEL (target_x % N_CHANNELS)
 
 
-/// @brief Does max pooling over convolutional layer output.
+/// @brief Does max abs pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
 /// @param h_offs indexes of y value in corresponding to it h array.
@@ -36,8 +36,9 @@
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 __kernel
-void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
-                    __global int /*OUT*/ *h_offs) {
+void do_max_abs_pooling(__global const c_dtype    /* IN */    *h,
+                        __global c_dtype         /* OUT */    *y,
+                        __global int             /* OUT */    *h_offs) {
 
   dtype max_absvle = -1;
   c_dtype max_vle = c_from_re(0);
@@ -67,6 +68,64 @@ void do_max_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y,
       dtype absvle = c_norm(vle);
       if (absvle > max_absvle) {
         max_absvle = absvle;
+        max_vle = vle;
+        max_offs = offs + x;
+      }
+    }
+  }
+
+  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
+  y[idx] = max_vle;
+  h_offs[idx] = max_offs;
+}
+
+
+/// @brief Does max pooling over convolutional layer output.
+/// @param h batch of input multichannel interleaved images.
+/// @param y batch of output multichannel interleaved images.
+/// @param h_offs indexes of y value in corresponding to it h array.
+/// @details Does max pooling over the real part of the number.
+///          Should be defined externally:
+///          SX - input image width,
+///          SY - input image height,
+///          N_CHANNELS - number of input channels,
+///          KX - pooling kernel width,
+///          KY - pooling kernel height,
+///          SLIDE_X - kernel sliding by x-axis,
+///          SLIDE_Y - kernel sliding by y-axis.
+///          Kernel should be run as:
+///          global_size = [out_width, out_height],
+///          local_size = None.
+__kernel
+void do_max_pooling(__global const c_dtype    /* IN */    *h,
+                    __global c_dtype         /* OUT */    *y,
+                    __global int             /* OUT */    *h_offs) {
+
+  c_dtype max_vle = c_from_re(-MAXFLOAT);
+  int max_offs = 0;
+  int target_x = get_global_id(0),
+      target_y = get_global_id(1);
+
+  int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
+      start_y = target_y % OUT_SY * SLIDE_Y;
+  int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
+
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
+  // No partial windows at the bottom
+  for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
+  #else
+  // There are partial windows at the bottom
+  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
+  #endif
+    #if (OUT_SX - 1) * SLIDE_X + KX == SX
+    // No partial windows at the right
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
+    #else
+    // There are partial windows at the right
+    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
+    #endif
+      c_dtype vle = h[offs + x];
+      if (c_re(vle) > c_re(max_vle)) {
         max_vle = vle;
         max_offs = offs + x;
       }

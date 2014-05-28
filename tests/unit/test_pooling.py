@@ -76,7 +76,7 @@ class TestMaxPooling(unittest.TestCase):
     def test_ocl(self):
         logging.info('starting OpenCL max pooling layer forward propagation '
                      'test...')
-        c = pooling.MaxPooling(DummyWorkflow(), kx=2, ky=2)
+        c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._inp
         cur_device = opencl.Device()
         c.initialize(device=cur_device)

@@ -211,6 +211,12 @@ class GDMaxPooling(GDPooling):
             self.err_input.mem[batch, y, x, ch] += err
 
 
+class GDMaxAvgPooling(GDMaxPooling):
+    """Gradient descent is the same as in GDMaxPooling.
+    """
+    pass
+
+
 class GDAvgPooling(GDPooling):
     """Gradient Descent for avg pooling unit.
 
