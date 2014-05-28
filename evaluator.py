@@ -26,7 +26,6 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         labels
         batch_size
         max_idx
-        max_samples_per_epoch
 
     Updates after run():
         err_output
@@ -45,8 +44,6 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         output: output of the network_common as Batch.
         err_output: backpropagation errors based on labels.
         batch_size: number of elements in output to evaluate.
-        max_samples_per_epoch: maximum number of samples per epoch,
-            will choose n_err element type based on it.
         confusion_matrix: confusion matrix for the output.
         compute_confusion_matrix: compute confusion matrix or not.
         max_idx: indexes of element with maximum real value for each sample.
@@ -62,7 +59,6 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         self.output = None  # formats.Vector()
         self.err_output = formats.Vector()
         self.batch_size = 0
-        self.max_samples_per_epoch = 0
         self.compute_confusion_matrix = compute_confusion_matrix
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()
@@ -196,7 +192,6 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         output
         target
         batch_size
-        max_samples_per_epoch
         labels (may be None)
         class_target (may be None)
 
@@ -224,8 +219,6 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         class_target: target for each class (may be None).
         n_err: number of wrong recognized samples
             (if labels and class_target is not None).
-        max_samples_per_epoch: maximum number of samples per epoch,
-            will choose n_err element type based on it.
     """
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
@@ -239,7 +232,6 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         self.mse = formats.Vector()
         self.labels = None
         self.class_target = None
-        self.max_samples_per_epoch = None  # [0]
         self.n_err = formats.Vector()
 
     def initialize(self, device, **kwargs):
