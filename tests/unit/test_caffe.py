@@ -12,7 +12,6 @@ import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 import unittest
 
-
 from veles import opencl
 from veles.formats import Vector
 import veles.znicz.conv as conv
@@ -22,8 +21,8 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
-os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to change OpenCL device
 
+#os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
 
 class TestConvCaffe(unittest.TestCase):
     def setUp(self):
@@ -86,17 +85,32 @@ class TestConvCaffe(unittest.TestCase):
                         out_array[cur_pic, i, j, cur_chan] = data[j]
         return out_array
 
+    def _read_lines(self, data_filename):
+        """
+        Returns all lines from a file maned `data_filename`.
+        File is searched in ``self.data_dir_path``.
+
+        Args:
+            data_filename(str): name to file with pooling data,
+                exported from CAFFE (searched in ``self.data_dir_path``)
+
+        Returns:
+            list: list of all lines read
+
+        """
+        full_path = os.path.join(self.data_dir_path, data_filename)
+        with open(full_path, 'r') as in_file:
+            return in_file.readlines()
+
     def test_caffe_conv(self, data_filename="conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         kernel_size = 5
         padding_size = 2
@@ -158,12 +172,10 @@ class TestConvCaffe(unittest.TestCase):
         Compare CAFFE conv layer with Veles conv layer (FwdProp and BackProp).
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         # stride = 1
         bot_size = 32
@@ -276,7 +288,6 @@ class TestConvCaffe(unittest.TestCase):
                         weights[weight_id, :, :, color_chan], mode="same")
                     manual_bot_err[pic, :, :, color_chan] += conv_result
 
-        caffe_to_manual_delta = manual_bot_err - bot_err
         logging.info("Manual GDCONV: diff with CAFFE: %.3f%%" % (
             100. * np.sum(np.fabs(manual_bot_err - bot_err)) /
             np.sum(np.fabs(bot_err))))
@@ -350,8 +361,8 @@ class TestConvCaffe(unittest.TestCase):
         Compare CAFFE pooling unit with Veles ones (fwd and back propagations)
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
         bot_size = 32
         top_size = 16
@@ -360,10 +371,7 @@ class TestConvCaffe(unittest.TestCase):
         n_chans = 2
         n_pics = 2
 
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
-
+        lines = self._read_lines(data_filename)
         lines = [line.replace("\t\n", "").replace("\n", "") for line in lines]
 
         bottom = self._read_array("bottom", lines,
@@ -437,12 +445,10 @@ class TestConvCaffe(unittest.TestCase):
         Fwd and back props made.
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         size = 16
         n_chans = 2
@@ -507,12 +513,10 @@ class TestConvCaffe(unittest.TestCase):
         Fwd prop only.
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         in_size = 32
         out_size = 32
@@ -520,7 +524,7 @@ class TestConvCaffe(unittest.TestCase):
         n_kernels = 2
         n_pics = 2
         kernel_size = 5
-        padding = 2
+        padding_size = 2
 
         max_percent_delta = 2.0
 
@@ -540,18 +544,13 @@ class TestConvCaffe(unittest.TestCase):
                         relu_top[pic, i, j, kernel] = relu_top_flat[cur_pos]
                         cur_pos += 1
 
-        conv_weights = self._read_array(
-            "conv_weights", lines, shape=(n_kernels, kernel_size, kernel_size,
-                                          n_chans))
+        conv_weights = self._read_array("conv_weights", lines, shape=(
+            n_kernels, kernel_size, kernel_size, n_chans))
 
-        fwd_conv_relu = conv.ConvStrictRELU(self.workflow,
-                                            kx=kernel_size,
-                                            ky=kernel_size,
-                                            padding=(padding, padding,
-                                                     padding, padding),
-                                            sliding=(1, 1),
-                                            n_kernels=n_kernels,
-                                            device=self.device)
+        fwd_conv_relu = conv.ConvStrictRELU(
+            self.workflow, kx=kernel_size, ky=kernel_size,
+            padding=(padding_size, padding_size, padding_size, padding_size),
+            sliding=(1, 1), n_kernels=n_kernels, device=self.device)
 
         fwd_conv_relu.input = Vector(conv_bottom)
 
@@ -584,12 +583,10 @@ class TestConvCaffe(unittest.TestCase):
         Fwd prop only.
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         in_size = 32
         out_size = 32
@@ -601,14 +598,14 @@ class TestConvCaffe(unittest.TestCase):
 
         max_percent_delta = 2.0
 
-        conv_bottom = self._read_array("conv_bottom", lines,
-                                  shape=(n_pics, in_size, in_size, n_chans))
-        conv_top = self._read_array("conv_top", lines, shape=(n_pics,
-                                                out_size, out_size, n_kernels))
-        relu_top_flat = self._read_array("relu_top_flat", lines,
-                                        shape=(1, 1, conv_top.size, 1)).ravel()
+        conv_bottom = self._read_array(
+            "conv_bottom", lines, shape=(n_pics, in_size, in_size, n_chans))
+        conv_top = self._read_array(
+            "conv_top", lines, shape=(n_pics, out_size, out_size, n_kernels))
+        relu_top_flat = self._read_array(
+            "relu_top_flat", lines, shape=(1, 1, conv_top.size, 1)).ravel()
         relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
-                                                            dtype=np.float64)
+                              dtype=np.float64)
         cur_pos = 0
         for pic in range(n_pics):
             for kernel in range(n_kernels):
@@ -618,14 +615,12 @@ class TestConvCaffe(unittest.TestCase):
                         cur_pos += 1
 
         conv_weights = self._read_array("conv_weights", lines, shape=(
-                                n_kernels, kernel_size, kernel_size, n_chans))
+            n_kernels, kernel_size, kernel_size, n_chans))
 
-        fwd_conv_relu = conv.ConvStrictRELU(self.workflow,
-                                  kx=kernel_size, ky=kernel_size,
-                                  padding=(padding_size, padding_size,
-                                           padding_size, padding_size),
-                                  sliding=(1, 1), n_kernels=n_kernels,
-                                  device=self.device)
+        fwd_conv_relu = conv.ConvStrictRELU(
+            self.workflow, kx=kernel_size, ky=kernel_size,
+            padding=(padding_size, padding_size, padding_size, padding_size),
+            sliding=(1, 1), n_kernels=n_kernels, device=self.device)
 
         fwd_conv_relu.input = Vector(conv_bottom)
 
@@ -649,7 +644,7 @@ class TestConvCaffe(unittest.TestCase):
 
         relu_top_manual = np.where(np.greater(conv_top, 0), conv_top, 0)
         manual_delta = 100. * np.sum(np.abs(relu_top_manual - relu_top)) \
-                                                / (np.sum(np.abs(relu_top)))
+            / (np.sum(np.abs(relu_top)))
         logging.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
 
     def test_grad_conv_relu(self, data_filename="conv_relu_grad.txt"):
@@ -658,12 +653,10 @@ class TestConvCaffe(unittest.TestCase):
         Backward prop only
 
         Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
         """
-        in_file = open(os.path.join(self.data_dir_path, data_filename), 'r')
-        lines = in_file.readlines()
-        in_file.close()
+        lines = self._read_lines(data_filename)
 
         in_size = 32
         out_size = 32
@@ -678,20 +671,23 @@ class TestConvCaffe(unittest.TestCase):
         conv_bot_err = self._read_array("conv_bottom_diff", lines,
                                         shape=(n_pics, in_size, in_size,
                                                n_chans))
-        conv_bottom = self._read_array("conv_bottom", lines, shape=(n_pics,
-                                                in_size, in_size, n_chans))
+        conv_bottom = self._read_array(
+            "conv_bottom", lines, shape=(n_pics, in_size, in_size, n_chans))
 
-        conv_weights = self._read_array("conv_weights", lines,
-                        shape=(n_kernels, kernel_size, kernel_size, n_chans))
+        conv_weights = self._read_array("conv_weights", lines, shape=(
+            n_kernels, kernel_size, kernel_size, n_chans))
+
+        conv_weight_delta = self._read_array("conv_weight_delta", lines,
+            shape=(n_kernels, kernel_size, kernel_size, n_chans))
 
         relu_top_err = self._read_array("relu_top_diff", lines, shape=(n_pics,
-                                                in_size, in_size, n_kernels))
+                                        in_size, in_size, n_kernels))
 
-        relu_top_flat = self._read_array("relu_top_flat", lines,
-                                    shape=(1, 1, relu_top_err.size, 1)).ravel()
+        relu_top_flat = self._read_array("relu_top_flat", lines, shape=(
+            1, 1, relu_top_err.size, 1)).ravel()
 
         relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
-                                                            dtype=np.float64)
+                              dtype=np.float64)
         cur_pos = 0
         for pic in range(n_pics):
             for kernel in range(n_kernels):
@@ -700,6 +696,7 @@ class TestConvCaffe(unittest.TestCase):
                         relu_top[pic, i, j, kernel] = relu_top_flat[cur_pos]
                         cur_pos += 1
 
+        # Testing back prop
         back_conv_relu = gd_conv.GDStrictRELUConv(self.workflow,
                                                   kx=kernel_size,
                                                   ky=kernel_size,
@@ -707,9 +704,10 @@ class TestConvCaffe(unittest.TestCase):
                                                            padding, padding),
                                                   sliding=(1, 1),
                                                   n_kernels=n_kernels,
-                                                  device=self.device)
-
-        back_conv_relu.batch_size = n_pics
+                                                  device=self.device,
+                                                  learning_rate=float(n_pics),
+                                                  weights_decay=0,
+                                                  batch_size=n_pics)
 
         back_conv_relu.err_output = Vector(relu_top_err)
         back_conv_relu.input = Vector(conv_bottom)
@@ -731,11 +729,23 @@ class TestConvCaffe(unittest.TestCase):
         back_conv_relu.err_input.map_read()
         result = back_conv_relu.err_input.mem
 
-        percent_delta = 100. * (np.sum(np.abs(result - conv_bot_err)) \
+        percent_delta = 100. * (np.sum(np.abs(result - conv_bot_err))
                                 / np.sum(np.abs(result)))
         logging.info("GD_CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
         self.assertLess(percent_delta, max_percent_delta,
                         "Fwd GD_ConvRELU differs by %.2f%%" % (percent_delta))
+
+        # Testing weight deltas
+        delta_w = back_conv_relu.weights.mem - conv_weights.reshape(2, 75)
+
+        percent_delta_w = 100. * np.sum(np.abs(
+            delta_w + conv_weight_delta.reshape(2, 75))) \
+            / np.sum(np.abs(delta_w))
+
+        # Hint: in CAFFE their \Delta W = - \Delta W_{Veles} (??)
+        logging.info("DELTA W: diff with CAFFE %.3f%%" % percent_delta_w)
+        self.assertLess(percent_delta_w, max_percent_delta,
+                        "Delta W differs by %.2f%%" % (percent_delta_w))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
