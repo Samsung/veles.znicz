@@ -51,7 +51,7 @@ class IDecision(Interface):
         """This method is supposed to be overriden in inherited classes.
         """
 
-    def on_apply_data_from_slave(data, slave=None):
+    def on_apply_data_from_slave(data, slave):
         """This method is supposed to be overriden in inherited classes.
         """
 
@@ -122,7 +122,7 @@ class DecisionBase(Unit):
         self.on_generate_data_for_master(data)
         return data
 
-    def generate_data_for_slave(self, slave=None):
+    def generate_data_for_slave(self, slave):
         sid = slave.id
         if self.slave_minibatch_class_.get(sid) is not None:
             raise RuntimeError(
@@ -142,7 +142,7 @@ class DecisionBase(Unit):
         self.complete << False
         self.on_apply_data_from_master(data)
 
-    def apply_data_from_slave(self, data, slave=None):
+    def apply_data_from_slave(self, data, slave):
         self.minibatch_class = data["minibatch_class"]
         self.minibatch_size = data["minibatch_size"]
         self.minibatch_offset = data["minibatch_offset"]
@@ -168,7 +168,7 @@ class DecisionBase(Unit):
         if has_data_for_slave:
             self.has_data_for_slave = has_data_for_slave
 
-    def drop_slave(self, slave=None):
+    def drop_slave(self, slave):
         self._finalize_job(slave)
 
     def _on_last_minibatch(self):
@@ -224,7 +224,7 @@ class DecisionBase(Unit):
         else:
             self.complete << True
 
-    def _finalize_job(self, slave=None):
+    def _finalize_job(self, slave):
         minibatch_class = self.slave_minibatch_class_.get(slave.id)
         if minibatch_class is None:
             # Slave has dropped while waiting for a new job
@@ -427,7 +427,7 @@ class DecisionGD(DecisionBase):
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
 
-    def on_apply_data_from_slave(self, data, slave=None):
+    def on_apply_data_from_slave(self, data, slave):
         if (self.minibatch_n_err is not None and
                 self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_write()
@@ -616,7 +616,7 @@ class DecisionMSE(DecisionGD):
         self.min_validation_mse = 0
         self.min_train_mse = 0
 
-    def on_apply_data_from_slave(self, data, slave=None):
+    def on_apply_data_from_slave(self, data, slave):
         super(DecisionMSE, self).on_apply_data_from_slave(data, slave)
         self.minibatch_mse.map_write()
         self.minibatch_mse.mem = data["minibatch_mse"]

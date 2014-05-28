@@ -206,7 +206,7 @@ class Loader(Unit):
     def generate_data_for_master(self):
         return None
 
-    def generate_data_for_slave(self, slave=None):
+    def generate_data_for_slave(self, slave):
         self._prepare_next_minibatch()
         data = {'shuffled_indexes':
                 self.shuffled_indexes[
@@ -233,10 +233,10 @@ class Loader(Unit):
         self.minibatch_offset -= self.minibatch_size
         self.samples_served -= self.minibatch_size
 
-    def apply_data_from_slave(self, data, slave=None):
+    def apply_data_from_slave(self, data, slave):
         pass
 
-    def drop_slave(self, slave=None):
+    def drop_slave(self, slave):
         pass
 
     def extract_validation_from_train(self, rand=None):

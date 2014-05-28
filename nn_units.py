@@ -51,7 +51,7 @@ class Forward(OpenCLUnit):
         self.bias = formats.Vector()
         self.exports = ["weights", "bias", "weights_transposed"]
 
-    def generate_data_for_slave(self, slave=None):
+    def generate_data_for_slave(self, slave):
         self.weights.map_read()
         self.bias.map_read()
         data = (self.weights.mem.copy(), self.bias.mem.copy())
@@ -66,10 +66,10 @@ class Forward(OpenCLUnit):
         numpy.copyto(self.weights.mem, data[0])
         numpy.copyto(self.bias.mem, data[1])
 
-    def apply_data_from_slave(self, data, slave=None):
+    def apply_data_from_slave(self, data, slave):
         pass
 
-    def drop_slave(self, slave=None):
+    def drop_slave(self, slave):
         pass
 
 
@@ -152,7 +152,7 @@ class GradientDescentBase(OpenCLUnit):
         self.gradient_moment = kwargs.get("gradient_moment_bias",
                                           self.gradient_moment_bias)
 
-    def generate_data_for_slave(self, slave=None):
+    def generate_data_for_slave(self, slave):
         return (self.learning_rate, self.weights_decay, self.gradient_moment,
                 self.learning_rate_bias, self.weights_decay_bias,
                 self.gradient_moment_bias)
@@ -181,7 +181,7 @@ class GradientDescentBase(OpenCLUnit):
         self.gradient_bias.map_read()
         return (self.gradient_weights.mem, self.gradient_bias.mem)
 
-    def apply_data_from_slave(self, data, slave=None):
+    def apply_data_from_slave(self, data, slave):
         if self.weights.mem is not None:
             self.weights.map_write()
             self.weights.mem += data[0]
@@ -189,7 +189,7 @@ class GradientDescentBase(OpenCLUnit):
             self.bias.map_write()
             self.bias.mem += data[1]
 
-    def drop_slave(self, slave=None):
+    def drop_slave(self, slave):
         pass
 
 
