@@ -34,7 +34,7 @@ class GDNumDiff(object):
             assertLess: pointer to assertLess function.
         """
         for k, v in forward.__dict__.items():
-            if v == vector_to_check:
+            if id(v) == id(vector_to_check):
                 nme = k
                 break
         else:
@@ -60,9 +60,9 @@ class GDNumDiff(object):
                                                  target.ravel())
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - derivative_to_check[offs])
-            logging_info("%.2f %.2f %.2f" %
+            logging_info("%.2e %.2e %.2e" %
                 (derivative, derivative_to_check[offs], d))
-            assertLess(d, 0.05, "Numeric diff test failed")
+            assertLess(d, 0.01, "Numeric diff test failed")
 
     @staticmethod
     def mse(y, t):
