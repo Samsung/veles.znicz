@@ -78,7 +78,7 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.mem[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_shape=[1, 1])
+        c = Unit(DummyWorkflow(), output_shape=[5, 5])
         c.input = inp
         c.initialize(device=device)
 
