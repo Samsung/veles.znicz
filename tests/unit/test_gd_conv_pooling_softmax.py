@@ -37,28 +37,39 @@ class Workflow(OpenCLWorkflow):
         dtype = opencl_types.dtypes[root.common.dtype]
         minibatch_size = 2
 
-        self.input = numpy.zeros([minibatch_size, 5, 5, 3], dtype=dtype)
+        self.input = numpy.zeros([minibatch_size, 8, 8, 3], dtype=dtype)
         rnd.get().fill(self.input)
 
         self.labels = numpy.zeros(minibatch_size, dtype=numpy.int32)
         self.labels[:] = rnd.get().randint(2, size=self.labels.size)
 
         self.conv_forward = ConvForward(
-            self, n_kernels=2, kx=3, ky=3,
-            padding=(1, 2, 3, 4), sliding=(2, 3))
+            self, n_kernels=5, kx=3, ky=3,
+            padding=(2, 2, 2, 2), sliding=(1, 1))
         self.conv_forward.link_from(self.start_point)
         self.conv_forward.input = formats.Vector()
         self.conv_forward.input.mem = self.input.copy()
 
-        self.pool_forward = pooling.AvgPooling(
+        self.pool_forward = pooling.MaxPooling(
             self, kx=3, ky=3, sliding=(2, 2))
         self.pool_forward.link_from(self.conv_forward)
         self.pool_forward.link_attrs(self.conv_forward, ("input", "output"))
 
+        self.conv_forward2 = ConvForward(
+            self, n_kernels=10, kx=3, ky=3,
+            padding=(2, 2, 2, 2), sliding=(1, 1))
+        self.conv_forward2.link_from(self.pool_forward)
+        self.conv_forward2.link_attrs(self.pool_forward, ("input", "output"))
+
+        self.pool_forward2 = pooling.AvgPooling(
+            self, kx=3, ky=3, sliding=(2, 2))
+        self.pool_forward2.link_from(self.conv_forward2)
+        self.pool_forward2.link_attrs(self.conv_forward2, ("input", "output"))
+
         self.sm_forward = all2all.All2AllSoftmax(
-            self, output_shape=[3])
-        self.sm_forward.link_from(self.pool_forward)
-        self.sm_forward.link_attrs(self.pool_forward, ("input", "output"))
+            self, output_shape=[10])
+        self.sm_forward.link_from(self.pool_forward2)
+        self.sm_forward.link_attrs(self.pool_forward2, ("input", "output"))
 
         self.ev = evaluator.EvaluatorSoftmax(self)
         self.ev.link_from(self.sm_forward)
@@ -77,12 +88,33 @@ class Workflow(OpenCLWorkflow):
                               "input", "output")
         self.sm_gd.batch_size = minibatch_size
 
-        self.pool_gd = gd_pooling.GDAvgPooling(
+        self.pool_gd2 = gd_pooling.GDAvgPooling(
+            self, kx=self.pool_forward2.kx, ky=self.pool_forward2.ky,
+            sliding=self.pool_forward2.sliding)
+        self.pool_gd2.link_from(self.sm_gd)
+        self.pool_gd2.link_attrs(self.sm_gd, ("err_output", "err_input"))
+        self.pool_gd2.link_attrs(self.pool_forward2, "input")
+
+        self.conv_gd2 = ConvGD(
+            self, n_kernels=self.conv_forward2.n_kernels,
+            kx=self.conv_forward2.kx, ky=self.conv_forward2.ky,
+            gradient_moment=0, gradient_moment_bias=0,
+            learning_rate=-1, weights_decay=0,
+            learning_rate_bias=-1, weights_decay_bias=0,
+            padding=self.conv_forward2.padding,
+            sliding=self.conv_forward2.sliding)
+        self.conv_gd2.link_from(self.pool_gd2)
+        self.conv_gd2.link_attrs(self.pool_gd2, ("err_output", "err_input"))
+        self.conv_gd2.link_attrs(self.conv_forward2, "weights", "bias",
+                                 "input", "output")
+        self.conv_gd2.batch_size = minibatch_size
+
+        self.pool_gd = gd_pooling.GDMaxPooling(
             self, kx=self.pool_forward.kx, ky=self.pool_forward.ky,
             sliding=self.pool_forward.sliding)
-        self.pool_gd.link_from(self.sm_gd)
-        self.pool_gd.link_attrs(self.sm_gd, ("err_output", "err_input"))
-        self.pool_gd.link_attrs(self.pool_forward, "input")
+        self.pool_gd.link_from(self.conv_gd2)
+        self.pool_gd.link_attrs(self.conv_gd2, ("err_output", "err_input"))
+        self.pool_gd.link_attrs(self.pool_forward, "input", "input_offs")
 
         self.conv_gd = ConvGD(
             self, n_kernels=self.conv_forward.n_kernels,
@@ -120,15 +152,15 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(self.device, conv.ConvRELU,
                                   gd_conv.GDRELUConv)
 
-    def test_random_numeric_cpu(self):
+    def _test_random_numeric_cpu(self):
         self._test_random_numeric(None, conv.Conv,
                                   gd_conv.GradientDescentConv)
 
-    def test_random_numeric_cpu_tanh(self):
+    def _test_random_numeric_cpu_tanh(self):
         self._test_random_numeric(None, conv.ConvTanh,
                                   gd_conv.GDTanhConv)
 
-    def test_random_numeric_cpu_relu(self):
+    def _test_random_numeric_cpu_relu(self):
         self._test_random_numeric(None, conv.ConvRELU,
                                   gd_conv.GDRELUConv)
 
@@ -143,6 +175,11 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
         conv_weights = w.conv_forward.weights.mem.copy()
         w.conv_forward.bias.map_read()
         conv_bias = w.conv_forward.bias.mem.copy()
+
+        w.conv_forward2.weights.map_read()
+        conv_weights2 = w.conv_forward2.weights.mem.copy()
+        w.conv_forward2.bias.map_read()
+        conv_bias2 = w.conv_forward2.bias.mem.copy()
 
         w.sm_forward.weights.map_read()
         sm_weights = w.sm_forward.weights.mem.copy()
@@ -172,6 +209,8 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
         vv_map = {w.conv_gd.input: w.input,
                   w.conv_gd.weights: conv_weights,
                   w.conv_gd.bias: conv_bias,
+                  w.conv_gd2.weights: conv_weights2,
+                  w.conv_gd2.bias: conv_bias2,
                   w.sm_forward.weights: sm_weights,
                   w.sm_forward.bias: sm_bias}
         for v2c, d2c in ((w.conv_gd.input, err_input),
