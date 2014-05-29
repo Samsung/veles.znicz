@@ -55,6 +55,13 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             sliding=layer.get("sliding", (1, 1, 1, 1)),
                             padding=layer.get("padding", (0, 0, 0, 0)),
                             device=self.device, **kwargs),
+                        "conv_str": lambda layer:
+                        conv.ConvStrictRELU(
+                            self, n_kernels=layer["n_kernels"],
+                            kx=layer["kx"], ky=layer["ky"],
+                            sliding=layer.get("sliding", (1, 1, 1, 1)),
+                            padding=layer.get("padding", (0, 0, 0, 0)),
+                            device=self.device, **kwargs),
                         "conv": lambda layer:
                         conv.Conv(
                             self, n_kernels=layer["n_kernels"],
@@ -158,6 +165,12 @@ class StandardWorkflow(nn_units.NNWorkflow):
                     kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
                     padding=fwd_elm.padding, device=self.device, **kwargs)
 
+            elif isinstance(fwd_elm, conv.ConvStrictRELU):
+                grad_elm = gd_conv.GDStrictRELUConv(
+                    self, n_kernels=fwd_elm.n_kernels,
+                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
+                    padding=fwd_elm.padding, device=self.device, **kwargs)
+
             elif isinstance(fwd_elm, all2all.All2AllRELU):
                 grad_elm = gd.GDRELU(self, device=self.device, **kwargs)
 
@@ -194,28 +207,25 @@ class StandardWorkflow(nn_units.NNWorkflow):
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
 
             self.gds.append(grad_elm)
-
-            grad_elm.link_attrs(fwd_elm, "output", "input")
-            grad_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
-
-            # LRN has no weights
-            if not (isinstance(grad_elm, dropout.DropoutBackward) or
-                    isinstance(grad_elm, normalization.LRNormalizerBackward)):
-                grad_elm.link_attrs(fwd_elm, "weights")
-
-            # LRN and droupout units have no biases
-            if not (isinstance(grad_elm, dropout.DropoutBackward) or
-                    isinstance(grad_elm, normalization.LRNormalizerBackward)):
-                grad_elm.link_attrs(fwd_elm, "bias")
-
-            grad_elm.gate_skip = self.decision.gd_skip
-
-        for i in range(len(self.gds) - 1):
+        self.gds[-1].link_from(self.snapshotter)
+        self.gds[-1].link_attrs(self.evaluator, "err_output")
+        self.gds[-1].link_attrs(self.fwds[-1], "output", "input")
+        if not (isinstance(self.gds[-1], dropout.DropoutBackward) or
+                    isinstance(self.gds[-1],
+                               normalization.LRNormalizerBackward)):
+            self.gds[-1].link_attrs(self.fwds[-1], "weights", "bias")
+        self.gds[-1].gate_skip = self.decision.gd_skip
+        self.gds[-1].batch_size = self.loader.minibatch_size
+        for i in range(len(self.fwds) - 2, -1, -1):
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
-
-        self.gds[-1].link_from(self.decision)
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-
+            self.gds[i].link_attrs(self.fwds[i], "output", "input",)
+            if not (isinstance(self.gds[i], dropout.DropoutBackward) or
+                        isinstance(self.gds[i],
+                                   normalization.LRNormalizerBackward)):
+                self.gds[i].link_attrs(self.fwds[i], "weights", "bias")
+            self.gds[i].gate_skip = self.decision.gd_skip
+            self.gds[i].link_attrs(self.loader,
+                                       ("batch_size", "minibatch_size"))
         self.gds[0].need_err_input = False
