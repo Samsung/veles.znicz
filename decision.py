@@ -238,6 +238,42 @@ class DecisionBase(Unit):
 
 
 @implementer(IDecision)
+class TrivialDecision(object):
+    def on_run(self):
+        pass
+
+    def on_last_minibatch(self):
+        pass
+
+    def on_test_validation_processed(self):
+        pass
+
+    def on_training_finished(self):
+        pass
+
+    def on_epoch_ended(self):
+        pass
+
+    def on_generate_data_for_master(self, data):
+        pass
+
+    def on_apply_data_from_master(self, data):
+        pass
+
+    def on_apply_data_from_slave(self, data, slave):
+        pass
+
+    def fill_statistics(self, stats):
+        pass
+
+    def fill_snapshot_suffixes(self, suffixes):
+        pass
+
+    def stop_condition(self):
+        return False
+
+
+@implementer(IDecision)
 class DecisionGD(DecisionBase):
     """Rules the gradient descent learning process.
 
