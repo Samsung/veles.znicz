@@ -7,8 +7,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
-
 import numpy
+import opencl4py as cl
 from zope.interface import implementer
 
 import veles.error as error
@@ -144,8 +144,8 @@ class InputJoiner(OpenCLUnit):
             self.cl_const[0] = a_size
             self.cl_const[1] = b_size
             self.cl_const[2] = low
-            self.set_args(None, a, b, self.cl_const[0:1], self.cl_const[1:2],
-                          self.cl_const[2:3])
+            self.set_args(cl.skip, a, b, self.cl_const[0:1],
+                          self.cl_const[1:2], self.cl_const[2:3])
             global_size = [high - low, minibatch_size]
             self.execute_kernel(global_size, None).wait()
             low = high
@@ -160,7 +160,7 @@ class InputJoiner(OpenCLUnit):
                 self.cl_const[0] = a_size
                 self.cl_const[1] = b_size
                 self.cl_const[2] = low
-                self.set_args(None, a, b, self.cl_const[0:1],
+                self.set_args(cl.skip, a, b, self.cl_const[0:1],
                               self.cl_const[1:2], self.cl_const[2:3])
                 if b is None:
                     self.set_arg(2, None)

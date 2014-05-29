@@ -10,11 +10,12 @@ from __future__ import division
 
 import numpy
 import logging
-from veles.external.prettytable import PrettyTable
+import opencl4py as cl
 import time
 from zope.interface import implementer
 
 from veles.config import root
+from veles.external.prettytable import PrettyTable
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit
@@ -129,14 +130,12 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.krn_weights_ = self.get_kernel("weights_update")
             self.krn_weights_.set_args(self.err_output.devmem,
                                        self.input.devmem,
-                                       self.weights.devmem)
-            # It can be None
-            self.krn_weights_.set_arg(3, self.gradient_weights.devmem)
+                                       self.weights.devmem,
+                                       self.gradient_weights.devmem)
 
             self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_args(self.err_output.devmem, self.bias.devmem)
-            # It can be None
-            self.krn_bias_.set_arg(2, self.gradient_bias.devmem)
+            self.krn_bias_.set_args(self.err_output.devmem, self.bias.devmem,
+                                    self.gradient_bias.devmem)
 
     def cpu_weights_update(self):
         self.input.map_read()
@@ -195,7 +194,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
-        self.krn_weights_.set_args(None, None, None, None, self.cl_const[0:1],
+        self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
                                    self.cl_const[1:2], self.cl_const[2:3])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
@@ -219,7 +218,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cl_const[0] = -self.learning_rate_bias / batch_size
         self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
         self.cl_const[2] = self.gradient_moment_bias
-        self.krn_bias_.set_args(None, None, None, self.cl_const[0:1],
+        self.krn_bias_.set_args(cl.skip(3), self.cl_const[0:1],
                                 self.cl_const[1:2], self.cl_const[2:3])
         global_size = [(self.err_output.mem.size //
                         self.err_output.mem.shape[0]) *

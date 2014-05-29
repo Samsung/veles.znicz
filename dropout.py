@@ -9,7 +9,7 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 """
 
 from __future__ import division
-
+import opencl4py as cl
 from zope.interface import implementer
 
 from veles import formats, OpenCLUnit
@@ -83,7 +83,7 @@ class DropoutForward(Forward, Dropout):
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("dropout_forward")
-        self.set_args(self.input, None, None, self.states, self.mask,
+        self.set_args(self.input, cl.skip, cl.skip, self.states, self.mask,
                       self.output)
 
     def calc_mask(self):
