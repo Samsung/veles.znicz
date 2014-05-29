@@ -181,7 +181,8 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self.input.unmap()
         self.weights.unmap()
         self.output.unmap()
-        self.total.unmap()
+        if self.total is not None:
+            self.total.unmap()
 
         if self.argmins is None:
             self.execute_kernel(self._gs_distance, self._ls_distance,
@@ -206,7 +207,9 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         if self.argmins is not None:
             self.argmins.map_read()
 
-        for sindex in range(self.minibatch_size):
+        length = self.minibatch_size if self.total is not None \
+            else self.input.mem.shape[0]
+        for sindex in range(length):
             if self.argmins is None:
                 dist = self.weights.mem - self.input[sindex]
                 winner = numpy.argmin(self.numpy_linalg_norm(dist))
