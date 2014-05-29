@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 import numpy
+import opencl4py as cl
 from zope.interface import implementer
 
 import veles.formats as formats
@@ -15,6 +16,7 @@ import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
 import veles.znicz.decision as decision
 import veles.random_generator as rnd
+from veles.znicz.decision import TrivialDecision
 
 
 class KohonenBase(object):
@@ -43,6 +45,10 @@ class KohonenForward(KohonenBase, OpenCLUnit):
     Must be assigned before initialize():
         input
         weights
+        minibatch_offset (if total == True)
+        minibatch_size (if total == True)
+        batch_size (if total == True)
+        argmins speeds up run() if linked from KohonenTrainer
 
     Updates after run():
         output
@@ -60,15 +66,18 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         super(KohonenForward, self).__init__(workflow, **kwargs)
         self.input = None
         self.weights = None
+        self.argmins = None
+        self._distances = formats.Vector()
         self.output = formats.Vector()
         self._batch_size = 0
-        self._chunk_size = 0
+        self._chunk_size_ = 0
         self.weights_transposed = False
         self.total = formats.Vector() if kwargs.get("total", False) else None
         if self.total is not None:
             self.minibatch_offset = None
             self.minibatch_size = None
             self.batch_size = None
+        self.demand.extend(["input", "weights"])
 
     def init_unpickled(self):
         super(KohonenForward, self).init_unpickled()
@@ -84,72 +93,126 @@ class KohonenForward(KohonenBase, OpenCLUnit):
 
     @property
     def chunk_size(self):
-        return self._chunk_size
+        return self._chunk_size_
 
     def initialize(self, device, **kwargs):
         super(KohonenForward, self).initialize(device=device, **kwargs)
 
         assert self.input.mem.shape[1] == self.sample_length
+        batch_size = self.input.mem.shape[0]
 
         self.output.reset()
-        self.output.mem = numpy.zeros(
-            self.input.mem.shape[0], dtype=numpy.int32)
+        if self.argmins is not None:
+            self.output.mem = self.argmins.mem
+        else:
+            self.output.mem = numpy.zeros(batch_size, dtype=numpy.int32)
+            self._distances.reset()
+            self._distances.mem = numpy.zeros(
+                [batch_size, self.neurons_number],
+                dtype=self.weights.mem.dtype)
+
         if self.total is not None:
             self.total.reset()
             self.total.mem = numpy.zeros(self.batch_size, dtype=numpy.int32)
+            self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
 
         if self.device is None:
             return
 
-        self.input.initialize(self.device)
-        self.weights.initialize(self.device)
         self.output.initialize(self.device)
-        self._chunk_size = 65536 // (self.neurons_number * self.sample_length)\
-            or 1
-        batch_size = self.input.mem.shape[0]
+        if self.argmins is None:
+            self.input.initialize(self.device)
+            self.weights.initialize(self.device)
+            self._distances.initialize(device)
+        elif self.total is None:
+            return
+        if self.total is not None:
+            self.total.initialize(self.device)
 
+        copy_chunk_size = int(numpy.ceil(batch_size /
+                                         self.device.max_group_size))
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(self.weights.mem.dtype)]
+        chunk_size = self.neurons_number // self.device.max_group_size
+        if chunk_size < 2:
+            chunk_size = self.neurons_number // 2 + 1
+        self.argmin_group_size = \
+            int(numpy.ceil(self.neurons_number / chunk_size))
         defines = {
-            'CHUNK_SIZE': self.chunk_size,
+            'BLOCK_SIZE': block_size,
             'BATCH': batch_size,
             'SAMPLE_LENGTH': self.sample_length,
-            'NEURONS_NUMBER': self.neurons_number}
+            'NEURONS_NUMBER': self.neurons_number,
+            'CHUNK_SIZE': chunk_size,
+            'COPY_CHUNK_SIZE': copy_chunk_size,
+        }
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
         self.build_program(defines, "kohonen_forward_%d_%d_%d.cl" %
-                           (batch_size, self.neurons_number,
-                            self.sample_length),
-                           dtype=self.input.mem.dtype)
+                           (batch_size, self.sample_length,
+                            self.neurons_number),
+                           dtype=self.weights.mem.dtype)
 
-        self.assign_kernel("feed_layer")
-        self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
-        self.set_args(self.input, self.weights, self._minibatch_offset_,
-                      self.output, self.total)
-        self._global_size_ = [int(numpy.ceil(batch_size / self.chunk_size))]
+        if self.total is not None:
+            self._set_total_global_size_ = \
+                [int(numpy.ceil(batch_size / copy_chunk_size))]
+            self._krn_set_total_ = self.get_kernel("set_total")
+            self._krn_set_total_.set_arg(2, self.total.devmem)
+            if self.argmins is not None:
+                self._krn_set_total_.set_arg(0, self.argmins.devmem)
+                return
+            else:
+                self._krn_set_total_.set_arg(0, self.output.devmem)
+
+        self._krn_distances_ = self.get_kernel("calculate_distances")
+        self._krn_distances_.set_args(self.input.devmem, self.weights.devmem,
+                                    self._distances.devmem)
+
+        self._krn_argmin_ = self.get_kernel("calculate_argmin")
+        self._krn_argmin_.set_args(self._distances.devmem, self.output.devmem,
+                                   None)
+
+        self._gs_distance = [
+            formats.roundup(self.neurons_number, block_size),
+            formats.roundup(batch_size, block_size)]
+        self._ls_distance = [block_size, block_size]
 
     def ocl_run(self):
-        """Forward propagation from batch on GPU.
-        """
         self.input.unmap()
         self.weights.unmap()
         self.output.unmap()
+        self.total.unmap()
+
+        if self.argmins is None:
+            self.execute_kernel(self._gs_distance, self._ls_distance,
+                                self._krn_distances_).wait()
+            self.execute_kernel([self.argmin_group_size],
+                                [self.argmin_group_size],
+                                self._krn_argmin_).wait()
+        else:
+            self.argmins.unmap()
 
         if self.total is not None:
-            self._minibatch_offset_[0] = self.minibatch_offset
-            offset = self._minibatch_offset_ - self.minibatch_size
-            self.set_arg(2, offset)
-        self.execute_kernel(self._global_size_, None).wait()
+            self._minibatch_offset_[0] = \
+                self.minibatch_offset - self.minibatch_size
+            self._krn_set_total_.set_arg(1, self._minibatch_offset_)
+            self.execute_kernel(self._set_total_global_size_, None,
+                                self._krn_set_total_).wait()
 
     def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
         self.input.map_read()
         self.weights.map_read()
         self.output.map_invalidate()
+        if self.argmins is not None:
+            self.argmins.map_read()
 
-        for sindex in range(self.input.mem.shape[0]):
-            dist = self.weights.mem - self.input[sindex]
-            winner = numpy.argmin(self.numpy_linalg_norm(dist))
-            self.output[sindex] = winner
+        for sindex in range(self.minibatch_size):
+            if self.argmins is None:
+                dist = self.weights.mem - self.input[sindex]
+                winner = numpy.argmin(self.numpy_linalg_norm(dist))
+                self.output[sindex] = winner
+            else:
+                winner = self.argmins[sindex]
             if self.total is not None:
                 index = sindex + self.minibatch_offset - self.minibatch_size
                 self.total[index] = winner
@@ -167,8 +230,8 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     Creates within initialize():
         weights
         winners
+        argmins
         _distances
-        _argmin
         _coords
 
     Updates after run():
@@ -178,14 +241,14 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         weights: weights of the current layer.
         input: input of the current layer as batch of 1D samples.
         krn_dist_: computes distances between input and neuron weights.
-        krn_argmin_: finds indexes of minimal computed distances.
+        _krn_argmin_: finds indexes of minimal computed distances.
         krn_gravity_: computes gravity to the winner neuron.
         krn_apply_gradients_: applies gradient to weights.
     """
     def __init__(self, workflow, shape, **kwargs):
         super(KohonenTrainer, self).__init__(workflow, **kwargs)
         self._distances = formats.Vector()
-        self._argmin = formats.Vector()
+        self.argmins = formats.Vector()
         self._coords = formats.Vector()
         self.weights = formats.Vector()
         self.winners = formats.Vector()
@@ -205,11 +268,11 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     def init_unpickled(self):
         super(KohonenTrainer, self).init_unpickled()
         self.cl_sources_["kohonen.cl"] = {"TRAIN": 1}
-        self.krn_distance_ = None
-        self.krn_argmin_ = None
-        self.krn_gravity_ = None
-        self.krn_compute_gradients_ = None
-        self.krn_apply_gradients_ = None
+        self._krn_distances_ = None
+        self._krn_argmin_ = None
+        self._krn_gravity_ = None
+        self._krn_compute_gradients_ = None
+        self._krn_apply_gradients_ = None
 
     @property
     def gravity_radius(self):
@@ -267,8 +330,8 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
             [batch_size, self._neurons_number],
             dtype=self.weights.mem.dtype)
 
-        self._argmin.reset()
-        self._argmin.mem = numpy.zeros(batch_size, dtype=numpy.int32)
+        self.argmins.reset()
+        self.argmins.mem = numpy.zeros(batch_size, dtype=numpy.int32)
 
         self._coords.reset()
         self._coords.mem = numpy.zeros([self._neurons_number, 2],
@@ -304,8 +367,8 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self.input.initialize(self.device)
         self.weights.initialize(self.device)
         self.winners.initialize(self.device)
+        self.argmins.initialize(self.device)
         self._distances.initialize(self.device)
-        self._argmin.initialize(self.device)
         self._coords.initialize(self.device)
 
         block_size = self.device.device_info.BLOCK_SIZE[
@@ -313,7 +376,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         chunk_size = self._neurons_number // self.device.max_group_size
         if chunk_size < 2:
             chunk_size = self._neurons_number // 2 + 1
-        self.chunked_group_size = int(numpy.ceil(float(self._neurons_number) /
+        self.argmin_group_size = int(numpy.ceil(float(self._neurons_number) /
                                                  chunk_size))
         defines = {
             'BLOCK_SIZE': block_size,
@@ -335,22 +398,22 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
         self.ocl_consts_ = numpy.zeros(1, dtype=self.weights.mem.dtype)
 
-        self.krn_distance_ = self.get_kernel("compute_distance")
-        self.krn_distance_.set_args(self.input.devmem, self.weights.devmem,
+        self._krn_distances_ = self.get_kernel("calculate_distances")
+        self._krn_distances_.set_args(self.input.devmem, self.weights.devmem,
                                     self._distances.devmem)
 
-        self.krn_argmin_ = self.get_kernel("compute_argmin")
-        self.krn_argmin_.set_args(self._distances.devmem, self._argmin.devmem,
+        self._krn_argmin_ = self.get_kernel("calculate_argmin")
+        self._krn_argmin_.set_args(self._distances.devmem, self.argmins.devmem,
                                   self.winners.devmem)
 
-        self.krn_gravity_ = self.get_kernel("compute_gravity")
-        self.krn_gravity_.set_args(self._argmin.devmem, self._coords.devmem)
-        self.krn_gravity_.set_arg(3, self._distances.devmem)
+        self._krn_gravity_ = self.get_kernel("compute_gravity")
+        self._krn_gravity_.set_args(self.argmins.devmem, self._coords.devmem)
+        self._krn_gravity_.set_arg(3, self._distances.devmem)
 
-        self.krn_apply_gradient_ = self.get_kernel("apply_gradient")
-        self.krn_apply_gradient_.set_args(self.input.devmem,
+        self._krn_apply_gradient_ = self.get_kernel("apply_gradient")
+        self._krn_apply_gradient_.set_args(self.input.devmem,
                                           self._distances.devmem)
-        self.krn_apply_gradient_.set_arg(3, self.weights.devmem)
+        self._krn_apply_gradient_.set_arg(3, self.weights.devmem)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.weights.mem.dtype)]
@@ -369,8 +432,6 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
     @iteration
     def cpu_run(self):
-        """Does KohonenForward's learning iteration on CPU.
-        """
         batch_size = self.input.mem.shape[0]
         neurons_number = self._neurons_number
         dists = numpy.empty(neurons_number)
@@ -399,13 +460,11 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
     @iteration
     def ocl_run(self):
-        """Does Kohonen's learning iteration using OpenCL.
-        """
         self.input.unmap()
         self.weights.unmap()
         self.winners.unmap()
         self._distances.unmap()
-        self._argmin.unmap()
+        self.argmins.unmap()
         self._coords.unmap()
 
         batch_size = self.input.mem.shape[0]
@@ -415,19 +474,20 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
             self.winners.unmap()
 
         self.execute_kernel(self._gs_distance, self._ls_distance,
-                            self.krn_distance_).wait()
-        self.execute_kernel([self.chunked_group_size],
-                            [self.chunked_group_size], self.krn_argmin_).wait()
+                            self._krn_distances_).wait()
+        self.execute_kernel([self.argmin_group_size],
+                            [self.argmin_group_size],
+                            self._krn_argmin_).wait()
         self.ocl_consts_[0] = self.gravity_radius
-        self.krn_gravity_.set_arg(2, self.ocl_consts_[0:1])
+        self._krn_gravity_.set_arg(2, self.ocl_consts_[0:1])
         self.execute_kernel([batch_size, self._neurons_number], None,
-                            self.krn_gravity_).wait()
+                            self._krn_gravity_).wait()
         self.ocl_consts_[0] = self.gradient_multiplier
-        self.krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
+        self._krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
         self.execute_kernel(
             [int(numpy.ceil(self._sample_length / self.device.max_group_size)),
              self.device.max_group_size],
-            None, self.krn_apply_gradient_).wait()
+            None, self._krn_apply_gradient_).wait()
 
     iteration = staticmethod(iteration)
 
@@ -446,7 +506,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         return 9.0 / d
 
 
-class KohonenDecision(decision.DecisionBase):
+class KohonenDecision(TrivialDecision, decision.DecisionBase):
     def __init__(self, workflow, **kwargs):
         super(KohonenDecision, self).__init__(workflow, **kwargs)
         self.weights_copy = formats.Vector()

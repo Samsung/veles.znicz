@@ -102,6 +102,53 @@ class TestKohonen(unittest.TestCase):
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
+    def test_forward_with_argmins(self):
+        logging.info("Will test KohonenForward unit forward pass")
+        c = kohonen.KohonenForward(DummyWorkflow())
+        c.input = formats.Vector()
+        c.input.mem = self.input[:]
+        c.weights = formats.Vector()
+        c.weights.mem = self.weights[:]
+        c.argmins = formats.Vector()
+        c.argmins.mem = self.output[:]
+        c.initialize(device=self.device)
+
+        c.cpu_run()
+        max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
+        c.ocl_run()
+        c.output.map_read()  # get results back
+        max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
+    def test_forward_total_with_argmins(self):
+        c = kohonen.KohonenForward(DummyWorkflow(), total=True)
+        c.input = formats.Vector()
+        c.input.mem = self.input[:]
+        c.weights = formats.Vector()
+        c.weights.mem = self.weights[:]
+        c.argmins = formats.Vector()
+        c.argmins.mem = self.output[:]
+        c.minibatch_size = 5
+        c.minibatch_offset = 0
+        c.batch_size = 10
+        c.initialize(device=self.device)
+
+        c.cpu_run()
+        c.minibatch_offset = 5
+        c.cpu_run()
+        max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
+        c.minibatch_offset = 0
+        c.ocl_run()
+        c.minibatch_offset = 5
+        c.ocl_run()
+        c.total.map_read()  # get results back
+        max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
     def test_train(self):
         logging.info("Will test KohonenForward unit train pass")
 

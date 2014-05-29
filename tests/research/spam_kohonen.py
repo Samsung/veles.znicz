@@ -12,8 +12,10 @@ import lzma
 import numpy
 import six
 import os
+from zope.interface import implementer
 
 from veles.config import root
+from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
 import veles.formats as formats
 import veles.units as units
@@ -21,7 +23,7 @@ import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
-from veles.external.progressbar import ProgressBar
+from veles.znicz.loader import IFullBatchLoader
 
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
@@ -40,7 +42,12 @@ root.defaults = {
 root.loader.validation_ratio = 0
 
 
+@implementer(IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
+    def __init__(self, workflow, **kwargs):
+        super(Loader, self).__init__(workflow, **kwargs)
+        self.lemmas_map = 0
+
     def load_data(self):
         """Here we will load spam data.
         """
@@ -85,7 +92,8 @@ class Loader(loader.FullBatchLoader):
         self.info("Initializing...")
         progress = ProgressBar(maxval=len(data), term_width=17)
         progress.start()
-        lemma_indices = {v: i for i, v in enumerate(sorted(lemmas))}
+        self.lemmas_map = sorted(lemmas)
+        lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
         self.original_labels = numpy.zeros([len(lines)], dtype=numpy.int32)
         self.original_data = numpy.zeros([len(lines), len(lemmas)],
                                          dtype=numpy.float32)
@@ -119,17 +127,27 @@ class Loader(loader.FullBatchLoader):
                   v.min(), v.max())
 
 
-class WeightsExporter(units.Unit):
+@implementer(units.IUnit)
+class ResultsExporter(units.Unit):
     """Exports Kohonen network weights to a text file.
     """
     def __init__(self, workflow, file_name, **kwargs):
-        super(WeightsExporter, self).__init__(workflow, **kwargs)
-        self.weights = None
+        super(ResultsExporter, self).__init__(workflow, **kwargs)
+        self.total = None
+        self.shuffled_indexes = None
         self.file_name = file_name
 
+    def initialize(self, **kwargs):
+        pass
+
     def run(self):
-        numpy.savetxt(self.file_name, self.weights.mem)
-        self.info("Exported the resulting weights to %s", self.file_name)
+        self.total.map_read()
+
+        classified = numpy.zeros(len(self.shuffled_indexes), dtype=numpy.int32)
+        for i in range(self.total.mem.size):
+            classified[self.shuffled_indexes[i]] = self.total[i]
+        numpy.savetxt(self.file_name, classified, fmt='%d')
+        self.info("Exported the classified data to %s", self.file_name)
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -156,10 +174,17 @@ class Workflow(nn_units.NNWorkflow):
         self.trainer.link_from(self.loader)
         self.trainer.link_attrs(self.loader, ("input", "minibatch_data"))
 
+        self.forward = kohonen.KohonenForward(self, total=True)
+        self.forward.link_from(self.trainer)
+        self.forward.link_attrs(self.loader, ("input", "minibatch_data"),
+                                "minibatch_offset", "minibatch_size",
+                                ("batch_size", "total_samples"))
+        self.forward.link_attrs(self.trainer, "weights", "argmins")
+
         # Loop decision
         self.decision = kohonen.KohonenDecision(
             self, max_epochs=root.decision.epochs)
-        self.decision.link_from(self.trainer)
+        self.decision.link_from(self.forward)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "no_more_minibatches_left",
                                               "class_samples")
@@ -172,9 +197,10 @@ class Workflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.ipython)
 
-        self.exporter = WeightsExporter(self, root.exporter.file)
+        self.exporter = ResultsExporter(self, root.exporter.file)
         self.exporter.link_from(self.decision)
-        self.exporter.weights = self.trainer.weights
+        self.exporter.total = self.forward.total
+        self.exporter.link_attrs(self.loader, "shuffled_indexes")
         self.exporter.gate_block = ~self.decision.complete
 
         self.end_point.link_from(self.decision)
