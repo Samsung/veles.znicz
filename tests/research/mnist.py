@@ -23,6 +23,7 @@ import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
+import veles.znicz.learning_rate_adjust as learning_rate_adjust
 import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -192,15 +193,22 @@ class Workflow(StandardWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
+        self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         self.create_gradient_descent_units()
 
-        self.repeater.link_from(self.gds[0])
+        # Add learning_rate_adjust unit
+        self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
+            self, lr_function=learning_rate_adjust.inv_adjust_policy(
+            0.01, 0.0001, 0.75))
+        self.learning_rate_adjust.link_from(self.gds[0])
+        self.learning_rate_adjust.add_gd_units(self.gds)
 
-        self.end_point.link_from(self.gds[0])
+        self.repeater.link_from(self.learning_rate_adjust)
+
+        self.end_point.link_from(self.learning_rate_adjust)
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
