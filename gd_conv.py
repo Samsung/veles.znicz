@@ -260,7 +260,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_bias.map_write()
 
         dtype = self.weights.mem.dtype
-        batch_size = self.batch_size or self.output.mem.shape[0]
+        batch_size = int(self.batch_size) or self.output.mem.shape[0]
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
@@ -275,8 +275,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         if len(sh) == 3:
             sh[1] *= sh[2]
             sh[2] = 1
-        err_output = formats.reshape(self.err_output.mem,
-                                     (sh[0], sh[1] * sh[2], sh[3]))
+        #err_output = formats.reshape(self.err_output.mem,
+        #                             (sh[0], sh[1] * sh[2], sh[3]))
 
         # calculate gradient for weights
         gd_weights = numpy.zeros_like(self.weights.mem)
