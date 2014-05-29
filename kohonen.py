@@ -13,19 +13,36 @@ from zope.interface import implementer
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
-import veles.znicz.nn_units as nn_units
 import veles.znicz.decision as decision
 import veles.random_generator as rnd
 
 
+class KohonenBase(object):
+    """Common base of Kohonen units.
+    """
+
+    def init_unpickled(self):
+        super(KohonenBase, self).init_unpickled()
+        numpy_version = [int(mem) for mem in numpy.__version__.split('.')]
+        if numpy_version[0] == 1 and numpy_version[1] < 8:
+            self.numpy_linalg_norm = self._numpy_legacy_linalg_norm
+        else:
+            self.numpy_linalg_norm = self._numpy_1_8_linalg_norm
+
+    def _numpy_1_8_linalg_norm(self, dist):
+        return numpy.linalg.norm(dist, axis=1)
+
+    def _numpy_legacy_linalg_norm(self, dist):
+        return [numpy.linalg.norm(dist[i]) for i in range(dist.shape[0])]
+
+
 @implementer(IOpenCLUnit)
-class KohonenForward(nn_units.Forward):
+class KohonenForward(KohonenBase, OpenCLUnit):
     """Kohonen forward layer.
 
     Must be assigned before initialize():
         input
         weights
-        shape
 
     Updates after run():
         output
@@ -36,32 +53,50 @@ class KohonenForward(nn_units.Forward):
     Attributes:
         input: input as batch of samples.
         weights: the weights of the neurons in Kohonen layer.
-        output: output as batch of samples.
-        shape: shape of the output layer (may be Vector).
-        weights_transposed: assume weights matrix as a transposed one.
-        weights_filling: rand weight filling
-                         ("uniform" (default) or "gaussian")
-        weights_stddev: magnitude of uniform weight distribution.
+        output: the list of winners.
+        total: if total=True is passed in __init__(), the overall winners table
     """
     def __init__(self, workflow, **kwargs):
         super(KohonenForward, self).__init__(workflow, **kwargs)
         self.input = None
         self.weights = None
-        self.shape = None
         self.output = formats.Vector()
+        self._batch_size = 0
+        self._chunk_size = 0
+        self.weights_transposed = False
+        self.total = formats.Vector() if kwargs.get("total", False) else None
+        if self.total is not None:
+            self.minibatch_offset = None
+            self.minibatch_size = None
+            self.batch_size = None
 
     def init_unpickled(self):
         super(KohonenForward, self).init_unpickled()
-        self.cl_sources_["kohonen.cl"] = {}
+        self.cl_sources_["kohonen.cl"] = {"FORWARD": 1}
+
+    @property
+    def neurons_number(self):
+        return self.weights.mem.shape[0]
+
+    @property
+    def sample_length(self):
+        return self.weights.mem.shape[1]
+
+    @property
+    def chunk_size(self):
+        return self._chunk_size
 
     def initialize(self, device, **kwargs):
         super(KohonenForward, self).initialize(device=device, **kwargs)
 
-        neurons_number = self.shape[0] * self.shape[1]
+        assert self.input.mem.shape[1] == self.sample_length
+
         self.output.reset()
         self.output.mem = numpy.zeros(
-            (self.input.mem.shape[0], neurons_number),
-            dtype=self.input.mem.dtype)
+            self.input.mem.shape[0], dtype=numpy.int32)
+        if self.total is not None:
+            self.total.reset()
+            self.total.mem = numpy.zeros(self.batch_size, dtype=numpy.int32)
 
         if self.device is None:
             return
@@ -69,57 +104,58 @@ class KohonenForward(nn_units.Forward):
         self.input.initialize(self.device)
         self.weights.initialize(self.device)
         self.output.initialize(self.device)
+        self._chunk_size = 65536 // (self.neurons_number * self.sample_length)
+        batch_size = self.input.mem.shape[0]
 
         defines = {
-            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
-            'BATCH': self.output.mem.shape[0],
-            'SAMPLE_LENGTH': self.weights.mem.size // neurons_number,
-            'NEURONS_NUMBER': neurons_number}
+            'CHUNK_SIZE': self.chunk_size,
+            'BATCH': batch_size,
+            'SAMPLE_LENGTH': self.sample_length,
+            'NEURONS_NUMBER': self.neurons_number}
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
-        self.build_program(defines, "kohonen_%d_%d.cl" %
-                           (self.input.mem.size // self.input.mem.shape[0],
-                            neurons_number),
+        self.build_program(defines, "kohonen_forward_%d_%d_%d.cl" %
+                           (batch_size, self.neurons_number,
+                            self.sample_length),
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
-        self.set_args(self.input, self.weights, self.output)
-
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
-        self._global_size_ = [formats.roundup(neurons_number, block_size),
-                              formats.roundup(self.output.mem.shape[0],
-                                              block_size)]
-        self._local_size_ = [block_size, block_size]
+        self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
+        self.set_args(self.input, self.weights, self._minibatch_offset_,
+                      self.output, self.total)
+        self._global_size_ = [int(numpy.ceil(batch_size / self.chunk_size))]
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.output.unmap()
         self.input.unmap()
         self.weights.unmap()
+        self.output.unmap()
 
-        self.execute_kernel(self._global_size_, self._local_size_).wait()
+        if self.total is not None:
+            self._minibatch_offset_[0] = self.minibatch_offset
+            offset = self._minibatch_offset_ - self.minibatch_size
+            self.set_arg(2, offset)
+        self.execute_kernel(self._global_size_, None).wait()
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        self.output.map_invalidate()
         self.input.map_read()
         self.weights.map_read()
-        a = formats.reshape(
-            self.input.mem, [self.input.mem.shape[0],
-                             self.input.mem.size // self.input.mem.shape[0]])
-        b = self.weights.mem
-        if not self.weights_transposed:
-            b = b.transpose()
-        mem = numpy.dot(a, b)
-        self.output.mem[:] = mem[:]
+        self.output.map_invalidate()
+
+        for sindex in range(self.input.mem.shape[0]):
+            dist = self.weights.mem - self.input[sindex]
+            winner = numpy.argmin(self.numpy_linalg_norm(dist))
+            self.output[sindex] = winner
+            if self.total is not None:
+                index = sindex + self.minibatch_offset - self.minibatch_size
+                self.total[index] = winner
 
 
 @implementer(IOpenCLUnit)
-class KohonenTrainer(OpenCLUnit):
+class KohonenTrainer(KohonenBase, OpenCLUnit):
     """KohonenForward train pass.
 
     Must be assigned before initialize():
@@ -173,11 +209,6 @@ class KohonenTrainer(OpenCLUnit):
         self.krn_gravity_ = None
         self.krn_compute_gradients_ = None
         self.krn_apply_gradients_ = None
-        numpy_version = [int(mem) for mem in numpy.__version__.split('.')]
-        if numpy_version[0] == 1 and numpy_version[1] < 8:
-            self._numpy_linalg_norm = self._numpy_legacy_linalg_norm
-        else:
-            self._numpy_linalg_norm = self._numpy_1_8_linalg_norm
 
     @property
     def gravity_radius(self):
@@ -296,8 +327,9 @@ class KohonenTrainer(OpenCLUnit):
         }
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
-        self.build_program(defines, "kohonen_train_%d_%d.cl" %
-                           (self._sample_length, self._neurons_number),
+        self.build_program(defines, "kohonen_train_%d_%d_%d.cl" %
+                           (batch_size, self._sample_length,
+                            self._neurons_number),
                            dtype=self.weights.mem.dtype)
 
         self.ocl_consts_ = numpy.zeros(1, dtype=self.weights.mem.dtype)
@@ -353,7 +385,7 @@ class KohonenTrainer(OpenCLUnit):
 
         for sindex in range(batch_size):
             dist = self.weights.mem - self.input[sindex]
-            winner = numpy.argmin(self._numpy_linalg_norm(dist))
+            winner = numpy.argmin(self.numpy_linalg_norm(dist))
             self.winners[winner] += 1
             winner_coords = self._coords.mem[winner]
             for nindex in range(neurons_number):
@@ -411,12 +443,6 @@ class KohonenTrainer(OpenCLUnit):
         if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             return 1.0 / d
         return 9.0 / d
-
-    def _numpy_1_8_linalg_norm(self, dist):
-        return numpy.linalg.norm(dist, axis=1)
-
-    def _numpy_legacy_linalg_norm(self, dist):
-        return [numpy.linalg.norm(dist[i]) for i in range(dist.shape[0])]
 
 
 class KohonenDecision(decision.DecisionBase):

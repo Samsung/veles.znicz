@@ -40,12 +40,8 @@ class TestKohonen(unittest.TestCase):
                                     [-1, -1, 3, 0, 2],
                                     [1, 0, 3, 2, -1]],
                                    dtype=self.dtype)
-        self.output = numpy.array([[8, 12, 8, 0, 3, -5, 5, 8, 13],
-                                   [5, 3, 3, -1, 2, -5, 3, 5, 8],
-                                   [1, 3, 3, 1, 0, -3, 1, -1, 2],
-                                   [2, 12, 4, 1, 1, 7, 1, 5, 3],
-                                   [2, 6, 2, 0, 1, 3, 1, 4, 3]],
-                                  dtype=self.dtype)
+        self.output = numpy.array([8, 0, 3, 1, 0], dtype=self.dtype)
+        self.total = numpy.append(self.output, self.output)
         self.new_weights = numpy.array(
             [[0.0095, 3.4077, -1.1363, -0.2331, 7.291],
              [-7.3005, -0.141, 6.3435, -3.8349, -7.3005],
@@ -65,23 +61,46 @@ class TestKohonen(unittest.TestCase):
 
     def test_forward(self):
         logging.info("Will test KohonenForward unit forward pass")
-        c = kohonen.KohonenForward(DummyWorkflow(), output_shape=[3, 3])
+        c = kohonen.KohonenForward(DummyWorkflow())
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.weights = formats.Vector()
         c.weights.mem = self.weights[:]
-        c.shape = (3, 3)
-        c.epoch_ended = False
         c.initialize(device=self.device)
 
-        c.run()
+        c.cpu_run()
+        max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
+        c.ocl_run()
         c.output.map_read()  # get results back
+        max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
-        y = c.output.mem.ravel()
+    def test_forward_total(self):
+        c = kohonen.KohonenForward(DummyWorkflow(), total=True)
+        c.input = formats.Vector()
+        c.input.mem = self.input[:]
+        c.weights = formats.Vector()
+        c.weights.mem = self.weights[:]
+        c.minibatch_size = 5
+        c.minibatch_offset = 0
+        c.batch_size = 10
+        c.initialize(device=self.device)
 
-        max_diff = numpy.fabs(self.output.ravel() - y.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        c.cpu_run()
+        c.minibatch_offset = 5
+        c.cpu_run()
+        max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+
+        c.minibatch_offset = 0
+        c.ocl_run()
+        c.minibatch_offset = 5
+        c.ocl_run()
+        c.total.map_read()  # get results back
+        max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
     def test_train(self):
         logging.info("Will test KohonenForward unit train pass")
@@ -99,8 +118,7 @@ class TestKohonen(unittest.TestCase):
         weights = c.weights.mem.ravel()
         winners = c.winners.mem
         max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
         self.assertTrue(all(winners == self.winners),
                         "Wrong winners %s" % str(winners))
         self.assertEqual(1, c.time)
@@ -121,8 +139,7 @@ class TestKohonen(unittest.TestCase):
         winners = c.winners.mem
 
         max_diff = numpy.fabs(self.new_weights.ravel() - weights.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
         self.assertTrue(all(winners == self.winners),
                         "Wrong winners %s" % str(winners))
 

@@ -1,47 +1,56 @@
 #include "defines.cl"
 #include "highlight.cl"
 
+#ifndef __OPENCL_VERSION__
+#define FORWARD
+#define TRAIN
+#endif
+
+#ifdef FORWARD
 /// @brief Kohonen forward propagation.
-/// @param h input.
-/// @param weights weights.
-/// @param y output.
-/// @details y = W * h.
-///          Must be defined externally:
-///          BLOCK_SIZE - size of the block for matrix multiplication,
-///          BATCH - minibatch size,
-///          SAMPLE_LENGTH - input size,
-///          NEURONS_NUMBER - output size.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+/// @param input Samples to classify.
+/// @param weights The weights of the neurons.
+/// @param output The list of winners of length BATCH.
+/// @details Must be defined externally:
+///          BATCH - the number of input samples,
+///          SAMPLE_LENGTH - the length of each sample,
+///          NEURONS_NUMBER - the number of neurons,
+///          CHUNK_SIZE - the number of samples processed at a time.
+__kernel
 void feed_layer(__global c_dtype    /* IN */    *input,
                 __global c_dtype    /* IN */    *weights,
-                __global c_dtype   /* OUT */    *output) {
-  #define A_WIDTH BATCH
-  #define B_WIDTH NEURONS_NUMBER
-  #define AB_COMMON SAMPLE_LENGTH
+                int        /* IN */    batch_offset,
+                __global int        /* OUT */   *output,
+                __global int        /* OUT */   *total) {
+  int offset = get_global_id(0);
 
-  #define A input
-  #define B weights
-
-  #ifdef WEIGHTS_TRANSPOSED
-  #define B_COL
-  #endif
-
-  #include "matrix_multiplication.cl"
-
-  #undef A_WIDTH
-  #undef B_WIDTH
-  #undef AB_COMMON
-
-  #undef A
-  #undef B
-
-  if (valid) {
-    output[idx] = sum[0];
+  for (int i = offset * CHUNK_SIZE;
+      i < MIN((offset + 1) * CHUNK_SIZE, BATCH);
+      i++) {
+    dtype min_dist = MAXFLOAT;
+    int winner = -1;
+    for (int n = 0; n < NEURONS_NUMBER; n++) {
+      dtype dist = 0;
+      for (int s = 0; s < SAMPLE_LENGTH; s++) {
+#ifndef WEIGHTS_TRANSPOSED
+        dist += c_dist2(input[SAMPLE_LENGTH * i + s],
+                        weights[n * SAMPLE_LENGTH + s]);
+#else
+        dist += c_dist2(input[SAMPLE_LENGTH * i + s],
+                        weights[NEURONS_NUMBER * s + n]);
+#endif
+      }
+      if (dist < min_dist) {
+        min_dist = dist;
+        winner = n;
+      }
+    }
+    output[i] = winner;
+    if (total) {
+      total[i + batch_offset] = winner;
+    }
   }
 }
-
-#ifndef __OPENCL_VERSION__
-#define TRAIN
 #endif
 
 #ifdef TRAIN
