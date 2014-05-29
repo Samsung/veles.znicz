@@ -104,7 +104,8 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self.input.initialize(self.device)
         self.weights.initialize(self.device)
         self.output.initialize(self.device)
-        self._chunk_size = 65536 // (self.neurons_number * self.sample_length)
+        self._chunk_size = 65536 // (self.neurons_number * self.sample_length)\
+            or 1
         batch_size = self.input.mem.shape[0]
 
         defines = {
