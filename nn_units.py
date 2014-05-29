@@ -20,7 +20,7 @@ import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.random_generator as rnd
 from veles.workflow import Repeater
-from veles.snapshotter import SnapshotterBase
+from veles.snapshotter import SnapshotterBase, Snapshotter
 
 
 @implementer(IDistributable)
@@ -349,3 +349,31 @@ class ForwardExporter(SnapshotterBase):
     def _open_file(self):
         return ForwardExporter.CODECS[self.compress](self.file_name,
                                                      self.compress_level)
+
+
+class NNSnapshotter(Snapshotter):
+    def export(self):
+        super(NNSnapshotter, self).export()
+        logged = set()
+        for u in self.workflow._units:
+            if (hasattr(u, "weights") and hasattr(u.weights, "mem")
+                and u.weights.mem is not None
+                and id(u.weights.mem) not in logged):
+                self.info("%s: Weights range: [%.6f, %.6f]",
+                          u.__class__.__name__,
+                          u.weights.mem.min(), u.weights.mem.max())
+                logged.add(id(u.weights.mem))
+            if (hasattr(u, "bias") and hasattr(u.bias, "mem")
+                and u.bias.mem is not None
+                and id(u.bias.mem) not in logged):
+                self.info("%s: Bias range: [%.6f, %.6f]",
+                          u.__class__.__name__,
+                          u.bias.mem.min(), u.bias.mem.max())
+                logged.add(id(u.bias.mem))
+            if (hasattr(u, "output") and hasattr(u.output, "mem")
+                and u.output.mem is not None
+                and id(u.output.mem) not in logged):
+                self.info("%s: Output range: [%.6f, %.6f]",
+                          u.__class__.__name__,
+                          u.output.mem.min(), u.output.mem.max())
+                logged.add(id(u.output.mem))
