@@ -205,7 +205,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = self.batch_size or self.output.mem.shape[0]
+        if self.batch_size is None:
+            batch_size = self.output.mem.shape[0]
+        else:
+            batch_size = int(self.batch_size)
         batch_size *= self._batch_multiplier
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
@@ -260,7 +263,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_bias.map_write()
 
         dtype = self.weights.mem.dtype
-        batch_size = int(self.batch_size) or self.output.mem.shape[0]
+        if self.batch_size is None:
+            batch_size = self.output.mem.shape[0]
+        else:
+            batch_size = int(self.batch_size)
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)

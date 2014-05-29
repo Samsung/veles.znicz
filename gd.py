@@ -145,7 +145,10 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_weights.map_invalidate()
         self.gradient_bias.map_invalidate()
 
-        batch_size = self.batch_size or self.output.mem.shape[0]
+        if self.batch_size is None:
+            batch_size = self.output.mem.shape[0]
+        else:
+            batch_size = int(self.batch_size)
 
         # weights
         alpha_batch = -self.learning_rate / batch_size
@@ -190,7 +193,10 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        batch_size = self.batch_size or self.output.mem.shape[0]
+        if self.batch_size is None:
+            batch_size = self.output.mem.shape[0]
+        else:
+            batch_size = int(self.batch_size)
         self.cl_const[0] = -self.learning_rate / batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
