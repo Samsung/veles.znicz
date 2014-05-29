@@ -118,8 +118,8 @@ class Loader(Unit):
         self.minibatch_offset = 0
         self.minibatch_size = 0
 
-        self.shuffled_indexes = None
-        self.original_labels = None
+        self.shuffled_indexes = False  # allow early linking
+        self.original_labels = False  # allow early linking
 
         self.samples_served = 0
         self.epoch_ended = Bool(False)
@@ -169,7 +169,7 @@ class Loader(Unit):
         self.minibatch_offset = self.total_samples
 
         # Initial shuffle.
-        if self.shuffled_indexes is None:
+        if self.shuffled_indexes is False:
             if self.total_samples > 2147483647:
                 raise error.ErrNotImplemented(
                     "total_samples exceedes int32 capacity.")
@@ -256,7 +256,7 @@ class Loader(Unit):
         if amount <= 0:  # Dispose of validation set
             self.class_samples[TRAIN] += self.class_samples[VALID]
             self.class_samples[VALID] = 0
-            if self.shuffled_indexes is None:
+            if self.shuffled_indexes is False:
                 total_samples = numpy.sum(self.class_samples)
                 self.shuffled_indexes = numpy.arange(
                     total_samples, dtype=numpy.int32)
@@ -267,7 +267,7 @@ class Loader(Unit):
         total_samples = train_samples + offs
         original_labels = self.original_labels
 
-        if self.shuffled_indexes is None:
+        if self.shuffled_indexes is False:
             self.shuffled_indexes = numpy.arange(
                 total_samples, dtype=numpy.int32)
         shuffled_indexes = self.shuffled_indexes
@@ -430,10 +430,10 @@ class FullBatchLoader(Loader):
 
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
-        self.original_data = None
-        self.original_labels = None
-        self.original_target = None
-        self.shuffled_indexes = None
+        self.original_data = False
+        self.original_labels = False
+        self.original_target = False
+        self.shuffled_indexes = False
 
     def __getstate__(self):
         state = super(FullBatchLoader, self).__getstate__()
@@ -451,7 +451,7 @@ class FullBatchLoader(Loader):
             sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_target.reset()
-        if self.original_target is not None:
+        if not self.original_target is False:
             sh = [self.minibatch_maxsize]
             sh.extend(self.original_target[0].shape)
             self.minibatch_target.mem = numpy.zeros(
@@ -459,7 +459,7 @@ class FullBatchLoader(Loader):
                 dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_labels.reset()
-        if self.original_labels is not None:
+        if not self.original_labels is False:
             sh = [self.minibatch_maxsize]
             self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
@@ -480,11 +480,11 @@ class FullBatchLoader(Loader):
         for i, ii in enumerate(idxs[:minibatch_size]):
             self.minibatch_data[i] = self.original_data[int(ii)]
 
-        if self.original_labels is not None:
+        if not self.original_labels is False:
             for i, ii in enumerate(idxs[:minibatch_size]):
                 self.minibatch_labels[i] = self.original_labels[int(ii)]
 
-        if self.original_target is not None:
+        if not self.original_target is False:
             for i, ii in enumerate(idxs[:minibatch_size]):
                 self.minibatch_target[i] = self.original_target[int(ii)]
 
