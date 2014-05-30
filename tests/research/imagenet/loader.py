@@ -160,9 +160,9 @@ class LoaderBase(loader.Loader):
     def create_minibatches(self):
         count = self.minibatch_maxsize
         minibatch_shape = [count] + list(self._data_shape) + [self.channels]
-        self.minibatch_data <<= numpy.zeros(shape=minibatch_shape,
-                                           dtype=self._dtype)
-        self.minibatch_indexes <<= numpy.zeros(count, dtype=numpy.int32)
+        self.minibatch_data = numpy.zeros(shape=minibatch_shape,
+                                          dtype=self._dtype)
+        self.minibatch_indexes = numpy.zeros(count, dtype=numpy.int32)
 
     def fill_minibatch(self):
         images = self._executor_.map(
