@@ -8,8 +8,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import cv2
 import logging
 import math
+from math import pi
 import numpy
 import time
 from zope.interface import implementer
@@ -48,10 +50,10 @@ class Conv(nn_units.Forward):
         ky: kernel height.
         padding: tuple of virtual sample padding (left, top, right, bottom).
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
-        weights_filling: rand weight filling
-                         ("unirofm" (default) or "gaussian")
-        weights_stddev: magnitude of uniform weight distribution.
-        weights_stddev: StdDev of normal weight distributtion
+        weights_filling: what weight filling to use: `"uniform"` for uniform
+            random distribution, `"normal"` for normal distribution,
+            `"gabor"` for using Gabor kernels.
+        weights_stddev: standard deviation of normal or Gabor weight fillings
 
         rand: rnd.Rand() object for initial weights generation.
         s_activation: activation define for OpenCL source.
@@ -113,42 +115,9 @@ class Conv(nn_units.Forward):
         self._sx = self.input.mem.shape[2]
         self._n_channels = (self.input.mem.size //
                             (self._batch_size * self._sx * self._sy))
-        n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
-        if self.weights.mem is None or self.weights.mem.size != n_weights:
-            self.weights.reset()
-            self.weights.mem = numpy.zeros(n_weights,
-                                           dtype=self.input.mem.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.mem, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.mem, 0,
-                                           self.weights_stddev)
-            elif self.weights_filling == "constant":
-                self.weights.mem[:] = self.weights_stddev
-            else:
-                raise error.ErrBadFormat("Invalid weights filling type")
-            self.weights.mem = self.weights.mem.reshape(
-                self.n_kernels, self.kx * self.ky * self._n_channels)
-            # Reshape weights as a matrix:
-            if self.weights_transposed:
-                a = self.weights.mem.transpose().copy()
-                self.weights.mem.shape = a.shape
-                self.weights.mem[:] = a[:]
-        if (self.bias.mem is None or
-                self.bias.mem.size != self.n_kernels):
-            self.bias.reset()
-            self.bias.mem = numpy.zeros(self.n_kernels,
-                                        dtype=self.input.mem.dtype)
-            if self.bias_filling == "uniform":
-                self.rand.fill(self.bias.mem, -self.bias_stddev,
-                               self.bias_stddev)
-            elif self.bias_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
-            elif self.bias_filling == "constant":
-                self.bias.mem[:] = self.bias_stddev
-            else:
-                raise error.ErrBadFormat("Invalid bias filling type")
+
+        self._fill_weights()
+        self._fill_biases()
 
         if root.common.unit_test:
             self._batch_size <<= 1  # check for overflow
@@ -304,6 +273,94 @@ class Conv(nn_units.Forward):
         """
         assert self.s_activation == "ACTIVATION_LINEAR"
         self.output.mem += self.bias.mem
+
+    def _fill_weights(self):
+        """
+        Fills initial filter weights according to `weights_filling` attribute.
+        Called within ``initialize`` method.
+        """
+        n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
+        if self.weights.mem is None or self.weights.mem.size != n_weights:
+            self.weights.reset()
+            self.weights.mem = numpy.zeros(n_weights,
+                                           dtype=self.input.mem.dtype)
+            if self.weights_filling == "uniform":
+                self.rand.fill(self.weights.mem, -self.weights_stddev,
+                               self.weights_stddev)
+            elif self.weights_filling == "gaussian":
+                self.rand.fill_normal_real(self.weights.mem, 0,
+                                           self.weights_stddev)
+            elif self.weights_filling == "constant":
+                self.weights.mem[:] = self.weights_stddev
+            elif self.weights_filling == "gabor":
+                self._fill_with_gabor_filters(
+                    self.n_kernels, (self.ky, self.kx), self.weights_stddev)
+            else:
+                raise error.ErrBadFormat("Invalid weights filling type")
+            self.weights.mem = self.weights.mem.reshape(
+                self.n_kernels, self.kx * self.ky * self._n_channels)
+            # Reshape weights as a matrix:
+            if self.weights_transposed:
+                a = self.weights.mem.transpose().copy()
+                self.weights.mem.shape = a.shape
+                self.weights.mem[:] = a[:]
+
+    def _fill_biases(self):
+        """
+        Fills filter biases according to `bias_filling` attribute.
+        Called within ``initialize`` method.
+        """
+        if (self.bias.mem is None or
+                self.bias.mem.size != self.n_kernels):
+            self.bias.reset()
+            self.bias.mem = numpy.zeros(self.n_kernels,
+                                        dtype=self.input.mem.dtype)
+            if self.bias_filling == "uniform":
+                self.rand.fill(self.bias.mem, -self.bias_stddev,
+                               self.bias_stddev)
+            elif self.bias_filling == "gaussian":
+                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
+            elif self.bias_filling == "constant":
+                self.bias.mem[:] = self.bias_stddev
+            else:
+                raise error.ErrBadFormat("Invalid bias filling type")
+
+    def _fill_with_gabor_filters(self, n_filters, shape, stddev):
+        """
+        Fills weights and biases with Gabor filters. Only 96 filters
+            are implemented now, others are filled with white noise.
+
+        Args:
+            n_filters(int): number of filters
+            shape(tuple): shape of each filter
+            stddev(float): standard deviation of filtering kernels
+        """
+
+        #Gabor  filters
+        orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
+        phase_shifts = [0, pi]  # pi phase shift inverts signal
+
+        size = min(shape)
+
+        kernels_count = 0
+        for wavelen_ratio in range(4):  # how much waves should lay in kernel
+            for dev_ratio in range(1, 2 * wavelen_ratio + 1):
+                for ori in orientations:
+                    for phase in phase_shifts:
+                        kernel = cv2.getGaborKernel(ksize=shape,
+                                                    sigma=size / dev_ratio / 2,
+                                                    theta=ori,
+                                                    lambd=size / wavelen_ratio,
+                                                    gamma=1, psi=phase)
+                        kernel = formats.norm_image(kernel) * stddev
+                        self.weights.mem[kernels_count] = kernel.ravel()
+                        kernels_count += 1
+
+                        if kernels_count == n_filters:
+                            return
+
+        #White noise (if more, than 96 filters are required)
+        self.rand.fill_normal_real(self.weights.mem[kernels_count:], 0, stddev)
 
 
 class ConvTanh(Conv):
