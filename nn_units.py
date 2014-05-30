@@ -352,28 +352,21 @@ class ForwardExporter(SnapshotterBase):
 
 
 class NNSnapshotter(Snapshotter):
+    def _log_attr(self, unit, attr, logged):
+        val = getattr(unit, attr, None)
+        if val is None:
+            return
+        mem = getattr(val, "mem", None)
+        if mem is None:
+            return
+        if id(mem) not in logged:
+            self.info("%s: %s range: [%.6f, %.6f]",
+                      repr(unit), mem.min(), mem.max())
+            logged.add(id(mem))
+
     def export(self):
         super(NNSnapshotter, self).export()
         logged = set()
-        for u in self.workflow._units:
-            if (hasattr(u, "weights") and hasattr(u.weights, "mem")
-                and u.weights.mem is not None
-                and id(u.weights.mem) not in logged):
-                self.info("%s: Weights range: [%.6f, %.6f]",
-                          u.__class__.__name__,
-                          u.weights.mem.min(), u.weights.mem.max())
-                logged.add(id(u.weights.mem))
-            if (hasattr(u, "bias") and hasattr(u.bias, "mem")
-                and u.bias.mem is not None
-                and id(u.bias.mem) not in logged):
-                self.info("%s: Bias range: [%.6f, %.6f]",
-                          u.__class__.__name__,
-                          u.bias.mem.min(), u.bias.mem.max())
-                logged.add(id(u.bias.mem))
-            if (hasattr(u, "output") and hasattr(u.output, "mem")
-                and u.output.mem is not None
-                and id(u.output.mem) not in logged):
-                self.info("%s: Output range: [%.6f, %.6f]",
-                          u.__class__.__name__,
-                          u.output.mem.min(), u.output.mem.max())
-                logged.add(id(u.output.mem))
+        for u in self.workflow.units:
+            for attr in ("weights", "bias", "output"):
+                self._log_attr(u, attr, logged)
