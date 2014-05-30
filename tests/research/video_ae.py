@@ -231,6 +231,6 @@ def run(load, main):
         for fwds in w.fwds:
             logging.info(fwds.weights.mem.min(), fwds.weights.mem.max(),
                          fwds.bias.mem.min(), fwds.bias.mem.max())
-        w.decision.improved << True
+        w.decision.improved <<= True
     main(learning_rate=root.video_ae.learning_rate,
          weights_decay=root.video_ae.weights_decay)

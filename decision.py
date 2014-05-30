@@ -110,7 +110,7 @@ class DecisionBase(Unit):
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
 
     def run(self):
-        self.epoch_ended << False
+        self.epoch_ended <<= False
         self.on_run()
         if self.no_more_minibatches_left[self.minibatch_class]:
             self._on_last_minibatch()
@@ -139,7 +139,7 @@ class DecisionBase(Unit):
     def apply_data_from_master(self, data):
         self.__dict__.update(data)
         # Prevent doing snapshot and set complete after one epoch
-        self.complete << False
+        self.complete <<= False
         self.on_apply_data_from_master(data)
 
     def apply_data_from_slave(self, data, slave):
@@ -155,7 +155,7 @@ class DecisionBase(Unit):
                  CLASS_NAME[self.slave_minibatch_class_[slave.id]],
                  slave.id))
         self.on_apply_data_from_slave(data, slave)
-        self.epoch_ended << False
+        self.epoch_ended <<= False
         self._finalize_job(slave)
         # we evaluate this condition before _on_last_minibatch since it may
         # reset no_more_minibatches_left in _end_epoch
@@ -178,13 +178,13 @@ class DecisionBase(Unit):
         # Test and Validation sets processed
         if ((self.class_samples[VALID] and minibatch_class == VALID) or
                 (not self.class_samples[VALID] and minibatch_class >= VALID)):
-            self.improved << False
+            self.improved <<= False
             self.on_test_validation_processed()
             if self.improved:
                 suffixes = []
                 self.fill_snapshot_suffixes(suffixes)
                 self.snapshot_suffix = '_'.join(suffixes)
-            self.complete << self._stop_condition()
+            self.complete <<= self._stop_condition()
 
         # Training set processed
         if self.minibatch_class == TRAIN:
@@ -219,10 +219,10 @@ class DecisionBase(Unit):
             self.no_more_minibatches_left[:] = \
                 [False] * len(self.no_more_minibatches_left)
             self.on_epoch_ended()
-            self.epoch_ended << True
+            self.epoch_ended <<= True
             self.epoch_number += 1
         else:
-            self.complete << True
+            self.complete <<= True
 
     def _finalize_job(self, slave):
         minibatch_class = self.slave_minibatch_class_.get(slave.id)
@@ -373,7 +373,7 @@ class DecisionGD(DecisionBase):
 
     def on_run(self):
         # Check skip gradient descent or not
-        self.gd_skip << (self.minibatch_class != TRAIN)
+        self.gd_skip <<= (self.minibatch_class != TRAIN)
 
     def on_last_minibatch(self):
         minibatch_class = self.minibatch_class
@@ -409,7 +409,7 @@ class DecisionGD(DecisionBase):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
             self.min_validation_n_err_epoch_number = self.epoch_number
             self.min_train_n_err = self.epoch_n_err[2]
-            self.improved << True
+            self.improved <<= True
 
     def on_training_finished(self):
         if self.use_dynamic_alpha:
@@ -637,7 +637,7 @@ class DecisionMSE(DecisionGD):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
             self.min_train_mse = self.epoch_min_mse[2]
-            self.improved << True
+            self.improved <<= True
         super(DecisionMSE, self).on_test_validation_processed()
 
     def on_generate_data_for_master(self, data):

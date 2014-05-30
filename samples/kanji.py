@@ -383,7 +383,7 @@ def run(load, main):
                 logging.info("%f %f %f %f" % (
                     fwds.weights.mem.min(), fwds.weights.mem.max(),
                     fwds.bias.mem.min(), fwds.bias.mem.max()))
-            w.decision.improved << True
+            w.decision.improved <<= True
     main(learning_rate=root.kanji.learning_rate,
          weights_decay=root.kanji.weights_decay,
          minibatch_maxsize=root.loader.minibatch_maxsize,

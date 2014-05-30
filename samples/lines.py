@@ -11,15 +11,11 @@ from enum import IntEnum
 import os
 
 from veles.config import root
-from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
-# Unused import -- pylint: disable-msg=C0611
 from veles.znicz import conv, all2all, evaluator, decision
-import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
-import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
 
 train = "/data/veles/Lines/Grid/learn"
@@ -103,7 +99,7 @@ class Loader(ImageLoader):
 
     def initialize(self, **kwargs):
         super(Loader, self).initialize(**kwargs)
-        #self.original_data += 1.0
+        # self.original_data += 1.0
         self.original_data *= 128
 
 
@@ -201,10 +197,10 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        #for i in range(0, len(layers)):
+        # for i in range(0, len(layers)):
         #    self.accumulator[i].link_attrs(self.loader,
         #                                   ("reset_flag", "epoch_ended"))
-        #self.accumulat.link_attrs(self.decision,
+        # self.accumulat.link_attrs(self.decision,
         #                          ("reset_flag", "epoch_ended"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
