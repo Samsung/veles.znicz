@@ -568,7 +568,7 @@ class ImageLoader(FullBatchLoader):
         n_files = len(files)
         if not n_files:
             self.warning("No files fetched as %s" % (pathname))
-            return
+            return None
 
         aa = None
         ll = []
@@ -632,7 +632,7 @@ class ImageLoader(FullBatchLoader):
             if t is None or not len(t):
                 continue
             for pathname in t:
-                (aa, ll) = self.load_original(pathname)
+                aa, ll = self.load_original(pathname)
                 if not len(aa):
                     continue
                 if len(ll):
@@ -662,7 +662,7 @@ class ImageLoader(FullBatchLoader):
         if self.target_paths is not None:
             n = 0
             for pathname in self.target_paths:
-                (aa, ll) = self.load_original(pathname)
+                aa, ll = self.load_original(pathname)
                 if len(ll):  # there are labels
                     for i, label in enumerate(ll):
                         self.target_by_lbl[label] = aa[i]

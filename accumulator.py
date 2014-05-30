@@ -12,8 +12,6 @@ import numpy
 import sys
 from zope.interface import implementer
 
-from veles.mutable import Bool
-
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool

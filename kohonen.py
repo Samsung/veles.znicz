@@ -162,7 +162,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
 
         self._krn_distances_ = self.get_kernel("calculate_distances")
         self._krn_distances_.set_args(self.input.devmem, self.weights.devmem,
-                                    self._distances.devmem)
+                                      self._distances.devmem)
 
         self._krn_argmin_ = self.get_kernel("calculate_argmin")
         self._krn_argmin_.set_args(self._distances.devmem, self.output.devmem,
@@ -387,7 +387,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         if chunk_size < 2:
             chunk_size = self._neurons_number // 2 + 1
         self.argmin_group_size = int(numpy.ceil(float(self._neurons_number) /
-                                                 chunk_size))
+                                                chunk_size))
         defines = {
             'BLOCK_SIZE': block_size,
             'BATCH': batch_size,
@@ -410,11 +410,11 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
         self._krn_distances_ = self.get_kernel("calculate_distances")
         self._krn_distances_.set_args(self.input.devmem, self.weights.devmem,
-                                    self._distances.devmem)
+                                      self._distances.devmem)
 
         self._krn_argmin_ = self.get_kernel("calculate_argmin")
         self._krn_argmin_.set_args(self._distances.devmem, self.argmins.devmem,
-                                  self.winners.devmem)
+                                   self.winners.devmem)
 
         self._krn_gravity_ = self.get_kernel("compute_gravity")
         self._krn_gravity_.set_args(self.argmins.devmem, self._coords.devmem)
@@ -422,7 +422,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
         self._krn_apply_gradient_ = self.get_kernel("apply_gradient")
         self._krn_apply_gradient_.set_args(self.input.devmem,
-                                          self._distances.devmem)
+                                           self._distances.devmem)
         self._krn_apply_gradient_.set_arg(3, self.weights.devmem)
 
         block_size = self.device.device_info.BLOCK_SIZE[
