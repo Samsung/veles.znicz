@@ -360,8 +360,9 @@ class NNSnapshotter(Snapshotter):
         if mem is None:
             return
         if id(mem) not in logged:
-            self.info("%s: %s range: [%.6f, %.6f]",
-                      repr(unit), mem.min(), mem.max())
+            self.info("%s: %s: min max norm: %.6f %.6f %.6f",
+                      unit.__class__.__name__, attr,
+                      mem.min(), mem.max(), numpy.linalg.norm(mem))
             logged.add(id(mem))
 
     def export(self):
