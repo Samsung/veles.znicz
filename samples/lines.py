@@ -11,11 +11,15 @@ from enum import IntEnum
 import os
 
 from veles.config import root
+from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.snapshotter import Snapshotter
+# Unused import -- pylint: disable-msg=C0611
 from veles.znicz import conv, all2all, evaluator, decision
+import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
+import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
 
 train = "/data/veles/Lines/Grid/learn"
@@ -147,6 +151,7 @@ class Workflow(StandardWorkflow):
         self.squash_bars.link_attrs(
             self.accumulat, ("x_inp", "x"), ("y_inp", "y"), "bars")
         """
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
@@ -159,10 +164,11 @@ class Workflow(StandardWorkflow):
             ("indexes", "minibatch_indexes"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
-
+        """
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.image_saver)
+        #self.evaluator.link_from(self.image_saver)
+        self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -191,12 +197,12 @@ class Workflow(StandardWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
+        self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        self.image_saver.gate_skip = ~self.decision.improved
-        self.image_saver.link_attrs(self.snapshotter,
-                                    ("this_save_time", "time"))
+        # self.image_saver.gate_skip = ~self.decision.improved
+        # self.image_saver.link_attrs(self.snapshotter,
+        #                            ("this_save_time", "time"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].link_attrs(self.loader,
         #                                   ("reset_flag", "epoch_ended"))
@@ -219,7 +225,7 @@ class Workflow(StandardWorkflow):
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
         """
-        """
+
         # Weights plotter
         self.plt_mx = []
         prev_channels = 3
@@ -244,7 +250,7 @@ class Workflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-
+        """
         # Weights plotter
         self.plt_gd = []
         prev_channels = 3
@@ -270,7 +276,7 @@ class Workflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_gd[-1].link_from(self.decision)
             self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
-
+        """
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
@@ -307,7 +313,7 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
-
+        """
         # MultiHistogram plotter
         self.plt_multi_hist_gd = []
         for i in range(0, len(layers)):
