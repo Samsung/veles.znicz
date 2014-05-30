@@ -62,7 +62,7 @@ class GDNumDiff(object):
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2e %.2e %.2e" %
                 (derivative, derivative_to_check[offs], d))
-            assertLess(d, 0.01, "Numeric diff test failed")
+            assertLess(d, 1.0e-3, "Numeric diff test failed")
 
     @staticmethod
     def mse(y, t):

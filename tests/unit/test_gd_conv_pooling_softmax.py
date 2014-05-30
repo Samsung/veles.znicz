@@ -15,8 +15,9 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.znicz.nn_units import OpenCLWorkflow
-import veles.znicz.gd as gd
+import veles.znicz.activation as activation
 import veles.znicz.all2all as all2all
+import veles.znicz.gd as gd
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.conv as conv
 import veles.znicz.gd_pooling as gd_pooling
@@ -43,6 +44,7 @@ class Workflow(OpenCLWorkflow):
         self.labels = numpy.zeros(minibatch_size, dtype=numpy.int32)
         self.labels[:] = rnd.get().randint(2, size=self.labels.size)
 
+        # First convolutional layer
         self.conv_forward = ConvForward(
             self, n_kernels=5, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
@@ -50,27 +52,42 @@ class Workflow(OpenCLWorkflow):
         self.conv_forward.input = formats.Vector()
         self.conv_forward.input.mem = self.input.copy()
 
+        # First pooling layer
         self.pool_forward = pooling.MaxPooling(
             self, kx=3, ky=3, sliding=(2, 2))
         self.pool_forward.link_from(self.conv_forward)
         self.pool_forward.link_attrs(self.conv_forward, ("input", "output"))
 
+        # First separate activation layer
+        self.act_forward = activation.ForwardLog(self)
+        self.act_forward.link_from(self.pool_forward)
+        self.act_forward.link_attrs(self.pool_forward, ("input", "output"))
+
+        # Secod separate activation layer
+        self.act_forward2 = activation.ForwardStrictRELU(self)
+        self.act_forward2.link_from(self.act_forward)
+        self.act_forward2.link_attrs(self.act_forward, ("input", "output"))
+
+        # Second convolutional layer
         self.conv_forward2 = ConvForward(
             self, n_kernels=10, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
-        self.conv_forward2.link_from(self.pool_forward)
-        self.conv_forward2.link_attrs(self.pool_forward, ("input", "output"))
+        self.conv_forward2.link_from(self.act_forward2)
+        self.conv_forward2.link_attrs(self.act_forward2, ("input", "output"))
 
+        # Second pooling layer
         self.pool_forward2 = pooling.AvgPooling(
             self, kx=3, ky=3, sliding=(2, 2))
         self.pool_forward2.link_from(self.conv_forward2)
         self.pool_forward2.link_attrs(self.conv_forward2, ("input", "output"))
 
+        # Softmax layer
         self.sm_forward = all2all.All2AllSoftmax(
             self, output_shape=[10])
         self.sm_forward.link_from(self.pool_forward2)
         self.sm_forward.link_attrs(self.pool_forward2, ("input", "output"))
 
+        # Evaluator for softmax layer
         self.ev = evaluator.EvaluatorSoftmax(self)
         self.ev.link_from(self.sm_forward)
         self.ev.link_attrs(self.sm_forward, "output", "max_idx")
@@ -78,6 +95,7 @@ class Workflow(OpenCLWorkflow):
         self.ev.labels.mem = self.labels.copy()
         self.ev.batch_size = minibatch_size
 
+        # Gradient descent layer for softmax
         self.sm_gd = gd.GDSM(
             self, gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
@@ -88,6 +106,7 @@ class Workflow(OpenCLWorkflow):
                               "input", "output")
         self.sm_gd.batch_size = minibatch_size
 
+        # Gradient descent layer for second pooling
         self.pool_gd2 = gd_pooling.GDAvgPooling(
             self, kx=self.pool_forward2.kx, ky=self.pool_forward2.ky,
             sliding=self.pool_forward2.sliding)
@@ -95,6 +114,7 @@ class Workflow(OpenCLWorkflow):
         self.pool_gd2.link_attrs(self.sm_gd, ("err_output", "err_input"))
         self.pool_gd2.link_attrs(self.pool_forward2, "input")
 
+        # Gradient descent layer for second convolutional layer
         self.conv_gd2 = ConvGD(
             self, n_kernels=self.conv_forward2.n_kernels,
             kx=self.conv_forward2.kx, ky=self.conv_forward2.ky,
@@ -109,13 +129,29 @@ class Workflow(OpenCLWorkflow):
                                  "input", "output")
         self.conv_gd2.batch_size = minibatch_size
 
+        # Gradient descent for second separate activation layer
+        self.act_backward2 = activation.BackwardStrictRELU(self)
+        self.act_backward2.link_from(self.conv_gd2)
+        self.act_backward2.link_attrs(self.conv_gd2,
+                                     ("err_output", "err_input"))
+        self.act_backward2.link_attrs(self.act_forward2, "input", "output")
+
+        # Gradient descent for first separate activation layer
+        self.act_backward = activation.BackwardLog(self)
+        self.act_backward.link_from(self.act_backward2)
+        self.act_backward.link_attrs(self.act_backward2,
+                                     ("err_output", "err_input"))
+        self.act_backward.link_attrs(self.act_forward, "input", "output")
+
+        # Gradient descent layer for first pooling
         self.pool_gd = gd_pooling.GDMaxPooling(
             self, kx=self.pool_forward.kx, ky=self.pool_forward.ky,
             sliding=self.pool_forward.sliding)
-        self.pool_gd.link_from(self.conv_gd2)
-        self.pool_gd.link_attrs(self.conv_gd2, ("err_output", "err_input"))
+        self.pool_gd.link_from(self.act_backward)
+        self.pool_gd.link_attrs(self.act_backward, ("err_output", "err_input"))
         self.pool_gd.link_attrs(self.pool_forward, "input", "input_offs")
 
+        # Gradient descent layer for first convolutional layer
         self.conv_gd = ConvGD(
             self, n_kernels=self.conv_forward.n_kernels,
             kx=self.conv_forward.kx, ky=self.conv_forward.ky,
