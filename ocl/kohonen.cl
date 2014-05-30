@@ -132,21 +132,21 @@ void calculate_argmin(__global const dtype /* IN */   *dists,
 
 #ifdef FORWARD
 /// @brief Records winners of the absolutely indexed samples.
-/// @param argmin Samples to classify.
+/// @param argmins Winning neuron indices in current minibatch.
 /// @param batch_offset The sample index offset.
-/// @param total The array of winning neuron indices.
+/// @param total The array of winning neurons, absolutely indexed.
 /// @details Must be defined externally:
 ///          BATCH - the number of input samples,
 ///          COPY_CHUNK_SIZE - the number of winners processed at a time.
 __kernel
-void set_total(__global int         /* IN */    *argmin,
+void set_total(__global int         /* IN */    *argmins,
                int                  /* IN */    batch_offset,
                __global int        /* OUT */    *total) {
   int offset = get_global_id(0);
   for (int i = offset * COPY_CHUNK_SIZE;
       i < MIN((offset + 1) * COPY_CHUNK_SIZE, BATCH);
       i++) {
-    total[i + batch_offset] = argmin[i];
+    total[i + batch_offset] = argmins[i];
   }
 }
 #endif

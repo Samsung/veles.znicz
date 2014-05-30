@@ -84,19 +84,21 @@ class TestKohonen(unittest.TestCase):
         c.weights = formats.Vector()
         c.weights.mem = self.weights[:]
         c.minibatch_size = 5
-        c.minibatch_offset = 0
+        c.minibatch_offset = 5
         c.batch_size = 10
         c.initialize(device=self.device)
 
         c.cpu_run()
-        c.minibatch_offset = 5
+        c.minibatch_offset = 10
         c.cpu_run()
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+        c.total.map_invalidate()
+        c.total.mem[:] = 0
 
-        c.minibatch_offset = 0
-        c.ocl_run()
         c.minibatch_offset = 5
+        c.ocl_run()
+        c.minibatch_offset = 10
         c.ocl_run()
         c.total.map_read()  # get results back
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
@@ -111,11 +113,14 @@ class TestKohonen(unittest.TestCase):
         c.weights.mem = self.weights[:]
         c.argmins = formats.Vector()
         c.argmins.mem = self.output[:]
+        c.argmins.initialize(self.device)
         c.initialize(device=self.device)
 
         c.cpu_run()
         max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+        c.output.map_invalidate()
+        c.output.mem[:] = 0
 
         c.ocl_run()
         c.output.map_read()  # get results back
@@ -130,20 +135,23 @@ class TestKohonen(unittest.TestCase):
         c.weights.mem = self.weights[:]
         c.argmins = formats.Vector()
         c.argmins.mem = self.output[:]
+        c.argmins.initialize(self.device)
         c.minibatch_size = 5
-        c.minibatch_offset = 0
+        c.minibatch_offset = 5
         c.batch_size = 10
         c.initialize(device=self.device)
 
         c.cpu_run()
-        c.minibatch_offset = 5
+        c.minibatch_offset = 10
         c.cpu_run()
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
+        c.total.map_invalidate()
+        c.total.mem[:] = 0
 
-        c.minibatch_offset = 0
-        c.ocl_run()
         c.minibatch_offset = 5
+        c.ocl_run()
+        c.minibatch_offset = 10
         c.ocl_run()
         c.total.map_read()  # get results back
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()

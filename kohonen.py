@@ -102,10 +102,8 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         batch_size = self.input.mem.shape[0]
 
         self.output.reset()
-        if self.argmins is not None:
-            self.output.mem = self.argmins.mem
-        else:
-            self.output.mem = numpy.zeros(batch_size, dtype=numpy.int32)
+        self.output.mem = numpy.zeros(batch_size, dtype=numpy.int32)
+        if self.argmins is None:
             self._distances.reset()
             self._distances.mem = numpy.zeros(
                 [batch_size, self.neurons_number],
@@ -157,12 +155,10 @@ class KohonenForward(KohonenBase, OpenCLUnit):
             self._set_total_global_size_ = \
                 [int(numpy.ceil(batch_size / copy_chunk_size))]
             self._krn_set_total_ = self.get_kernel("set_total")
-            self._krn_set_total_.set_arg(2, self.total.devmem)
-            if self.argmins is not None:
-                self._krn_set_total_.set_arg(0, self.argmins.devmem)
-                return
-            else:
-                self._krn_set_total_.set_arg(0, self.output.devmem)
+            self._krn_set_total_.set_args(self.output.devmem, cl.skip,
+                                          self.total.devmem)
+        if self.argmins is not None:
+            return
 
         self._krn_distances_ = self.get_kernel("calculate_distances")
         self._krn_distances_.set_args(self.input.devmem, self.weights.devmem,
@@ -178,19 +174,24 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self._ls_distance = [block_size, block_size]
 
     def ocl_run(self):
-        self.input.unmap()
-        self.weights.unmap()
         self.output.unmap()
         if self.total is not None:
             self.total.unmap()
 
         if self.argmins is None:
+            self.input.unmap()
+            self.weights.unmap()
             self.execute_kernel(self._gs_distance, self._ls_distance,
                                 self._krn_distances_).wait()
             self.execute_kernel([self.argmin_group_size],
                                 [self.argmin_group_size],
                                 self._krn_argmin_).wait()
         else:
+            self.argmins.unmap()
+            self.argmins.map_read()
+            self.output.map_write()
+            self.output.mem[:] = self.argmins.mem
+            self.output.unmap()
             self.argmins.unmap()
 
         if self.total is not None:
@@ -201,11 +202,17 @@ class KohonenForward(KohonenBase, OpenCLUnit):
                                 self._krn_set_total_).wait()
 
     def cpu_run(self):
-        self.input.map_read()
-        self.weights.map_read()
         self.output.map_invalidate()
+
         if self.argmins is not None:
             self.argmins.map_read()
+            self.output.mem[:] = self.argmins.mem
+        else:
+            self.input.map_read()
+            self.weights.map_read()
+
+        if self.total is not None:
+            self.total.map_invalidate()
 
         length = self.minibatch_size if self.total is not None \
             else self.input.mem.shape[0]
