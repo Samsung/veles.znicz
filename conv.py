@@ -344,19 +344,27 @@ class Conv(nn_units.Forward):
         size = min(shape)
 
         kernels_count = 0
+        n_chans = self.weights.mem.size // (self.kx * self.ky * self.n_kernels)
         for wavelen_ratio in range(4):  # how much waves should lay in kernel
             for dev_ratio in range(1, 2 * wavelen_ratio + 1):
                 for ori in orientations:
                     for phase in phase_shifts:
-                        kernel = cv2.getGaborKernel(ksize=shape,
-                                                    sigma=size / dev_ratio / 2,
-                                                    theta=ori,
-                                                    lambd=size / wavelen_ratio,
-                                                    gamma=1, psi=phase)
-                        kernel = formats.norm_image(kernel) * stddev
-                        self.weights.mem[kernels_count] = kernel.ravel()
-                        kernels_count += 1
+                        kernel_chan = cv2.getGaborKernel(
+                            ksize=shape, sigma=size / dev_ratio / 2,
+                            theta=ori, lambd=size / wavelen_ratio,
+                            gamma=1, psi=phase)
 
+                        kernel_chan = formats.norm_image(kernel_chan) * stddev
+                        kernel = numpy.zeros(shape=[n_chans, self.kx, self.ky],
+                                             dtype=numpy.float64)
+                        for chan in range(n_chans):
+                            kernel[chan, :] = kernel_chan
+                        kernel = kernel.swapaxes(0, 2)
+                        self.weights.mem[
+                            kernels_count * kernel.size:
+                            (kernels_count + 1) * kernel.size] = kernel.ravel()
+
+                        kernels_count += 1
                         if kernels_count == n_filters:
                             return
 
