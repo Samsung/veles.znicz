@@ -102,7 +102,8 @@ class GradientDescentBase(OpenCLUnit):
         gradient_moment = kwargs.get("gradient_moment", 0)
         gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                           gradient_moment)
-        store_gradient = kwargs.get("store_gradient", workflow.is_slave)
+        #TODO(a.golovizin): fix store_gradient param in configs
+        store_gradient = kwargs.get("store_gradient", True)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         need_err_input = kwargs.get("need_err_input", True)
         kwargs["learning_rate"] = learning_rate

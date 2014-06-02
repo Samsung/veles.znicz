@@ -423,13 +423,15 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         """
         if not self.log.isEnabledFor(logging.DEBUG):
             return
+
         self.weights.map_read()
         self.bias.map_read()
         self.gradient_bias.map_read()
         self.gradient_weights.map_read()
+
         weights = self.weights.mem
         bias = self.bias.mem
-        grad_weights = self.gradient_weights.mem
+        grad_weight = self.gradient_weights.mem
         grad_bias = self.gradient_bias.mem
 
         n_input = self.input.mem.size // self.input.mem.shape[0]
@@ -443,9 +445,12 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         weight_table = PrettyTable("TYPE", "Mean", "StdDev", "Min", "Max")
         weight_table.float_format = ".10"
-        for (w_name, w_array) in [("Weight", weights), ("Bias", bias),
-                                  ("Grad Weight", grad_weights),
-                                  ("Grad Bias", grad_bias)]:
+
+        actions = [("Weight", weights), ("Bias", bias)]
+        if self.store_gradient:
+            actions += [("Grad Weight", grad_weight), ("Grad Bias", grad_bias)]
+
+        for (w_name, w_array) in actions:
             w_mean = numpy.mean(w_array)
             w_stddev = numpy.std(w_array)
             w_min = numpy.min(w_array)
@@ -472,21 +477,19 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def ocl_run(self):
         """Do gradient descent.
         """
-#    TODO(a.golovizin): fix debug data output
-#        t1 = time.time()
+        t1 = time.time()
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
 
-#        self.print_debug_data(t1)
+        self.print_debug_data(t1)
 
     def cpu_run(self):
-#    TODO(a.golovizin): fix debug data output
-#        t1 = time.time()
+        t1 = time.time()
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
-#        self.print_debug_data(t1)
+        self.print_debug_data(t1)
 
 
 class GDTanhConv(GradientDescentConv):
