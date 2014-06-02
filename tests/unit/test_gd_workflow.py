@@ -64,10 +64,11 @@ class Workflow(OpenCLWorkflow):
         self.act_forward.link_from(self.pool_forward)
         self.act_forward.link_attrs(self.pool_forward, ("input", "output"))
 
-        # Secod separate activation layer
+        # Second separate activation layer
         self.act_forward2 = activation.ForwardStrictRELU(self)
         self.act_forward2.link_from(self.act_forward)
-        self.act_forward2.link_attrs(self.act_forward, ("input", "output"))
+        self.act_forward2.link_attrs(self.act_forward, ("input", "output"),
+                                     "output")
 
         # Second convolutional layer
         self.conv_forward2 = ConvForward(

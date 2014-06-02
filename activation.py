@@ -22,10 +22,6 @@ class Activation(OpenCLUnit):
 
 @implementer(IOpenCLUnit)
 class ActivationForward(Forward, Activation):
-    def __init__(self, workflow, **kwargs):
-        self.in_place = kwargs.get("in_place", False)
-        super(ActivationForward, self).__init__(workflow, **kwargs)
-
     def initialize(self, device, **kwargs):
         super(ActivationForward, self).initialize(device, **kwargs)
 
@@ -33,11 +29,8 @@ class ActivationForward(Forward, Activation):
 
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.size):
-            if self.in_place:
-                self.output = self.input
-            else:
-                self.output.reset()
-                self.output.mem = numpy.zeros_like(self.input.mem)
+            self.output.reset()
+            self.output.mem = numpy.zeros_like(self.input.mem)
         self.input.initialize(device)
         self.output.initialize(device)
 
@@ -138,7 +131,7 @@ class ForwardLog(ActivationForward):
     """Forward pass for y = max(0, x).
     """
     def initialize(self, device, **kwargs):
-        if (self.in_place or id(self.output) == id(self.input) or
+        if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
              formats.eq_addr(self.output.mem, self.input.mem))):
             raise error.ErrBadFormat("in_place for this unit is prohibited")
