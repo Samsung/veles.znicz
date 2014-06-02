@@ -8,7 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import cv2
 import logging
 import math
 from math import pi
@@ -335,6 +334,8 @@ class Conv(nn_units.Forward):
             shape(tuple): shape of each filter
             stddev(float): standard deviation of filtering kernels
         """
+        import cv2  # TODO(a.kazantsev): implement getGaborKernel manually
+                    # and remove this dependency.
 
         #Gabor  filters
         orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
