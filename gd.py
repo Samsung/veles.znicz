@@ -305,10 +305,12 @@ class GradientDescent(nn_units.GradientDescentBase):
         for (w_name, w_array) in [("Weight", weights), ("Bias", bias),
                                   ("Grad Weight", grad_weights),
                                   ("Grad Bias", grad_bias)]:
-            w_mean = numpy.mean(w_array)
-            w_stddev = numpy.std(w_array)
-            w_min = numpy.min(w_array)
-            w_max = numpy.max(w_array)
+            w_mean = w_stddev = w_min = w_max = None
+            if w_array is not None and w_array.size > 0:
+                w_mean = numpy.mean(w_array)
+                w_stddev = numpy.std(w_array)
+                w_min = numpy.min(w_array)
+                w_max = numpy.max(w_array)
             weight_table.add_row(w_name, w_mean, w_stddev, w_min, w_max)
         self.debug("\n" + weight_table.get_string())
 
