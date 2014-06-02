@@ -330,7 +330,7 @@ class ForwardExporter(SnapshotterBase):
         self.file_name = os.path.join(self.directory, rel_file_name)
         with self._open_file() as tar:
             for index, fwd in enumerate(self.forwards):
-                weights, bias = fwd.generate_data_for_slave()
+                weights, bias = fwd.generate_data_for_slave(None)
                 fileobj = six.BytesIO()
                 numpy.savez(fileobj, weights=weights, bias=bias)
                 ti = tarfile.TarInfo("%03d_%s.npz" % (index + 1, fwd.name))

@@ -50,11 +50,15 @@ class Test(unittest.TestCase):
                          os.path.basename(fe.file_name))
         with tarfile.open(fe.file_name, "r:gz") as tar:
             for index in ("001", "002", "003"):
-                with tar.extractfile("%s_forward.npz" % index) as fileobj:
+                try:
+                    # On Python 2.7, TarFile does not have __exit__()
+                    fileobj = tar.extractfile("%s_forward.npz" % index)
                     with numpy.load(fileobj) as npz:
                         weights, bias = npz["weights"], npz["bias"]
                     self.assertTrue(all(weights == 1))
                     self.assertTrue(all(bias == 1))
+                finally:
+                    fileobj.close()
 
 
 if __name__ == "__main__":
