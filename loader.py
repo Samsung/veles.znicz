@@ -678,13 +678,13 @@ class ImageLoader(FullBatchLoader):
 
         self.original_data = data
 
-        target = None
+        target = False
         for aa in self.target_by_lbl.values():
             sh = [len(self.original_data)]
             sh.extend(aa.shape)
             target = numpy.zeros(sh, dtype=aa.dtype)
             break
-        if target is not None:
+        if target is not False:
             for i, label in enumerate(self.original_labels):
                 target[i] = self.target_by_lbl[label]
             self.target_by_lbl.clear()
