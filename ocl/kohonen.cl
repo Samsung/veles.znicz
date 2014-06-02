@@ -106,7 +106,7 @@ void calculate_argmin(__global const dtype /* IN */   *dists,
     }
     argmin[sample] = min_index;
     if (winners) {
-      atom_inc(winners + min_index);
+      atomic_inc(winners + min_index);
     }
   }
 #else
@@ -123,7 +123,7 @@ void calculate_argmin(__global const dtype /* IN */   *dists,
     }
     argmin[tx] = min_index;
     if (winners) {
-      atom_inc(winners + min_index);
+      atomic_inc(winners + min_index);
     }
   }
 #endif
