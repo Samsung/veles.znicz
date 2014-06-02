@@ -677,7 +677,8 @@ class TestConvCaffe(unittest.TestCase):
         conv_weights = self._read_array("conv_weights", lines, shape=(
             n_kernels, kernel_size, kernel_size, n_chans))
 
-        conv_weight_delta = self._read_array("conv_weight_delta", lines,
+        conv_weight_delta = self._read_array(
+            "conv_weight_delta", lines,
             shape=(n_kernels, kernel_size, kernel_size, n_chans))
 
         relu_top_err = self._read_array("relu_top_diff", lines, shape=(n_pics,

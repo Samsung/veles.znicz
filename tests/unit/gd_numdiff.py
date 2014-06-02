@@ -61,7 +61,7 @@ class GDNumDiff(object):
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2e %.2e %.2e" %
-                (derivative, derivative_to_check[offs], d))
+                         (derivative, derivative_to_check[offs], d))
             assertLess(d, 1.0e-3, "Numeric diff test failed")
 
     @staticmethod
