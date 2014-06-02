@@ -202,7 +202,7 @@ class Workflow(StandardWorkflow):
         # Add learning_rate_adjust unit
         self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
             self, lr_function=learning_rate_adjust.inv_adjust_policy(
-            0.01, 0.0001, 0.75))
+                0.01, 0.0001, 0.75))
         self.learning_rate_adjust.link_from(self.gds[0])
         self.learning_rate_adjust.add_gd_units(self.gds)
 
