@@ -23,6 +23,7 @@ import veles.znicz.conv as conv
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.evaluator as evaluator
+import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyLauncher
 import veles.random_generator as rnd
 import veles.opencl as opencl
@@ -46,7 +47,7 @@ class Workflow(OpenCLWorkflow):
 
         # First convolutional layer
         self.conv_forward = ConvForward(
-            self, n_kernels=5, kx=3, ky=3,
+            self, n_kernels=25, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
         self.conv_forward.link_from(self.start_point)
         self.conv_forward.input = formats.Vector()
@@ -70,7 +71,7 @@ class Workflow(OpenCLWorkflow):
 
         # Second convolutional layer
         self.conv_forward2 = ConvForward(
-            self, n_kernels=10, kx=3, ky=3,
+            self, n_kernels=50, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
         self.conv_forward2.link_from(self.act_forward2)
         self.conv_forward2.link_attrs(self.act_forward2, ("input", "output"))
@@ -81,11 +82,16 @@ class Workflow(OpenCLWorkflow):
         self.pool_forward2.link_from(self.conv_forward2)
         self.pool_forward2.link_attrs(self.conv_forward2, ("input", "output"))
 
+        # Normalization layer
+        self.norm = normalization.LRNormalizerForward(self)
+        self.norm.link_from(self.pool_forward2)
+        self.norm.link_attrs(self.pool_forward2, ("input", "output"))
+
         # Softmax layer
         self.sm_forward = all2all.All2AllSoftmax(
             self, output_shape=[10])
-        self.sm_forward.link_from(self.pool_forward2)
-        self.sm_forward.link_attrs(self.pool_forward2, ("input", "output"))
+        self.sm_forward.link_from(self.norm)
+        self.sm_forward.link_attrs(self.norm, ("input", "output"))
 
         # Evaluator for softmax layer
         self.ev = evaluator.EvaluatorSoftmax(self)
@@ -106,12 +112,18 @@ class Workflow(OpenCLWorkflow):
                               "input", "output")
         self.sm_gd.batch_size = minibatch_size
 
+        # Gradient descent layer for normalization
+        self.norm_gd = normalization.LRNormalizerBackward(self)
+        self.norm_gd.link_from(self.sm_gd)
+        self.norm_gd.link_attrs(self.sm_gd, ("err_output", "err_input"))
+        self.norm_gd.link_attrs(self.norm, "input")
+
         # Gradient descent layer for second pooling
         self.pool_gd2 = gd_pooling.GDAvgPooling(
             self, kx=self.pool_forward2.kx, ky=self.pool_forward2.ky,
             sliding=self.pool_forward2.sliding)
-        self.pool_gd2.link_from(self.sm_gd)
-        self.pool_gd2.link_attrs(self.sm_gd, ("err_output", "err_input"))
+        self.pool_gd2.link_from(self.norm_gd)
+        self.pool_gd2.link_attrs(self.norm_gd, ("err_output", "err_input"))
         self.pool_gd2.link_attrs(self.pool_forward2, "input")
 
         # Gradient descent layer for second convolutional layer
