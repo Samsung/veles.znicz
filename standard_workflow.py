@@ -11,6 +11,7 @@ from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
+from veles.znicz import activation
 
 
 class StandardWorkflow(nn_units.NNWorkflow):
@@ -106,7 +107,13 @@ class StandardWorkflow(nn_units.NNWorkflow):
                         all2all.All2AllSoftmax(
                             self,
                             output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device, **kwargs)}
+                            device=self.device, **kwargs),
+                        "activation_str": lambda layer:
+                        activation.ForwardStrictRELU(
+                            self, device=self.device, **kwargs),
+                        "activation_log": lambda layer:
+                        activation.ForwardLog(
+                            self, device=self.device, **kwargs)}
 
             unit = layer_ct[layer["type"]](layer)
             self._add_forward_unit(unit)
@@ -134,10 +141,10 @@ class StandardWorkflow(nn_units.NNWorkflow):
         self.fwds.append(new_unit)
 
     def create_gradient_descent_units(self):
-        '''
+        """
         Creates gradient descent units for previously made self.fwds.
         Feeds their inputs with respect of their order.
-        '''
+        """
         self.gds = []
         for i, fwd_elm in enumerate(self.fwds):
             layer = self.layers[i]
@@ -203,29 +210,31 @@ class StandardWorkflow(nn_units.NNWorkflow):
                     self, dropout_ratio=fwd_elm.dropout_ratio,
                     device=self.device, **kwargs)
 
+            elif isinstance(fwd_elm, activation.ForwardStrictRELU):
+                grad_elm = activation.BackwardStrictRELU(
+                    self, device=self.device, **kwargs)
+
+            elif isinstance(fwd_elm, activation.ForwardLog):
+                grad_elm = activation.BackwardLog(
+                    self, device=self.device, **kwargs)
+
             else:
                 raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
 
             self.gds.append(grad_elm)
-        self.gds[-1].link_from(self.snapshotter)
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.fwds[-1], "output", "input")
-        if not (isinstance(self.gds[-1], dropout.DropoutBackward) or
-                    isinstance(self.gds[-1],
-                               normalization.LRNormalizerBackward)):
-            self.gds[-1].link_attrs(self.fwds[-1], "weights", "bias")
-        self.gds[-1].gate_skip = self.decision.gd_skip
-        self.gds[-1].batch_size = self.loader.minibatch_size
-        for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.gds[i + 1],
-                                   ("err_output", "err_input"))
-            self.gds[i].link_attrs(self.fwds[i], "output", "input",)
-            if not (isinstance(self.gds[i], dropout.DropoutBackward) or
-                        isinstance(self.gds[i],
-                                   normalization.LRNormalizerBackward)):
-                self.gds[i].link_attrs(self.fwds[i], "weights", "bias")
+
+        for i in range(len(self.fwds) - 1, -1, -1):
+            if i < len(self.fwds) - 1:
+                self.gds[i].link_from(self.gds[i + 1])
+                self.gds[i].link_attrs(self.gds[i + 1],
+                                       ("err_output", "err_input"))
+            else:
+                self.gds[-1].link_from(self.snapshotter)
+                self.gds[-1].link_attrs(self.evaluator, "err_output")
+
+            self.gds[i].link_attrs(self.fwds[i], "input", "output",
+                                   "weights", "bias")
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
-                                       ("batch_size", "minibatch_size"))
+                                   ("batch_size", "minibatch_size"))
         self.gds[0].need_err_input = False
