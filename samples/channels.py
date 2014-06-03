@@ -52,19 +52,11 @@ if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
 root.model = "conv"
 
 root.defaults = {
-    "accumulator": {"n_bars": 30},
-    "all2all_relu": {"weights_filling": "uniform",
-                     "weights_stddev": 0.0001},
-    "all2all_tanh": {"weights_filling": "uniform",
-                     "weights_stddev": 0.0001},
+    "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "snapshotter": {"prefix": "channels %s" % root.model},
-    "conv":  {"weights_filling": "uniform",
-              "weights_stddev": 0.0001},
-    "conv_relu":  {"weights_filling": "uniform",
-                   "weights_stddev": 0.0001},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
                                   "tmp %s/test" % root.model),
@@ -81,8 +73,6 @@ root.defaults = {
                "/data/veles/VD/channels/russian_small/train",
                "rect": (264, 129),
                "validation_ratio": 0.15},
-    "softmax": {"weights_filling": "uniform",
-                "weights_stddev": 0.0001},
     "weights_plotter": {"limit": 64},
     "channels": {"export": False,
                  "find_negative": 0,
@@ -323,7 +313,8 @@ class Loader(loader.FullBatchLoader):
         return lbl
 
     def load_data(self):
-        if self.original_data is not None and self.original_labels is not None:
+        if (self.original_data is not False and
+                self.original_labels is not False):
             return
 
         cached_data_fnme = (
@@ -407,14 +398,14 @@ class Loader(loader.FullBatchLoader):
             del old_file_map
             n = len(self.original_data)
             self.original_labels = list(0 for i in range(n))
-            self.shuffled_indexes = None
+            self.shuffled_indexes = False
             self.info("Done (%d extracted, %d not exists anymore)" % (
                 n, n_not_exists_anymore))
         except FileNotFoundError:
             self.info("Failed")
             self.original_labels = []
             self.original_data = []
-            self.shuffled_indexes = None
+            self.shuffled_indexes = False
             self.file_map.clear()
 
         self.info("Will load data from original jp2 files")
@@ -660,21 +651,22 @@ class Workflow(StandardWorkflow):
 
         # Add fwds units
         self.parse_forwards_from_config()
-
+        """
         # Add Accumulator units
         self.accumulator = []
         for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self,
-                                                 bars=root.accumulator.n_bars)
+            accum = accumulator.RangeAccumulator(
+                self, bars=root.accumulator.bars,
+                squash=root.accumulator.squash)
             self.accumulator.append(accum)
-        self.accumulator[-1].link_from(self.fwds[-1])
-        self.accumulator[-1].link_attrs(self.fwds[-1],
-                                        ("input", "output"))
-
+            self.accumulator[-1].link_from(self.fwds[-1]
+                if len(self.accumulator) == 1 else self.accumulator[-2])
+            self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        self.image_saver.link_from(self.accumulator[-1])
+        self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
@@ -715,23 +707,16 @@ class Workflow(StandardWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
+        self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        for i in range(0, len(layers)):
-            self.accumulator[i].reset_flag = ~self.decision.epoch_ended
+        #for i in range(0, len(layers)):
+        #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
 
         self.create_gradient_descent_units()
-
-        self.repeater.link_from(self.gds[0])
-
-        self.end_point.link_from(self.decision)
-        self.end_point.gate_block = ~self.decision.complete
-
-        self.loader.gate_block = self.decision.complete
 
         # Error plotter
         self.plt = []
@@ -747,8 +732,9 @@ class Workflow(StandardWorkflow):
                                        if len(self.plt) == 1 else Bool(False))
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
-        # Confusion matrix plotter
         """
+        # Confusion matrix plotter
+
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
@@ -785,18 +771,20 @@ class Workflow(StandardWorkflow):
             #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-
+        """
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
-            hist = plotting_units.Histogram(self, name="Histogram output %s" %
-                                            (i + 1))
+            hist = plotting_units.Histogram(
+                self,
+                name="Y %s %s" % (i + 1, layers[i]["type"]))
             self.plt_hist.append(hist)
-
-        self.plt_hist[-1].link_from(self.decision)
-        self.plt_hist[-1].link_attrs(self.accumulator[i], ("input", "output"),
-                                     ("x", "input"), "n_bars")
-        self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
+            self.plt_hist[-1].link_from(self.decision
+                if len(self.plt_hist) == 1 else self.plt_hist[-2])
+            self.plt_hist[-1].link_attrs(
+                self.accumulator[i], "gl_min", "gl_max",
+                ("y", "y_out"), ("x", "x_out"))
+            self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
 
         # MultiHistogram plotter
         self.plt_multi_hist = []
@@ -817,6 +805,12 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
+        """
+        # repeater and gate block
+        self.repeater.link_from(self.gds[0])
+        self.end_point.link_from(self.gds[0])
+        self.end_point.gate_block = ~self.decision.complete
+        self.loader.gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, minibatch_size,
                    w_neg, device):
@@ -864,7 +858,7 @@ def run(load, main):
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return
-    fnme = (os.path.join(root.common.cache_dir, root.decision.snapshot_prefix)
+    fnme = (os.path.join(root.common.cache_dir, root.snapshotter.prefix)
             + ".txt")
     logging.info("Dumping file map to %s" % (fnme))
     fout = open(fnme, "w")
