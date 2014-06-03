@@ -24,6 +24,7 @@ import veles.znicz.decision as decision
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
+import veles.znicz.learning_rate_adjust as learning_rate_adjust
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -188,7 +189,15 @@ class Workflow(StandardWorkflow):
         # Add gradient descent units
         self.create_gradient_descent_units()
 
-        self.repeater.link_from(self.gds[0])
+        # Add learning_rate_adjust unit
+        self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
+            self,
+            lr_function=learning_rate_adjust.arbitrary_step_function_policy(
+                [(0.01, 60000), (0.001, 65000), (0.0001, 70000)]))
+        self.learning_rate_adjust.link_from(self.gds[0])
+        self.learning_rate_adjust.add_gd_units(self.gds)
+
+        self.repeater.link_from(self.learning_rate_adjust)
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
