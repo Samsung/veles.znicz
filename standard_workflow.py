@@ -129,7 +129,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         by link_from and link_attrs. If self.fwds is empty, links unit with
         self.loader
         """
-        if self.fwds:
+        if len(self.fwds):
             prev_forward_unit = self.fwds[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
