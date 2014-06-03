@@ -568,7 +568,7 @@ class ImageLoader(FullBatchLoader):
         n_files = len(files)
         if not n_files:
             self.warning("No files fetched as %s" % (pathname))
-            return None
+            return [], []
 
         aa = None
         ll = []
