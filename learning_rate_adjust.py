@@ -7,10 +7,10 @@ Created on May 16, 2014
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
-
 from __future__ import division
 
 from math import floor
+from scipy.interpolate import interp1d
 from zope.interface import implementer
 
 from veles.units import IUnit, Unit
@@ -115,3 +115,40 @@ def inv_adjust_policy(base_lr, gamma, pow_ratio):
         :class:`function(iter)`
     """
     return lambda iter: base_lr * (1.0 + gamma * iter) ** (-pow_ratio)
+
+
+def arbitrary_step_function_policy(lrs_with_lengths):
+    """
+    Creates arbitrary step function: LR1 for N iters, LR2 for next M iters, etc
+
+    For example: arbitrary_step_function_policy([(0.5, 5), (0.3, 3), (0.1, 1)]
+
+    Args:
+        lrs_with_weights(list): a list of `(length, lr)` tuples that describes
+            which learning rate should be set for each number of iterations,
+            one by one.
+    Returns:
+        :class:`function(iter)`: this function returns 0 when last length ends
+    """
+    assert lrs_with_lengths is not None
+
+    x_array = []
+    y_array = []
+
+    x_array.append(-1)
+    y_array.append(lrs_with_lengths[0][0])
+
+    cur_iter = 0
+
+    for lr, length in lrs_with_lengths:
+        assert lr >= 0
+        assert length > 0
+        x_array.append(cur_iter)
+        y_array.append(lr)
+        if length > 1:
+            x_array.append(cur_iter + length - 1)
+            y_array.append(lr)
+        cur_iter += length
+
+    out_function = interp1d(x_array, y_array, bounds_error=False, fill_value=0)
+    return out_function
