@@ -84,6 +84,9 @@ class Loader(Unit):
         normalize: normalize pixel values to [-1, 1] range. True by default.
 
         shuffled_indexes: indexes for all dataset, shuffled with rnd.
+        epoch_ended: True right after validation is completed and no samples
+        have been served since.
+        epoch_number: current epoch number.
 
     Should be overriden in child class:
         load_data()
@@ -123,6 +126,7 @@ class Loader(Unit):
 
         self.samples_served = 0
         self.epoch_ended = Bool(False)
+        self.epoch_number = 0
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -181,7 +185,6 @@ class Loader(Unit):
     def run(self):
         """Prepares the minibatch.
         """
-        self.epoch_ended <<= False
         self._prepare_next_minibatch()
 
         # Fill minibatch according to current random shuffle and offset.
@@ -204,7 +207,10 @@ class Loader(Unit):
                 self.minibatch_indexes[minibatch_size:] = -1
 
     def generate_data_for_master(self):
-        return None
+        data = {"minibatch_class": self.minibatch_class,
+                "minibatch_size": self.minibatch_size,
+                "minibatch_offset": self.minibatch_offset}
+        return data
 
     def generate_data_for_slave(self, slave):
         self._prepare_next_minibatch()
@@ -214,7 +220,9 @@ class Loader(Unit):
                     self.minibatch_offset].copy(),
                 'minibatch_class': self.minibatch_class,
                 'minibatch_offset': self.minibatch_offset,
-                'samples_served': self.samples_served}
+                'samples_served': self.samples_served,
+                'epoch_number': self.epoch_number,
+                'epoch_ended': bool(self.epoch_ended)}
         return data
 
     def apply_data_from_master(self, data):
@@ -225,6 +233,8 @@ class Loader(Unit):
         self.minibatch_offset = data['minibatch_offset']
         self.minibatch_class = data['minibatch_class']
         self.samples_served = data['samples_served']
+        self.epoch_number = data['epoch_number']
+        self.epoch_ended <<= data['epoch_ended']
         assert self.minibatch_offset <= len(self.shuffled_indexes)
         assert (self.minibatch_offset - self.minibatch_size) >= 0
         self.shuffled_indexes[self.minibatch_offset - self.minibatch_size:
@@ -234,7 +244,9 @@ class Loader(Unit):
         self.samples_served -= self.minibatch_size
 
     def apply_data_from_slave(self, data, slave):
-        pass
+        self.minibatch_class = data["minibatch_class"]
+        self.minibatch_size = data["minibatch_size"]
+        self.minibatch_offset = data["minibatch_offset"]
 
     def drop_slave(self, slave):
         pass
@@ -345,17 +357,20 @@ class Loader(Unit):
         self.total_samples = total_samples
         if total_samples == 0:
             raise error.ErrBadFormat("class_samples should be filled")
-        self._update_no_more_minibatches_left()
+        self._update_no_more_minibatches_left(False)
 
-    def _update_no_more_minibatches_left(self, override_value=None):
+    def _update_no_more_minibatches_left(self, value):
         """Sets the flags signalling whether each dataset class is over in the
         current epoch.
         """
         for i, n in enumerate(self.class_samples):
-            self.no_more_minibatches_left[i] |= (not n
-                                                 if override_value is None
-                                                 else override_value)
-        self.epoch_ended <<= all(self.no_more_minibatches_left)
+            self.no_more_minibatches_left[i] = value if n > 0 else True
+        self._update_epoch_ended()
+
+    def _update_epoch_ended(self):
+        self.epoch_ended <<= (self.no_more_minibatches_left[VALID]
+                              if self.class_samples[VALID] > 0
+                              else all(self.no_more_minibatches_left))
 
     def _prepare_next_minibatch(self):
         """Increments minibatch_offset by an appropriate minibatch_size.
@@ -364,8 +379,9 @@ class Loader(Unit):
         if self.minibatch_offset >= self.total_samples:
             self.shuffle()
             self.minibatch_offset = 0
-            self._update_no_more_minibatches_left()
+            self._update_no_more_minibatches_left(False)
 
+        self.epoch_ended <<= False
         # Compute next minibatch size and its class.
         if not self.is_slave:
             for i in range(len(self.nextclass_offsets)):
@@ -376,12 +392,11 @@ class Loader(Unit):
                     if remainder <= self.minibatch_maxsize:
                         self.minibatch_size = remainder
                         self.no_more_minibatches_left[i] = True
-                        self.epoch_ended <<= all(self.no_more_minibatches_left)
+                        self._update_epoch_ended()
                         self.info("Last minibatch of class %s served",
-                                  CLASS_NAME[self.minibatch_class].upper())
+                                  CLASS_NAME[i].upper())
                     else:
                         self.minibatch_size = self.minibatch_maxsize
-                        self.no_more_minibatches_left[i] = False
                     break
         else:
             # Force this minibatch to be the last for the slave
@@ -394,11 +409,12 @@ class Loader(Unit):
 
         # Record and print stats
         self.samples_served += self.minibatch_size
+        num, den = divmod(self.samples_served, self.total_samples)
+        self.epoch_number = num
         if not self.is_slave:
             now = time.time()
             if now - self._minibatch_serve_timestamp_ >= 10:
                 self._minibatch_serve_timestamp_ = now
-                num, den = divmod(self.samples_served, self.total_samples)
                 self.info("Served %d samples (%d epochs, %.1f%% current)" % (
                     self.samples_served,
                     num, 100.0 * den / self.total_samples))
@@ -464,7 +480,7 @@ class FullBatchLoader(Loader):
             self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
         self.minibatch_indexes.reset()
-        self.minibatch_indexes.mem = numpy.zeros(len(self.original_data),
+        self.minibatch_indexes.mem = numpy.zeros(self.minibatch_maxsize,
                                                  dtype=numpy.int32)
 
     def fill_minibatch(self):

@@ -31,7 +31,7 @@ class IDecision(Interface):
         """This method is supposed to be overriden in inherited classes.
         """
 
-    def on_test_validation_processed():
+    def improve_condition():
         """This method is supposed to be overriden in inherited classes.
         """
 
@@ -74,17 +74,17 @@ class DecisionBase(Unit):
     that is, dataset passes.
 
     Defines:
-        epoch_number - current epoch number
-        epoch_ended (mutable.Bool trigger) - an epoch's been just ended flag
         complete (mutable.Bool trigger) - everything's over flag
         improved (mutable.Bool trigger) - indicates whether the previous
             epoch's results are better than those of the epoch before it.
         snapshot_suffix - the suitable suffix for the snapshot file name.
 
     Must be set before initialize():
-        no_more_minibatches_left - minibatch classes exhausted flags
-        minibatch_class - current minibatch class
-        class_samples - number of samples per class
+        no_more_minibatches_left - from loader
+        minibatch_class - from loader
+        class_samples - from loader
+        epoch_number - from loader
+        epoch_ended - from loader
 
     Attributes:
         max_epochs - max number of epochs for training (stop if exceeded)
@@ -96,9 +96,9 @@ class DecisionBase(Unit):
         self.max_epochs = kwargs.get("max_epochs", None)
         self.improved = Bool(False)
         self.snapshot_suffix = ""
-        self.epoch_number = 0
-        self.epoch_ended = Bool(False)
         self.complete = Bool(False)
+        self.demand("no_more_minibatches_left", "minibatch_class",
+                    "class_samples", "epoch_number", "epoch_ended")
 
     def init_unpickled(self):
         super(DecisionBase, self).init_unpickled()
@@ -110,15 +110,12 @@ class DecisionBase(Unit):
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
 
     def run(self):
-        self.epoch_ended <<= False
         self.on_run()
         if self.no_more_minibatches_left[self.minibatch_class]:
             self._on_last_minibatch()
 
     def generate_data_for_master(self):
-        data = {"minibatch_class": self.minibatch_class,
-                "minibatch_size": self.minibatch_size,
-                "minibatch_offset": self.minibatch_offset}
+        data = {}
         self.on_generate_data_for_master(data)
         return data
 
@@ -143,9 +140,6 @@ class DecisionBase(Unit):
         self.on_apply_data_from_master(data)
 
     def apply_data_from_slave(self, data, slave):
-        self.minibatch_class = data["minibatch_class"]
-        self.minibatch_size = data["minibatch_size"]
-        self.minibatch_offset = data["minibatch_offset"]
         if self.minibatch_class != self.slave_minibatch_class_[slave.id]:
             raise RuntimeError(
                 "apply_data_from_slave: consistency violation. "
@@ -155,7 +149,6 @@ class DecisionBase(Unit):
                  CLASS_NAME[self.slave_minibatch_class_[slave.id]],
                  slave.id))
         self.on_apply_data_from_slave(data, slave)
-        self.epoch_ended <<= False
         self._finalize_job(slave)
         # we evaluate this condition before _on_last_minibatch since it may
         # reset no_more_minibatches_left in _end_epoch
@@ -174,12 +167,9 @@ class DecisionBase(Unit):
     def _on_last_minibatch(self):
         self.on_last_minibatch()
 
-        minibatch_class = self.minibatch_class
         # Test and Validation sets processed
-        if ((self.class_samples[VALID] and minibatch_class == VALID) or
-                (not self.class_samples[VALID] and minibatch_class >= VALID)):
-            self.improved <<= False
-            self.on_test_validation_processed()
+        if self.epoch_ended:
+            self.improved <<= self.improve_condition()
             if self.improved:
                 suffixes = []
                 self.fill_snapshot_suffixes(suffixes)
@@ -191,8 +181,7 @@ class DecisionBase(Unit):
             self.on_training_finished()
 
         self._print_statistics()
-        if all(self.no_more_minibatches_left):
-            self._end_epoch()
+        self._check_epoch_ended()
 
     def _stop_condition(self):
         if self.stop_condition():
@@ -213,14 +202,11 @@ class DecisionBase(Unit):
                    timestamp - self.epoch_timestamps[self.minibatch_class]))
         self.epoch_timestamps[self.minibatch_class] = timestamp
 
-    def _end_epoch(self):
-        assert all(self.no_more_minibatches_left)
+    def _check_epoch_ended(self):
+        if not self.epoch_ended:
+            return
         if not self.is_slave:
-            self.no_more_minibatches_left[:] = \
-                [False] * len(self.no_more_minibatches_left)
             self.on_epoch_ended()
-            self.epoch_ended <<= True
-            self.epoch_number += 1
         else:
             self.complete <<= True
 
@@ -245,8 +231,8 @@ class TrivialDecision(object):
     def on_last_minibatch(self):
         pass
 
-    def on_test_validation_processed(self):
-        pass
+    def improve_condition(self):
+        return False
 
     def on_training_finished(self):
         pass
@@ -290,7 +276,7 @@ class DecisionGD(DecisionBase):
         minibatch_max_err_y_sum: maximum of backpropagated gradient
                                  for a minibatch.
         max_err_y_sums: maximums of backpropagated gradient.
-        vectors_to_sync: list of Vector() objects to sync after each epoch.
+        vectors_to_sync: dict of Vector() objects to sync after each epoch.
         sample_input: will be a copy of first element from fwds[0].input
                       if the latter is in vectors_to_sync.
         sample_output: will be a copy of first element from fwds[-1].output
@@ -312,6 +298,7 @@ class DecisionGD(DecisionBase):
         self.min_validation_n_err = 1.0e30
         self.min_validation_n_err_epoch_number = -1
         self.min_train_n_err = 1.0e30
+        self.min_train_n_err_epoch_number = -1
         self.epoch_metrics = [None, None, None]
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
@@ -401,24 +388,25 @@ class DecisionGD(DecisionBase):
             self.max_err_y_sums[minibatch_class] = (
                 self.minibatch_max_err_y_sum[0])
 
-    def on_test_validation_processed(self):
-        minibatch_class = self.minibatch_class
-        if ((self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
-             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
-              and self.epoch_n_err[2] < self.min_train_n_err))):
-            self.min_validation_n_err = self.epoch_n_err[minibatch_class]
+    def improve_condition(self):
+        if ((self.epoch_n_err[VALID] < self.min_validation_n_err or
+             (self.epoch_n_err[VALID] == self.min_validation_n_err
+              and self.epoch_n_err[TRAIN] < self.min_train_n_err))):
+            self.min_validation_n_err = self.epoch_n_err[VALID]
             self.min_validation_n_err_epoch_number = self.epoch_number
-            self.min_train_n_err = self.epoch_n_err[2]
-            self.improved <<= True
+            self.min_train_n_err = self.epoch_n_err[TRAIN]
+            self.min_train_n_err_epoch_number = self.epoch_number
+            return True
+        return False
 
     def on_training_finished(self):
         if self.use_dynamic_alpha:
             if (self.minibatch_metrics is not None and
                     self.minibatch_metrics.mem is not None):
-                this_train_err = self.epoch_metrics[2][0]
+                this_train_err = self.epoch_metrics[TRAIN][0]
             elif (self.minibatch_n_err is not None and
                   self.minibatch_n_err.mem is not None):
-                this_train_err = self.epoch_n_err[2]
+                this_train_err = self.epoch_n_err[TRAIN]
             else:
                 this_train_err = self.prev_train_err
             if self.prev_train_err:
@@ -442,8 +430,7 @@ class DecisionGD(DecisionBase):
         self._sync_vectors()
 
     def on_epoch_ended(self):
-        for i in range(len(self.epoch_n_err)):
-            self.epoch_n_err[i] = 0
+        pass
 
     def on_generate_data_for_master(self, data):
         self._sync_vectors()
@@ -498,7 +485,17 @@ class DecisionGD(DecisionBase):
                 self.sample_label[i] = d
 
     def stop_condition(self):
-        return self.min_validation_n_err <= 0
+        if (self.min_validation_n_err <= 0 or
+            (not self.class_samples[VALID] and
+             self.min_train_n_err <= 0)):
+            return True
+        if (self.epoch_number - self.min_validation_n_err_epoch_number >
+            self.fail_iterations or
+            (not self.class_samples[VALID] and
+             self.epoch_number - self.min_train_n_err_epoch_number >
+             self.fail_iterations)):
+            return True
+        return False
 
     def fill_statistics(self, ss):
         minibatch_class = self.minibatch_class
@@ -575,6 +572,7 @@ class DecisionMSE(DecisionGD):
         self.min_train_mse = 1.0e30
         self.minibatch_mse = None
         self.minibatch_metrics = None  # formats.Vector()
+        self.demand("minibatch_offset", "minibatch_size")
         self.epoch_samples_mse = ([formats.Vector(),
                                    formats.Vector(),
                                    formats.Vector()]
@@ -629,7 +627,7 @@ class DecisionMSE(DecisionGD):
             self.epoch_metrics[minibatch_class][0] /
             self.class_samples[minibatch_class])
 
-    def on_test_validation_processed(self):
+    def improve_condition(self):
         minibatch_class = self.minibatch_class
         if (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
                 (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
@@ -637,12 +635,11 @@ class DecisionMSE(DecisionGD):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
             self.min_train_mse = self.epoch_min_mse[2]
-            self.improved <<= True
-        super(DecisionMSE, self).on_test_validation_processed()
+            return True
+        return super(DecisionMSE, self).improve_condition()
 
     def on_generate_data_for_master(self, data):
         super(DecisionMSE. self).on_generate_data_for_master(data)
-
         self.tmp_epoch_samples_mse[self.minibatch_class].map_read()
         data["minibatch_mse"] = self.tmp_epoch_samples_mse[
             self.minibatch_class].mem[:self.minibatch_size]
@@ -654,7 +651,7 @@ class DecisionMSE(DecisionGD):
 
     def on_apply_data_from_slave(self, data, slave):
         super(DecisionMSE, self).on_apply_data_from_slave(data, slave)
-        self.minibatch_mse.map_write()
+        self.minibatch_mse.map_invalidate()
         self.minibatch_mse.mem = data["minibatch_mse"]
         self._copy_minibatch_mse()
 

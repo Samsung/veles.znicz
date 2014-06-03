@@ -17,7 +17,7 @@ from veles.config import root
 import veles.error as error
 import veles.formats as formats
 import veles.plotting_units as plotting_units
-from veles.snapshotter import Snapshotter
+from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -181,10 +181,12 @@ class Workflow(nn_units.NNWorkflow):
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
-        self.decision.link_attrs(
-            self.loader, "minibatch_class", "minibatch_size",
-            "minibatch_offset", "no_more_minibatches_left", "class_samples",
-            two_way=True)
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "class_samples",
+                                 "no_more_minibatches_left",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -194,16 +196,17 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir,
+                                         compress="")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_skip = \
+            (~self.loader.epoch_ended | ~self.decision.improved)
 
         self.ipython = Shell(self)
-        self.ipython.link_from(self.decision)
+        self.ipython.link_from(self.snapshotter)
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
         # Add gradient descent units
