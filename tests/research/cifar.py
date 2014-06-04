@@ -11,6 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import os
 import pickle
+import six
 from zope.interface import implementer
 
 from veles.config import root
@@ -66,9 +67,12 @@ class Loader(loader.FullBatchLoader):
 
         # Load Validation
         fin = open(root.cifar.data_paths.validation, "rb")
-        u = pickle._Unpickler(fin)
-        u.encoding = 'latin1'
-        vle = u.load()
+        if six.PY3:
+            u = pickle._Unpickler(fin)
+            u.encoding = 'latin1'
+            vle = u.load()
+        else:
+            vle = pickle.load(fin)
         fin.close()
         self.original_data[:10000] = formats.interleave(
             vle["data"].reshape(10000, 3, 32, 32))[:]
@@ -78,9 +82,12 @@ class Loader(loader.FullBatchLoader):
         for i in range(1, 6):
             fin = open(os.path.join(root.cifar.data_paths.train,
                                     ("data_batch_%d" % i)), "rb")
-            u = pickle._Unpickler(fin)
-            u.encoding = 'latin1'
-            vle = u.load()
+            if six.PY3:
+                u = pickle._Unpickler(fin)
+                u.encoding = 'latin1'
+                vle = u.load()
+            else:
+                vle = pickle.load(fin)
             fin.close()
             self.original_data[i * 10000: (i + 1) * 10000] = (
                 formats.interleave(vle["data"].reshape(10000, 3, 32, 32))[:])
@@ -294,8 +301,8 @@ class Workflow(StandardWorkflow):
 
         # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
-        self.plt_tab.y.clear()
-        self.plt_tab.col_labels.clear()
+        del self.plt_tab.y[:]
+        del self.plt_tab.col_labels[:]
         for i in range(0, len(layers)):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
