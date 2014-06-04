@@ -17,7 +17,6 @@ from veles.config import root
 import veles.formats as formats
 import veles.error as error
 import veles.plotting_units as plotting_units
-from veles.snapshotter import Snapshotter
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
@@ -25,6 +24,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.learning_rate_adjust as learning_rate_adjust
 import veles.znicz.loader as loader
+from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 
 mnist_dir = os.path.join(
@@ -178,8 +178,10 @@ class Workflow(StandardWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples", two_way=True)
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -191,8 +193,8 @@ class Workflow(StandardWorkflow):
 
         self.info("root.snapshotter.prefix %s" % root.snapshotter.prefix)
         self.info("root.common.snapshot_dir %s" % root.common.snapshot_dir)
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

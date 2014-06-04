@@ -8,13 +8,17 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import os
+
 from veles.config import root
 
 
 # optional parameters
 
-target = ["/data/veles/approximator/all_org_appertures.mat"]
-train = ["/data/veles/approximator/all_dec_appertures.mat"]
+target = [os.path.join(root.common.test_dataset_root,
+                       "approximator/all_org_appertures.mat")]
+train = [os.path.join(root.common.test_dataset_root,
+                      "approximator/all_dec_appertures.mat")]
 
 root.update = {"decision": {"fail_iterations": 1000,
                             "store_samples_mse": True},

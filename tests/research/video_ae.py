@@ -24,6 +24,7 @@ import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
+from veles.znicz.nn_units import NNSnapshotter
 
 
 root.defaults = {"decision": {"fail_iterations": 100},
@@ -120,8 +121,12 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples")
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number",
+                                 "minibatch_offset",
+                                 "minibatch_size", two_way=True)
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_metrics", "metrics"))
@@ -129,8 +134,8 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

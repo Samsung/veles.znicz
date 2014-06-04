@@ -16,13 +16,13 @@ import veles.formats as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
+from veles.znicz.nn_units import NNSnapshotter
 
 train_dir = [os.path.join(root.common.test_dataset_root,
                           "hands/Positive/Training"),
@@ -115,8 +115,10 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples", two_way=True)
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -125,8 +127,8 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

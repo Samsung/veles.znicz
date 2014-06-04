@@ -28,6 +28,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.loader as loader
+from veles.znicz.nn_units import NNSnapshotter
 
 root.gtzan.labels = get(root.gtzan.labels, {"blues": 0,
                                             "country": 1,
@@ -41,8 +42,8 @@ root.gtzan.labels = get(root.gtzan.labels, {"blues": 0,
                                             "reggae": 9})
 root.gtzan.features_shape = get(root.gtzan.features_shape, {"CRP": 12})
 
-root.defaults = {"decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "gtzan"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "gtzan"},
                  "gtzan": {"exports":
                            ["features", "labels", "norm_add", "norm_mul"],
                            "features":
@@ -296,13 +297,27 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples", two_way=True)
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir,
+                                         compress="", time_interval=0)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.loader.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]

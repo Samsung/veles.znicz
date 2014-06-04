@@ -7,9 +7,9 @@ This workflow should clone the Imagenet example in CAFFE tool.
 """
 
 from veles.config import root
-from veles.snapshotter import Snapshotter
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import normalization, dropout
+from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.tests.research.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -135,8 +135,10 @@ class Workflow(StandardWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
+                                 "last_minibatch",
                                  "class_samples",
-                                 "no_more_minibatches_left")
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -146,8 +148,8 @@ class Workflow(StandardWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

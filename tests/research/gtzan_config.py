@@ -29,8 +29,8 @@ root.gtzan.labels = {"blues": 0,
                      "reggae": 9}
 root.gtzan.features_shape = {"CRP": 12}
 
-root.update = {"decision": {"fail_iterations": 100,
-                            "snapshot_prefix": "gtzan"},
+root.update = {"decision": {"fail_iterations": 100},
+               "snapshotter": {"prefix": "gtzan"},
                "gtzan": {"exports":
                          ["features", "labels", "norm_add", "norm_mul"],
                          "features":
