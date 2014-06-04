@@ -5,8 +5,6 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
 from __future__ import division
-
-from __future__ import division
 import numpy
 import numpy.linalg as linalg
 from zope.interface import implementer
@@ -23,7 +21,6 @@ class Weights2D(plotter.Plotter):
 
     Must be assigned before initialize():
         input
-        input_field
 
     Updates after run():
 
@@ -31,39 +28,31 @@ class Weights2D(plotter.Plotter):
 
     """
     def __init__(self, workflow, **kwargs):
-        name = kwargs.get("name", "Weights")
-        limit = kwargs.get("limit", 64)
-        yuv = kwargs.get("yuv", False)
-        kwargs["name"] = name
-        kwargs["limit"] = limit
-        kwargs["yuv"] = yuv
+        kwargs["name"] = kwargs.get("name", "Weights")
         super(Weights2D, self).__init__(workflow, **kwargs)
-        self.input = None
-        self.input_field = None
+        self.demand("input")
         self.get_shape_from = None
-        self.limit = limit
+        self.limit = kwargs.get("limit", 64)
         self.transposed = False
-        self.yuv = [1 if yuv else 0]
+        self.yuv = int(kwargs.get("yuv", False))
         self.cm = None
         self.pp = None
         self.show_figure = self.nothing
 
+    def __getstate__(self):
+        state = super(Weights2D, self).__getstate__()
+        if self.stripped_pickle:
+            state["input"] = state["input"][:self.limit]
+        return state
+
     def redraw(self):
-        if type(self.input_field) == int:
-            if self.input_field < 0 or self.input_field >= len(self.input):
-                return
-            value = self.input[self.input_field]
-        else:
-            value = getattr(self.input, self.input_field)
+        value = self.input
 
         if type(value) != numpy.ndarray or len(value.shape) != 2:
-            return
+            raise ValueError("Invalid input type/shape")
 
         if self.transposed:
             value = value.transpose()
-
-        if value.shape[0] > self.limit:
-            value = value[:self.limit]
 
         figure = self.pp.figure(self.name)
         figure.clf()
@@ -80,14 +69,6 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[-2]
                 sy = self.get_shape_from[-3]
                 n_channels = self.get_shape_from[-1]
-        elif hasattr(self.get_shape_from, "mem"):
-            if len(self.get_shape_from.mem.shape) == 3:
-                sx = self.get_shape_from.mem.shape[2]
-                sy = self.get_shape_from.mem.shape[1]
-            else:
-                sx = self.get_shape_from.mem.shape[-2]
-                sy = self.get_shape_from.mem.shape[-3]
-                n_channels = self.get_shape_from.mem.shape[-1]
         else:
             sx = self.get_shape_from.shape[1]
             sy = self.get_shape_from.shape[0]
@@ -111,18 +92,17 @@ class Weights2D(plotter.Plotter):
                         w = w[:, :, 0].reshape(sy, sx)
                     elif n_channels > 3:
                         w = w[:, :, :3].reshape(sy, sx, 3)
-                    ax.imshow(formats.norm_image(w, self.yuv[0]),
+                    ax.imshow(formats.norm_image(w, self.yuv),
                               interpolation="nearest")
                 else:
                     ax.imshow(formats.norm_image(mem.reshape(sy, sx),
-                                                 self.yuv[0]),
+                                                 self.yuv),
                               interpolation="nearest", cmap=self.cm.gray)
                 i += 1
                 if i >= value.shape[0]:
                     break
             if i >= value.shape[0]:
                 break
-
         self.show_figure(figure)
         figure.canvas.draw()
         return figure
@@ -150,7 +130,7 @@ class MSEHistogram(plotter.Plotter):
         self.mse_min = None
         self.mse_max = None
         self.n_bars = n_bars
-        self.mse = None  # formats.Vector()
+        self.demand("mse")
         self.pp = None
         self.show_figure = self.nothing
 
@@ -273,8 +253,7 @@ class KohonenHits(plotter.Plotter):
         super(KohonenHits, self).__init__(workflow, **kwargs)
         self._color_bins = kwargs.get("color_bins", "#666699")
         self._color_text = kwargs.get("color_text", "white")
-        self.input = None
-        self.shape = None
+        self.demand("input", "shape")
 
     @property
     def width(self):
@@ -385,6 +364,7 @@ class KohonenHits(plotter.Plotter):
 
         self.show_figure(fig)
         fig.canvas.draw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y, size, number):
         r = size / numpy.sqrt(3)
@@ -413,8 +393,7 @@ class KohonenInputMaps(plotter.Plotter):
         super(KohonenInputMaps, self).__init__(workflow, **kwargs)
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
         self._color_grid = kwargs.get("color_grid", "none")
-        self.input = None
-        self.shape = None
+        self.demand("input", "shape")
 
     @property
     def width(self):
@@ -445,11 +424,7 @@ class KohonenInputMaps(plotter.Plotter):
         fig = self.pp.figure(self.name)
         if not fast_redraw:
             fig.clf()
-        if isinstance(self.input, formats.Vector):
-            input_array = self.input.mem
-        else:
-            input_array = self.input
-        length = input_array.shape[1]
+        length = self.input.shape[1]
         if length < 3:
             grid_shape = (length, 1)
         elif length < 5:
@@ -473,7 +448,7 @@ class KohonenInputMaps(plotter.Plotter):
                 axes.add_collection(col)
             else:
                 col = axes.collections[0]
-            arr = input_array[:, index]
+            arr = self.input[:, index]
             amax = numpy.max(arr)
             amin = numpy.min(arr)
             col.set_array((arr - amin) / (amax - amin))
@@ -487,6 +462,7 @@ class KohonenInputMaps(plotter.Plotter):
             fig.colorbar(col)
         self.show_figure(fig)
         fig.canvas.draw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = 1.0 / numpy.sqrt(3)
@@ -512,8 +488,7 @@ class KohonenNeighborMap(plotter.Plotter):
         super(KohonenNeighborMap, self).__init__(workflow, **kwargs)
         self._color_neurons = kwargs.get("color_neurons", "#666699")
         self._color_scheme = kwargs.get("color_scheme", "YlOrRd")
-        self.input = None
-        self.shape = None
+        self.demand("input", "shape")
 
     @property
     def width(self):
@@ -613,6 +588,7 @@ class KohonenNeighborMap(plotter.Plotter):
 
         self.show_figure(fig)
         fig.canvas.draw()
+        return fig
 
     def _add_hexagon(self, axes, patches, x, y):
         r = KohonenNeighborMap.NEURON_SIZE / numpy.sqrt(3)

@@ -34,7 +34,6 @@ import veles.plotting_units as plotting_units
 import veles.random_generator as rnd
 from veles.snapshotter import Snapshotter
 import veles.thread_pool as thread_pool
-import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
@@ -713,7 +712,7 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        #for i in range(0, len(layers)):
+        # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
 
         self.create_gradient_descent_units()
@@ -758,7 +757,6 @@ class Workflow(StandardWorkflow):
                 limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            self.plt_mx[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])

@@ -64,8 +64,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
     """
     def __init__(self, workflow, **kwargs):
         super(KohonenForward, self).__init__(workflow, **kwargs)
-        self.input = None
-        self.weights = None
+        self.demand("input", "weights")
         self.argmins = None
         self._distances = formats.Vector()
         self.output = formats.Vector()
@@ -77,7 +76,6 @@ class KohonenForward(KohonenBase, OpenCLUnit):
             self.minibatch_offset = None
             self.minibatch_size = None
             self.batch_size = None
-        self.demand.extend(["input", "weights"])
 
     def init_unpickled(self):
         super(KohonenForward, self).init_unpickled()
@@ -257,6 +255,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     """
     def __init__(self, workflow, shape, **kwargs):
         super(KohonenTrainer, self).__init__(workflow, **kwargs)
+        self.demand("input", "shape", "epoch_ended")
         self._distances = formats.Vector()
         self.argmins = formats.Vector()
         self._coords = formats.Vector()
@@ -266,8 +265,6 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.weights_stddev = kwargs.get("weights_stddev", None)
         self.weights_transposed = kwargs.get("weights_transposed", False)
-        self.input = None
-        self.epoch_ended = None
         self.time = 0
         self._sigma = 0
         self.gradient_decay = kwargs.get("gradient_decay",
