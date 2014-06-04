@@ -32,7 +32,6 @@ import veles.image as image
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.random_generator as rnd
-from veles.snapshotter import Snapshotter
 import veles.thread_pool as thread_pool
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
@@ -41,6 +40,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
+from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.external.progressbar import ProgressBar
 
@@ -691,8 +691,10 @@ class Workflow(StandardWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
-                                 "no_more_minibatches_left",
-                                 "class_samples", two_way=True)
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -701,8 +703,8 @@ class Workflow(StandardWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
-                                       directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+                                         directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

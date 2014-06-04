@@ -91,9 +91,12 @@ class Workflow(nn_units.NNWorkflow):
         self.decision = kohonen.KohonenDecision(
             self, max_epochs=root.decision.epochs)
         self.decision.link_from(self.trainer)
-        self.decision.link_attrs(self.loader, "minibatch_class",
-                                              "no_more_minibatches_left",
-                                              "class_samples", two_way=True)
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "last_minibatch",
+                                 "class_samples",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(self.trainer, "weights", "winners")
         self.trainer.epoch_ended = self.decision.epoch_ended
 
