@@ -80,8 +80,8 @@ class DecisionBase(Unit):
         snapshot_suffix - the suitable suffix for the snapshot file name.
 
     Must be set before initialize():
-        no_more_minibatches_left - from loader
         minibatch_class - from loader
+        last_minibatch - from loader
         class_samples - from loader
         epoch_number - from loader
         epoch_ended - from loader
@@ -97,7 +97,7 @@ class DecisionBase(Unit):
         self.improved = Bool(False)
         self.snapshot_suffix = ""
         self.complete = Bool(False)
-        self.demand("no_more_minibatches_left", "minibatch_class",
+        self.demand("minibatch_class", "last_minibatch",
                     "class_samples", "epoch_number", "epoch_ended")
 
     def init_unpickled(self):
@@ -111,7 +111,7 @@ class DecisionBase(Unit):
 
     def run(self):
         self.on_run()
-        if self.no_more_minibatches_left[self.minibatch_class]:
+        if self.last_minibatch:
             self._on_last_minibatch()
 
     def generate_data_for_master(self):
@@ -128,7 +128,7 @@ class DecisionBase(Unit):
                 (sid, self.slave_minibatch_class_[sid]))
         self.slave_minibatch_class_[sid] = self.minibatch_class
         self.minibatches_balance_[self.minibatch_class] += 1
-        if all(self.no_more_minibatches_left):
+        if self.epoch_ended:
             self.has_data_for_slave = False
         data = {"epoch_number": self.epoch_number}
         return data
@@ -152,10 +152,10 @@ class DecisionBase(Unit):
         self._finalize_job(slave)
         # we evaluate this condition before _on_last_minibatch since it may
         # reset no_more_minibatches_left in _end_epoch
-        has_data_for_slave = (all(self.no_more_minibatches_left) and
+        has_data_for_slave = (self.epoch_ended and
                               not any(self.minibatches_balance_) and
                               not self.complete)
-        if (self.no_more_minibatches_left[self.minibatch_class] and
+        if (self.last_minibatch and
                 self.minibatches_balance_[self.minibatch_class] == 0):
             self._on_last_minibatch()
         if has_data_for_slave:
@@ -570,6 +570,7 @@ class DecisionMSE(DecisionGD):
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
         self.min_train_mse = 1.0e30
+        self.min_train_mse_epoch_number = -1
         self.minibatch_mse = None
         self.minibatch_metrics = None  # formats.Vector()
         self.demand("minibatch_offset", "minibatch_size")
@@ -635,6 +636,7 @@ class DecisionMSE(DecisionGD):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
             self.min_train_mse = self.epoch_min_mse[2]
+            self.min_train_mse_epoch_number = self.epoch_number
             return True
         return super(DecisionMSE, self).improve_condition()
 
@@ -656,13 +658,17 @@ class DecisionMSE(DecisionGD):
         self._copy_minibatch_mse()
 
     def stop_condition(self):
-        if (self.epoch_number - self.min_validation_mse_epoch_number >
-                self.fail_iterations and
-                self.epoch_number - self.min_validation_n_err_epoch_number >
-                self.fail_iterations):
+        if (self.min_validation_mse <= 0 or
+            (not self.class_samples[VALID] and
+             self.min_train_mse <= 0)):
             return True
-
-        return self.min_validation_mse <= 0
+        if (self.epoch_number - self.min_validation_mse_epoch_number >
+            self.fail_iterations or
+            (not self.class_samples[VALID] and
+             self.epoch_number - self.min_train_mse_epoch_number >
+             self.fail_iterations)):
+            return True
+        return False
 
     def reset_statistics(self, minibatch_class):
         super(DecisionMSE, self).reset_statistics(minibatch_class)

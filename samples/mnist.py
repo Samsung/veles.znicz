@@ -183,8 +183,8 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
+                                 "last_minibatch",
                                  "class_samples",
-                                 "no_more_minibatches_left",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(
@@ -198,7 +198,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir,
-                                         compress="")
+                                         compress="", time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

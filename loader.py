@@ -70,7 +70,7 @@ class Loader(Unit):
                       (in case of classification with MSE).
 
         minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
-        no_more_minibatches_left: if current minibatch is last in it's class.
+        last_minibatch: if current minibatch is last in it's class.
 
         minibatch_offset: offset of the current minibatch in all samples,
                         where first come test samples, then validation, with
@@ -111,7 +111,7 @@ class Loader(Unit):
         self.class_target = formats.Vector()
 
         self.minibatch_class = 0
-        self.no_more_minibatches_left = [False, False, False]
+        self.last_minibatch = Bool(False)
 
         self.total_samples = 0
         self.class_samples = [0, 0, 0]
@@ -357,20 +357,15 @@ class Loader(Unit):
         self.total_samples = total_samples
         if total_samples == 0:
             raise error.ErrBadFormat("class_samples should be filled")
-        self._update_no_more_minibatches_left(False)
-
-    def _update_no_more_minibatches_left(self, value):
-        """Sets the flags signalling whether each dataset class is over in the
-        current epoch.
-        """
-        for i, n in enumerate(self.class_samples):
-            self.no_more_minibatches_left[i] = value if n > 0 else True
-        self._update_epoch_ended()
+        self.last_minibatch <<= False
+        self.epoch_ended <<= False
 
     def _update_epoch_ended(self):
-        self.epoch_ended <<= (self.no_more_minibatches_left[VALID]
-                              if self.class_samples[VALID] > 0
-                              else all(self.no_more_minibatches_left))
+        self.epoch_ended <<= (
+            bool(self.last_minibatch) and (
+                self.minibatch_class == VALID or (
+                    not self.class_samples[VALID] and
+                    self.minibatch_class == TRAIN)))
 
     def _prepare_next_minibatch(self):
         """Increments minibatch_offset by an appropriate minibatch_size.
@@ -379,9 +374,7 @@ class Loader(Unit):
         if self.minibatch_offset >= self.total_samples:
             self.shuffle()
             self.minibatch_offset = 0
-            self._update_no_more_minibatches_left(False)
 
-        self.epoch_ended <<= False
         # Compute next minibatch size and its class.
         if not self.is_slave:
             for i in range(len(self.nextclass_offsets)):
@@ -390,17 +383,21 @@ class Loader(Unit):
                     remainder = (self.nextclass_offsets[i] -
                                  self.minibatch_offset)
                     if remainder <= self.minibatch_maxsize:
+                        self.last_minibatch <<= True
                         self.minibatch_size = remainder
-                        self.no_more_minibatches_left[i] = True
-                        self._update_epoch_ended()
                         self.info("Last minibatch of class %s served",
                                   CLASS_NAME[i].upper())
                     else:
+                        self.last_minibatch <<= False
                         self.minibatch_size = self.minibatch_maxsize
                     break
+            else:
+                raise error.ErrNotExists(
+                    "minibatch_offset is too large: %d", self.minibatch_offset)
         else:
             # Force this minibatch to be the last for the slave
-            self._update_no_more_minibatches_left(True)
+            self.last_minibatch <<= True
+        self._update_epoch_ended()
 
         # Adjust offset according to the calculated step
         assert self.minibatch_size > 0
