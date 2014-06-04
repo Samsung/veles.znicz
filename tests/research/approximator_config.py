@@ -17,8 +17,8 @@ target = ["/data/veles/approximator/all_org_appertures.mat"]
 train = ["/data/veles/approximator/all_dec_appertures.mat"]
 
 root.update = {"decision": {"fail_iterations": 1000,
-                            "snapshot_prefix":  "approximator",
                             "store_samples_mse": True},
+               "snapshotter": {"prefix": "approximator"},
                "loader": {"minibatch_maxsize": 100},
                "approximator": {"learning_rate": 0.01,
                                 "weights_decay": 0.00005,

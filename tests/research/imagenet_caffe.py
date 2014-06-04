@@ -7,6 +7,7 @@ This workflow should clone the Imagenet example in CAFFE tool.
 """
 
 from veles.config import root
+from veles.snapshotter import Snapshotter
 from veles.znicz import conv, pooling, all2all, evaluator, decision
 from veles.znicz import normalization, dropout
 from veles.znicz.tests.research.imagenet.loader import LoaderDetection
@@ -14,10 +15,9 @@ from veles.znicz.standard_workflow import StandardWorkflow
 
 import logging
 
-root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "imagenet_caffe",
+root.defaults = {"decision": {"fail_iterations": 100,
                               "store_samples_mse": True},
+                 "snapshotter": {"prefix": "imagenet_caffe"},
                  "loader": {"minibatch_maxsize": 60},
                  "imagenet_caffe": {"learning_rate": 0.01,
                                     "weights_decay": 0.0}}
@@ -142,6 +142,17 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self.create_gradient_descent_units()
@@ -159,6 +170,6 @@ class Workflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.imagenet_caffe.layers)
+    load(Workflow)
     main(learning_rate=root.imagenet_caffe.learning_rate,
          weights_decay=root.imagenet_caffe.weights_decay)

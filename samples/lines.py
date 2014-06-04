@@ -22,8 +22,8 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.standard_workflow import StandardWorkflow
 
-train = "/data/veles/Lines/Grid/learn"
-valid = "/data/veles/Lines/Grid/test"
+train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
+valid = os.path.join(root.common.test_dataset_root, "Lines/Grid/test")
 
 root.model = "grid"
 

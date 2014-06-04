@@ -16,6 +16,7 @@ import veles.error as error
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.all2all as all2all
@@ -28,8 +29,8 @@ target_dir = ["/data/veles/approximator/all_org_appertures.mat"]
 train_dir = ["/data/veles/approximator/all_dec_appertures.mat"]
 
 root.defaults = {"decision": {"fail_iterations": 1000,
-                              "snapshot_prefix":  "approximator",
                               "store_samples_mse": True},
+                 "snapshotter": {"prefix": "approximator"},
                  "loader": {"minibatch_maxsize": 100},
                  "approximator": {"learning_rate": 0.01,
                                   "weights_decay": 0.00005,
@@ -187,10 +188,9 @@ class Workflow(nn_units.NNWorkflow):
                                   ("target", "minibatch_target"))
 
         # Add decision unit
-        self.decision = decision.DecisionGD(
+        self.decision = decision.DecisionMSE(
             self, fail_iterations=root.decision.fail_iterations,
-            store_samples_mse=root.decision.store_samples_mse,
-            snapshot_prefix=root.decision.snapshot_prefix)
+            store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -202,6 +202,17 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_mse", "mse"),
             ("minibatch_metrics", "metrics"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_block = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         self.gds = list(None for i in range(0, len(self.fwds)))

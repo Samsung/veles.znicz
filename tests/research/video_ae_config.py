@@ -15,8 +15,8 @@ from veles.config import root
 
 # optional parameters
 
-root.update = {"decision": {"fail_iterations": 100,
-                            "snapshot_prefix": "video_ae"},
+root.update = {"decision": {"fail_iterations": 100},
+               "snapshotter": {"prefix": "video_ae"},
                "loader": {"minibatch_maxsize": 50},
                "weights_plotter": {"limit": 16},
                "video_ae": {"learning_rate": 0.0002,
@@ -24,4 +24,4 @@ root.update = {"decision": {"fail_iterations": 100,
                             "layers": [9, 14400],
                             "data_paths":
                             os.path.join(root.common.test_dataset_root,
-                                         "video/video_ae/img")}}
+                                         "video_ae/img")}}

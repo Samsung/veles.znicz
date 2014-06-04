@@ -13,11 +13,9 @@ from veles.config import root
 # optional parameters
 
 
-root.update = {"all2all": {"weights_stddev": 0.05},
-               "decision": {"fail_iterations": 100,
-                            "snapshot_prefix": "imagenet_caffe",
+root.update = {"decision": {"fail_iterations": 100,
                             "store_samples_mse": True},
+               "snapshotter": {"prefix": "imagenet_caffe"},
                "loader": {"minibatch_maxsize": 60},
                "imagenet_caffe": {"learning_rate": 0.01,
-                                  "weights_decay": 0.0,
-                                  "layers": [100, 10]}}
+                                  "weights_decay": 0.0}}

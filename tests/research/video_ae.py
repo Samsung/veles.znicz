@@ -15,6 +15,7 @@ import os
 import re
 
 from veles.config import root
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -25,8 +26,8 @@ import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 
 
-root.defaults = {"decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "video_ae"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "video_ae"},
                  "loader": {"minibatch_maxsize": 50},
                  "weights_plotter": {"limit": 16},
                  "video_ae": {"learning_rate": 0.0002,
@@ -112,7 +113,7 @@ class Workflow(nn_units.NNWorkflow):
                                   ("max_samples_per_epoch", "total_samples"))
 
         # Add decision unit
-        self.decision = decision.DecisionGD(
+        self.decision = decision.DecisionMSE(
             self,
             snapshot_prefix=root.decision.snapshot_prefix,
             fail_iterations=root.decision.fail_iterations)
@@ -124,9 +125,21 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_metrics", "metrics"))
-        self.image_saver.link_attrs(self.decision,
-                                    ("this_save_time", "snapshot_time"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
+
         self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
         # Add gradient descent units
         self.gds = list(None for i in range(0, len(self.fwds)))

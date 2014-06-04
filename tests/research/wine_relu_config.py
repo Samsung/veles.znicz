@@ -17,8 +17,8 @@ from veles.config import root
 
 root.common.update = {"plotters_disabled": True}
 
-root.update = {"decision": {"fail_iterations": 250,
-                            "snapshot_prefix": "wine_relu"},
+root.update = {"decision": {"fail_iterations": 250},
+               "snapshotter": {"prefix": "wine_relu"},
                "loader": {"minibatch_maxsize": 1000000},
                "wine_relu": {"learning_rate": 0.75,
                              "weights_decay": 0.0,

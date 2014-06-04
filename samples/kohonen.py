@@ -53,7 +53,7 @@ class Loader(loader.FullBatchLoader):
             raise error.ErrBadFormat("Data in %s has the invalid shape" %
                                      file_name)
 
-        self.original_labels = None
+        self.original_labels = False
         self.original_data = numpy.zeros((1000, 2), dtype=numpy.float32)
         self.original_data[:, 0] = data[0]
         self.original_data[:, 1] = data[1]

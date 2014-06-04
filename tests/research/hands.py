@@ -16,6 +16,7 @@ import veles.formats as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -32,8 +33,8 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
                   os.path.join(root.common.test_dataset_root,
                                "hands/Negative/Testing")]
 
-root.defaults = {"decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "hands"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "hands"},
                  "loader": {"minibatch_maxsize": 60},
                  "hands": {"learning_rate": 0.05,
                            "weights_decay": 0.0,
@@ -120,6 +121,17 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]

@@ -20,6 +20,7 @@ import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -30,8 +31,8 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.samples.mnist as mnist
 
 
-root.defaults = {"decision": {"fail_iterations": 100,
-                              "snapshot_prefix": "mnist_784"},
+root.defaults = {"decision": {"fail_iterations": 100},
+                 "snapshotter": {"prefix": "mnist_784"},
                  "loader": {"minibatch_maxsize": 100},
                  "weights_plotter": {"limit": 16},
                  "mnist784": {"learning_rate": 0.001,
@@ -180,19 +181,30 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_metrics", "metrics"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
-        self.image_saver.link_from(self.decision)
+        self.image_saver.link_from(self.snapshotter)
         self.image_saver.link_attrs(self.evaluator, "output", "target")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
                                     ("indexes", "minibatch_indexes"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
-        self.image_saver.link_attrs(self.decision,
-                                    ("this_save_time", "snapshot_time"))
         self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
         # Add gradient descent units
         del self.gds[:]

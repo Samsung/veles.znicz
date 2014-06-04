@@ -15,11 +15,11 @@ from veles.config import root
 
 # optional parameters
 
-train = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/learning"
-valid = "/data/veles/Lines/LINES_10_500_NOISY_min_valid/test"
+train = os.path.join(root.common.test_dataset_root,
+                     "Lines/LINES_10_500_NOISY_min_valid/learning")
+valid = os.path.join(root.common.test_dataset_root,
+                     "Lines/LINES_10_500_NOISY_min_valid/test")
 
-# train = "/data/veles/Lines/lines_min/learn"
-# valid = "/data/veles/Lines/lines_min/test"
 
 root.model = "lines"
 

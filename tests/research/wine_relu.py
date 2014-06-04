@@ -15,6 +15,7 @@ from zope.interface import implementer
 from veles.config import root
 import veles.formats as formats
 import veles.opencl_types as opencl_types
+from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
@@ -25,8 +26,8 @@ import veles.znicz.loader as loader
 
 root.common.defaults = {"plotters_disabled": True}
 
-root.defaults = {"decision": {"fail_iterations": 250,
-                              "snapshot_prefix": "wine_relu"},
+root.defaults = {"decision": {"fail_iterations": 250},
+                 "snapshotter": {"prefix": "wine_relu"},
                  "loader": {"minibatch_maxsize": 1000000},
                  "wine_relu": {"learning_rate": 0.75,
                                "weights_decay": 0.0,
@@ -139,6 +140,17 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.decision.fwds = self.fwds
+        self.decision.gds = self.gds
+        self.decision.evaluator = self.evaluator
+
+        self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
+                                       directory=root.common.snapshot_dir)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]

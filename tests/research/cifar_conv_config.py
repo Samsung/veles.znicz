@@ -19,11 +19,8 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.update = {"conv":  {"weights_filling": "uniform",
-                         "weights_stddev": 0.05},
-               "decision": {"fail_iterations": 1000,
-                            "snapshot_prefix": "cifar_conv",
-                            "do_export_weights": True},
+root.update = {"decision": {"fail_iterations": 100, "do_export_weights": True},
+               "snapshotter": {"prefix": "cifar"},
                "loader": {"minibatch_maxsize": 100},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,
@@ -33,7 +30,7 @@ root.update = {"conv":  {"weights_filling": "uniform",
                                 os.path.join(root.common.cache_dir,
                                              "tmp/train")]},
                "weights_plotter": {"limit": 64},
-               "cifar": {"learning_rate": 0.001,
+               "cifar": {"learning_rate": 0.01,
                          "weights_decay": 0.004,
                          "layers":
                          [{"type": "conv", "n_kernels": 32,

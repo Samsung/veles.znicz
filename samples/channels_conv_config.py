@@ -18,13 +18,11 @@ from veles.config import root
 root.model = "conv"
 
 root.update = {
-    "accumulator": {"n_bars": 30},
+    "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
-                 "snapshot_prefix": "channels %s" % root.model,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "conv": {"weights_filling": "gaussian",
-             "weights_stddev": 0.00001},
+    "snapshotter": {"prefix": "channels %s" % root.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
                                   "tmp %s/test" % root.model),

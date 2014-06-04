@@ -38,6 +38,7 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 root.defaults = {"decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_maxsize": 60},
+                 "weights_plotter": {"limit": 64},
                  "mnist": {"learning_rate": 0.01,
                            "weights_decay": 0.0,
                            "layers":
@@ -188,6 +189,8 @@ class Workflow(StandardWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
+        self.info("root.snapshotter.prefix %s" % root.snapshotter.prefix)
+        self.info("root.common.snapshot_dir %s" % root.common.snapshot_dir)
         self.snapshotter = Snapshotter(self, prefix=root.snapshotter.prefix,
                                        directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
