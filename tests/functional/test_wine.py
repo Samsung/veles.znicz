@@ -14,7 +14,7 @@ import unittest
 from veles.config import root
 import veles.opencl as opencl
 import veles.random_generator as rnd
-from veles.tests import timeout
+#from veles.tests import timeout
 import veles.znicz.samples.wine as wine
 import veles.tests.dummy_workflow as dummy_workflow
 
@@ -25,10 +25,7 @@ class TestWine(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    # def tearDown(self):
-    #    del self.device
-
-    @timeout
+    #@timeout
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -38,7 +35,7 @@ class TestWine(unittest.TestCase):
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},
                        "loader": {"minibatch_maxsize": 10},
-                       "wine_test": {"learning_rate": 0.75,
+                       "wine_test": {"learning_rate": 0.03,
                                      "weights_decay": 0.0,
                                      "layers":  [8, 3],
                                      "data_paths":
@@ -53,11 +50,12 @@ class TestWine(unittest.TestCase):
                      device=self.device)
         w.run()
         epoch = w.decision.epoch_number
+        logging.info("Converged in %d epochs", epoch)
         self.assertEqual(epoch, 11)
         logging.info("All Ok")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
