@@ -45,11 +45,13 @@ root.defaults = {
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_maxsize": 180},
     "weights_plotter": {"limit": 64},
-    "cifar": {"learning_rate": 0.1,
-              "weights_decay": 0.00005,
-              "layers": [{"type": "all2all_tanh",
+    "cifar": {"layers": [{"type": "all2all_tanh",
+                          "learning_rate": 0.0005,
+                          "weights_decay": 0.00005,
                           "output_shape": 100},
-                         {"type": "softmax", "output_shape": 10}],
+                         {"type": "softmax", "output_shape": 10,
+                          "learning_rate": 0.0005,
+                          "weights_decay": 0.00005}],
               "data_paths": {"train": train_dir,
                              "validation": validation_dir}}}
 
@@ -202,7 +204,7 @@ class Workflow(StandardWorkflow):
         self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
             self,
             lr_function=learning_rate_adjust.arbitrary_step_function_policy(
-                [(0.01, 60000), (0.001, 65000), (0.0001, 70000)]))
+                [(0.001, 60000), (0.0001, 65000), (0.00001, 70000)]))
         self.learning_rate_adjust.link_from(self.gds[0])
         self.learning_rate_adjust.add_gd_units(self.gds)
 
@@ -322,16 +324,11 @@ class Workflow(StandardWorkflow):
         self.plt_tab.link_from(self.decision)
         self.plt_tab.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
-                   device):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         minibatch_maxsize=minibatch_maxsize,
+    def initialize(self, minibatch_maxsize, device):
+        super(Workflow, self).initialize(minibatch_maxsize=minibatch_maxsize,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.cifar.layers)
-    main(learning_rate=root.cifar.learning_rate,
-         weights_decay=root.cifar.weights_decay,
-         minibatch_maxsize=root.loader.minibatch_maxsize)
+    main(minibatch_maxsize=root.loader.minibatch_maxsize)
