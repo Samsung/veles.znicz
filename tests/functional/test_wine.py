@@ -14,6 +14,7 @@ import unittest
 from veles.config import root
 import veles.opencl as opencl
 import veles.random_generator as rnd
+# TODO(a.kazantsev): fix timeout.
 #from veles.tests import timeout
 import veles.znicz.samples.wine as wine
 import veles.tests.dummy_workflow as dummy_workflow
@@ -25,6 +26,7 @@ class TestWine(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
+    # TODO(a.kazantsev): uncomment when timeout is fixed.
     #@timeout
     def test_wine(self):
         logging.info("Will test loader, decision, evaluator units")
