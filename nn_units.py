@@ -92,6 +92,9 @@ class GradientDescentBase(OpenCLUnit):
         weights_transposed: assume weights matrix as a transposed one.
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
+        error_function_averaged: should be true for the last layer of network
+                                 for mse and cross_entropy error functions
+                                 averaged over the minibatch.
     """
     def __init__(self, workflow, **kwargs):
         learning_rate = kwargs.get("learning_rate", 0.01)
@@ -105,7 +108,7 @@ class GradientDescentBase(OpenCLUnit):
         store_gradient = kwargs.get("store_gradient", True)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         need_err_input = kwargs.get("need_err_input", True)
-        error_function_averaged = kwargs.get("error_function_averaged", True)
+        error_function_averaged = kwargs.get("error_function_averaged", False)
         kwargs["learning_rate"] = learning_rate
         kwargs["learning_rate_bias"] = learning_rate_bias
         kwargs["weights_decay"] = weights_decay

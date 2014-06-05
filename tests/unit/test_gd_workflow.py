@@ -37,12 +37,12 @@ class Workflow(OpenCLWorkflow):
         super(Workflow, self).__init__(workflow, **kwargs)
 
         dtype = opencl_types.dtypes[root.common.dtype]
-        minibatch_size = 2
+        self.batch_size = 2
 
-        self.input = numpy.zeros([minibatch_size, 8, 8, 3], dtype=dtype)
+        self.input = numpy.zeros([self.batch_size, 8, 8, 3], dtype=dtype)
         rnd.get().fill(self.input)
 
-        self.labels = numpy.zeros(minibatch_size, dtype=numpy.int32)
+        self.labels = numpy.zeros(self.batch_size, dtype=numpy.int32)
         self.labels[:] = rnd.get().randint(2, size=self.labels.size)
 
         # First convolutional layer
@@ -52,47 +52,54 @@ class Workflow(OpenCLWorkflow):
         self.conv_forward.link_from(self.start_point)
         self.conv_forward.input = formats.Vector()
         self.conv_forward.input.mem = self.input.copy()
+        prev = self.conv_forward
 
         # First pooling layer
         self.pool_forward = pooling.MaxPooling(
             self, kx=3, ky=3, sliding=(2, 2))
-        self.pool_forward.link_from(self.conv_forward)
-        self.pool_forward.link_attrs(self.conv_forward, ("input", "output"))
+        self.pool_forward.link_from(prev)
+        self.pool_forward.link_attrs(prev, ("input", "output"))
+        prev = self.pool_forward
 
         # First separate activation layer
         self.act_forward = activation.ForwardLog(self)
-        self.act_forward.link_from(self.pool_forward)
-        self.act_forward.link_attrs(self.pool_forward, ("input", "output"))
+        self.act_forward.link_from(prev)
+        self.act_forward.link_attrs(prev, ("input", "output"))
+        prev = self.act_forward
 
         # Second separate activation layer
         self.act_forward2 = activation.ForwardStrictRELU(self)
-        self.act_forward2.link_from(self.act_forward)
-        self.act_forward2.link_attrs(self.act_forward, ("input", "output"),
+        self.act_forward2.link_from(prev)
+        self.act_forward2.link_attrs(prev, ("input", "output"),
                                      "output")
+        prev = self.act_forward2
 
         # Second convolutional layer
         self.conv_forward2 = ConvForward(
             self, n_kernels=50, kx=3, ky=3,
             padding=(2, 2, 2, 2), sliding=(1, 1))
-        self.conv_forward2.link_from(self.act_forward2)
-        self.conv_forward2.link_attrs(self.act_forward2, ("input", "output"))
+        self.conv_forward2.link_from(prev)
+        self.conv_forward2.link_attrs(prev, ("input", "output"))
+        prev = self.conv_forward2
 
         # Second pooling layer
         self.pool_forward2 = pooling.AvgPooling(
             self, kx=3, ky=3, sliding=(2, 2))
-        self.pool_forward2.link_from(self.conv_forward2)
-        self.pool_forward2.link_attrs(self.conv_forward2, ("input", "output"))
+        self.pool_forward2.link_from(prev)
+        self.pool_forward2.link_attrs(prev, ("input", "output"))
+        prev = self.pool_forward2
 
         # Normalization layer
         self.norm = normalization.LRNormalizerForward(self)
-        self.norm.link_from(self.pool_forward2)
-        self.norm.link_attrs(self.pool_forward2, ("input", "output"))
+        self.norm.link_from(prev)
+        self.norm.link_attrs(prev, ("input", "output"))
+        prev = self.norm
 
         # Softmax layer
         self.sm_forward = all2all.All2AllSoftmax(
             self, output_shape=[10])
-        self.sm_forward.link_from(self.norm)
-        self.sm_forward.link_attrs(self.norm, ("input", "output"))
+        self.sm_forward.link_from(prev)
+        self.sm_forward.link_attrs(prev, ("input", "output"))
 
         # Evaluator for softmax layer
         self.ev = evaluator.EvaluatorSoftmax(self)
@@ -100,7 +107,7 @@ class Workflow(OpenCLWorkflow):
         self.ev.link_attrs(self.sm_forward, "output", "max_idx")
         self.ev.labels = formats.Vector()
         self.ev.labels.mem = self.labels.copy()
-        self.ev.batch_size = minibatch_size
+        self.ev.batch_size = self.batch_size
 
         # Gradient descent layer for softmax
         self.sm_gd = gd.GDSM(
@@ -111,21 +118,24 @@ class Workflow(OpenCLWorkflow):
         self.sm_gd.link_attrs(self.ev, "err_output")
         self.sm_gd.link_attrs(self.sm_forward, "weights", "bias",
                               "input", "output")
-        self.sm_gd.batch_size = minibatch_size
+        self.sm_gd.batch_size = self.batch_size
+        prev = self.sm_gd
 
         # Gradient descent layer for normalization
         self.norm_gd = normalization.LRNormalizerBackward(self)
-        self.norm_gd.link_from(self.sm_gd)
-        self.norm_gd.link_attrs(self.sm_gd, ("err_output", "err_input"))
+        self.norm_gd.link_from(prev)
+        self.norm_gd.link_attrs(prev, ("err_output", "err_input"))
         self.norm_gd.link_attrs(self.norm, "input")
+        prev = self.norm_gd
 
         # Gradient descent layer for second pooling
         self.pool_gd2 = gd_pooling.GDAvgPooling(
             self, kx=self.pool_forward2.kx, ky=self.pool_forward2.ky,
             sliding=self.pool_forward2.sliding)
-        self.pool_gd2.link_from(self.norm_gd)
-        self.pool_gd2.link_attrs(self.norm_gd, ("err_output", "err_input"))
+        self.pool_gd2.link_from(prev)
+        self.pool_gd2.link_attrs(prev, ("err_output", "err_input"))
         self.pool_gd2.link_attrs(self.pool_forward2, "input")
+        prev = self.pool_gd2
 
         # Gradient descent layer for second convolutional layer
         self.conv_gd2 = ConvGD(
@@ -136,33 +146,37 @@ class Workflow(OpenCLWorkflow):
             learning_rate_bias=-1, weights_decay_bias=0,
             padding=self.conv_forward2.padding,
             sliding=self.conv_forward2.sliding)
-        self.conv_gd2.link_from(self.pool_gd2)
-        self.conv_gd2.link_attrs(self.pool_gd2, ("err_output", "err_input"))
+        self.conv_gd2.link_from(prev)
+        self.conv_gd2.link_attrs(prev, ("err_output", "err_input"))
         self.conv_gd2.link_attrs(self.conv_forward2, "weights", "bias",
                                  "input", "output")
-        self.conv_gd2.batch_size = minibatch_size
+        self.conv_gd2.batch_size = self.batch_size
+        prev = self.conv_gd2
 
         # Gradient descent for second separate activation layer
         self.act_backward2 = activation.BackwardStrictRELU(self)
-        self.act_backward2.link_from(self.conv_gd2)
-        self.act_backward2.link_attrs(self.conv_gd2,
+        self.act_backward2.link_from(prev)
+        self.act_backward2.link_attrs(prev,
                                      ("err_output", "err_input"))
         self.act_backward2.link_attrs(self.act_forward2, "input", "output")
+        prev = self.act_backward2
 
         # Gradient descent for first separate activation layer
         self.act_backward = activation.BackwardLog(self)
-        self.act_backward.link_from(self.act_backward2)
-        self.act_backward.link_attrs(self.act_backward2,
+        self.act_backward.link_from(prev)
+        self.act_backward.link_attrs(prev,
                                      ("err_output", "err_input"))
         self.act_backward.link_attrs(self.act_forward, "input", "output")
+        prev = self.act_backward
 
         # Gradient descent layer for first pooling
         self.pool_gd = gd_pooling.GDMaxPooling(
             self, kx=self.pool_forward.kx, ky=self.pool_forward.ky,
             sliding=self.pool_forward.sliding)
-        self.pool_gd.link_from(self.act_backward)
-        self.pool_gd.link_attrs(self.act_backward, ("err_output", "err_input"))
+        self.pool_gd.link_from(prev)
+        self.pool_gd.link_attrs(prev, ("err_output", "err_input"))
         self.pool_gd.link_attrs(self.pool_forward, "input", "input_offs")
+        prev = self.pool_gd
 
         # Gradient descent layer for first convolutional layer
         self.conv_gd = ConvGD(
@@ -173,16 +187,17 @@ class Workflow(OpenCLWorkflow):
             learning_rate_bias=-1, weights_decay_bias=0,
             padding=self.conv_forward.padding,
             sliding=self.conv_forward.sliding)
-        self.conv_gd.link_from(self.pool_gd)
-        self.conv_gd.link_attrs(self.pool_gd, ("err_output", "err_input"))
+        self.conv_gd.link_from(prev)
+        self.conv_gd.link_attrs(prev, ("err_output", "err_input"))
         self.conv_gd.link_attrs(self.conv_forward, "weights", "bias",
                                 "input", "output")
-        self.conv_gd.batch_size = minibatch_size
+        self.conv_gd.batch_size = self.batch_size
+        prev = self.conv_gd
 
-        self.end_point.link_from(self.conv_gd)
+        self.end_point.link_from(prev)
 
 
-class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
+class TestGDWorkflow(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
@@ -201,21 +216,23 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(self.device, conv.ConvRELU,
                                   gd_conv.GDRELUConv)
 
-    def _test_random_numeric_cpu(self):
+    def test_random_numeric_cpu(self):
         self._test_random_numeric(None, conv.Conv,
                                   gd_conv.GradientDescentConv)
 
-    def _test_random_numeric_cpu_tanh(self):
+    def test_random_numeric_cpu_tanh(self):
         self._test_random_numeric(None, conv.ConvTanh,
                                   gd_conv.GDTanhConv)
 
-    def _test_random_numeric_cpu_relu(self):
+    def test_random_numeric_cpu_relu(self):
         self._test_random_numeric(None, conv.ConvRELU,
                                   gd_conv.GDRELUConv)
 
     def _test_random_numeric(self, device, ConvForward, ConvGD):
-        logging.info("Will test forward-backward "
-                     "via numeric differentiation")
+        logging.info("Will check %s <=> %s "
+                     "via numeric differentiation on %s",
+                     ConvForward.__name__, ConvGD.__name__,
+                     "CPU, limited to 2 checks" if device is None else "GPU")
 
         w = Workflow(DummyLauncher(), ConvForward=ConvForward, ConvGD=ConvGD)
         w.initialize(device=device)
@@ -260,12 +277,15 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
                   w.conv_gd2.bias: conv_bias2,
                   w.sm_forward.weights: sm_weights,
                   w.sm_forward.bias: sm_bias}
-        for v2c, d2c in ((w.conv_gd.input, err_input),
-                         (w.conv_gd.weights, weights_derivative),
-                         (w.conv_gd.bias, bias_derivative)):
+        for v2c, d2c, nme in (
+                (w.conv_gd.input, err_input, "err_input"),
+                (w.conv_gd.weights, weights_derivative, "weights"),
+                (w.conv_gd.bias, bias_derivative, "bias")):
+            logging.info("Checking %s via numeric differentiation", nme)
             self.numdiff_check(w, v2c, vv_map, w.sm_forward.output, target,
                                d2c, logging.info, self.assertLess,
-                               GDNumDiff.cross_entropy)
+                               GDNumDiff.cross_entropy_mean, w.batch_size,
+                               limit=(2 if device is None else None))
 
 
 if __name__ == "__main__":

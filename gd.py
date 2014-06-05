@@ -146,7 +146,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_bias.map_invalidate()
 
         # weights
-        alpha_batch = -self.learning_rate
+        alpha = -self.learning_rate
         alpha_lambda = -self.learning_rate * self.weights_decay
 
         err_output = formats.reshape(
@@ -157,7 +157,9 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.input.mem, [self.input.mem.shape[0],
                              self.input.mem.size // self.input.mem.shape[0]])
         gradient = numpy.dot(err_output.transpose(), inp)
-        gradient *= alpha_batch
+        if self.error_function_averaged:
+            gradient /= self.current_batch_size
+        gradient *= alpha
         gradient += self.weights.mem * alpha_lambda
         if self.store_gradient:
             gradient += self.gradient_weights.mem * self.gradient_moment
@@ -169,10 +171,13 @@ class GradientDescent(nn_units.GradientDescentBase):
                 self.weights.mem += gradient
 
         # bias
-        alpha_batch = -self.learning_rate_bias
+        alpha = -self.learning_rate_bias
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
-        gradient = err_output.sum(axis=0) * alpha_batch
+        gradient = err_output.sum(axis=0)
+        if self.error_function_averaged:
+            gradient /= self.current_batch_size
+        gradient *= alpha
         gradient += self.bias.mem * alpha_lambda
         if self.store_gradient:
             gradient += self.gradient_bias.mem * self.gradient_moment
@@ -189,6 +194,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_bias.unmap()
 
         self.cl_const[0] = -self.learning_rate
+        if self.error_function_averaged:
+            self.cl_const[0] /= self.current_batch_size
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
         self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
@@ -213,6 +220,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
 
         self.cl_const[0] = -self.learning_rate_bias
+        if self.error_function_averaged:
+            self.cl_const[0] /= self.current_batch_size
         self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
         self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_args(cl.skip(3), self.cl_const[0:1],
@@ -353,7 +362,11 @@ class GDSM(GradientDescent):
     We minimize cross-entropy error function for softmax,
     so gradient descent is the same as in GradientDescent.
     """
-    pass
+    def __init__(self, workflow, **kwargs):
+        # GDSM should be for the last layer, so set appropriate default value
+        error_function_averaged = kwargs.get("error_function_averaged", True)
+        kwargs["error_function_averaged"] = error_function_averaged
+        super(GDSM, self).__init__(workflow, **kwargs)
 
 
 class GDTanh(GradientDescent):

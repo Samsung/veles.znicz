@@ -23,7 +23,7 @@ root.update = {"decision": {"fail_iterations": 200,
                "loader": {"minibatch_maxsize": 10,
                           "rnd": rnd.get(),
                           "view_group": "LOADER"},
-               "wine": {"learning_rate": 0.1,
+               "wine": {"learning_rate": 0.3,
                         "weights_decay": 0.0,
                         "layers": [8, 3],
                         "data_paths":

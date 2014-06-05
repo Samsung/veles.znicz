@@ -86,7 +86,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3, gradient_moment=0.9)
+                                        kx=3, ky=3, gradient_moment=0.9,
+                                        error_function_averaged=True)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -100,13 +101,13 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         batch_size = c.err_output.mem.shape[0]
         b = c.err_output.mem.reshape(9 * batch_size, 2)
-        gradient_weights = numpy.dot(b.transpose(), a)
+        gradient_weights = numpy.dot(b.transpose(), a) / err_output.shape[0]
         weights_derivative = gradient_weights.copy()
         gradient_weights *= -c.learning_rate
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
-        bias_derivative = b.sum(axis=0)
+        bias_derivative = b.sum(axis=0) / err_output.shape[0]
         gradient_bias = bias_derivative * (-c.learning_rate_bias)
         bias_new = bias + gradient_bias
 
@@ -209,7 +210,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
-                                        sliding=(2, 3), gradient_moment=0.9)
+                                        sliding=(2, 3), gradient_moment=0.9,
+                                        error_function_averaged=True)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -327,7 +329,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,
-            padding=forward.padding, sliding=forward.sliding)
+            padding=forward.padding, sliding=forward.sliding,
+            error_function_averaged=True)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()

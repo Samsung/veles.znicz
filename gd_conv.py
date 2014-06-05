@@ -203,6 +203,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         # weights
         alpha_batch = -self.learning_rate
+        if self.error_function_averaged:
+            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate * self.weights_decay
 
         self.cl_const[0] = alpha_batch
@@ -227,6 +229,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         # bias
         alpha_batch = -self.learning_rate_bias
+        if self.error_function_averaged:
+            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
         self.cl_const[0] = alpha_batch
@@ -312,6 +316,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         # update weights
         alpha_batch = -self.learning_rate
+        if self.error_function_averaged:
+            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate * self.weights_decay
         gd_weights_reg = (gd_weights * alpha_batch +
                           self.weights.mem * alpha_lambda)
@@ -330,6 +336,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             gd_bias += numpy.add.reduce(out)
         # update bias
         alpha_batch = -self.learning_rate_bias
+        if self.error_function_averaged:
+            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
         gd_bias_reg = gd_bias * alpha_batch + self.bias.mem * alpha_lambda
         if self.store_gradient:

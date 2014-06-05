@@ -14,10 +14,13 @@ import veles.znicz.all2all as all2all
 
 class GDNumDiff(object):
     """Helper class for numeric differentiation tests.
+
+    WARNING: it is invalid for single precision float data type.
     """
     def numdiff_check(self, forward, vector_to_check, vector_value_map,
                       vector_output, target, derivative_to_check,
-                      logging_info, assertLess, error_function):
+                      logging_info, assertLess, error_function, batch_size,
+                      limit=None):
         """Checks derivative by numeric differentiation based on MSE to target.
 
         Parameters:
@@ -34,20 +37,18 @@ class GDNumDiff(object):
                           (logging.info for example).
             assertLess: pointer to assertLess function.
         """
-        for k, v in forward.__dict__.items():
-            if id(v) == id(vector_to_check):
-                nme = k
-                break
-        else:
-            nme = str(vector_to_check)
-        logging_info("Checking %s.%s with numeric differentiation",
-                     forward.__class__.__name__, nme)
+        for v in vector_value_map.keys():
+            if v is None or v.mem is None:
+                continue
+            if v.mem.dtype in (numpy.float32, numpy.complex64):
+                raise RuntimeError(
+                    "numdiff_check is invalid for single precision "
+                    "float data type")
 
         numdiff = formats.NumDiff()
 
         mem = formats.ravel(vector_to_check.mem)
         derivative_to_check = derivative_to_check.ravel()
-        batch_size = forward.input.mem.shape[0]
         for offs in range(mem.shape[0]):
             for i, p in enumerate(numdiff.points):
                 for k, v in vector_value_map.items():
@@ -64,7 +65,11 @@ class GDNumDiff(object):
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2e %.2e %.2e" %
                          (derivative, derivative_to_check[offs], d))
-            assertLess(d, 1.0e-4, "Numeric diff test failed")
+            assertLess(d, 1.0e-5, "Numeric diff test failed")
+            if limit is not None and offs >= limit - 1:
+                logging_info("Limit of %d checks reached, skipping the rest",
+                             limit)
+                return
 
     @staticmethod
     def sse(y, t, batch_size):
@@ -91,28 +96,27 @@ class GDNumDiff(object):
         """Tests all derivatives for a typical gradient descent unit.
         """
         if error_function_averaged:
-            ef_input = (
+            ef = (
                 GDNumDiff.cross_entropy_mean
                 if isinstance(forward, all2all.All2AllSoftmax)
                 else GDNumDiff.mse)
         else:
-            ef_input = (
+            ef = (
                 GDNumDiff.cross_entropy_sum
                 if isinstance(forward, all2all.All2AllSoftmax)
                 else GDNumDiff.sse)
-        ef_weights = (
-            GDNumDiff.cross_entropy_sum
-            if isinstance(forward, all2all.All2AllSoftmax)
-            else GDNumDiff.sse)
-        for vector, derivative, ef in (
-                (forward.input, err_input, ef_input),
-                (forward.weights, weights_derivative, ef_weights),
-                (forward.bias, bias_derivative, ef_weights)):
+        batch_size = inp.shape[0]
+        for vector, derivative, nme in (
+                (forward.input, err_input, "err_input"),
+                (forward.weights, weights_derivative, "weights"),
+                (forward.bias, bias_derivative, "bias")):
             if derivative is None:
                 continue
+            logging_info("Checking %s via numeric differentiation on %s",
+                         nme, forward.__class__.__name__)
             self.numdiff_check(
                 forward, vector, {forward.input: inp,
                                   forward.weights: weights,
                                   forward.bias: bias},
                 forward.output, target, derivative,
-                logging_info, assertLess, ef)
+                logging_info, assertLess, ef, batch_size)

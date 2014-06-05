@@ -63,7 +63,8 @@ class TestGD(unittest.TestCase, GDNumDiff):
         c = GD(DummyWorkflow(),
                gradient_moment=0, gradient_moment_bias=0,
                learning_rate=-1, weights_decay=0,
-               learning_rate_bias=-1, weights_decay_bias=0)
+               learning_rate_bias=-1, weights_decay_bias=0,
+               error_function_averaged=True)
 
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()

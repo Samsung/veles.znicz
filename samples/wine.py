@@ -29,7 +29,7 @@ root.common.defaults = {"plotters_disabled": True}
 root.defaults = {"decision": {"fail_iterations": 200},
                  "snapshotter": {"prefix": "wine"},
                  "loader": {"minibatch_maxsize": 10},
-                 "wine": {"learning_rate": 0.1,
+                 "wine": {"learning_rate": 0.3,
                           "weights_decay": 0.0,
                           "layers": [8, 3],
                           "data_paths":
