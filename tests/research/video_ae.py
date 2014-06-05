@@ -15,7 +15,6 @@ import os
 import re
 
 from veles.config import root
-from veles.snapshotter import Snapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision

@@ -13,9 +13,8 @@ import os
 from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-# Unused import -- pylint: disable-msg=C0611
 from veles.znicz import conv, all2all, evaluator, decision
-import veles.znicz.accumulator as accumulator
+# import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
