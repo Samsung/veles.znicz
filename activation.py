@@ -31,8 +31,12 @@ class ActivationForward(Forward, Activation):
                 self.output.mem.size != self.input.mem.size):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
+
         self.input.initialize(device)
         self.output.initialize(device)
+
+        if device is None:
+            return
 
         self.build_program({}, "%s.cl" % self.__class__.__name__,
                            dtype=dtype)
@@ -73,6 +77,9 @@ class ActivationBackward(GradientDescentBase, Activation):
         self.err_output.initialize(device)
         self.err_input.initialize(device)
 
+        if device is None:
+            return
+
         self.build_program({}, "%s.cl" % self.__class__.__name__,
                            dtype=dtype)
 
@@ -92,6 +99,8 @@ class ForwardStrictRELU(ActivationForward):
     """
     def initialize(self, device, **kwargs):
         super(ForwardStrictRELU, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
         self.assign_kernel("forward_strict_relu")
         self.set_args()
 
@@ -112,18 +121,22 @@ class BackwardStrictRELU(ActivationBackward):
     """
     def initialize(self, device, **kwargs):
         super(BackwardStrictRELU, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
         self.assign_kernel("backward_strict_relu")
         self.set_args()
 
     def cpu_run(self):
-        inp = self.err_input.mem
-        out = self.err_output.mem
-        if formats.eq_addr(inp, out):
+        err_input = self.err_input.mem
+        err_output = self.err_output.mem
+        output = self.output.mem
+        if formats.eq_addr(err_input, err_output):
             self.err_input.map_write()
         else:
             self.err_input.map_invalidate()
             self.err_output.map_read()
-        inp *= numpy.greater(out, 0)
+        self.output.map_read()
+        numpy.multiply(err_output, numpy.greater(output, 0), err_input)
 
 
 @implementer(IOpenCLUnit)
@@ -136,6 +149,8 @@ class ForwardLog(ActivationForward):
              formats.eq_addr(self.output.mem, self.input.mem))):
             raise error.ErrBadFormat("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
         self.assign_kernel("forward_log")
         self.set_args()
 
@@ -161,17 +176,21 @@ class BackwardLog(ActivationBackward):
             raise error.ErrBadFormat(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
         self.assign_kernel("backward_log")
         self.set_args()
 
     def cpu_run(self):
-        x = self.input.mem
-        inp = self.err_input.mem
-        out = self.err_output.mem
-        if formats.eq_addr(inp, out):
+        inp = self.input.mem
+        err_input = self.err_input.mem
+        err_output = self.err_output.mem
+        if formats.eq_addr(err_input, err_output):
             self.err_input.map_write()
         else:
             self.err_input.map_invalidate()
             self.err_output.map_read()
         self.input.map_read()
-        inp *= numpy.reciprocal(numpy.sqrt(numpy.square(x) + 1))
+        numpy.multiply(
+            err_output, numpy.reciprocal(numpy.sqrt(numpy.square(inp) + 1)),
+            err_input)
