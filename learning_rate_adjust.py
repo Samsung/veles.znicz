@@ -32,6 +32,7 @@ class LearningRateAdjust(Unit):
         self._gradient_units = []
         self._minibatches_count = 0
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
+        self._prev_learning_rate = 1.0e30
 
     def add_one_gd_unit(self, grad_unit):
         """
@@ -64,6 +65,9 @@ class LearningRateAdjust(Unit):
         """
         if self._lr_function is not None:
             learning_rate = self._lr_function(self._minibatches_count)
+            if learning_rate != self._prev_learning_rate:
+                self._prev_learning_rate = learning_rate
+                self.info("Setting learning_rate to %.12f", learning_rate)
             for gd_elm in self._gradient_units:
                 gd_elm.learning_rate = learning_rate
 
