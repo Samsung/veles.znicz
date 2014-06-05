@@ -42,7 +42,7 @@ root.update = {
     "weights_plotter": {"limit": 64},
     "channels": {"export": False,
                  "find_negative": 0,
-                 "learning_rate": 0.001,
+                 "learning_rate": 0.00001,
                  "weights_decay": 0.004,
                  "layers":
                  [{"type": "conv", "n_kernels": 32,

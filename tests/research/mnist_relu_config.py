@@ -23,7 +23,7 @@ root.update = {"all2all": {"weights_stddev": 0.05},
                "snapshotter": {"prefix": "mnist_relu"},
                "loader": {"minibatch_maxsize": 60},
                "weights_plotter": {"limit": 64},
-               "mnist": {"learning_rate": 0.01,
+               "mnist": {"learning_rate": 0.00016,
                          "weights_decay": 0.0,
                          "layers":
                          [{"type": "all2all_relu", "output_shape": 100},

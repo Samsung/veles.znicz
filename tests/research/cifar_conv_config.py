@@ -30,7 +30,7 @@ root.update = {"decision": {"fail_iterations": 100, "do_export_weights": True},
                                 os.path.join(root.common.cache_dir,
                                              "tmp/train")]},
                "weights_plotter": {"limit": 64},
-               "cifar": {"learning_rate": 0.01,
+               "cifar": {"learning_rate": 0.0001,
                          "weights_decay": 0.004,
                          "layers":
                          [{"type": "conv", "n_kernels": 32,

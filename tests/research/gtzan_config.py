@@ -36,7 +36,7 @@ root.update = {"decision": {"fail_iterations": 100},
                          "features":
                          ["Energy", "Centroid", "Flux", "Rolloff",
                           "ZeroCrossings", "CRP"],
-                         "learning_rate": 0.01,
+                         "learning_rate": 0.0001,
                          "weights_decay": 0.00005,
                          "layers": [100, 500, 10],
                          "minibatch_maxsize": 108,

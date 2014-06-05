@@ -41,7 +41,7 @@ root.defaults = {
     "loader": {"minibatch_maxsize": 5103,
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 16},
-    "kanji": {"learning_rate": 0.001,
+    "kanji": {"learning_rate": 0.0000001,
               "weights_decay": 0.00005,
               "layers": [5103, 2889, 24 * 24],
               "data_paths":

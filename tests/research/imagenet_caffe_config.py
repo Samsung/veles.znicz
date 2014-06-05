@@ -18,7 +18,7 @@ root.update = {
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "imagenet_caffe"},
     "loader": {"minibatch_maxsize": 60},
-    "imagenet_caffe": {"learning_rate": 0.01,
+    "imagenet_caffe": {"learning_rate": 0.00016,
                        "weights_decay": 0.0,
                        "layers":
                        [{"type": "conv_relu", "n_kernels": 96,

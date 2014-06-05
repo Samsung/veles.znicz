@@ -28,7 +28,7 @@ root.defaults = {"decision": {"fail_iterations": 25},
                  "snapshotter": {"prefix": "mnist7"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 25},
-                 "mnist7": {"learning_rate": 0.0001,
+                 "mnist7": {"learning_rate": 0.0000016,
                             "weights_decay": 0.00005,
                             "layers": [100, 100, 7]}}
 

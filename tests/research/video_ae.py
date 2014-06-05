@@ -30,7 +30,7 @@ root.defaults = {"decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "video_ae"},
                  "loader": {"minibatch_maxsize": 50},
                  "weights_plotter": {"limit": 16},
-                 "video_ae": {"learning_rate": 0.0002,
+                 "video_ae": {"learning_rate": 0.000004,
                               "weights_decay": 0.00005,
                               "layers": [9, 14400],
                               "data_paths":
