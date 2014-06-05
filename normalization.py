@@ -81,6 +81,9 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
         self._num_of_chans = self.input.mem.shape[3]
 
+        if device is None:
+            return
+
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
@@ -111,9 +114,6 @@ class LRNormalizerForward(LocalResponseNormalizer):
         self.input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_).wait()
 
-    def run(self):
-        self.ocl_run()
-
 
 @implementer(IOpenCLUnit)
 class LRNormalizerBackward(LocalResponseNormalizer):
@@ -142,6 +142,9 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.err_input.initialize(self.device)
 
         self._num_of_chans = self.input.mem.shape[3]
+
+        if device is None:
+            return
 
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
@@ -197,6 +200,3 @@ class LRNormalizerBackward(LocalResponseNormalizer):
         self.input.unmap()
         self.err_input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_).wait()
-
-    def run(self):
-        self.ocl_run()
