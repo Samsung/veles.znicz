@@ -82,8 +82,8 @@ class TestGD(unittest.TestCase, GDNumDiff):
         c.bias.map_read()
 
         err_input = c.err_input.mem.ravel()
-        weights_derivative = (c.weights.mem - weights) * inp.shape[0]
-        bias_derivative = (c.bias.mem - bias) * inp.shape[0]
+        weights_derivative = c.weights.mem - weights
+        bias_derivative = c.bias.mem - bias
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,

@@ -102,12 +102,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         b = c.err_output.mem.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         weights_derivative = gradient_weights.copy()
-        gradient_weights *= (-1) * (c.learning_rate / batch_size)
+        gradient_weights *= -c.learning_rate
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
         bias_derivative = b.sum(axis=0)
-        gradient_bias = bias_derivative * (-1) * (c.learning_rate / batch_size)
+        gradient_bias = bias_derivative * (-c.learning_rate_bias)
         bias_new = bias + gradient_bias
 
         c.initialize(device=device)
@@ -224,12 +224,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         b = c.err_output.mem.reshape(12 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         weights_derivative = gradient_weights.copy()
-        gradient_weights *= (-1) * (c.learning_rate / batch_size)
+        gradient_weights *= -c.learning_rate
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
         bias_derivative = b.sum(axis=0)
-        gradient_bias = bias_derivative * (-1) * (c.learning_rate / batch_size)
+        gradient_bias = bias_derivative * (-c.learning_rate_bias)
         bias_new = bias + gradient_bias
 
         c.initialize(device=device)
@@ -344,8 +344,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.bias.map_read()
 
         err_input = c.err_input.mem.ravel()
-        weights_derivative = (c.weights.mem - weights) * inp.shape[0]
-        bias_derivative = (c.bias.mem - bias) * inp.shape[0]
+        weights_derivative = c.weights.mem - weights
+        bias_derivative = c.bias.mem - bias
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,

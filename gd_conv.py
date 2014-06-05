@@ -92,15 +92,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
-        """
-        sx_full = sx + self.padding[0] + self.padding[2]
-        sy_full = sy + self.padding[1] + self.padding[3]
-        kernel_applies_per_width = (sx_full - self.kx) / self.sliding[0] + 1
-        kernel_applies_per_height = (sy_full - self.ky) / self.sliding[1] + 1
-        self._batch_multiplier = (kernel_applies_per_width *
-                                  kernel_applies_per_height)
-        """
-        self._batch_multiplier = 1
+
         if self.weights.mem.size != n_weights:
             raise error.ErrBadFormat(
                 "Expected number of weights to match "
@@ -205,17 +197,12 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        if self.batch_size is None:
-            batch_size = self.output.mem.shape[0]
-        else:
-            batch_size = int(self.batch_size)
-        batch_size *= self._batch_multiplier
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
 
         # weights
-        alpha_batch = -self.learning_rate / batch_size
+        alpha_batch = -self.learning_rate
         alpha_lambda = -self.learning_rate * self.weights_decay
 
         self.cl_const[0] = alpha_batch
@@ -239,7 +226,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
 
         # bias
-        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_batch = -self.learning_rate_bias
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
         self.cl_const[0] = alpha_batch
@@ -255,6 +242,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ev2.wait()
 
     def cpu_weights_update(self):
+        # TODO: consider case of transposed weights
+        if self.weights_transposed:
+            raise error.ErrNotImplemented(
+                "cpu_run is not implemented for transposed weights")
+
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
@@ -311,7 +303,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                                                    j2 - j1,
                                                                    n_channels)
                 sample[by * nx + bx] = cut.ravel()
-            # TODO: consider case of transposed weights
             err_out_shape = self.err_output.mem.shape
             out = self.err_output.mem[batch].reshape(err_out_shape[1] *
                                                      err_out_shape[2],
@@ -320,7 +311,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                     sample)
 
         # update weights
-        alpha_batch = -self.learning_rate / batch_size
+        alpha_batch = -self.learning_rate
         alpha_lambda = -self.learning_rate * self.weights_decay
         gd_weights_reg = (gd_weights * alpha_batch +
                           self.weights.mem * alpha_lambda)
@@ -338,7 +329,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                                      self.n_kernels)
             gd_bias += numpy.add.reduce(out)
         # update bias
-        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_batch = -self.learning_rate_bias
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
         gd_bias_reg = gd_bias * alpha_batch + self.bias.mem * alpha_lambda
         if self.store_gradient:

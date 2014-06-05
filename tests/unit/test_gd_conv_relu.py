@@ -78,11 +78,12 @@ class TestGDConv(unittest.TestCase):
         batch_size = err_output.shape[0]
         b = err_output.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
-        gradient_weights *= (-1) * (c.learning_rate / batch_size)
+        gradient_weights *= -c.learning_rate
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
-        gradient_bias = b.sum(axis=0) * (-1) * (c.learning_rate / batch_size)
+        gradient_bias = b.sum(axis=0)
+        gradient_bias *= -c.learning_rate_bias
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)

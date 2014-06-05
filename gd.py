@@ -145,13 +145,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_weights.map_invalidate()
         self.gradient_bias.map_invalidate()
 
-        if self.batch_size is None:
-            batch_size = self.output.mem.shape[0]
-        else:
-            batch_size = int(self.batch_size)
-
         # weights
-        alpha_batch = -self.learning_rate / batch_size
+        alpha_batch = -self.learning_rate
         alpha_lambda = -self.learning_rate * self.weights_decay
 
         err_output = formats.reshape(
@@ -174,7 +169,7 @@ class GradientDescent(nn_units.GradientDescentBase):
                 self.weights.mem += gradient
 
         # bias
-        alpha_batch = -self.learning_rate_bias / batch_size
+        alpha_batch = -self.learning_rate_bias
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
         gradient = err_output.sum(axis=0) * alpha_batch
@@ -193,11 +188,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_weights.unmap()
         self.gradient_bias.unmap()
 
-        if self.batch_size is None:
-            batch_size = self.output.mem.shape[0]
-        else:
-            batch_size = int(self.batch_size)
-        self.cl_const[0] = -self.learning_rate / batch_size
+        self.cl_const[0] = -self.learning_rate
         self.cl_const[1] = -self.learning_rate * self.weights_decay
         self.cl_const[2] = self.gradient_moment
         self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
@@ -221,7 +212,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         local_size = [block_size, block_size]
         ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
 
-        self.cl_const[0] = -self.learning_rate_bias / batch_size
+        self.cl_const[0] = -self.learning_rate_bias
         self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
         self.cl_const[2] = self.gradient_moment_bias
         self.krn_bias_.set_args(cl.skip(3), self.cl_const[0:1],

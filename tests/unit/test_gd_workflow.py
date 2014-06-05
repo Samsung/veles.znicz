@@ -246,10 +246,8 @@ class TestGDConvPoolingSoftmax(unittest.TestCase, GDNumDiff):
         w.conv_gd.bias.map_read()
 
         err_input = w.conv_gd.err_input.mem.ravel()
-        weights_derivative = ((w.conv_gd.weights.mem - conv_weights) *
-                              w.input.shape[0])
-        bias_derivative = ((w.conv_gd.bias.mem - conv_bias) *
-                           w.input.shape[0])
+        weights_derivative = w.conv_gd.weights.mem - conv_weights
+        bias_derivative = w.conv_gd.bias.mem - conv_bias
 
         w.end_point.unlink_before()
         w.ev.unlink_before()
