@@ -12,7 +12,8 @@
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global const c_dtype    /* IN */    *err_y,
                   __global const c_dtype    /* IN */    *weights,
-                  __global c_dtype         /* OUT */    *err_h) {
+                  __global c_dtype         /* OUT */    *err_h,
+                  const dtype               /* IN */    multiplier) {
   #define A_WIDTH BATCH
   #define B_WIDTH H
   #define AB_COMMON Y
@@ -38,7 +39,7 @@ void err_h_update(__global const c_dtype    /* IN */    *err_y,
   #undef B
 
   if (valid) {
-    err_h[idx] = sum[0];
+    err_h[idx] = sum[0] * multiplier;
   }
 }
 

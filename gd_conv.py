@@ -366,6 +366,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                  self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
+        if self.error_function_averaged:
+            self.cl_const[0] = 1.0 / self.current_batch_size
+        else:
+            self.cl_const[0] = 1.0
+        self.krn_err_input_.set_arg(3, self.cl_const[0:1])
         event = self.execute_kernel(global_size, local_size,
                                     self.krn_err_input_)
         event.wait()
@@ -407,6 +412,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.mem[batch, :, :, ch] += \
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]
+        if self.error_function_averaged:
+            self.err_input.mem /= self.current_batch_size
 
     def print_debug_data(self, t_start):
         """

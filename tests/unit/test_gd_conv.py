@@ -127,6 +127,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                           [22, 45, 18, 28, 7],
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
+        t /= t.shape[0]
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Err_input differs by %.6f" % (max_diff))

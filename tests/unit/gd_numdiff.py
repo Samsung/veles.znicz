@@ -21,7 +21,8 @@ class GDNumDiff(object):
         """Checks derivative by numeric differentiation based on MSE to target.
 
         Parameters:
-            forward: forward unit instance.
+            forward: forward unit instance, should have input attribute
+                     of type Vector where input.mem.shape[0] is the batch size.
             vector_to_check: vector on which to do numeric differentiation.
             vector_value_map: dictionary of vectors to set => its values,
                               should contain vector_to_check.
@@ -46,6 +47,7 @@ class GDNumDiff(object):
 
         mem = formats.ravel(vector_to_check.mem)
         derivative_to_check = derivative_to_check.ravel()
+        batch_size = forward.input.mem.shape[0]
         for offs in range(mem.shape[0]):
             for i, p in enumerate(numdiff.points):
                 for k, v in vector_value_map.items():
@@ -57,30 +59,55 @@ class GDNumDiff(object):
                 forward.run()
                 vector_output.map_read()
                 numdiff.errs[i] = error_function(vector_output.mem.ravel(),
-                                                 target.ravel())
+                                                 target.ravel(), batch_size)
             derivative = numdiff.derivative
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2e %.2e %.2e" %
                          (derivative, derivative_to_check[offs], d))
-            assertLess(d, 1.0e-3, "Numeric diff test failed")
+            assertLess(d, 1.0e-4, "Numeric diff test failed")
 
     @staticmethod
-    def mse(y, t):
+    def sse(y, t, batch_size):
         return numpy.square(y - t).sum() * 0.5
 
     @staticmethod
-    def cross_entropy(y, t):
+    def mse(y, t, batch_size):
+        return numpy.square(y - t).sum() * 0.5 / batch_size
+
+    @staticmethod
+    def cross_entropy_sum(y, t, batch_size):
         idx = numpy.nonzero(t)
         return (t[idx] * numpy.log(t[idx] / y[idx])).sum()
 
+    @staticmethod
+    def cross_entropy_mean(y, t, batch_size):
+        idx = numpy.nonzero(t)
+        return (t[idx] * numpy.log(t[idx] / y[idx])).sum() / batch_size
+
     def numdiff_check_gd(self, forward, inp, weights, bias, target,
                          err_input, weights_derivative, bias_derivative,
-                         logging_info, assertLess):
+                         logging_info, assertLess,
+                         error_function_averaged=True):
         """Tests all derivatives for a typical gradient descent unit.
         """
-        for vector, derivative in ((forward.input, err_input),
-                                   (forward.weights, weights_derivative),
-                                   (forward.bias, bias_derivative)):
+        if error_function_averaged:
+            ef_input = (
+                GDNumDiff.cross_entropy_mean
+                if isinstance(forward, all2all.All2AllSoftmax)
+                else GDNumDiff.mse)
+        else:
+            ef_input = (
+                GDNumDiff.cross_entropy_sum
+                if isinstance(forward, all2all.All2AllSoftmax)
+                else GDNumDiff.sse)
+        ef_weights = (
+            GDNumDiff.cross_entropy_sum
+            if isinstance(forward, all2all.All2AllSoftmax)
+            else GDNumDiff.sse)
+        for vector, derivative, ef in (
+                (forward.input, err_input, ef_input),
+                (forward.weights, weights_derivative, ef_weights),
+                (forward.bias, bias_derivative, ef_weights)):
             if derivative is None:
                 continue
             self.numdiff_check(
@@ -88,7 +115,4 @@ class GDNumDiff(object):
                                   forward.weights: weights,
                                   forward.bias: bias},
                 forward.output, target, derivative,
-                logging_info, assertLess,
-                GDNumDiff.cross_entropy
-                if isinstance(forward, all2all.All2AllSoftmax)
-                else GDNumDiff.mse)
+                logging_info, assertLess, ef)

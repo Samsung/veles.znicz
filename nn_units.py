@@ -102,10 +102,10 @@ class GradientDescentBase(OpenCLUnit):
         gradient_moment = kwargs.get("gradient_moment", 0)
         gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                           gradient_moment)
-        #TODO(a.golovizin): fix store_gradient param in configs
         store_gradient = kwargs.get("store_gradient", True)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         need_err_input = kwargs.get("need_err_input", True)
+        error_function_averaged = kwargs.get("error_function_averaged", True)
         kwargs["learning_rate"] = learning_rate
         kwargs["learning_rate_bias"] = learning_rate_bias
         kwargs["weights_decay"] = weights_decay
@@ -117,6 +117,7 @@ class GradientDescentBase(OpenCLUnit):
         kwargs["gradient_moment"] = gradient_moment
         kwargs["gradient_moment_bias"] = gradient_moment_bias
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
+        kwargs["error_function_averaged"] = error_function_averaged
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.input = None
         self.output = None
@@ -137,8 +138,15 @@ class GradientDescentBase(OpenCLUnit):
                                store_gradient)
         self.apply_gradient = apply_gradient
         self.need_err_input = need_err_input
+        self.error_function_averaged = error_function_averaged
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
+
+    @property
+    def current_batch_size(self):
+        if self.batch_size is None:
+            return self.err_output.mem.shape[0]
+        return int(self.batch_size)
 
     def initialize(self, device, **kwargs):
         super(GradientDescentBase, self).initialize(device=device, **kwargs)

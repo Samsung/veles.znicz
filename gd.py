@@ -247,6 +247,8 @@ class GradientDescent(nn_units.GradientDescentBase):
                                      self.weights.mem.transpose())[:]
         else:
             err_input[:] = numpy.dot(err_output, self.weights.mem)[:]
+        if self.error_function_averaged:
+            err_input /= self.current_batch_size
 
     def gpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
@@ -263,6 +265,11 @@ class GradientDescent(nn_units.GradientDescentBase):
                        formats.roundup(self.err_input.mem.shape[0],
                                        block_size)]
         local_size = [block_size, block_size]
+        if self.error_function_averaged:
+            self.cl_const[0] = 1.0 / self.current_batch_size
+        else:
+            self.cl_const[0] = 1.0
+        self.krn_err_input_.set_arg(3, self.cl_const[0:1])
         event = self.execute_kernel(global_size, local_size,
                                     self.krn_err_input_)
         event.wait()
