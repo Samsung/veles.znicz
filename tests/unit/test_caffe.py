@@ -24,7 +24,7 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
-#os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
+os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -752,6 +752,13 @@ class TestConvCaffe(unittest.TestCase):
                         "Delta W differs by %.2f%%" % (percent_delta_w))
 
     def test_softmax(self, data_filename="softmax.txt"):
+        """
+        A complex test for EvaluatorSoftmax, All2AllSoftMax and GDSM layers.
+
+        Args:
+            data_filename(str): name of file with pooling data
+                (relative from data dir)
+        """
         n_classes = 10  # CIFAR
         n_pics = 2
         n_chans = 64
@@ -767,6 +774,9 @@ class TestConvCaffe(unittest.TestCase):
         a2a_top = self._read_array("a2a_top", lines, (n_pics, 1, 1, n_classes))
         a2a_weights_raw = self._read_array(
             "a2a_weights", lines, (n_classes, 1, size * size * n_chans, 1))
+        a2a_weights_raw = a2a_weights_raw.reshape(
+            n_classes, n_chans, size, size).swapaxes(1, 2).swapaxes(2, 3)
+
         a2a_weights = a2a_weights_raw.reshape(n_classes, size * size * n_chans)
 
         a2a_bias_raw = self._read_array("a2a_bias", lines,
@@ -798,7 +808,7 @@ class TestConvCaffe(unittest.TestCase):
         fwd_percent_delta = (np.sum(np.abs(a2a_softmax.output.mem - sm_top))
                              / (np.sum(np.abs(sm_top)))) * 100.
 
-        logging.info("A2A_SM FWD DELTA: %.3f" % fwd_percent_delta)
+        logging.info("A2A_SM FWD DELTA: %.3f%%" % fwd_percent_delta)
         self.assertLess(fwd_percent_delta, max_percent_delta,
                         "A2A_SM_FWD differs by %.2f%%" % (fwd_percent_delta))
 
@@ -806,8 +816,12 @@ class TestConvCaffe(unittest.TestCase):
 
         sm_top_err = self._read_array("sm_top_diff", lines,
                                       (n_pics, 1, 1, n_classes))
+        sm_bot_err = self._read_array("sm_bottom_diff", lines,
+                                      (n_pics, 1, 1, n_classes))
         a2a_bot_err = self._read_array("a2a_bottom_diff", lines,
                                       (n_pics, size, size, n_chans))
+
+#        a2a_bot_err = a2a_bot_err.transpose((0, 2, 1, 3))
 
         ev_sm = evaluator.EvaluatorSoftmax(self.workflow)
 
@@ -817,7 +831,7 @@ class TestConvCaffe(unittest.TestCase):
         ev_sm.labels = Vector(labels.reshape(n_pics))
 
         ev_sm.initialize(self.device)
-        ev_sm.ocl_run()
+        ev_sm.cpu_run()
 
         ev_sm.output.map_read()
         ev_sm.err_output.map_read()
@@ -829,7 +843,6 @@ class TestConvCaffe(unittest.TestCase):
         back_a2a_sm.err_output = ev_sm.err_output
         back_a2a_sm.weights = a2a_softmax.weights
         back_a2a_sm.bias = a2a_softmax.bias
-        back_a2a_sm.a2a_softmax = ev_sm.batch_size
 
         back_a2a_sm.initialize(self.device)
 
@@ -841,25 +854,47 @@ class TestConvCaffe(unittest.TestCase):
             100. * (np.sum(np.abs(back_a2a_sm.err_input.mem - a2a_bot_err))
                     / np.sum(np.abs(a2a_bot_err)))
 
-        logging.info("A2A_SM_BACK_DELTA %.2f", back_percent_delta)
+        logging.info("A2ASM_BACK_DELTA %.2f", back_percent_delta)
+
+        manual_sm_bot_err = np.zeros(shape=(n_pics, 1, 1, n_classes),
+                                     dtype=np.float64)
+        for pic in range(n_pics):
+            for i in range(n_classes):
+                for j in range(n_classes):
+                    if labels[pic] == j:
+                        target = 1
+                    else:
+                        target = 0
+#                    print(int(i == j))
+                    manual_sm_bot_err[pic, 0, 0, i] += (
+                        target / sm_top_err[pic, 0, 0, j] *
+                        (sm_top_err[pic, 0, 0, i] * sm_top_err[pic, 0, 0, j]
+                         - sm_top_err[pic, 0, 0, i] * int(i == j))
+                        )
+
+        manual_sm_bot_err /= n_pics  # WTF???!!!!
+        logging.info(" manual SM_BOT_ERR_DELTA %.3f%%" %
+                     (np.sum(np.abs(manual_sm_bot_err - sm_bot_err))
+                      / np.sum(np.abs(sm_bot_err),))
+                     )
+
+        manual_a2a_bot_err = np.zeros(shape=(n_pics, size, size, n_chans),
+                                      dtype=np.float64)
+        for pic in range(n_pics):
+            for cur_class in range(n_classes):
+                for i in range(size):
+                    for j in range(size):
+                        for chan in range(n_chans):
+                            manual_a2a_bot_err[pic, i, j, chan] += (
+                                sm_bot_err[pic, 0, 0, cur_class] *
+                                a2a_weights_raw[cur_class, i, j, chan])
+
+        logging.info(" manual A2A_BOT_ERR_DELTA %.3f%%" % (
+            np.sum(np.abs(manual_a2a_bot_err - a2a_bot_err))
+            / np.sum(np.abs(a2a_bot_err))))
+
         self.assertLess(back_percent_delta, max_percent_delta,
-                        "A2ASM_BACK differs by %.2f%%" % (back_percent_delta))
-
-       # uncomment to see extra debug data
-
-#        yy = ev_sm.output.mem
-#
-#        ev_sm.labels.map_read()
-#        tgt = np.zeros_like(yy)
-#        for i, lbl in enumerate(ev_sm.labels.mem.astype(np.int32)):
-#            tgt[i, int(lbl)] = 1.0
-#        for i in range(yy.shape[0]):
-#            t = tgt[i]
-#            y = yy[i]
-#            idx = np.nonzero(t)
-#            cre = (t[idx] * np.log(t[idx] / y[idx])).sum()
-#            print(i, cre)
-#        print(labels.reshape(n_pics))
+                        "Back A2SM differs by %.3f%%" % (back_percent_delta))
 
 
 if __name__ == "__main__":
