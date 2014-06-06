@@ -24,7 +24,7 @@ root.update = {"learning_rate_adjust": {"do": False},
                "snapshotter": {"prefix": "mnist_relu"},
                "loader": {"minibatch_size": 60},
                "weights_plotter": {"limit": 64},
-               "mnist": {"learning_rate": 0.00016,
+               "mnist": {"learning_rate": 0.03,
                          "weights_decay": 0.0,
                          "layers":
                          [{"type": "all2all_relu", "output_shape": 100},
