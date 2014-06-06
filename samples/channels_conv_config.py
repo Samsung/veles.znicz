@@ -20,6 +20,7 @@ root.model = "conv"
 root.update = {
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
+                 "max_epochs": 10000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "snapshotter": {"prefix": "channels %s" % root.model},

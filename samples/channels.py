@@ -37,7 +37,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.image_saver as image_saver
+#import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -53,6 +53,7 @@ root.model = "conv"
 root.defaults = {
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
+                 "max_epochs": 10000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "snapshotter": {"prefix": "channels %s" % root.model},
@@ -380,7 +381,7 @@ class Loader(loader.FullBatchLoader):
                         continue
                     old_file_map.append(self.file_map[i])
                 self.original_data.append(a)
-            self.rnd[0].state = pickle.load(fin)
+            self.prng.state = pickle.load(fin)
             fin.close()
             self.info("Succeeded")
             self.info("class_lengths=[%s]" % (
@@ -586,19 +587,18 @@ class Loader(loader.FullBatchLoader):
             return
         self.info("Saving loaded data for later faster load to "
                   "%s" % (cached_data_fnme))
-        fout = open(cached_data_fnme, "wb")
-        obj = {}
-        for name in self.attributes_for_cached_data:
-            obj[name] = self.__dict__[name]
-        pickle.dump(obj, fout)
-        pickle.dump(self.shuffled_indices, fout)
-        pickle.dump(self.original_labels, fout)
-        # Because pickle doesn't support greater than 4Gb arrays
-        for i in range(len(self.original_data)):
-            pickle.dump(self.original_data[i], fout)
-        # Save random state
-        pickle.dump(self.rnd[0].state, fout)
-        fout.close()
+        with open(cached_data_fnme, "wb") as fout:
+            obj = {}
+            for name in self.attributes_for_cached_data:
+                obj[name] = self.__dict__[name]
+            pickle.dump(obj, fout)
+            pickle.dump(self.shuffled_indices, fout)
+            pickle.dump(self.original_labels, fout)
+            # Because pickle doesn't support greater than 4Gb arrays
+            for i in range(len(self.original_data)):
+                pickle.dump(self.original_data[i], fout)
+            # Save random state
+            pickle.dump(self.prng.state, fout)
         self.info("Done")
 
     def as_image(self, x):
@@ -662,6 +662,7 @@ class Workflow(StandardWorkflow):
                 if len(self.accumulator) == 1 else self.accumulator[-2])
             self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
         """
+        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
@@ -670,13 +671,13 @@ class Workflow(StandardWorkflow):
         self.image_saver.link_attrs(
             self.loader,
             ("input", "minibatch_data"),
-            ("indexes", "minibatch_indexes"),
+            ("indexes", "minibatch_indices"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
-
+        """
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.image_saver)
+        self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -687,7 +688,8 @@ class Workflow(StandardWorkflow):
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.decision.fail_iterations,
             use_dynamic_alpha=root.decision.use_dynamic_alpha,
-            do_export_weights=root.decision.do_export_weights)
+            do_export_weights=root.decision.do_export_weights,
+            max_epochs=root.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -711,9 +713,9 @@ class Workflow(StandardWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        self.image_saver.gate_skip = ~self.decision.improved
-        self.image_saver.link_attrs(self.snapshotter,
-                                    ("this_save_time", "time"))
+        #self.image_saver.gate_skip = ~self.decision.improved
+        #self.image_saver.link_attrs(self.snapshotter,
+        #                            ("this_save_time", "time"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
 
@@ -812,8 +814,8 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, minibatch_size,
-                   w_neg, device):
+    def initialize(self, learning_rate, weights_decay, minibatch_size, w_neg,
+                   device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          minibatch_size=minibatch_size,
@@ -870,4 +872,5 @@ def run(load, main):
     logging.info("Will execute workflow now")
     main(learning_rate=root.channels.learning_rate,
          weights_decay=root.channels.weights_decay,
-         minibatch_size=root.loader.minibatch_size, w_neg=w_neg)
+         minibatch_size=root.loader.minibatch_size,
+         w_neg=w_neg)
