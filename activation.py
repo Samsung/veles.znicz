@@ -141,7 +141,7 @@ class BackwardStrictRELU(ActivationBackward):
 
 @implementer(IOpenCLUnit)
 class ForwardLog(ActivationForward):
-    """Forward pass for y = max(0, x).
+    """Forward pass for y = log(x + sqrt(x * x + 1)).
     """
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
@@ -167,7 +167,7 @@ class ForwardLog(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardLog(ActivationBackward):
-    """Backward pass for y = max(0, x).
+    """Backward pass for y = log(x + sqrt(x * x + 1)).
     """
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
@@ -194,3 +194,60 @@ class BackwardLog(ActivationBackward):
         numpy.multiply(
             err_output, numpy.reciprocal(numpy.sqrt(numpy.square(inp) + 1)),
             err_input)
+
+
+@implementer(IOpenCLUnit)
+class ForwardSinCos(ActivationForward):
+    """Forward pass for y = sin(x) if idx(x) is odd else cos(x).
+    """
+    def initialize(self, device, **kwargs):
+        if (id(self.output) == id(self.input) or
+            (self.output is not None and self.output.mem is not None and
+             formats.eq_addr(self.output.mem, self.input.mem))):
+            raise error.ErrBadFormat("in_place for this unit is prohibited")
+        super(ForwardSinCos, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("forward_sincos")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = formats.ravel(self.input.mem)
+        out = formats.ravel(self.output.mem)
+        if formats.eq_addr(inp, out):
+            self.output.map_write()
+        else:
+            self.output.map_invalidate()
+            self.input.map_read()
+        out[1::2] = numpy.sin(inp[1::2])
+        out[0::2] = numpy.cos(inp[0::2])
+
+
+@implementer(IOpenCLUnit)
+class BackwardSinCos(ActivationBackward):
+    """Backward pass for y = sin(x) if idx(x) is odd else cos(x).
+    """
+    def initialize(self, device, **kwargs):
+        if (self.input is None or self.input.mem is None or
+            (self.output is not None and
+             formats.eq_addr(self.input.mem, self.output.mem))):
+            raise error.ErrBadFormat(
+                "input should be set and should not be equal to output")
+        super(BackwardSinCos, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("backward_sincos")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = formats.ravel(self.input.mem)
+        err_input = formats.ravel(self.err_input.mem)
+        err_output = formats.ravel(self.err_output.mem)
+        if formats.eq_addr(err_input, err_output):
+            self.err_input.map_write()
+        else:
+            self.err_input.map_invalidate()
+            self.err_output.map_read()
+        self.input.map_read()
+        err_input[1::2] = err_output[1::2] * numpy.cos(inp[1::2])
+        err_input[0::2] = err_output[0::2] * (-numpy.sin(inp[0::2]))

@@ -113,6 +113,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
                             self, device=self.device, **kwargs),
                         "activation_log": lambda layer:
                         activation.ForwardLog(
+                            self, device=self.device, **kwargs),
+                        "activation_sincos": lambda layer:
+                        activation.ForwardSinCos(
                             self, device=self.device, **kwargs)}
 
             unit = layer_ct[layer["type"]](layer)
@@ -216,6 +219,10 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
             elif isinstance(fwd_elm, activation.ForwardLog):
                 grad_elm = activation.BackwardLog(
+                    self, device=self.device, **kwargs)
+
+            elif isinstance(fwd_elm, activation.ForwardSinCos):
+                grad_elm = activation.BackwardSinCos(
                     self, device=self.device, **kwargs)
 
             else:

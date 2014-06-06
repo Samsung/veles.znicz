@@ -36,3 +36,21 @@ __kernel void backward_log(__global const c_dtype    /* IN */    *input,
   c_dtype vle = input[idx];
   err_input[idx] = err_output[idx] * c_log_back(vle);
 }
+
+
+__kernel void forward_sincos(__global const c_dtype    /* IN */    *input,
+                             __global c_dtype         /* OUT */    *output) {
+  int idx = get_global_id(0);
+  c_dtype vle = input[idx];
+  output[idx] = (idx & 1) ? c_sin(vle) : c_cos(vle);
+}
+
+
+__kernel void backward_sincos(__global const c_dtype    /* IN */    *input,
+                              __global const c_dtype    /* IN */    *output,
+                              __global const c_dtype    /* IN */    *err_output,
+                              __global c_dtype         /* OUT */    *err_input) {
+  int idx = get_global_id(0);
+  c_dtype vle = input[idx];
+  err_input[idx] = err_output[idx] * ((idx & 1) ? c_cos(vle) : -c_sin(vle));
+}
