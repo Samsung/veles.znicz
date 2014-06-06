@@ -285,8 +285,15 @@ class Loader(Unit):
 
     @validation_ratio.setter
     def validation_ratio(self, value):
+        if isinstance(value, int):
+            if value != 0:
+                raise ValueError("validation_ratio must be in [0, 1).")
+            self._validation_ratio = 0.0
+            return
         if not isinstance(value, float):
             raise TypeError("validation_ratio must be a float")
+        if value < 0 or value >= 1:
+            raise ValueError("validation_ratio must be in [0, 1).")
         self._validation_ratio = value
 
     def __getstate__(self):

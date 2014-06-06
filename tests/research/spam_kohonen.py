@@ -186,14 +186,15 @@ class Workflow(nn_units.NNWorkflow):
             self, max_epochs=root.decision.epochs)
         self.decision.link_from(self.forward)
         self.decision.link_attrs(self.loader, "minibatch_class",
-                                              "no_more_minibatches_left",
-                                              "class_lengths")
+                                              "last_minibatch",
+                                              "class_lengths",
+                                              "epoch_ended",
+                                              "epoch_number")
         self.decision.link_attrs(self.trainer, "weights", "winners")
-        self.trainer.epoch_ended = self.decision.epoch_ended
 
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)
-        self.ipython.gate_skip = ~self.decision.epoch_ended
+        self.ipython.gate_skip = ~self.loader.epoch_ended
 
         self.repeater.link_from(self.ipython)
 
@@ -214,11 +215,11 @@ class Workflow(nn_units.NNWorkflow):
         self.plotters[0].link_attrs(self.trainer, "shape")
         self.plotters[0].input = self.decision.winners_copy
         self.plotters[0].link_from(self.decision)
-        self.plotters[0].gate_block = ~self.decision.epoch_ended
+        self.plotters[0].gate_block = ~self.loader.epoch_ended
         self.plotters[1].link_attrs(self.trainer, "shape")
         self.plotters[1].input = self.decision.weights_copy
         self.plotters[1].link_from(self.decision)
-        self.plotters[1].gate_block = ~self.decision.epoch_ended
+        self.plotters[1].gate_block = ~self.loader.epoch_ended
 
     def initialize(self, device):
         return super(Workflow, self).initialize(device=device)

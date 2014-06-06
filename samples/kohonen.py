@@ -98,7 +98,6 @@ class Workflow(nn_units.NNWorkflow):
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(self.trainer, "weights", "winners")
-        self.trainer.epoch_ended = self.decision.epoch_ended
 
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)

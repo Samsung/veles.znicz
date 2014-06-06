@@ -348,9 +348,7 @@ class KohonenHits(plotter.Plotter):
         # Add hexagons one by one
         for y in range(self.height):
             for x in range(self.width):
-                number = self.input[x, y] if \
-                    not isinstance(self.input, formats.Vector) \
-                    else self.input[y * self.width + x]
+                number = self.input[y * self.width + x]
                 # square is proportional to the square root of the linear
                 # size / the hits number
                 self._add_hexagon(axes, patches, x, y,

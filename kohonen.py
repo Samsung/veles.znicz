@@ -233,7 +233,6 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     Must be assigned before initialize():
         input
         shape
-        epoch_ended
 
     Creates within initialize():
         weights
@@ -255,7 +254,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     """
     def __init__(self, workflow, shape, **kwargs):
         super(KohonenTrainer, self).__init__(workflow, **kwargs)
-        self.demand("input", "shape", "epoch_ended")
+        self.demand("input", "shape")
         self._distances = formats.Vector()
         self.argmins = formats.Vector()
         self._coords = formats.Vector()
@@ -292,6 +291,10 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
     @property
     def shape(self):
         return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        self._shape = value
 
     def initialize(self, device, **kwargs):
         super(KohonenTrainer, self).initialize(device=device, **kwargs)
@@ -449,9 +452,6 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self.weights.map_invalidate()
         self.winners.map_invalidate()
 
-        if self.epoch_ended:
-            self.winners.mem[:] = 0
-
         for sindex in range(batch_size):
             dist = self.weights.mem - self.input[sindex]
             winner = numpy.argmin(self.numpy_linalg_norm(dist))
@@ -475,11 +475,6 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self._coords.unmap()
 
         batch_size = self.input.mem.shape[0]
-        if self.epoch_ended:
-            self.winners.map_invalidate()
-            self.winners.mem[:] = 0
-            self.winners.unmap()
-
         self.execute_kernel(self._gs_distance, self._ls_distance,
                             self._krn_distances_).wait()
         self.execute_kernel([self.argmin_group_size],
@@ -523,6 +518,7 @@ class KohonenDecision(TrivialDecision, decision.DecisionBase):
         """This method is supposed to be overriden in inherited classes.
         """
         self.weights.map_read()
-        self.winners.map_read()
+        self.winners.map_write()
         self.weights_copy.mem = numpy.copy(self.weights.mem)
         self.winners_copy.mem = numpy.copy(self.winners.mem)
+        self.winners.mem[:] = 0
