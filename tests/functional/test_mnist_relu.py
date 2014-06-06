@@ -14,22 +14,20 @@ import unittest
 from veles.config import root
 import veles.opencl as opencl
 import veles.random_generator as rnd
-# TODO(a.kazantsev): fix timeout.
-#from veles.tests import timeout
+from veles.tests import timeout
 import veles.znicz.tests.research.mnist as mnist_relu
 import veles.tests.dummy_workflow as dummy_workflow
 
 
-class TestWine(unittest.TestCase):
+class TestMnistRelu(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    # TODO(a.kazantsev): uncomment when timeout is fixed.
-    #@timeout
-    def test_wine(self):
-        logging.info("Will test loader, decision, evaluator units")
+    @timeout()
+    def test_mnist_relu(self):
+        logging.info("Will test mnist workflow with relu config")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
@@ -64,7 +62,7 @@ class TestWine(unittest.TestCase):
         self.w.run()
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 345)
+        self.assertEqual(err, 415)
         logging.info("All Ok")
 
 if __name__ == "__main__":

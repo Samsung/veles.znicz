@@ -31,7 +31,7 @@ class TestKanji(unittest.TestCase):
 
     @timeout()
     def test_kanji(self):
-        logging.info("Will test loader, decision, evaluator units")
+        logging.info("Will test kanji workflow")
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.int32, count=1024))

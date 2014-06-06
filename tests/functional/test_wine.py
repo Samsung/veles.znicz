@@ -27,7 +27,7 @@ class TestWine(unittest.TestCase):
 
     @timeout()
     def test_wine(self):
-        logging.info("Will test loader, decision, evaluator units")
+        logging.info("Will test wine workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
@@ -35,7 +35,7 @@ class TestWine(unittest.TestCase):
         root.update = {"decision": {"fail_iterations": 200,
                                     "snapshot_prefix": "wine"},
                        "loader": {"minibatch_size": 10},
-                       "wine_test": {"learning_rate": 0.3,
+                       "wine_test": {"learning_rate": 0.6,
                                      "weights_decay": 0.0,
                                      "layers":  [8, 3],
                                      "data_paths":
