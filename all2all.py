@@ -105,7 +105,7 @@ class All2All(nn_units.Forward):
             elif self.weights_filling == "constant":
                 self.weights.mem[:] = self.weights_stddev
             else:
-                raise error.ErrBadFormat("Invalid weights filling type")
+                raise error.BadFormatError("Invalid weights filling type")
             self.weights.mem = self.weights.mem.reshape([
                 output_size, self.input.mem.size // self.input.mem.shape[0]])
             # Reshape weights as a matrix:
@@ -125,7 +125,7 @@ class All2All(nn_units.Forward):
             elif self.bias_filling == "constant":
                 self.bias.mem[:] = self.bias_stddev
             else:
-                raise error.ErrBadFormat("Invalid bias filling type")
+                raise error.BadFormatError("Invalid bias filling type")
 
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.shape[0] * output_size):
@@ -304,7 +304,7 @@ class All2AllSoftmax(All2All):
         self.cl_sources_["softmax.cl"] = {"REDUCE_SIZE": self.reduce_size}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
         if self.output.mem.size // self.output.mem.shape[0] <= 1:
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "Output sample size should be greater than 1 for SoftMax.")
 
         if (self.max_idx.mem is None or

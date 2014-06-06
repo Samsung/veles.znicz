@@ -190,7 +190,7 @@ class Loader(loader.FullBatchLoader):
                 a[2:3, :, :].reshape(
                     a2.shape[0], a2.shape[1], 1)[:, :, 0:1] = a2[:, :, 2:3]
         else:
-            raise error.ErrBadFormat("Unknown colorspace in %s" % (fnme))
+            raise error.BadFormatError("Unknown colorspace in %s" % (fnme))
         return a
 
     def sample_rect(self, a, pos, sz):
@@ -618,9 +618,9 @@ class Loader(loader.FullBatchLoader):
                     x.shape[1], x.shape[2], 1)[:, :, 0:1]
                 x = xx
             else:
-                raise error.ErrBadFormat()
+                raise error.BadFormatError()
         else:
-            raise error.ErrBadFormat()
+            raise error.BadFormatError()
         return formats.norm_image(x, True)
 
 

@@ -74,7 +74,7 @@ class GDPooling(nn_units.GradientDescentBase):
             self._batch_size
 
         if self.err_output.mem.size != output_size:
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
 
@@ -139,7 +139,7 @@ class GDPooling(nn_units.GradientDescentBase):
         event.wait()
 
     def cpu_run(self):
-        raise error.ErrNotImplemented()
+        raise NotImplementedError()
 
     def run(self):
         t1 = time.time()
@@ -175,8 +175,8 @@ class GDMaxPooling(GDPooling):
         super(GDMaxPooling, self).initialize(**kwargs)
 
         if self.err_output.mem.size != self.input_offs.mem.size:
-            raise error.ErrBadFormat("Shape of err_output differs from "
-                                     "that of input_offs")
+            raise error.BadFormatError("Shape of err_output differs from "
+                                       "that of input_offs")
 
         self.input_offs.initialize(self.device)
 

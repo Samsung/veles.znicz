@@ -103,14 +103,14 @@ class Loader(loader.Loader):
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
             if res is None:
-                raise error.ErrBadFormat("Incorrectly formatted filename "
-                                         "found: %s" % (fnme))
+                raise error.BadFormatError("Incorrectly formatted filename "
+                                           "found: %s" % (fnme))
             lbl = int(res.group(1))
             self.original_labels[i] = lbl
             idx = int(res.group(2))
             if idx != i:
-                raise error.ErrBadFormat("Incorrect sample index extracted "
-                                         "from filename: %s " % (fnme))
+                raise error.BadFormatError("Incorrect sample index extracted "
+                                           "from filename: %s " % (fnme))
 
         self.info("Found %d samples. Extracting 15%% for validation..." % (
             len(self.index_map)))

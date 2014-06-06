@@ -141,9 +141,9 @@ class Loader(Unit):
     @total_samples.setter
     def total_samples(self, value):
         if value <= 0:
-            raise error.ErrBadFormat("class_lengths should be filled")
+            raise error.BadFormatError("class_lengths should be filled")
         if value > numpy.iinfo(numpy.int32).max:
-            raise error.ErrNotImplemented(
+            raise NotImplementedError(
                 "total_samples exceeds int32 capacity.")
         self._total_samples = value
 
@@ -313,8 +313,8 @@ class Loader(Unit):
         self._adjust_max_minibatch_size()
         self.create_minibatches()
         if not self.minibatch_data:
-            raise error.ErrBadFormat("minibatch_data MUST be initialized in "
-                                     "create_minibatches()")
+            raise error.BadFormatError("minibatch_data MUST be initialized in "
+                                       "create_minibatches()")
         self.shuffle()
 
     def run(self):
@@ -430,8 +430,8 @@ class Loader(Unit):
             n_train = nn[l]
             nn[l] = max(int(numpy.round(amount * nn[l])), 1)
             if nn[l] >= n_train:
-                raise error.ErrNotExists("There are too few labels "
-                                         "for class %d" % (l))
+                raise error.NotExistsError("There are too few labels "
+                                           "for class %d" % (l))
             n += nn[l]
         while n > 0:
             i = rand.randint(offs, offs_test + train_samples)
@@ -726,14 +726,14 @@ class ImageLoader(FullBatchLoader):
             if type(obj) == numpy.ndarray:
                 a = obj
                 if sz != -1 and a.size != sz:
-                    raise error.ErrBadFormat("Found file with different "
-                                             "size than first: %s", files[i])
+                    raise error.BadFormatError("Found file with different "
+                                               "size than first: %s", files[i])
                 else:
                     sz = a.size
                 lbl = self.get_label_from_filename(files[i])
                 if lbl is not None:
                     if type(lbl) != int:
-                        raise error.ErrBadFormat(
+                        raise error.BadFormatError(
                             "Found non-integer label "
                             "with type %s for %s" % (str(type(ll)), files[i]))
                     ll.append(lbl)
@@ -745,11 +745,13 @@ class ImageLoader(FullBatchLoader):
             else:
                 a, l = obj[0], obj[1]
                 if len(a) != len(l):
-                    raise error.ErrBadFormat("from_image() returned different "
-                                             "number of samples and labels.")
+                    raise error.BadFormatError(
+                        "from_image() returned different number of samples "
+                        "and labels.")
                 if sz != -1 and a[0].size != sz:
-                    raise error.ErrBadFormat("Found file with different sample"
-                                             " size than first: %s", files[i])
+                    raise error.BadFormatError(
+                        "Found file with different sample size than first: %s",
+                        files[i])
                 else:
                     sz = a[0].size
                 ll.extend(l)
@@ -782,14 +784,14 @@ class ImageLoader(FullBatchLoader):
                     continue
                 if len(ll):
                     if len(ll) != len(aa):
-                        raise error.ErrBadFormat(
+                        raise error.BadFormatError(
                             "Number of labels %d differs "
                             "from number of input images %d for %s" %
                             (len(ll), len(aa), pathname))
                     labels.extend(ll)
                 elif len(labels):
-                    raise error.ErrBadFormat("Not labels found for %s" %
-                                             (pathname))
+                    raise error.BadFormatError("Not labels found for %s" %
+                                               pathname)
                 if data is None:
                     data = aa
                 else:
@@ -817,8 +819,8 @@ class ImageLoader(FullBatchLoader):
                         n += 1
             if n:
                 if n != numpy.sum(self.class_lengths):
-                    raise error.ErrBadFormat("Target samples count differs "
-                                             "from data samples count.")
+                    raise error.BadFormatError("Target samples count differs "
+                                               "from data samples count.")
                 self.original_labels = numpy.arange(n, dtype=numpy.int32)
 
         self.original_data = data

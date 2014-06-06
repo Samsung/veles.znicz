@@ -73,20 +73,21 @@ class Loader(loader.FullBatchLoader):
 
         header, = struct.unpack(">i", fin.read(4))
         if header != 2049:
-            raise error.ErrBadFormat("Wrong header in train-labels")
+            raise error.BadFormatError("Wrong header in train-labels")
 
         n_labels, = struct.unpack(">i", fin.read(4))
         if n_labels != labels_count:
-            raise error.ErrBadFormat("Wrong number of labels in train-labels")
+            raise error.BadFormatError(
+                "Wrong number of labels in train-labels")
 
         arr = numpy.zeros(n_labels, dtype=numpy.byte)
         n = fin.readinto(arr)
         if n != n_labels:
-            raise error.ErrBadFormat("EOF reached while reading labels from "
-                                     "train-labels")
+            raise error.BadFormatError("EOF reached while reading labels from "
+                                       "train-labels")
         self.original_labels[offs:offs + labels_count] = arr[:]
         if self.original_labels.min() != 0 or self.original_labels.max() != 9:
-            raise error.ErrBadFormat("Wrong labels range in train-labels.")
+            raise error.BadFormatError("Wrong labels range in train-labels.")
 
         fin.close()
 
@@ -95,23 +96,24 @@ class Loader(loader.FullBatchLoader):
 
         header, = struct.unpack(">i", fin.read(4))
         if header != 2051:
-            raise error.ErrBadFormat("Wrong header in train-images")
+            raise error.BadFormatError("Wrong header in train-images")
 
         n_images, = struct.unpack(">i", fin.read(4))
         if n_images != n_labels:
-            raise error.ErrBadFormat("Wrong number of images in train-images")
+            raise error.BadFormatError(
+                "Wrong number of images in train-images")
 
         n_rows, n_cols = struct.unpack(">2i", fin.read(8))
         if n_rows != 28 or n_cols != 28:
-            raise error.ErrBadFormat("Wrong images size in train-images, "
-                                     "should be 28*28")
+            raise error.BadFormatError("Wrong images size in train-images, "
+                                       "should be 28*28")
 
         # 0 - white, 255 - black
         pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
         n = fin.readinto(pixels)
         if n != n_images * n_rows * n_cols:
-            raise error.ErrBadFormat("EOF reached while reading images "
-                                     "from train-images")
+            raise error.BadFormatError("EOF reached while reading images "
+                                       "from train-images")
 
         fin.close()
 

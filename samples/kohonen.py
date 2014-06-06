@@ -48,10 +48,11 @@ class Loader(loader.FullBatchLoader):
         try:
             data = numpy.loadtxt(file_name)
         except:
-            raise error.ErrBadFormat("Could not load data from %s" % file_name)
+            raise error.BadFormatError("Could not load data from %s" %
+                                       file_name)
         if data.shape != (2, 1000):
-            raise error.ErrBadFormat("Data in %s has the invalid shape" %
-                                     file_name)
+            raise error.BadFormatError("Data in %s has the invalid shape" %
+                                       file_name)
 
         self.original_labels = False
         self.original_data = numpy.zeros((1000, 2), dtype=numpy.float32)

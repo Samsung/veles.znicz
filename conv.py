@@ -295,7 +295,7 @@ class Conv(nn_units.Forward):
                 self._fill_with_gabor_filters(
                     self.n_kernels, (self.ky, self.kx), self.weights_stddev)
             else:
-                raise error.ErrBadFormat("Invalid weights filling type")
+                raise error.BadFormatError("Invalid weights filling type")
             self.weights.mem = self.weights.mem.reshape(
                 self.n_kernels, self.kx * self.ky * self._n_channels)
             # Reshape weights as a matrix:
@@ -322,7 +322,7 @@ class Conv(nn_units.Forward):
             elif self.bias_filling == "constant":
                 self.bias.mem[:] = self.bias_stddev
             else:
-                raise error.ErrBadFormat("Invalid bias filling type")
+                raise error.BadFormatError("Invalid bias filling type")
 
     def _fill_with_gabor_filters(self, n_filters, shape, stddev):
         """

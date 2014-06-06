@@ -50,8 +50,8 @@ class Loader(loader.ImageLoader):
                 vle = a[key]
                 break
         else:
-            raise error.ErrBadFormat("Could not find variable to import "
-                                     "in %s" % (fnme))
+            raise error.BadFormatError("Could not find variable to import "
+                                       "in %s" % (fnme))
         aa = numpy.zeros(vle.shape, dtype=opencl_types.dtypes[
             root.common.dtype])
         aa[:] = vle[:]

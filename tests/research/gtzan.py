@@ -153,7 +153,7 @@ class Loader(loader.Loader):
                 vles = features[k]["value"]
                 nn = min(len(vles), nn)
                 if nn < self.window_size:
-                    raise error.ErrBadFormat(
+                    raise error.BadFormatError(
                         "window_size=%d is too large "
                         "for feature %s with size %d in file %s" %
                         (self.window_size, k, nn, fnme))
@@ -171,7 +171,7 @@ class Loader(loader.Loader):
                     mins[k] = vles.min(axis=0)
                     maxs[k] = vles.max(axis=0)
         if was_nans:
-            raise error.ErrBadFormat("There were NaNs.")
+            raise error.BadFormatError("There were NaNs.")
 
         for k in self.features:
             mean = sums[k] / counts[k]

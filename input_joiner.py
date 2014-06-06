@@ -57,7 +57,7 @@ class InputJoiner(OpenCLUnit):
 
     def initialize(self, **kwargs):
         if not len(self.inputs):
-            raise error.ErrBadFormat("inputs should not be empty")
+            raise error.BadFormatError("inputs should not be empty")
 
         super(InputJoiner, self).initialize(**kwargs)
 
@@ -74,7 +74,7 @@ class InputJoiner(OpenCLUnit):
             self.output_sample_shape = [0]
             for inp in self.inputs:
                 if inp.mem is None:
-                    raise error.ErrBadFormat(
+                    raise error.BadFormatError(
                         "output_sample_shape should be provided "
                         "if any of the inputs was not initialized "
                         "before this point")

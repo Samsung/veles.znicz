@@ -147,7 +147,7 @@ class ForwardLog(ActivationForward):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
              formats.eq_addr(self.output.mem, self.input.mem))):
-            raise error.ErrBadFormat("in_place for this unit is prohibited")
+            raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
         if device is None:
             return
@@ -173,7 +173,7 @@ class BackwardLog(ActivationBackward):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
              formats.eq_addr(self.input.mem, self.output.mem))):
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
         if device is None:
@@ -204,7 +204,7 @@ class ForwardSinCos(ActivationForward):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
              formats.eq_addr(self.output.mem, self.input.mem))):
-            raise error.ErrBadFormat("in_place for this unit is prohibited")
+            raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardSinCos, self).initialize(device=device, **kwargs)
         if device is None:
             return
@@ -231,7 +231,7 @@ class BackwardSinCos(ActivationBackward):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
              formats.eq_addr(self.input.mem, self.output.mem))):
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardSinCos, self).initialize(device=device, **kwargs)
         if device is None:

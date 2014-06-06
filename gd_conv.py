@@ -94,13 +94,13 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
 
         if self.weights.mem.size != n_weights:
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
         if self.bias.mem.size != self.n_kernels:
-            raise error.ErrBadFormat("Expected bias to match n_kernels")
+            raise error.BadFormatError("Expected bias to match n_kernels")
         if self.input.mem.size != batch_size * sy * sx * n_channels:
-            raise error.ErrBadFormat(
+            raise error.BadFormatError(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
@@ -248,7 +248,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def cpu_weights_update(self):
         # TODO: consider case of transposed weights
         if self.weights_transposed:
-            raise error.ErrNotImplemented(
+            raise NotImplementedError(
                 "cpu_run is not implemented for transposed weights")
 
         self.input.map_read()
