@@ -20,6 +20,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
 root.update = {
+    "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 100, "do_export_weights": True},
     "snapshotter": {"prefix": "cifar"},
     "image_saver": {"out_dirs":
