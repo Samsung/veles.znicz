@@ -13,7 +13,8 @@ from veles.config import root
 
 # optional parameters
 
-root.update = {"decision": {"fail_iterations": 100},
+root.update = {"learning_rate_adjust": {"do": True},
+               "decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "mnist_caffe"},
                "loader": {"minibatch_maxsize": 5},
                "weights_plotter": {"limit": 64},

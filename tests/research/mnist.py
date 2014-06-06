@@ -22,7 +22,7 @@ import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.learning_rate_adjust as learning_rate_adjust
+import veles.znicz.learning_rate_adjust as lra
 import veles.znicz.loader as loader
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -35,7 +35,8 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.defaults = {"decision": {"fail_iterations": 100},
+root.defaults = {"learning_rate_adjust": {"do": False},
+                 "decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_maxsize": 60},
                  "weights_plotter": {"limit": 64},
@@ -204,16 +205,20 @@ class Workflow(StandardWorkflow):
         # Add gradient descent units
         self.create_gradient_descent_units()
 
-        # Add learning_rate_adjust unit
-        self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
-            self, lr_function=learning_rate_adjust.inv_adjust_policy(
-                0.01, 0.0001, 0.75))
-        self.learning_rate_adjust.link_from(self.gds[0])
-        self.learning_rate_adjust.add_gd_units(self.gds)
+        if root.learning_rate_adjust.do:
+            # Add learning_rate_adjust unit
 
-        self.repeater.link_from(self.learning_rate_adjust)
+            self.learning_rate_adjust = lra.LearningRateAdjust(
+                self, lr_function=lra.inv_adjust_policy(
+                    0.01, 0.0001, 0.75))
+            self.learning_rate_adjust.link_from(self.gds[0])
+            self.learning_rate_adjust.add_gd_units(self.gds)
 
-        self.end_point.link_from(self.learning_rate_adjust)
+            self.repeater.link_from(self.learning_rate_adjust)
+            self.end_point.link_from(self.learning_rate_adjust)
+        else:
+            self.repeater.link_from(self.gds[0])
+            self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete

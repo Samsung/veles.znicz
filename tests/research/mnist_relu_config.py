@@ -18,7 +18,8 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.update = {"all2all": {"weights_stddev": 0.05},
+root.update = {"learning_rate_adjust": {"do": False},
+               "all2all": {"weights_stddev": 0.05},
                "decision": {"fail_iterations": 150},
                "snapshotter": {"prefix": "mnist_relu"},
                "loader": {"minibatch_maxsize": 60},
