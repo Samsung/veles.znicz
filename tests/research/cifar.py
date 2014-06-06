@@ -106,6 +106,7 @@ class Loader(loader.FullBatchLoader):
 
         for sample in self.original_data:
             formats.normalize(sample)
+            sample *= 127.5
 
 
 class Workflow(StandardWorkflow):
