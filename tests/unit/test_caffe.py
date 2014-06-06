@@ -24,7 +24,7 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
-os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
+#os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
 
 
 class TestConvCaffe(unittest.TestCase):
@@ -709,7 +709,7 @@ class TestConvCaffe(unittest.TestCase):
                                                   sliding=(1, 1),
                                                   n_kernels=n_kernels,
                                                   device=self.device,
-                                                  learning_rate=float(n_pics),
+                                                  learning_rate=1,
                                                   weights_decay=0,
                                                   batch_size=n_pics)
 
