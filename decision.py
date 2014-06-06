@@ -43,6 +43,10 @@ class IDecision(Interface):
         """This method is supposed to be overriden in inherited classes.
         """
 
+    def on_generate_data_for_slave(data):
+        """This method is supposed to be overriden in inherited classes.
+        """
+
     def on_generate_data_for_master(data):
         """This method is supposed to be overriden in inherited classes.
         """
@@ -100,11 +104,6 @@ class DecisionBase(Unit):
         self.demand("last_minibatch", "minibatch_class",
                     "class_lengths", "epoch_number", "epoch_ended")
 
-    def init_unpickled(self):
-        super(DecisionBase, self).init_unpickled()
-        self.minibatches_balance_ = [0, 0, 0]
-        self.slave_minibatch_class_ = {}
-
     def initialize(self, **kwargs):
         timestamp = time.time()
         self.epoch_timestamps = [timestamp, timestamp, timestamp]
@@ -120,49 +119,23 @@ class DecisionBase(Unit):
         return data
 
     def generate_data_for_slave(self, slave):
-        sid = slave.id
-        if self.slave_minibatch_class_.get(sid) is not None:
-            raise RuntimeError(
-                "generate_data_for_slave: consistency violation. "
-                "slave_minibatch_class[%s] = %s." %
-                (sid, self.slave_minibatch_class_[sid]))
-        self.slave_minibatch_class_[sid] = self.minibatch_class
-        self.minibatches_balance_[self.minibatch_class] += 1
-        if self.epoch_ended:
-            self.has_data_for_slave = False
-        data = {"epoch_number": self.epoch_number}
+        data = {}
+        self.on_generate_data_for_slave(data)
         return data
 
     def apply_data_from_master(self, data):
-        self.__dict__.update(data)
-        # Prevent doing snapshot and set complete after one epoch
+        # Prevent doing snapshot
         self.complete <<= False
         self.on_apply_data_from_master(data)
 
     def apply_data_from_slave(self, data, slave):
-        if self.minibatch_class != self.slave_minibatch_class_[slave.id]:
-            raise RuntimeError(
-                "apply_data_from_slave: consistency violation. "
-                "self.minibatch_class = %s, slave_minibatch_class = %s, "
-                "slave id = %s." %
-                (CLASS_NAME[self.minibatch_class],
-                 CLASS_NAME[self.slave_minibatch_class_[slave.id]],
-                 slave.id))
         self.on_apply_data_from_slave(data, slave)
-        self._finalize_job(slave)
-        # we evaluate this condition before _on_last_minibatch since it may
-        # reset no_more_minibatches_left in _end_epoch
-        has_data_for_slave = (self.epoch_ended and
-                              not any(self.minibatches_balance_) and
-                              not self.complete)
-        if (self.last_minibatch and
-                self.minibatches_balance_[self.minibatch_class] == 0):
+        if self.last_minibatch:
             self._on_last_minibatch()
-        if has_data_for_slave:
-            self.has_data_for_slave = has_data_for_slave
+        self.has_data_for_slave = not self.complete
 
     def drop_slave(self, slave):
-        self._finalize_job(slave)
+        pass
 
     def _on_last_minibatch(self):
         self.on_last_minibatch()
@@ -210,18 +183,6 @@ class DecisionBase(Unit):
         else:
             self.complete <<= True
 
-    def _finalize_job(self, slave):
-        minibatch_class = self.slave_minibatch_class_.get(slave.id)
-        if minibatch_class is None:
-            # Slave has dropped while waiting for a new job
-            return
-        self.minibatches_balance_[minibatch_class] -= 1
-        if self.minibatches_balance_[minibatch_class] < 0:
-            self.warning("Slave %s resulted in negative minibatch balance",
-                         slave.id)
-            self.minibatches_balance_[minibatch_class] = 0
-        self.slave_minibatch_class_[slave.id] = None
-
 
 @implementer(IDecision)
 class TrivialDecision(object):
@@ -240,8 +201,11 @@ class TrivialDecision(object):
     def on_epoch_ended(self):
         pass
 
+    def on_generate_data_for_slave(self, data):
+        return None
+
     def on_generate_data_for_master(self, data):
-        pass
+        return None
 
     def on_apply_data_from_master(self, data):
         pass
@@ -444,6 +408,9 @@ class DecisionGD(DecisionBase):
             if attrval:
                 attrval.map_read()
                 data[attr] = attrval.mem
+
+    def on_generate_data_for_slave(self, data):
+        pass
 
     def on_apply_data_from_master(self, data):
         self.reset_statistics(self.minibatch_class)

@@ -184,6 +184,7 @@ class Loader(Unit):
         if not 0 <= value <= self.total_samples:
             raise ValueError("Invalid minibatch_offset value %s" % str(value))
         self._minibatch_offset_ = value
+        self._update_flags()
 
     @property
     def minibatch_size(self):
@@ -296,6 +297,14 @@ class Loader(Unit):
             raise ValueError("validation_ratio must be in [0, 1).")
         self._validation_ratio = value
 
+    @property
+    def class_ended(self):
+        for offset in self.class_offsets:
+            if self.global_offset == offset:
+                return True
+            if self.global_offset < offset:
+                return False
+
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
         # Move all pending minibatches to failed set
@@ -310,7 +319,8 @@ class Loader(Unit):
         self._update_total_samples()
         self.info("Samples number: train: %d, validation: %d, test: %d",
                   *self.class_lengths)
-        self._adjust_max_minibatch_size()
+        self.max_minibatch_size = kwargs.get("minibatch_size",
+                                             self.max_minibatch_size)
         self.create_minibatches()
         if not self.minibatch_data:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
@@ -320,54 +330,56 @@ class Loader(Unit):
     def run(self):
         """Prepares the minibatch.
         """
-        if self.is_standalone and len(self.pending_minibatches_):
+        if len(self.pending_minibatches_) > 0:
             self.pending_minibatches_.popitem()
-        self._prepare_next_minibatch(None)
+        self._serve_next_minibatch(None)
 
     def generate_data_for_master(self):
-        data = {"minibatch_class": self.minibatch_class,
-                "minibatch_size": self.minibatch_size,
-                "minibatch_offset": self.minibatch_offset}
-        return data
+        return True
 
     def generate_data_for_slave(self, slave):
-        self._prepare_next_minibatch(slave.id)
-        data = {'shuffled_indices':
-                self.shuffled_indices[
-                    self.minibatch_offset - self.minibatch_size:
-                    self.minibatch_offset].copy(),
-                'minibatch_class': self.minibatch_class,
-                'minibatch_offset': self.minibatch_offset,
-                'samples_served': self.samples_served,
-                'epoch_number': self.epoch_number,
-                'epoch_ended': bool(self.epoch_ended)}
+        self._serve_next_minibatch(slave.id)
+        data = {'indices': self.minibatch_indices.mem}
+        for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
+                     'epoch_number'):
+            data[attr] = getattr(self, attr)
+        self.has_data_for_slave = ((not self.class_ended) or
+                                   len(self.failed_minibatches) > 0)
         return data
 
     def apply_data_from_master(self, data):
         # Just feed single minibatch
-        indices = data['shuffled_indices']
-        assert len(indices) > 0
-        self.minibatch_size = len(indices)
-        self.minibatch_offset = data['minibatch_offset']
-        self.minibatch_class = data['minibatch_class']
-        self.samples_served = data['samples_served']
-        self.epoch_number = data['epoch_number']
-        self.epoch_ended <<= data['epoch_ended']
-        assert self.minibatch_offset <= len(self.shuffled_indices)
-        assert (self.minibatch_offset - self.minibatch_size) >= 0
+        for attr in ("minibatch_class", "minibatch_size", "minibatch_offset"):
+            setattr(self, attr, data[attr])
+        indices = data['indices']
+        if len(indices) != self.minibatch_size:
+            raise error.MasterSlaveCommunicationError(
+                "minibatch size mismatch")
+        if self.minibatch_offset > len(self.shuffled_indices):
+            raise error.MasterSlaveCommunicationError(
+                "minibatch offset overflow")
+        if self.minibatch_offset - self.minibatch_size < 0:
+            raise error.MasterSlaveCommunicationError(
+                "minibatch offset - size < 0")
+        # Patch shuffled_indices so that received indices will be picked up
+        # during  _serve_next_minibatch()
         self.shuffled_indices[self.minibatch_offset - self.minibatch_size:
                               self.minibatch_offset] = indices
-        # these will be incremented back in _prepare_next_minibatch
-        self.minibatch_offset -= self.minibatch_size
-        self.samples_served -= self.minibatch_size
 
     def apply_data_from_slave(self, data, slave):
-        self.minibatch_class = data["minibatch_class"]
-        self.minibatch_size = data["minibatch_size"]
-        self.minibatch_offset = data["minibatch_offset"]
+        try:
+            self.minibatch_offset, self.minibatch_size = \
+                self.pending_minibatches_[slave.id]
+        except KeyError:
+            raise error.Bug("pending_minibatches_ does not contain %s" %
+                            slave.id)
+        del self.pending_minibatches_[slave.id]
+        self.has_data_for_slave = not self.last_minibatch
 
     def drop_slave(self, slave):
-        pass
+        self.failed_minibatches[slave.id] = self.pending_minibatches_[slave.id]
+        del self.pending_minibatches_[slave.id]
+        self.has_data_for_slave = True
 
     def extract_validation_from_train(self, rand=None, ratio=None):
         """Extracts validation dataset from train dataset randomly.
@@ -468,10 +480,6 @@ class Loader(Unit):
         self.prng.shuffle(self.shuffled_indices[self.class_offsets[1]:
                                                 self.class_offsets[2]])
 
-    def _adjust_max_minibatch_size(self, **kwargs):
-        self.max_minibatch_size = kwargs.get("minibatch_size",
-                                             self.max_minibatch_size)
-
     def _update_total_samples(self):
         """Fills self.class_offsets from self.class_lengths.
         """
@@ -483,26 +491,13 @@ class Loader(Unit):
         if self.class_lengths[TRAIN] < 1:
             raise ValueError("class_length for TRAIN dataset is invalid: %d" %
                              self.class_lengths[TRAIN])
-        self.last_minibatch <<= False
-        self.epoch_ended <<= False
 
-    def _update_last_minibatch(self, value):
-        """Sets the flags signalling whether each dataset class is over in the
-        current epoch.
-        """
-        self._update_epoch_ended()
-
-    def _update_epoch_ended(self):
-        self.epoch_ended <<= bool(self.last_minibatch) and (
-            self.minibatch_class == VALID or (not self.class_lengths[VALID] and
-                                              self.minibatch_class == TRAIN))
-
-    def _prepare_next_minibatch(self, slave):
+    def _serve_next_minibatch(self, slave):
         try:
             _, (minibatch_offset, minibatch_size) = \
                 self.failed_minibatches.popitem()
         except KeyError:
-            minibatch_offset, minibatch_size = self._advance()
+            minibatch_offset, minibatch_size = self._advance_global_offset()
         self.pending_minibatches_[slave] = (minibatch_offset, minibatch_size)
         self.minibatch_offset, self.minibatch_size = \
             minibatch_offset, minibatch_size
@@ -520,38 +515,43 @@ class Loader(Unit):
             self.minibatch_labels[minibatch_size:] = -1
             self.minibatch_indices[minibatch_size:] = -1
 
-    def _advance(self):
+    def _update_flags(self):
+        """Resets epoch_ended and last_minibatch.
+        """
+        self.last_minibatch <<= (self.class_ended and
+                                 len(self.pending_minibatches_) <= 1 and
+                                 len(self.failed_minibatches) == 0)
+        self.epoch_ended <<= self.last_minibatch and (
+            self.minibatch_class == VALID or
+            (self.minibatch_class == TRAIN and self.class_lengths[VALID] == 0))
+
+    def _advance_global_offset(self):
         """Increments global_offset by an appropriate minibatch_size.
         """
+        # Slave mode is much simpler than others
+        if self.is_slave:
+            self.samples_served += self.minibatch_size
+            return self.minibatch_offset, self.minibatch_size
         # Shuffle again when the end of data is reached.
         if self.global_offset >= self.total_samples:
             self.shuffle()
             self.global_offset = 0
 
-        # Compute next minibatch size and its class.
-        if not self.is_slave:
-            for cls, offset in enumerate(self.class_offsets):
-                if self.global_offset < offset:
-                    self.minibatch_class = cls
-                    remainder = offset - self.global_offset
-                    minibatch_size = min(remainder, self.max_minibatch_size)
-                    self.last_minibatch <<= (remainder <=
-                                             self.max_minibatch_size)
-                    break
-            else:
-                raise error.ErrNotExists(
-                    "global_offset is too large: %d", self.global_offset)
-        else:
-            # Force this minibatch to be the last for the slave
-            self.last_minibatch <<= True
-        self._update_epoch_ended()
+        # Compute next minibatch class and size, updating epoch_ended and
+        # last_minibatch
+        for class_index, class_offset in enumerate(self.class_offsets):
+            if self.global_offset < class_offset:
+                self.minibatch_class = class_index
+                remainder = class_offset - self.global_offset
+                minibatch_size = min(remainder, self.max_minibatch_size)
+                break
 
         # Adjust offset and served according to the calculated step
         self.global_offset += minibatch_size
         self.samples_served += minibatch_size
         return self.global_offset, minibatch_size
 
-    def _print_last_minibatch(self, var):
+    def _print_last_minibatch(self, *args):
         self.info("Last minibatch of class %s served",
                   CLASS_NAME[self.minibatch_class].upper())
 
