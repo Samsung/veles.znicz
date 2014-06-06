@@ -43,7 +43,7 @@ root.defaults = {
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_maxsize": 180},
+    "loader": {"minibatch_size": 180},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers": [{"type": "all2all_tanh",
                           "learning_rate": 0.0005,
@@ -68,13 +68,11 @@ class Loader(loader.FullBatchLoader):
         self.original_labels = numpy.zeros(60000, dtype=numpy.int32)
 
         # Load Validation
-        fin = open(root.cifar.data_paths.validation, "rb")
-        if six.PY3:
-            u = pickle._Unpickler(fin)
-            u.encoding = 'latin1'
-            vle = u.load()
-        else:
-            vle = pickle.load(fin)
+        with open(root.cifar.data_paths.validation, "rb") as fin:
+            if six.PY3:
+                vle = pickle.load(fin, encoding='latin1')
+            else:
+                vle = pickle.load(fin)
         fin.close()
         self.original_data[:10000] = formats.interleave(
             vle["data"].reshape(10000, 3, 32, 32))[:]
@@ -82,27 +80,19 @@ class Loader(loader.FullBatchLoader):
 
         # Load Train
         for i in range(1, 6):
-            fin = open(os.path.join(root.cifar.data_paths.train,
-                                    ("data_batch_%d" % i)), "rb")
-            if six.PY3:
-                u = pickle._Unpickler(fin)
-                u.encoding = 'latin1'
-                vle = u.load()
-            else:
-                vle = pickle.load(fin)
-            fin.close()
+            with open(os.path.join(root.cifar.data_paths.train,
+                                   ("data_batch_%d" % i)), "rb") as fin:
+                if six.PY3:
+                    vle = pickle.load(fin, encoding='latin1')
+                else:
+                    vle = pickle.load(fin)
             self.original_data[i * 10000: (i + 1) * 10000] = (
                 formats.interleave(vle["data"].reshape(10000, 3, 32, 32))[:])
             self.original_labels[i * 10000: (i + 1) * 10000] = vle["labels"][:]
 
-        self.class_samples[0] = 0
-        self.nextclass_offsets[0] = 0
-        self.class_samples[1] = 10000
-        self.nextclass_offsets[1] = 10000
-        self.class_samples[2] = 50000
-        self.nextclass_offsets[2] = 60000
-
-        self.total_samples = self.original_data.shape[0]
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 10000
+        self.class_lengths[2] = 50000
 
         for sample in self.original_data:
             formats.normalize(sample)
@@ -172,7 +162,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(
@@ -325,11 +315,11 @@ class Workflow(StandardWorkflow):
         self.plt_tab.link_from(self.decision)
         self.plt_tab.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, minibatch_maxsize, device):
-        super(Workflow, self).initialize(minibatch_maxsize=minibatch_maxsize,
+    def initialize(self, minibatch_size, device):
+        super(Workflow, self).initialize(minibatch_size=minibatch_size,
                                          device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.cifar.layers)
-    main(minibatch_maxsize=root.loader.minibatch_maxsize)
+    main(minibatch_size=root.loader.minibatch_size)

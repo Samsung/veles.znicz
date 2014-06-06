@@ -15,7 +15,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
 import veles.znicz.decision as decision
-import veles.random_generator as rnd
+import veles.random_generator as prng
 from veles.znicz.decision import TrivialDecision
 
 
@@ -315,7 +315,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
                 "gaussian": lambda rand: rand.fill_normal_real(
                     self.weights.mem, 0, self.weights_stddev)
             }
-            filling[self.weights_filling](rnd.get())
+            filling[self.weights_filling](prng.get())
             self.weights.mem = self.weights.mem.reshape((
                 self._neurons_number, self._sample_length))
         if self.weights_transposed:

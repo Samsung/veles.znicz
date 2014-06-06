@@ -38,7 +38,7 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 root.defaults = {"learning_rate_adjust": {"do": False},
                  "decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "mnist"},
-                 "loader": {"minibatch_maxsize": 60},
+                 "loader": {"minibatch_size": 60},
                  "weights_plotter": {"limit": 64},
                  "mnist": {"learning_rate": 0.00016,
                            "weights_decay": 0.0,
@@ -139,9 +139,9 @@ class Loader(loader.FullBatchLoader):
                            root.mnist.data_paths.train_label,
                            root.mnist.data_paths.train_images)
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 10000
-        self.class_samples[2] = 60000
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 10000
+        self.class_lengths[2] = 60000
 
 
 class Workflow(StandardWorkflow):
@@ -158,7 +158,7 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Mnist fullbatch loader",
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -180,7 +180,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

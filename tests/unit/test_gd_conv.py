@@ -17,7 +17,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.conv as conv
 from veles.tests.dummy_workflow import DummyWorkflow
-import veles.random_generator as rnd
+import veles.random_generator as prng
 import veles.opencl as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
@@ -305,7 +305,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         dtype = opencl_types.dtypes[root.common.dtype]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
-        rnd.get().fill(inp)
+        prng.get().fill(inp)
         forward = Forward(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
                           padding=(1, 2, 3, 4), sliding=(2, 3))
         forward.input = formats.Vector()
@@ -315,7 +315,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         forward.output.map_read()
         target = numpy.zeros_like(forward.output.mem)
-        rnd.get().fill(target)
+        prng.get().fill(target)
         out = forward.output.mem.copy()
         err_output = out - target
         forward.weights.map_read()

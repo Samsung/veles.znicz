@@ -34,7 +34,7 @@ root.defaults = {
                 "weights_filling": "uniform"},
     "decision": {"snapshot_prefix": "spam_kohonen",
                  "epochs": 5},
-    "loader": {"minibatch_maxsize": 60,
+    "loader": {"minibatch_size": 60,
                "file": os.path.join(spam_dir, "data.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
@@ -105,24 +105,24 @@ class Loader(loader.FullBatchLoader):
         progress.finish()
 
         self.validation_ratio = root.loader.validation_ratio
-        self.class_samples[loader.TEST] = 0
-        self.class_samples[loader.VALID] = self.validation_ratio * len(lines)
-        self.class_samples[loader.TRAIN] = len(lines) - self.class_samples[1]
-        if self.class_samples[loader.VALID] > 0:
+        self.class_lengths[loader.TEST] = 0
+        self.class_lengths[loader.VALID] = self.validation_ratio * len(lines)
+        self.class_lengths[loader.TRAIN] = len(lines) - self.class_lengths[1]
+        if self.class_lengths[loader.VALID] > 0:
             self.extract_validation_from_train()
         self.info("Samples: %d (spam: %d), lemmas: %d, "
                   "average feature vector length: %d", len(lines), spam_count,
                   len(lemmas), avglength)
         self.info("Normalizing...")
         self.IMul, self.IAdd = formats.normalize_pointwise(
-            self.original_data[self.class_samples[loader.VALID]:])
+            self.original_data[self.class_lengths[loader.VALID]:])
         self.original_data *= self.IMul
         self.original_data += self.IAdd
-        if self.class_samples[loader.VALID] > 0:
-            v = self.original_data[:self.class_samples[loader.VALID]]
+        if self.class_lengths[loader.VALID] > 0:
+            v = self.original_data[:self.class_lengths[loader.VALID]]
             self.info("Range after normalization: validation: [%.6f, %.6f]",
                       v.min(), v.max())
-        v = self.original_data[self.class_samples[loader.VALID]:]
+        v = self.original_data[self.class_lengths[loader.VALID]:]
         self.info("Range after normalization: train: [%.6f, %.6f]",
                   v.min(), v.max())
 
@@ -134,7 +134,7 @@ class ResultsExporter(units.Unit):
     def __init__(self, workflow, file_name, **kwargs):
         super(ResultsExporter, self).__init__(workflow, **kwargs)
         self.total = None
-        self.shuffled_indexes = None
+        self.shuffled_indices = None
         self.file_name = file_name
 
     def initialize(self, **kwargs):
@@ -143,9 +143,9 @@ class ResultsExporter(units.Unit):
     def run(self):
         self.total.map_read()
 
-        classified = numpy.zeros(len(self.shuffled_indexes), dtype=numpy.int32)
+        classified = numpy.zeros(len(self.shuffled_indices), dtype=numpy.int32)
         for i in range(self.total.mem.size):
-            classified[self.shuffled_indexes[i]] = self.total[i]
+            classified[self.shuffled_indices[i]] = self.total[i]
         numpy.savetxt(self.file_name, classified, fmt='%d')
         self.info("Exported the classified data to %s", self.file_name)
 
@@ -160,7 +160,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Kohonen Spam fullbatch loader",
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
@@ -187,7 +187,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.forward)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "no_more_minibatches_left",
-                                              "class_samples")
+                                              "class_lengths")
         self.decision.link_attrs(self.trainer, "weights", "winners")
         self.trainer.epoch_ended = self.decision.epoch_ended
 
@@ -200,7 +200,7 @@ class Workflow(nn_units.NNWorkflow):
         self.exporter = ResultsExporter(self, root.exporter.file)
         self.exporter.link_from(self.decision)
         self.exporter.total = self.forward.total
-        self.exporter.link_attrs(self.loader, "shuffled_indexes")
+        self.exporter.link_attrs(self.loader, "shuffled_indices")
         self.exporter.gate_block = ~self.decision.complete
 
         self.end_point.link_from(self.decision)

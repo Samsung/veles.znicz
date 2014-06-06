@@ -14,7 +14,7 @@ from veles.config import root
 # optional parameters
 root.update = {"decision": {"fail_iterations": 25,
                             "snapshot_prefix": "mnist7"},
-               "loader": {"minibatch_maxsize": 60},
+               "loader": {"minibatch_size": 60},
                "weights_plotter": {"limit": 25},
                "mnist7": {"learning_rate": 0.0000016,
                           "weights_decay": 0.00005,

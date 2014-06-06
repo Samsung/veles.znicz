@@ -26,7 +26,7 @@ root.model = "lines"
 root.update = {"accumulator": {"bars": 30, "squash": True},
                "decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "lines"},
-               "loader": {"minibatch_maxsize": 60},
+               "loader": {"minibatch_size": 60},
                "weights_plotter": {"limit": 32},
                "lines": {"learning_rate": 0.0001,
                          "weights_decay": 0.0,

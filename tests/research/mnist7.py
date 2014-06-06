@@ -26,7 +26,7 @@ import veles.znicz.samples.mnist as mnist
 
 root.defaults = {"decision": {"fail_iterations": 25},
                  "snapshotter": {"prefix": "mnist7"},
-                 "loader": {"minibatch_maxsize": 60},
+                 "loader": {"minibatch_size": 60},
                  "weights_plotter": {"limit": 25},
                  "mnist7": {"learning_rate": 0.0000016,
                             "weights_decay": 0.00005,
@@ -40,9 +40,9 @@ class Loader(mnist.Loader):
         """Here we will load MNIST data.
         """
         super(Loader, self).load_data()
-        self.class_target.reset()
+        self.class_targets.reset()
         print("root.common.dtype", root.common.dtype)
-        self.class_target.mem = numpy.array(
+        self.class_targets.mem = numpy.array(
             [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
              [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
              [1.0, -1.0, 1.0, 1.0, 1.0, -1.0, 1.0],  # 2
@@ -59,7 +59,7 @@ class Loader(mnist.Loader):
             dtype=opencl_types.dtypes[root.common.dtype])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
-            self.original_target[i] = self.class_target[label]
+            self.original_target[i] = self.class_targets[label]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -75,7 +75,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -102,7 +102,7 @@ class Workflow(nn_units.NNWorkflow):
                                   ("target", "minibatch_target"),
                                   ("labels", "minibatch_labels"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  "class_target")
+                                  "class_targets")
 
         # Add decision unit
         self.decision = decision.DecisionGD(
@@ -113,7 +113,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

@@ -29,7 +29,7 @@ root.model = "grid"
 root.defaults = {"accumulator": {"bars": 20, "squash": True},
                  "decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "lines"},
-                 "loader": {"minibatch_maxsize": 60},
+                 "loader": {"minibatch_size": 60},
                  "weights_plotter": {"limit": 32},
                  "image_saver": {"out_dirs":
                                  [os.path.join(root.common.cache_dir,
@@ -123,7 +123,7 @@ class Workflow(StandardWorkflow):
             self,
             train_paths=[root.lines.path_for_load_data.train],
             validation_paths=[root.lines.path_for_load_data.validation],
-            minibatch_maxsize=root.loader.minibatch_maxsize,
+            minibatch_size=root.loader.minibatch_size,
             grayscale=False)
 
         self.loader.load_data()
@@ -175,7 +175,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

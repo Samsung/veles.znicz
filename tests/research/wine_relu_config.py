@@ -19,7 +19,7 @@ root.common.update = {"plotters_disabled": True}
 
 root.update = {"decision": {"fail_iterations": 250},
                "snapshotter": {"prefix": "wine_relu"},
-               "loader": {"minibatch_maxsize": 10},
+               "loader": {"minibatch_size": 10},
                "wine_relu": {"learning_rate": 0.03,
                              "weights_decay": 0.0,
                              "layers": [10, 3],

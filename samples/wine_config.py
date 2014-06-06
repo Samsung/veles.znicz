@@ -20,7 +20,7 @@ root.common.update = {"plotters_disabled": True}
 
 root.update = {"decision": {"fail_iterations": 200,
                             "snapshot_prefix": "wine"},
-               "loader": {"minibatch_maxsize": 10,
+               "loader": {"minibatch_size": 10,
                           "rnd": rnd.get(),
                           "view_group": "LOADER"},
                "wine": {"learning_rate": 0.3,

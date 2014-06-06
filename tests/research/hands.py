@@ -35,7 +35,7 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
 
 root.defaults = {"decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "hands"},
-                 "loader": {"minibatch_maxsize": 60},
+                 "loader": {"minibatch_size": 60},
                  "hands": {"learning_rate": 0.0008,
                            "weights_decay": 0.0,
                            "layers": [30, 2],
@@ -77,7 +77,7 @@ class Workflow(nn_units.NNWorkflow):
         self.loader = Loader(
             self, validation_paths=root.hands.data_paths.validation,
             train_paths=root.hands.data_paths.train,
-            minibatch_maxsize=root.loader.minibatch_maxsize)
+            minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -116,7 +116,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

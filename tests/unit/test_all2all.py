@@ -14,7 +14,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
+import veles.random_generator as prng
 import veles.znicz.all2all as all2all
 from veles.tests.dummy_workflow import DummyWorkflow
 
@@ -71,7 +71,7 @@ class TestAll2All(unittest.TestCase):
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.dtype]
         inp.mem = numpy.empty([1999, 1777], dtype=dtype)
-        rnd.get().fill(inp.mem)
+        prng.get().fill(inp.mem)
 
         if device is not None:
             self.x = inp.mem.copy()

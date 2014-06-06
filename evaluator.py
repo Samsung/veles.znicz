@@ -193,17 +193,17 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         target
         batch_size
         labels (may be None)
-        class_target (may be None)
+        class_targets (may be None)
 
     Updates after run():
         err_output
         confusion_matrix
         max_err_output_sum
-        n_err (only if labels and class_target is not None)
+        n_err (only if labels and class_targets is not None)
 
     Creates within initialize():
         err_output
-        n_err (only if labels and class_target is not None)
+        n_err (only if labels and class_targets is not None)
         max_err_output_sum
 
     Attributes:
@@ -216,9 +216,9 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         mse: array of mse for each sample in minibatch.
         krn_constants_i_: numpy array for constant arguments to kernel.
         labels: labels for a Batch (may be None).
-        class_target: target for each class (may be None).
+        class_targets: target for each class (may be None).
         n_err: number of wrong recognized samples
-            (if labels and class_target is not None).
+            (if labels and class_targets is not None).
     """
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
@@ -231,7 +231,7 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         self.metrics = formats.Vector()
         self.mse = formats.Vector()
         self.labels = None
-        self.class_target = None
+        self.class_targets = None
         self.n_err = formats.Vector()
 
     def initialize(self, device, **kwargs):
@@ -257,12 +257,12 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
                 self.err_output.mem.shape[0],
                 dtype=opencl_types.dtypes[root.common.dtype])
 
-        if (self.labels is not None and self.class_target is not None and
+        if (self.labels is not None and self.class_targets is not None and
                 (self.n_err.mem is None or self.n_err.mem.size < 2)):
             self.n_err.reset()
             self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
             self.cl_sources_["mse_find_closest.cl"] = {}
-            self.class_target.initialize(self.device)
+            self.class_targets.initialize(self.device)
             self.labels.initialize(self.device)
             self.n_err.initialize(self.device)
 
@@ -285,8 +285,8 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
                 'BATCH': self.err_output.mem.shape[0],
                 'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
                 'SAMPLE_SIZE': 'Y',
-                'N_TARGETS': (self.class_target.mem.shape[0]
-                              if self.class_target is not None else 0)}
+                'N_TARGETS': (self.class_targets.mem.shape[0]
+                              if self.class_targets is not None else 0)}
 
             self.build_program(defines, "ev_%d.cl" %
                                (self.output.mem.size //
@@ -297,11 +297,11 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
             self.set_args(self.output, self.target, self.err_output,
                           self.metrics, self.mse.devmem)
 
-            if self.labels is not None and self.class_target is not None:
+            if self.labels is not None and self.class_targets is not None:
                 self.krn_find_closest_ = self.get_kernel("mse_find_closest")
                 self.krn_find_closest_.set_args(
                     self.output.devmem,
-                    self.class_target.devmem,
+                    self.class_targets.devmem,
                     self.labels.devmem,
                     self.n_err.devmem)
 
@@ -323,8 +323,8 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         event.wait()
 
         # Do the following part on CPU (GPU version not implemented currently)
-        if self.labels is not None and self.class_target is not None:
-            self.class_target.unmap()
+        if self.labels is not None and self.class_targets is not None:
+            self.class_targets.unmap()
             self.labels.unmap()
             self.n_err.unmap()
             self.execute_kernel([batch_size], None,

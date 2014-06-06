@@ -15,7 +15,7 @@ import unittest
 from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
-import veles.random_generator as rnd
+import veles.random_generator as prng
 from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit import TrivialOpenCLUnit
 
@@ -64,7 +64,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.a = formats.Vector()
         self.a.mem = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
                                  dtype=self.dtype)
-        rnd.get().fill(self.a.mem, -0.1, 0.1)
+        prng.get().fill(self.a.mem, -0.1, 0.1)
         if a_col:
             self.a.mem.shape = (self.AB_WIDTH, self.A_HEIGHT)
         else:
@@ -73,7 +73,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.b = formats.Vector()
         self.b.mem = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
                                  dtype=self.dtype)
-        rnd.get().fill(self.b.mem, -0.1, 0.1)
+        prng.get().fill(self.b.mem, -0.1, 0.1)
         if b_col:
             self.b.mem.shape = (self.AB_WIDTH, self.B_HEIGHT)
         else:
@@ -81,7 +81,7 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.bias = formats.Vector()
         self.bias.mem = numpy.zeros([self.B_HEIGHT], dtype=self.dtype)
-        rnd.get().fill(self.bias.mem, -0.1, 0.1)
+        prng.get().fill(self.bias.mem, -0.1, 0.1)
 
         self.c = formats.Vector()
         self.c.mem = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
@@ -143,9 +143,9 @@ class TestMatrixMultiplication(unittest.TestCase):
                      (N // 22, block_size, str(self.dtype)))
         j = 0
         for i in range(0, N, 22):
-            AB_WIDTH = rnd.get().randint(1, ((i // 10) + 1) * 100)
-            B_HEIGHT = rnd.get().randint(1, ((i // 10) + 1) * 10)
-            A_HEIGHT = rnd.get().randint(1, ((i // 10) + 1) * 10)
+            AB_WIDTH = prng.get().randint(1, ((i // 10) + 1) * 100)
+            B_HEIGHT = prng.get().randint(1, ((i // 10) + 1) * 10)
+            A_HEIGHT = prng.get().randint(1, ((i // 10) + 1) * 10)
             if j % 2 == 0:
                 AB_WIDTH = formats.roundup(AB_WIDTH, block_size)
                 B_HEIGHT = formats.roundup(B_HEIGHT, block_size)

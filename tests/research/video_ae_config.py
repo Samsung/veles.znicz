@@ -17,7 +17,7 @@ from veles.config import root
 
 root.update = {"decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "video_ae"},
-               "loader": {"minibatch_maxsize": 50},
+               "loader": {"minibatch_size": 50},
                "weights_plotter": {"limit": 16},
                "video_ae": {"learning_rate": 0.000004,
                             "weights_decay": 0.00005,

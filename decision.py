@@ -82,7 +82,7 @@ class DecisionBase(Unit):
     Must be set before initialize():
         minibatch_class - from loader
         last_minibatch - from loader
-        class_samples - from loader
+        class_lengths - from loader
         epoch_number - from loader
         epoch_ended - from loader
 
@@ -97,8 +97,8 @@ class DecisionBase(Unit):
         self.improved = Bool(False)
         self.snapshot_suffix = ""
         self.complete = Bool(False)
-        self.demand("minibatch_class", "last_minibatch",
-                    "class_samples", "epoch_number", "epoch_ended")
+        self.demand("last_minibatch", "minibatch_class",
+                    "class_lengths", "epoch_number", "epoch_ended")
 
     def init_unpickled(self):
         super(DecisionBase, self).init_unpickled()
@@ -376,10 +376,10 @@ class DecisionGD(DecisionBase):
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
             # Compute error in percents
-            if self.class_samples[minibatch_class]:
+            if self.class_lengths[minibatch_class]:
                 self.epoch_n_err_pt[minibatch_class] = (
                     100.0 * self.epoch_n_err[minibatch_class] /
-                    self.class_samples[minibatch_class])
+                    self.class_lengths[minibatch_class])
 
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum is not None and
@@ -486,12 +486,12 @@ class DecisionGD(DecisionBase):
 
     def stop_condition(self):
         if (self.min_validation_n_err <= 0 or
-            (not self.class_samples[VALID] and
+            (not self.class_lengths[VALID] and
              self.min_train_n_err <= 0)):
             return True
         if (self.epoch_number - self.min_validation_n_err_epoch_number >
             self.fail_iterations or
-            (not self.class_samples[VALID] and
+            (not self.class_lengths[VALID] and
              self.epoch_number - self.min_train_n_err_epoch_number >
              self.fail_iterations)):
             return True
@@ -590,18 +590,18 @@ class DecisionMSE(DecisionGD):
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
         # Allocate vectors for storing samples mse.
         for i in range(len(self.epoch_samples_mse)):
-            if self.class_samples[i] <= 0:
+            if self.class_lengths[i] <= 0:
                 continue
             if (self.tmp_epoch_samples_mse[i].mem is None or
                     self.tmp_epoch_samples_mse[i].mem.size !=
-                    self.class_samples[i]):
+                    self.class_lengths[i]):
                 self.tmp_epoch_samples_mse[i].mem = (
                     numpy.zeros(
-                        self.class_samples[i],
+                        self.class_lengths[i],
                         dtype=opencl_types.dtypes[config.root.common.dtype]))
                 self.epoch_samples_mse[i].mem = (
                     numpy.zeros(
-                        self.class_samples[i],
+                        self.class_lengths[i],
                         dtype=opencl_types.dtypes[config.root.common.dtype]))
             else:
                 self.tmp_epoch_samples_mse[i].mem[:] = 0
@@ -618,7 +618,7 @@ class DecisionMSE(DecisionGD):
         self.minibatch_metrics.map_read()
         self.epoch_min_mse[minibatch_class] = (
             min(self.minibatch_metrics[0] /
-                self.class_samples[minibatch_class],
+                self.class_lengths[minibatch_class],
                 self.epoch_min_mse[minibatch_class]))
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
@@ -626,7 +626,7 @@ class DecisionMSE(DecisionGD):
         # Compute average mse
         self.epoch_metrics[minibatch_class][0] = (
             self.epoch_metrics[minibatch_class][0] /
-            self.class_samples[minibatch_class])
+            self.class_lengths[minibatch_class])
 
     def improve_condition(self):
         minibatch_class = self.minibatch_class
@@ -659,12 +659,12 @@ class DecisionMSE(DecisionGD):
 
     def stop_condition(self):
         if (self.min_validation_mse <= 0 or
-            (not self.class_samples[VALID] and
+            (not self.class_lengths[VALID] and
              self.min_train_mse <= 0)):
             return True
         if (self.epoch_number - self.min_validation_mse_epoch_number >
             self.fail_iterations or
-            (not self.class_samples[VALID] and
+            (not self.class_lengths[VALID] and
              self.epoch_number - self.min_train_mse_epoch_number >
              self.fail_iterations)):
             return True
@@ -680,11 +680,10 @@ class DecisionMSE(DecisionGD):
             self.tmp_epoch_samples_mse[minibatch_class].mem[:] = 0
 
     def _copy_minibatch_mse(self):
-        self.minibatch_offset -= self.minibatch_size
         self.minibatch_mse.map_read()
-        offset = self.minibatch_offset
+        offset = self.minibatch_offset - self.minibatch_size
         for i in range(self.minibatch_class):
-            offset -= self.class_samples[i]
+            offset -= self.class_lengths[i]
         self.tmp_epoch_samples_mse[self.minibatch_class].map_write()
         self.tmp_epoch_samples_mse[self.minibatch_class][
             offset:offset + self.minibatch_size] = \

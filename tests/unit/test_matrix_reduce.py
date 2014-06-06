@@ -15,7 +15,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
+import veles.random_generator as prng
 from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit import TrivialOpenCLUnit
 
@@ -106,7 +106,7 @@ class TestMatrixReduce(unittest.TestCase):
 
         a = formats.Vector()
         a.mem = numpy.zeros([3131, 1001], dtype=dtype)
-        rnd.get().fill(a.mem)
+        prng.get().fill(a.mem)
 
         t_col = numpy.sum(a.mem, axis=0)
         t = numpy.sum(a.mem, axis=1)

@@ -49,10 +49,10 @@ root.defaults = {"decision": {"fail_iterations": 100},
                            "features":
                            ["Energy", "Centroid", "Flux", "Rolloff",
                             "ZeroCrossings", "CRP"],
-                           "learning_rate": 0.0001,
+                           "learning_rate": 0.01,
                            "weights_decay": 0.00005,
                            "layers": [100, 500, 10],
-                           "minibatch_maxsize": 108,
+                           "minibatch_size": 108,
                            "minibatches_in_epoch": 1000,
                            "pickle_fnme":
                            os.path.join(root.common.test_dataset_root,
@@ -88,7 +88,7 @@ class Loader(loader.Loader):
                                          "norm_mul"])
         features_shape = kwargs.get("features_shape", {"CRP": 12})
         kwargs["pickle_fnme"] = pickle_fnme
-        kwargs["minibatch_max_size"] = minibatch_max_size
+        kwargs["minibatch_size"] = minibatch_size
         kwargs["minibatches_in_epoch"] = minibatches_in_epoch
         kwargs["window_size"] = window_size
         kwargs["rnd"] = rnd_
@@ -186,9 +186,9 @@ class Loader(loader.Loader):
                 vles += self.norm_add[k]
                 vles *= self.norm_mul[k]
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 0
-        self.class_samples[2] = (self.minibatch_maxsize *
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 0
+        self.class_lengths[2] = (self.minibatch_size *
                                  self.minibatches_in_epoch)
 
     def create_minibatches(self):
@@ -197,20 +197,20 @@ class Loader(loader.Loader):
             nn += self.norm_add[k].size
 
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize, nn * self.window_size]
+        sh = [self.max_minibatch_size, nn * self.window_size]
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_target.reset()
+        self.minibatch_targets.reset()
 
         self.minibatch_labels.reset()
-        sh = [self.minibatch_maxsize]
+        sh = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(
             sh, dtype=numpy.int8)
 
-        self.minibatch_indexes.reset()
-        sh = [self.minibatch_maxsize]
-        self.minibatch_indexes.mem = numpy.zeros(sh, dtype=numpy.int32)
+        self.minibatch_indices.reset()
+        sh = [self.max_minibatch_size]
+        self.minibatch_indices.mem = numpy.zeros(sh, dtype=numpy.int32)
 
     def shuffle(self):
         pass
@@ -222,7 +222,7 @@ class Loader(loader.Loader):
 
         rand = self.rnd[0]
         n = len(self.fnmes)
-        idxs = self.minibatch_indexes.mem
+        idxs = self.minibatch_indices.mem
         idxs[:] = rand.randint(0, n, minibatch_size)[:]
         files = self.data["files"]
         for i in range(minibatch_size):
@@ -256,7 +256,7 @@ class Workflow(nn_units.NNWorkflow):
         self.loader = Loader(
             self, labels=root.gtzan.labels, exports=root.gtzan.exports,
             pickle_fnme=root.gtzan.pickle_fnme,
-            minibatch_maxsize=root.gtzan.minibatch_maxsize,
+            minibatch_size=root.gtzan.minibatch_size,
             minibatches_in_epoch=root.gtzan.minibatches_in_epoch,
             window_size=root.gtzan.window_size, features=root.gtzan.features,
             features_shape=root.gtzan.features_shape)
@@ -298,7 +298,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

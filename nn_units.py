@@ -18,7 +18,7 @@ import veles.config as config
 from veles.distributable import IDistributable
 import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
-import veles.random_generator as rnd
+import veles.random_generator as prng
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
 
@@ -34,7 +34,7 @@ class Forward(OpenCLUnit):
         bias: bias.
         weights_stddev: magnitude of the random distribution for weights.
         bias_stddev: magnitude of the random distribution for bias.
-        rand: rnd.Rand() object for initial weights generation.
+        rand: prng.Rand() object for initial weights generation.
     """
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
@@ -43,7 +43,7 @@ class Forward(OpenCLUnit):
         self.bias_stddev = kwargs.get("bias_stddev", self.weights_stddev)
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.bias_filling = kwargs.get("bias_filling", "uniform")
-        self.rand = kwargs.get("rand", rnd.get())
+        self.rand = kwargs.get("rand", prng.get())
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.input = None
         self.output = formats.Vector()

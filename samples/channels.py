@@ -129,7 +129,7 @@ class Loader(loader.FullBatchLoader):
         self.file_map = {}  # sample index to its file name map
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_samples", "grayscale", "file_map", "cache_fnme"]
+            "class_lengths", "grayscale", "file_map", "cache_fnme"]
         self.exports = ["rect", "pos", "sz"]
         self.do_swap_axis = False
 
@@ -361,7 +361,7 @@ class Loader(loader.FullBatchLoader):
                     self.sz[k][0], self.sz[k][1]))
             self.info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
-            self.shuffled_indexes = pickle.load(fin)
+            self.shuffled_indices = pickle.load(fin)
             self.original_labels = pickle.load(fin)
             # Get raw array from file
             self.original_data = []
@@ -383,8 +383,8 @@ class Loader(loader.FullBatchLoader):
             self.rnd[0].state = pickle.load(fin)
             fin.close()
             self.info("Succeeded")
-            self.info("class_samples=[%s]" % (
-                ", ".join(str(x) for x in self.class_samples)))
+            self.info("class_lengths=[%s]" % (
+                ", ".join(str(x) for x in self.class_lengths)))
             if not store_negative:
                 return
             self.info("Will search for a negative set at most %d "
@@ -397,14 +397,14 @@ class Loader(loader.FullBatchLoader):
             del old_file_map
             n = len(self.original_data)
             self.original_labels = list(0 for i in range(n))
-            self.shuffled_indexes = False
+            self.shuffled_indices = False
             self.info("Done (%d extracted, %d not exists anymore)" % (
                 n, n_not_exists_anymore))
         except FileNotFoundError:
             self.info("Failed")
             self.original_labels = []
             self.original_data = []
-            self.shuffled_indexes = False
+            self.shuffled_indices = False
             self.file_map.clear()
 
         self.info("Will load data from original jp2 files")
@@ -553,9 +553,9 @@ class Loader(loader.FullBatchLoader):
         self.info("Loaded %d samples with resize and %d without" % (
             image.resize_count, image.asitis_count))
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 0
-        self.class_samples[2] = len(self.original_data)
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 0
+        self.class_lengths[2] = len(self.original_data)
 
         # Randomly generate validation set from train.
         self.info("Will extract validation set from train")
@@ -563,7 +563,7 @@ class Loader(loader.FullBatchLoader):
 
         # Saving all the samples
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
-        for i in self.shuffled_indexes:
+        for i in self.shuffled_indices:
             l = self.original_labels[i]
             dir = "%s/%s" % (root.common.cache_dir, root.model)
             try:
@@ -579,8 +579,8 @@ class Loader(loader.FullBatchLoader):
             scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
         self.info("Done")
 
-        self.info("class_samples=[%s]" % (
-            ", ".join(str(x) for x in self.class_samples)))
+        self.info("class_lengths=[%s]" % (
+            ", ".join(str(x) for x in self.class_lengths)))
 
         if not save_to_cache:
             return
@@ -591,7 +591,7 @@ class Loader(loader.FullBatchLoader):
         for name in self.attributes_for_cached_data:
             obj[name] = self.__dict__[name]
         pickle.dump(obj, fout)
-        pickle.dump(self.shuffled_indexes, fout)
+        pickle.dump(self.shuffled_indices, fout)
         pickle.dump(self.original_labels, fout)
         # Because pickle doesn't support greater than 4Gb arrays
         for i in range(len(self.original_data)):
@@ -692,7 +692,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(
@@ -816,7 +816,7 @@ class Workflow(StandardWorkflow):
                    w_neg, device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
-                                         minibatch_maxsize=minibatch_size,
+                                         minibatch_size=minibatch_size,
                                          w_neg=w_neg,
                                          device=device)
 

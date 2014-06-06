@@ -39,7 +39,7 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                  "decision": {"fail_iterations": 20,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "mnist"},
-                 "loader": {"minibatch_maxsize": 60},
+                 "loader": {"minibatch_size": 60},
                  "mnist": {"learning_rate": 0.03,
                            "weights_decay": 0.0,
                            "layers": [100, 10],
@@ -129,9 +129,9 @@ class Loader(loader.FullBatchLoader):
                            root.mnist.data_paths.train_label,
                            root.mnist.data_paths.train_images)
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 10000
-        self.class_samples[2] = 60000
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 10000
+        self.class_lengths[2] = 60000
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -184,7 +184,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

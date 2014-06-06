@@ -30,7 +30,7 @@ root.defaults = {
                 "weights_filling": "uniform"},
     "decision": {"snapshot_prefix": "kohonen",
                  "epochs": 160},
-    "loader": {"minibatch_maxsize": 10,
+    "loader": {"minibatch_size": 10,
                "dataset_file": os.path.join(data_path, "kohonen.txt")},
     "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}}
@@ -58,9 +58,9 @@ class Loader(loader.FullBatchLoader):
         self.original_data[:, 0] = data[0]
         self.original_data[:, 1] = data[1]
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 0
-        self.class_samples[2] = 1000
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 0
+        self.class_lengths[2] = 1000
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -73,7 +73,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Kohonen fullbatch loader",
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
@@ -94,7 +94,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(self.trainer, "weights", "winners")

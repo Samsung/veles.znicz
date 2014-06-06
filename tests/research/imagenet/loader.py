@@ -141,7 +141,7 @@ class LoaderBase(loader.Loader):
         progress.inc()
         if objects is not None and images is not None:
             self._label_map = self._init_labels(categories)
-            self.fill_class_samples(objects, images)
+            self.fill_class_lengths(objects, images)
             progress.inc()
             self._mean = self._init_mean(objects, db_only=True)
             if self._mean is not None:
@@ -154,19 +154,19 @@ class LoaderBase(loader.Loader):
         objects, categories = self._init_objects(file_sets, metadata)
         images = self._init_images(file_sets, metadata)
         self._label_map = self._init_labels(categories)
-        self.fill_class_samples(objects, images)
+        self.fill_class_lengths(objects, images)
         self._mean = self._init_mean(objects)
 
     def create_minibatches(self):
-        count = self.minibatch_maxsize
+        count = self.minibatch_size
         minibatch_shape = [count] + list(self._data_shape) + [self.channels]
         self.minibatch_data = numpy.zeros(shape=minibatch_shape,
                                           dtype=self._dtype)
-        self.minibatch_indexes = numpy.zeros(count, dtype=numpy.int32)
+        self.minibatch_indices = numpy.zeros(count, dtype=numpy.int32)
 
     def fill_minibatch(self):
         images = self._executor_.map(
-            lambda i: (i, self._get_sample(self.shuffled_indexes[i])),
+            lambda i: (i, self._get_sample(self.shuffled_indices[i])),
             range(self.minibatch_size))
         for i, data in images:
             self.minibatch_data[i] = data
@@ -637,24 +637,24 @@ class LoaderDetection(LoaderBase):
 
     def create_minibatches(self):
         super(LoaderDetection, self).create_minibatches()
-        self.minibatch_labels = numpy.zeros(self.minibatch_maxsize,
+        self.minibatch_labels = numpy.zeros(self.minibatch_size,
                                             dtype=numpy.int32)
 
     def fill_minibatch(self):
         super(LoaderDetection, self).fill_minibatch()
         for i in range(self.minibatch_size):
-            meta = self.get_object_meta(self.shuffled_indexes[i])
+            meta = self.get_object_meta(self.shuffled_indices[i])
             if meta[2] is not None:
                 name = meta[2]["name"]
             else:
-                fn = self.get_object_file_name(self.shuffled_indexes[i])
+                fn = self.get_object_file_name(self.shuffled_indices[i])
                 name = self.get_category_by_file_name(fn)
             self.minibatch_labels[i] = self._label_map[name]
 
-    def fill_class_samples(self, objects, images):
+    def fill_class_lengths(self, objects, images):
         for set_name, files in objects.items():
             index = loader.TRIAGE[set_name]
-            self.class_samples[index] = len(files)
+            self.class_lengths[index] = len(files)
 
     def get_sample_file_name(self, index):
         return self.get_object_file_name(index)
@@ -747,14 +747,14 @@ class LoaderBoundingBox(LoaderBase):
     def create_minibatches(self):
         super(LoaderBoundingBox, self).create_minibatches()
         # label = category index + xmin + ymin + xmax + ymax
-        label_size = self.minibatch_maxsize * 5 * self._max_detected_bboxes
+        label_size = self.minibatch_size * 5 * self._max_detected_bboxes
         self.minibatch_labels = numpy.zeros(label_size, dtype=numpy.int32)
 
     def fill_minibatch(self):
         super(LoaderBoundingBox, self).fill_minibatch()
         stride = 5 * self._max_detected_bboxes
         for i in range(self.minibatch_size):
-            index = self.shuffled_indexes[i]
+            index = self.shuffled_indices[i]
             meta = self.get_image_meta(index)[1]
             if meta[2] is not None:
                 objects = meta[2]["object"]
@@ -775,9 +775,9 @@ class LoaderBoundingBox(LoaderBase):
                 for k in range(4):
                     self.minibatch_labels[i * stride + j * 5 + 1 + k] = bbox[k]
 
-    def fill_class_samples(self, objects, images):
+    def fill_class_lengths(self, objects, images):
         for index, files in enumerate(images):
-            self.class_samples[index] = files[1] - files[0]
+            self.class_lengths[index] = files[1] - files[0]
 
     def get_sample_file_name(self, index):
         return self.get_image_file_name(index)

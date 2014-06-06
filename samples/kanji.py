@@ -38,7 +38,7 @@ root.defaults = {
     "decision": {"fail_iterations": 1000,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "kanji"},
-    "loader": {"minibatch_maxsize": 5103,
+    "loader": {"minibatch_size": 5103,
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 16},
     "kanji": {"learning_rate": 0.0000001,
@@ -61,7 +61,7 @@ class Loader(loader.Loader):
         self.train_path = kwargs["train_path"]
         self.target_path = kwargs["target_path"]
         super(Loader, self).__init__(workflow, **kwargs)
-        self.class_target = formats.Vector()
+        self.class_targets = formats.Vector()
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
@@ -72,7 +72,7 @@ class Loader(loader.Loader):
         """Load the data here.
 
         Should be filled here:
-            class_samples[].
+            class_lengths[].
         """
         fin = open(root.kanji.index_map, "rb")
         self.index_map = pickle.load(fin)
@@ -85,17 +85,17 @@ class Loader(loader.Loader):
         fin = open(self.target_path, "rb")
         targets = pickle.load(fin)
         fin.close()
-        self.class_target.reset()
+        self.class_targets.reset()
         sh = [len(targets)]
         sh.extend(targets[0].shape)
-        self.class_target.mem = numpy.empty(
+        self.class_targets.mem = numpy.empty(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
         for i, target in enumerate(targets):
-            self.class_target[i] = target
+            self.class_targets[i] = target
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 0
-        self.class_samples[2] = len(self.index_map)
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 0
+        self.class_lengths[2] = len(self.index_map)
 
         self.original_labels = numpy.empty(len(self.index_map),
                                            dtype=numpy.int32)
@@ -116,41 +116,36 @@ class Loader(loader.Loader):
             len(self.index_map)))
         self.extract_validation_from_train(rnd.get(2))
         self.info("Extracted, resulting datasets are: [%s]" % (
-            ", ".join(str(x) for x in self.class_samples)))
+            ", ".join(str(x) for x in self.class_lengths)))
 
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
         """
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize]
+        sh = [self.max_minibatch_size]
         sh.extend(self.first_sample.shape)
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_target.reset()
-        sh = [self.minibatch_maxsize]
-        sh.extend(self.class_target[0].shape)
-        self.minibatch_target.mem = numpy.zeros(
+        self.minibatch_targets.reset()
+        sh = [self.max_minibatch_size]
+        sh.extend(self.class_targets[0].shape)
+        self.minibatch_targets.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
-        sh = [self.minibatch_maxsize]
+        sh = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
-        self.minibatch_indexes.reset()
-        self.minibatch_indexes.mem = numpy.zeros(len(self.index_map),
+        self.minibatch_indices.reset()
+        self.minibatch_indices.mem = numpy.zeros(len(self.index_map),
                                                  dtype=numpy.int32)
 
     def fill_minibatch(self):
         """Fill minibatch data labels and indexes according to current shuffle.
         """
-        minibatch_size = self.minibatch_size
-
-        idxs = self.minibatch_indexes.mem
-        idxs[:minibatch_size] = self.shuffled_indexes[
-            self.minibatch_offset - minibatch_size:self.minibatch_offset]
-
-        for i, ii in enumerate(idxs[:minibatch_size]):
+        idxs = self.minibatch_indices.mem
+        for i, ii in enumerate(idxs[:self.minibatch_size]):
             fnme = "%s/%s" % (self.train_path, self.index_map[ii])
             fin = open(fnme, "rb")
             sample = pickle.load(fin)
@@ -159,7 +154,7 @@ class Loader(loader.Loader):
             fin.close()
             self.minibatch_data[i] = data
             self.minibatch_labels[i] = lbl
-            self.minibatch_target[i] = self.class_target[lbl]
+            self.minibatch_targets[i] = self.class_targets[lbl]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -202,9 +197,9 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("target", "minibatch_target"),
+                                  ("target", "minibatch_targets"),
                                   ("labels", "minibatch_labels"),
-                                  "class_target")
+                                  "class_targets")
         self.evaluator.link_attrs(self.fwds[-1], "output")
 
         # Add decision unit
@@ -215,11 +210,11 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number",
                                  "minibatch_offset",
-                                 "minibatch_size", two_way=True)
+                                 "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -352,11 +347,11 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = self.decision.epoch_ended
 
-    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_size,
                    device, weights, bias):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
-                                         minibatch_maxsize=minibatch_maxsize,
+                                         minibatch_size=minibatch_size,
                                          device=device)
         if weights is not None:
             for i, fwds in enumerate(self.fwds):
@@ -387,5 +382,5 @@ def run(load, main):
             w.decision.improved <<= True
     main(learning_rate=root.kanji.learning_rate,
          weights_decay=root.kanji.weights_decay,
-         minibatch_maxsize=root.loader.minibatch_maxsize,
+         minibatch_size=root.loader.minibatch_size,
          weights=weights, bias=bias)

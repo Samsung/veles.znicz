@@ -21,7 +21,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 
 root.update = {"decision": {"fail_iterations": 100, "do_export_weights": True},
                "snapshotter": {"prefix": "cifar"},
-               "loader": {"minibatch_maxsize": 100},
+               "loader": {"minibatch_size": 100},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,
                                              "tmp/test"),

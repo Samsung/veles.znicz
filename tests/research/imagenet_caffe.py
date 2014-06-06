@@ -19,7 +19,7 @@ root.defaults = {
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "imagenet_caffe"},
-    "loader": {"minibatch_maxsize": 60},
+    "loader": {"minibatch_size": 60},
     "imagenet_caffe": {"learning_rate": 0.00016,
                        "weights_decay": 0.0,
                        "layers":
@@ -185,7 +185,7 @@ class Workflow(StandardWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

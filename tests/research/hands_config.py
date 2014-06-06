@@ -24,7 +24,7 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
 
 root.update = {"decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "hands"},
-               "loader": {"minibatch_maxsize": 60},
+               "loader": {"minibatch_size": 60},
                "hands": {"learning_rate": 0.0008,
                          "weights_decay": 0.0,
                          "layers": [30, 2],

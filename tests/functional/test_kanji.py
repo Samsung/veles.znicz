@@ -14,7 +14,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.random_generator as rnd
+import veles.random_generator as prng
 from veles.tests import timeout
 import veles.znicz.samples.kanji as kanji
 import veles.tests.dummy_workflow as dummy_workflow
@@ -29,15 +29,15 @@ class TestKanji(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout
+    @timeout()
     def test_kanji(self):
         logging.info("Will test loader, decision, evaluator units")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        rnd.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.int32, count=1024))
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.int32, count=1024))
         root.decision.fail_iterations = -1
         root.kanji.data_paths.target = os.path.join(
             root.common.veles_dir,
@@ -55,7 +55,7 @@ class TestKanji(unittest.TestCase):
                            layers=[30, 30, 24 * 24], device=self.device)
         w.initialize(learning_rate=root.kanji.learning_rate,
                      weights_decay=root.kanji.weights_decay,
-                     minibatch_maxsize=root.loader.minibatch_maxsize,
+                     minibatch_size=root.loader.minibatch_size,
                      device=self.device, weights=None, bias=None)
         w.run()
         err = w.decision.epoch_n_err[1]

@@ -7,7 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
-
+from copy import copy
 import numpy
 import os
 import time
@@ -19,7 +19,7 @@ import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
+import veles.random_generator as random_generator
 from veles.units import Unit, IUnit
 
 
@@ -42,7 +42,7 @@ class ILoader(Interface):
         """Load the data here.
 
         Should be filled here:
-            class_samples[].
+            class_lengths[].
         """
 
     def create_minibatches():
@@ -56,155 +56,266 @@ class ILoader(Interface):
 
 @implementer(IUnit, IDistributable)
 class Loader(Unit):
-    """Loads data and provides mini-batch output interface.
+    """Loads data and provides minibatch output interface.
 
     Attributes:
-        rnd: rnd.Rand().
-
-        minibatch_data: data (should be scaled usually scaled to [-1, 1]).
-        minibatch_indexes: global indexes of images in minibatch.
-        minibatch_labels: labels for indexes in minibatch
-                          (in case of classification task).
-        minibatch_target: target data (in case of MSE).
-        class_target: target for each class
-                      (in case of classification with MSE).
-
-        minibatch_class: class of the minibatch: 0-test, 1-validation, 2-train.
-        last_minibatch: if current minibatch is last in it's class.
-
-        minibatch_offset: offset of the current minibatch in all samples,
-                        where first come test samples, then validation, with
-                        train ones at the end.
-        minibatch_size: size of the current minibatch.
-        minibatch_maxsize: maximum size of minibatch in samples.
-
+        prng: veles.random_generator.RandomGenerator instance.
+        normalize: normalize pixel values into [-1, 1] range.
+                   True by default.
+        validation_ratio: used by extract_validation_from_train() as a default
+                          ratio.
+        max_minibatch_size: maximal size of a minibatch.
         total_samples: total number of samples in the dataset.
-        class_samples: number of samples per class.
-        nextclass_offsets: offset in samples where the next class begins.
-        normalize: normalize pixel values to [-1, 1] range. True by default.
-
-        shuffled_indexes: indexes for all dataset, shuffled with rnd.
+        class_lengths: number of samples per class.
+        class_offsets: offset in samples where the next class begins.
+        class_targets: target for each class (in case of MSE).
+        last_minibatch: if current minibatch is last in it's class.
         epoch_ended: True right after validation is completed and no samples
-        have been served since.
-        epoch_number: current epoch number.
-
-    Should be overriden in child class:
-        load_data()
-        create_minibatches()
-        fill_minibatch()
+                     have been served since.
+        epoch_number: current epoch number. Epoch ends when all validation set
+                      is processed. If validation set is empty, it ends
+                      after all training set is processed.
+        minibatch_data: data (should be scaled usually scaled to [-1, 1]).
+        minibatch_indices: global indices of images in minibatch.
+        minibatch_labels: labels for indexes in minibatch (classification).
+        minibatch_targets: target data (in case of MSE).
+        shuffled_indices: indices for all dataset, shuffled with prng.
+        samples_served: the total number of samples processed for all epochs.
+        minibatch_class: current minibatch class.
+        minibatch_offset: current minibatch offset.
+        global_offset: first sample index which was not served during the
+                       current epoch.
+        minibatch_size: current minibatch size <= max_minibatch_size.
     """
 
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = "LOADER"
+        self.last_minibatch = Bool(False)
         super(Loader, self).__init__(workflow, **kwargs)
         self.verify_interface(ILoader)
 
-        self._rnd = [kwargs.get("rnd", rnd.get())]
-        self._normalize = kwargs.get("normalize", True)
-        self.minibatch_maxsize = kwargs.get("minibatch_maxsize", 100)
+        self.prng = kwargs.get("prng", random_generator.get())
+        self.normalize = kwargs.get("normalize", True)
         self.validation_ratio = kwargs.get("validation_ratio", 0.15)
+        self._max_minibatch_size = kwargs.get("minibatch_size", 100)
+        if self._max_minibatch_size < 1:
+            raise ValueError("minibatch_size must be greater than zero")
 
-        self.minibatch_data = formats.Vector()
-        self.minibatch_target = formats.Vector()
-        self.minibatch_indexes = formats.Vector()
-        self.minibatch_labels = formats.Vector()
-        self.class_target = formats.Vector()
+        self._total_samples = 0
+        self.class_lengths = [0, 0, 0]
+        self.class_offsets = [0, 0, 0]
+        self.class_targets = formats.Vector()
 
-        self.minibatch_class = 0
-        self.last_minibatch = Bool(False)
-
-        self.total_samples = 0
-        self.class_samples = [0, 0, 0]
-        self.nextclass_offsets = [0, 0, 0]
-        self.minibatch_offset = 0
-
-        self.minibatch_offset = 0
-        self.minibatch_size = 0
-
-        self.shuffled_indexes = False  # allow early linking
-        self.original_labels = False  # allow early linking
-
-        self.samples_served = 0
         self.epoch_ended = Bool(False)
         self.epoch_number = 0
+        self.samples_served = 0
+        self.global_offset = 0
+        self.failed_minibatches = {}
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
+        self.minibatch_data = formats.Vector()
+        self.minibatch_targets = formats.Vector()
+        self.minibatch_indices = formats.Vector()
+        self.minibatch_labels = formats.Vector()
+        self.minibatch_class = 0
+        self._minibatch_offset_ = 0
+        self._minibatch_size_ = 0
+        self.shuffled_indices = False
+        self.pending_minibatches_ = {}
+        self.last_minibatch.on_true = self._print_last_minibatch
         self._minibatch_serve_timestamp_ = time.time()
 
     @property
-    def rnd(self):
-        return self._rnd
+    def shuffled_indices(self):
+        return self._shuffled_indices_
+
+    @shuffled_indices.setter
+    def shuffled_indices(self, value):
+        self._shuffled_indices_ = value
+
+    @property
+    def total_samples(self):
+        return self._total_samples
+
+    @total_samples.setter
+    def total_samples(self, value):
+        if value <= 0:
+            raise error.ErrBadFormat("class_lengths should be filled")
+        if value > numpy.iinfo(numpy.int32).max:
+            raise error.ErrNotImplemented(
+                "total_samples exceeds int32 capacity.")
+        self._total_samples = value
+
+    @property
+    def samples_served(self):
+        return self._samples_served
+
+    @samples_served.setter
+    def samples_served(self, value):
+        self._samples_served = value
+        if value == 0:
+            return
+        num, den = divmod(self.samples_served, self.total_samples)
+        self.epoch_number = num
+        if not self.is_slave:
+            now = time.time()
+            if now - self._minibatch_serve_timestamp_ >= 10:
+                self._minibatch_serve_timestamp_ = now
+                self.info("Served %d samples (%d epochs, %.1f%% current)" % (
+                    self.samples_served, num, 100. * den / self.total_samples))
+
+    @property
+    def minibatch_class(self):
+        return self._minibatch_class_
+
+    @minibatch_class.setter
+    def minibatch_class(self, value):
+        if not 0 <= value < len(CLASS_NAME):
+            raise ValueError("Invalid minibatch_class value %s" % str(value))
+        self._minibatch_class_ = value
+
+    @property
+    def minibatch_offset(self):
+        return self._minibatch_offset_
+
+    @minibatch_offset.setter
+    def minibatch_offset(self, value):
+        if not 0 <= value <= self.total_samples:
+            raise ValueError("Invalid minibatch_offset value %s" % str(value))
+        self._minibatch_offset_ = value
+
+    @property
+    def minibatch_size(self):
+        return self._minibatch_size_
+
+    @minibatch_size.setter
+    def minibatch_size(self, value):
+        if not 0 < value <= self.max_minibatch_size:
+            raise ValueError("Invalid minibatch_size value %s" % str(value))
+        self._minibatch_size_ = value
+
+    @property
+    def max_minibatch_size(self):
+        return self._max_minibatch_size
+
+    @max_minibatch_size.setter
+    def max_minibatch_size(self, value):
+        if value < 1:
+            raise ValueError("Invalid max_minibatch_size value %s" %
+                             str(value))
+        self._max_minibatch_size = min(value, max(self.class_lengths))
+        if self._max_minibatch_size < 1:
+            raise ValueError("max(self.class_lengths) is %d" %
+                             max(self.class_lengths))
+        self.info("Minibatch size is set to %d", self.max_minibatch_size)
+
+    @property
+    def minibatch_data(self):
+        return self._minibatch_data_
+
+    @minibatch_data.setter
+    def minibatch_data(self, value):
+        self._minibatch_data_ = value
+
+    @property
+    def minibatch_targets(self):
+        return self._minibatch_targets_
+
+    @minibatch_targets.setter
+    def minibatch_targets(self, value):
+        self._minibatch_targets_ = value
+
+    @property
+    def minibatch_indices(self):
+        return self._minibatch_indices_
+
+    @minibatch_indices.setter
+    def minibatch_indices(self, value):
+        self._minibatch_indices_ = value
+
+    @property
+    def minibatch_labels(self):
+        return self._minibatch_labels_
+
+    @minibatch_labels.setter
+    def minibatch_labels(self, value):
+        self._minibatch_labels_ = value
+
+    @property
+    def epoch_number(self):
+        return self._epoch_number
+
+    @epoch_number.setter
+    def epoch_number(self, value):
+        if value < 0:
+            raise ValueError("epoch_number must be greater than or equal to 0")
+        self._epoch_number = value
+
+    @property
+    def prng(self):
+        """
+        Returns the Pseudo Random Number Generator belonging to this instance.
+        """
+        return self._prng
+
+    @prng.setter
+    def prng(self, value):
+        if not isinstance(value, random_generator.RandomGenerator):
+            raise TypeError("prng must be an instance of RandomGenerator")
+        self._prng = value
 
     @property
     def normalize(self):
+        """
+        True if sample values are normalized before being served; otherwise,
+        False.
+        """
         return self._normalize
+
+    @normalize.setter
+    def normalize(self, value):
+        if not isinstance(value, bool):
+            raise TypeError("normalize must be a boolean value")
+        self._normalize = value
+
+    @property
+    def validation_ratio(self):
+        return self._validation_ratio
+
+    @validation_ratio.setter
+    def validation_ratio(self, value):
+        if not isinstance(value, float):
+            raise TypeError("validation_ratio must be a float")
+        self._validation_ratio = value
 
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
-        state["shuffled_indexes"] = None
+        # Move all pending minibatches to failed set
+        state["failed_minibatches"] = copy(state["failed_minibatches"])
+        state["failed_minibatches"].update(self.pending_minibatches_)
         return state
 
     def initialize(self, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
-        self.minibatch_maxsize = kwargs.get("minibatch_maxsize",
-                                            self.minibatch_maxsize)
         self.load_data()
-
-        self._recompute_total_samples()
-
+        self._update_total_samples()
         self.info("Samples number: train: %d, validation: %d, test: %d",
-                  self.class_samples[TRAIN], self.class_samples[VALID],
-                  self.class_samples[TEST])
-
-        # Adjust minibatch_maxsize
-        self.minibatch_maxsize = min(
-            self.minibatch_maxsize, max(self.class_samples[TRAIN],
-                                        self.class_samples[VALID],
-                                        self.class_samples[TEST]))
-        self.info("Minibatch size is set to %d", self.minibatch_maxsize)
-
+                  *self.class_lengths)
+        self._adjust_max_minibatch_size()
         self.create_minibatches()
         if not self.minibatch_data:
             raise error.ErrBadFormat("minibatch_data MUST be initialized in "
                                      "create_minibatches()")
-
-        self.minibatch_offset = self.total_samples
-
-        # Initial shuffle.
-        if self.shuffled_indexes is False:
-            if self.total_samples > 2147483647:
-                raise error.ErrNotImplemented(
-                    "total_samples exceedes int32 capacity.")
-            self.shuffled_indexes = numpy.arange(self.total_samples,
-                                                 dtype=numpy.int32)
-
         self.shuffle()
 
     def run(self):
         """Prepares the minibatch.
         """
-        self._prepare_next_minibatch()
-
-        # Fill minibatch according to current random shuffle and offset.
-        self.minibatch_data.map_invalidate()
-        self.minibatch_target.map_invalidate()
-        self.minibatch_labels.map_invalidate()
-        self.minibatch_indexes.map_invalidate()
-
-        self.fill_minibatch()
-
-        # Fill excessive indexes.
-        minibatch_size = self.minibatch_size
-        if minibatch_size < self.minibatch_maxsize:
-            self.minibatch_data[minibatch_size:] = 0.0
-            if self.minibatch_target:
-                self.minibatch_target[minibatch_size:] = 0.0
-            if self.minibatch_labels:
-                self.minibatch_labels[minibatch_size:] = -1
-            if self.minibatch_indexes:
-                self.minibatch_indexes[minibatch_size:] = -1
+        if self.is_standalone and len(self.pending_minibatches_):
+            self.pending_minibatches_.popitem()
+        self._prepare_next_minibatch(None)
 
     def generate_data_for_master(self):
         data = {"minibatch_class": self.minibatch_class,
@@ -213,9 +324,9 @@ class Loader(Unit):
         return data
 
     def generate_data_for_slave(self, slave):
-        self._prepare_next_minibatch()
-        data = {'shuffled_indexes':
-                self.shuffled_indexes[
+        self._prepare_next_minibatch(slave.id)
+        data = {'shuffled_indices':
+                self.shuffled_indices[
                     self.minibatch_offset - self.minibatch_size:
                     self.minibatch_offset].copy(),
                 'minibatch_class': self.minibatch_class,
@@ -227,7 +338,7 @@ class Loader(Unit):
 
     def apply_data_from_master(self, data):
         # Just feed single minibatch
-        indices = data['shuffled_indexes']
+        indices = data['shuffled_indices']
         assert len(indices) > 0
         self.minibatch_size = len(indices)
         self.minibatch_offset = data['minibatch_offset']
@@ -235,9 +346,9 @@ class Loader(Unit):
         self.samples_served = data['samples_served']
         self.epoch_number = data['epoch_number']
         self.epoch_ended <<= data['epoch_ended']
-        assert self.minibatch_offset <= len(self.shuffled_indexes)
+        assert self.minibatch_offset <= len(self.shuffled_indices)
         assert (self.minibatch_offset - self.minibatch_size) >= 0
-        self.shuffled_indexes[self.minibatch_offset - self.minibatch_size:
+        self.shuffled_indices[self.minibatch_offset - self.minibatch_size:
                               self.minibatch_offset] = indices
         # these will be incremented back in _prepare_next_minibatch
         self.minibatch_offset -= self.minibatch_size
@@ -251,7 +362,7 @@ class Loader(Unit):
     def drop_slave(self, slave):
         pass
 
-    def extract_validation_from_train(self, rand=None):
+    def extract_validation_from_train(self, rand=None, ratio=None):
         """Extracts validation dataset from train dataset randomly.
 
         We will rearrange indexes only.
@@ -259,30 +370,30 @@ class Loader(Unit):
         Parameters:
             amount: how many samples move from train dataset
                     relative to the entire samples count for each class.
-            rand: rnd.Rand(), if None - will use self.rnd.
+            rand: veles.random_generator.RandomGenerator, if None - will use
+                  self.prng.
         """
-        amount = self.validation_ratio
-        if rand is None:
-            rand = self.rnd[0]
+        amount = ratio or self.validation_ratio
+        rand = rand or self.prng
 
         if amount <= 0:  # Dispose of validation set
-            self.class_samples[TRAIN] += self.class_samples[VALID]
-            self.class_samples[VALID] = 0
-            if self.shuffled_indexes is False:
-                total_samples = numpy.sum(self.class_samples)
-                self.shuffled_indexes = numpy.arange(
+            self.class_lengths[TRAIN] += self.class_lengths[VALID]
+            self.class_lengths[VALID] = 0
+            if self.shuffled_indices is False:
+                total_samples = numpy.sum(self.class_lengths)
+                self.shuffled_indices = numpy.arange(
                     total_samples, dtype=numpy.int32)
             return
-        offs_test = self.class_samples[TEST]
+        offs_test = self.class_lengths[TEST]
         offs = offs_test
-        train_samples = self.class_samples[VALID] + self.class_samples[TRAIN]
+        train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
         total_samples = train_samples + offs
         original_labels = self.original_labels
 
-        if self.shuffled_indexes is False:
-            self.shuffled_indexes = numpy.arange(
+        if self.shuffled_indices is False:
+            self.shuffled_indices = numpy.arange(
                 total_samples, dtype=numpy.int32)
-        shuffled_indexes = self.shuffled_indexes
+        shuffled_indexes = self.shuffled_indices
 
         # If there are no labels
         if original_labels is None:
@@ -297,9 +408,9 @@ class Loader(Unit):
 
                 offs += 1
                 n -= 1
-            self.class_samples[VALID] = offs - offs_test
-            self.class_samples[TRAIN] = (total_samples
-                                         - self.class_samples[VALID]
+            self.class_lengths[VALID] = offs - offs_test
+            self.class_lengths[TRAIN] = (total_samples
+                                         - self.class_lengths[VALID]
                                          - offs_test)
             return
         # If there are labels
@@ -337,84 +448,105 @@ class Loader(Unit):
             nn[l] -= 1
             n -= 1
             offs += 1
-        self.class_samples[VALID] = offs - offs_test
-        self.class_samples[TRAIN] = (total_samples - self.class_samples[VALID]
+        self.class_lengths[VALID] = offs - offs_test
+        self.class_lengths[TRAIN] = (total_samples - self.class_lengths[VALID]
                                      - offs_test)
 
     def shuffle(self):
         """Randomly shuffles the TRAIN dataset.
         """
-        self.rnd[0].shuffle(self.shuffled_indexes[self.nextclass_offsets[1]:
-                                                  self.nextclass_offsets[2]])
+        if self.shuffled_indices is False:
+            self.shuffled_indices = numpy.arange(self.total_samples,
+                                                 dtype=numpy.int32)
+        self.prng.shuffle(self.shuffled_indices[self.class_offsets[1]:
+                                                self.class_offsets[2]])
 
-    def _recompute_total_samples(self):
-        """Fills self.nextclass_offsets from self.class_samples.
+    def _adjust_max_minibatch_size(self, **kwargs):
+        self.max_minibatch_size = kwargs.get("minibatch_size",
+                                             self.max_minibatch_size)
+
+    def _update_total_samples(self):
+        """Fills self.class_offsets from self.class_lengths.
         """
         total_samples = 0
-        for i, n in enumerate(self.class_samples):
+        for i, n in enumerate(self.class_lengths):
             total_samples += n
-            self.nextclass_offsets[i] = total_samples
+            self.class_offsets[i] = total_samples
         self.total_samples = total_samples
-        if total_samples == 0:
-            raise error.ErrBadFormat("class_samples should be filled")
+        if self.class_lengths[TRAIN] < 1:
+            raise ValueError("class_length for TRAIN dataset is invalid: %d" %
+                             self.class_lengths[TRAIN])
         self.last_minibatch <<= False
         self.epoch_ended <<= False
 
-    def _update_epoch_ended(self):
-        self.epoch_ended <<= (
-            bool(self.last_minibatch) and (
-                self.minibatch_class == VALID or (
-                    not self.class_samples[VALID] and
-                    self.minibatch_class == TRAIN)))
+    def _update_last_minibatch(self, value):
+        """Sets the flags signalling whether each dataset class is over in the
+        current epoch.
+        """
+        self._update_epoch_ended()
 
-    def _prepare_next_minibatch(self):
-        """Increments minibatch_offset by an appropriate minibatch_size.
+    def _update_epoch_ended(self):
+        self.epoch_ended <<= bool(self.last_minibatch) and (
+            self.minibatch_class == VALID or (not self.class_lengths[VALID] and
+                                              self.minibatch_class == TRAIN))
+
+    def _prepare_next_minibatch(self, slave):
+        try:
+            _, (minibatch_offset, minibatch_size) = \
+                self.failed_minibatches.popitem()
+        except KeyError:
+            minibatch_offset, minibatch_size = self._advance()
+        self.pending_minibatches_[slave] = (minibatch_offset, minibatch_size)
+        self.minibatch_offset, self.minibatch_size = \
+            minibatch_offset, minibatch_size
+
+        for v in (self.minibatch_data, self.minibatch_targets,
+                  self.minibatch_labels, self.minibatch_indices):
+            v.map_invalidate()
+        self.minibatch_indices.mem = self.shuffled_indices[
+            minibatch_offset - minibatch_size:minibatch_offset]
+        self.fill_minibatch()
+        if minibatch_size < self.max_minibatch_size:
+            self.minibatch_data[minibatch_size:] = 0.0
+            if self.minibatch_targets:
+                self.minibatch_targets[minibatch_size:] = 0.0
+            self.minibatch_labels[minibatch_size:] = -1
+            self.minibatch_indices[minibatch_size:] = -1
+
+    def _advance(self):
+        """Increments global_offset by an appropriate minibatch_size.
         """
         # Shuffle again when the end of data is reached.
-        if self.minibatch_offset >= self.total_samples:
+        if self.global_offset >= self.total_samples:
             self.shuffle()
-            self.minibatch_offset = 0
+            self.global_offset = 0
 
         # Compute next minibatch size and its class.
         if not self.is_slave:
-            for i in range(len(self.nextclass_offsets)):
-                if self.minibatch_offset < self.nextclass_offsets[i]:
-                    self.minibatch_class = i
-                    remainder = (self.nextclass_offsets[i] -
-                                 self.minibatch_offset)
-                    if remainder <= self.minibatch_maxsize:
-                        self.last_minibatch <<= True
-                        self.minibatch_size = remainder
-                        self.info("Last minibatch of class %s served",
-                                  CLASS_NAME[i].upper())
-                    else:
-                        self.last_minibatch <<= False
-                        self.minibatch_size = self.minibatch_maxsize
+            for cls, offset in enumerate(self.class_offsets):
+                if self.global_offset < offset:
+                    self.minibatch_class = cls
+                    remainder = offset - self.global_offset
+                    minibatch_size = min(remainder, self.max_minibatch_size)
+                    self.last_minibatch <<= (remainder <=
+                                             self.max_minibatch_size)
                     break
             else:
                 raise error.ErrNotExists(
-                    "minibatch_offset is too large: %d", self.minibatch_offset)
+                    "global_offset is too large: %d", self.global_offset)
         else:
             # Force this minibatch to be the last for the slave
             self.last_minibatch <<= True
         self._update_epoch_ended()
 
-        # Adjust offset according to the calculated step
-        assert self.minibatch_size > 0
-        self.minibatch_offset += self.minibatch_size
-        assert self.minibatch_offset <= len(self.shuffled_indexes)
+        # Adjust offset and served according to the calculated step
+        self.global_offset += minibatch_size
+        self.samples_served += minibatch_size
+        return self.global_offset, minibatch_size
 
-        # Record and print stats
-        self.samples_served += self.minibatch_size
-        num, den = divmod(self.samples_served, self.total_samples)
-        self.epoch_number = num
-        if not self.is_slave:
-            now = time.time()
-            if now - self._minibatch_serve_timestamp_ >= 10:
-                self._minibatch_serve_timestamp_ = now
-                self.info("Served %d samples (%d epochs, %.1f%% current)" % (
-                    self.samples_served,
-                    num, 100.0 * den / self.total_samples))
+    def _print_last_minibatch(self, var):
+        self.info("Last minibatch of class %s served",
+                  CLASS_NAME[self.minibatch_class].upper())
 
 
 class IFullBatchLoader(Interface):
@@ -446,60 +578,53 @@ class FullBatchLoader(Loader):
         self.original_data = False
         self.original_labels = False
         self.original_target = False
-        self.shuffled_indexes = False
+        self.shuffled_indices = False
 
     def __getstate__(self):
         state = super(FullBatchLoader, self).__getstate__()
         state["original_data"] = None
         state["original_labels"] = None
         state["original_target"] = None
-        state["shuffled_indexes"] = None
+        state["shuffled_indices"] = None
         return state
 
     def create_minibatches(self):
         self.minibatch_data.reset()
-        sh = [self.minibatch_maxsize]
+        sh = [self.max_minibatch_size]
         sh.extend(self.original_data[0].shape)
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
 
-        self.minibatch_target.reset()
+        self.minibatch_targets.reset()
         if not self.original_target is False:
-            sh = [self.minibatch_maxsize]
+            sh = [self.max_minibatch_size]
             sh.extend(self.original_target[0].shape)
-            self.minibatch_target.mem = numpy.zeros(
+            self.minibatch_targets.mem = numpy.zeros(
                 sh,
                 dtype=opencl_types.dtypes[config.root.common.precision_type])
 
         self.minibatch_labels.reset()
         if not self.original_labels is False:
-            sh = [self.minibatch_maxsize]
+            sh = [self.max_minibatch_size]
             self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
-        self.minibatch_indexes.reset()
-        self.minibatch_indexes.mem = numpy.zeros(self.minibatch_maxsize,
+        self.minibatch_indices.reset()
+        self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
                                                  dtype=numpy.int32)
 
     def fill_minibatch(self):
-        minibatch_size = self.minibatch_size
+        idxs = self.minibatch_indices.mem
 
-        idxs = self.minibatch_indexes.mem
-
-        assert self.minibatch_offset <= len(self.shuffled_indexes)
-        assert (self.minibatch_offset - minibatch_size) >= 0
-        idxs[:minibatch_size] = self.shuffled_indexes[
-            self.minibatch_offset - minibatch_size:self.minibatch_offset]
-
-        for i, ii in enumerate(idxs[:minibatch_size]):
+        for i, ii in enumerate(idxs[:self.minibatch_size]):
             self.minibatch_data[i] = self.original_data[int(ii)]
 
         if not self.original_labels is False:
-            for i, ii in enumerate(idxs[:minibatch_size]):
+            for i, ii in enumerate(idxs[:self.minibatch_size]):
                 self.minibatch_labels[i] = self.original_labels[int(ii)]
 
         if not self.original_target is False:
-            for i, ii in enumerate(idxs[:minibatch_size]):
-                self.minibatch_target[i] = self.original_target[int(ii)]
+            for i, ii in enumerate(idxs[:self.minibatch_size]):
+                self.minibatch_targets[i] = self.original_target[int(ii)]
 
 
 @implementer(IFullBatchLoader)
@@ -662,7 +787,7 @@ class ImageLoader(FullBatchLoader):
                     data = aa
                 else:
                     data = numpy.append(data, aa, axis=0)
-            self.class_samples[i] = len(data) - offs
+            self.class_lengths[i] = len(data) - offs
             offs = len(data)
 
         if len(labels):
@@ -684,7 +809,7 @@ class ImageLoader(FullBatchLoader):
                         self.target_by_lbl[n] = a
                         n += 1
             if n:
-                if n != numpy.sum(self.class_samples):
+                if n != numpy.sum(self.class_lengths):
                     raise error.ErrBadFormat("Target samples count differs "
                                              "from data samples count.")
                 self.original_labels = numpy.arange(n, dtype=numpy.int32)

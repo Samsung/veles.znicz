@@ -26,7 +26,7 @@ root.update = {
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_maxsize": 100},
+    "loader": {"minibatch_size": 100},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers":
               [{"type": "conv", "n_kernels": 32,

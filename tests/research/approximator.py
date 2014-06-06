@@ -34,7 +34,7 @@ train_dir = [os.path.join(root.common.test_dataset_root,
 root.defaults = {"decision": {"fail_iterations": 1000,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "approximator"},
-                 "loader": {"minibatch_maxsize": 100},
+                 "loader": {"minibatch_size": 100},
                  "approximator": {"learning_rate": 0.0001,
                                   "weights_decay": 0.00005,
                                   "layers": [810, 9],
@@ -60,10 +60,10 @@ class Loader(loader.ImageLoader):
     def load_data(self):
         super(Loader, self).load_data()
         return
-        if self.class_samples[1] == 0:
-            n = self.class_samples[2] * 10 // 70
-            self.class_samples[1] = n
-            self.class_samples[2] -= n
+        if self.class_lengths[1] == 0:
+            n = self.class_lengths[2] * 10 // 70
+            self.class_lengths[1] = n
+            self.class_lengths[2] -= n
 
     def initialize(self, **kwargs):
         super(Loader, self).initialize(**kwargs)
@@ -114,7 +114,7 @@ class Loader(loader.ImageLoader):
         self.info("train target normed range: (%.6f, %.6f)" % (
             train_target.min(), train_target.max()))
 
-        if self.class_samples[0]:
+        if self.class_lengths[0]:
             test_data = self.original_data[:self.nextclass_offs[0]]
             formats.assert_addr(test_data, self.original_data)
             test_target = self.original_target[:self.nextclass_offs[0]]
@@ -130,7 +130,7 @@ class Loader(loader.ImageLoader):
             self.info("test target normed range: (%.6f, %.6f)" % (
                 test_target.min(), test_target.max()))
 
-        if self.class_samples[1]:
+        if self.class_lengths[1]:
             validation_data = self.original_data[self.nextclass_offs[0]:
                                                  self.nextclass_offs[1]]
             formats.assert_addr(validation_data, self.original_data)
@@ -188,7 +188,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("target", "minibatch_target"))
+                                  ("target", "minibatch_targets"))
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
@@ -198,11 +198,11 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number",
                                  "minibatch_offset",
-                                 "minibatch_size", two_way=True)
+                                 "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_mse", "mse"),
@@ -305,7 +305,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt = plotting_units.Plot(self, name="Plot", ylim=[-1.1, 1.1])
         del self.plt.inputs[:]
         self.plt.inputs.append(self.loader.minibatch_data)
-        self.plt.inputs.append(self.loader.minibatch_target)
+        self.plt.inputs.append(self.loader.minibatch_targets)
         self.decision.vectors_to_sync[self.fwds[-1].output] = 1
         self.plt.inputs.append(self.fwds[-1].output)
         del self.plt.input_fields[:]
@@ -319,11 +319,11 @@ class Workflow(nn_units.NNWorkflow):
         self.plt.link_from(self.decision)
         self.plt.gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, learning_rate, weights_decay, minibatch_maxsize,
+    def initialize(self, learning_rate, weights_decay, minibatch_size,
                    device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
-                                         minibatch_maxsize=minibatch_maxsize,
+                                         minibatch_size=minibatch_size,
                                          device=device)
 
 
@@ -331,4 +331,4 @@ def run(load, main):
     load(Workflow, layers=root.approximator.layers)
     main(learning_rate=root.approximator.learning_rate,
          weights_decay=root.approximator.weights_decay,
-         minibatch_maxsize=root.loader.minibatch_maxsize)
+         minibatch_size=root.loader.minibatch_size)

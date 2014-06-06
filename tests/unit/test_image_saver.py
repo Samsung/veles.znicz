@@ -17,7 +17,7 @@ import unittest
 
 from veles.config import root
 import veles.formats as formats
-import veles.random_generator as rnd
+import veles.random_generator as prng
 import veles.znicz.image_saver as image_saver
 import veles.tests.dummy_workflow as dummy_workflow
 
@@ -30,7 +30,7 @@ class TestImageSaver(unittest.TestCase):
         self.minibatch_data = formats.Vector()
         self.minibatch_data.mem = numpy.zeros([20, 32, 32],
                                               dtype=numpy.float32)
-        rnd.get().fill(self.minibatch_data.mem)
+        prng.get().fill(self.minibatch_data.mem)
 
         self.lbls = formats.Vector()
         self.lbls.mem = numpy.array([1, 0, 0, 2, 4,
@@ -54,7 +54,7 @@ class TestImageSaver(unittest.TestCase):
 
         self.output = formats.Vector()
         self.output.mem = numpy.zeros([20, 10], dtype=numpy.float32)
-        rnd.get().fill(self.output.mem)
+        prng.get().fill(self.output.mem)
         self.output.mem -= self.output.mem.max()
         numpy.exp(self.output.mem, self.output.mem)
         smm = self.output.mem.sum()
@@ -126,7 +126,7 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.this_save_time = time.time()
         self.target = formats.Vector()
         self.target.mem = numpy.zeros([20, 10], dtype=numpy.float32)
-        rnd.get().fill(self.target.mem)
+        prng.get().fill(self.target.mem)
         self.img_saver_MSE.minibatch_class = 0
         self.img_saver_MSE.target = self.target
         self.img_saver_MSE.initialize()

@@ -28,7 +28,7 @@ root.common.defaults = {"plotters_disabled": True}
 
 root.defaults = {"decision": {"fail_iterations": 250},
                  "snapshotter": {"prefix": "wine_relu"},
-                 "loader": {"minibatch_maxsize": 10},
+                 "loader": {"minibatch_size": 10},
                  "wine_relu": {"learning_rate": 0.03,
                                "weights_decay": 0.0,
                                "layers": [10, 3],
@@ -70,15 +70,9 @@ class Loader(loader.FullBatchLoader):
         self.original_data[:] *= IMul
         self.original_data[:] += IAdd
 
-        self.class_samples[0] = 0
-        self.class_samples[1] = 0
-        self.class_samples[2] = self.original_data.shape[0]
-
-        self.nextclass_offsets[0] = 0
-        self.nextclass_offsets[1] = 0
-        self.nextclass_offsets[2] = self.original_data.shape[0]
-
-        self.total_samples = self.original_data.shape[0]
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 0
+        self.class_lengths[2] = self.original_data.shape[0]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -94,7 +88,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -134,7 +128,7 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
         self.decision.link_attrs(

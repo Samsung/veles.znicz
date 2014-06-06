@@ -28,7 +28,7 @@ from veles.znicz.nn_units import NNSnapshotter
 
 root.defaults = {"decision": {"fail_iterations": 100},
                  "snapshotter": {"prefix": "video_ae"},
-                 "loader": {"minibatch_maxsize": 50},
+                 "loader": {"minibatch_size": 50},
                  "weights_plotter": {"limit": 16},
                  "video_ae": {"learning_rate": 0.000004,
                               "weights_decay": 0.00005,
@@ -73,7 +73,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader = Loader(self,
                              train_paths=(root.video_ae.data_paths,),
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -121,11 +121,11 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
-                                 "class_samples",
+                                 "class_lengths",
                                  "epoch_ended",
                                  "epoch_number",
                                  "minibatch_offset",
-                                 "minibatch_size", two_way=True)
+                                 "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_metrics", "metrics"))

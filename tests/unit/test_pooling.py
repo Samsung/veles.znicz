@@ -15,7 +15,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
+import veles.random_generator as prng
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 from veles.tests.dummy_workflow import DummyWorkflow
@@ -391,7 +391,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
 
         dtype = opencl_types.dtypes[root.common.dtype]
         inp = numpy.zeros([2, 6, 6, 3], dtype=dtype)
-        rnd.get().fill(inp)
+        prng.get().fill(inp)
         forward = pooling.AvgPooling(DummyWorkflow(), kx=3, ky=3,
                                      sliding=sliding)
         forward.input = formats.Vector()
@@ -401,7 +401,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
 
         forward.output.map_read()
         target = numpy.zeros_like(forward.output.mem)
-        rnd.get().fill(target)
+        prng.get().fill(target)
         err_output = forward.output.mem - target
 
         c = gd_pooling.GDAvgPooling(

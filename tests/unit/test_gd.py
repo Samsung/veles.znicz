@@ -14,7 +14,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as rnd
+import veles.random_generator as prng
 import veles.znicz.gd as gd
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.znicz.all2all as all2all
@@ -25,7 +25,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self.state = rnd.get().state
+        self.state = prng.get().state
         if not hasattr(self, "device"):
             self.device = opencl.Device()
 
@@ -34,11 +34,11 @@ class TestGD(unittest.TestCase, GDNumDiff):
         input_size = 25
         n_neurons = 7
 
-        rnd.get().state = self.state
+        prng.get().state = self.state
 
         dtype = opencl_types.dtypes[root.common.dtype]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
-        rnd.get().fill(inp)
+        prng.get().fill(inp)
         forward = Forward(DummyWorkflow(), output_shape=[n_neurons])
         forward.input = formats.Vector()
         forward.input.mem = inp.copy()
@@ -47,7 +47,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
 
         forward.output.map_read()
         target = numpy.zeros_like(forward.output.mem)
-        rnd.get().fill(target)
+        prng.get().fill(target)
         if isinstance(forward, all2all.All2AllSoftmax):
             for sample in target:
                 im = sample.argmax()

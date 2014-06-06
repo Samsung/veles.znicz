@@ -16,7 +16,7 @@ from veles.config import root
 root.update = {"learning_rate_adjust": {"do": False},
                "decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "mnist_conv"},
-               "loader": {"minibatch_maxsize": 540},
+               "loader": {"minibatch_size": 540},
                "weights_plotter": {"limit": 64},
                "mnist": {"learning_rate": 0.0000092,
                          "learning_rate_bias": 0,

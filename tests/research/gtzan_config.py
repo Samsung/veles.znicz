@@ -39,7 +39,7 @@ root.update = {"decision": {"fail_iterations": 100},
                          "learning_rate": 0.0001,
                          "weights_decay": 0.00005,
                          "layers": [100, 500, 10],
-                         "minibatch_maxsize": 108,
+                         "minibatch_size": 108,
                          "minibatches_in_epoch": 1000,
                          "pickle_fnme":
                          os.path.join(root.common.test_dataset_root,
