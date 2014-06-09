@@ -145,7 +145,7 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Mnist fullbatch loader",
-                             minibatch_maxsize=root.loader.minibatch_maxsize)
+                             minibatch_size=root.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

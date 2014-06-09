@@ -42,7 +42,7 @@ class TestMnistRelu(unittest.TestCase):
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
             "snapshotter": {"prefix": "mnist_test_relu"},
-            "loader": {"minibatch_maxsize": 60},
+            "loader": {"minibatch_size": 60},
             "weights_plotter": {"limit": 64},
             "mnist_test": {"learning_rate": 0.03,
                            "weights_decay": 0.0,
