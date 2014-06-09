@@ -67,7 +67,7 @@ class Loader(loader.Loader):
     """
     def __init__(self, workflow, **kwargs):
         pickle_fnme = kwargs.get("pickle_fnme", "")
-        minibatch_max_size = kwargs.get("minibatch_max_size", 100)
+        minibatch_size = kwargs.get("minibatch_size", 100)
         minibatches_in_epoch = kwargs.get("minibatches_in_epoch", 1000)
         window_size = kwargs.get("window_size", 100)
         rnd_ = kwargs.get("rnd", rnd.get(2))

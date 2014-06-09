@@ -18,7 +18,6 @@ from veles.config import root
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-import veles.znicz.accumulator as accumulator
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.conv as conv
@@ -141,7 +140,7 @@ class Workflow(StandardWorkflow):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        #self.image_saver.link_from(self.accumulat)
+        # self.image_saver.link_from(self.accumulat)
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
@@ -189,7 +188,7 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        #self.accumulat.link_attrs(self.loader,
+        # self.accumulat.link_attrs(self.loader,
         #                          ("reset_flag", "epoch_ended"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
