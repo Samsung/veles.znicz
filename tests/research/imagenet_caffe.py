@@ -183,11 +183,9 @@ class Workflow(StandardWorkflow):
         self.decision = decision.DecisionGD(self)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class",
-                                 "last_minibatch",
-                                 "class_lengths",
-                                 "epoch_ended",
-                                 "epoch_number")
+                                 "minibatch_class", "minibatch_size",
+                                 "last_minibatch", "class_lengths",
+                                 "epoch_ended", "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),

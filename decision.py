@@ -39,10 +39,6 @@ class IDecision(Interface):
         """This method is supposed to be overriden in inherited classes.
         """
 
-    def on_epoch_ended():
-        """This method is supposed to be overriden in inherited classes.
-        """
-
     def on_generate_data_for_slave(data):
         """This method is supposed to be overriden in inherited classes.
         """
@@ -101,16 +97,26 @@ class DecisionBase(Unit):
         self.improved = Bool(False)
         self.snapshot_suffix = ""
         self.complete = Bool(False)
+        self.epoch_timestamp = False
         self.demand("last_minibatch", "minibatch_class",
                     "class_lengths", "epoch_number", "epoch_ended")
 
+    def init_unpickled(self):
+        super(DecisionBase, self).init_unpickled()
+        self.epoch_timestamp = False
+
     def initialize(self, **kwargs):
-        timestamp = time.time()
-        self.epoch_timestamps = [timestamp, timestamp, timestamp]
+        pass
 
     def run(self):
+        if self.epoch_timestamp is False:
+            self.epoch_timestamp = time.time()
         self.on_run()
-        if self.last_minibatch:
+        if self.is_slave:
+            self.complete <<= True
+            self.on_last_minibatch()
+            self._print_statistics()
+        elif self.last_minibatch:
             self._on_last_minibatch()
 
     def generate_data_for_master(self):
@@ -119,12 +125,13 @@ class DecisionBase(Unit):
         return data
 
     def generate_data_for_slave(self, slave):
+        if self.epoch_timestamp is False:
+            self.epoch_timestamp = time.time()
         data = {}
         self.on_generate_data_for_slave(data)
         return data
 
     def apply_data_from_master(self, data):
-        # Prevent doing snapshot
         self.complete <<= False
         self.on_apply_data_from_master(data)
 
@@ -154,7 +161,6 @@ class DecisionBase(Unit):
             self.on_training_finished()
 
         self._print_statistics()
-        self._check_epoch_ended()
 
     def _stop_condition(self):
         if self.stop_condition():
@@ -172,16 +178,8 @@ class DecisionBase(Unit):
         self.info("Epoch %d class %s %s in %.2f sec" %
                   (self.epoch_number, CLASS_NAME[self.minibatch_class],
                    " ".join(stats),
-                   timestamp - self.epoch_timestamps[self.minibatch_class]))
-        self.epoch_timestamps[self.minibatch_class] = timestamp
-
-    def _check_epoch_ended(self):
-        if not self.epoch_ended:
-            return
-        if not self.is_slave:
-            self.on_epoch_ended()
-        else:
-            self.complete <<= True
+                   timestamp - self.epoch_timestamp))
+        self.epoch_timestamp = timestamp
 
 
 @implementer(IDecision)
@@ -196,9 +194,6 @@ class TrivialDecision(object):
         return False
 
     def on_training_finished(self):
-        pass
-
-    def on_epoch_ended(self):
         pass
 
     def on_generate_data_for_slave(self, data):
@@ -276,6 +271,7 @@ class DecisionGD(DecisionBase):
         self.prev_train_err = 1.0e30
         self.evaluator = None
         self.minibatch_metrics = None
+        self.demand("minibatch_size")
 
     def initialize(self, **kwargs):
         super(DecisionGD, self).initialize(**kwargs)
@@ -339,11 +335,12 @@ class DecisionGD(DecisionBase):
                 self.minibatch_n_err.mem is not None):
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
-            # Compute error in percents
+            # Calculate error in percent
             if self.class_lengths[minibatch_class]:
                 self.epoch_n_err_pt[minibatch_class] = (
                     100.0 * self.epoch_n_err[minibatch_class] /
-                    self.class_lengths[minibatch_class])
+                    (self.class_lengths[minibatch_class] if not self.is_slave
+                     else self.minibatch_size))
 
         # Store maximum of backpropagated gradient
         if (self.minibatch_max_err_y_sum is not None and
@@ -392,9 +389,6 @@ class DecisionGD(DecisionBase):
                     alpha = gd.learning_rate
             self.info("new learning_rate: %.6f" % (alpha))
         self._sync_vectors()
-
-    def on_epoch_ended(self):
-        pass
 
     def on_generate_data_for_master(self, data):
         self._sync_vectors()

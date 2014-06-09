@@ -208,13 +208,10 @@ class Workflow(nn_units.NNWorkflow):
             store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class",
-                                 "last_minibatch",
-                                 "class_lengths",
-                                 "epoch_ended",
-                                 "epoch_number",
-                                 "minibatch_offset",
-                                 "minibatch_size")
+                                 "minibatch_class", "minibatch_size",
+                                 "last_minibatch", "class_lengths",
+                                 "epoch_ended", "epoch_number",
+                                 "minibatch_offset", "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),

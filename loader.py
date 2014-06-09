@@ -111,6 +111,7 @@ class Loader(Unit):
         self.samples_served = 0
         self.global_offset = 0
         self.failed_minibatches = {}
+        self._total_failed = 0
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -123,7 +124,6 @@ class Loader(Unit):
         self._minibatch_size_ = 0
         self.shuffled_indices = False
         self.pending_minibatches_ = {}
-        self.last_minibatch.on_true = self._print_last_minibatch
         self._minibatch_serve_timestamp_ = time.time()
 
     @property
@@ -162,8 +162,12 @@ class Loader(Unit):
             now = time.time()
             if now - self._minibatch_serve_timestamp_ >= 10:
                 self._minibatch_serve_timestamp_ = now
-                self.info("Served %d samples (%d epochs, %.1f%% current)" % (
-                    self.samples_served, num, 100. * den / self.total_samples))
+                self.info("Served %d samples (%d epochs, %.1f%% current); "
+                          "jobs failed: %d/pending: %d",
+                          self.samples_served, num,
+                          100. * den / self.total_samples,
+                          len(self.failed_minibatches),
+                          len(self.pending_minibatches_))
 
     @property
     def minibatch_class(self):
@@ -305,6 +309,10 @@ class Loader(Unit):
             if self.global_offset < offset:
                 return False
 
+    @property
+    def total_failed(self):
+        return self._total_failed
+
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
         # Move all pending minibatches to failed set
@@ -333,6 +341,7 @@ class Loader(Unit):
         if len(self.pending_minibatches_) > 0:
             self.pending_minibatches_.popitem()
         self._serve_next_minibatch(None)
+        self._on_successful_serve()
 
     def generate_data_for_master(self):
         return True
@@ -341,8 +350,10 @@ class Loader(Unit):
         self._serve_next_minibatch(slave.id)
         data = {'indices': self.minibatch_indices.mem}
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
-                     'epoch_number'):
+                     "epoch_number"):
             data[attr] = getattr(self, attr)
+        data['last_minibatch'] = bool(self.last_minibatch)
+        data['epoch_ended'] = bool(self.epoch_ended)
         self.has_data_for_slave = ((not self.class_ended) or
                                    len(self.failed_minibatches) > 0)
         return data
@@ -351,6 +362,8 @@ class Loader(Unit):
         # Just feed single minibatch
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset"):
             setattr(self, attr, data[attr])
+        self.last_minibatch <<= data['last_minibatch']
+        self.epoch_ended <<= data['epoch_ended']
         indices = data['indices']
         if len(indices) != self.minibatch_size:
             raise error.MasterSlaveCommunicationError(
@@ -374,12 +387,20 @@ class Loader(Unit):
             raise error.Bug("pending_minibatches_ does not contain %s" %
                             slave.id)
         del self.pending_minibatches_[slave.id]
-        self.has_data_for_slave = not self.last_minibatch
+        self._on_successful_serve()
+        if not self.has_data_for_slave:
+            self.has_data_for_slave = self.last_minibatch
 
     def drop_slave(self, slave):
-        self.failed_minibatches[slave.id] = self.pending_minibatches_[slave.id]
-        del self.pending_minibatches_[slave.id]
-        self.has_data_for_slave = True
+        if slave.id in self.pending_minibatches_:
+            self._total_failed += 1
+            self.failed_minibatches[slave.id] = \
+                self.pending_minibatches_[slave.id]
+            del self.pending_minibatches_[slave.id]
+            self.has_data_for_slave = True
+            self.info("Jobs failed: %d/pending: %d",
+                      len(self.failed_minibatches),
+                      len(self.pending_minibatches_))
 
     def extract_validation_from_train(self, rand=None, ratio=None):
         """Extracts validation dataset from train dataset randomly.
@@ -518,6 +539,9 @@ class Loader(Unit):
     def _update_flags(self):
         """Resets epoch_ended and last_minibatch.
         """
+        if self.is_slave:
+            # The flags will be explicitly set in apply_data_from_master()
+            return
         self.last_minibatch <<= (self.class_ended and
                                  len(self.pending_minibatches_) <= 1 and
                                  len(self.failed_minibatches) == 0)
@@ -530,7 +554,6 @@ class Loader(Unit):
         """
         # Slave mode is much simpler than others
         if self.is_slave:
-            self.samples_served += self.minibatch_size
             return self.minibatch_offset, self.minibatch_size
         # Shuffle again when the end of data is reached.
         if self.global_offset >= self.total_samples:
@@ -546,14 +569,14 @@ class Loader(Unit):
                 minibatch_size = min(remainder, self.max_minibatch_size)
                 break
 
-        # Adjust offset and served according to the calculated step
         self.global_offset += minibatch_size
-        self.samples_served += minibatch_size
         return self.global_offset, minibatch_size
 
-    def _print_last_minibatch(self, *args):
-        self.info("Last minibatch of class %s served",
-                  CLASS_NAME[self.minibatch_class].upper())
+    def _on_successful_serve(self):
+        self.samples_served += self.minibatch_size
+        if self.last_minibatch:
+            self.info("Last minibatch of class %s served",
+                      CLASS_NAME[self.minibatch_class].upper())
 
 
 class IFullBatchLoader(Interface):
