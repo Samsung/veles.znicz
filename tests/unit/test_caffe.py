@@ -24,8 +24,6 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
-#os.environ["PYOPENCL_CTX"] = "1:0"  # Uncomment to  change OpenCL device
-
 
 class TestConvCaffe(unittest.TestCase):
     def setUp(self):
@@ -812,7 +810,7 @@ class TestConvCaffe(unittest.TestCase):
         self.assertLess(fwd_percent_delta, max_percent_delta,
                         "A2A_SM_FWD differs by %.2f%%" % (fwd_percent_delta))
 
-        #Back prop
+        # Back prop
 
         sm_top_err = self._read_array("sm_top_diff", lines,
                                       (n_pics, 1, 1, n_classes))
