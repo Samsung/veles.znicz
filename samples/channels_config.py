@@ -43,7 +43,7 @@ root.update = {
     "weights_plotter": {"limit": 16},
     "channels": {"export": False,
                  "find_negative": 0,
-                 "learning_rate": 0.0001,
+                 "learning_rate": 0.001,
                  "weights_decay": 0.00005,
                  "layers": [{"type": "all2all_tanh",
                              "output_shape": 54},
