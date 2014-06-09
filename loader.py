@@ -568,6 +568,9 @@ class Loader(Unit):
                 remainder = class_offset - self.global_offset
                 minibatch_size = min(remainder, self.max_minibatch_size)
                 break
+        else:
+            raise error.Bug("Could not determine minibatch_class, "
+                            "probably due to incorrect class_offsets.")
 
         self.global_offset += minibatch_size
         return self.global_offset, minibatch_size
