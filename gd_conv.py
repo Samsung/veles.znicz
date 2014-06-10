@@ -349,6 +349,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def gpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
+        if not self.need_err_input:
+            return
         self.err_input.unmap()
         self.err_output.unmap()
         self.weights.unmap()
@@ -386,6 +388,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
+        if not self.need_err_input:
+            return
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.weights.map_read()
@@ -487,7 +491,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
-
         self.print_debug_data(t1)
 
     def cpu_run(self):
