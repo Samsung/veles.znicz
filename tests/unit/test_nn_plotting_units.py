@@ -46,8 +46,7 @@ class Test(unittest.TestCase):
         kh = self.init_plotter("KohonenHits")
         kh.input = numpy.empty((10, 9))
         kh.input = numpy.digitize(numpy.random.uniform(
-            size=kh.input.size), numpy.arange(0.05, 1.05, 0.05)).reshape(
-            kh.input.shape)
+            size=kh.input.size), numpy.arange(0.05, 1.05, 0.05))
         kh.shape = (10, 9)
         self.plot(kh)
 
