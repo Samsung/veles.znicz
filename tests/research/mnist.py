@@ -192,8 +192,6 @@ class Workflow(StandardWorkflow):
         self.decision.gds = self.gds
         self.decision.evaluator = self.evaluator
 
-        self.info("root.snapshotter.prefix %s" % root.snapshotter.prefix)
-        self.info("root.common.snapshot_dir %s" % root.common.snapshot_dir)
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
