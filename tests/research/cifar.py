@@ -38,11 +38,13 @@ root.defaults = {
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 100, "do_export_weights": True},
     "snapshotter": {"prefix": "cifar"},
+    "softmax": {"error_function_avr": False},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_size": 180},
+    "loader": {"minibatch_size": 180, "norm": "-1, 1",
+               "shuffle_limit": 1},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers": [{"type": "all2all_tanh",
                           "learning_rate": 0.0005,
@@ -59,6 +61,16 @@ root.defaults = {
 class Loader(loader.FullBatchLoader):
     """Loads Cifar dataset.
     """
+    def __init__(self, workflow, **kwargs):
+        super(Loader, self).__init__(workflow, **kwargs)
+        self.shuffle_limit = kwargs.get("shuffle_limit", 2000000000)
+
+    def shuffle(self):
+        if self.shuffle_limit <= 0:
+            return
+        self.shuffle_limit -= 1
+        super(Loader, self).shuffle()
+
     def load_data(self):
         """Here we will load data.
         """
@@ -90,12 +102,35 @@ class Loader(loader.FullBatchLoader):
             self.original_labels[i * 10000: (i + 1) * 10000] = vle["labels"][:]
 
         self.class_lengths[0] = 0
+        self.class_offsets[0] = 0
         self.class_lengths[1] = 10000
+        self.class_offsets[1] = 10000
         self.class_lengths[2] = 50000
+        self.class_offsets[2] = 60000
 
-        for sample in self.original_data:
-            formats.normalize(sample)
-            sample *= 128
+        self.total_samples = self.original_data.shape[0]
+
+        if root.loader.norm == "mean":
+            mean = numpy.mean(self.original_data[10000:], axis=0)
+            self.original_data -= mean
+            self.info("Validation range: %.6f %.6f %.6f",
+                      self.original_data[:10000].min(),
+                      self.original_data[:10000].max(),
+                      numpy.average(self.original_data[:10000]))
+            self.info("Train range: %.6f %.6f %.6f",
+                      self.original_data[10000:].min(),
+                      self.original_data[10000:].max(),
+                      numpy.average(self.original_data[10000:]))
+        elif root.loader.norm == "-1, 1":
+            for sample in self.original_data:
+                formats.normalize(sample)
+        elif root.loader.norm == "-128, 128":
+            for sample in self.original_data:
+                formats.normalize(sample)
+                sample *= 128
+        else:
+            raise ValueError("Unsupported normalization type "
+                             + str(root.loader.norm))
 
 
 class Workflow(StandardWorkflow):
@@ -110,7 +145,7 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self)
+        self.loader = Loader(self, shuffle_limit=root.loader.shuffle_limit)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -121,7 +156,7 @@ class Workflow(StandardWorkflow):
         self.accumulator = []
         for i in range(0, len(layers)):
             accum = accumulator.RangeAccumulator(self,
-                                                 bars=root.accumulator.n_bars)
+                                                 bars=root.accumulator.bars)
             self.accumulator.append(accum)
             if i:
                 self.accumulator[i].link_from(self.accumulator[i - 1])
@@ -130,17 +165,11 @@ class Workflow(StandardWorkflow):
 
             self.accumulator[i].link_attrs(self.fwds[i],
                                            ("input", "output"))
-
-        self.accumulat = accumulator.RangeAccumulator(
-            self, bars=root.accumulator.bars)
-        self.accumulat.link_from(self.fwds[-1])
-        self.accumulat.link_attrs(self.loader, ("input", "minibatch_data"))
         """
-
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        # self.image_saver.link_from(self.accumulat)
+        # self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
@@ -165,9 +194,12 @@ class Workflow(StandardWorkflow):
             do_export_weights=root.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class", "minibatch_size",
-                                 "last_minibatch", "class_lengths",
-                                 "epoch_ended", "epoch_number")
+                                 "minibatch_class",
+                                 "last_minibatch",
+                                 "minibatch_size",
+                                 "class_lengths",
+                                 "epoch_ended",
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
@@ -188,8 +220,6 @@ class Workflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        # self.accumulat.link_attrs(self.loader,
-        #                          ("reset_flag", "epoch_ended"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
@@ -296,14 +326,6 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
-        """
-        self.plt_hist_load = plotting_units.Histogram(
-                self, name="Y Loader")
-        self.plt_hist_load.link_from(self.decision)
-        self.plt_hist_load.link_attrs(
-            self.accumulat, "gl_min", "gl_max", ("y", "y_out"), ("x", "x_out"))
-        self.plt_hist_load.gate_block = ~self.decision.epoch_ended
-        """
 
         # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
