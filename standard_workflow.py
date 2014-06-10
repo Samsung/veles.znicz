@@ -141,8 +141,13 @@ class StandardWorkflow(nn_units.NNWorkflow):
                 self.gds[-1].link_from(self.snapshotter)
                 self.gds[-1].link_attrs(self.evaluator, "err_output")
 
-            self.gds[i].link_attrs(self.fwds[i], "input", "output",
-                                   "weights", "bias")
+            attrs = []
+            for attr in ("input", "output", "weights", "bias",
+                         "input_offs", "mask"):
+                if hasattr(self.fwds[i], attr):
+                    attrs.append(attr)
+            self.gds[i].link_attrs(self.fwds[i], *attrs)
+
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))
