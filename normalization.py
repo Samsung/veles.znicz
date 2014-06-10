@@ -14,12 +14,12 @@ from __future__ import division
 import numpy as np
 from zope.interface import implementer
 
-from veles.znicz import nn_units
+from veles.znicz.nn_units import OpenCLUnit, Forward, GradientDescentBase
 from veles import formats
 from veles.opencl_units import IOpenCLUnit
 
 
-class LocalResponseNormalizer(nn_units.Forward):
+class LocalResponseNormalizer(OpenCLUnit):
     """
     A base class for forward and backward units of local
     response normalization.
@@ -54,7 +54,7 @@ class LocalResponseNormalizer(nn_units.Forward):
 
 
 @implementer(IOpenCLUnit)
-class LRNormalizerForward(LocalResponseNormalizer):
+class LRNormalizerForward(Forward, LocalResponseNormalizer):
     """
     Forward propagation of local response normalization.
     """
@@ -116,7 +116,7 @@ class LRNormalizerForward(LocalResponseNormalizer):
 
 
 @implementer(IOpenCLUnit)
-class LRNormalizerBackward(LocalResponseNormalizer):
+class LRNormalizerBackward(GradientDescentBase, LocalResponseNormalizer):
     """
     Backward-propagation for local response normalization.
     """
