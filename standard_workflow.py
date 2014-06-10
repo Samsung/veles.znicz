@@ -12,6 +12,7 @@ from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
 from veles.znicz import activation
+import veles.error as error
 
 
 class StandardWorkflow(nn_units.NNWorkflow):
@@ -25,6 +26,50 @@ class StandardWorkflow(nn_units.NNWorkflow):
         kwargs["layers"] = self.layers
         kwargs["device"] = self.device
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
+        self.layer_map = {
+            "conv_tanh": (conv.ConvTanh,
+                          gd_conv.GDTanhConv),
+            "conv_relu": (conv.ConvRELU,
+                          gd_conv.GDRELUConv),
+            "conv_str": (conv.ConvStrictRELU,
+                         gd_conv.GDStrictRELUConv),
+            "conv": (conv.Conv,
+                     gd_conv.GradientDescentConv),
+            "norm": (normalization.LRNormalizerForward,
+                     normalization.LRNormalizerBackward),
+            "dropout": (dropout.DropoutForward,
+                        dropout.DropoutBackward),
+            "max_pooling": (pooling.MaxPooling,
+                            gd_pooling.GDMaxPooling),
+            "maxabs_pooling": (pooling.MaxAbsPooling,
+                               gd_pooling.GDMaxAbsPooling),
+            "avg_pooling": (pooling.AvgPooling,
+                            gd_pooling.GDAvgPooling),
+            "all2all_relu": (all2all.All2AllRELU,
+                             gd.GDRELU),
+            "all2all_tanh": (all2all.All2AllTanh,
+                             gd.GDTanh),
+            "softmax": (all2all.All2AllSoftmax,
+                        gd.GDSM),
+            "activation_str": (activation.ForwardStrictRELU,
+                               activation.BackwardStrictRELU),
+            "activation_log": (activation.ForwardLog,
+                               activation.BackwardLog),
+            "activation_sincos": (activation.ForwardSinCos,
+                                  activation.BackwardSinCos)}
+
+    def _get_layer_type_kwargs(self, layer):
+        if type(layer) != dict:
+            raise error.BadFormatError("layers should be a list of dicts")
+        tpe = layer.get("type", "").strip()
+        if not len(tpe):
+            raise error.BadFormatError(
+                "layer type should be non-empty string")
+        if not tpe in self.layer_map:
+            raise error.NotExistsError("Unknown layer type %s" % tpe)
+        kwargs = dict(layer)
+        del kwargs["type"]
+        return tpe, kwargs
 
     def parse_forwards_from_config(self):
         """
@@ -33,98 +78,14 @@ class StandardWorkflow(nn_units.NNWorkflow):
         by link_from and link_attrs. If self.fwds is empty, links unit with
         self.loader
         """
+        if type(self.layers) != list:
+            raise error.BadFormatError("layers should be a list of dicts")
         del self.fwds[:]
-        for i in range(0, len(self.layers)):
+        for i in range(len(self.layers)):
             layer = self.layers[i]
-            kwargs = {"weights_filling": layer.get("weights_filling",
-                                                   "uniform"),
-                      "weights_stddev": layer.get("weights_stddev"),
-                      "bias_filling": layer.get("bias_filling",
-                                                "uniform"),
-                      "bias_stddev": layer.get("bias_stddev")}
-            layer_ct = {"conv_tanh": lambda layer:
-                        conv.ConvTanh(
-                            self, n_kernels=layer["n_kernels"],
-                            kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (1, 1, 1, 1)),
-                            padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device, **kwargs),
-                        "conv_relu": lambda layer:
-                        conv.ConvRELU(
-                            self, n_kernels=layer["n_kernels"],
-                            kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (1, 1, 1, 1)),
-                            padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device, **kwargs),
-                        "conv_str": lambda layer:
-                        conv.ConvStrictRELU(
-                            self, n_kernels=layer["n_kernels"],
-                            kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (1, 1, 1, 1)),
-                            padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device, **kwargs),
-                        "conv": lambda layer:
-                        conv.Conv(
-                            self, n_kernels=layer["n_kernels"],
-                            kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (1, 1, 1, 1)),
-                            padding=layer.get("padding", (0, 0, 0, 0)),
-                            device=self.device, **kwargs),
-                        "norm": lambda layer:
-                        normalization.LRNormalizerForward(
-                            self, alpha=layer.get("alpha", (0.00005)),
-                            beta=layer.get("beta", (0.75)),
-                            n=layer.get("n", (3)),
-                            device=self.device),
-                        "dropout": lambda layer:
-                        dropout.DropoutForward(
-                            self,
-                            dropout_ratio=layer.get("dropout_ratio", (0.5)),
-                            device=self.device),
-                        "max_pooling": lambda layer:
-                        pooling.MaxPooling(
-                            self, kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (layer["kx"],
-                                                          layer["ky"])),
-                            device=self.device, **kwargs),
-                        "avg_pooling": lambda layer:
-                        pooling.AvgPooling(
-                            self, kx=layer["kx"], ky=layer["ky"],
-                            sliding=layer.get("sliding", (layer["kx"],
-                                                          layer["ky"])),
-                            device=self.device, **kwargs),
-                        "all2all_relu": lambda layer:
-                        all2all.All2AllRELU(
-                            self,
-                            output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device, **kwargs),
-                        "all2all_tanh": lambda layer:
-                        all2all.All2AllTanh(
-                            self,
-                            output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device, **kwargs),
-                        "softmax": lambda layer:
-                        all2all.All2AllSoftmax(
-                            self,
-                            output_shape=self._as_list(layer["output_shape"]),
-                            device=self.device, **kwargs),
-                        "activation_str": lambda layer:
-                        activation.ForwardStrictRELU(
-                            self, device=self.device, **kwargs),
-                        "activation_log": lambda layer:
-                        activation.ForwardLog(
-                            self, device=self.device, **kwargs),
-                        "activation_sincos": lambda layer:
-                        activation.ForwardSinCos(
-                            self, device=self.device, **kwargs)}
-
-            unit = layer_ct[layer["type"]](layer)
+            tpe, kwargs = self._get_layer_type_kwargs(layer)
+            unit = self.layer_map[tpe][0](self, **kwargs)
             self._add_forward_unit(unit)
-
-    def _as_list(self, vle):
-        if type(vle) in (int, float, str):
-            return [vle]
-        return vle
 
     def _add_forward_unit(self, new_unit):
         """
@@ -148,90 +109,31 @@ class StandardWorkflow(nn_units.NNWorkflow):
         Creates gradient descent units for previously made self.fwds.
         Feeds their inputs with respect of their order.
         """
-        self.gds = []
-        for i, fwd_elm in enumerate(self.fwds):
+        if type(self.layers) != list:
+            raise error.BadFormatError("layers should be a list of dicts")
+        del self.gds[:]
+        self.gds.extend(None for _ in self.layers)
+        for i in range(len(self.layers) - 1, -1, -1):
             layer = self.layers[i]
-            kwargs = {}
-            for name in ("learning_rate", "weights_decay", "gradient_moment",
-                         "learning_rate_bias", "weights_decay_bias",
-                         "gradient_moment_bias"):
-                if name in layer:
-                    kwargs[name] = layer[name]
-            if isinstance(fwd_elm, conv.ConvRELU):
-                grad_elm = gd_conv.GDRELUConv(
-                    self, n_kernels=fwd_elm.n_kernels, kx=fwd_elm.kx,
-                    ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device, **kwargs)
+            tpe, kwargs = self._get_layer_type_kwargs(layer)
 
-            elif isinstance(fwd_elm, conv.Conv):
-                grad_elm = gd_conv.GradientDescentConv(
-                    self, n_kernels=fwd_elm.n_kernels,
-                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device, **kwargs)
+            # Check corresponding forward unit type
+            if not isinstance(self.fwds[i], self.layer_map[tpe][0]):
+                raise error.BadFormatError(
+                    "Forward layer %s at position %d "
+                    "is not an instance of %s" %
+                    (repr(self.fwds[i]), i, repr(self.layer_map[tpe][0])))
+            unit = self.layer_map[tpe][1](self, **kwargs)
+            self.gds[i] = unit
 
-            elif isinstance(fwd_elm, conv.ConvTanh):
-                grad_elm = gd_conv.GDTanhConv(
-                    self, n_kernels=fwd_elm.n_kernels,
-                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, conv.ConvStrictRELU):
-                grad_elm = gd_conv.GDStrictRELUConv(
-                    self, n_kernels=fwd_elm.n_kernels,
-                    kx=fwd_elm.kx, ky=fwd_elm.ky, sliding=fwd_elm.sliding,
-                    padding=fwd_elm.padding, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, all2all.All2AllRELU):
-                grad_elm = gd.GDRELU(self, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, all2all.All2AllSoftmax):
-                grad_elm = gd.GDSM(self, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, all2all.All2AllTanh):
-                grad_elm = gd.GDTanh(self, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, pooling.MaxPooling):
-                grad_elm = gd_pooling.GDMaxPooling(
-                    self, kx=fwd_elm.kx, ky=fwd_elm.ky,
-                    sliding=fwd_elm.sliding,
-                    device=self.device, **kwargs)
-                grad_elm.link_attrs(fwd_elm, "input_offs")
-
-            elif isinstance(fwd_elm, pooling.AvgPooling):
-                grad_elm = gd_pooling.GDAvgPooling(
-                    self, kx=fwd_elm.kx, ky=fwd_elm.ky,
-                    sliding=fwd_elm.sliding,
-                    device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, normalization.LRNormalizerForward):
-                grad_elm = normalization.LRNormalizerBackward(
-                    self, alpha=fwd_elm.alpha, beta=fwd_elm.beta,
-                    k=fwd_elm.k, n=fwd_elm.n, **kwargs)
-
-            elif isinstance(fwd_elm, dropout.DropoutForward):
-                grad_elm = dropout.DropoutBackward(
-                    self, dropout_ratio=fwd_elm.dropout_ratio,
-                    device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, activation.ForwardStrictRELU):
-                grad_elm = activation.BackwardStrictRELU(
-                    self, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, activation.ForwardLog):
-                grad_elm = activation.BackwardLog(
-                    self, device=self.device, **kwargs)
-
-            elif isinstance(fwd_elm, activation.ForwardSinCos):
-                grad_elm = activation.BackwardSinCos(
-                    self, device=self.device, **kwargs)
-
-            else:
-                raise ValueError("Unsupported unit type " + str(type(fwd_elm)))
-
-            self.gds.append(grad_elm)
-
-        for i in range(len(self.fwds) - 1, -1, -1):
+            # Link attributes
             if i < len(self.fwds) - 1:
+                # Averaged error function over a minibatch
+                # only makes sense for the last layer
+                if self.gds[i].error_function_averaged:
+                    self.warning("error_function_averaged is set to True "
+                                 "for the layer %d, but it makes sense only "
+                                 "for the last layer usually.", i)
                 self.gds[i].link_from(self.gds[i + 1])
                 self.gds[i].link_attrs(self.gds[i + 1],
                                        ("err_output", "err_input"))
@@ -244,4 +146,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))
+
+        # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
+        # Enable averaged error function over a minibatch for the last layer
+        self.gds[-1].error_function_averaged = True
