@@ -19,6 +19,7 @@ import veles.znicz.gd as gd
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.znicz.all2all as all2all
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
+from veles.tests import timeout
 
 
 class TestGD(unittest.TestCase, GDNumDiff):
@@ -108,18 +109,22 @@ class TestGD(unittest.TestCase, GDNumDiff):
                         "GPU-CPU bias differs by %.6f" % (max_diff))
         logging.info("All Ok")
 
+    @timeout()
     def test_gpu_cpu_linear(self):
         logging.info("Will test linear gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2All, gd.GradientDescent)
 
+    @timeout()
     def test_gpu_cpu_relu(self):
         logging.info("Will test RELU gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllRELU, gd.GDRELU)
 
+    @timeout()
     def test_gpu_cpu_softmax(self):
         logging.info("Will test SoftMax gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllSoftmax, gd.GDSM)
 
+    @timeout()
     def test_gpu_cpu_tanh(self):
         logging.info("Will test Tanh gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllTanh, gd.GDTanh)
