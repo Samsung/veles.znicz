@@ -16,6 +16,7 @@ import os
 import pickle
 import re
 import scipy.misc
+import six
 import sys
 import threading
 import time
@@ -37,7 +38,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-#import veles.znicz.image_saver as image_saver
+# import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -412,11 +413,10 @@ class Loader(loader.FullBatchLoader):
 
         # Read top-level configuration
         try:
-            fin = open(os.path.join(self.channels_dir, "conf.py"), "r")
-            s = fin.read()
-            fin.close()
+            with open(os.path.join(self.channels_dir, "conf.py"), "r") as fin:
+                s = fin.read()
             self.top_conf_ = {}
-            exec(s, self.top_conf_, self.top_conf_)
+            six.exec_(s, self.top_conf_, self.top_conf_)
         except:
             self.error("Error while executing %s/conf.py" % (
                 self.channels_dir))
@@ -426,11 +426,12 @@ class Loader(loader.FullBatchLoader):
         self.subdir_conf_.clear()
         for subdir in self.top_conf_["dirs_to_scan"]:
             try:
-                fin = open("%s/%s/conf.py" % (self.channels_dir, subdir), "r")
-                s = fin.read()
-                fin.close()
+                with open("%s/%s/conf.py" % (self.channels_dir, subdir), "r") \
+                        as fin:
+                    s = fin.read()
                 self.subdir_conf_[subdir] = {}
-                exec(s, self.subdir_conf_[subdir], self.subdir_conf_[subdir])
+                six.exec_(s, self.subdir_conf_[subdir],
+                          self.subdir_conf_[subdir])
             except:
                 self.error("Error while executing %s/%s/conf.py" % (
                     self.channels_dir, subdir))
@@ -711,8 +712,8 @@ class Workflow(StandardWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        #self.image_saver.gate_skip = ~self.decision.improved
-        #self.image_saver.link_attrs(self.snapshotter,
+        # self.image_saver.gate_skip = ~self.decision.improved
+        # self.image_saver.link_attrs(self.snapshotter,
         #                            ("this_save_time", "time"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
