@@ -6,7 +6,11 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from concurrent.futures import ThreadPoolExecutor
-import cv2
+try:
+    import cv2
+except ImportError:
+    import warnings
+    warnings.warn("Failed to import OpenCV bindings")
 import jpeg4py
 import json
 import leveldb
