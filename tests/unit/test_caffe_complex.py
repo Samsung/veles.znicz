@@ -19,6 +19,9 @@ from veles.formats import Vector
 from veles.znicz import activation
 from veles.znicz import all2all, conv, pooling, normalization
 
+from veles.znicz import evaluator
+from veles.znicz import gd
+
 
 class PropType(IntEnum):
     """
@@ -58,7 +61,7 @@ class ComplexTest(standard_test.StandardTest):
 
     def _compress_snapshots(self):
         out_archive = tarfile.open(name=os.path.join(
-            self.data_dir_path, "data/cifar_export.xz"), mode='w|xz')
+            self.data_dir_path, "cifar_export.xz"), mode='w|xz')
         out_archive.add(name=os.path.join(
             self.data_dir_path, "cifar_export"), arcname="cifar_export")
         out_archive.close()
@@ -72,7 +75,7 @@ class ComplexTest(standard_test.StandardTest):
         """
         Reads a CIFAR export directory. Fills layer info path dictionary.
         """
-        self._extract_snapshots()
+#        self._extract_snapshots()
 
         in_dir = os.path.join(self.data_dir_path, "cifar_export/0")
         filenames = os.listdir(in_dir)
@@ -308,8 +311,88 @@ class ComplexTest(standard_test.StandardTest):
         Test back propagation of CIFAR model
         """
 
+        n_pics = 3
+        n_classes = 10
+
         self._prepare_snapshots()
-        pass
+
+        # FWD LAYER 4: FULLY CONNECTED + SOFTMAX
+        ip_sm = all2all.All2AllSoftmax(
+            self.workflow, output_shape=10,
+            weights_filling="uniform", weights_stddev=10 ** -2,
+            bias_filling="constant", bias_stddev=0,
+            )
+        ip_sm_top = self._load_blob("loss", PropType.forward,
+                                    WhenTaken.after, "top_0")
+        ip_sm_bottom = self._load_blob("ip1", PropType.forward,
+                                       WhenTaken.before, "bottom_0")
+        ip_sm.input = Vector(ip_sm_bottom)
+        ip_sm_weights = self._load_blob("ip1", PropType.forward,
+                                        WhenTaken.before, "blob_0")
+        ip_sm_weights = ip_sm_weights.reshape(
+            10, 64, 4, 4).swapaxes(1, 2).swapaxes(2, 3)
+        ip_sm_biases = self._load_blob("ip1", PropType.forward,
+                                       WhenTaken.before, "blob_1")
+        ip_sm.link_from(self.workflow.start_point)
+
+        #BACK LAYER 4: EV + GD_A2ASM
+        labels = self._load_blob(
+            "loss", PropType.backward, WhenTaken.before,
+            "bottom_1").astype(np.int32).ravel()
+
+        ev = evaluator.EvaluatorSoftmax(self.workflow)
+        ev.link_from(ip_sm)
+        ev.batch_size = n_pics
+        ev.link_attrs(ip_sm, "max_idx")
+        ev.labels = Vector(labels)
+        ev.link_attrs(ip_sm, "output")
+
+        ev_bot_err = self._load_blob(
+            "loss", PropType.backward, WhenTaken.after,
+            "bottom_err_0").reshape(n_pics, n_classes) * n_pics
+
+        gd_ip_sm = gd.GDSM(self.workflow)
+        gd_ip_sm.input = Vector(self._load_blob("ip1", PropType.forward,
+                                                WhenTaken.before, "bottom_0"))
+        gd_ip_sm.output = Vector(self._load_blob("ip1", PropType.forward,
+                                                 WhenTaken.after, "top_0"))
+        gd_ip_sm.batch_size = n_pics
+        gd_ip_sm.link_from(ev)
+        gd_ip_sm.link_attrs(ev, "err_output")
+        gd_ip_sm.link_attrs(ip_sm, "weights")
+        gd_ip_sm.link_attrs(ip_sm, "bias")
+
+        gd_ip_sm_bot_err = self._load_blob("ip1", PropType.backward,
+                                           WhenTaken.after, "bottom_err_0")
+
+        ####################
+        #INITIALIZATION
+        self.workflow.end_point.link_from(ev)
+        self.workflow.initialize(device=self.device)
+        ####################
+        #SETTING WEIGHTS
+        ip_sm.weights.map_write()
+        ip_sm.bias.map_write()
+        ip_sm.weights.mem[:] = ip_sm_weights.reshape(10, 1024)[:]
+        ip_sm.bias.mem[:] = ip_sm_biases.reshape(10)[:]
+
+        ######################
+        self.workflow.run()
+        ######################
+
+        ip_sm.output.map_read()
+#        print(ip_sm.output.mem)
+#        print(ip_sm_top)
+        logging.info("ip_sm delta %f" %
+                     self._odds(ip_sm.output.mem, ip_sm_top))
+
+        ev.err_output.map_read()
+        logging.info("sm_err delta %f" %
+                     self._odds(ev.err_output.mem, ev_bot_err))
+
+        gd_ip_sm.err_input.map_read()
+        logging.info("gd_ip_sm delta %f" %
+                     self._odds(gd_ip_sm.err_input.mem, gd_ip_sm_bot_err))
 
 
 if __name__ == "__main__":
