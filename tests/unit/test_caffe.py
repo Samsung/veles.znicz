@@ -24,84 +24,15 @@ import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyWorkflow
 
+from veles.znicz.tests.unit import standard_test
 
-class TestConvCaffe(unittest.TestCase):
+
+class TestConvCaffe(standard_test.StandardTest):
     def setUp(self):
         self.workflow = DummyWorkflow()
         self.device = opencl.Device()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
-
-    def tearDown(self):
-        pass
-
-    def _read_array(self, array_name, lines, shape):
-        """
-        Reads a pic array from from export file, splitted to lines.
-        NB: last line should be empty
-
-        Args:
-            array_name(str): name of array to read
-        lines(array): lines of file to read from
-        shape(tuple): array shape=(n_pics, height, width, n_chans)
-
-        Returns:
-            :class:`numpy.ndarray`
-
-        """
-        n_pics, height, width, n_chans = shape
-
-        out_array = np.zeros(shape=shape, dtype=np.float64)
-
-        cur_line = None
-        for i, line in enumerate(lines):
-            line = line.replace("\n", "")
-#            print([array_name, line])
-            if line == array_name:
-
-                cur_line = i + 1
-                break
-
-        assert cur_line is not None
-        assert cur_line < len(lines)
-
-        for cur_pic in range(n_pics):
-            nibbles = lines[cur_line].split(":")
-            assert nibbles[0] == "num"
-            assert int(nibbles[1]) == cur_pic
-            cur_line += 1
-
-            for cur_chan in range(n_chans):
-                nibbles = lines[cur_line].split(":")
-                assert nibbles[0] == "channels"
-                assert int(nibbles[1]) == cur_chan
-                cur_line += 1
-
-                for i in range(height):
-#                    print(lines[cur_line].split("\t"))
-                    data = [float(x) for x in lines[cur_line].split("\t")]
-                    cur_line += 1
-
-                    for j in range(width):
-                        out_array[cur_pic, i, j, cur_chan] = data[j]
-        return out_array
-
-    def _read_lines(self, data_filename):
-        """
-        Returns all lines from a file maned `data_filename`.
-        File is searched in ``self.data_dir_path``.
-
-        Args:
-            data_filename(str): name to file with pooling data,
-                exported from CAFFE (searched in ``self.data_dir_path``)
-
-        Returns:
-            list: list of all lines read
-
-        """
-        full_path = os.path.join(self.data_dir_path, data_filename)
-        with open(full_path, 'r') as in_file:
-            return in_file.readlines()
 
     def test_caffe_conv(self, data_filename="conv.txt"):
         """
@@ -810,7 +741,7 @@ class TestConvCaffe(unittest.TestCase):
         self.assertLess(fwd_percent_delta, max_percent_delta,
                         "A2A_SM_FWD differs by %.2f%%" % (fwd_percent_delta))
 
-        # Back prop
+        #Back prop
 
         sm_top_err = self._read_array("sm_top_diff", lines,
                                       (n_pics, 1, 1, n_classes))
