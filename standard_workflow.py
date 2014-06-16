@@ -15,6 +15,138 @@ from veles.znicz import activation
 import veles.error as error
 
 
+class DictByType(object):
+    """
+    All keys of the dictionary should be classes. Its [key] operator looks up
+        the `key` inheritance hierarchy and chooses its nearest ancestor
+        as a key to return its coupled value.
+    """
+    def __init__(self, in_dict):
+        assert isinstance(in_dict, dict)
+        self.in_dict = in_dict
+
+    def __getitem__(self, key):
+        assert type(key) == type
+        hierarchy = [key]
+        i = 0
+        while i < len(hierarchy):
+            assert type(hierarchy[i]) == type
+            if hierarchy[i] in self.in_dict:
+                return self.in_dict[hierarchy[i]]
+            elif key != type:
+                hierarchy.extend(key.__bases__)
+            i += 1
+        raise KeyError("Unknown key class %s" % str(key))
+
+
+class GradUnitFactory(object):
+    """
+    This factory makes :class:`GradientDescentBase`-interfaced inits
+        according to their forward-prop units.
+    """
+    _pooling_grad_classes = {pooling.AvgPooling: gd_pooling.GDAvgPooling,
+                             pooling.MaxPooling: gd_pooling.GDMaxPooling}
+
+    _conv_grad_classes = {conv.Conv: gd_conv.GradientDescentConv,
+                          conv.ConvRELU: gd_conv.GDRELUConv,
+                          conv.ConvStrictRELU: gd_conv.GDStrictRELUConv,
+                          conv.ConvTanh: gd_conv.GDTanhConv}
+
+    _all2all_grad_classes = {all2all.All2All: gd.GradientDescent,
+                             all2all.All2AllRELU: gd.GDRELU,
+                             all2all.All2AllTanh: gd.GDTanh,
+                             all2all.All2AllSoftmax: gd.GDSM}
+
+    _activation_grad_classes = {
+        activation.ForwardStrictRELU: activation.BackwardStrictRELU,
+        activation.ForwardLog: activation.BackwardLog,
+        activation.ForwardSinCos: activation.BackwardSinCos
+    }
+
+    @staticmethod
+    def create_grad_unit(fwd, name=None, **kwargs):
+        """
+        Creates gradient descent unit by forward prop unit.
+
+        Args:
+            fwd(:class:`Unit`): a forward propagation unit
+            batch_size(int)
+            learning_rate(float)
+            bias_learning_rate(float): uses `learning_rate` if not set
+            weight_decay(float)
+            bias_weight_decay(float): uses `weight_decay` if not set
+            momentum(float): 0 by default
+            bias_momentum(float): uses `momentum` if not set
+
+        Returns:
+            :class:`GradientDescentBase`: a specific grad unit for `fwd_prop`
+        """
+        assert fwd is not None
+
+        #Trick from  http://stackoverflow.com/a/3933062/2726900
+        return GradUnitFactory._methods_for_classes[type(fwd)].__get__(
+            None, GradUnitFactory)(fwd, name, **kwargs)
+
+    @staticmethod
+    def _create_grad_conv(fwd, name=None, **kwargs):
+        grad_class = GradUnitFactory._conv_grad_classes[type(fwd)]
+        grad_unit = grad_class(
+            fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
+            padding=fwd.padding, n_kernels=fwd.n_kernels, name=name, **kwargs)
+        grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
+        return grad_unit
+
+    @staticmethod
+    def _create_grad_all2all(fwd, name=None, **kwargs):
+        grad_class = GradUnitFactory._all2all_grad_classes[type(fwd)]
+        grad_unit = grad_class(fwd.workflow, name=name, ** kwargs)
+        grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
+        return grad_unit
+
+    @staticmethod
+    def _create_grad_pooling(fwd, name=None, **kwargs):
+        grad_class = GradUnitFactory._pooling_grad_classes[type(fwd)]
+        grad_unit = grad_class(
+            fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
+        grad_unit.link_attrs(fwd, "input", "output")
+        return grad_unit
+
+    @staticmethod
+    def _create_grad_activation(fwd, name=None, **kwargs):
+        grad_class = GradUnitFactory._activation_grad_classes[type(fwd)]
+        grad_unit = grad_class(fwd.workflow, **kwargs)
+        grad_unit.link_attrs(fwd, "input", "output")
+        return grad_unit
+
+    @staticmethod
+    def _create_grad_dropout(fwd, name=None, **kwargs):
+        grad_unit = dropout.DropoutBackward(fwd.workflow, **kwargs)
+        grad_unit.link_attrs(fwd, "input", "output")
+        return grad_unit
+
+    @staticmethod
+    def _create_grad_lrn(fwd, name=None, **kwargs):
+        grad_unit = normalization.LRNormalizerBackward(fwd.workflow, **kwargs)
+        grad_unit.link_attrs(fwd, "input", "output")
+        return grad_unit
+
+    @staticmethod
+    def _create_dropout(fwd, name=None, **kwargs):
+        grad_dropout = dropout.DropoutBackward(fwd.workflow)
+        grad_dropout.link_attrs(fwd, "input", "output", "mask")
+        return grad_dropout
+
+    #calls this method for this BASE classes
+    _methods_for_classes = DictByType({
+        conv.Conv: _create_grad_conv,
+        pooling.Pooling: _create_grad_pooling,
+        all2all.All2All: _create_grad_all2all,
+        activation.ActivationForward: _create_grad_activation,
+        normalization.LRNormalizerForward: _create_grad_lrn,
+        dropout.DropoutForward: _create_grad_dropout
+    })
+
+
 class StandardWorkflow(nn_units.NNWorkflow):
     """
     A base class for standard workflows with forward and backward propagation.
