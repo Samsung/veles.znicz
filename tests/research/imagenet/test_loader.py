@@ -7,6 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import os
+from six import print_
 import sys
 import unittest
 
@@ -27,7 +28,7 @@ class Test(unittest.TestCase):
             try:
                 os.remove(lock_file)
             except:
-                print("Failed to remove", lock_file, file=sys.stderr)
+                print_("Failed to remove", lock_file, file=sys.stderr)
                 raise
         if Test.loader is None:
             Test.loader = LoaderDetection(DummyWorkflow(),
