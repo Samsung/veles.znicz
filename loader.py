@@ -380,6 +380,9 @@ class Loader(Unit):
                               self.minibatch_offset] = indices
 
     def apply_data_from_slave(self, data, slave):
+        if slave is None:
+            # Partial update
+            return
         try:
             self.minibatch_offset, self.minibatch_size = \
                 self.pending_minibatches_[slave.id]

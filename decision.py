@@ -136,6 +136,9 @@ class DecisionBase(Unit):
         self.on_apply_data_from_master(data)
 
     def apply_data_from_slave(self, data, slave):
+        if slave is None:
+            # Partial update
+            return
         self.on_apply_data_from_slave(data, slave)
         if self.last_minibatch:
             self._on_last_minibatch()
