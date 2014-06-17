@@ -11,6 +11,7 @@ from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats
+from veles.mutable import Bool
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types
 
@@ -34,34 +35,38 @@ class Weights2D(plotter.Plotter):
         self.get_shape_from = None
         self.limit = kwargs.get("limit", 64)
         self.transposed = False
-        self.yuv = int(kwargs.get("yuv", False))
+        self.yuv = Bool(kwargs.get("yuv", False))
         self.cm = None
         self.pp = None
         self.show_figure = self.nothing
+        self._pics_to_draw = []
+        self.redraw_threshold = 1.5
 
     def __getstate__(self):
         state = super(Weights2D, self).__getstate__()
         if self.stripped_pickle:
-            state["input"] = state["input"][:self.limit]
+            inp = state["input"][:self.limit]
+            state["input"] = None
+            state["_pics_to_draw"] = self._prepare_pics(inp)
         return state
 
-    def redraw(self):
-        value = self.input
+    def _prepare_pics(self, inp):
+        pics = []
 
-        if type(value) != numpy.ndarray or len(value.shape) != 2:
+        if type(inp) != numpy.ndarray or len(inp.shape) != 2:
             raise ValueError("Invalid input type/shape")
 
         if self.transposed:
-            value = value.transpose()
-
-        figure = self.pp.figure(self.name)
-        figure.clf()
+            inp = inp.transpose()
 
         n_channels = 1
         if self.get_shape_from is None:
-            sx = int(numpy.round(numpy.sqrt(value.shape[1])))
-            sy = int(value.shape[1]) // sx
-        elif type(self.get_shape_from) == list:
+            sx = int(numpy.round(numpy.sqrt(inp.shape[1])))
+            sy = int(inp.shape[1]) // sx
+        elif isinstance(self.get_shape_from, formats.Vector):
+            sx = self.get_shape_from.mem.shape[2]
+            sy = self.get_shape_from.mem.shape[1]
+        else:
             if len(self.get_shape_from) == 2:
                 sx = self.get_shape_from[0]
                 sy = self.get_shape_from[1]
@@ -69,40 +74,49 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[-2]
                 sy = self.get_shape_from[-3]
                 n_channels = self.get_shape_from[-1]
-        else:
-            sx = self.get_shape_from.shape[1]
-            sy = self.get_shape_from.shape[0]
 
         sz = sx * sy * n_channels
 
-        n_cols = int(numpy.round(numpy.sqrt(value.shape[0])))
-        n_rows = int(numpy.ceil(value.shape[0] / n_cols))
+        for i in range(inp.shape[0]):
+            mem = inp[i].ravel()[:sz]
+            if n_channels > 1:
+                w = mem.reshape(sy, sx, n_channels)
+                if n_channels == 2:
+                    w = w[:, :, 0].reshape(sy, sx)
+                elif n_channels > 3:
+                    w = w[:, :, :3].reshape(sy, sx, 3)
+                pics.append(formats.norm_image(w, self.yuv))
+            else:
+                pics.append(formats.norm_image(mem.reshape(sy, sx), self.yuv))
+        return pics
+
+    def redraw(self):
+        figure = self.pp.figure(self.name)
+        figure.clf()
+
+        pics = self._pics_to_draw
+
+        n_cols = int(numpy.round(numpy.sqrt(len(pics))))
+        n_rows = int(numpy.ceil(len(pics) / n_cols))
 
         i = 0
-        for _ in range(0, n_rows):
-            for _ in range(0, n_cols):
+        for _row in range(n_rows):
+            for _col in range(n_cols):
                 ax = figure.add_subplot(n_rows, n_cols, i + 1)
                 ax.cla()
                 ax.axis('off')
-                ax.set_title(self.name.replace("Histogram ", ""))
-                mem = value[i].ravel()[:sz]
-                if n_channels > 1:
-                    w = mem.reshape(sy, sx, n_channels)
-                    if n_channels == 2:
-                        w = w[:, :, 0].reshape(sy, sx)
-                    elif n_channels > 3:
-                        w = w[:, :, :3].reshape(sy, sx, 3)
-                    ax.imshow(formats.norm_image(w, self.yuv),
-                              interpolation="nearest")
+                ax.set_title(self.name)
+                if len(pics[i].shape) == 3:
+                    ax.imshow(pics[i], interpolation="nearest")
                 else:
-                    ax.imshow(formats.norm_image(mem.reshape(sy, sx),
-                                                 self.yuv),
-                              interpolation="nearest", cmap=self.cm.gray)
+                    ax.imshow(pics[i], interpolation="nearest",
+                              cmap=self.cm.gray)
                 i += 1
-                if i >= value.shape[0]:
+                if i >= len(pics):
                     break
-            if i >= value.shape[0]:
+            if i >= len(pics):
                 break
+
         self.show_figure(figure)
         figure.canvas.draw()
         return figure
