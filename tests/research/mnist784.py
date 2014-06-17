@@ -192,7 +192,7 @@ class Workflow(nn_units.NNWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        # Add Image Saver unit
+        # Add ImagePlotter Saver unit
         self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.snapshotter)
         self.image_saver.link_attrs(self.evaluator, "output", "target")
@@ -257,7 +257,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx.gate_block = ~self.decision.epoch_ended
         # """
         # Image plotter
-        self.plt_img = plotting_units.Image(self, name="output sample")
+        self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
         self.plt_img.inputs.append(self.decision.sample_input)
         self.plt_img.input_fields.append(0)
         self.plt_img.inputs.append(self.decision.sample_output)

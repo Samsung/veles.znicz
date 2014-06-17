@@ -298,8 +298,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_hist.link_from(self.decision)
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = ~self.decision.epoch_ended
-        # Plot
-        self.plt = plotting_units.Plot(self, name="Plot", ylim=[-1.1, 1.1])
+        # ImmediatePlotter
+        self.plt = plotting_units.ImmediatePlotter(
+            self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.plt.inputs[:]
         self.plt.inputs.append(self.loader.minibatch_data)
         self.plt.inputs.append(self.loader.minibatch_targets)
