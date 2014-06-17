@@ -52,6 +52,8 @@ class All2All(nn_units.Forward):
     """
     def __init__(self, workflow, **kwargs):
         output_shape = kwargs.get("output_shape")
+        output_shape = ([output_shape] if type(output_shape) == int
+                        else list(output_shape))
         kwargs["output_shape"] = output_shape
         super(All2All, self).__init__(workflow, **kwargs)
         self.output_shape = output_shape
@@ -130,9 +132,9 @@ class All2All(nn_units.Forward):
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.shape[0] * output_size):
             self.output.reset()
-            self.output.mem = numpy.zeros([self.input.mem.shape[0],
-                                           output_size],
-                                          dtype=self.input.mem.dtype)
+            self.output.mem = numpy.zeros(
+                [self.input.mem.shape[0]] + output_shape,
+                dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
