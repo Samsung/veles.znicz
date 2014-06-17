@@ -45,6 +45,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
                                gd_pooling.GDMaxAbsPooling),
             "avg_pooling": (pooling.AvgPooling,
                             gd_pooling.GDAvgPooling),
+            "all2all": (all2all.All2All,
+                        gd.GradientDescent),
             "all2all_relu": (all2all.All2AllRELU,
                              gd.GDRELU),
             "all2all_tanh": (all2all.All2AllTanh,
