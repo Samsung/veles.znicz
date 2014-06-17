@@ -131,8 +131,8 @@ class TestMatrixMultiplication(unittest.TestCase):
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
         local_size = [BLOCK_SIZE, BLOCK_SIZE]
 
-        event = self.device.queue_.execute_kernel(krn, global_size, local_size)
-        event.wait()
+        self.device.queue_.execute_kernel(krn, global_size, local_size,
+                                          need_event=False)
 
         self.c.map_read()
 

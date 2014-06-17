@@ -127,16 +127,14 @@ class GDPooling(nn_units.GradientDescentBase):
         self.err_output.unmap()  # we will use err_output
 
         # Clear err_h
-        event = self.execute_kernel([self.err_input.mem.size], None,
-                                    self.krn_err_input_clear_)
-        event.wait()
+        self.execute_kernel([self.err_input.mem.size], None,
+                            self.krn_err_input_clear_)
 
         # Compute err_h
-        event = self.execute_kernel(
+        self.execute_kernel(
             [(self.batch_size or self.err_output.mem.shape[0]) *
              (self.err_output.mem.size // self.err_output.mem.shape[0])], None,
             self.krn_err_input_)
-        event.wait()
 
     def cpu_run(self):
         raise NotImplementedError()

@@ -111,7 +111,7 @@ class DropoutForward(Forward, Dropout):
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.set_arg(1, self._threshold_arg_)
         self.set_arg(2, self._pass_arg_)
-        self.execute_kernel((self.input.mem.size,), None).wait()
+        self.execute_kernel((self.input.mem.size,), None)
 
 
 @implementer(IOpenCLUnit)
@@ -154,4 +154,4 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.err_output.unmap()
         self.err_input.unmap()
         self.mask.unmap()
-        self.execute_kernel((self.err_output.mem.size,), None).wait()
+        self.execute_kernel((self.err_output.mem.size,), None)

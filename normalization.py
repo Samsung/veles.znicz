@@ -112,7 +112,7 @@ class LRNormalizerForward(Forward, LocalResponseNormalizer):
         """
         self.output.unmap()
         self.input.unmap()
-        self.execute_kernel(self._global_size_, self._local_size_).wait()
+        self.execute_kernel(self._global_size_, self._local_size_)
 
 
 @implementer(IOpenCLUnit)
@@ -199,4 +199,4 @@ class LRNormalizerBackward(GradientDescentBase, LocalResponseNormalizer):
         self.err_output.unmap()
         self.input.unmap()
         self.err_input.unmap()
-        self.execute_kernel(self._global_size_, self._local_size_).wait()
+        self.execute_kernel(self._global_size_, self._local_size_)

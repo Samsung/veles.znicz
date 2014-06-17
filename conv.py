@@ -214,7 +214,7 @@ class Conv(nn_units.Forward):
                        formats.roundup(self.output.mem.size // self.n_kernels,
                                        block_size)]
         local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size).wait()
+        self.execute_kernel(global_size, local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

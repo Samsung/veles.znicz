@@ -147,7 +147,7 @@ class InputJoiner(OpenCLUnit):
             self.set_args(cl.skip, a, b, self.cl_const[0:1],
                           self.cl_const[1:2], self.cl_const[2:3])
             global_size = [high - low, minibatch_size]
-            self.execute_kernel(global_size, None).wait()
+            self.execute_kernel(global_size, None)
             low = high
             a = None
             a_size = 0
@@ -165,4 +165,4 @@ class InputJoiner(OpenCLUnit):
                 if b is None:
                     self.set_arg(2, None)
                 global_size = [high - low, minibatch_size]
-                self.execute_kernel(global_size, None).wait()
+                self.execute_kernel(global_size, None)

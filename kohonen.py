@@ -180,10 +180,10 @@ class KohonenForward(KohonenBase, OpenCLUnit):
             self.input.unmap()
             self.weights.unmap()
             self.execute_kernel(self._gs_distance, self._ls_distance,
-                                self._krn_distances_).wait()
+                                self._krn_distances_)
             self.execute_kernel([self.argmin_group_size],
                                 [self.argmin_group_size],
-                                self._krn_argmin_).wait()
+                                self._krn_argmin_)
         else:
             self.argmins.unmap()
             self.argmins.map_read()
@@ -197,7 +197,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
                 self.minibatch_offset - self.minibatch_size
             self._krn_set_total_.set_arg(1, self._minibatch_offset_)
             self.execute_kernel(self._set_total_global_size_, None,
-                                self._krn_set_total_).wait()
+                                self._krn_set_total_)
 
     def cpu_run(self):
         self.output.map_invalidate()
@@ -476,20 +476,20 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
         batch_size = self.input.mem.shape[0]
         self.execute_kernel(self._gs_distance, self._ls_distance,
-                            self._krn_distances_).wait()
+                            self._krn_distances_)
         self.execute_kernel([self.argmin_group_size],
                             [self.argmin_group_size],
-                            self._krn_argmin_).wait()
+                            self._krn_argmin_)
         self.ocl_consts_[0] = self.gravity_radius
         self._krn_gravity_.set_arg(2, self.ocl_consts_[0:1])
         self.execute_kernel([batch_size, self._neurons_number], None,
-                            self._krn_gravity_).wait()
+                            self._krn_gravity_)
         self.ocl_consts_[0] = self.gradient_multiplier
         self._krn_apply_gradient_.set_arg(2, self.ocl_consts_[0:1])
         self.execute_kernel(
             [int(numpy.ceil(self._sample_length / self.device.max_group_size)),
              self.device.max_group_size],
-            None, self._krn_apply_gradient_).wait()
+            None, self._krn_apply_gradient_)
 
     iteration = staticmethod(iteration)
 

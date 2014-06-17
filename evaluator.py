@@ -143,8 +143,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
         global_size = [local_size[0]]
-        event = self.execute_kernel(global_size, local_size)
-        event.wait()
+        self.execute_kernel(global_size, local_size)
 
     def cpu_run(self):
         self.err_output.map_invalidate()
@@ -319,16 +318,14 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
         global_size = [local_size[0]]
-        event = self.execute_kernel(global_size, local_size)
-        event.wait()
+        self.execute_kernel(global_size, local_size)
 
         # Do the following part on CPU (GPU version not implemented currently)
         if self.labels is not None and self.class_targets is not None:
             self.class_targets.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            self.execute_kernel([batch_size], None,
-                                self.krn_find_closest_).wait()
+            self.execute_kernel([batch_size], None, self.krn_find_closest_)
 
     def cpu_run(self):
         self.output.map_read()

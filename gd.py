@@ -217,7 +217,7 @@ class GradientDescent(nn_units.GradientDescentBase):
                     self.err_output.mem.size // self.err_output.mem.shape[0],
                     block_size)]
         local_size = [block_size, block_size]
-        ev1 = self.execute_kernel(global_size, local_size, self.krn_weights_)
+        self.execute_kernel(global_size, local_size, self.krn_weights_)
 
         self.cl_const[0] = -self.learning_rate_bias
         if self.error_function_averaged:
@@ -230,10 +230,7 @@ class GradientDescent(nn_units.GradientDescentBase):
                         self.err_output.mem.shape[0]) *
                        self.reduce_size]
         local_size = [self.reduce_size]
-        ev2 = self.execute_kernel(global_size, local_size, self.krn_bias_)
-
-        ev1.wait()
-        ev2.wait()
+        self.execute_kernel(global_size, local_size, self.krn_bias_)
 
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
@@ -279,9 +276,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         else:
             self.cl_const[0] = 1.0
         self.krn_err_input_.set_arg(3, self.cl_const[0:1])
-        event = self.execute_kernel(global_size, local_size,
-                                    self.krn_err_input_)
-        event.wait()
+        self.execute_kernel(global_size, local_size, self.krn_err_input_)
 
     def print_debug_data(self, t_start):
         """
@@ -333,9 +328,8 @@ class GradientDescent(nn_units.GradientDescentBase):
             return
         self.output.unmap()
         self.err_output.unmap()
-        ev = self.execute_kernel([self.err_output.mem.size], None,
-                                 self.krn_err_output_)
-        ev.wait()
+        self.execute_kernel([self.err_output.mem.size], None,
+                            self.krn_err_output_)
 
     def cpu_run(self):
         """Do gradient descent.

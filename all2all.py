@@ -201,7 +201,7 @@ class All2All(nn_units.Forward):
         self.weights.unmap()
         self.bias.unmap()
 
-        self.execute_kernel(self._global_size_, self._local_size_).wait()
+        self.execute_kernel(self._global_size_, self._local_size_)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -341,8 +341,7 @@ class All2AllSoftmax(All2All):
         self.max_idx.unmap()
         global_size = [self.output.mem.shape[0] * self.reduce_size]
         local_size = [self.reduce_size]
-        event = self.execute_kernel(global_size, local_size, self.krn_sm_)
-        event.wait()
+        self.execute_kernel(global_size, local_size, self.krn_sm_)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

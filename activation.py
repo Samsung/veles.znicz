@@ -48,7 +48,7 @@ class ActivationForward(Forward, Activation):
     def ocl_run(self):
         self.input.unmap()
         self.output.unmap()
-        self.execute_kernel((self.input.mem.size,), None).wait()
+        self.execute_kernel((self.input.mem.size,), None)
 
 
 @implementer(IOpenCLUnit)
@@ -90,7 +90,7 @@ class ActivationBackward(GradientDescentBase, Activation):
     def ocl_run(self):
         self.err_output.unmap()
         self.err_input.unmap()
-        self.execute_kernel((self.err_output.mem.size,), None).wait()
+        self.execute_kernel((self.err_output.mem.size,), None)
 
 
 @implementer(IOpenCLUnit)

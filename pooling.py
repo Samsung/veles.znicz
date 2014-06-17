@@ -117,7 +117,7 @@ class Pooling(nn_units.Forward):
         self.input.unmap()  # we will use input
         y = self.output.mem
         global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
-        self.execute_kernel(global_size, None).wait()
+        self.execute_kernel(global_size, None)
 
     def run(self):
         t1 = time.time()
