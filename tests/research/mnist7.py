@@ -120,9 +120,6 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_metrics", "metrics"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -137,7 +134,7 @@ class Workflow(nn_units.NNWorkflow):
         self.image_saver.link_attrs(self.evaluator, "output", "target")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indexes"),
+                                    ("indexes", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.gate_skip = ~self.decision.improved
@@ -186,7 +183,6 @@ class Workflow(nn_units.NNWorkflow):
         self.plt[0].clear_plot = True
         # Weights plotter
         # """
-        self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)

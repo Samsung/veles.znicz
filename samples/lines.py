@@ -126,7 +126,6 @@ class Workflow(StandardWorkflow):
             minibatch_size=root.loader.minibatch_size,
             grayscale=False)
 
-        self.loader.load_data()
         self.loader.link_from(self.repeater)
 
         self.parse_forwards_from_config()
@@ -155,7 +154,7 @@ class Workflow(StandardWorkflow):
         self.image_saver.link_attrs(
             self.loader,
             ("input", "minibatch_data"),
-            ("indexes", "minibatch_indexes"),
+            ("indexes", "minibatch_indices"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
 
@@ -181,9 +180,6 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -213,7 +209,6 @@ class Workflow(StandardWorkflow):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
-            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
@@ -238,7 +233,6 @@ class Workflow(StandardWorkflow):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
-            self.decision.vectors_to_sync[self.gds[i].weights] = 1
             plt_gd = nn_plotting_units.Weights2D(
                 self, name="%s gd %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
@@ -275,7 +269,6 @@ class Workflow(StandardWorkflow):
         # MultiHistogram plotter
         self.plt_multi_hist = []
         for i in range(0, len(layers)):
-            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             multi_hist = plotting_units.MultiHistogram(
                 self, name="Histogram %s %s" % (i + 1, layers[i]["type"]),
                 limit=4)
@@ -297,7 +290,6 @@ class Workflow(StandardWorkflow):
         # MultiHistogram plotter
         self.plt_multi_hist_gd = []
         for i in range(0, len(layers)):
-            self.decision.vectors_to_sync[self.gds[i].weights] = 1
             multi_hist_gd = plotting_units.MultiHistogram(
                 self, name="GD %s %s" % (i + 1, layers[i]["type"]), limit=4)
             self.plt_multi_hist_gd.append(multi_hist_gd)

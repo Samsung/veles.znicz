@@ -207,9 +207,6 @@ class Workflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_mse", "mse"),
             ("minibatch_metrics", "metrics"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -306,7 +303,6 @@ class Workflow(nn_units.NNWorkflow):
         del self.plt.inputs[:]
         self.plt.inputs.append(self.loader.minibatch_data)
         self.plt.inputs.append(self.loader.minibatch_targets)
-        self.decision.vectors_to_sync[self.fwds[-1].output] = 1
         self.plt.inputs.append(self.fwds[-1].output)
         del self.plt.input_fields[:]
         self.plt.input_fields.append(0)

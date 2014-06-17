@@ -24,6 +24,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
+import veles.plotting_units as plotting_units
 
 
 root.defaults = {"decision": {"fail_iterations": 100},
@@ -32,7 +33,7 @@ root.defaults = {"decision": {"fail_iterations": 100},
                  "weights_plotter": {"limit": 16},
                  "video_ae": {"learning_rate": 0.000004,
                               "weights_decay": 0.00005,
-                              "layers": [9, 14400],
+                              "layers": [9, [90, 160]],
                               "data_paths":
                               os.path.join(root.common.test_dataset_root,
                                            "video/video_ae/img")}}
@@ -78,8 +79,8 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add fwds units
         self.fwds = []
-        for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+        for i in range(len(layers)):
+            aa = all2all.All2AllTanh(self, output_shape=layers[i],
                                      device=device)
             self.fwds.append(aa)
             if i:
@@ -98,7 +99,7 @@ class Workflow(nn_units.NNWorkflow):
         self.image_saver.link_attrs(self.fwds[-1], "output")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indexes"),
+                                    ("indexes", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.target = self.image_saver.input
@@ -109,8 +110,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.fwds[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
-                                  ("target", "minibatch_data"),
-                                  ("max_samples_per_epoch", "total_samples"))
+                                  ("target", "minibatch_data"))
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
@@ -120,21 +120,18 @@ class Workflow(nn_units.NNWorkflow):
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
+                                 "minibatch_size",
                                  "last_minibatch",
                                  "class_lengths",
                                  "epoch_ended",
-                                 "epoch_number",
-                                 "minibatch_offset",
-                                 "minibatch_size")
+                                 "epoch_number")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_metrics", "metrics"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+                                         directory=root.common.snapshot_dir,
+                                         compress="")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -148,7 +145,6 @@ class Workflow(nn_units.NNWorkflow):
         # Add gradient descent units
         self.gds = list(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDTanh(self, device=device)
-        self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")
@@ -164,35 +160,35 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
             self.gds[i].gate_skip = self.decision.gd_skip
+        self.gds[0].need_err_input = False
+        self.gds[-1].error_function_averaged = True
         self.repeater.link_from(self.gds[0])
 
-        self.end_point.link_from(self.decision)
-        self.end_point.gate_block = ~self.decision.complete
-
-        self.loader.gate_block = self.decision.complete
-
         # MSE plotter
-        """
+        prev = self.snapshotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(0, 3):
+        for i in range(2, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt[-1].link_attrs(self.decision, ("input", "epoch_metrics"))
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = ~self.decision.epoch_ended
-        """
-        # Matrix plotter
-        self.decision.vectors_to_sync[self.gds[0].weights] = 1
+            self.plt[-1].link_from(prev)
+            self.plt[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.plt[-1]
+        self.plt[0].clear_plot = True
+        self.plt[-1].redraw_plot = True
+
+        # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
-        self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
-        self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
+        self.plt_mx.link_attrs(self.fwds[0], ("input", "weights"),
+                               ("get_shape_from", "input"))
         self.plt_mx.input_field = "mem"
-        self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = ~self.decision.epoch_ended
+        self.plt_mx.link_from(prev)
+        self.plt_mx.gate_skip = ~self.decision.epoch_ended
+        prev = self.plt_mx
 
         """
         # Max plotter
@@ -205,8 +201,9 @@ class Workflow(nn_units.NNWorkflow):
                                         ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offs = 1
-            self.plt_max[-1].link_from(self.decision)
-            self.plt_max[-1].gate_block = ~self.decision.epoch_ended
+            self.plt_max[-1].link_from(prev)
+            self.plt_max[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.plt_max[-1]
         # Min plotter
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
@@ -217,17 +214,24 @@ class Workflow(nn_units.NNWorkflow):
                                         ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offs = 2
-            self.plt_min[-1].link_from(self.decision)
-            self.plt_min[-1].gate_block = ~self.decision.epoch_ended
-        # Image plotter
-        self.plt_img = plotting_units.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision.sample_output)
-        self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.decision.sample_input)
-        self.plt_img.input_fields.append(0)
-        self.plt_img.link_from(self.decision)
-        self.plt_img.gate_block = ~self.decision.epoch_ended
+            self.plt_min[-1].link_from(prev)
+            self.plt_min[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.plt_min[-1]
         """
+        # Image plotter
+        self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
+        self.plt_img.inputs.append(self.fwds[-1].output)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.inputs.append(self.fwds[0].input)
+        self.plt_img.input_fields.append(0)
+        self.plt_img.link_from(prev)
+        self.plt_img.gate_skip = ~self.decision.epoch_ended
+        prev = self.plt_img
+
+        self.gds[-1].link_from(prev)
+        self.end_point.link_from(prev)
+        self.end_point.gate_block = ~self.decision.complete
+        self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device):
         self.evaluator.device = device

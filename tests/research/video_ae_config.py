@@ -19,9 +19,9 @@ root.update = {"decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "video_ae"},
                "loader": {"minibatch_size": 50},
                "weights_plotter": {"limit": 16},
-               "video_ae": {"learning_rate": 0.000004,
+               "video_ae": {"learning_rate": 0.01,
                             "weights_decay": 0.00005,
-                            "layers": [9, 14400],
+                            "layers": [9, [90, 160]],
                             "data_paths":
                             os.path.join(root.common.test_dataset_root,
                                          "video_ae/img")}}

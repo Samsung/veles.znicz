@@ -217,9 +217,6 @@ class Workflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -271,7 +268,6 @@ class Workflow(nn_units.NNWorkflow):
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         # Weights plotter
-        self.decision.vectors_to_sync[self.gds[0].weights] = 1
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
@@ -325,9 +321,6 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_n_err[-1].redraw_plot = True
         # Image plotter
         """
-        self.decision.vectors_to_sync[self.fwds[0].input] = 1
-        self.decision.vectors_to_sync[self.fwds[-1].output] = 1
-        self.decision.vectors_to_sync[self.evaluator.target] = 1
         self.plt_img = plotters.Image(self, name="output sample")
         self.plt_img.inputs.append(self.decision.sample_input)
         self.plt_img.input_fields.append(0)

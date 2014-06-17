@@ -188,9 +188,6 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -266,7 +263,6 @@ class Workflow(StandardWorkflow):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
-            self.decision.vectors_to_sync[self.gds[i].gradient_weights] = 1
             nme = "%s %s" % (i + 1, layers[i]["type"])
             print("Added:", nme)
             plt_mx = nn_plotting_units.Weights2D(

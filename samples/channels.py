@@ -700,9 +700,6 @@ class Workflow(StandardWorkflow):
             self.evaluator,
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
-        self.decision.fwds = self.fwds
-        self.decision.gds = self.gds
-        self.decision.evaluator = self.evaluator
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -754,7 +751,6 @@ class Workflow(StandardWorkflow):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
-            self.decision.vectors_to_sync[self.fwds[i].weights] = 1
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
