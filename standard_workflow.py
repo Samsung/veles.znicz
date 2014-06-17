@@ -90,15 +90,15 @@ class GradientUnitFactory(object):
     def _create_grad_conv(fwd, name=None, **kwargs):
         grad_class = GradientUnitFactory._conv_grad_classes[type(fwd)]
         grad_unit = grad_class(
-            fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
-            padding=fwd.padding, n_kernels=fwd.n_kernels, name=name, **kwargs)
+            fwd.workflow, name=name, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
+            padding=fwd.padding, n_kernels=fwd.n_kernels, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
         return grad_unit
 
     @staticmethod
     def _create_grad_all2all(fwd, name=None, **kwargs):
         grad_class = GradientUnitFactory._all2all_grad_classes[type(fwd)]
-        grad_unit = grad_class(fwd.workflow, name=name, ** kwargs)
+        grad_unit = grad_class(fwd.workflow, name=name, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
         return grad_unit
 
@@ -106,32 +106,37 @@ class GradientUnitFactory(object):
     def _create_grad_pooling(fwd, name=None, **kwargs):
         grad_class = GradientUnitFactory._pooling_grad_classes[type(fwd)]
         grad_unit = grad_class(
-            fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
+            fwd.workflow, name=name,
+            kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
+        if isinstance(fwd, pooling.MaxPooling):
+            grad_unit.link_attrs(fwd, "input_offs")
         return grad_unit
 
     @staticmethod
     def _create_grad_activation(fwd, name=None, **kwargs):
         grad_class = GradientUnitFactory._activation_grad_classes[type(fwd)]
-        grad_unit = grad_class(fwd.workflow, **kwargs)
+        grad_unit = grad_class(fwd.workflow, name=name, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         return grad_unit
 
     @staticmethod
     def _create_grad_dropout(fwd, name=None, **kwargs):
-        grad_unit = dropout.DropoutBackward(fwd.workflow, **kwargs)
+        grad_unit = dropout.DropoutBackward(fwd.workflow, name=name, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         return grad_unit
 
     @staticmethod
     def _create_grad_lrn(fwd, name=None, **kwargs):
-        grad_unit = normalization.LRNormalizerBackward(fwd.workflow, **kwargs)
+        grad_unit = normalization.LRNormalizerBackward(
+            fwd.workflow, name=name, k=fwd.k, n=fwd.n,
+            alpha=fwd.alpha, beta=fwd.beta, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         return grad_unit
 
     @staticmethod
     def _create_dropout(fwd, name=None, **kwargs):
-        grad_dropout = dropout.DropoutBackward(fwd.workflow)
+        grad_dropout = dropout.DropoutBackward(fwd.workflow, name=name)
         grad_dropout.link_attrs(fwd, "input", "output", "mask")
         return grad_dropout
 
