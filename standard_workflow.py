@@ -7,6 +7,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+from collections import UserDict
+
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
 from veles.znicz import gd, gd_conv, gd_pooling
@@ -15,33 +17,30 @@ from veles.znicz import activation
 import veles.error as error
 
 
-class DictByType(object):
+class TypeDict(UserDict):
     """
-    All keys of the dictionary should be classes. Its [key] operator looks up
+    All keys in the dictionary must be classes. Its [key] operator looks up
         the `key` inheritance hierarchy and chooses its nearest ancestor
         as a key to return its coupled value.
     """
-    def __init__(self, in_dict):
-        assert isinstance(in_dict, dict)
-        self.in_dict = in_dict
 
     def __getitem__(self, key):
         assert type(key) == type
         hierarchy = [key]
-        i = 0
-        while i < len(hierarchy):
-            assert type(hierarchy[i]) == type
-            if hierarchy[i] in self.in_dict:
-                return self.in_dict[hierarchy[i]]
+        while len(hierarchy):
+            clazz = hierarchy.pop()
+            assert type(clazz) == type
+            val = self.data.get(clazz)
+            if val is not None:
+                return val
             elif key != type:
                 hierarchy.extend(key.__bases__)
-            i += 1
-        raise KeyError("Unknown key class %s" % str(key))
+        raise KeyError("Unknown key %s" % str(key))
 
 
-class GradUnitFactory(object):
+class GradientUnitFactory(object):
     """
-    This factory makes :class:`GradientDescentBase`-interfaced inits
+    This factory makes :class:`GradientDescentBase`-interfaced units
         according to their forward-prop units.
     """
     _pooling_grad_classes = {pooling.AvgPooling: gd_pooling.GDAvgPooling,
@@ -64,7 +63,7 @@ class GradUnitFactory(object):
     }
 
     @staticmethod
-    def create_grad_unit(fwd, name=None, **kwargs):
+    def create(fwd, name=None, **kwargs):
         """
         Creates gradient descent unit by forward prop unit.
 
@@ -83,13 +82,13 @@ class GradUnitFactory(object):
         """
         assert fwd is not None
 
-        #Trick from  http://stackoverflow.com/a/3933062/2726900
-        return GradUnitFactory._methods_for_classes[type(fwd)].__get__(
-            None, GradUnitFactory)(fwd, name, **kwargs)
+        # Trick from  http://stackoverflow.com/a/3933062/2726900
+        return GradientUnitFactory._methods_for_classes[type(fwd)].__get__(
+            None, GradientUnitFactory)(fwd, name, **kwargs)
 
     @staticmethod
     def _create_grad_conv(fwd, name=None, **kwargs):
-        grad_class = GradUnitFactory._conv_grad_classes[type(fwd)]
+        grad_class = GradientUnitFactory._conv_grad_classes[type(fwd)]
         grad_unit = grad_class(
             fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
             padding=fwd.padding, n_kernels=fwd.n_kernels, name=name, **kwargs)
@@ -98,14 +97,14 @@ class GradUnitFactory(object):
 
     @staticmethod
     def _create_grad_all2all(fwd, name=None, **kwargs):
-        grad_class = GradUnitFactory._all2all_grad_classes[type(fwd)]
+        grad_class = GradientUnitFactory._all2all_grad_classes[type(fwd)]
         grad_unit = grad_class(fwd.workflow, name=name, ** kwargs)
         grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
         return grad_unit
 
     @staticmethod
     def _create_grad_pooling(fwd, name=None, **kwargs):
-        grad_class = GradUnitFactory._pooling_grad_classes[type(fwd)]
+        grad_class = GradientUnitFactory._pooling_grad_classes[type(fwd)]
         grad_unit = grad_class(
             fwd.workflow, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
@@ -113,7 +112,7 @@ class GradUnitFactory(object):
 
     @staticmethod
     def _create_grad_activation(fwd, name=None, **kwargs):
-        grad_class = GradUnitFactory._activation_grad_classes[type(fwd)]
+        grad_class = GradientUnitFactory._activation_grad_classes[type(fwd)]
         grad_unit = grad_class(fwd.workflow, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         return grad_unit
@@ -136,8 +135,8 @@ class GradUnitFactory(object):
         grad_dropout.link_attrs(fwd, "input", "output", "mask")
         return grad_dropout
 
-    #calls this method for this BASE classes
-    _methods_for_classes = DictByType({
+    # calls this method for this BASE classes
+    _methods_for_classes = TypeDict({
         conv.Conv: _create_grad_conv,
         pooling.Pooling: _create_grad_pooling,
         all2all.All2All: _create_grad_all2all,
