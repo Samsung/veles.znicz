@@ -164,7 +164,7 @@ class ComplexTest(standard_test.StandardTest):
         relu1.link_attrs(pool1, ("input", "output"))
 
         norm1 = normalization.LRNormalizerForward(
-            self.workflow, name="norm1", n=1, alpha=0.00005 * 0,
+            self.workflow, name="norm1", n=3, alpha=0.00005,
             beta=0.75, k=1)
         norm1.link_from(relu1)
         norm1.link_attrs(relu1, ("input", "output"))
@@ -192,7 +192,7 @@ class ComplexTest(standard_test.StandardTest):
         pool2.link_attrs(relu2, ("input", "output"))
 
         norm2 = normalization.LRNormalizerForward(
-            self.workflow, name="norm2", n=3, alpha=0.00005 * 0,
+            self.workflow, name="norm2", n=3, alpha=0.00005,
             beta=0.75, k=1)
         norm2.link_from(pool2)
         norm2.link_attrs(pool2, ("input", "output"))
@@ -231,7 +231,7 @@ class ComplexTest(standard_test.StandardTest):
             "bottom_1", iter).astype(np.int32).ravel()
 
         ev = self.workflow["ev"]
-        if ev.labels:
+        if ev.labels is not None:
             ev.labels.map_write()
             ev.labels.mem[:] = labels[:]
         else:
@@ -240,7 +240,7 @@ class ComplexTest(standard_test.StandardTest):
         conv1_bottom = self._load_blob(
             "conv1", PropType.forward, WhenTaken.before, "bottom_0", iter)
         conv1 = self.workflow["conv1"]
-        if conv1.input:
+        if conv1.input is None:
             conv1.input = Vector(conv1_bottom)
         else:
             conv1.input.map_write()
@@ -362,6 +362,7 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.bias.mem[:] = ip_sm_biases.reshape(10)[:]
 
     def _print_deltas(self, iter):
+        logging.info(">>> iter %i" % iter)
         names = ["conv1", "pool1", "relu1", "norm1", "conv2", "relu2", "pool2",
                  "norm2", "conv3"]
         for name in names:
@@ -415,10 +416,11 @@ class ComplexTest(standard_test.StandardTest):
             conv_elm.weights.map_read()
             conv_elm.bias.map_read()
 
-            print("%s weights delta: %.12f%%" %
-                  (name, self._diff(conv_elm.weights.mem, conv_weights)))
-            print("%s biases delta: %.12f%%" %
-                  (name, self._diff(conv_elm.bias.mem, conv_biases)))
+            logging.info(">>> %s weights delta: %.12f%%" %
+                         (name, self._diff(conv_elm.weights.mem,
+                                           conv_weights)))
+            logging.info(">>> %s biases delta: %.12f%%" %
+                         (name, self._diff(conv_elm.bias.mem, conv_biases)))
 
         ip_sm = self.workflow["ip1"]
         ip_sm_weights = self._load_blob("ip1", PropType.forward,
@@ -432,10 +434,10 @@ class ComplexTest(standard_test.StandardTest):
             "blob_1", iter + 1).ravel()
         ip_sm.weights.map_read()
         ip_sm.bias.map_read()
-        print("ip1 weights delta %.12f%%" %
-              self._diff(ip_sm.weights.mem, ip_sm_weights))
-        print("ip1 biases delta %.12f%%" %
-              self._diff(ip_sm.bias.mem, ip_sm_biases))
+        logging.info(">>> ip1 weights delta %.12f%%" %
+                     self._diff(ip_sm.weights.mem, ip_sm_weights))
+        logging.info(">>> ip1 biases delta %.12f%%" %
+                     self._diff(ip_sm.bias.mem, ip_sm_biases))
 
     def test_all(self):
         """
@@ -461,12 +463,14 @@ class ComplexTest(standard_test.StandardTest):
         self.workflow.run()
         self._print_deltas(cur_iter)
 
-#        print("!!!!!")
-#
         cur_iter = 1
         self._load_labels_and_data(cur_iter)
         self.workflow.run()
+        self._print_deltas(cur_iter)
 
+        cur_iter = 2
+        self._load_labels_and_data(cur_iter)
+        self.workflow.run()
         self._print_deltas(cur_iter)
 
 
