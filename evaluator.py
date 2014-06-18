@@ -65,6 +65,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         self.max_idx = None  # formats.Vector()
         self.krn_constants_i_ = None
         self.max_err_output_sum = formats.Vector()
+        self.demand("output", "labels", "max_idx", "batch_size")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
@@ -232,6 +233,7 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         self.labels = None
         self.class_targets = None
         self.n_err = formats.Vector()
+        self.demand("output", "target", "batch_size")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
