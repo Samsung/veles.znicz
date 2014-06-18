@@ -24,15 +24,22 @@ class LearningRateAdjust(Unit):
     Does nothing if ``lr_function`` is not set.
 
     Args:
-        lr_function(:class:`function`): a function that takes :class:`int`
-            iteration number and returns :class:`float` learning rate
+        lr_function(:class:`function`): a function that takes `int`
+            iteration number and returns :class:`float` **weight** learning
+            rate
+        bias_lr_function(:class:`function`): a function that takes `int`
+            iteration number and returns :class:`float` **bias** learning rate
+            (if nothing is set - `lr_function` is taken)
     """
     def __init__(self, workflow, **kwargs):
         self._lr_function = kwargs.get("lr_function", None)
+        self._bias_lr_function = kwargs.get("bias_lr_function",
+                                            self._lr_function)
         self._gradient_units = []
         self._minibatches_count = 0
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
-        self._prev_learning_rate = 1.0e30
+        self._prev_lr = 1.0e30
+        self._prev_bias_lr = 1.0e30
 
     def add_one_gd_unit(self, grad_unit):
         """
@@ -65,11 +72,17 @@ class LearningRateAdjust(Unit):
         """
         if self._lr_function is not None:
             learning_rate = self._lr_function(self._minibatches_count)
-            if learning_rate != self._prev_learning_rate:
-                self._prev_learning_rate = learning_rate
-                self.info("Setting learning_rate to %.12f", learning_rate)
-            for gd_elm in self._gradient_units:
-                gd_elm.learning_rate = learning_rate
+            if learning_rate != self._prev_lr:
+                self._prev_lr = learning_rate
+                for gd_elm in self._gradient_units:
+                    gd_elm.learning_rate = learning_rate
+
+        if self._bias_lr_function is not None:
+            bias_lr = self._bias_lr_function(self._minibatches_count)
+            if bias_lr != self._prev_bias_lr:
+                self._prev_bias_lr = learning_rate
+                for gd_elm in self._gradient_units:
+                    gd_elm.learning_rate_bias = bias_lr
 
         self._minibatches_count += 1
 

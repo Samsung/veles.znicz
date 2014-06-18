@@ -253,7 +253,7 @@ class Workflow(StandardWorkflow):
         self.plt[-1].redraw_plot = True
 
         """
-        # Confusion matrix plotter
+        #  Confusion matrix plotter
         self.plt_mx = []
         for i in range(0, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
