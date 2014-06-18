@@ -36,7 +36,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 
 root.defaults = {
     "accumulator": {"bars": 30},
-    "decision": {"fail_iterations": 100, "do_export_weights": True},
+    "decision": {"fail_iterations": 100, "do_export_weights": False},
     "snapshotter": {"prefix": "cifar"},
     "softmax": {"error_function_avr": False},
     "image_saver": {"out_dirs":
