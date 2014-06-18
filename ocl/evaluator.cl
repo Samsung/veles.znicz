@@ -24,10 +24,14 @@
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void ev_sm(__global c_dtype /*IN*/ *y, __global int /*IN*/ *max_idx, __global int /*IN*/ *labels,
-           __global c_dtype /*OUT*/ *err_y, __global int /*IO*/ *n_err,
-           __global int /*IO*/ *confusion_matrix, __global dtype /*IO*/ *max_err_y_sum,
-           const int batch_size) {
+void ev_sm(__global const c_dtype    /* IN */    *y,
+           __global const int        /* IN */    *max_idx,
+           __global const int        /* IN */    *labels,
+           __global c_dtype         /* OUT */    *err_y,
+           __global int              /* IO */    *n_err,
+           __global int              /* IO */    *confusion_matrix,
+           __global dtype            /* IO */    *max_err_y_sum,
+           const int                 /* IN */    batch_size) {
   __local int IM[BLOCK_SIZE], IREAL[BLOCK_SIZE];
   __local dtype SM[BLOCK_SIZE];
   int tx = get_local_id(0);
@@ -121,9 +125,12 @@ void ev_sm(__global c_dtype /*IN*/ *y, __global int /*IN*/ *max_idx, __global in
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void ev_mse(__global c_dtype /*IN*/ *y, __global c_dtype /*IN*/ *target,
-            __global c_dtype /*OUT*/ *err_y, __global dtype /*IO*/ *metrics,
-            __global dtype /*OUT*/ *mse, const int batch_size) {
+void ev_mse(__global const c_dtype    /* IN */    *y,
+            __global const c_dtype    /* IN */    *target,
+            __global c_dtype         /* OUT */    *err_y,
+            __global dtype            /* IO */    *metrics,
+            __global dtype           /* OUT */    *mse,
+            const int batch_size) {
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
   int i_sample = tx;
