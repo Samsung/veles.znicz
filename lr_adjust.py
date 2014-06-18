@@ -134,7 +134,7 @@ def inv_adjust_policy(base_lr, gamma, pow_ratio):
     return lambda iter: base_lr * (1.0 + gamma * iter) ** (-pow_ratio)
 
 
-def arbitrary_step_function_policy(lrs_with_lengths):
+def arbitrary_step_policy(lrs_with_lengths):
     """
     Creates arbitrary step function: LR1 for N iters, LR2 for next M iters, etc
 

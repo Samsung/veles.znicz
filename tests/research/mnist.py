@@ -22,7 +22,7 @@ import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.learning_rate_adjust as lra
+import veles.znicz.lr_adjust as lra
 import veles.znicz.loader as loader
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow

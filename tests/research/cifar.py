@@ -23,7 +23,7 @@ import veles.znicz.decision as decision
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
-import veles.znicz.learning_rate_adjust as learning_rate_adjust
+import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -224,14 +224,23 @@ class Workflow(StandardWorkflow):
         self.create_gradient_descent_units()
 
         # Add learning_rate_adjust unit
-        self.learning_rate_adjust = learning_rate_adjust.LearningRateAdjust(
-            self,
-            lr_function=learning_rate_adjust.arbitrary_step_function_policy(
-                [(0.001, 60000), (0.0001, 65000), (0.00001, 70000)]))
-        self.learning_rate_adjust.link_from(self.gds[0])
-        self.learning_rate_adjust.add_gd_units(self.gds)
+        for gd_elm in self.gds:
 
-        self.repeater.link_from(self.learning_rate_adjust)
+            lr_adjuster = lr_adjust.LearningRateAdjust(
+                self,
+                lr_function=lr_adjust.arbitrary_step_policy(
+                    [(gd_elm.learning_rate, 60000),
+                     (gd_elm.learning_rate / 10., 65000),
+                     (gd_elm.learning_rate / 100., 70000)]),
+                bias_lr_function=lr_adjust.arbitrary_step_policy(
+                    [(gd_elm.learning_rate, 60000),
+                     (gd_elm.learning_rate / 10., 65000),
+                     (gd_elm.learning_rate / 100., 70000)])
+                )
+            lr_adjuster.link_from(gd_elm)
+            lr_adjuster.add_one_gd_unit(gd_elm)
+
+        self.repeater.link_from(self.gds[-1])
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
