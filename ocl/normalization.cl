@@ -15,8 +15,7 @@
 //#define NUM_OF_CHANS 5
 
 
-void calculate_subsums(const c_dtype* h, c_dtype* subsums)
-{
+void calculate_subsums(const c_dtype* h, c_dtype* subsums) {
   for (int i = 0; i < NUM_OF_CHANS; i++) {
     subsums[i] = 0;
   }
@@ -24,7 +23,7 @@ void calculate_subsums(const c_dtype* h, c_dtype* subsums)
   int min_index = 0;
   int max_index = min(N / 2, NUM_OF_CHANS - 1);
   for(int i = min_index; i <= max_index; i++) {
-    subsums[0] += pow(h[i], 2);
+    subsums[0] += c_mul(h[i], h[i]);
   }
 
   for (int i = 1; i < NUM_OF_CHANS; i++) {
@@ -33,11 +32,11 @@ void calculate_subsums(const c_dtype* h, c_dtype* subsums)
     c_dtype subsum = subsums[i - 1];
 
     for(int j = min_index; j < new_min_index; j++) {
-      subsum -= pow(h[j], 2);
+      subsum -= c_mul(h[j], h[j]);
     }
 
     for(int j = max_index + 1; j <= new_max_index; j++) {
-      subsum += pow(h[j], 2);
+      subsum += c_mul(h[j], h[j]);
     }
 
     subsums[i] = subsum;
@@ -46,8 +45,7 @@ void calculate_subsums(const c_dtype* h, c_dtype* subsums)
   }
 }
 
-__kernel void forward(__global const c_dtype* in_data, __global c_dtype* out_data)
-{
+__kernel void forward(__global const c_dtype* in_data, __global c_dtype* out_data) {
   int global_index = get_global_id(0);
   int global_offset = global_index * NUM_OF_CHANS;
 
@@ -61,16 +59,14 @@ __kernel void forward(__global const c_dtype* in_data, __global c_dtype* out_dat
 
   for(int i = 0; i < NUM_OF_CHANS; i++) {
     out_data[global_offset + i] = in_data[global_offset + i] *
-        pow(K + ALPHA * subsums[i], -BETA);
+        pow((dtype)K + (dtype)ALPHA * subsums[i], (dtype)(-BETA));
   }
 }
 
 __kernel void backward(__global const c_dtype* in_err_y, __global const c_dtype* in_h,
-                       __global c_dtype* out_err_h)
-{
+                       __global c_dtype* out_err_h) {
   int global_index = get_global_id(0);
   int global_offset = global_index * NUM_OF_CHANS;
-
 
   c_dtype h[NUM_OF_CHANS];
   for(int i = 0; i < NUM_OF_CHANS; i++) {
@@ -101,10 +97,9 @@ __kernel void backward(__global const c_dtype* in_err_y, __global const c_dtype*
         dh += subsums[j];
       }
       dh -= 2 * ALPHA * BETA * h[i] * h[j];
-      dh *= local_err_y[j] / pow(subsums[j], BETA + 1);
+      dh *= local_err_y[j] / pow(subsums[j], (dtype)(BETA + 1));
       delta_h += dh;
     }
     out_err_h[global_offset + i] = delta_h;
   }
 }
-
