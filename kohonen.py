@@ -438,6 +438,9 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
             result = fn(self, *args, **kwargs)
             self.time += 1
             return result
+
+        name = getattr(fn, '__name__', getattr(fn, 'func', wrapped).__name__)
+        wrapped.__name__ = name + '_iteration'
         return wrapped
 
     @iteration
