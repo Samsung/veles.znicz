@@ -77,9 +77,11 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
                                               dtype=self.output.mem.dtype)
 
-        if self.n_err.mem is None or self.n_err.mem.size < 2:
+        if self.n_err.mem is None:
             self.n_err.reset()
-            self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
+            self.n_err.mem = numpy.zeros(1, dtype=numpy.int32)
+        else:
+            assert self.n_err.mem.size == 1
 
         out_size = self.output.mem.size // self.output.mem.shape[0]
         if self.compute_confusion_matrix:
@@ -110,24 +112,23 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
 
         self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
-        if self.program_ is None:
-            defines = {
-                'BLOCK_SIZE':
-                self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
-                'BATCH': self.err_output.mem.shape[0],
-                'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
-            }
+        defines = {
+            'BLOCK_SIZE':
+            self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
+            'BATCH': self.err_output.mem.shape[0],
+            'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
+        }
 
-            self.build_program(defines, "ev_%d.cl" %
-                               (self.output.mem.size //
-                                self.output.mem.shape[0]),
-                               dtype=self.output.mem.dtype)
+        self.build_program(defines, "ev_%d.cl" %
+                           (self.output.mem.size //
+                            self.output.mem.shape[0]),
+                           dtype=self.output.mem.dtype)
 
-            self.assign_kernel("ev_sm")
-            self.set_args(self.output, self.max_idx, self.labels,
-                          self.err_output, self.n_err, self.confusion_matrix,
-                          self.max_err_output_sum)
+        self.assign_kernel("ev_sm")
+        self.set_args(self.output, self.max_idx, self.labels,
+                      self.err_output, self.n_err, self.confusion_matrix,
+                      self.max_err_output_sum)
 
     def ocl_run(self):
         self.err_output.unmap()

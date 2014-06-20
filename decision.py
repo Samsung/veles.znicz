@@ -87,12 +87,12 @@ class DecisionBase(Unit):
     """
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
+        self.complete = Bool(False)
         super(DecisionBase, self).__init__(workflow, **kwargs)
         self.verify_interface(IDecision)
         self.max_epochs = kwargs.get("max_epochs", None)
         self.improved = Bool(False)
         self.snapshot_suffix = ""
-        self.complete = Bool(False)
         self.epoch_timestamp = False
         self.demand("last_minibatch", "minibatch_class",
                     "class_lengths", "epoch_number", "epoch_ended")
@@ -100,6 +100,11 @@ class DecisionBase(Unit):
     def init_unpickled(self):
         super(DecisionBase, self).init_unpickled()
         self.epoch_timestamp = False
+
+        def on_completed(_):
+            self.debug("complete becomes True")
+
+        self.complete.on_true = on_completed
 
     def initialize(self, **kwargs):
         pass
@@ -242,7 +247,7 @@ class DecisionGD(DecisionBase):
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
         self.minibatch_n_err = None  # formats.Vector()
         self.min_validation_n_err = 1.0e30
-        self.min_validation_n_err_epoch_number = -1
+        self.min_n_err_epoch_number = 0
         self.min_train_n_err = 1.0e30
         self.min_train_n_err_epoch_number = -1
         self.confusion_matrixes = [None, None, None]
@@ -307,9 +312,8 @@ class DecisionGD(DecisionBase):
              (self.epoch_n_err[VALID] == self.min_validation_n_err
               and self.epoch_n_err[TRAIN] < self.min_train_n_err))):
             self.min_validation_n_err = self.epoch_n_err[VALID]
-            self.min_validation_n_err_epoch_number = self.epoch_number
             self.min_train_n_err = self.epoch_n_err[TRAIN]
-            self.min_train_n_err_epoch_number = self.epoch_number
+            self.min_n_err_epoch_number = self.epoch_number
             return True
         return False
 
@@ -352,11 +356,8 @@ class DecisionGD(DecisionBase):
             (not self.class_lengths[VALID] and
              self.min_train_n_err <= 0)):
             return True
-        if (self.epoch_number - self.min_validation_n_err_epoch_number >
-            self.fail_iterations or
-            (not self.class_lengths[VALID] and
-             self.epoch_number - self.min_train_n_err_epoch_number >
-             self.fail_iterations)):
+        if self.epoch_number - self.min_n_err_epoch_number > \
+           self.fail_iterations:
             return True
         return False
 

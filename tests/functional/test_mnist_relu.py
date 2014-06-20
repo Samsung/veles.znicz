@@ -12,6 +12,7 @@ import os
 import unittest
 
 from veles.config import root
+from veles.mutable import Bool
 import veles.opencl as opencl
 import veles.random_generator as rnd
 from veles.tests import timeout
@@ -25,7 +26,7 @@ class TestMnistRelu(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout()
+    @timeout(120)
     def test_mnist_relu(self):
         logging.info("Will test mnist workflow with relu config")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -56,13 +57,49 @@ class TestMnistRelu(unittest.TestCase):
         self.w = mnist_relu.Workflow(dummy_workflow.DummyWorkflow(),
                                      layers=root.mnist_test.layers,
                                      device=self.device)
+        self.w.decision.max_epochs = 5
+        self.w.snapshotter.interval = 5
+        self.assertEqual(self.w.evaluator.labels,
+                         self.w.loader.minibatch_labels)
         self.w.initialize(learning_rate=root.mnist_test.learning_rate,
                           weights_decay=root.mnist_test.weights_decay,
                           device=self.device)
+        self.assertEqual(self.w.evaluator.labels,
+                         self.w.loader.minibatch_labels)
+        self.w.run()
+        file_name = self.w.snapshotter.file_name
+
+        import bz2
+        import gzip
+        import lzma
+        import pickle
+
+        CODECS = {
+            ".pickle": lambda name: open(name, "rb"),
+            ".gz": lambda name: gzip.GzipFile(name, "rb"),
+            ".bz2": lambda name: bz2.BZ2File(name, "rb"),
+            ".xz": lambda name: lzma.LZMAFile(name, "rb")
+        }
+
+        codec = CODECS[os.path.splitext(file_name)[1]]
+        with codec(file_name) as fin:
+            self.w = pickle.load(fin)
+        self.assertTrue(self.w.decision.epoch_ended)
+        self.w.decision.max_epochs = None
+        self.w.decision.complete <<= False
+        self.w.snapshotter.gate_skip = Bool(True)
+        self.assertEqual(self.w.evaluator.labels,
+                         self.w.loader.minibatch_labels)
+        self.w.initialize(learning_rate=root.mnist_test.learning_rate,
+                          weights_decay=root.mnist_test.weights_decay,
+                          device=self.device)
+        self.assertEqual(self.w.evaluator.labels,
+                         self.w.loader.minibatch_labels)
         self.w.run()
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 415)
+        self.assertEqual(err, 350)
+        self.assertEqual(14, self.w.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

@@ -264,7 +264,7 @@ class Workflow(StandardWorkflow):
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
             nme = "%s %s" % (i + 1, layers[i]["type"])
-            print("Added:", nme)
+            self.info("Added: %s", nme)
             plt_mx = nn_plotting_units.Weights2D(
                 self, name=nme, limit=root.weights_plotter.limit)
             self.plt_mx.append(plt_mx)

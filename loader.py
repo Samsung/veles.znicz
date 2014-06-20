@@ -108,18 +108,21 @@ class Loader(Unit):
 
         self.epoch_ended = Bool(False)
         self.epoch_number = 0
+
         self.samples_served = 0
         self.global_offset = 0
+
+        self.minibatch_class = 0
+        self.minibatch_data = formats.Vector()
+        self.minibatch_targets = formats.Vector()
+        self.minibatch_indices = formats.Vector()
+        self.minibatch_labels = formats.Vector()
+
         self.failed_minibatches = {}
         self._total_failed = 0
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
-        self.minibatch_data = formats.Vector()
-        self.minibatch_targets = formats.Vector()
-        self.minibatch_indices = formats.Vector()
-        self.minibatch_labels = formats.Vector()
-        self.minibatch_class = 0
         self._minibatch_offset_ = 0
         self._minibatch_size_ = 0
         self.shuffled_indices = False
@@ -171,13 +174,13 @@ class Loader(Unit):
 
     @property
     def minibatch_class(self):
-        return self._minibatch_class_
+        return self._minibatch_class
 
     @minibatch_class.setter
     def minibatch_class(self, value):
         if not 0 <= value < len(CLASS_NAME):
             raise ValueError("Invalid minibatch_class value %s" % str(value))
-        self._minibatch_class_ = value
+        self._minibatch_class = value
 
     @property
     def minibatch_offset(self):
@@ -217,35 +220,35 @@ class Loader(Unit):
 
     @property
     def minibatch_data(self):
-        return self._minibatch_data_
+        return self._minibatch_data
 
     @minibatch_data.setter
     def minibatch_data(self, value):
-        self._minibatch_data_ = value
+        self._minibatch_data = value
 
     @property
     def minibatch_targets(self):
-        return self._minibatch_targets_
+        return self._minibatch_targets
 
     @minibatch_targets.setter
     def minibatch_targets(self, value):
-        self._minibatch_targets_ = value
+        self._minibatch_targets = value
 
     @property
     def minibatch_indices(self):
-        return self._minibatch_indices_
+        return self._minibatch_indices
 
     @minibatch_indices.setter
     def minibatch_indices(self, value):
-        self._minibatch_indices_ = value
+        self._minibatch_indices = value
 
     @property
     def minibatch_labels(self):
-        return self._minibatch_labels_
+        return self._minibatch_labels
 
     @minibatch_labels.setter
     def minibatch_labels(self, value):
-        self._minibatch_labels_ = value
+        self._minibatch_labels = value
 
     @property
     def epoch_number(self):
@@ -316,8 +319,11 @@ class Loader(Unit):
     def __getstate__(self):
         state = super(Loader, self).__getstate__()
         # Move all pending minibatches to failed set
-        state["failed_minibatches"] = copy(state["failed_minibatches"])
-        state["failed_minibatches"].update(self.pending_minibatches_)
+        if not self.epoch_ended:
+            state["failed_minibatches"] = copy(state["failed_minibatches"])
+            state["failed_minibatches"].update(self.pending_minibatches_)
+        else:
+            state["failed_minibatches"] = {}
         return state
 
     def initialize(self, **kwargs):
@@ -325,7 +331,7 @@ class Loader(Unit):
         """
         self.load_data()
         self._update_total_samples()
-        self.info("Samples number: train: %d, validation: %d, test: %d",
+        self.info("Samples number: test: %d, validation: %d, train: %d",
                   *self.class_lengths)
         self.max_minibatch_size = kwargs.get("minibatch_size",
                                              self.max_minibatch_size)
@@ -581,7 +587,8 @@ class Loader(Unit):
     def _on_successful_serve(self):
         self.samples_served += self.minibatch_size
         if self.last_minibatch:
-            self.info("Last minibatch of class %s served",
+            self.info("Last minibatch (%d total) of class %s served",
+                      self.class_lengths[self.minibatch_class],
                       CLASS_NAME[self.minibatch_class].upper())
 
 
