@@ -534,11 +534,11 @@ class Loader(loader.FullBatchLoader):
                 self.info("Will load from %s" % (relpath))
                 lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
-                    pool.request(self.from_jp2_async, (
-                        fnme, pos[subdir], sz[subdir],
-                        data_lock, stat_lock,
-                        0 + i_sample, 0 + lbl, n_files, total_files,
-                        n_negative, rand, progress))
+                    pool.callInThread(self.from_jp2_async,
+                                      fnme, pos[subdir], sz[subdir],
+                                      data_lock, stat_lock,
+                                      0 + i_sample, 0 + lbl, n_files,
+                                      total_files, n_negative, rand, progress)
                     i_sample += 1
         pool.shutdown(execute_remaining=True)
         progress.finish()
