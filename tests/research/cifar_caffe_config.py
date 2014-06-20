@@ -20,14 +20,14 @@ validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
 root.update = {
-    "decision": {"fail_iterations": 100, "do_export_weights": False},
+    "decision": {"fail_iterations": 250},
     "snapshotter": {"prefix": "cifar"},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 100, "norm": "mean",
-               "shuffle_once": True},
+               "shuffle_limit": 2000000000},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers":

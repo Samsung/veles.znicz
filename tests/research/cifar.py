@@ -69,6 +69,7 @@ class Loader(loader.FullBatchLoader):
         if self.shuffle_limit <= 0:
             return
         self.shuffle_limit -= 1
+        self.info("Shuffling, remaining limit is %d", self.shuffle_limit)
         super(Loader, self).shuffle()
 
     def load_data(self):

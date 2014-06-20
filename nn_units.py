@@ -380,6 +380,6 @@ class NNSnapshotter(Snapshotter):
     def export(self):
         super(NNSnapshotter, self).export()
         logged = set()
-        for u in self.workflow.units:
+        for u in self.workflow.start_point.dependent_list():
             for attr in ("weights", "bias", "output"):
                 self._log_attr(u, attr, logged)
