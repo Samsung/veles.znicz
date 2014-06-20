@@ -218,7 +218,7 @@ class All2All(nn_units.Forward):
             b = b.transpose()
         mem = numpy.dot(a, b)
         mem += self.bias.mem
-        self.output.mem[:] = mem[:]
+        formats.reshape(self.output.mem, mem.shape)[:] = mem[:]
 
 
 class All2AllTanh(All2All):
@@ -326,8 +326,9 @@ class All2AllSoftmax(All2All):
     def cpu_apply_exp(self):
         self.output.map_write()
         self.max_idx.map_invalidate()
-        for i in range(0, self.output.mem.shape[0]):
-            sample = self.output[i]
+        out = self.output.mem
+        out = formats.reshape(out, (out.shape[0], out.size // out.shape[0]))
+        for i, sample in enumerate(out):
             im = sample.argmax()
             self.max_idx[i] = im
             m = sample[im]
