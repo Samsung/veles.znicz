@@ -226,7 +226,7 @@ class Workflow(StandardWorkflow):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
 
         # Add gradient descent units
-        self.create_gradient_descent_units()
+        self.create_gd_units_by_config()
 
         # Add learning_rate_adjust unit
         for gd_elm in self.gds:

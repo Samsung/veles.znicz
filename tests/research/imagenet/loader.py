@@ -162,18 +162,18 @@ class LoaderBase(loader.Loader):
         self._mean = self._init_mean(objects)
 
     def create_minibatches(self):
-        count = self.minibatch_size
+        count = self._max_minibatch_size
         minibatch_shape = [count] + list(self._data_shape) + [self.channels]
-        self.minibatch_data = numpy.zeros(shape=minibatch_shape,
-                                          dtype=self._dtype)
-        self.minibatch_indices = numpy.zeros(count, dtype=numpy.int32)
+        self.minibatch_data.mem = numpy.zeros(shape=minibatch_shape,
+                                              dtype=self._dtype)
+        self.minibatch_indices.mem = numpy.zeros(count, dtype=numpy.int32)
 
     def fill_minibatch(self):
         images = self._executor_.map(
             lambda i: (i, self._get_sample(self.shuffled_indices[i])),
             range(self.minibatch_size))
         for i, data in images:
-            self.minibatch_data[i] = data
+            self.minibatch_data.mem[i] = data
 
     def get_object_file_name(self, index):
         meta = self.get_object_meta(index)
@@ -641,8 +641,8 @@ class LoaderDetection(LoaderBase):
 
     def create_minibatches(self):
         super(LoaderDetection, self).create_minibatches()
-        self.minibatch_labels = numpy.zeros(self.minibatch_size,
-                                            dtype=numpy.int32)
+        self.minibatch_labels.mem = numpy.zeros(self.max_minibatch_size,
+                                                dtype=numpy.int32)
 
     def fill_minibatch(self):
         super(LoaderDetection, self).fill_minibatch()
@@ -653,7 +653,7 @@ class LoaderDetection(LoaderBase):
             else:
                 fn = self.get_object_file_name(self.shuffled_indices[i])
                 name = self.get_category_by_file_name(fn)
-            self.minibatch_labels[i] = self._label_map[name]
+            self.minibatch_labels.mem[i] = self._label_map[name]
 
     def fill_class_lengths(self, objects, images):
         for set_name, files in objects.items():
@@ -751,8 +751,8 @@ class LoaderBoundingBox(LoaderBase):
     def create_minibatches(self):
         super(LoaderBoundingBox, self).create_minibatches()
         # label = category index + xmin + ymin + xmax + ymax
-        label_size = self.minibatch_size * 5 * self._max_detected_bboxes
-        self.minibatch_labels = numpy.zeros(label_size, dtype=numpy.int32)
+        label_size = self.max_minibatch_size * 5 * self._max_detected_bboxes
+        self.minibatch_labels.mem = numpy.zeros(label_size, dtype=numpy.int32)
 
     def fill_minibatch(self):
         super(LoaderBoundingBox, self).fill_minibatch()
@@ -774,10 +774,11 @@ class LoaderBoundingBox(LoaderBase):
             for j, obj in enumerate(objects):
                 name = obj["name"]
                 bbox = self._get_bbox(obj)
-                self.minibatch_labels[i * stride + j * 5] = \
+                self.minibatch_labels.mem[i * stride + j * 5] = \
                     self._label_map[name]
                 for k in range(4):
-                    self.minibatch_labels[i * stride + j * 5 + 1 + k] = bbox[k]
+                    self.minibatch_labels.mem[i * stride + j * 5 + 1 + k] = \
+                        bbox[k]
 
     def fill_class_lengths(self, objects, images):
         for index, files in enumerate(images):

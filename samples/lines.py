@@ -200,7 +200,7 @@ class Workflow(StandardWorkflow):
                                   ("reset_flag", "epoch_ended"))
         """
         # BACKWARD LAYERS (GRADIENT DESCENT)
-        self.create_gradient_descent_units()
+        self.create_gd_units_by_config()
 
         # Weights plotter
         self.plt_mx = []

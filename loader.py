@@ -336,7 +336,7 @@ class Loader(Unit):
         self.max_minibatch_size = kwargs.get("minibatch_size",
                                              self.max_minibatch_size)
         self.create_minibatches()
-        if not self.minibatch_data:
+        if self.minibatch_data is None:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
                                        "create_minibatches()")
         self.shuffle()

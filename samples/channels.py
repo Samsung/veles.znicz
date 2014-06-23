@@ -715,7 +715,7 @@ class Workflow(StandardWorkflow):
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
 
-        self.create_gradient_descent_units()
+        self.create_gd_units_by_config()
 
         # Error plotter
         self.plt = []

@@ -198,7 +198,7 @@ class Workflow(StandardWorkflow):
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
-        self.create_gradient_descent_units()
+        self.create_gd_units_by_config()
 
         if root.learning_rate_adjust.do:
             # Add learning_rate_adjust unit

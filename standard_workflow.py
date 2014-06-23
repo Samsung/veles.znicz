@@ -121,12 +121,6 @@ class GradientUnitFactory(object):
         return grad_unit
 
     @staticmethod
-    def _create_grad_dropout(fwd, name=None, **kwargs):
-        grad_unit = dropout.DropoutBackward(fwd.workflow, name=name, **kwargs)
-        grad_unit.link_attrs(fwd, "input", "output")
-        return grad_unit
-
-    @staticmethod
     def _create_grad_lrn(fwd, name=None, **kwargs):
         grad_unit = normalization.LRNormalizerBackward(
             fwd.workflow, name=name, k=fwd.k, n=fwd.n,
@@ -135,7 +129,7 @@ class GradientUnitFactory(object):
         return grad_unit
 
     @staticmethod
-    def _create_dropout(fwd, name=None, **kwargs):
+    def _create_grad_dropout(fwd, name=None, **kwargs):
         grad_dropout = dropout.DropoutBackward(fwd.workflow, name=name)
         grad_dropout.link_attrs(fwd, "input", "output", "mask")
         return grad_dropout
@@ -231,7 +225,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         by link_from and link_attrs. If self.fwds is empty, links unit with
         self.loader
         """
-        if len(self.fwds):
+        if len(self.fwds) > 0:
             prev_forward_unit = self.fwds[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
@@ -242,10 +236,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
         new_unit.link_from(prev_forward_unit)
         self.fwds.append(new_unit)
 
-    def create_gradient_descent_units(self):
+    def create_gd_units_by_config(self):
         """
-        Creates gradient descent units for previously made self.fwds.
-        Feeds their inputs with respect of their order.
+        Creates GD units by config (`self.layers`)
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
@@ -289,6 +282,30 @@ class StandardWorkflow(nn_units.NNWorkflow):
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))
+
+        # Disable error backpropagation on the first layer
+        self.gds[0].need_err_input = False
+        # Enable averaged error function over a minibatch for the last layer
+        self.gds[-1].error_function_averaged = True
+
+    def create_gd_units(self):
+        """
+        Creates gradient descent units for previously made self.fwds.
+        Feeds their inputs with respect of their order.
+        """
+        del self.gds[:]
+        for fwd in self.fwds:
+            self.gds.append(GradientUnitFactory.create(fwd, "gd_" + fwd.name))
+        for i, gd_elm in enumerate(self.gds[:-1]):
+            gd_elm.link_from(self.gds[i + 1])
+            gd_elm.link_attrs(self.gds[i + 1], ("err_output", "err_input"))
+
+        self.gds[-1].link_from(self.snapshotter)
+        self.gds[-1].link_attrs(self.evaluator, "err_output")
+        self.gds[-1].gate_skip = self.decision.gd_skip
+
+        for gd_elm in self.gds:
+            gd_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
