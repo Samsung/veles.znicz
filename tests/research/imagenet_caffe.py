@@ -100,42 +100,39 @@ class Workflow(StandardWorkflow):
 
         # Layer 1 (CONV + POOL)
         conv1 = conv.ConvStrictRELU(
-            self, name="conv1", device=device,
+            self, name="conv1",
             n_kernels=96, kx=11, ky=11, sliding=(4, 4), padding=(0, 0, 0, 0),
             weights_filling="gaussian", weights_stddev=0.01,
             bias_filling="constant", bias_stddev=0)
         self._add_forward_unit(conv1)
 
         pool1 = pooling.MaxPooling(self, name="pool1",
-                                   kx=3, ky=3, sliding=(2, 2),
-                                   device=device)
+                                   kx=3, ky=3, sliding=(2, 2))
         self._add_forward_unit(pool1)
 
         norm1 = normalization.LRNormalizerForward(
-            self, name="norm1", device=device,
-            alpha=0.001, beta=0.75, n=5, k=1)
+            self, name="norm1", alpha=0.001, beta=0.75, n=5, k=1)
         self._add_forward_unit(norm1)
 
         # Layer 2 (CONV + POOL)
         conv2 = conv.ConvStrictRELU(
-            self, name="conv2", device=device,
+            self, name="conv2",
             n_kernels=256, kx=5, ky=5, sliding=(1, 1), padding=(2, 2, 2, 2),
             weights_filling="gaussian", weights_stddev=0.01,
             bias_filling="constant", bias_stddev=1.0)
         self._add_forward_unit(conv2)
 
-        pool2 = pooling.MaxPooling(self, name="pool2", device=device,
+        pool2 = pooling.MaxPooling(self, name="pool2",
                                    kx=3, ky=3, sliding=(2, 2))
         self._add_forward_unit(pool2)
 
         norm2 = normalization.LRNormalizerForward(
-            self, name="norm2", device=device,
-            alpha=0.001, beta=0.75, n=5, k=1,)
+            self, name="norm2", alpha=0.001, beta=0.75, n=5, k=1,)
         self._add_forward_unit(norm2)
 
         # Layer 3 (CONV)
         conv3 = conv.ConvStrictRELU(
-            self, name="conv3", device=device,
+            self, name="conv3",
             n_kernels=384, kx=3, ky=3, sliding=(1, 1), padding=(1, 1, 1, 1),
             weights_filling="gaussian", weights_stddev=0.01,
             bias_filling="constant", bias_stddev=0)
@@ -143,7 +140,7 @@ class Workflow(StandardWorkflow):
 
         # Layer 4 (CONV)
         conv4 = conv.ConvStrictRELU(
-            self, name="conv4", device=device,
+            self, name="conv4",
             n_kernels=384, kx=3, ky=3, sliding=(1, 1), padding=(1, 1, 1, 1),
             weights_filling="gaussian", weights_stddev=0.01,
             bias_filling="constant", bias_stddev=1)
@@ -151,57 +148,51 @@ class Workflow(StandardWorkflow):
 
         # Layer 5 (CONV + POOL)
         conv5 = conv.ConvStrictRELU(
-            self, name="conv5", device=device, n_kernels=256, kx=3, ky=3,
-            sliding=(1, 1), padding=(1, 1, 1, 1),
+            self, name="conv5",
+            n_kernels=256, kx=3, ky=3, sliding=(1, 1), padding=(1, 1, 1, 1),
             weights_filling="gaussian", weights_stddev=0.01,
             bias_filling="constant", bias_stddev=1)
         self._add_forward_unit(conv5)
 
-        pool5 = pooling.MaxPooling(
-            self, name="pool5", kx=3, ky=3, sliding=(2, 2), device=device)
+        pool5 = pooling.MaxPooling(self, name="pool5",
+                                   kx=3, ky=3, sliding=(2, 2))
         self._add_forward_unit(pool5)
 
         # Layer 6 (FULLY CONNECTED + 50% dropout)
         fc6 = all2all.All2All(
-            self, name="fc6", device=device,
+            self, name="fc6",
             output_shape=4096,
             weights_filling="gaussian", weights_stddev=0.005,
             bias_filling="constant", bias_stddev=1)
         self._add_forward_unit(fc6)
 
-        relu6 = activation.ForwardStrictRELU(
-            self, name="relu6", device=device)
+        relu6 = activation.ForwardStrictRELU(self, name="relu6")
         self._add_forward_unit(relu6)
 
-        drop6 = dropout.DropoutForward(self, name="drop6",
-                                       dropout_ratio=0.5, device=device)
+        drop6 = dropout.DropoutForward(self, name="drop6", dropout_ratio=0.5)
         self._add_forward_unit(drop6)
 
         # Layer 7 (FULLY CONNECTED + 50% dropout)
         fc7 = all2all.All2All(
             self, name="fc7", output_shape=4096, weights_filling="gaussian",
-            weights_stddev=0.005, device=device)
+            weights_stddev=0.005)
         self._add_forward_unit(fc7)
 
-        relu7 = activation.ForwardStrictRELU(
-            self, name="relu7", device=device)
+        relu7 = activation.ForwardStrictRELU(self, name="relu7")
         self._add_forward_unit(relu7)
 
-        drop7 = dropout.DropoutForward(self, name="drop7",
-                                       dropout_ratio=0.5, device=device)
+        drop7 = dropout.DropoutForward(self, name="drop7", dropout_ratio=0.5)
         self._add_forward_unit(drop7)
 
         # LAYER 8 (FULLY CONNECTED + SOFTMAX)
         fc8sm = all2all.All2AllSoftmax(
             self, name="fcsm8", output_shape=n_classes,
             weights_filling="gaussian", weights_stddev=0.01,
-            bias_filling="constant", bias_stddev=0,
-            device=device)
+            bias_filling="constant", bias_stddev=0)
         self._add_forward_unit(fc8sm)
 
         # EVALUATOR
-        self.evaluator = evaluator.EvaluatorSoftmax(self, name="eval",
-                                                    device=device)
+        self.evaluator = evaluator.EvaluatorSoftmax(self, name="eval")
         self.evaluator.link_from(fc8sm)
         self.evaluator.link_attrs(fc8sm, "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
