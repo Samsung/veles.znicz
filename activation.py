@@ -145,6 +145,52 @@ class BackwardTanh(ActivationBackward):
 
 
 @implementer(IOpenCLUnit)
+class ForwardRELU(ActivationForward):
+    """Forward pass for y = log(1 + exp(x)).
+    """
+    def initialize(self, device, **kwargs):
+        super(ForwardRELU, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("forward_relu")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = self.input.mem
+        out = self.output.mem
+        if formats.eq_addr(inp, out):
+            self.output.map_write()
+        else:
+            self.output.map_invalidate()
+            self.input.map_read()
+        out[:] = numpy.where(inp > 15, inp, numpy.log(numpy.exp(inp) + 1.0))
+
+
+@implementer(IOpenCLUnit)
+class BackwardRELU(ActivationBackward):
+    """Backward pass for y = log(1 + exp(x)).
+    """
+    def initialize(self, device, **kwargs):
+        super(BackwardRELU, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("backward_relu")
+        self.set_args()
+
+    def cpu_run(self):
+        err_input = self.err_input.mem
+        err_output = self.err_output.mem
+        output = self.output.mem
+        if formats.eq_addr(err_input, err_output):
+            self.err_input.map_write()
+        else:
+            self.err_input.map_invalidate()
+            self.err_output.map_read()
+        self.output.map_read()
+        numpy.multiply(err_output, 1.0 - numpy.exp(-output), err_input)
+
+
+@implementer(IOpenCLUnit)
 class ForwardStrictRELU(ActivationForward):
     """Forward pass for y = max(0, x).
     """
