@@ -94,6 +94,57 @@ class ActivationBackward(GradientDescentBase, Activation):
 
 
 @implementer(IOpenCLUnit)
+class ForwardTanh(ActivationForward):
+    """Forward pass for y = 1.7159 * tanh(0.6666 * x).
+    """
+    def initialize(self, device, **kwargs):
+        super(ForwardTanh, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("forward_tanh")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = self.input.mem
+        out = self.output.mem
+        if formats.eq_addr(inp, out):
+            self.output.map_write()
+        else:
+            self.output.map_invalidate()
+            self.input.map_read()
+            numpy.copyto(out, inp)
+        out *= 0.6666
+        numpy.tanh(out, out)
+        out *= 1.7159
+
+
+@implementer(IOpenCLUnit)
+class BackwardTanh(ActivationBackward):
+    """Backward pass for y = 1.7159 * tanh(0.6666 * x).
+    """
+    def initialize(self, device, **kwargs):
+        super(BackwardTanh, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("backward_tanh")
+        self.set_args()
+
+    def cpu_run(self):
+        err_input = self.err_input.mem
+        err_output = self.err_output.mem
+        output = self.output.mem
+        if formats.eq_addr(err_input, err_output):
+            self.err_input.map_write()
+        else:
+            self.err_input.map_invalidate()
+            self.err_output.map_read()
+        self.output.map_read()
+        numpy.multiply(err_output,
+                       output * output * (-0.388484177) + 1.14381894,
+                       err_input)
+
+
+@implementer(IOpenCLUnit)
 class ForwardStrictRELU(ActivationForward):
     """Forward pass for y = max(0, x).
     """
