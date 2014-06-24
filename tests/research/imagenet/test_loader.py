@@ -15,7 +15,7 @@ from veles.tests import DummyWorkflow
 from veles.znicz.tests.research.imagenet import LoaderDetection
 
 
-base_path = "/data/imagenet/2013"
+base_path = "/data/veles/datasets/imagenet/2013"
 
 
 class Test(unittest.TestCase):
