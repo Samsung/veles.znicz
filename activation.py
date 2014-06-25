@@ -294,6 +294,81 @@ class BackwardLog(ActivationBackward):
 
 
 @implementer(IOpenCLUnit)
+class ForwardTanhLog(ActivationForward):
+    """Forward pass for hybrid tanh-log function.
+    """
+    d = 3
+    a = 0.242528761112
+    b = 305.459953195
+
+    def initialize(self, device, **kwargs):
+        if (id(self.output) == id(self.input) or
+            (self.output is not None and self.output.mem is not None and
+             formats.eq_addr(self.output.mem, self.input.mem))):
+            raise error.BadFormatError("in_place for this unit is prohibited")
+        super(ForwardTanhLog, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("forward_tanhlog")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = formats.ravel(self.input.mem)
+        out = formats.ravel(self.output.mem)
+        if formats.eq_addr(inp, out):
+            self.output.map_write()
+        else:
+            self.output.map_invalidate()
+            self.input.map_read()
+        for i, x in enumerate(inp):
+            if x > ForwardTanhLog.d:
+                y = numpy.log(x * ForwardTanhLog.b) * ForwardTanhLog.a
+            elif x < -ForwardTanhLog.d:
+                y = numpy.log(x * (-ForwardTanhLog.b)) * (-ForwardTanhLog.a)
+            else:
+                y = 1.7159 * numpy.tanh(x * 0.6666)
+            out[i] = y
+
+
+@implementer(IOpenCLUnit)
+class BackwardTanhLog(ActivationBackward):
+    """Backward pass for hybrid tanh-log function.
+    """
+    def initialize(self, device, **kwargs):
+        if (self.input is None or self.input.mem is None or
+            (self.output is not None and
+             formats.eq_addr(self.input.mem, self.output.mem))):
+            raise error.BadFormatError(
+                "input should be set and should not be equal to output")
+        super(BackwardTanhLog, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("backward_tanhlog")
+        self.set_args()
+
+    def cpu_run(self):
+        inp = formats.ravel(self.input.mem)
+        out = formats.ravel(self.output.mem)
+        err_input = formats.ravel(self.err_input.mem)
+        err_output = formats.ravel(self.err_output.mem)
+        if formats.eq_addr(err_input, err_output):
+            self.err_input.map_write()
+        else:
+            self.err_input.map_invalidate()
+            self.err_output.map_read()
+        self.input.map_read()
+        self.output.map_read()
+        for i, x in enumerate(inp):
+            if x > ForwardTanhLog.d:
+                y = ForwardTanhLog.a / x
+            elif x < -ForwardTanhLog.d:
+                y = -ForwardTanhLog.a / x
+            else:
+                y = numpy.square(out[i]) * (-0.388484177) + 1.14381894
+            err_input[i] = err_output[i] * y
+
+
+@implementer(IOpenCLUnit)
 class ForwardSinCos(ActivationForward):
     """Forward pass for y = sin(x) if idx(x) is odd else cos(x).
     """

@@ -61,6 +61,7 @@ class GradientUnitFactory(object):
         activation.ForwardRELU: activation.BackwardRELU,
         activation.ForwardStrictRELU: activation.BackwardStrictRELU,
         activation.ForwardLog: activation.BackwardLog,
+        activation.ForwardTanhLog: activation.BackwardTanhLog,
         activation.ForwardSinCos: activation.BackwardSinCos
     }
 
@@ -187,6 +188,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
                         gd.GDSM),
             "activation_tanh": (activation.ForwardTanh,
                                 activation.BackwardTanh),
+            "activation_tanhlog": (activation.ForwardTanhLog,
+                                   activation.BackwardTanhLog),
             "activation_relu": (activation.ForwardRELU,
                                 activation.BackwardRELU),
             "activation_str": (activation.ForwardStrictRELU,

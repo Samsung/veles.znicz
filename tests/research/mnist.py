@@ -35,28 +35,30 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.defaults = {"learning_rate_adjust": {"do": False},
-                 "decision": {"fail_iterations": 100},
-                 "snapshotter": {"prefix": "mnist"},
-                 "loader": {"minibatch_size": 60},
-                 "weights_plotter": {"limit": 64},
-                 "mnist": {"learning_rate": 0.03,
-                           "weights_decay": 0.0,
-                           "layers":
-                           [{"type": "all2all_tanh", "output_shape": 100,
-                             "learning_rate": 0.03, "weights_decay": 0.0,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "uniform",
-                             "bias_filling": "uniform"},
-                            {"type": "softmax", "output_shape": 10,
-                             "learning_rate": 0.03, "weights_decay": 0.0,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "uniform",
-                             "bias_filling": "uniform"}],
-                           "data_paths": {"test_images":  test_image_dir,
-                                          "test_label": test_label_dir,
-                                          "train_images": train_image_dir,
-                                          "train_label": train_label_dir}}}
+root.defaults = {
+    "learning_rate_adjust": {"do": False},
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "mnist"},
+    "loader": {"minibatch_size": 60},
+    "weights_plotter": {"limit": 64},
+    "mnist": {"learning_rate": 0.03,
+              "weights_decay": 0.0,
+              "layers":
+              [{"type": "all2all", "output_shape": 100,
+                "learning_rate": 0.03, "weights_decay": 0.0,
+                "gradient_moment": 0.0,
+                "weights_filling": "uniform", "weights_stddev": 0.05,
+                "bias_filling": "uniform", "bias_stddev": 0.05},
+               {"type": "activation_tanh"},
+               {"type": "softmax", "output_shape": 10,
+                "learning_rate": 0.03, "weights_decay": 0.0,
+                "gradient_moment": 0.0,
+                "weights_filling": "uniform", "weights_stddev": 0.05,
+                "bias_filling": "uniform", "bias_stddev": 0.05}],
+              "data_paths": {"test_images":  test_image_dir,
+                             "test_label": test_label_dir,
+                             "train_images": train_image_dir,
+                             "train_label": train_label_dir}}}
 
 
 @implementer(loader.IFullBatchLoader)
@@ -190,7 +192,8 @@ class Workflow(StandardWorkflow):
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+                                         directory=root.common.snapshot_dir,
+                                         compress="", time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

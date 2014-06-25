@@ -71,6 +71,44 @@ __kernel void backward_log(__global const c_dtype    /* IN */    *input,
 }
 
 
+#define tanhlog_d 3
+#define tanhlog_a ((dtype)0.242528761112)
+#define tanhlog_b ((dtype)305.459953195)
+
+__kernel void forward_tanhlog(__global const c_dtype    /* IN */    *input,
+                              __global c_dtype         /* OUT */    *output) {
+  int idx = get_global_id(0);
+  dtype x = c_re(input[idx]);
+  dtype xx = fabs(x);
+  dtype y;
+  if (xx <= tanhlog_d) {
+    y = tanh(x * (dtype)0.6666) * (dtype)1.7159;
+  }
+  else {
+    y = copysign(log(xx * tanhlog_b) * tanhlog_a, x);
+  }
+  output[idx] = c_from_re(y);
+}
+
+__kernel void backward_tanhlog(__global const c_dtype    /* IN */    *input,
+                               __global const c_dtype    /* IN */    *output,
+                               __global const c_dtype    /* IN */    *err_output,
+                               __global c_dtype         /* OUT */    *err_input) {
+  int idx = get_global_id(0);
+  dtype x = c_re(input[idx]);
+  dtype xx = fabs(x);
+  dtype y;
+  if (xx <= tanhlog_d) {
+    y = output[idx];
+    y = y * y * (-0.388484177) + (dtype)1.14381894;
+  }
+  else {
+    y = fabs(tanhlog_a / x);
+  }
+  err_input[idx] = err_output[idx] * y;
+}
+
+
 __kernel void forward_sincos(__global const c_dtype    /* IN */    *input,
                              __global c_dtype         /* OUT */    *output) {
   int idx = get_global_id(0);

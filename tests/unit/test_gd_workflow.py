@@ -40,7 +40,7 @@ class Workflow(OpenCLWorkflow):
         self.batch_size = 2
 
         self.input = numpy.zeros([self.batch_size, 8, 8, 3], dtype=dtype)
-        rnd.get().fill(self.input)
+        rnd.get().fill(self.input, -10, 10)
 
         self.labels = numpy.zeros(self.batch_size, dtype=numpy.int32)
         self.labels[:] = rnd.get().randint(2, size=self.labels.size)
@@ -62,7 +62,7 @@ class Workflow(OpenCLWorkflow):
         prev = self.pool_forward
 
         # First separate activation layer
-        self.act_forward = activation.ForwardLog(self)
+        self.act_forward = activation.ForwardTanhLog(self)
         self.act_forward.link_from(prev)
         self.act_forward.link_attrs(prev, ("input", "output"))
         prev = self.act_forward
@@ -162,7 +162,7 @@ class Workflow(OpenCLWorkflow):
         prev = self.act_backward2
 
         # Gradient descent for first separate activation layer
-        self.act_backward = activation.BackwardLog(self)
+        self.act_backward = activation.BackwardTanhLog(self)
         self.act_backward.link_from(prev)
         self.act_backward.link_attrs(prev,
                                      ("err_output", "err_input"))

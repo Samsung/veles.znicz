@@ -2,7 +2,10 @@
 """
 Created on Mart 21, 2014
 
-Example of Mnist config.
+Cifar Cafe config.
+
+Converged to 17.26% errors with some seed,
+and below 18% in most cases.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
