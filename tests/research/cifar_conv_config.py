@@ -25,6 +25,8 @@ WD = 0.0005
 WDB = WD
 GM = 0.9
 GMB = GM
+WDSM = WD * 2
+WDSMB = 0.0
 
 root.update = {
     "decision": {"fail_iterations": 250},
@@ -46,8 +48,10 @@ root.update = {
                 "learning_rate": LR, "learning_rate_bias": LRB,
                 "weights_decay": WD, "weights_decay_bias": WDB,
                 "gradient_moment": GM, "gradient_moment_bias": GMB},
+               {"type": "norm", "alpha": 0.00005, "beta": 0.75,
+                "n": 3, "k": 1},
                {"type": "activation_tanhlog"},
-               {"type": "avg_pooling",
+               {"type": "maxabs_pooling",
                 "kx": 3, "ky": 3, "sliding": (2, 2)},
 
                {"type": "conv", "n_kernels": 32,
@@ -58,6 +62,8 @@ root.update = {
                 "learning_rate": LR, "learning_rate_bias": LRB,
                 "weights_decay": WD, "weights_decay_bias": WDB,
                 "gradient_moment": GM, "gradient_moment_bias": GMB},
+               {"type": "norm", "alpha": 0.00005, "beta": 0.75,
+                "n": 3, "k": 1},
                {"type": "activation_tanhlog"},
                {"type": "avg_pooling",
                 "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -78,7 +84,7 @@ root.update = {
                 "weights_filling": "uniform",
                 "bias_filling": "uniform",
                 "learning_rate": LR, "learning_rate_bias": LRB,
-                "weights_decay": WD, "weights_decay_bias": WDB,
+                "weights_decay": WDSM, "weights_decay_bias": WDSMB,
                 "gradient_moment": GM, "gradient_moment_bias": GMB}],
               "data_paths": {"train": train_dir,
                              "validation": validation_dir}}}
