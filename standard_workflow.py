@@ -6,8 +6,12 @@ Standard workflow class definition.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import sys
 
-from collections import UserDict
+if sys.version_info > (3, 0):
+    from collections import UserDict
+else:
+    from UserDict import UserDict
 
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all
