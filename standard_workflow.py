@@ -301,19 +301,35 @@ class StandardWorkflow(nn_units.NNWorkflow):
         # Enable averaged error function over a minibatch for the last layer
         self.gds[-1].error_function_averaged = True
 
-    def create_gd_units(self):
+    def create_gd_units(self, lr_adjuster, **kwargs):
         """
         Creates gradient descent units for previously made self.fwds.
         Feeds their inputs with respect of their order.
+
+        Args:
+            lr_adjuster(:class:`LearningRateAdjust`): learning rate adjust unit
+
+            learning_rate
+            learning_rate_bias
+            weights_decay
+            weights_decay_bias
+            gradient_moment
+            gradient_moment_bias
         """
         del self.gds[:]
         for fwd in self.fwds:
-            self.gds.append(GradientUnitFactory.create(fwd, "gd_" + fwd.name))
+            self.gds.append(GradientUnitFactory.create(fwd, "gd_" + fwd.name,
+                                                       **kwargs))
         for i, gd_elm in enumerate(self.gds[:-1]):
             gd_elm.link_from(self.gds[i + 1])
             gd_elm.link_attrs(self.gds[i + 1], ("err_output", "err_input"))
 
-        self.gds[-1].link_from(self.snapshotter)
+        if lr_adjuster is not None:
+            lr_adjuster.link_from(self.snapshotter)
+            lr_adjuster.add_gd_units(self.gds)
+            self.gds[-1].link_from(lr_adjuster)
+        else:
+            self.gds[-1].link_from(self.snapshotter)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].gate_skip = self.decision.gd_skip
 

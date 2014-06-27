@@ -86,8 +86,12 @@ class GradientDescentBase(OpenCLUnit):
         bias: bias.
         batch_size: current minibatch size.
         learning_rate: gradient descent speed (positive).
+        learning_rate_bias: gradient descent speed for bias
         weights_decay: coefficient (positive or zero) for weights
                        regularization term (lambda/2 * sum(weights^2)).
+        weights_decay_bias
+        gradient_moment
+        gradient_moment_bias
         batch_size: effective batch size (if None, get it from y).
         weights_transposed: assume weights matrix as a transposed one.
         store_gradient: will save gradient as separate Vector().

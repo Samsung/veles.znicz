@@ -12,14 +12,17 @@ from veles.znicz import normalization, dropout, activation
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.tests.research.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz import lr_adjust
 
 import logging
+
+root.common.update = {"precision_type": "float", }
 
 root.defaults = {
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "imagenet_caffe"},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 256},
     "imagenet_caffe": {"learning_rate": 0.00016,
                        "weights_decay": 0.0,
                        "layers":
@@ -87,10 +90,11 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = LoaderDetection(self,
-                                      ipath="/data/imagenet/2013",
-                                      dbpath="/data/imagenet/2013/db",
-                                      year="2013", series="img")
+        self.loader = LoaderDetection(
+            self, max_minibatch_size=256, minibatch_size=256,
+            ipath="/data/veles/datasets/imagenet/2013",
+            dbpath="/data/veles/datasets/imagenets/2013/db",
+            year="2013", series="img")
         self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
@@ -222,7 +226,15 @@ class Workflow(StandardWorkflow):
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
-        self.create_gd_units()
+
+        lr_policy = lr_adjust.step_exp_adjust_policy(0.01, 0.1, 100000)
+        bias_lr_policy = lr_adjust.step_exp_adjust_policy(0.02, 0.1, 100000)
+        lr_adjuster = lr_adjust.LearningRateAdjust(
+            self, lr_function=lr_policy, bias_lr_function=bias_lr_policy)
+
+        self.create_gd_units(
+            lr_adjuster, learning_rate=0.01, learning_rate_bias=0.02,
+            gradient_moment=0.9, weights_decay=0.0005, weights_decay_bias=0)
 
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
