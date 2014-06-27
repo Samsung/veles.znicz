@@ -372,14 +372,17 @@ class NNSnapshotter(Snapshotter):
         if mem is None:
             return
         if id(mem) not in logged:
-            self.info("%s: %s: min max avg: %.6f %.6f %.6f",
+            self.info("%s: %s: min max avg: %.6f %.6f %.6f%s",
                       unit.__class__.__name__, attr,
-                      mem.min(), mem.max(), numpy.average(mem))
+                      mem.min(), mem.max(), numpy.average(mem),
+                      " has NaNs" if numpy.count_nonzero(numpy.isnan(mem))
+                      else "")
             logged.add(id(mem))
 
     def export(self):
         super(NNSnapshotter, self).export()
         logged = set()
         for u in self.workflow.start_point.dependent_list():
-            for attr in ("weights", "bias", "output"):
+            for attr in ("input", "weights", "bias", "output",
+                         "err_output", "err_input"):
                 self._log_attr(u, attr, logged)
