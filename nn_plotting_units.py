@@ -53,8 +53,10 @@ class Weights2D(plotter.Plotter):
     def _prepare_pics(self, inp):
         pics = []
 
-        if type(inp) != numpy.ndarray or len(inp.shape) != 2:
-            raise ValueError("Invalid input type/shape")
+        if type(inp) != numpy.ndarray or len(inp.shape) < 2:
+            raise ValueError("input should be a numpy array (2D at least)")
+
+        inp = inp.reshape(inp.shape[0], inp.size // inp.shape[0])
 
         if self.transposed:
             inp = inp.transpose()
@@ -105,7 +107,7 @@ class Weights2D(plotter.Plotter):
                 ax = figure.add_subplot(n_rows, n_cols, i + 1)
                 ax.cla()
                 ax.axis('off')
-                ax.set_title(self.name)
+                # ax.set_title(self.name)
                 if len(pics[i].shape) == 3:
                     ax.imshow(pics[i], interpolation="nearest")
                 else:
@@ -209,8 +211,7 @@ class MSEHistogram(plotter.Plotter):
         ax.set_title(self.name.replace("Histogram ", ""))
         ax.axis([xmin, xmax + ((xmax - xmin) / self.n_bars), ymin, ymax])
         ax.grid(True)
-        leg = ax.legend(self.name.replace("Histogram ", ""))
-                        # 'upper center')
+        leg = ax.legend(self.name.replace("Histogram ", ""))  # 'upper center')
         frame = leg.get_frame()
         frame.set_facecolor('#E8D6BB')
         for t in leg.get_texts():
