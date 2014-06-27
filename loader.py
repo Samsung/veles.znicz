@@ -590,6 +590,9 @@ class Loader(Unit):
             self.info("Last minibatch (%d total) of class %s served",
                       self.class_lengths[self.minibatch_class],
                       CLASS_NAME[self.minibatch_class].upper())
+            # The following line will reduce info message count
+            # for small datasets
+            self._minibatch_serve_timestamp_ = time.time()
 
 
 class IFullBatchLoader(Interface):
