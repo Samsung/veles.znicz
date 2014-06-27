@@ -7,7 +7,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import numpy
-import math
 from zope.interface import implementer
 
 from veles.config import root
@@ -323,7 +322,6 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         global_size = [local_size[0]]
         self.execute_kernel(global_size, local_size)
 
-        # Do the following part on CPU (GPU version not implemented currently)
         if self.labels is not None and self.class_targets is not None:
             self.class_targets.unmap()
             self.labels.unmap()
@@ -337,24 +335,24 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         self.err_output.map_invalidate()
         self.mse.map_invalidate()
 
-        assert(self.output.mem.size == self.target.mem.size ==
-               self.err_output.mem.size)
-        for i in range(self.err_output.mem.shape[0]):
-            if i < self.batch_size:
-                it = numpy.nditer([self.output.mem[i], self.target.mem[i],
-                                   self.err_output.mem[i], self.mse.mem[i]],
-                                  op_flags=[['readonly'], ['readonly'],
-                                            ['writeonly'], ['writeonly']])
-                sum_err2 = 0
-                counter = 0
-                for y, t, err_y in it:
-                    err_y[...] = y - t
-                    sum_err2 += err_y * err_y
-                    counter += 1
-                self.mse.mem[i] = math.sqrt(sum_err2 / counter)
-            else:
-                self.err_output.mem[i] = 0
-                self.mse.mem[i] = 0
+        assert(self.output.shape == self.target.shape == self.err_output.shape)
+        batch_size = self.batch_size
+        err_output = self.err_output.matrix[:batch_size]
+        output = self.output.matrix[:batch_size]
+        target = self.target.matrix[:batch_size]
+        mse = self.mse.mem[:batch_size]
+
+        err_output[:] = output - target
+        self.err_output.mem[batch_size:] = 0
+        mse[:] = numpy.sqrt(numpy.square(err_output).sum(axis=1) /
+                            err_output.shape[1])
+        self.mse.mem[batch_size:] = 0
+
         self.metrics.mem[0] += numpy.sum(self.mse.mem)
         self.metrics.mem[1] = max(self.metrics.mem[1], self.mse.mem.max())
         self.metrics.mem[2] = min(self.metrics.mem[2], self.mse.mem.min())
+
+        if self.labels is not None and self.class_targets is not None:
+            raise NotImplementedError(
+                "CPU code for calculating number of errors in case of MSE "
+                "is not implemented.")
