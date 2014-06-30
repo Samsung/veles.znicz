@@ -17,10 +17,10 @@ from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 
 import numpy as np
-from veles.distributable import IDistributable
+from veles.distributable import IDistributable, TriviallyDistributable
 
 
-class Dropout(OpenCLUnit):
+class Dropout(OpenCLUnit, TriviallyDistributable):
     """
     A base class for forward and backward units of local
     response normalization.
@@ -73,6 +73,10 @@ class DropoutForward(Forward, Dropout):
                 self.output.mem.size != self.input.mem.size):
             self.output.reset()
             self.output.mem = np.zeros_like(self.input.mem)
+
+        if self.device is None:
+            return  # if is master
+
         self.input.initialize(device)
         self.output.initialize(device)
         self.states.initialize(device)
@@ -131,6 +135,9 @@ class DropoutBackward(GradientDescentBase, Dropout):
                 self.err_input.mem.size != self.err_output.mem.size):
             self.err_input.reset()
             self.err_input.mem = np.zeros_like(self.err_output.mem)
+
+        if self.device is None:
+            return  # if is master
 
         self.err_output.initialize(device)
         self.err_input.initialize(device)
