@@ -15,8 +15,42 @@ import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 
+class EvaluatorBase(OpenCLUnit):
+    """Base class for Evaluators.
+    """
+    def __init__(self, workflow, **kwargs):
+        kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
+        kwargs["error_function_averaged"] = kwargs.get(
+            "error_function_averaged", True)
+        super(EvaluatorBase, self).__init__(workflow, **kwargs)
+        self.error_function_averaged = kwargs["error_function_averaged"]
+        self.output = None  # formats.Vector()
+        self.err_output = formats.Vector()
+        self.batch_size = 0
+        self.krn_constants_i_ = None
+        self.krn_constants_f_ = None
+        self.demand("output", "batch_size")
+
+    def initialize(self, device, **kwargs):
+        super(EvaluatorBase, self).initialize(device, **kwargs)
+
+        dtype = self.output.mem.dtype
+
+        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
+        self.krn_constants_f_ = numpy.zeros(1, dtype=dtype)
+
+        if (self.err_output.mem is None or
+                self.err_output.mem.size != self.output.mem.size):
+            self.err_output.reset()
+            self.err_output.mem = numpy.zeros(self.output.mem.shape,
+                                              dtype=dtype)
+
+        self.output.initialize(self.device)
+        self.err_output.initialize(self.device)
+
+
 @implementer(IOpenCLUnit)
-class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
+class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():
@@ -46,36 +80,24 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         compute_confusion_matrix: compute confusion matrix or not.
         max_idx: indexes of element with maximum real value for each sample.
         max_err_output_sum: maximum of backpropagated error sum by sample.
-        krn_constants_i_: numpy array for constant arguments to kernel.
     """
     def __init__(self, workflow, **kwargs):
         compute_confusion_matrix = kwargs.get("compute_confusion_matrix", True)
         kwargs["compute_confusion_matrix"] = compute_confusion_matrix
-        kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
         super(EvaluatorSoftmax, self).__init__(workflow, **kwargs)
         self.labels = None  # formats.Vector()
-        self.output = None  # formats.Vector()
-        self.err_output = formats.Vector()
-        self.batch_size = 0
         self.compute_confusion_matrix = compute_confusion_matrix
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()
         self.max_idx = None  # formats.Vector()
-        self.krn_constants_i_ = None
         self.max_err_output_sum = formats.Vector()
-        self.demand("output", "labels", "max_idx", "batch_size")
+        self.demand("labels", "max_idx")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
         dtype = self.output.mem.dtype
-
-        if (self.err_output.mem is None or
-                self.err_output.mem.size != self.output.mem.size):
-            self.err_output.reset()
-            self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                              dtype=dtype)
 
         if self.n_err.mem is None:
             self.n_err.reset()
@@ -98,8 +120,6 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
             self.max_err_output_sum.reset()
             self.max_err_output_sum.mem = numpy.zeros(1, dtype=dtype)
 
-        self.output.initialize(self.device)
-        self.err_output.initialize(self.device)
         self.confusion_matrix.initialize(self.device)
         self.n_err.initialize(self.device)
         self.max_idx.initialize(self.device)
@@ -108,8 +128,6 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
 
         if self.device is None:
             return
-
-        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
         defines = {
             'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
@@ -139,6 +157,9 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
 
         self.krn_constants_i_[0] = self.batch_size
         self.set_arg(7, self.krn_constants_i_[0:1])
+        self.krn_constants_f_[0] = (
+            1.0 / self.batch_size if self.error_function_averaged else 1.0)
+        self.set_arg(8, self.krn_constants_f_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
@@ -159,6 +180,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         confusion_matrix = self.confusion_matrix.mem
 
         n_ok = 0
+        multiplier = 1.0 / batch_size if self.error_function_averaged else 1.0
         for i in range(batch_size):  # loop by batch
             output = formats.ravel(self.output[i])
             err_output = formats.ravel(self.err_output[i])
@@ -171,6 +193,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
             # Compute softmax output error gradient
             err_output[:] = output[:]
             err_output[labels[i]] -= 1.0
+            err_output *= multiplier
             if err_output.dtype in (numpy.complex64, numpy.complex128):
                 self.max_err_output_sum[0] = max(
                     self.max_err_output_sum[0], numpy.linalg.norm(err_output))
@@ -184,7 +207,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
 
 
 @implementer(IOpenCLUnit)
-class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
+class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():
@@ -220,31 +243,20 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
             (if labels and class_targets is not None).
     """
     def __init__(self, workflow, **kwargs):
-        kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
         super(EvaluatorMSE, self).__init__(workflow, **kwargs)
-        self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
-        self.err_output = formats.Vector()
-        self.batch_size = None  # [0]
-        self.krn_constants_i_ = None
         self.metrics = formats.Vector()
         self.mse = formats.Vector()
         self.labels = None
         self.class_targets = None
         self.n_err = formats.Vector()
-        self.demand("output", "target", "batch_size")
+        self.demand("target")
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
         dtype = self.output.mem.dtype
-
-        if (self.err_output.mem is None or
-                self.err_output.mem.size != self.output.mem.size):
-            self.err_output.reset()
-            self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                              dtype=dtype)
 
         if self.metrics.mem is None or self.metrics.mem.size < 3:
             self.metrics.reset()
@@ -266,16 +278,12 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
             self.labels.initialize(self.device)
             self.n_err.initialize(self.device)
 
-        self.output.initialize(self.device)
-        self.err_output.initialize(self.device)
         self.target.initialize(self.device)
         self.metrics.initialize(self.device)
         self.mse.initialize(self.device)
 
         if not self.device:
             return
-
-        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
         if self.program_ is None:
             defines = {
@@ -314,6 +322,9 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
         self.set_arg(5, self.krn_constants_i_[0:1])
+        self.krn_constants_f_[0] = (
+            1.0 / self.batch_size if self.error_function_averaged else 1.0)
+        self.set_arg(6, self.krn_constants_f_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
@@ -341,6 +352,8 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         mse = self.mse.mem[:batch_size]
 
         err_output[:] = output - target
+        if self.error_function_averaged:
+            err_output *= 1.0 / batch_size
         self.err_output.mem[batch_size:] = 0
         mse[:] = numpy.sqrt(numpy.square(err_output).sum(axis=1) /
                             err_output.shape[1])

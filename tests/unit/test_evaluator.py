@@ -43,7 +43,7 @@ class TestEvaluator(unittest.TestCase):
         ev.target = formats.Vector()
         ev.target.mem = target.copy()
         ev.batch_size = batch_size - 5
-        gold_err_output = output - target
+        gold_err_output = (output - target) / (batch_size - 5)
         gold_err_output[ev.batch_size:] = 0
 
         ev.initialize(device=self.device)
@@ -86,7 +86,7 @@ class TestEvaluator(unittest.TestCase):
         ev.max_idx.mem = max_idx
         ev.batch_size = batch_size - 5
 
-        gold_err_output = output - target
+        gold_err_output = (output - target) / (batch_size - 5)
         gold_err_output[ev.batch_size:] = 0
 
         ev.initialize(device=self.device)

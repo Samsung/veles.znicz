@@ -64,8 +64,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
         c = GD(DummyWorkflow(),
                gradient_moment=0, gradient_moment_bias=0,
                learning_rate=-1, weights_decay=0,
-               learning_rate_bias=-1, weights_decay_bias=0,
-               error_function_averaged=True)
+               learning_rate_bias=-1, weights_decay_bias=0)
 
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
@@ -89,7 +88,8 @@ class TestGD(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess)
+                              logging.info, self.assertLess,
+                              error_function_averaged=False)
 
         return c.err_input.mem.copy(), c.weights.mem.copy(), c.bias.mem.copy()
 

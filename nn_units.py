@@ -100,9 +100,6 @@ class GradientDescentBase(OpenCLUnit):
         weights_transposed: assume weights matrix as a transposed one.
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
-        error_function_averaged: should be true for the last layer of network
-                                 for mse and cross_entropy error functions
-                                 averaged over the minibatch.
     """
     def __init__(self, workflow, **kwargs):
         learning_rate = kwargs.get("learning_rate", 0.01)
@@ -116,7 +113,6 @@ class GradientDescentBase(OpenCLUnit):
         store_gradient = kwargs.get("store_gradient", True)
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         need_err_input = kwargs.get("need_err_input", True)
-        error_function_averaged = kwargs.get("error_function_averaged", False)
         include_bias = kwargs.get("include_bias", True)
         kwargs["learning_rate"] = learning_rate
         kwargs["learning_rate_bias"] = learning_rate_bias
@@ -129,7 +125,6 @@ class GradientDescentBase(OpenCLUnit):
         kwargs["gradient_moment"] = gradient_moment
         kwargs["gradient_moment_bias"] = gradient_moment_bias
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
-        kwargs["error_function_averaged"] = error_function_averaged
         kwargs["include_bias"] = include_bias
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.input = None
@@ -152,7 +147,6 @@ class GradientDescentBase(OpenCLUnit):
             store_gradient) else False
         self.apply_gradient = apply_gradient
         self.need_err_input = need_err_input
-        self.error_function_averaged = error_function_averaged
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
         self.include_bias = include_bias

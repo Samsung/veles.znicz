@@ -202,8 +202,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
 
         alpha_batch = -self.learning_rate
-        if self.error_function_averaged:
-            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate * self.weights_decay
 
         self.cl_const[0] = alpha_batch
@@ -235,8 +233,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gradient_bias.unmap()
 
         alpha_batch = -self.learning_rate_bias
-        if self.error_function_averaged:
-            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
         self.cl_const[0] = alpha_batch
@@ -314,8 +310,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
         # update weights
         alpha_batch = -self.learning_rate
-        if self.error_function_averaged:
-            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate * self.weights_decay
         gd_weights_reg = (gd_weights * alpha_batch +
                           self.weights.mem * alpha_lambda)
@@ -345,8 +339,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             gd_bias += numpy.add.reduce(out)
         # update bias
         alpha_batch = -self.learning_rate_bias
-        if self.error_function_averaged:
-            alpha_batch /= self.current_batch_size
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
         gd_bias_reg = gd_bias * alpha_batch + self.bias.mem * alpha_lambda
         if self.store_gradient:
@@ -385,11 +377,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                  self.sliding[1] + 1),
                 block_size)]
         local_size = [block_size, block_size]
-        if self.error_function_averaged:
-            self.cl_const[0] = 1.0 / self.current_batch_size
-        else:
-            self.cl_const[0] = 1.0
-        self.krn_err_input_.set_arg(3, self.cl_const[0:1])
         self.execute_kernel(global_size, local_size, self.krn_err_input_)
 
     def cpu_err_input_update(self):
@@ -431,8 +418,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.mem[batch, :, :, ch] += \
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]
-        if self.error_function_averaged:
-            self.err_input.mem /= self.current_batch_size
 
     def print_debug_data(self, t_start):
         """

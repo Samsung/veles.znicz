@@ -86,8 +86,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3, gradient_moment=0.9,
-                                        error_function_averaged=True)
+                                        kx=3, ky=3, gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -101,13 +100,13 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         batch_size = c.err_output.mem.shape[0]
         b = c.err_output.mem.reshape(9 * batch_size, 2)
-        gradient_weights = numpy.dot(b.transpose(), a) / err_output.shape[0]
+        gradient_weights = numpy.dot(b.transpose(), a)
         weights_derivative = gradient_weights.copy()
         gradient_weights *= -c.learning_rate
         gradient_weights += weights * (-1) * (c.learning_rate *
                                               c.weights_decay)
         weights_new = weights + gradient_weights
-        bias_derivative = b.sum(axis=0) / err_output.shape[0]
+        bias_derivative = b.sum(axis=0)
         gradient_bias = bias_derivative * (-c.learning_rate_bias)
         bias_new = bias + gradient_bias
 
@@ -128,7 +127,6 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                           [22, 45, 18, 28, 7],
                           [-1, 11, 25, 14, 3],
                           [14, 4, 13, 12, 5]]], dtype=dtype)
-        t /= t.shape[0]
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Err_input differs by %.6f" % (max_diff))
@@ -152,7 +150,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess)
+                              logging.info, self.assertLess,
+                              error_function_averaged=False)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
         forward.input = formats.Vector()
@@ -210,8 +209,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
                                         kx=3, ky=3, padding=(1, 2, 3, 4),
-                                        sliding=(2, 3), gradient_moment=0.9,
-                                        error_function_averaged=True)
+                                        sliding=(2, 3), gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -273,7 +271,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess)
+                              logging.info, self.assertLess,
+                              error_function_averaged=False)
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, conv.Conv,
@@ -329,8 +328,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,
-            padding=forward.padding, sliding=forward.sliding,
-            error_function_averaged=True)
+            padding=forward.padding, sliding=forward.sliding)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -353,7 +351,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess)
+                              logging.info, self.assertLess,
+                              error_function_averaged=False)
 
 
 if __name__ == "__main__":

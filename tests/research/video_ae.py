@@ -161,7 +161,6 @@ class Workflow(nn_units.NNWorkflow):
                                    ("err_output", "err_input"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.gds[0].need_err_input = False
-        self.gds[-1].error_function_averaged = True
         self.repeater.link_from(self.gds[0])
 
         # MSE plotter

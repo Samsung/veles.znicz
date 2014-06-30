@@ -272,12 +272,6 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
             # Link attributes
             if i < len(self.fwds) - 1:
-                # Averaged error function over a minibatch
-                # only makes sense for the last layer
-                if self.gds[i].error_function_averaged:
-                    self.warning("error_function_averaged is set to True "
-                                 "for the layer %d, but it makes sense only "
-                                 "for the last layer usually.", i)
                 self.gds[i].link_from(self.gds[i + 1])
                 self.gds[i].link_attrs(self.gds[i + 1],
                                        ("err_output", "err_input"))
@@ -298,8 +292,6 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
-        # Enable averaged error function over a minibatch for the last layer
-        self.gds[-1].error_function_averaged = True
 
     def create_gd_units(self, lr_adjuster, **kwargs):
         """
@@ -338,5 +330,3 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
-        # Enable averaged error function over a minibatch for the last layer
-        self.gds[-1].error_function_averaged = True

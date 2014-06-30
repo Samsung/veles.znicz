@@ -8,8 +8,9 @@
 /// @param err_y output error for backpropagation.
 /// @param n_err [0] - n_err.
 /// @param confusion_matrix confusion matrix (may be NULL).
-/// @param batch_size size of the current batch.
 /// @param max_err_y_sum maximum sum of backpropagated gradient norms.
+/// @param batch_size size of the current batch.
+/// @param multiplier coefficient to multiply backpropagated error on.
 /// @details We will launch a single workgroup here.
 ///          Should be defined externally:
 ///          BLOCK_SIZE - block size
@@ -31,7 +32,8 @@ void ev_sm(__global const dtype    /* IN */    *y,
            __global int       /* IN, OUT */    *n_err,
            __global int       /* IN, OUT */    *confusion_matrix,
            __global dtype     /* IN, OUT */    *max_err_y_sum,
-           const int               /* IN */    batch_size) {
+           const int               /* IN */    batch_size,
+           const dtype             /* IN */    multiplier) {
   __local int IM[BLOCK_SIZE], IREAL[BLOCK_SIZE];
   __local dtype SM[BLOCK_SIZE];
   int tx = get_local_id(0);
@@ -56,16 +58,19 @@ void ev_sm(__global const dtype    /* IN */    *y,
       dtype vle;
       for (int j = 0; j < ireal; j++) {
         vle = y[y_start + j];
+        vle *= multiplier;
         err_y[y_start + j] = vle;
         err_y_sum += fabs(vle);
       }
 
       vle = y[y_start + ireal] - 1;
+      vle *= multiplier;
       err_y[y_start + ireal] = vle;
       err_y_sum += fabs(vle);
 
       for (int j = ireal + 1; j < Y; j++) {
         vle = y[y_start + j];
+        vle *= multiplier;
         err_y[y_start + j] = vle;
         err_y_sum += fabs(vle);
       }
@@ -111,6 +116,7 @@ void ev_sm(__global const dtype    /* IN */    *y,
 /// @param metrics [0] - sum of sample's mse, [1] - max of sample's mse, [2] - min of sample's mse.
 /// @param mse sample's mse.
 /// @param batch_size size of the current batch.
+/// @param multiplier coefficient to multiply backpropagated error on.
 /// @details We will launch a single workgroup here.
 ///          Should be defined externally:
 ///          BLOCK_SIZE - block size
@@ -130,7 +136,8 @@ void ev_mse(__global const dtype    /* IN */    *y,
             __global dtype         /* OUT */    *err_y,
             __global dtype     /* IN, OUT */    *metrics,
             __global dtype         /* OUT */    *mse,
-            const int               /* IN */    batch_size) {
+            const int               /* IN */    batch_size,
+            const dtype             /* IN */    multiplier) {
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
   int i_sample = tx;
@@ -147,6 +154,7 @@ void ev_mse(__global const dtype    /* IN */    *y,
         vle_target = target[y_start + j];
         vle -= vle_target;
         sample_sse += vle * vle;
+        vle *= multiplier;
         err_y[y_start + j] = vle;
       }
       dtype sample_mse = sqrt(sample_sse / Y);

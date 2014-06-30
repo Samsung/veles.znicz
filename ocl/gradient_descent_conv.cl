@@ -68,8 +68,7 @@
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_h_update(__global const dtype    /* IN */    *err_y,
                   __global const dtype    /* IN */    *weights,
-                  __global dtype         /* OUT */    *err_h,
-                  const dtype             /* IN */    multiplier) {
+                  __global dtype         /* OUT */    *err_h) {
 
   #define A_WIDTH (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
   #define B_WIDTH ELEMENTS_PER_KERNEL
@@ -97,8 +96,7 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
 
   #define in_offs idx
   if ((valid) && (IN_REAL_OFFS_VALID)) {
-    dtype vle = sum * multiplier;
-    ATOM_ADD(&err_h[IN_REAL_OFFS], vle);
+    ATOM_ADD(&err_h[IN_REAL_OFFS], sum);
   }
   #undef in_offs
 }
