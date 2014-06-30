@@ -361,7 +361,13 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.weights.mem[:] = ip_sm_weights.reshape(10, 1024)[:]
         ip_sm.bias.mem[:] = ip_sm_biases.reshape(10)[:]
 
-    def _print_deltas(self, iter):
+    def _print_deltas(self, iter, raise_errors=False):
+        """
+        Prints the difference between our results and the CAFFE ones.
+        Raises an error, if they are more, than 1%.
+        """
+        max_delta = 1.
+
         logging.info(">>> iter %i" % iter)
         names = ["conv1", "pool1", "relu1", "norm1", "conv2", "relu2", "pool2",
                  "norm2", "conv3"]
@@ -415,12 +421,20 @@ class ComplexTest(standard_test.StandardTest):
 
             conv_elm.weights.map_read()
             conv_elm.bias.map_read()
+            weight_delta = self._diff(conv_elm.weights.mem, conv_weights)
 
-            logging.info(">>> %s weights delta: %.12f%%" %
-                         (name, self._diff(conv_elm.weights.mem,
-                                           conv_weights)))
+            self.assertLess(weight_delta, max_delta,
+                            "Result differs by %.6f" % (weight_delta))
+
+            logging.info(">>> %s weights delta: %.12f%%" % (name,
+                                                            weight_delta))
+
+            bias_delta = self._diff(conv_elm.bias.mem, conv_biases)
+            self.assertLess(bias_delta, max_delta,
+                            "Result differs by %.6f" % (bias_delta))
+
             logging.info(">>> %s biases delta: %.12f%%" %
-                         (name, self._diff(conv_elm.bias.mem, conv_biases)))
+                         (name, bias_delta))
 
         ip_sm = self.workflow["ip1"]
         ip_sm_weights = self._load_blob("ip1", PropType.forward,
@@ -429,15 +443,20 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm_weights = ip_sm_weights.reshape(
             10, 64, 4, 4).swapaxes(1, 2).swapaxes(2, 3).reshape(10, 1024)
 
+        ip_sm.weights.map_read()
+        weight_delta = self._diff(ip_sm.weights.mem, ip_sm_weights)
+        self.assertLess(weight_delta, max_delta,
+                        "Result differs by %.6f" % (weight_delta))
+        logging.info(">>> ip1 weights delta %.12f%%" % weight_delta)
+
+        ip_sm.bias.map_read()
         ip_sm_biases = self._load_blob(
             "ip1", PropType.forward, WhenTaken.before,
             "blob_1", iter + 1).ravel()
-        ip_sm.weights.map_read()
-        ip_sm.bias.map_read()
-        logging.info(">>> ip1 weights delta %.12f%%" %
-                     self._diff(ip_sm.weights.mem, ip_sm_weights))
-        logging.info(">>> ip1 biases delta %.12f%%" %
-                     self._diff(ip_sm.bias.mem, ip_sm_biases))
+        bias_delta = self._diff(ip_sm.bias.mem, ip_sm_biases)
+        self.assertLess(bias_delta, max_delta,
+                        "Result differs by %.6f" % (bias_delta))
+        logging.info(">>> ip1 biases delta %.12f%%" % bias_delta)
 
     def test_all(self):
         """
