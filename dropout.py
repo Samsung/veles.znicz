@@ -17,6 +17,7 @@ from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 
 import numpy as np
+from veles.distributable import IDistributable
 
 
 class Dropout(OpenCLUnit):
@@ -46,7 +47,7 @@ class Dropout(OpenCLUnit):
         self._dropout_ratio = value
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, IDistributable)
 class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
@@ -114,7 +115,7 @@ class DropoutForward(Forward, Dropout):
         self.execute_kernel((self.input.mem.size,), None)
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, IDistributable)
 class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.

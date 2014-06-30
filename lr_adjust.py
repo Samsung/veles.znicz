@@ -15,10 +15,11 @@ from zope.interface import implementer
 
 from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
+from veles.distributable import IDistributable, Distributable
 
 
-@implementer(IUnit)
-class LearningRateAdjust(Unit):
+@implementer(IUnit, IDistributable)
+class LearningRateAdjust(Unit, Distributable):
     """
     This unit should be linked from Decision to run with each minibatch.
     Does nothing if ``lr_function`` is not set.
@@ -85,6 +86,26 @@ class LearningRateAdjust(Unit):
                     gd_elm.learning_rate_bias = bias_lr
 
         self._minibatches_count += 1
+
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        data = (self._minibatches_count, self._lr_function,
+                self._bias_lr_function)
+        return data
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        self._minibatches_count, self._lr_function, self._bias_lr_function = \
+            data
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 # LEARNING RATE POLICIES:
 
