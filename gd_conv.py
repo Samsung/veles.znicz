@@ -72,8 +72,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.ky = ky
         self.padding = tuple(padding)
         self.sliding = tuple(sliding)
-        self.cl_const = numpy.zeros(
-            3, dtype=opencl_types.dtypes[root.common.dtype])
+        self.cl_const = None
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -97,7 +96,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
-        if self.bias.mem.size != self.n_kernels:
+        if self.include_bias and self.bias.mem.size != self.n_kernels:
             raise error.BadFormatError("Expected bias to match n_kernels")
         if self.input.mem.size != batch_size * sy * sx * n_channels:
             raise error.BadFormatError(
@@ -116,7 +115,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_weights.reset()
             self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
 
-        if (self.store_gradient and
+        if (self.include_bias and self.store_gradient and
                 (self.gradient_bias.mem is None or
                  self.gradient_bias.mem.size != self.bias.mem.size)):
             self.gradient_bias.reset()
@@ -136,12 +135,19 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
+            dtype = self.err_output.mem.dtype
+            self.cl_const = numpy.zeros(3, dtype=dtype)
+
             block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
+                opencl_types.numpy_dtype_to_opencl(dtype)]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
             defines = {
+                'APPLY_GRADIENT': int(self.apply_gradient),
+                'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
+                'STORE_GRADIENT': int(self.store_gradient),
+                'INCLUDE_BIAS': int(self.include_bias),
                 'USE_ATOMICS': 1,
                 'BLOCK_SIZE': block_size,
                 'BATCH': batch_size,
@@ -159,17 +165,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 'SLIDE_Y': self.sliding[1],
                 'REDUCE_SIZE': self.reduce_size
             }
-            if self.apply_gradient:
-                defines['APPLY_GRADIENT'] = 1
-            if self.weights_transposed:
-                defines['WEIGHTS_TRANSPOSED'] = 1
-            if self.store_gradient:
-                defines['STORE_GRADIENT'] = 1
             self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
                 root.common.cache_dir,
                 self.input.mem.size // self.input.mem.shape[0],
                 self.output.mem.size // self.output.mem.shape[0]),
-                dtype=self.err_output.mem.dtype)
+                dtype=dtype)
 
             self.krn_err_input_clear_ = self.get_kernel("array_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
@@ -185,23 +185,22 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                        self.weights.devmem,
                                        self.gradient_weights.devmem)
 
-            self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_args(self.err_output.devmem, self.bias.devmem,
-                                    self.gradient_bias.devmem)
+            if self.include_bias:
+                self.krn_bias_ = self.get_kernel("bias_update")
+                self.krn_bias_.set_args(
+                    self.err_output.devmem, self.bias.devmem,
+                    self.gradient_bias.devmem)
 
     def gpu_weights_update(self):
         self.input.unmap()
         self.err_output.unmap()
         self.weights.unmap()
-        self.bias.unmap()
         self.gradient_weights.unmap()
-        self.gradient_bias.unmap()
 
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
 
-        # weights
         alpha_batch = -self.learning_rate
         if self.error_function_averaged:
             alpha_batch /= self.current_batch_size
@@ -227,7 +226,14 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         local_size = [block_size, block_size]
         self.execute_kernel(global_size, local_size, self.krn_weights_)
 
-        # bias
+    def gpu_bias_update(self):
+        if not self.include_bias:
+            return
+
+        self.err_output.unmap()
+        self.bias.unmap()
+        self.gradient_bias.unmap()
+
         alpha_batch = -self.learning_rate_bias
         if self.error_function_averaged:
             alpha_batch /= self.current_batch_size
@@ -251,15 +257,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
-        self.bias.map_write()
         self.gradient_weights.map_write()
-        self.gradient_bias.map_write()
 
         dtype = self.weights.mem.dtype
-        if self.batch_size is None:
-            batch_size = self.output.mem.shape[0]
-        else:
-            batch_size = int(self.batch_size)
+        batch_size = self.current_batch_size
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
@@ -323,6 +324,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_weights.mem[:] = gd_weights_reg[:]
         if self.apply_gradient:
             self.weights.mem += gd_weights_reg
+
+    def cpu_bias_update(self):
+        if not self.include_bias:
+            return
+
+        self.err_output.map_read()
+        self.bias.map_write()
+        self.gradient_bias.map_write()
+
+        batch_size = self.current_batch_size
+        err_out_shape = self.err_output.mem.shape
 
         # calculate gradient for bias
         gd_bias = numpy.zeros_like(self.bias.mem)
@@ -485,6 +497,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
+        self.gpu_bias_update()
         self.print_debug_data(t1)
 
     def cpu_run(self):
@@ -492,6 +505,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
+        self.cpu_bias_update()
         self.print_debug_data(t1)
 
 

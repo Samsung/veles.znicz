@@ -23,9 +23,6 @@ class TestNormalization(unittest.TestCase):
         self.workflow = DummyWorkflow()
         self.device = opencl.Device()
 
-    def tearDown(self):
-        pass
-
     def test_normalization_forward(self):
         fwd_normalizer = LRNormalizerForward(self.workflow,
                                              device=self.device, n=3)

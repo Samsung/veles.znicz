@@ -26,31 +26,21 @@ class TestMatrixMultiplication(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    def tearDown(self):
-        del self.device
-
     def _do_cpu_tst(self):
         """Pure single core CPU test
         """
-        dtype = (numpy.complex128 if self.a.mem.dtype in (
-            numpy.complex64, numpy.complex128) else numpy.float64)
+        dtype = numpy.float64
         a = numpy.empty(self.a.mem.shape, dtype=dtype)
         a[:] = self.a.mem[:]
         bt = self.b.mem.transpose()
         b = numpy.empty(bt.shape, dtype=dtype)
         b[:] = bt[:]
-        bias = numpy.empty(self.bias.mem.shape, dtype=dtype)
-        bias[:] = self.bias.mem[:]
         c = numpy.empty(self.c[0].shape, dtype=dtype)
         if self.a_col:
             a = a.transpose()
         if self.b_col:
             b = b.transpose()
         numpy.dot(a, b, c)
-        c[:] += bias
-        c *= 0.6666
-        numpy.tanh(c, c)
-        c *= 1.7159
         return c
 
     def _prepare_tsts(self, BLOCK_SIZE,
@@ -64,7 +54,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.a = formats.Vector()
         self.a.mem = numpy.zeros([self.A_HEIGHT * self.AB_WIDTH],
                                  dtype=self.dtype)
-        prng.get().fill(self.a.mem, -0.1, 0.1)
+        prng.get().fill(self.a.mem)
         if a_col:
             self.a.mem.shape = (self.AB_WIDTH, self.A_HEIGHT)
         else:
@@ -73,15 +63,11 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.b = formats.Vector()
         self.b.mem = numpy.zeros([self.B_HEIGHT * self.AB_WIDTH],
                                  dtype=self.dtype)
-        prng.get().fill(self.b.mem, -0.1, 0.1)
+        prng.get().fill(self.b.mem)
         if b_col:
             self.b.mem.shape = (self.AB_WIDTH, self.B_HEIGHT)
         else:
             self.b.mem.shape = (self.B_HEIGHT, self.AB_WIDTH)
-
-        self.bias = formats.Vector()
-        self.bias.mem = numpy.zeros([self.B_HEIGHT], dtype=self.dtype)
-        prng.get().fill(self.bias.mem, -0.1, 0.1)
 
         self.c = formats.Vector()
         self.c.mem = numpy.ones([2, self.A_HEIGHT, self.B_HEIGHT],
@@ -89,7 +75,6 @@ class TestMatrixMultiplication(unittest.TestCase):
 
     def _cleanup_after_tsts(self):
         del self.c
-        del self.bias
         del self.b
         del self.a
         del self.A_HEIGHT
@@ -102,13 +87,15 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.a.initialize(device)
         self.b.initialize(device)
         self.c.initialize(device)
-        self.bias.initialize(device)
 
         obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
-            "ACTIVATION_TANH": 1,
+            "INCLUDE_BIAS": 0,
+            "WEIGHTS_TRANSPOSED": 0,
+            "PRECISION_LEVEL": 0,
+            "ACTIVATION_LINEAR": 1,
             "BLOCK_SIZE": BLOCK_SIZE,
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
@@ -125,7 +112,6 @@ class TestMatrixMultiplication(unittest.TestCase):
         krn.set_arg(0, self.a.devmem)
         krn.set_arg(1, self.b.devmem)
         krn.set_arg(2, self.c.devmem)
-        krn.set_arg(3, self.bias.devmem)
 
         global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
                        formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
@@ -133,7 +119,6 @@ class TestMatrixMultiplication(unittest.TestCase):
 
         self.device.queue_.execute_kernel(krn, global_size, local_size,
                                           need_event=False)
-
         self.c.map_read()
 
     def _tst_matrix_multiplication(self, block_size):
@@ -181,10 +166,9 @@ class TestMatrixMultiplication(unittest.TestCase):
             self._cleanup_after_tsts()
 
     def test(self):
-    # opt_block_size = self.device.device_info.BLOCK_SIZE[root.common.dtype]
         for dtype in (numpy.float32, numpy.float64):
             self.dtype = dtype
-            for block_size in range(8, 32):
+            for block_size in range(8, self.device.max_block_size + 1):
                 self._tst_matrix_multiplication(block_size)
 
 

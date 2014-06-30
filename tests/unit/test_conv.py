@@ -24,7 +24,7 @@ class TestConvBase(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self._dtype = opencl_types.dtypes[root.common.dtype]
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
 
     def tearDown(self):
         pass

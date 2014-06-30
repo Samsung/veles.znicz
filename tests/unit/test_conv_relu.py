@@ -32,7 +32,7 @@ class TestConvRelu(unittest.TestCase):
         logging.info("Will test RELU convolutional layer forward propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[[1, 2, 3, 2, 1],
                               [0, 1, 2, 1, 0],
                               [0, 1, 0, 1, 0],

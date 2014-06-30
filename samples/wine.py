@@ -50,7 +50,8 @@ class Loader(loader.FullBatchLoader):
             if not len(s):
                 break
             lines.append(numpy.fromstring(
-                s, sep=",", dtype=opencl_types.dtypes[root.common.dtype]))
+                s, sep=",",
+                dtype=opencl_types.dtypes[root.common.precision_type]))
             max_lbl = max(max_lbl, int(lines[-1][0]))
         fin.close()
 

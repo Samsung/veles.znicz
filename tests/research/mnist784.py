@@ -111,16 +111,16 @@ class Loader(mnist.Loader):
         super(Loader, self).load_data()
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
-            [10, 784], dtype=opencl_types.dtypes[root.common.dtype])
+            [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
         for i in range(0, 10):
             img = do_plot(root.mnist784.data_paths,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_targets[i] = img.ravel().astype(
-                opencl_types.dtypes[root.common.dtype])
+                opencl_types.dtypes[root.common.precision_type])
             formats.normalize(self.class_targets[i])
         self.original_target = numpy.zeros(
             [self.original_labels.shape[0], self.class_targets.mem.shape[1]],
-            dtype=opencl_types.dtypes[root.common.dtype])
+            dtype=opencl_types.dtypes[root.common.precision_type])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
             self.original_target[i] = self.class_targets[label]

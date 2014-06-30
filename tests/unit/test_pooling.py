@@ -28,7 +28,7 @@ class TestMaxPooling(unittest.TestCase):
         root.common.plotters_disabled = True
 
         self._inp = formats.Vector()
-        self._dtype = opencl_types.dtypes[root.common.dtype]
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._inp.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -118,7 +118,7 @@ class TestGDMaxPooling(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
-        self._dtype = opencl_types.dtypes[root.common.dtype]
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._inp = numpy.array(
             [[[3, 3, -1, 1, 2, 3, 4],
               [-2, 4, -2, 3, -3, 1, -2],
@@ -202,7 +202,7 @@ class TestAvgPooling(unittest.TestCase):
         root.common.plotters_disabled = True
 
         self._inp = formats.Vector()
-        self._dtype = opencl_types.dtypes[root.common.dtype]
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._inp.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -270,7 +270,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
-        self._dtype = opencl_types.dtypes[root.common.dtype]
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._inp = numpy.array([
             [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
              [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
@@ -389,8 +389,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
         logging.info("Will test AvgPooling layer forward-backward "
                      "via numeric differentiation")
 
-        dtype = opencl_types.dtypes[root.common.dtype]
-        inp = numpy.zeros([2, 6, 6, 3], dtype=dtype)
+        inp = numpy.zeros([2, 6, 6, 3], dtype=self._dtype)
         prng.get().fill(inp)
         forward = pooling.AvgPooling(DummyWorkflow(), kx=3, ky=3,
                                      sliding=sliding)

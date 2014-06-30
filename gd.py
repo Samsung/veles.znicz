@@ -14,7 +14,6 @@ import opencl4py as cl
 import time
 from zope.interface import implementer
 
-from veles.config import root
 from veles.external.prettytable import PrettyTable
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -51,8 +50,7 @@ class GradientDescent(nn_units.GradientDescentBase):
     """
     def __init__(self, workflow, **kwargs):
         super(GradientDescent, self).__init__(workflow, **kwargs)
-        self.cl_const = numpy.zeros(3, dtype=opencl_types.dtypes[
-            root.common.dtype])
+        self.cl_const = None
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -78,7 +76,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.gradient_weights.reset()
             self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
 
-        if (self.store_gradient and
+        if (self.include_bias and self.store_gradient and
             (self.gradient_bias.mem is None or
              self.gradient_bias.mem.size != self.bias.mem.size)):
             self.gradient_bias.reset()
@@ -98,28 +96,29 @@ class GradientDescent(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
+            dtype = self.err_output.mem.dtype
+            self.cl_const = numpy.zeros(3, dtype=dtype)
+
             block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
+                opencl_types.numpy_dtype_to_opencl(dtype)]
             self.reduce_size = min(self.reduce_size, self.bias.mem.size)
 
             defines = {
-                'BLOCK_SIZE': block_size,
-                'BATCH': self.input.mem.shape[0],
-                'H': self.input.mem.size // self.input.mem.shape[0],
-                'Y': self.output.mem.size // self.output.mem.shape[0],
-                'REDUCE_SIZE': self.reduce_size
+                "APPLY_GRADIENT": int(self.apply_gradient),
+                "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
+                "STORE_GRADIENT": int(self.store_gradient),
+                "INCLUDE_BIAS": int(self.include_bias),
+                "BLOCK_SIZE": block_size,
+                "BATCH": self.input.mem.shape[0],
+                "H": self.input.mem.size // self.input.mem.shape[0],
+                "Y": self.output.mem.size // self.output.mem.shape[0],
+                "REDUCE_SIZE": self.reduce_size
             }
-            if self.apply_gradient:
-                defines['APPLY_GRADIENT'] = 1
-            if self.weights_transposed:
-                defines['WEIGHTS_TRANSPOSED'] = 1
-            if self.store_gradient:
-                defines['STORE_GRADIENT'] = 1
 
             self.build_program(defines, "gd_%d_%d.cl" % (
                 self.input.mem.size // self.input.mem.shape[0],
                 self.output.mem.size // self.output.mem.shape[0]),
-                dtype=self.err_output.mem.dtype)
+                dtype=dtype)
 
             if self.need_err_input:
                 self.krn_err_input_ = self.get_kernel("err_h_update")
@@ -133,19 +132,18 @@ class GradientDescent(nn_units.GradientDescentBase):
                                        self.weights.devmem,
                                        self.gradient_weights.devmem)
 
-            self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_args(self.err_output.devmem, self.bias.devmem,
-                                    self.gradient_bias.devmem)
+            if self.include_bias:
+                self.krn_bias_ = self.get_kernel("bias_update")
+                self.krn_bias_.set_args(
+                    self.err_output.devmem, self.bias.devmem,
+                    self.gradient_bias.devmem)
 
     def cpu_weights_update(self):
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
-        self.bias.map_write()
-        self.gradient_weights.map_invalidate()
-        self.gradient_bias.map_invalidate()
+        self.gradient_weights.map_write()
 
-        # weights
         alpha = -self.learning_rate
         alpha_lambda = -self.learning_rate * self.weights_decay
 
@@ -170,11 +168,18 @@ class GradientDescent(nn_units.GradientDescentBase):
             else:
                 self.weights.mem += gradient
 
-        # bias
+    def cpu_bias_update(self):
+        if not self.include_bias:
+            return
+
+        self.err_output.map_read()
+        self.bias.map_write()
+        self.gradient_bias.map_write()
+
         alpha = -self.learning_rate_bias
         alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
 
-        gradient = err_output.sum(axis=0)
+        gradient = self.err_output.mem.sum(axis=0)
         if self.error_function_averaged:
             gradient /= self.current_batch_size
         gradient *= alpha
@@ -189,9 +194,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.input.unmap()
         self.err_output.unmap()
         self.weights.unmap()
-        self.bias.unmap()
         self.gradient_weights.unmap()
-        self.gradient_bias.unmap()
 
         self.cl_const[0] = -self.learning_rate
         if self.error_function_averaged:
@@ -218,6 +221,14 @@ class GradientDescent(nn_units.GradientDescentBase):
                     block_size)]
         local_size = [block_size, block_size]
         self.execute_kernel(global_size, local_size, self.krn_weights_)
+
+    def gpu_bias_update(self):
+        if not self.include_bias:
+            return
+
+        self.err_output.unmap()
+        self.bias.unmap()
+        self.gradient_bias.unmap()
 
         self.cl_const[0] = -self.learning_rate_bias
         if self.error_function_averaged:
@@ -338,6 +349,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
+        self.cpu_bias_update()
         self.print_debug_data(t1)
 
     def ocl_run(self):
@@ -347,6 +359,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
+        self.gpu_bias_update()
         self.print_debug_data(t1)
 
 

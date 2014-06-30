@@ -41,7 +41,7 @@ class Loader(mnist.Loader):
         """
         super(Loader, self).load_data()
         self.class_targets.reset()
-        print("root.common.dtype", root.common.dtype)
+        self.info("root.common.precision_type", root.common.precision_type)
         self.class_targets.mem = numpy.array(
             [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
              [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
@@ -53,10 +53,10 @@ class Loader(mnist.Loader):
              [1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 7
              [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 8
              [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
-            dtype=opencl_types.dtypes[root.common.dtype])
+            dtype=opencl_types.dtypes[root.common.precision_type])
         self.original_target = numpy.zeros(
             [self.original_labels.shape[0], 7],
-            dtype=opencl_types.dtypes[root.common.dtype])
+            dtype=opencl_types.dtypes[root.common.precision_type])
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
             self.original_target[i] = self.class_targets[label]

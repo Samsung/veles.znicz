@@ -91,12 +91,8 @@ class Conv(nn_units.Forward):
         """
         n_channels = (self.input.mem.size // (self.input.mem.shape[0] *
                       self.input.mem.shape[1] * self.input.mem.shape[2]))
-        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
-            vle = (1.0 / self.input.supposed_maxvle /
-                   numpy.sqrt(self.kx * self.ky * n_channels))
-        else:
-            vle = (9.0 / self.input.supposed_maxvle /
-                   numpy.sqrt(self.kx * self.ky * n_channels))
+        vle = (1.0 / self.input.supposed_maxvle /
+               numpy.sqrt(self.kx * self.ky * n_channels))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -151,6 +147,8 @@ class Conv(nn_units.Forward):
 
         defines = {
             self.s_activation: 1,
+            'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
+            'INCLUDE_BIAS': int(self.include_bias),
             'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
             'BATCH': self._batch_size,
@@ -167,15 +165,16 @@ class Conv(nn_units.Forward):
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1]
         }
-        if self.weights_transposed:
-            defines['WEIGHTS_TRANSPOSED'] = 1
         self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
             root.common.cache_dir, self._sx, self._sy, self._n_channels,
             self.kx, self.ky, self.n_kernels),
             dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
-        self.set_args(self.input, self.weights, self.output, self.bias)
+        if self.include_bias:
+            self.set_args(self.input, self.weights, self.bias, self.output)
+        else:
+            self.set_args(self.input, self.weights, self.output)
 
     def print_debug_data(self, t_start):
         """Show some statistics.
@@ -271,7 +270,8 @@ class Conv(nn_units.Forward):
         """Add bias and apply linear activation function.
         """
         assert self.s_activation == "ACTIVATION_LINEAR"
-        self.output.mem += self.bias.mem
+        if self.include_bias:
+            self.output.mem += self.bias.mem
 
     def _fill_weights(self):
         """
@@ -309,6 +309,8 @@ class Conv(nn_units.Forward):
         Fills filter biases according to `bias_filling` attribute.
         Called within ``initialize`` method.
         """
+        if not self.include_bias:
+            return
         if (self.bias.mem is None or
                 self.bias.mem.size != self.n_kernels):
             self.bias.reset()
@@ -379,24 +381,6 @@ class ConvTanh(Conv):
         self.s_activation = "ACTIVATION_TANH"
         super(ConvTanh, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 1.7159
-
-    def get_weights_magnitude(self):
-        """
-        Returns: weights magnitude for initial random distribution,
-                 such that activation function will be near maximum
-                 if all input values are at their supposed max value.
-        """
-        self._n_channels = (self.input.mem.size //
-                            numpy.prod(self.input.mem.shape[:3]))
-        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
-            vle = (1.0 / (self.input.supposed_maxvle * 0.6666) /
-                   (self.kx * self.ky * self._n_channels))
-        else:
-            vle = (9.0 / (self.input.supposed_maxvle * 0.6666) /
-                   (self.kx * self.ky * self._n_channels))
-        if self.weights_filling == "gaussian":
-            vle /= 3
-        return vle
 
     def apply_activation(self):
         """Add bias and apply tanh activation function.

@@ -31,7 +31,7 @@ class TestAll2All(unittest.TestCase):
     def test_with_fixed_input(self):
         logging.info("Will test all2all unit")
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
                                [0, 1, 2, 1, 0],
                                [0, 1, 0, 1, 0],
@@ -69,7 +69,7 @@ class TestAll2All(unittest.TestCase):
 
     def _do_test(self, device, Unit):
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.empty([1999, 1777], dtype=dtype)
         prng.get().fill(inp.mem)
 

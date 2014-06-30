@@ -9,7 +9,6 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.config import root
 from veles.distributable import TriviallyDistributable
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -70,11 +69,13 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
+        dtype = self.output.mem.dtype
+
         if (self.err_output.mem is None or
                 self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                              dtype=self.output.mem.dtype)
+                                              dtype=dtype)
 
         if self.n_err.mem is None:
             self.n_err.reset()
@@ -95,8 +96,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         if (self.max_err_output_sum.mem is None or
                 self.max_err_output_sum.mem.size < 1):
             self.max_err_output_sum.reset()
-            self.max_err_output_sum.mem = numpy.zeros(
-                1, dtype=opencl_types.dtypes[root.common.dtype])
+            self.max_err_output_sum.mem = numpy.zeros(1, dtype=dtype)
 
         self.output.initialize(self.device)
         self.err_output.initialize(self.device)
@@ -112,9 +112,8 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
 
         defines = {
-            'BLOCK_SIZE':
-            self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
+            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(dtype)],
             'BATCH': self.err_output.mem.shape[0],
             'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
         }
@@ -122,7 +121,7 @@ class EvaluatorSoftmax(OpenCLUnit, TriviallyDistributable):
         self.build_program(defines, "ev_%d.cl" %
                            (self.output.mem.size //
                             self.output.mem.shape[0]),
-                           dtype=self.output.mem.dtype)
+                           dtype=dtype)
 
         self.assign_kernel("ev_sm")
         self.set_args(self.output, self.max_idx, self.labels,
@@ -239,24 +238,24 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator.cl"] = {}
 
+        dtype = self.output.mem.dtype
+
         if (self.err_output.mem is None or
                 self.err_output.mem.size != self.output.mem.size):
             self.err_output.reset()
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                              dtype=self.output.mem.dtype)
+                                              dtype=dtype)
 
         if self.metrics.mem is None or self.metrics.mem.size < 3:
             self.metrics.reset()
-            self.metrics.mem = numpy.zeros(
-                3, dtype=opencl_types.dtypes[root.common.dtype])
+            self.metrics.mem = numpy.zeros(3, dtype=dtype)
             self.metrics[2] = 1.0e30  # mse_min
 
         if (self.mse.mem is None or
                 self.mse.mem.size != self.err_output.mem.shape[0]):
             self.mse.reset()
-            self.mse.mem = numpy.zeros(
-                self.err_output.mem.shape[0],
-                dtype=opencl_types.dtypes[root.common.dtype])
+            self.mse.mem = numpy.zeros(self.err_output.mem.shape[0],
+                                       dtype=dtype)
 
         if (self.labels is not None and self.class_targets is not None and
                 (self.n_err.mem is None or self.n_err.mem.size < 2)):
@@ -280,9 +279,8 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
 
         if self.program_ is None:
             defines = {
-                'BLOCK_SIZE':
-                self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)],
+                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                    opencl_types.numpy_dtype_to_opencl(dtype)],
                 'BATCH': self.err_output.mem.shape[0],
                 'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
                 'SAMPLE_SIZE': 'Y',
@@ -292,7 +290,7 @@ class EvaluatorMSE(OpenCLUnit, TriviallyDistributable):
             self.build_program(defines, "ev_%d.cl" %
                                (self.output.mem.size //
                                 self.output.mem.shape[0]),
-                               dtype=self.output.mem.dtype)
+                               dtype=dtype)
 
             self.assign_kernel("ev_mse")
             self.set_args(self.output, self.target, self.err_output,

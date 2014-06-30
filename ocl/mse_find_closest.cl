@@ -7,7 +7,7 @@
 /// @param t matrix of targets
 /// @param distances matrix of distances
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void mse_find_distances(__global c_dtype *y, __global c_dtype *t,
+void mse_find_distances(__global dtype *y, __global dtype *t,
                         __global dtype *distances) {
 }
 
@@ -27,7 +27,7 @@ void mse_find_closest(__global dtype *distances,
 /// @param t matrix of targets
 /// @param n_err number of errors.
 __kernel
-void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
+void mse_find_closest(__global dtype *y, __global dtype *t,
                       __global int *labels, __global volatile int *n_err) {
   int i_sample = get_global_id(0);
   int y_offs = SAMPLE_SIZE * i_sample;
@@ -37,7 +37,7 @@ void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
   for (int i = 0; i < N_TARGETS; i++, t_offs += SAMPLE_SIZE) {
     dtype smm = 0;
     for (int j = 0; j < SAMPLE_SIZE; j++) {
-      smm += c_norm(y[y_offs + j] - t[t_offs + j]);
+      smm += fabs(y[y_offs + j] - t[t_offs + j]);
     }
     if (smm < d_min) {
       d_min = smm;
@@ -45,6 +45,6 @@ void mse_find_closest(__global c_dtype *y, __global c_dtype *t,
     }
   }
   if (labels[i_sample] != i_min) {
-  	atom_inc(n_err);
+  	atomic_inc(n_err);
   }
 }

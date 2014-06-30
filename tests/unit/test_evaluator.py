@@ -30,7 +30,7 @@ class TestEvaluator(unittest.TestCase):
         batch_size = 25
         sample_size = 7500
 
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         output = numpy.empty([batch_size, sample_size], dtype=dtype)
         random_generator.get().fill(output)
 
@@ -59,7 +59,7 @@ class TestEvaluator(unittest.TestCase):
         batch_size = 25
         n_classes = 75
 
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         output = numpy.empty([batch_size, n_classes], dtype=dtype)
         random_generator.get().fill(output)
         max_idx = numpy.empty(batch_size, dtype=numpy.int32)

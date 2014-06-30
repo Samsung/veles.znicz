@@ -115,7 +115,8 @@ class All2All(nn_units.Forward):
                 a = self.weights.mem.transpose().copy()
                 self.weights.mem.shape = a.shape
                 self.weights.mem[:] = a[:]
-        if self.bias.mem is None or self.bias.mem.size != output_size:
+        if (self.include_bias and (self.bias.mem is None or
+                                   self.bias.mem.size != output_size)):
             self.bias.reset()
             self.bias.mem = numpy.zeros(output_size,
                                         dtype=self.input.mem.dtype)
@@ -146,20 +147,23 @@ class All2All(nn_units.Forward):
 
         defines = {
             self.s_activation: 1,
-            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
+            "INCLUDE_BIAS": int(self.include_bias),
+            "BLOCK_SIZE": self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
-            'H': self.weights.mem.size // output_size,
-            'Y': output_size,
-            'BATCH': self.output.mem.shape[0]}
-        if self.weights_transposed:
-            defines['WEIGHTS_TRANSPOSED'] = 1
+            "H": self.weights.mem.size // output_size,
+            "Y": output_size,
+            "BATCH": self.output.mem.shape[0]}
         self.build_program(defines, "feed_%d_%d.cl" %
                            (self.input.mem.size // self.input.mem.shape[0],
                             output_size),
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
-        self.set_args(self.input, self.weights, self.output, self.bias)
+        if self.include_bias:
+            self.set_args(self.input, self.weights, self.bias, self.output)
+        else:
+            self.set_args(self.input, self.weights, self.output)
 
         output_size = int(self.output.mem.size // self.output.mem.shape[0])
         block_size = self.device.device_info.BLOCK_SIZE[
@@ -217,7 +221,8 @@ class All2All(nn_units.Forward):
         if not self.weights_transposed:
             b = b.transpose()
         mem = numpy.dot(a, b)
-        mem += self.bias.mem
+        if self.include_bias:
+            mem += self.bias.mem
         formats.reshape(self.output.mem, mem.shape)[:] = mem[:]
 
 

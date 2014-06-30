@@ -23,7 +23,7 @@ class TestKohonen(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
-        self.dtype = opencl_types.dtypes[root.common.dtype]
+        self.dtype = opencl_types.dtypes[root.common.precision_type]
         self.input = numpy.array([[1, 2, 3, 2, 1],
                                   [0, 1, 2, 1, 0],
                                   [0, 1, 0, 1, 0],

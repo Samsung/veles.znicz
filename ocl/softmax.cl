@@ -13,8 +13,8 @@
 ///          BATCH - minibatch size,
 ///          Y - output size.
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
-void apply_exp(__global c_dtype *y, __global int *max_idx) {
-  __local c_dtype AS[REDUCE_SIZE];
+void apply_exp(__global dtype *y, __global int *max_idx) {
+  __local dtype AS[REDUCE_SIZE];
   __local int IS[REDUCE_SIZE];
 
   int bx = get_group_id(0); // from 0 to number of resulting output elements
@@ -23,12 +23,12 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
 
   // 1. Find the maximum element
 
-  c_dtype max_vle = c_from_re(-MAXFLOAT);
+  dtype max_vle = -MAXFLOAT;
   int max_vle_idx = 0;
 
   int offs = bx * Y + tx, i_offs = tx;
   for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE, i_offs += REDUCE_SIZE) {
-    if (c_re(max_vle) < c_re(y[offs])) {
+    if (max_vle < y[offs]) {
       max_vle = y[offs];
       max_vle_idx = i_offs;
     }
@@ -36,7 +36,7 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   // Process the remaining part
   #if (Y % REDUCE_SIZE) != 0
   if (tx < Y % REDUCE_SIZE) {
-    if (c_re(max_vle) < c_re(y[offs])) {
+    if (max_vle < y[offs]) {
       max_vle = y[offs];
       max_vle_idx = i_offs;
     }
@@ -52,14 +52,14 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   int n = MIN(Y, REDUCE_SIZE);
   while (n > 1) {
     if (n & 1) {
-      if (c_re(max_vle) < c_re(AS[n - 1])) {
+      if (max_vle < AS[n - 1]) {
         max_vle = AS[n - 1];
         max_vle_idx = IS[n - 1];
       }
     }
     n >>= 1;
     if (tx < n) {
-      if (c_re(AS[tx]) < c_re(AS[n + tx])) {
+      if (AS[tx] < AS[n + tx]) {
         AS[tx] = AS[n + tx];
         IS[tx] = IS[n + tx];
       }
@@ -68,7 +68,7 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
     barrier(CLK_LOCAL_MEM_FENCE);
   }
   if (!tx) {
-    if (c_re(AS[0]) < c_re(max_vle)) {
+    if (AS[0] < max_vle) {
       AS[0] = max_vle;
       IS[0] = max_vle_idx;
     }
@@ -83,16 +83,16 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   barrier(CLK_LOCAL_MEM_FENCE);
 
   // 2. Find the sum(exp(x - max))
-  c_dtype sum = c_from_re(0);
+  dtype sum = 0;
 
   offs = bx * Y + tx;
   for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
-    sum += c_exp(y[offs] - max_vle);
+    sum += exp(y[offs] - max_vle);
   }
   // Process the remaining part
   #if (Y % REDUCE_SIZE) != 0
   if (tx < Y % REDUCE_SIZE) {
-    sum += c_exp(y[offs] - max_vle);
+    sum += exp(y[offs] - max_vle);
   }
   #endif
 
@@ -101,7 +101,7 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   barrier(CLK_LOCAL_MEM_FENCE);
 
   // Process found elements
-  sum = c_from_re(0);
+  sum = 0;
   n = MIN(Y, REDUCE_SIZE);
   while (n > 1) {
     if (n & 1) {
@@ -126,12 +126,12 @@ void apply_exp(__global c_dtype *y, __global int *max_idx) {
   // 3. Output exp(x - max) / sum
   offs = bx * Y + tx;
   for (int i = 0; i < Y / REDUCE_SIZE; i++, offs += REDUCE_SIZE) {
-    y[offs] = c_div(c_exp(y[offs] - max_vle), sum);
+    y[offs] = exp(y[offs] - max_vle) / sum;
   }
   // Process the remaining part
   #if (Y % REDUCE_SIZE) != 0
   if (tx < Y % REDUCE_SIZE) {
-    y[offs] = c_div(c_exp(y[offs] - max_vle), sum);
+    y[offs] = exp(y[offs] - max_vle) / sum;
   }
   #endif
 }

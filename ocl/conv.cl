@@ -1,6 +1,14 @@
 #include "defines.cl"
 #include "highlight.cl"
 
+#ifndef INCLUDE_BIAS
+#error "INCLUDE_BIAS should be defined"
+#endif
+
+#ifndef WEIGHTS_TRANSPOSED
+#error "WEIGHTS_TRANSPOSED should be defined"
+#endif
+
 /// @brief Feeds 2D multichannel convolutional layer with activation function:
 ///        linear activation: x;
 ///        scaled tanh activation: 1.7159 * tanh(0.6666 * x),
@@ -31,8 +39,12 @@
 ///          The process we are doing here equal to the convolution with reflected weights matrix,
 ///          and it is so in favor of the nature of the process of applying neurons (i.e. kernels) to each point of the input image.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
-                __global c_dtype /*OUT*/ *y, __global c_dtype /*IN*/ *bias) {
+void feed_layer(__global const dtype    /* IN */    *h,
+                __global const dtype    /* IN */    *weights,
+                #if INCLUDE_BIAS > 0
+                __global dtype          /* IN */    *bias,
+                #endif
+                __global dtype         /* OUT */    *y) {
 
   #define SX_FULL (SX + PAD_LEFT + PAD_RIGHT)
   #define SY_FULL (SY + PAD_TOP + PAD_BOTTOM)
@@ -48,7 +60,7 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #define A h
   #define B weights
 
-  #ifdef WEIGHTS_TRANSPOSED
+  #if WEIGHTS_TRANSPOSED > 0
   #define B_COL
   #endif
 
@@ -77,23 +89,25 @@ void feed_layer(__global c_dtype /*IN*/ *h, __global c_dtype /*IN*/ *weights,
   #undef A
   #undef B
 
-  if ((valid) && (!ty)) // read from memory only for the first row
-    AS[0][tx] = bias[bx * BLOCK_SIZE + tx];
-
+  #if INCLUDE_BIAS > 0
+  if ((valid) && (!ty)) {  // read from memory only for the first row
+    AS[tx] = bias[bx * BLOCK_SIZE + tx];
+  }
   barrier(CLK_LOCAL_MEM_FENCE);
+  sum += AS[tx];
+  #endif
 
   if (valid) {
-    c_dtype s = sum[0] + AS[0][tx];
     #if ACTIVATION_LINEAR > 0
-    y[idx] = s;
+      y[idx] = sum;
     #elif ACTIVATION_TANH > 0
-    y[idx] = c_tanh(s * (dtype)0.6666) * (dtype)1.7159;
+      y[idx] = tanh(sum * (dtype)0.6666) * (dtype)1.7159;
     #elif ACTIVATION_RELU > 0
-    y[idx] = c_relu(s);
+      y[idx] = sum > 15 ? sum : log(exp(sum) + 1);
     #elif ACTIVATION_STRICT_RELU > 0
-      y[idx] = (s > 0) ? s : 0;
+      y[idx] = max(sum, (dtype)0.0);
     #else
-    #error "Activation function should be defined"
+      #error "Activation function should be defined"
     #endif
   }
 }

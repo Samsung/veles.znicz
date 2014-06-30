@@ -24,14 +24,14 @@
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void ev_sm(__global const c_dtype    /* IN */    *y,
-           __global const int        /* IN */    *max_idx,
-           __global const int        /* IN */    *labels,
-           __global c_dtype         /* OUT */    *err_y,
-           __global int              /* IO */    *n_err,
-           __global int              /* IO */    *confusion_matrix,
-           __global dtype            /* IO */    *max_err_y_sum,
-           const int                 /* IN */    batch_size) {
+void ev_sm(__global const dtype    /* IN */    *y,
+           __global const int      /* IN */    *max_idx,
+           __global const int      /* IN */    *labels,
+           __global dtype         /* OUT */    *err_y,
+           __global int       /* IN, OUT */    *n_err,
+           __global int       /* IN, OUT */    *confusion_matrix,
+           __global dtype     /* IN, OUT */    *max_err_y_sum,
+           const int               /* IN */    batch_size) {
   __local int IM[BLOCK_SIZE], IREAL[BLOCK_SIZE];
   __local dtype SM[BLOCK_SIZE];
   int tx = get_local_id(0);
@@ -53,21 +53,21 @@ void ev_sm(__global const c_dtype    /* IN */    *y,
       if (im == ireal) {
         n_ok++;
       }
-      c_dtype vle;
+      dtype vle;
       for (int j = 0; j < ireal; j++) {
         vle = y[y_start + j];
         err_y[y_start + j] = vle;
-        err_y_sum += c_norm(vle);
+        err_y_sum += fabs(vle);
       }
 
-      vle = y[y_start + ireal] - c_from_re(1);
+      vle = y[y_start + ireal] - 1;
       err_y[y_start + ireal] = vle;
-      err_y_sum += c_norm(vle);
+      err_y_sum += fabs(vle);
 
       for (int j = ireal + 1; j < Y; j++) {
         vle = y[y_start + j];
         err_y[y_start + j] = vle;
-        err_y_sum += c_norm(vle);
+        err_y_sum += fabs(vle);
       }
     } else if (i_sample < BATCH) { // set excessive gradients to zero
       for (int j = 0; j < Y; j++)
@@ -125,12 +125,12 @@ void ev_sm(__global const c_dtype    /* IN */    *y,
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, 1, 1)))
-void ev_mse(__global const c_dtype    /* IN */    *y,
-            __global const c_dtype    /* IN */    *target,
-            __global c_dtype         /* OUT */    *err_y,
-            __global dtype            /* IO */    *metrics,
-            __global dtype           /* OUT */    *mse,
-            const int batch_size) {
+void ev_mse(__global const dtype    /* IN */    *y,
+            __global const dtype    /* IN */    *target,
+            __global dtype         /* OUT */    *err_y,
+            __global dtype     /* IN, OUT */    *metrics,
+            __global dtype         /* OUT */    *mse,
+            const int               /* IN */    batch_size) {
   __local dtype SM[BLOCK_SIZE], SM1[BLOCK_SIZE], SM2[BLOCK_SIZE];
   int tx = get_local_id(0);
   int i_sample = tx;
@@ -140,13 +140,13 @@ void ev_mse(__global const c_dtype    /* IN */    *y,
   // Compute err_y and fill the confusion matrix
   for (int i = 0; i < N_BLOCKS; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
     if (i_sample < batch_size) {
-      c_dtype vle, vle_target;
+      dtype vle, vle_target;
       dtype sample_sse = 0;
       for (int j = 0; j < Y; j++) {
         vle = y[y_start + j];
         vle_target = target[y_start + j];
         vle -= vle_target;
-        sample_sse += c_norm2(vle);
+        sample_sse += vle * vle;
         err_y[y_start + j] = vle;
       }
       dtype sample_mse = sqrt(sample_sse / Y);

@@ -51,8 +51,9 @@ class Loader(loader.FullBatchLoader):
             if not len(s):
                 break
             aa.append(
-                numpy.fromstring(s, sep=",",
-                                 dtype=opencl_types.dtypes[root.common.dtype]))
+                numpy.fromstring(
+                    s, sep=",",
+                    dtype=opencl_types.dtypes[root.common.precision_type]))
             max_lbl = max(max_lbl, int(aa[-1][0]))
         fin.close()
 

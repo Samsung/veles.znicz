@@ -40,8 +40,9 @@
 ///          global_size = [number of elements in err_y],
 ///          local_size = None.
 __kernel
-void gd_max_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *err_h,
-                    __global int /*IN*/ *h_offs) {
+void gd_max_pooling(__global const dtype    /* IN */    *err_y,
+                    __global dtype         /* OUT */    *err_h,
+                    __global const int      /* IN */    *h_offs) {
   int idx = get_global_id(0);
   #if (SLIDE_X >= KX) && (SLIDE_Y >= KY)
   err_h[h_offs[idx]] = err_y[idx];
@@ -68,7 +69,8 @@ void gd_max_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
 ///          global_size = [number of elements in err_y],
 ///          local_size = None.
 __kernel
-void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *err_h) {
+void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
+                    __global dtype         /* OUT */    *err_h) {
   int target_x = get_global_id(0) % (OUT_SX * N_CHANNELS),
       target_y = get_global_id(0) / (OUT_SX * N_CHANNELS);
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
@@ -87,7 +89,7 @@ void gd_avg_pooling(__global c_dtype /*IN*/ *err_y, __global c_dtype /*OUT*/ *er
   #endif
 
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
-  c_dtype avg = err_y[idx] / (NY * NX);
+  dtype avg = err_y[idx] / (NY * NX);
 
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
   #if (OUT_SY - 1) * SLIDE_Y + KY == SY

@@ -36,12 +36,12 @@
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 __kernel
-void do_max_abs_pooling(__global const c_dtype    /* IN */    *h,
-                        __global c_dtype         /* OUT */    *y,
-                        __global int             /* OUT */    *h_offs) {
+void do_max_abs_pooling(__global const dtype    /* IN */    *h,
+                        __global dtype         /* OUT */    *y,
+                        __global int           /* OUT */    *h_offs) {
 
   dtype max_absvle = -1;
-  c_dtype max_vle = c_from_re(0);
+  dtype max_vle = 0;
   int max_offs = 0;
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
@@ -64,8 +64,8 @@ void do_max_abs_pooling(__global const c_dtype    /* IN */    *h,
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
     #endif
-      c_dtype vle = h[offs + x];
-      dtype absvle = c_norm(vle);
+      dtype vle = h[offs + x];
+      dtype absvle = fabs(vle);
       if (absvle > max_absvle) {
         max_absvle = absvle;
         max_vle = vle;
@@ -97,11 +97,11 @@ void do_max_abs_pooling(__global const c_dtype    /* IN */    *h,
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 __kernel
-void do_max_pooling(__global const c_dtype    /* IN */    *h,
-                    __global c_dtype         /* OUT */    *y,
-                    __global int             /* OUT */    *h_offs) {
+void do_max_pooling(__global const dtype    /* IN */    *h,
+                    __global dtype         /* OUT */    *y,
+                    __global int           /* OUT */    *h_offs) {
 
-  c_dtype max_vle = c_from_re(-MAXFLOAT);
+  dtype max_vle = -MAXFLOAT;
   int max_offs = 0;
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
@@ -124,8 +124,8 @@ void do_max_pooling(__global const c_dtype    /* IN */    *h,
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
     #endif
-      c_dtype vle = h[offs + x];
-      if (c_re(vle) > c_re(max_vle)) {
+      dtype vle = h[offs + x];
+      if (vle > max_vle) {
         max_vle = vle;
         max_offs = offs + x;
       }
@@ -153,9 +153,10 @@ void do_max_pooling(__global const c_dtype    /* IN */    *h,
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 __kernel
-void do_avg_pooling(__global c_dtype /*IN*/ *h, __global c_dtype /*OUT*/ *y) {
+void do_avg_pooling(__global const dtype    /* IN */    *h,
+                    __global dtype         /* OUT */    *y) {
 
-  c_dtype smm = c_from_re(0);
+  dtype smm = 0;
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
 

@@ -19,20 +19,17 @@ import veles.znicz.gd_conv as gd_conv
 from veles.tests.dummy_workflow import DummyWorkflow
 
 
-class TestGDConv(unittest.TestCase):
+class TestGDRELUConv(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    def tearDown(self):
-        del self.device
-
-    def test_err_input(self):
+    def test_fixed(self):
         logging.info("Will test RELU convolutional layer back propagation")
 
         inp = formats.Vector()
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[[-1, 0, 2, 0, 3],
                               [0, 1, -2, 1, 2],
                               [2, 0, 1, 1, 0],
@@ -87,10 +84,10 @@ class TestGDConv(unittest.TestCase):
         bias_new = bias + gradient_bias
 
         c.initialize(device=self.device)
-        c.gpu_err_output_update()
-        c.gpu_err_input_update()
-        c.gpu_weights_update()
+        c.run()
+        """
         c.err_input.map_read()
+        """
         c.weights.map_read()
         c.bias.map_read()
 

@@ -16,9 +16,9 @@
 ///          SAMPLE_LENGTH - the length of each sample,
 ///          NEURONS_NUMBER - the number of neurons.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void calculate_distances(__global const c_dtype    /* IN */    *input,
-                         __global const c_dtype    /* IN */    *weights,
-                         __global dtype           /* OUT */    *output) {
+void calculate_distances(__global const dtype    /* IN */    *input,
+                         __global const dtype    /* IN */    *weights,
+                         __global dtype         /* OUT */    *output) {
   #define A_WIDTH BATCH
   #define B_WIDTH NEURONS_NUMBER
   #define AB_COMMON SAMPLE_LENGTH
@@ -30,7 +30,7 @@ void calculate_distances(__global const c_dtype    /* IN */    *input,
   #define B_COL
   #endif
 
-  #define MULTIPLY c_dist2
+  #define MULTIPLY(a, b) (((a) - (b)) * ((a) - (b)))
 
   #include "matrix_multiplication.cl"
 
@@ -42,7 +42,7 @@ void calculate_distances(__global const c_dtype    /* IN */    *input,
   #undef B
 
   if (valid) {
-    output[idx] = sum[0];
+    output[idx] = sum;
   }
 }
 
@@ -139,9 +139,9 @@ void calculate_argmin(__global const dtype /* IN */   *dists,
 ///          BATCH - the number of input samples,
 ///          COPY_CHUNK_SIZE - the number of winners processed at a time.
 __kernel
-void set_total(__global int         /* IN */    *argmins,
-               int                  /* IN */    batch_offset,
-               __global int        /* OUT */    *total) {
+void set_total(__global const int    /* IN */    *argmins,
+               const int             /* IN */    batch_offset,
+               __global int         /* OUT */    *total) {
   int offset = get_global_id(0);
   for (int i = offset * COPY_CHUNK_SIZE;
       i < MIN((offset + 1) * COPY_CHUNK_SIZE, BATCH);
@@ -182,10 +182,10 @@ void compute_gravity(__global const int           /* IN */    *argmin,
 ///          GRADIENT_CHUNK_SIZE - the number of weights processed by each thread,
 ///          NEURONS_NUMBER - the number of neurons.
 __kernel
-void apply_gradient(__global const c_dtype /* IN */      *input,
-                    __global const dtype   /* IN */      *gravity,
-                    const dtype            /* IN */      time_reciprocal,
-                    __global c_dtype       /* IN, OUT */ *weights) {
+void apply_gradient(__global const dtype    /* IN */    *input,
+                    __global const dtype    /* IN */    *gravity,
+                    const dtype             /* IN */    time_reciprocal,
+                    __global dtype     /* IN, OUT */    *weights) {
   int chunk_number = get_global_id(0);
   int tindex = get_global_id(1);
   int weight_number = chunk_number * GRADIENT_CHUNK_SIZE + tindex;
@@ -193,7 +193,7 @@ void apply_gradient(__global const c_dtype /* IN */      *input,
     return;
   }
 
-  c_dtype orig_weights[NEURONS_NUMBER];
+  dtype orig_weights[NEURONS_NUMBER];
   for (int n = 0; n < NEURONS_NUMBER; n++) {
 #ifndef WEIGHTS_TRANSPOSED
     int twi = n * SAMPLE_LENGTH + weight_number;

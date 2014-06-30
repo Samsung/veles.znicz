@@ -36,7 +36,7 @@ class Workflow(OpenCLWorkflow):
         ConvGD = kwargs["ConvGD"]
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        dtype = opencl_types.dtypes[root.common.dtype]
+        dtype = opencl_types.dtypes[root.common.precision_type]
         self.batch_size = 2
 
         self.input = numpy.zeros([self.batch_size, 8, 8, 3], dtype=dtype)
@@ -156,8 +156,7 @@ class Workflow(OpenCLWorkflow):
         # Gradient descent for second separate activation layer
         self.act_backward2 = activation.BackwardStrictRELU(self)
         self.act_backward2.link_from(prev)
-        self.act_backward2.link_attrs(prev,
-                                     ("err_output", "err_input"))
+        self.act_backward2.link_attrs(prev, ("err_output", "err_input"))
         self.act_backward2.link_attrs(self.act_forward2, "input", "output")
         prev = self.act_backward2
 

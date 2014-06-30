@@ -15,7 +15,6 @@ import numpy as np
 from zope.interface import implementer
 
 from veles.znicz.nn_units import OpenCLUnit, Forward, GradientDescentBase
-from veles import formats
 from veles.opencl_units import IOpenCLUnit
 
 
@@ -58,23 +57,14 @@ class LRNormalizerForward(Forward, LocalResponseNormalizer):
     """
     Forward propagation of local response normalization.
     """
-    def __init__(self, workflow, **kwargs):
-        self.input = None  # input value of forward layer
-        self.output = formats.Vector()  # output value of forward layer
-
-        self.weights = None  # dummy attrs
-        self.bias = None  # dummy attrs
-
-        super(LRNormalizerForward, self).__init__(workflow, **kwargs)
-
     def init_unpickled(self):
         super(LRNormalizerForward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
-        self.output.mem = np.ndarray(shape=self.input.mem.shape,
-                                     dtype=self.input.mem.dtype)
+        self.output.mem = np.zeros(shape=self.input.mem.shape,
+                                   dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
@@ -120,14 +110,6 @@ class LRNormalizerBackward(GradientDescentBase, LocalResponseNormalizer):
     """
     Backward-propagation for local response normalization.
     """
-    def __init__(self, workflow, **kwargs):
-        self.output = None  # output of forward layer
-        self.input = None  # input of forward layer
-        self.err_output = None  # output error of fwd unit, our input error
-        self.err_input = formats.Vector()  # in error of fwd unit, our output
-
-        super(LRNormalizerBackward, self).__init__(workflow, **kwargs)
-
     def init_unpickled(self):
         super(LRNormalizerBackward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}

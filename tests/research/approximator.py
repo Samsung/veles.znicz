@@ -53,7 +53,7 @@ class Loader(loader.ImageLoader):
             raise error.BadFormatError("Could not find variable to import "
                                        "in %s" % (fnme))
         aa = numpy.zeros(vle.shape, dtype=opencl_types.dtypes[
-            root.common.dtype])
+            root.common.precision_type])
         aa[:] = vle[:]
         return (aa, [])
 

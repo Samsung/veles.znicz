@@ -45,16 +45,19 @@ class Forward(OpenCLUnit):
         self.bias_filling = kwargs.get("bias_filling", "uniform")
         self.rand = kwargs.get("rand", prng.get())
         self.weights_transposed = kwargs.get("weights_transposed", False)
+        self.include_bias = kwargs.get("include_bias", True)
         self.input = None
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
-        self.exports = ["weights", "bias", "weights_transposed"]
+        self.exports = ["weights", "bias",
+                        "include_bias", "weights_transposed"]
 
     def generate_data_for_slave(self, slave):
         self.weights.map_read()
         self.bias.map_read()
-        data = (self.weights.mem.copy(), self.bias.mem.copy())
+        data = (self.weights.mem.copy(),
+                self.bias.mem.copy() if self.bias.mem is not None else None)
         return data
 
     def generate_data_for_master(self):
@@ -64,7 +67,8 @@ class Forward(OpenCLUnit):
         self.weights.map_invalidate()
         self.bias.map_invalidate()
         numpy.copyto(self.weights.mem, data[0])
-        numpy.copyto(self.bias.mem, data[1])
+        if self.bias.mem is not None:
+            numpy.copyto(self.bias.mem, data[1])
 
     def apply_data_from_slave(self, data, slave):
         pass
@@ -113,6 +117,7 @@ class GradientDescentBase(OpenCLUnit):
         apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
         need_err_input = kwargs.get("need_err_input", True)
         error_function_averaged = kwargs.get("error_function_averaged", False)
+        include_bias = kwargs.get("include_bias", True)
         kwargs["learning_rate"] = learning_rate
         kwargs["learning_rate_bias"] = learning_rate_bias
         kwargs["weights_decay"] = weights_decay
@@ -125,6 +130,7 @@ class GradientDescentBase(OpenCLUnit):
         kwargs["gradient_moment_bias"] = gradient_moment_bias
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         kwargs["error_function_averaged"] = error_function_averaged
+        kwargs["include_bias"] = include_bias
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.input = None
         self.output = None
@@ -148,6 +154,7 @@ class GradientDescentBase(OpenCLUnit):
         self.error_function_averaged = error_function_averaged
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
+        self.include_bias = include_bias
 
     @property
     def current_batch_size(self):
