@@ -70,12 +70,8 @@ class All2All(nn_units.Forward):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
-            vle = (1.0 / self.input.supposed_maxvle /
-                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
-        else:
-            vle = (9.0 / self.input.supposed_maxvle /
-                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
+        vle = (1.0 / self.input.supposed_maxvle /
+               numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -204,7 +200,6 @@ class All2All(nn_units.Forward):
         self.input.unmap()
         self.weights.unmap()
         self.bias.unmap()
-
         self.execute_kernel(self._global_size_, self._local_size_)
 
     def cpu_run(self):
@@ -237,19 +232,6 @@ class All2AllTanh(All2All):
         self.s_activation = "ACTIVATION_TANH"
         super(All2AllTanh, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = All2AllTanh.A
-
-    def get_weights_magnitude(self):
-        if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
-            vle = (1.0 / (self.input.supposed_maxvle * All2AllTanh.B) /
-                   numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
-        else:
-            vle = (All2AllTanh.C /
-                   (self.input.supposed_maxvle * All2AllTanh.B *
-                    numpy.sqrt(self.input.mem.size //
-                               self.input.mem.shape[0])))
-        if self.weights_filling == "gaussian":
-            vle /= 3
-        return vle
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
