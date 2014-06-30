@@ -146,10 +146,10 @@ class GradientDescentBase(OpenCLUnit):
         self.weights_transposed = weights_transposed
         self.gradient_moment = gradient_moment
         self.gradient_moment_bias = gradient_moment_bias
-        self.store_gradient = (
+        self.store_gradient = True if (
             (not workflow.is_slave and
-             (gradient_moment != 0 or gradient_moment_bias != 0)) or
-            store_gradient != 0)
+             (gradient_moment or gradient_moment_bias)) or
+            store_gradient) else False
         self.apply_gradient = apply_gradient
         self.need_err_input = need_err_input
         self.error_function_averaged = error_function_averaged
