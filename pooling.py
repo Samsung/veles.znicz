@@ -126,6 +126,22 @@ class Pooling(nn_units.Forward):
             return retval
         self.print_debug_data(t1)
 
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 @implementer(IOpenCLUnit)
 class MaxPooling(Pooling):
@@ -189,6 +205,16 @@ class MaxPooling(Pooling):
                 val = numpy.ravel(self.input.mem)[idx]
                 self.input_offs.mem[batch, out_y, out_x, ch] = idx
                 self.output.mem[batch, out_y, out_x, ch] = val
+
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        self.input_offs.map_read()
+        data = (self.input_offs.mem)
+        return data
+
+    def apply_data_from_master(self, data):
+        self.input_offs.map_invalidate()
+        self.input_offs.mem[:] = data[0][:]
 
 
 @implementer(IOpenCLUnit)

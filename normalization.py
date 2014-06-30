@@ -51,9 +51,25 @@ class LocalResponseNormalizer(OpenCLUnit):
             subsums[:, :, :, i] = np.sum(array_slice, axis=3)
         return subsums
 
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 @implementer(IOpenCLUnit)
-class LRNormalizerForward(Forward, LocalResponseNormalizer):
+class LRNormalizerForward(LocalResponseNormalizer, Forward):
     """
     Forward propagation of local response normalization.
     """
@@ -104,9 +120,25 @@ class LRNormalizerForward(Forward, LocalResponseNormalizer):
         self.input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_)
 
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 @implementer(IOpenCLUnit)
-class LRNormalizerBackward(GradientDescentBase, LocalResponseNormalizer):
+class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
     """
     Backward-propagation for local response normalization.
     """
@@ -182,3 +214,19 @@ class LRNormalizerBackward(GradientDescentBase, LocalResponseNormalizer):
         self.input.unmap()
         self.err_input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_)
+
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass

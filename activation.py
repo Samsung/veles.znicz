@@ -211,6 +211,22 @@ class ForwardStrictRELU(ActivationForward):
             self.input.map_read()
         out[...] = numpy.where(numpy.greater(inp, 0), inp, 0)
 
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 @implementer(IOpenCLUnit)
 class BackwardStrictRELU(ActivationBackward):
@@ -234,6 +250,22 @@ class BackwardStrictRELU(ActivationBackward):
             self.err_output.map_read()
         self.output.map_read()
         numpy.multiply(err_output, numpy.greater(output, 0), err_input)
+
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
 
 
 @implementer(IOpenCLUnit)

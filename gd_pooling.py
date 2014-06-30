@@ -146,6 +146,22 @@ class GDPooling(nn_units.GradientDescentBase):
             return retval
         self.print_debug_data(t1)
 
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
 
 class GDMaxPooling(GDPooling):
     """Gradient Descent for max pooling unit.
@@ -186,6 +202,16 @@ class GDMaxPooling(GDPooling):
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.err_input.devmem,
                                          self.input_offs.devmem)
+
+    #IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        self.input_offs.map_read()
+        data = (self.input_offs.mem)
+        return data
+
+    def apply_data_from_master(self, data):
+        self.input_offs.map_invalidate()
+        self.input_offs.mem[:] = data[0][:]
 
     def ocl_run(self):
         """Do gradient descent on OpenCL device.
