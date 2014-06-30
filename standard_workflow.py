@@ -210,7 +210,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         if not len(tpe):
             raise error.BadFormatError(
                 "layer type should be non-empty string")
-        if not tpe in self.layer_map:
+        if tpe not in self.layer_map:
             raise error.NotExistsError("Unknown layer type %s" % tpe)
         kwargs = dict(layer)
         del kwargs["type"]
