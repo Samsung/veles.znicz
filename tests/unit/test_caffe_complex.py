@@ -79,8 +79,8 @@ class ComplexTest(standard_test.StandardTest):
 
         in_dir = os.path.join(self.data_dir_path, "cifar_export")
         iters = os.listdir(in_dir)
-        for iter in iters:
-            iter_dir = os.path.join(in_dir, iter)
+        for _iter in iters:
+            iter_dir = os.path.join(in_dir, _iter)
             filenames = os.listdir(iter_dir)
             layer_infos = []
             for name in filenames:
@@ -93,7 +93,7 @@ class ComplexTest(standard_test.StandardTest):
                 layer_infos.append(info)
             layer_infos.sort(key=lambda x: x.time)
             iter_dict = {}
-            self.layer_dict[int(iter)] = iter_dict
+            self.layer_dict[int(_iter)] = iter_dict
             for info in layer_infos:
                 if info.name not in iter_dict:
                     iter_dict[info.name] = {}
@@ -143,7 +143,7 @@ class ComplexTest(standard_test.StandardTest):
 #        return np.fabs(a - b).max() / np.fabs(a).max()
 
     def _create_fwd_units(self, iteration):
-        #Layer 1: CONV+POOL
+        # Layer 1: CONV+POOL
         conv1 = conv.Conv(self.workflow, name="conv1",
                           kx=5, ky=5, padding=(2, 2, 2, 2),
                           sliding=(1, 1), n_kernels=32,
@@ -169,7 +169,7 @@ class ComplexTest(standard_test.StandardTest):
         norm1.link_from(relu1)
         norm1.link_attrs(relu1, ("input", "output"))
 
-        #Layer 2: CONV+POOL
+        # Layer 2: CONV+POOL
         conv2 = conv.Conv(self.workflow, name="conv2",
                           kx=5, ky=5, padding=(2, 2, 2, 2),
                           sliding=(1, 1), n_kernels=32,
@@ -197,7 +197,7 @@ class ComplexTest(standard_test.StandardTest):
         norm2.link_from(pool2)
         norm2.link_attrs(pool2, ("input", "output"))
 
-        #Layer 3: CONV+POOL
+        # Layer 3: CONV+POOL
         conv3 = conv.Conv(self.workflow, name="conv3",
                           kx=5, ky=5, padding=(2, 2, 2, 2),
                           sliding=(1, 1), n_kernels=64,
@@ -215,7 +215,7 @@ class ComplexTest(standard_test.StandardTest):
         pool3.link_from(relu3)
         pool3.link_attrs(relu3, ("input", "output"))
 
-        #Layer 4: FC
+        # Layer 4: FC
         ip_sm = all2all.All2AllSoftmax(
             self.workflow, name="ip1", output_shape=10,
             weights_filling="uniform", weights_stddev=10 ** -2,
@@ -225,10 +225,10 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.link_attrs(pool3, ("input", "output"))
         ########
 
-    def _load_labels_and_data(self, iter):
+    def _load_labels_and_data(self, _iter):
         labels = self._load_blob(
             "loss", PropType.backward, WhenTaken.before,
-            "bottom_1", iter).astype(np.int32).ravel()
+            "bottom_1", _iter).astype(np.int32).ravel()
 
         ev = self.workflow["ev"]
         if ev.labels is not None:
@@ -238,7 +238,7 @@ class ComplexTest(standard_test.StandardTest):
             ev.labels = Vector(labels)
 
         conv1_bottom = self._load_blob(
-            "conv1", PropType.forward, WhenTaken.before, "bottom_0", iter)
+            "conv1", PropType.forward, WhenTaken.before, "bottom_0", _iter)
         conv1 = self.workflow["conv1"]
         if conv1.input is None:
             conv1.input = Vector(conv1_bottom)
@@ -246,14 +246,14 @@ class ComplexTest(standard_test.StandardTest):
             conv1.input.map_write()
             conv1.input.mem[:] = conv1_bottom[:]
 
-    def _create_gd_units(self, iter):
-        #BACKPROP
-        #BACK LAYER 4: EV + GD_A2ASM
+    def _create_gd_units(self, _iter):
+        # BACKPROP
+        # BACK LAYER 4: EV + GD_A2ASM
 
         ip_sm = self.workflow["ip1"]
 
         ev = evaluator.EvaluatorSoftmax(self.workflow, name="ev")
-        self._load_labels_and_data(iter)
+        self._load_labels_and_data(_iter)
         ev.link_from(ip_sm)
         ev.batch_size = self.n_pics
         ev.link_attrs(ip_sm, "max_idx")
@@ -268,7 +268,7 @@ class ComplexTest(standard_test.StandardTest):
         gd_ip_sm.link_from(ev)
         gd_ip_sm.link_attrs(ev, "err_output")
 
-        #BACK LAYER 3: CONV
+        # BACK LAYER 3: CONV
         gd_pool3 = GradientUnitFactory.create(
             self.workflow["pool3"], "gd_pool3", batch_size=self.n_pics)
         gd_pool3.link_from(gd_ip_sm)
@@ -287,7 +287,7 @@ class ComplexTest(standard_test.StandardTest):
         gd_conv3.link_from(gd_relu3)
         gd_conv3.link_attrs(gd_relu3, ("err_output", "err_input"))
 
-        #BACK LAYER 2: CONV
+        # BACK LAYER 2: CONV
         gd_norm2 = GradientUnitFactory.create(
             self.workflow["norm2"], name="gd_norm2")
         gd_norm2.link_from(gd_conv3)
@@ -311,7 +311,7 @@ class ComplexTest(standard_test.StandardTest):
         gd_conv2.link_from(gd_relu2)
         gd_conv2.link_attrs(gd_relu2, ("err_output", "err_input"))
 
-        #BACK LAYER 1: CONV
+        # BACK LAYER 1: CONV
         gd_norm1 = GradientUnitFactory.create(
             self.workflow["norm1"], "gd_norm1")
         gd_norm1.link_from(gd_conv2)
@@ -361,20 +361,20 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.weights.mem[:] = ip_sm_weights.reshape(10, 1024)[:]
         ip_sm.bias.mem[:] = ip_sm_biases.reshape(10)[:]
 
-    def _print_deltas(self, iter, raise_errors=False):
+    def _print_deltas(self, _iter, raise_errors=False):
         """
         Prints the difference between our results and the CAFFE ones.
         Raises an error, if they are more, than 1%.
         """
         max_delta = 1.
 
-        logging.info(">>> iter %i" % iter)
+        logging.info(">>> iter %i" % _iter)
         names = ["conv1", "pool1", "relu1", "norm1", "conv2", "relu2", "pool2",
                  "norm2", "conv3"]
         for name in names:
             elm = self.workflow[name]
             conv_top = self._load_blob(name, PropType.forward,
-                                       WhenTaken.after, "top_0", iter)
+                                       WhenTaken.after, "top_0", _iter)
             elm.output.map_read()
             logging.info(">> %s top delta: %.12f%%" %
                          (name, self._diff(elm.output.mem, conv_top)))
@@ -383,7 +383,7 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.output.map_read()
 
         ip_sm_top = self._load_blob(
-            "loss", PropType.forward, WhenTaken.after, "top_0", iter).reshape(
+            "loss", PropType.forward, WhenTaken.after, "top_0", _iter).reshape(
             self.n_pics, self.n_classes)
 
         logging.info(">> ip1 top delta: %.12f%%" %
@@ -392,7 +392,7 @@ class ComplexTest(standard_test.StandardTest):
         gd_ip_sm = self.workflow["gd_ip1"]
         gd_ip_sm.err_input.map_read()
         gd_ip_sm_bot_err = self._load_blob(
-            "ip1", WhenTaken.after, PropType.backward, "bottom_err_0", iter)
+            "ip1", WhenTaken.after, PropType.backward, "bottom_err_0", _iter)
         logging.info(">> gd_ip1 bot_err delta: %.12f%%" %
                      self._diff(gd_ip_sm.err_input.mem, gd_ip_sm_bot_err))
 
@@ -401,23 +401,23 @@ class ComplexTest(standard_test.StandardTest):
             gd_elm = self.workflow[gd_name]
             gd_bot_err = self._load_blob(
                 name, PropType.backward, WhenTaken.after,
-                "bottom_err_0", iter)
+                "bottom_err_0", _iter)
             gd_elm.err_input.map_read()
             logging.info(">> %s bot_err delta: %.12f%%" %
                          (gd_name,
                           self._diff(gd_elm.err_input.mem, gd_bot_err)))
 
-        #Items with weights:
+        # Items with weights:
         conv_names = ["conv1", "conv2", "conv3"]
         for name in conv_names:
             conv_elm = self.workflow[name]
 
             conv_weights = self._load_blob(
                 name, PropType.forward, WhenTaken.before, "blob_0",
-                iter + 1).reshape(conv_elm.weights.mem.shape)
+                _iter + 1).reshape(conv_elm.weights.mem.shape)
             conv_biases = self._load_blob(
                 name, PropType.forward, WhenTaken.before, "blob_1",
-                iter + 1).ravel()
+                _iter + 1).ravel()
 
             conv_elm.weights.map_read()
             conv_elm.bias.map_read()
@@ -438,7 +438,7 @@ class ComplexTest(standard_test.StandardTest):
 
         ip_sm = self.workflow["ip1"]
         ip_sm_weights = self._load_blob("ip1", PropType.forward,
-                                        WhenTaken.before, "blob_0", iter + 1)
+                                        WhenTaken.before, "blob_0", _iter + 1)
 
         ip_sm_weights = ip_sm_weights.reshape(
             10, 64, 4, 4).swapaxes(1, 2).swapaxes(2, 3).reshape(10, 1024)
@@ -452,7 +452,7 @@ class ComplexTest(standard_test.StandardTest):
         ip_sm.bias.map_read()
         ip_sm_biases = self._load_blob(
             "ip1", PropType.forward, WhenTaken.before,
-            "blob_1", iter + 1).ravel()
+            "blob_1", _iter + 1).ravel()
         bias_delta = self._diff(ip_sm.bias.mem, ip_sm_biases)
         self.assertLess(bias_delta, max_delta,
                         "Result differs by %.6f" % (bias_delta))
