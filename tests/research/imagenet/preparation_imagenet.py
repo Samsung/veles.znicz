@@ -14,18 +14,26 @@ try:
 except:
     pass
 import argparse
+try:
+    import cv2
+except ImportError:
+    import warnings
+    warnings.warn("Failed to import OpenCV bindings")
 import json
+import jpeg4py
 from PIL import Image, ImageDraw
 import logging
+import numpy
 import os
 import sys
 #import shutil
-from veles.config import root
+import veles.config as config
 from veles.znicz.external import xmltodict
 
 from veles.logger import Logger
 
-IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root, "imagenet")
+IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
+                                  "imagenet")
 
 MAPPING = {
     "temp": {
@@ -66,17 +74,27 @@ class Main(Logger):
         self.imagenet_dir_path = None
         self.year = None
         self.series = None
+        self.rect = kwargs.get("rect", (256, 256))
+        self._crop_color = kwargs.get(
+            "crop_color",
+            config.get(config.root.imagenet.crop_color) or (64, 64, 64))
+        self._colorspace = kwargs.get(
+            "colorspace", config.get(config.root.imagenet.colorspace) or "RGB")
+        if self._colorspace == "GRAY":
+            self._crop_color = self._crop_color[0]
+        self._include_derivative = kwargs.get(
+            "derivative", config.get(config.root.imagenet.derivative) or False)
+        self._sobel_kernel_size = kwargs.get(
+            "sobel_kernel_size",
+            config.get(config.root.imagenet.sobel_ksize) or 5)
+        self._force_reinit = kwargs.get(
+            "force_reinit",
+            config.get(config.root.imagenet.force_reinit) or False)
         Logger.__init__(self, **kwargs)
         self.images_0 = {
             "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
             "test": {}
-            }
-
-        self.bboxes_0 = {
-            "train": [],  # {"label", "angle", "xmin", "xmax", "ymin", "ymax"}
-            "validation": [],
-            "test": []
             }
 
     @staticmethod
@@ -136,7 +154,7 @@ class Main(Logger):
                             label = temp_label
                         bbx = []
                         temp_images[f] = {"path": f_path, "label": label,
-                                          "bbx": bbx}
+                                          "bbxs": bbx}
                     else:
                         self.warning("Unexpected file in dir %s", f)
             if dir_bboxes != "":
@@ -150,107 +168,167 @@ class Main(Logger):
                             with open(xml_path, "r") as fr:
                                 tree = xmltodict.parse(fr.read())
                             #print("tree", tree)
-                            bbx_labels = []
-                            image = self.images_0[
-                                set_type][image_fname]["path"]
-                            if type(tree["annotation"]["object"]) is list:
-                                for i in range(0,
-                                               len(tree["annotation"]["object"]
-                                                   )):
-                                    bbx_lbl = tree[
-                                        "annotation"]["object"][i]["name"]
-                                    bbx_xmax = int(
-                                        tree["annotation"][
-                                            "object"][i]["bndbox"]["xmax"])
-                                    bbx_xmin = int(
-                                        tree["annotation"][
-                                            "object"][i]["bndbox"]["xmin"])
-                                    bbx_ymax = int(
-                                        tree["annotation"][
-                                            "object"][i]["bndbox"]["ymax"])
-                                    bbx_ymin = int(
-                                        tree["annotation"][
-                                            "object"][i]["bndbox"]["ymin"])
-                                    bbx_ang = 0
-                                    dict_bbx = {"label": bbx_lbl,
-                                                "angle": bbx_ang,
-                                                "xmin": bbx_xmin,
-                                                "xmax": bbx_xmax,
-                                                "ymin": bbx_ymin,
-                                                "ymax": bbx_ymax}
-                                    dict_bbx_image = {"image": image,
-                                                      "label": bbx_lbl,
-                                                      "angle": bbx_ang,
-                                                      "xmin": bbx_xmin,
-                                                      "xmax": bbx_xmax,
-                                                      "ymin": bbx_ymin,
-                                                      "ymax": bbx_ymax}
-                                    self.images_0[set_type][
-                                        image_fname]["bbx"].append(dict_bbx)
-                                    self.bboxes_0[
-                                        set_type].append(dict_bbx_image)
-                                    bbx_labels.append(bbx_lbl)
-                            else:
-                                bbx_lbl = tree["annotation"]["object"]["name"]
-                                bbx_xmax = int(
-                                    tree["annotation"][
-                                        "object"]["bndbox"]["xmax"])
-                                bbx_xmin = int(
-                                    tree["annotation"][
-                                        "object"]["bndbox"]["xmin"])
-                                bbx_ymax = int(
-                                    tree["annotation"][
-                                        "object"]["bndbox"]["ymax"])
-                                bbx_ymin = int(
-                                    tree["annotation"][
-                                        "object"]["bndbox"]["ymin"])
-                                bbx_ang = 0
-                                dict_bbx = {"label": bbx_lbl,
-                                            "angle": bbx_ang,
-                                            "xmin": bbx_xmin,
-                                            "xmax": bbx_xmax,
-                                            "ymin": bbx_ymin,
-                                            "ymax": bbx_ymax}
-                                dict_bbx_image = {"image": image,
-                                                  "label": bbx_lbl,
-                                                  "angle": bbx_ang,
-                                                  "xmin": bbx_xmin,
-                                                  "xmax": bbx_xmax,
-                                                  "ymin": bbx_ymin,
-                                                  "ymax": bbx_ymax}
-                                self.images_0[set_type][
-                                    image_fname]["bbx"].append(dict_bbx)
-                                self.bboxes_0[set_type].append(dict_bbx_image)
-                                bbx_labels.append(bbx_lbl)
-                            image_label = self.images_0[
-                                set_type][image_fname]["label"]
-                            for bbx_label in bbx_labels:
-                                if bbx_label != image_label:
-                                    label_bad = True
+                            temp_bbx = tree["annotation"]["object"]
+                            if type(temp_bbx) is not list:
+                                temp_bbx = [temp_bbx]
+                            for bbx in temp_bbx:
+                                bbx_lbl = bbx["name"]
+                                bbx_xmax = int(bbx["bndbox"]["xmax"])
+                                bbx_xmin = int(bbx["bndbox"]["xmin"])
+                                bbx_ymax = int(bbx["bndbox"]["ymax"])
+                                bbx_ymin = int(bbx["bndbox"]["ymin"])
+                                bbx_ang = 0  # degree
+                                # we left 0 for purpose
+                                # we will check for zerro
+                                # and will not use rotation
+                                w = bbx_xmax - bbx_xmin
+                                h = bbx_ymax - bbx_ymin
+                                x = 0.5 * w + bbx_xmin
+                                y = 0.5 * h + bbx_ymin
+                                image_lbl = self.images_0[
+                                    set_type][image_fname]["label"]
+                                if (bbx_lbl == image_lbl or
+                                    (bbx_lbl != image_lbl and
+                                     image_lbl is None and
+                                     bbx_lbl is not None)):
+                                    label = bbx_lbl
+                                elif (bbx_lbl != image_lbl and
+                                      image_lbl is not None):
+                                    label = image_lbl
                                 else:
-                                    label_bad = False
-                                    break
-                            if label_bad is True:
-                                self.info("label img %s "
-                                          "is not equal bbx_labels %s"
-                                          % (image_label, bbx_labels))
+                                    label = None
+                                    self.warning(
+                                        "could not find image"
+                                        "label in file %s",
+                                        self.images_0[
+                                            set_type][image_fname]["path"])
+                                dict_bbx = {"label": label,
+                                            "angle": bbx_ang,
+                                            "width": w,
+                                            "height": h,
+                                            "x": x,
+                                            "y": y}
+                                self.images_0[set_type][
+                                    image_fname]["bbxs"].append(dict_bbx)
 
-            cached_data_fnme = (os.path.join(root.common.cache_dir,
-                                             "imagenet"))
+            cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
             try:
                 os.mkdir(cached_data_fnme)
             except OSError:
                 pass
-            fnme = os.path.join(cached_data_fnme, "images_imagenet.json")
+            fnme = os.path.join(cached_data_fnme,
+                                "images_imagenet_%s_%s_0.json" %
+                                (self.year, self.series))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
                 json.dump(self.images_0[set_type], fp)
-            fnme = os.path.join(cached_data_fnme, "bbx_imagenet.json")
-            # bbx - dict: "label", "angle", "xmin", "xmax", "ymin", "ymax"
-            with open(fnme, 'w') as fp:
-                json.dump(self.bboxes_0[set_type], fp)
 
         return None
+
+    def generate_resized_dataset(self):
+        map_items = MAPPING[self.year][self.series].items()
+        original_data = []
+        original_labels = []
+        for set_type, (dir_images, _dir_bboxes) in map_items:
+            path = os.path.join(self.imagenet_dir_path, dir_images)
+            for _root, _tmp, files in os.walk(path, followlinks=True):
+                for f in files:
+                    image_fnme = self.images_0[set_type][f]["path"]
+                    sample = self.decode_image(image_fnme)
+                    for bbx in self.images_0[set_type][f]["bbxs"]:
+                        x = bbx["x"]
+                        y = bbx["y"]
+                        h_size = bbx["height"]
+                        w_size = bbx["width"]
+                        label = bbx["label"]
+                        img = self.sample_rect(sample, x, y, h_size, w_size)
+                        original_data.append(img)
+                        original_labels.append(label)
+
+    def decode_image(self, file_name):
+        try:
+            data = jpeg4py.JPEG(file_name).decode()
+        except jpeg4py.JPEGRuntimeError as e:
+            try:
+                data = numpy.array(Image.open(file_name).convert("RGB"))
+                self.warning("Falling back to PIL with file %s: %s",
+                             file_name, repr(e))
+            except:
+                self.exception("Failed to decode %s", file_name)
+                raise
+        return data
+
+    def sample_rect(self, img, x_c, y_c, h_size, w_size):
+        x_min = x_c - w_size / 2
+        y_min = y_c - h_size / 2
+        x_max = x_min + w_size
+        y_max = y_min + h_size
+        bbox = [x_min, y_min, x_max, y_max]
+        image_out = self.bbox_is_square(bbox, img)
+
+        return image_out
+
+    def bbox_is_square(self, bbox, img):
+        width = img.shape[1]
+        height = img.shape[0]
+        offset = (bbox[2] - bbox[0] - (bbox[3] - bbox[1])) / 2
+        if offset > 0:
+            # Width is bigger than height
+            bbox[1] -= int(numpy.floor(offset))
+            bbox[3] += int(numpy.ceil(offset))
+            bottom_height = -bbox[1]
+            if bottom_height > 0:
+                bbox[1] = 0
+            else:
+                bottom_height = 0
+            top_height = bbox[3] - height
+            if top_height > 0:
+                bbox[3] = height
+            else:
+                top_height = 0
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+            if bottom_height > 0:
+                fixup = numpy.empty((bottom_height, bbox[2] - bbox[0], 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
+                img = numpy.concatenate((fixup, img), axis=0)
+            if top_height > 0:
+                fixup = numpy.empty((top_height, bbox[2] - bbox[0], 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
+                img = numpy.concatenate((img, fixup), axis=0)
+        elif offset < 0:
+            # Height is bigger than width
+            bbox[0] += int(numpy.ceil(offset))
+            bbox[2] -= int(numpy.floor(offset))
+            left_width = -bbox[0]
+            if left_width > 0:
+                bbox[0] = 0
+            else:
+                left_width = 0
+            right_width = bbox[2] - width
+            if right_width > 0:
+                bbox[2] = width
+            else:
+                right_width = 0
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+            if left_width > 0:
+                fixup = numpy.empty((bbox[3] - bbox[1], left_width, 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
+                img = numpy.concatenate((fixup, img), axis=1)
+            if right_width > 0:
+                fixup = numpy.empty((bbox[3] - bbox[1], right_width, 3),
+                                    dtype=img.dtype)
+                fixup[:, :, :] = self._crop_color
+                img = numpy.concatenate((img, fixup), axis=1)
+        else:
+            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+        assert img.shape[0] == img.shape[1]
+        if img.shape[0] != self.rect[0]:
+            img = cv2.resize(img, self.rect,
+                             interpolation=cv2.INTER_AREA)
+        return img
 
     def generate_images_with_bbx(self):
         self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
@@ -267,33 +345,36 @@ class Main(Logger):
             path = os.path.join(self.imagenet_dir_path, dir_images)
             for _root, _tmp, files in os.walk(path, followlinks=True):
                 for f in files:
-                    image = Image.open(self.images_0[set_type][f]["path"])
-                    draw = ImageDraw.Draw(image)
-                    for bbx in self.images_0[set_type][f]["bbx"]:
-                        x_min = bbx["xmin"]
-                        x_max = bbx["xmax"]
-                        y_min = bbx["ymin"]
-                        y_max = bbx["ymax"]
+                    image_path = Image.open(self.images_0[set_type][f]["path"])
+                    draw = ImageDraw.Draw(image_path)
+                    for bbx in self.images_0[set_type][f]["bbxs"]:
+                        x = bbx["x"]
+                        y = bbx["y"]
+                        h = bbx["height"]
+                        w = bbx["width"]
+                        x_min = x - w / 2
+                        y_min = y - h / 2
+                        x_max = x_min + w
+                        y_max = y_min + h
                         self.info("*****draw bbx in image %s *****" %
                                   self.images_0[set_type][f]["path"])
                         draw.line((x_min, y_min, x_min, y_max),
-                                  fill="green", width=3)
+                                  fill="red", width=3)
                         draw.line((x_min, y_min, x_max, y_min),
-                                  fill="green", width=3)
+                                  fill="red", width=3)
                         draw.line((x_min, y_max, x_max, y_max),
-                                  fill="green", width=3)
+                                  fill="red", width=3)
                         draw.line((x_max, y_min, x_max, y_max),
-                                  fill="green", width=3)
+                                  fill="red", width=3)
                     path_to_image = self.images_0[set_type][f]["path"]
                     ind_path = path_to_image.rfind("/")
                     try:
                         os.mkdir(path_to_image[:ind_path])
                     except OSError:
                         pass
-                    #file_name = path_to_image[ind_path + 1:]
                     path_to_image = path_to_image.replace("temp",
                                                           "images_with_bb")
-                    image.save(path_to_image, "JPEG")
+                    image_path.save(path_to_image, "JPEG")
 
     def run(self):
         """Image net utility
@@ -307,6 +388,7 @@ class Main(Logger):
 
         self.init_files()
         self.generate_images_with_bbx()
+        self.generate_resized_dataset()
 
         self.info("End of job")
         return Main.EXIT_SUCCESS
