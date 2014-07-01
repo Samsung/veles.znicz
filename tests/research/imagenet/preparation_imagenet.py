@@ -14,17 +14,18 @@ try:
 except:
     pass
 import argparse
-#import json
+import json
 from PIL import Image, ImageDraw
 import logging
 import os
 import sys
 #import shutil
+from veles.config import root
 from veles.znicz.external import xmltodict
 
 from veles.logger import Logger
 
-IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet"
+IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root, "imagenet")
 
 MAPPING = {
     "temp": {
@@ -67,13 +68,13 @@ class Main(Logger):
         self.series = None
         Logger.__init__(self, **kwargs)
         self.images_0 = {
-            "train": {},  # {fname: (path, label, bboxes[] )}
+            "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
             "test": {}
             }
 
         self.bboxes_0 = {
-            "train": [],  # [(label, x, y, w, h, angle_radians)]
+            "train": [],  # {"label", "angle", "xmin", "xmax", "ymin", "ymax"}
             "validation": [],
             "test": []
             }
@@ -113,11 +114,11 @@ class Main(Logger):
             path = os.path.join(self.imagenet_dir_path, dir_images)
             self.info("Scanning JPG %s...", path)
             temp_images = self.images_0[set_type]
-            for root, _tmp, files in os.walk(path, followlinks=True):
+            for root_path, _tmp, files in os.walk(path, followlinks=True):
                 #print("ROOT=", root)
                 for f in files:
                     if os.path.splitext(f)[1] == ".JPEG":
-                        f_path = os.path.join(root, f)
+                        f_path = os.path.join(root_path, f)
                         #--------------------------------------------
                         # KGG check if dirs have duplicates filenames
                         # KGG it was checked - no diplicates; code commented
@@ -134,21 +135,24 @@ class Main(Logger):
                         if (temp_label[0] == 'n'):
                             label = temp_label
                         bbx = []
-                        temp_images[f] = (f_path, label, bbx)
+                        temp_images[f] = {"path": f_path, "label": label,
+                                          "bbx": bbx}
                     else:
                         self.warning("Unexpected file in dir %s", f)
             if dir_bboxes != "":
                 path = os.path.join(self.imagenet_dir_path, dir_bboxes)
                 self.info("Scanning xml %s...", path)
-                for root, _tmp, files in os.walk(path, followlinks=True):
+                for root_path, _tmp, files in os.walk(path, followlinks=True):
                     for f in files:
                         if os.path.splitext(f)[1] == ".xml":
                             image_fname = os.path.splitext(f)[0] + ".JPEG"
-                            xml_path = os.path.join(root, f)
+                            xml_path = os.path.join(root_path, f)
                             with open(xml_path, "r") as fr:
                                 tree = xmltodict.parse(fr.read())
                             #print("tree", tree)
                             bbx_labels = []
+                            image = self.images_0[
+                                set_type][image_fname]["path"]
                             if type(tree["annotation"]["object"]) is list:
                                 for i in range(0,
                                                len(tree["annotation"]["object"]
@@ -174,8 +178,17 @@ class Main(Logger):
                                                 "xmax": bbx_xmax,
                                                 "ymin": bbx_ymin,
                                                 "ymax": bbx_ymax}
+                                    dict_bbx_image = {"image": image,
+                                                      "label": bbx_lbl,
+                                                      "angle": bbx_ang,
+                                                      "xmin": bbx_xmin,
+                                                      "xmax": bbx_xmax,
+                                                      "ymin": bbx_ymin,
+                                                      "ymax": bbx_ymax}
                                     self.images_0[set_type][
-                                        image_fname][2].append(dict_bbx)
+                                        image_fname]["bbx"].append(dict_bbx)
+                                    self.bboxes_0[
+                                        set_type].append(dict_bbx_image)
                                     bbx_labels.append(bbx_lbl)
                             else:
                                 bbx_lbl = tree["annotation"]["object"]["name"]
@@ -198,11 +211,19 @@ class Main(Logger):
                                             "xmax": bbx_xmax,
                                             "ymin": bbx_ymin,
                                             "ymax": bbx_ymax}
-                                self.images_0[
-                                    set_type][image_fname][2].append(dict_bbx)
+                                dict_bbx_image = {"image": image,
+                                                  "label": bbx_lbl,
+                                                  "angle": bbx_ang,
+                                                  "xmin": bbx_xmin,
+                                                  "xmax": bbx_xmax,
+                                                  "ymin": bbx_ymin,
+                                                  "ymax": bbx_ymax}
+                                self.images_0[set_type][
+                                    image_fname]["bbx"].append(dict_bbx)
+                                self.bboxes_0[set_type].append(dict_bbx_image)
                                 bbx_labels.append(bbx_lbl)
                             image_label = self.images_0[
-                                set_type][image_fname][1]
+                                set_type][image_fname]["label"]
                             for bbx_label in bbx_labels:
                                 if bbx_label != image_label:
                                     label_bad = True
@@ -210,10 +231,25 @@ class Main(Logger):
                                     label_bad = False
                                     break
                             if label_bad is True:
-                                self.info("label img %s"
-                                          "not equal bbx_labels %s"
+                                self.info("label img %s "
+                                          "is not equal bbx_labels %s"
                                           % (image_label, bbx_labels))
-        self.generate_images_with_bbx()
+
+            cached_data_fnme = (os.path.join(root.common.cache_dir,
+                                             "imagenet"))
+            try:
+                os.mkdir(cached_data_fnme)
+            except OSError:
+                pass
+            fnme = os.path.join(cached_data_fnme, "images_imagenet.json")
+            # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
+            with open(fnme, 'w') as fp:
+                json.dump(self.images_0[set_type], fp)
+            fnme = os.path.join(cached_data_fnme, "bbx_imagenet.json")
+            # bbx - dict: "label", "angle", "xmin", "xmax", "ymin", "ymax"
+            with open(fnme, 'w') as fp:
+                json.dump(self.bboxes_0[set_type], fp)
+
         return None
 
     def generate_images_with_bbx(self):
@@ -231,14 +267,15 @@ class Main(Logger):
             path = os.path.join(self.imagenet_dir_path, dir_images)
             for _root, _tmp, files in os.walk(path, followlinks=True):
                 for f in files:
-                    image = Image.open(self.images_0[set_type][f][0])
+                    image = Image.open(self.images_0[set_type][f]["path"])
                     draw = ImageDraw.Draw(image)
-                    for i in range(0, len(self.images_0[set_type][f][2])):
-                        x_min = self.images_0[set_type][f][2][i]["xmin"]
-                        x_max = self.images_0[set_type][f][2][i]["xmax"]
-                        y_min = self.images_0[set_type][f][2][i]["ymin"]
-                        y_max = self.images_0[set_type][f][2][i]["ymax"]
-                        self.info("*****draw*****")
+                    for bbx in self.images_0[set_type][f]["bbx"]:
+                        x_min = bbx["xmin"]
+                        x_max = bbx["xmax"]
+                        y_min = bbx["ymin"]
+                        y_max = bbx["ymax"]
+                        self.info("*****draw bbx in image %s *****" %
+                                  self.images_0[set_type][f]["path"])
                         draw.line((x_min, y_min, x_min, y_max),
                                   fill="green", width=3)
                         draw.line((x_min, y_min, x_max, y_min),
@@ -247,7 +284,7 @@ class Main(Logger):
                                   fill="green", width=3)
                         draw.line((x_max, y_min, x_max, y_max),
                                   fill="green", width=3)
-                    path_to_image = self.images_0[set_type][f][0]
+                    path_to_image = self.images_0[set_type][f]["path"]
                     ind_path = path_to_image.rfind("/")
                     try:
                         os.mkdir(path_to_image[:ind_path])
@@ -269,6 +306,7 @@ class Main(Logger):
         self.series = args.series
 
         self.init_files()
+        self.generate_images_with_bbx()
 
         self.info("End of job")
         return Main.EXIT_SUCCESS
