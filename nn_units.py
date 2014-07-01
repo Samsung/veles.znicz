@@ -37,6 +37,8 @@ class Forward(OpenCLUnit):
         bias_stddev: magnitude of the random distribution for bias.
         rand: prng.Rand() object for initial weights generation.
     """
+    hide = True
+
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
         super(Forward, self).__init__(workflow, **kwargs)
@@ -102,6 +104,8 @@ class GradientDescentBase(OpenCLUnit):
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
     """
+    hide = True
+
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
