@@ -102,6 +102,7 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
 }
 
 
+#if (STORE_GRADIENT > 0) || (APPLY_GRADIENT > 0)
 /// @brief Calculate gradient for weights update.
 /// @param err_y Backpropagated error.
 /// @param h Layer input.
@@ -223,4 +224,5 @@ void bias_update(__global const dtype    /* IN */    *err_y,
     #endif
   }
 }
+#endif
 #endif

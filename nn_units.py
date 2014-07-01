@@ -144,7 +144,7 @@ class GradientDescentBase(OpenCLUnit):
         return int(self.batch_size)
 
     def initialize(self, device, **kwargs):
-        super(GradientDescentBase, self).initialize(device=device, **kwargs)
+        super(GradientDescentBase, self).initialize(device, **kwargs)
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
         self.gradient_moment = kwargs.get("gradient_moment",

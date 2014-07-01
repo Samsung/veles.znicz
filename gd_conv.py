@@ -87,8 +87,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.krn_err_output_ = None
         self.krn_bias_ = None
 
-    def initialize(self, **kwargs):
-        super(GradientDescentConv, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(GradientDescentConv, self).initialize(device, **kwargs)
         batch_size = self.input.mem.shape[0]
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
@@ -124,17 +124,18 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_bias.reset()
             self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
 
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
-        self.output.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
+        self.weights.initialize(device)
+        if self.include_bias:
+            self.bias.initialize(device)
+        self.output.initialize(device)
+        self.input.initialize(device)
+        self.err_output.initialize(device)
+        self.err_input.initialize(device)
         if self.store_gradient:
-            self.gradient_weights.initialize(self.device)
-            self.gradient_bias.initialize(self.device)
+            self.gradient_weights.initialize(device)
+            self.gradient_bias.initialize(device)
 
-        if self.device is None:
+        if device is None:
             return
 
         if self.program_ is None:
@@ -245,7 +246,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.execute_kernel(global_size, local_size, self.krn_bias_)
 
     def cpu_weights_update(self):
-        # TODO: consider case of transposed weights
+        # TODO(a.kazantsev): remove weights_transpoised at all.
         if self.weights_transposed:
             raise NotImplementedError(
                 "cpu_run is not implemented for transposed weights")
@@ -271,8 +272,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         if len(sh) == 3:
             sh[1] *= sh[2]
             sh[2] = 1
-        #err_output = formats.reshape(self.err_output.mem,
-        #                             (sh[0], sh[1] * sh[2], sh[3]))
+        #  err_output = formats.reshape(self.err_output.mem,
+        #                               (sh[0], sh[1] * sh[2], sh[3]))
 
         # calculate gradient for weights
         gd_weights = numpy.zeros_like(self.weights.mem)
@@ -384,6 +385,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         """
         if not self.need_err_input:
             return
+        if self.weights_transposed:
+            raise NotImplementedError(
+                "cpu_run is not implemented for transposed weights")
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.weights.map_read()

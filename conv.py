@@ -101,7 +101,7 @@ class Conv(nn_units.Forward):
         return vle
 
     def initialize(self, device, **kwargs):
-        super(Conv, self).initialize(device=device, **kwargs)
+        super(Conv, self).initialize(device, **kwargs)
 
         if self.weights_stddev is None:
             self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
@@ -134,10 +134,10 @@ class Conv(nn_units.Forward):
         del output_size
         del output_shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
+        self.input.initialize(device)
+        self.output.initialize(device)
+        self.weights.initialize(device)
+        self.bias.initialize(device)
 
         if root.common.unit_test:
             self._batch_size >>= 1
@@ -145,7 +145,7 @@ class Conv(nn_units.Forward):
             self.output.mem = self.output.mem[:self._batch_size]
             formats.assert_addr(self.output.mem, self.output.vv)
 
-        if self.device is None:
+        if device is None:
             return
 
         defines = {
