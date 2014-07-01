@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
-import six
+import sys
 import unittest
 
 from veles.config import root
@@ -42,14 +42,14 @@ class TestKanji(unittest.TestCase):
         root.kanji.data_paths.target = os.path.join(
             root.common.veles_dir,
             ("veles/znicz/tests/data/kanji/target/targets.%d.pickle" %
-             (3 if six.PY3 else 2)))
+             (sys.version_info[0])))
 
         root.kanji.data_paths.train = os.path.join(
             root.common.veles_dir, ("veles/znicz/tests/data/kanji/train"))
 
         root.kanji.index_map = os.path.join(
             root.kanji.data_paths.train, "index_map.%d.pickle" %
-            (3 if six.PY3 else 2))
+            (sys.version_info[0]))
 
         w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
                            layers=[30, 30, 24 * 24], device=self.device)

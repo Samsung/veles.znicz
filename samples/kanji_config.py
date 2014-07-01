@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import os
-import six
+import sys
 
 from veles.config import root
 
@@ -32,7 +32,7 @@ root.update = {
               {"target":
                os.path.join(root.common.test_dataset_root,
                             ("kanji/target/targets.%d.pickle" %
-                             (3 if six.PY3 else 2))),
+                             (sys.version_info[0]))),
                "train": train_path},
               "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                                        (3 if six.PY3 else 2))}}
+                                        (sys.version_info[0]))}}

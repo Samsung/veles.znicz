@@ -319,11 +319,11 @@ class Loader(loader.FullBatchLoader):
             return
 
         cached_data_fnme = (
-            os.path.join(
+            self.cache_fnme or os.path.join(
                 root.common.cache_dir,
-                "%s_%s.pickle" %
-                (os.path.basename(__file__), self.__class__.__name__))
-            if not len(self.cache_fnme) else self.cache_fnme)
+                "%s_%s.%d.pickle" %
+                (os.path.basename(__file__), self.__class__.__name__,
+                 sys.version_info[0])))
         self.info("Will try to load previously cached data from " +
                   cached_data_fnme)
         save_to_cache = True

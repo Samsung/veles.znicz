@@ -13,7 +13,7 @@ import numpy
 import os
 import pickle
 import re
-import six
+import sys
 from zope.interface import implementer
 
 from veles.config import root
@@ -47,10 +47,10 @@ root.defaults = {
               "data_paths":
               {"target": os.path.join(root.common.test_dataset_root,
                                       "kanji/target/targets.%d.pickle" %
-                                      (3 if six.PY3 else 2)),
+                                      (sys.version_info[0])),
                "train": train_path},
               "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                                        (3 if six.PY3 else 2))}}
+                                        (sys.version_info[0]))}}
 
 
 @implementer(loader.ILoader)

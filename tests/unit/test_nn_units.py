@@ -7,8 +7,8 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 import logging
 import numpy
-import six
 import os
+import sys
 import tarfile
 import time
 import unittest
@@ -44,9 +44,9 @@ class Test(unittest.TestCase):
         self.assertTrue(os.path.exists(fe.file_name))
         self.assertTrue(os.path.exists(os.path.join(
             os.path.dirname(fe.file_name), "testp_current_wb.%d.tar.gz" %
-            (3 if six.PY3 else 2))))
+            (sys.version_info[0]))))
         self.assertLess(fe.time, time.time())
-        self.assertEqual("testp_tests_wb.%d.tar.gz" % (3 if six.PY3 else 2),
+        self.assertEqual("testp_tests_wb.%d.tar.gz" % (sys.version_info[0]),
                          os.path.basename(fe.file_name))
         with tarfile.open(fe.file_name, "r:gz") as tar:
             for index in ("001", "002", "003"):

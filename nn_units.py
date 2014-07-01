@@ -10,6 +10,7 @@ import numpy
 import os
 import shutil
 import six
+import sys
 import tarfile
 import yaml
 from zope.interface import implementer
@@ -325,7 +326,7 @@ class ForwardExporter(SnapshotterBase):
     def export(self):
         ext = ("." + self.compress) if self.compress else ""
         rel_file_name = "%s_%s_wb.%d.tar%s" % (
-            self.prefix, self.suffix, 3 if six.PY3 else 2, ext)
+            self.prefix, self.suffix, sys.version_info[0], ext)
         self.file_name = os.path.join(self.directory, rel_file_name)
         with self._open_file() as tar:
             for index, fwd in enumerate(self.forwards):
@@ -340,7 +341,7 @@ class ForwardExporter(SnapshotterBase):
         self.info("Wrote %s" % self.file_name)
         file_name_link = os.path.join(
             self.directory, "%s_current_wb.%d.tar%s" % (
-                self.prefix, 3 if six.PY3 else 2, ext))
+                self.prefix, sys.version_info[0], ext))
         if os.path.exists(file_name_link):
             os.remove(file_name_link)
         os.symlink(rel_file_name, file_name_link)
