@@ -145,8 +145,6 @@ class All2All(nn_units.Forward):
             self.s_activation: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
-            "BLOCK_SIZE": self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
             "H": self.weights.mem.size // output_size,
             "Y": output_size,
             "BATCH": self.output.mem.shape[0]}
