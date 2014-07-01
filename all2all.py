@@ -52,6 +52,8 @@ class All2All(nn_units.Forward):
     """
     def __init__(self, workflow, **kwargs):
         output_shape = kwargs.get("output_shape")
+        if output_shape is None:
+            raise KeyError("output_shape is a required parameter")
         output_shape = ([output_shape] if type(output_shape) == int
                         else list(output_shape))
         kwargs["output_shape"] = output_shape
