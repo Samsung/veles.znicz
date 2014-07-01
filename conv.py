@@ -59,9 +59,12 @@ class Conv(nn_units.Forward):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, workflow, **kwargs):
-        n_kernels = kwargs.get("n_kernels", 5)
-        kx = kwargs.get("kx", 5)
-        ky = kwargs.get("ky", 5)
+        try:
+            n_kernels = kwargs["n_kernels"]
+            kx = kwargs["kx"]
+            ky = kwargs["ky"]
+        except KeyError:
+            raise KeyError("n_kernels, kx and ky are required parameters")
         padding = kwargs.get("padding", (0, 0, 0, 0))
         sliding = kwargs.get("sliding", (1, 1))
         kwargs["n_kernels"] = n_kernels
@@ -149,8 +152,6 @@ class Conv(nn_units.Forward):
             self.s_activation: 1,
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
             'INCLUDE_BIAS': int(self.include_bias),
-            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)],
             'BATCH': self._batch_size,
             'SX': self._sx,
             'SY': self._sy,

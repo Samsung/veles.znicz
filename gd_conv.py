@@ -56,9 +56,12 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ky: kernel height.
     """
     def __init__(self, workflow, **kwargs):
-        n_kernels = kwargs["n_kernels"]
-        kx = kwargs["kx"]
-        ky = kwargs["ky"]
+        try:
+            n_kernels = kwargs["n_kernels"]
+            kx = kwargs["kx"]
+            ky = kwargs["ky"]
+        except KeyError:
+            raise KeyError("n_kernels, kx and ky are required parameters")
         padding = kwargs.get("padding", (0, 0, 0, 0))  # Left Top Right Bottom
         sliding = kwargs.get("sliding", (1, 1))  # X Y
         kwargs["n_kernels"] = n_kernels
@@ -138,8 +141,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             dtype = self.err_output.mem.dtype
             self.cl_const = numpy.zeros(3, dtype=dtype)
 
-            block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(dtype)]
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
 
@@ -149,7 +150,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 'STORE_GRADIENT': int(self.store_gradient),
                 'INCLUDE_BIAS': int(self.include_bias),
                 'USE_ATOMICS': 1,
-                'BLOCK_SIZE': block_size,
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
