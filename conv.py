@@ -179,7 +179,7 @@ class Conv(nn_units.Forward):
     def print_debug_data(self, t_start):
         """Show some statistics.
         """
-        if not self.log.isEnabledFor(logging.DEBUG):
+        if not self.logger.isEnabledFor(logging.DEBUG):
             return
         self.output.map_read()
         y = self.output.mem

@@ -110,7 +110,7 @@ class GDPooling(nn_units.GradientDescentBase):
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
     def print_debug_data(self, t_start):
-        if not self.log.isEnabledFor(logging.DEBUG):
+        if not self.logger.isEnabledFor(logging.DEBUG):
             return
         output = self.err_input.mem
         self.debug(

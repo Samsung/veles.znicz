@@ -423,7 +423,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         """
         Show weights statistics
         """
-        if not self.log.isEnabledFor(logging.DEBUG):
+        if not self.logger.isEnabledFor(logging.DEBUG):
             return
 
         self.weights.map_read()
