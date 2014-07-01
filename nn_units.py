@@ -102,30 +102,7 @@ class GradientDescentBase(OpenCLUnit):
         apply_gradient: will apply gradient.
     """
     def __init__(self, workflow, **kwargs):
-        learning_rate = kwargs.get("learning_rate", 0.01)
-        learning_rate_bias = kwargs.get("learning_rate_bias", learning_rate)
-        weights_decay = kwargs.get("weights_decay", 0.00005)
-        weights_decay_bias = kwargs.get("weights_decay_bias", 0.0)
-        weights_transposed = kwargs.get("weights_transposed", False)
-        gradient_moment = kwargs.get("gradient_moment", 0)
-        gradient_moment_bias = kwargs.get("gradient_moment_bias",
-                                          gradient_moment)
-        store_gradient = kwargs.get("store_gradient", True)
-        apply_gradient = kwargs.get("apply_gradient", not workflow.is_slave)
-        need_err_input = kwargs.get("need_err_input", True)
-        include_bias = kwargs.get("include_bias", True)
-        kwargs["learning_rate"] = learning_rate
-        kwargs["learning_rate_bias"] = learning_rate_bias
-        kwargs["weights_decay"] = weights_decay
-        kwargs["weights_decay_bias"] = weights_decay_bias
-        kwargs["weights_transposed"] = weights_transposed
-        kwargs["store_gradient"] = store_gradient
-        kwargs["apply_gradient"] = apply_gradient
-        kwargs["need_err_input"] = need_err_input
-        kwargs["gradient_moment"] = gradient_moment
-        kwargs["gradient_moment_bias"] = gradient_moment_bias
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
-        kwargs["include_bias"] = include_bias
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.input = None
         self.output = None
@@ -134,22 +111,26 @@ class GradientDescentBase(OpenCLUnit):
         self.weights = None
         self.bias = None
         self.batch_size = None
-        self.learning_rate = learning_rate
-        self.learning_rate_bias = learning_rate_bias
-        self.weights_decay = weights_decay
-        self.weights_decay_bias = weights_decay_bias
-        self.weights_transposed = weights_transposed
-        self.gradient_moment = gradient_moment
-        self.gradient_moment_bias = gradient_moment_bias
-        self.store_gradient = True if (
+        self.learning_rate = kwargs.get("learning_rate", 0.01)
+        self.learning_rate_bias = kwargs.get("learning_rate_bias",
+                                             self.learning_rate)
+        self.weights_decay = kwargs.get("weights_decay", 0.00005)
+        self.weights_decay_bias = kwargs.get("weights_decay_bias", 0.0)
+        self.weights_transposed = kwargs.get("weights_transposed", False)
+        self.gradient_moment = kwargs.get("gradient_moment", 0)
+        self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
+                                               self.gradient_moment)
+        self.store_gradient = kwargs.get("store_gradient", True)
+        self.apply_gradient = kwargs.get("apply_gradient",
+                                         not workflow.is_slave)
+        self.need_err_input = kwargs.get("need_err_input", True)
+        self.include_bias = kwargs.get("include_bias", True)
+        self.store_gradient = bool(
             (not workflow.is_slave and
-             (gradient_moment or gradient_moment_bias)) or
-            store_gradient) else False
-        self.apply_gradient = apply_gradient
-        self.need_err_input = need_err_input
+             (self.gradient_moment or self.gradient_moment_bias)) or
+            self.store_gradient)
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
-        self.include_bias = include_bias
 
     @property
     def current_batch_size(self):
