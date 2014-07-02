@@ -8,7 +8,14 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 '''
 This script to work with Imagenet dataset.
 
+.. argparse::
+   :module: veles.znicz.tests.research.imagenet.preparation_imagenet
+   :func: create_args_parser_sphinx
+   :prog: preparation_imagenet
+
 '''
+
+
 try:
     import argcomplete
 except:
@@ -19,21 +26,26 @@ try:
 except ImportError:
     import warnings
     warnings.warn("Failed to import OpenCV bindings")
-import json
 import jpeg4py
-from PIL import Image, ImageDraw
+import json
 import logging
 import numpy
 import os
-import sys
+from PIL import Image, ImageDraw
+import scipy.misc
 #import shutil
+import sys
+
 import veles.config as config
+import veles.formats as formats
+from veles.logger import Logger
+import veles.opencl_types as opencl_types
 from veles.znicz.external import xmltodict
 
-from veles.logger import Logger
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
+IMAGES_JSON = "images_imagenet_%s_%s_%s_0.json"  # year, series, set_type
 
 MAPPING = {
     "temp": {
@@ -74,7 +86,31 @@ class Main(Logger):
         self.imagenet_dir_path = None
         self.year = None
         self.series = None
+        self.fnme = None
+        self.images_json = {
+            "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
+            "validation": {},
+            "test": {}
+            }
+        self.original_data = {
+            "train": [],
+            "validation": [],
+            "test": []
+            }
+        self.original_labels = {
+            "train": [],
+            "validation": [],
+            "test": []
+            }
         self.rect = kwargs.get("rect", (256, 256))
+        self.minibatch_data = formats.Vector()
+        self.minibatch_indices = formats.Vector()
+        self.normalize = kwargs.get("normalize", True)
+        self._max_minibatch_size = kwargs.get("minibatch_size", 100)
+        self._dtype = opencl_types.dtypes[config.root.common.precision_type]
+        self._sobel_kernel_size = kwargs.get(
+            "sobel_kernel_size",
+            config.get(config.root.imagenet.sobel_ksize) or 5)
         self._crop_color = kwargs.get(
             "crop_color",
             config.get(config.root.imagenet.crop_color) or (64, 64, 64))
@@ -84,9 +120,6 @@ class Main(Logger):
             self._crop_color = self._crop_color[0]
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or False)
-        self._sobel_kernel_size = kwargs.get(
-            "sobel_kernel_size",
-            config.get(config.root.imagenet.sobel_ksize) or 5)
         self._force_reinit = kwargs.get(
             "force_reinit",
             config.get(config.root.imagenet.force_reinit) or False)
@@ -96,6 +129,10 @@ class Main(Logger):
             "validation": {},
             "test": {}
             }
+
+    @property
+    def colorspace(self):
+        return self._colorspace
 
     @staticmethod
     def init_parser():
@@ -113,6 +150,13 @@ class Main(Logger):
         parser.add_argument("-s", "--series", type=str, default="img",
                             choices=["img", "DET"],
                             help="set dataset type")
+        parser.add_argument("command_to_run", type=str, default="",
+                            choices=["all", "draw_bbox", "resize", "init"],
+                            help="run functions: 'all' run all functions,"
+                                 "'draw_bbox' run function which generate"
+                                 "image with bboxes, 'resize' run function"
+                                 "which resized images to bboxes, 'init' run"
+                                 " function which generate json file")
         try:
             class NoEscapeCompleter(argcomplete.CompletionFinder):
                 def quote_completions(self, completions, *args, **kwargs):
@@ -217,33 +261,88 @@ class Main(Logger):
             except OSError:
                 pass
             fnme = os.path.join(cached_data_fnme,
-                                "images_imagenet_%s_%s_0.json" %
-                                (self.year, self.series))
+                                IMAGES_JSON %
+                                (self.year, self.series, set_type))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
                 json.dump(self.images_0[set_type], fp)
 
         return None
 
+    def preprocess_sample(self, data):
+        if self._include_derivative:
+            deriv = cv2.Sobel(
+                cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
+                else data, cv2.CV_32F if self._dtype == numpy.float32
+                else cv2.CV_64F, 1, 1, ksize=self._sobel_kernel_size)
+        if self.colorspace != "RGB" and not (data.shape[-1] == 1 and
+                                             self.colorspace == "GRAY"):
+            cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),
+                         data)
+        if self._include_derivative:
+            shape = list(data.shape)
+            shape[-1] += 1
+            res = numpy.empty(shape, dtype=self._dtype)
+            res[:, :, :-1] = data
+            begindex = len(shape)
+            res.ravel()[begindex::(begindex + 1)] = deriv.ravel()
+        else:
+            res = data.astype(self._dtype)
+        return res
+
+    def imagenet_image_saver(self, data_names):
+        for set_type, _v in data_names.items():
+            for (image, name) in data_names[set_type]:
+                out_dirs = {"test":
+                            os.path.join(config.root.common.cache_dir,
+                                         "tmpimg/imagenet_image_saver"
+                                         "/test/%s_.jpg" % name),
+                            "validation":
+                            os.path.join(config.root.common.cache_dir,
+                                         "tmpimg/imagenet_image_saver"
+                                         "/validation/%s_.jpg" % name),
+                            "train":
+                            os.path.join(config.root.common.cache_dir,
+                                         "tmpimg/imagenet_image_saver"
+                                         "/train/%s_.jpg" % name)}
+                self.info("Saving image %s" % out_dirs[set_type])
+                try:
+                    scipy.misc.imsave(out_dirs[set_type], image)
+                except OSError:
+                    self.error("Could not save image to %s"
+                               % (out_dirs[set_type]))
+
     def generate_resized_dataset(self):
-        map_items = MAPPING[self.year][self.series].items()
-        original_data = []
-        original_labels = []
-        for set_type, (dir_images, _dir_bboxes) in map_items:
-            path = os.path.join(self.imagenet_dir_path, dir_images)
-            for _root, _tmp, files in os.walk(path, followlinks=True):
-                for f in files:
-                    image_fnme = self.images_0[set_type][f]["path"]
-                    sample = self.decode_image(image_fnme)
-                    for bbx in self.images_0[set_type][f]["bbxs"]:
-                        x = bbx["x"]
-                        y = bbx["y"]
-                        h_size = bbx["height"]
-                        w_size = bbx["width"]
-                        label = bbx["label"]
-                        img = self.sample_rect(sample, x, y, h_size, w_size)
-                        original_data.append(img)
-                        original_labels.append(label)
+        self.info("Resized dataset")
+        data_names = {"train": [], "test": [], "validation": []}
+        cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
+        for set_type, _ in self.images_json.items():
+            fnme = os.path.join(cached_data_fnme,
+                                IMAGES_JSON %
+                                (self.year, self.series, set_type))
+            try:
+                with open(fnme, 'r') as fp:
+                    self.images_json[set_type] = json.load(fp)
+            except:
+                self.exception("Failed to load %s", fnme)
+            for f, _val in self.images_json[set_type].items():
+                image_fnme = self.images_json[set_type][f]["path"]
+                sample = self.decode_image(image_fnme)
+                for bbx in self.images_json[set_type][f]["bbxs"]:
+                    self.info("*****Resized image %s *****" %
+                              self.images_json[set_type][f]["path"])
+                    x = bbx["x"]
+                    y = bbx["y"]
+                    h_size = bbx["height"]
+                    w_size = bbx["width"]
+                    label = bbx["label"]
+                    img = self.sample_rect(sample, x, y, h_size, w_size)
+                    img_sample = self.preprocess_sample(img)
+                    self.original_data[set_type].append(img_sample)
+                    self.original_labels[set_type].append(label)
+                    data_names[set_type].append((img, f))
+        self.imagenet_image_saver(data_names)
+        return (self.original_data, self.original_labels)
 
     def decode_image(self, file_name):
         try:
@@ -331,64 +430,83 @@ class Main(Logger):
         return img
 
     def generate_images_with_bbx(self):
-        self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
         """
+        self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
         try:
             shutil.copytree(self.imagenet_dir_path,
-                            os.path.join(IMAGENET_BASE_PATH,
+                            os.path.join(self.imagenet_dir_path,
                                          "images_with_bb %s" % self.year))
-        except shutil.Error as e:
-            self.info('Directory not copied. Error: %s' % e)
+        except:
+            print("Failed to copy")
+            pass
         """
-        map_items = MAPPING[self.year][self.series].items()
-        for set_type, (dir_images, _dir_bboxes) in map_items:
-            path = os.path.join(self.imagenet_dir_path, dir_images)
-            for _root, _tmp, files in os.walk(path, followlinks=True):
-                for f in files:
-                    image_path = Image.open(self.images_0[set_type][f]["path"])
-                    draw = ImageDraw.Draw(image_path)
-                    for bbx in self.images_0[set_type][f]["bbxs"]:
-                        x = bbx["x"]
-                        y = bbx["y"]
-                        h = bbx["height"]
-                        w = bbx["width"]
-                        x_min = x - w / 2
-                        y_min = y - h / 2
-                        x_max = x_min + w
-                        y_max = y_min + h
-                        self.info("*****draw bbx in image %s *****" %
-                                  self.images_0[set_type][f]["path"])
-                        draw.line((x_min, y_min, x_min, y_max),
-                                  fill="red", width=3)
-                        draw.line((x_min, y_min, x_max, y_min),
-                                  fill="red", width=3)
-                        draw.line((x_min, y_max, x_max, y_max),
-                                  fill="red", width=3)
-                        draw.line((x_max, y_min, x_max, y_max),
-                                  fill="red", width=3)
-                    path_to_image = self.images_0[set_type][f]["path"]
-                    ind_path = path_to_image.rfind("/")
-                    try:
-                        os.mkdir(path_to_image[:ind_path])
-                    except OSError:
-                        pass
-                    path_to_image = path_to_image.replace("temp",
-                                                          "images_with_bb")
-                    image_path.save(path_to_image, "JPEG")
+        cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
+        for set_type, _ in self.images_json.items():
+            fnme = os.path.join(cached_data_fnme,
+                                IMAGES_JSON %
+                                (self.year, self.series, set_type))
+            try:
+                with open(fnme, 'r') as fp:
+                    self.images_json[set_type] = json.load(fp)
+            except:
+                self.exception("Failed to load %s", fnme)
+            for f, _val in self.images_json[set_type].items():
+                image_path = Image.open(self.images_json[set_type][f]["path"])
+                draw = ImageDraw.Draw(image_path)
+                for bbx in self.images_json[set_type][f]["bbxs"]:
+                    x = bbx["x"]
+                    y = bbx["y"]
+                    h = bbx["height"]
+                    w = bbx["width"]
+                    x_min = x - w / 2
+                    y_min = y - h / 2
+                    x_max = x_min + w
+                    y_max = y_min + h
+                    self.info("*****draw bbx in image %s *****" %
+                              self.images_json[set_type][f]["path"])
+                    draw.line((x_min, y_min, x_min, y_max),
+                              fill="red", width=3)
+                    draw.line((x_min, y_min, x_max, y_min),
+                              fill="red", width=3)
+                    draw.line((x_min, y_max, x_max, y_max),
+                              fill="red", width=3)
+                    draw.line((x_max, y_min, x_max, y_max),
+                              fill="red", width=3)
+                path_to_image = self.images_json[set_type][f]["path"]
+                ind_path = path_to_image.rfind("/")
+                try:
+                    os.mkdir(path_to_image[:ind_path])
+                except OSError:
+                    pass
+                path_to_image = path_to_image.replace("temp",
+                                                      "images_with_bb")
+                image_path.save(path_to_image, "JPEG")
 
     def run(self):
         """Image net utility
         """
         parser = Main.init_parser()
         args = parser.parse_args()
-        print(args)
         self.setup(level=Main.LOG_LEVEL_MAP[args.verbose])
         self.year = args.year
         self.series = args.series
-
-        self.init_files()
-        self.generate_images_with_bbx()
-        self.generate_resized_dataset()
+        self.command_to_run = args.command_to_run
+        if self.command_to_run == "all":
+            self.init_files()
+            self.generate_images_with_bbx()
+            self.generate_resized_dataset()
+        elif self.command_to_run == "init":
+            self.init_files()
+        elif self.command_to_run == "draw_bbox":
+            self.generate_images_with_bbx()
+        elif self.command_to_run == "resize":
+            self.generate_resized_dataset()
+        else:
+            self.info("Choose command to run: 'all' run all functions,"
+                      "'draw_bbox' run function which generate"
+                      "image with bboxes, 'resize' run function"
+                      "which resized images to bboxes, 'init' run"
+                      " function which generate json file")
 
         self.info("End of job")
         return Main.EXIT_SUCCESS
