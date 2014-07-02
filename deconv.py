@@ -115,9 +115,18 @@ class Deconv(nn_units.Forward):
 
         output_shape = [batch_size, output_sy, output_sx, output_channels]
         output_size = int(numpy.prod(output_shape))
-        if self.output.mem is None or self.output.mem.size != output_size:
+        if self.output.mem is None or self.output.size != output_size:
             self.output.reset()
-            self.output.mem = numpy.zeros(output_shape, dtype=dtype)
+            if root.common.unit_test:
+                output_shape[0] <<= 1
+                self.output.mem = numpy.zeros(output_shape, dtype=dtype)
+                self.output.initialize(device)
+                self.output.vv = self.output.mem
+                self.output.mem[batch_size:] = 1.0e30
+                self.output.mem = self.output.mem[:batch_size]
+                formats.assert_addr(self.output.mem, self.output.vv)
+            else:
+                self.output.mem = numpy.zeros(output_shape, dtype=dtype)
         else:
             self.output.mem.shape = output_shape
         del output_size

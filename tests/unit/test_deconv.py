@@ -76,6 +76,12 @@ class TestDeconv(unittest.TestCase):
 
         backward.output.map_read()
 
+        if hasattr(backward.output, "vv"):
+            nz = numpy.count_nonzero(
+                backward.output.vv[backward.output.shape[0]:] - 1.0e30)
+            self.assertEqual(nz, 0,
+                             "Written some values outside of the target array")
+
         return backward.output.mem.copy(), forward
 
     def _test_deconv_via_gd(self, forward):
