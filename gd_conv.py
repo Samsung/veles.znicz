@@ -246,7 +246,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.execute_kernel(global_size, local_size, self.krn_bias_)
 
     def cpu_weights_update(self):
-        # TODO(a.kazantsev): remove weights_transpoised at all.
+        # TODO(a.kazantsev): implement in case of transposed weights
+        #                    (see OpenCL kernel and just swap the matricies).
         if self.weights_transposed:
             raise NotImplementedError(
                 "cpu_run is not implemented for transposed weights")
