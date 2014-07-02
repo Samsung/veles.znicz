@@ -18,6 +18,7 @@ import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_conv as gd_conv
+import veles.znicz.gd_deconv as gd_deconv
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.random_generator as rnd
 import veles.opencl as opencl
@@ -32,11 +33,27 @@ class TestDeconv(unittest.TestCase):
         if not len(self.this_dir):
             self.this_dir = "."
 
+    def test_gd_deconv(self):
+        logging.info("GDDeconv test...")
+        _, forward, backward = self._test_deconv(self.device, None)
+        gd = gd_deconv.GDDeconv(forward.workflow, n_kernels=forward.n_kernels,
+                                kx=forward.kx, ky=forward.ky,
+                                learning_rate=1.0, weights_decay=0.0,
+                                gradient_moment=0.9)
+        gd.weights = forward.weights
+        gd.input = backward.input
+        gd.err_output = backward.output
+        gd.initialize(self.device)
+        self.assertEqual(gd.err_input.shape, forward.output.shape)
+        gd.run()
+        gd.err_input.map_read()
+        # TODO(a.kazantsev): add correctness check.
+
     def test_deconv(self):
         logging.info("GPU test...")
-        gpu, forward = self._test_deconv(self.device, None)
+        gpu, forward, _ = self._test_deconv(self.device, None)
         logging.info("CPU test...")
-        cpu, forward = self._test_deconv(None, forward)
+        cpu, forward, _ = self._test_deconv(None, forward)
         max_diff = numpy.fabs(cpu - gpu).max()
         logging.info("CPU-GPU difference is %.6f", max_diff)
         self.assertLess(max_diff, 0.0001)
@@ -82,7 +99,7 @@ class TestDeconv(unittest.TestCase):
             self.assertEqual(nz, 0,
                              "Written some values outside of the target array")
 
-        return backward.output.mem.copy(), forward
+        return backward.output.mem.copy(), forward, backward
 
     def _test_deconv_via_gd(self, forward):
         gd = gd_conv.GradientDescentConv(
