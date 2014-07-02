@@ -29,11 +29,11 @@ class TypeDict(UserDict):
     """
 
     def __getitem__(self, key):
-        assert type(key) == type
+        if not isinstance(key, type):
+            raise TypeError("key must be of class type")
         hierarchy = [key]
         while len(hierarchy):
             clazz = hierarchy.pop()
-            assert type(clazz) == type
             val = self.data.get(clazz)
             if val is not None:
                 return val

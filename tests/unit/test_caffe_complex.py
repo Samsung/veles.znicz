@@ -262,7 +262,7 @@ class ComplexTest(standard_test.StandardTest):
         gd_ip_sm = GradientUnitFactory.create(
             ip_sm, name="gd_ip1", batch_size=self.n_pics,
             learning_rate=0.001, learning_rate_bias=0.002,
-            weights_decay=1, weights_decay_bias=0.0,
+            weights_decay=1.0, weights_decay_bias=0.0,
             gradient_moment=0.9, gradient_moment_bias=0.9)
 
         gd_ip_sm.link_from(ev)
