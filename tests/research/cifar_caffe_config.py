@@ -29,7 +29,7 @@ root.update = {
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_size": 100, "norm": "mean",
+    "loader": {"minibatch_size": 100, "norm": "mean", "sobel": True,
                "shuffle_limit": 2000000000},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},

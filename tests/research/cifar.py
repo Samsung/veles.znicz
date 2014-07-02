@@ -8,7 +8,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import numpy
+import cv2
+import numpy as np
 import os
 import pickle
 import six
@@ -72,12 +73,37 @@ class Loader(loader.FullBatchLoader):
         self.info("Shuffling, remaining limit is %d", self.shuffle_limit)
         super(Loader, self).shuffle()
 
+    def _add_sobel_chan(self):
+        """
+        Adds 4th channel (Sobel filtered image) to `self.original_data`
+        """
+
+        sobel_data = np.zeros(shape=self.original_data.shape[:-1],
+                              dtype=np.float32)
+
+        for i in range(self.original_data.shape[0]):
+            pic = self.original_data[i, :, :, 0:3]
+            sobel_x = cv2.Sobel(pic, cv2.CV_32F, 1, 0, ksize=3)
+            sobel_y = cv2.Sobel(pic, cv2.CV_32F, 0, 1, ksize=3)
+            sobel_total = np.sqrt(np.square(sobel_x) + np.square(sobel_y))
+            sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
+            formats.normalize(sobel_gray)
+
+            if root.loader.norm == "mean":
+                sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
+            elif root.loader.norm == "-128, 128":
+                sobel_data[i, :, :] = sobel_gray * 128
+            elif root.loader.norm == "-1, 1":
+                sobel_data[i, :, :] = sobel_gray
+
+        sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
+        np.append(self.original_data, sobel_data, axis=3)
+
     def load_data(self):
         """Here we will load data.
         """
-        self.original_data = numpy.zeros([60000, 32, 32, 3],
-                                         dtype=numpy.float32)
-        self.original_labels = numpy.zeros(60000, dtype=numpy.int32)
+        self.original_data = np.zeros([60000, 32, 32, 3], dtype=np.float32)
+        self.original_labels = np.zeros(60000, dtype=np.int32)
 
         # Load Validation
         with open(root.cifar.data_paths.validation, "rb") as fin:
@@ -111,17 +137,21 @@ class Loader(loader.FullBatchLoader):
 
         self.total_samples = self.original_data.shape[0]
 
+        use_sobel = root.loader.get("sobel", False)
+        if use_sobel:
+            self._add_sobel_chan()
+
         if root.loader.norm == "mean":
-            mean = numpy.mean(self.original_data[10000:], axis=0)
+            mean = np.mean(self.original_data[10000:], axis=0)
             self.original_data -= mean
             self.info("Validation range: %.6f %.6f %.6f",
                       self.original_data[:10000].min(),
                       self.original_data[:10000].max(),
-                      numpy.average(self.original_data[:10000]))
+                      np.average(self.original_data[:10000]))
             self.info("Train range: %.6f %.6f %.6f",
                       self.original_data[10000:].min(),
                       self.original_data[10000:].max(),
-                      numpy.average(self.original_data[10000:]))
+                      np.average(self.original_data[10000:]))
         elif root.loader.norm == "-1, 1":
             for sample in self.original_data:
                 formats.normalize(sample)
