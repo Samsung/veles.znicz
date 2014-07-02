@@ -60,14 +60,14 @@ class ComplexTest(standard_test.StandardTest):
 
     def _compress_snapshots(self):
         out_archive = tarfile.open(name=os.path.join(
-            self.data_dir_path, "cifar_export.xz"), mode='w|xz')
+            self.data_dir_path, "cifar_export.tar.bz2"), mode='w:bz2')
         out_archive.add(name=os.path.join(
             self.data_dir_path, "cifar_export"), arcname="cifar_export")
         out_archive.close()
 
     def _extract_snapshots(self):
         in_archive = tarfile.open(name=os.path.join(
-            self.data_dir_path, "cifar_export.xz"), mode="r|xz")
+            self.data_dir_path, "cifar_export.tar.bz2"), mode="r:bz2")
         in_archive.extractall(self.data_dir_path)
 
     def _prepare_snapshots(self):
