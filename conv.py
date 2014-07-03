@@ -282,8 +282,19 @@ class Conv(nn_units.Forward):
         n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
         if self.weights.mem is None or self.weights.mem.size != n_weights:
             self.weights.reset()
-            self.weights.mem = numpy.zeros(n_weights,
-                                           dtype=self.input.mem.dtype)
+            if root.common.unit_test:
+                self.info("Unit test mode: allocating 2x memory for weights")
+                self.weights.mem = numpy.zeros(n_weights * 2,
+                                               dtype=self.input.mem.dtype)
+                self.weights.initialize(self.device)
+                self.weights.map_write()
+                self.weights.vv = self.weights.mem
+                self.weights.mem = self.weights.vv[:n_weights]
+                formats.assert_addr(self.weights.mem, self.weights.vv)
+                self.weights.vv[n_weights:] = numpy.nan
+            else:
+                self.weights.mem = numpy.zeros(n_weights,
+                                               dtype=self.input.mem.dtype)
             if self.weights_filling == "uniform":
                 self.rand.fill(self.weights.mem, -self.weights_stddev,
                                self.weights_stddev)

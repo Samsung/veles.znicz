@@ -76,7 +76,6 @@ class GDDeconv(nn_units.GradientDescentBase):
     def init_unpickled(self):
         super(GDDeconv, self).init_unpickled()
         self.cl_sources_["gradient_descent_deconv.cl"] = {}
-        self.krn_err_input_clear_ = None
         self.krn_err_input_ = None
         self.krn_weights_ = None
 
@@ -109,6 +108,8 @@ class GDDeconv(nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Incorrectly shaped err_output encountered")
 
+        dtype = self.err_output.mem.dtype
+
         batch_size = self.err_output.mem.shape[0]
         sy = self.err_output.mem.shape[1]
         sx = self.err_output.mem.shape[2]
@@ -123,8 +124,19 @@ class GDDeconv(nn_units.GradientDescentBase):
         if (self.err_input.mem is None or
                 self.err_input.size != self.input.size):
             self.err_input.reset()
-            self.err_input.mem = numpy.zeros(self.input.shape,
-                                             dtype=self.err_output.mem.dtype)
+            sh = self.input.shape
+            if root.common.unit_test:
+                sh = list(sh)
+                sh[0] <<= 1
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+                self.err_input.initialize(device)
+                self.err_input.map_write()
+                self.err_input.vv = self.err_input.mem
+                self.err_input.mem[batch_size:] = numpy.nan
+                self.err_input.mem = self.err_input.mem[:batch_size]
+                formats.assert_addr(self.err_input.mem, self.err_input.vv)
+            else:
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.mem is None or
@@ -143,7 +155,6 @@ class GDDeconv(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
-            dtype = self.err_output.mem.dtype
             self.cl_const = numpy.zeros(3, dtype=dtype)
 
             defines = {
@@ -152,7 +163,6 @@ class GDDeconv(nn_units.GradientDescentBase):
                 'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
                 'STORE_GRADIENT': int(self.store_gradient),
                 'INCLUDE_BIAS': 0,
-                'USE_ATOMICS': 1,
                 'BATCH': batch_size,
                 'SX': sx,
                 'SY': sy,
@@ -174,9 +184,6 @@ class GDDeconv(nn_units.GradientDescentBase):
                     self.err_output.mem.size // self.err_output.mem.shape[0]),
                 dtype=dtype)
 
-            self.krn_err_input_clear_ = self.get_kernel("array_clear")
-            self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
-
             self.krn_err_input_ = self.get_kernel("feed_layer")
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.weights.devmem,
@@ -193,14 +200,9 @@ class GDDeconv(nn_units.GradientDescentBase):
             if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
                 raise error.Bug("Returned BLOCK_SIZE differs from expected")
 
-            batch_size = self.input.mem.shape[0]
-            sy = self.input.mem.shape[1]
-            sx = self.input.mem.shape[2]
-            n_channels = self.input.mem.size // (batch_size * sx * sy)
-
             self.global_size_err_input = [
                 formats.roundup(self.n_kernels, block_size),
-                formats.roundup(self.err_output.mem.size // self.n_kernels,
+                formats.roundup(self.err_input.mem.size // self.n_kernels,
                                 block_size)]
             self.local_size_err_input = [block_size, block_size]
 
@@ -224,10 +226,6 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.err_input.unmap()
         self.err_output.unmap()
         self.weights.unmap()
-
-        # Clear the resulting matrix
-        self.execute_kernel([self.err_input.mem.size], None,
-                            self.krn_err_input_clear_)
 
         self.execute_kernel(self.global_size_err_input,
                             self.local_size_err_input,

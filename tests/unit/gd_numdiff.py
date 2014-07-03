@@ -20,7 +20,7 @@ class GDNumDiff(object):
     def numdiff_check(self, forward, vector_to_check, vector_value_map,
                       vector_output, target, derivative_to_check,
                       logging_info, assertLess, error_function, batch_size,
-                      limit=None):
+                      limit=None, threshold=1.0e-5):
         """Checks derivative by numeric differentiation based on MSE to target.
 
         Parameters:
@@ -65,7 +65,7 @@ class GDNumDiff(object):
             d = numpy.fabs(derivative - derivative_to_check[offs])
             logging_info("%.2e %.2e %.2e" %
                          (derivative, derivative_to_check[offs], d))
-            assertLess(d, 1.0e-5, "Numeric diff test failed")
+            assertLess(d, threshold, "Numeric diff test failed")
             if limit is not None and offs >= limit - 1:
                 logging_info("Limit of %d checks reached, skipping the rest",
                              limit)
@@ -92,7 +92,8 @@ class GDNumDiff(object):
     def numdiff_check_gd(self, forward, inp, weights, bias, target,
                          err_input, weights_derivative, bias_derivative,
                          logging_info, assertLess,
-                         error_function_averaged=True):
+                         error_function_averaged=True,
+                         limit=None, threshold=1.0e-5):
         """Tests all derivatives for a typical gradient descent unit.
         """
         if error_function_averaged:
@@ -119,4 +120,5 @@ class GDNumDiff(object):
                                   forward.weights: weights,
                                   forward.bias: bias},
                 forward.output, target, derivative,
-                logging_info, assertLess, ef, batch_size)
+                logging_info, assertLess, ef, batch_size,
+                limit=limit, threshold=threshold)

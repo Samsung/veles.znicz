@@ -121,8 +121,9 @@ class Deconv(nn_units.Forward):
                 output_shape[0] <<= 1
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
                 self.output.initialize(device)
+                self.output.map_write()
                 self.output.vv = self.output.mem
-                self.output.mem[batch_size:] = 1.0e30
+                self.output.mem[batch_size:] = numpy.nan
                 self.output.mem = self.output.mem[:batch_size]
                 formats.assert_addr(self.output.mem, self.output.vv)
             else:
@@ -180,7 +181,9 @@ class Deconv(nn_units.Forward):
         self.local_size = [block_size, block_size]
 
     def ocl_run(self):
-        # Clear the resulting matrix
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
         self.execute_kernel([self.output.mem.size], None, self.krn_clear_)
         self.execute_kernel(self.global_size, self.local_size)
 

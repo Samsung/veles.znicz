@@ -307,8 +307,17 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         prng.get().fill(inp)
         forward = Forward(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
                           padding=(1, 2, 3, 4), sliding=(2, 3))
-        forward.input = formats.Vector()
-        forward.input.mem = inp.copy()
+        sh = list(inp.shape)
+        sh[0] <<= 1
+        forward.input = formats.Vector(numpy.zeros(sh, dtype=dtype))
+        forward.input.initialize(self.device)
+        forward.input.map_write()
+        forward.input.vv = forward.input.mem
+        sh[0] >>= 1
+        forward.input.mem = forward.input.vv[:sh[0]]
+        formats.assert_addr(forward.input.mem, forward.input.vv)
+        forward.input.mem[:] = inp[:]
+        forward.input.vv[sh[0]:] = numpy.nan
         forward.initialize(device=self.device)
         forward.run()
 
@@ -329,21 +338,35 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,
             padding=forward.padding, sliding=forward.sliding)
-        c.err_output = formats.Vector()
-        c.err_output.mem = err_output.copy()
-        c.input = formats.Vector()
-        c.input.mem = inp.copy()
-        c.weights = formats.Vector()
-        c.weights.mem = weights.copy()
-        c.bias = formats.Vector()
-        c.bias.mem = bias.copy()
-        c.output = formats.Vector()
-        c.output.mem = out.copy()
+        sh = list(err_output.shape)
+        sh[0] <<= 1
+        c.err_output = formats.Vector(numpy.zeros(sh, dtype=dtype))
+        c.err_output.initialize(device)
+        c.err_output.map_write()
+        c.err_output.vv = c.err_output.mem
+        sh[0] >>= 1
+        c.err_output.mem = c.err_output.vv[:sh[0]]
+        formats.assert_addr(c.err_output.mem, c.err_output.vv)
+        c.err_output.mem[:] = err_output[:]
+        c.err_output.vv[sh[0]:] = numpy.nan
+        c.input = forward.input
+        c.weights = forward.weights
+        c.bias = forward.bias
+        c.output = forward.output
         c.initialize(device=device)
         c.run()
         c.err_input.map_read()
         c.weights.map_read()
         c.bias.map_read()
+
+        nz = numpy.count_nonzero(numpy.isnan(c.err_input.mem))
+        self.assertEqual(nz, 0, "NaNs encountered in err_input")
+
+        nz = numpy.count_nonzero(numpy.isnan(c.weights.mem))
+        self.assertEqual(nz, 0, "NaNs encountered in weights")
+
+        nz = numpy.count_nonzero(numpy.isnan(c.bias.mem))
+        self.assertEqual(nz, 0, "NaNs encountered in bias")
 
         err_input = c.err_input.mem.ravel()
         weights_derivative = c.weights.mem - weights

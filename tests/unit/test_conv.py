@@ -64,6 +64,8 @@ class TestConvBase(unittest.TestCase):
         unit.run()
         if device is not None:
             unit.output.map_read()
+        nz = numpy.count_nonzero(numpy.isnan(unit.output.mem))
+        self.assertEqual(nz, 0, "NaNs encountered")
         return unit.output.mem
 
     def _run_check(self, unit, device, input_data, weights, bias, gold_output):

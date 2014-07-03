@@ -19,6 +19,7 @@
 
 #include "conv_common.cl"
 
+#ifdef USE_ATOMICS
 /* @brief Kernels for convolutional layer gradient descent.
  * @details Should be defined externally:
  *          defines from conv_common.cl,
@@ -65,7 +66,7 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
   }
   #undef in_offs
 }
-
+#endif
 
 #if (STORE_GRADIENT > 0) || (APPLY_GRADIENT > 0)
 /// @brief Calculate gradient for weights update.
@@ -110,7 +111,7 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   #endif
 
-  #define AB_COMMON (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
+  #define AB_COMMON (BATCH * KERNELS_PER_SAMPLE)
 
   #define A_COL
   #define B_COL

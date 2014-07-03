@@ -95,6 +95,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         n_channels = self.input.mem.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
 
+        dtype = self.err_output.mem.dtype
+
         if self.weights.mem.size != n_weights:
             raise error.BadFormatError(
                 "Expected number of weights to match "
@@ -109,8 +111,20 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         if (self.err_input.mem is None or
                 self.err_input.mem.size != self.input.mem.size):
             self.err_input.reset()
-            self.err_input.mem = numpy.zeros(self.input.mem.shape,
-                                             dtype=self.err_output.mem.dtype)
+            sh = self.input.mem.shape
+            if root.common.unit_test:
+                sh = list(sh)
+                sh[0] <<= 1
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+                self.err_input.initialize(device)
+                self.err_input.map_write()
+                self.err_input.vv = self.err_input.mem
+                sh[0] >>= 1
+                self.err_input.mem = self.err_input.vv[:sh[0]]
+                formats.assert_addr(self.err_input.mem, self.err_input.vv)
+                self.err_input.vv[sh[0]:] = numpy.nan
+            else:
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.mem is None or
@@ -139,7 +153,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
-            dtype = self.err_output.mem.dtype
             self.cl_const = numpy.zeros(3, dtype=dtype)
 
             self.reduce_size = min(self.reduce_size,
