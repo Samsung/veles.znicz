@@ -27,9 +27,9 @@ class TestMaxPooling(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
-        self._inp = formats.Vector()
+        self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self._inp.mem = numpy.array(
+        self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
              (-3), 2, -1, 4, 2, 0, -3, 3, 1, -3, -4, -3, 0, -3,
@@ -74,12 +74,15 @@ class TestMaxPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        logging.info('starting OpenCL max pooling layer forward propagation '
-                     'test...')
+        self.do_test(opencl.Device())
+
+    def test_cpu(self):
+        self.do_test(None)
+
+    def do_test(self, device):
         c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
-        c.input = self._inp
-        cur_device = opencl.Device()
-        c.initialize(device=cur_device)
+        c.input = self._input
+        c.initialize(device=device)
         c.run()
         c.output.map_read()
 
@@ -87,30 +90,88 @@ class TestMaxPooling(unittest.TestCase):
                               c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
-        c.input_offs.map_read()
+        c.input_offset.map_read()
         max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offs.mem.ravel()).max()
+                              c.input_offset.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
                         " is %.6f" % (max_diff))
-        logging.info("test passed")
+
+
+class TestStochasticPooling(unittest.TestCase):
+    def setUp(self):
+        root.common.unit_test = True
+        root.common.plotters_disabled = True
+
+        self._input = formats.Vector()
+        self._dtype = opencl_types.dtypes[root.common.precision_type]
+        self._input.mem = numpy.array(
+            [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
+             (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
+             (-3), 2, -1, 4, 2, 0, -3, 3, 1, -3, -4, -3, 0, -3,
+             (-1), 0, -2, 2, 2, -4, -1, -1, 0, -2, 1, 3, 1, 2,
+             2, -2, 4, 0, -1, 0, 1, 0, 0, 3, -3, 3, -1, 1,
+             4, 0, -1, -2, 3, 4, -4, -2, -4, 3, -2, -3, -1, -1,
+             (-1), -3, 3, 3, -2, -1, 3, 2, -1, -2, 4, -1, 2, 4,
+             (-2), -1, 1, 3, -2, -2, 0, -2, 0, 4, -1, -2, -2, -3,
+             3, 2, -2, 3, 1, -3, -2, -1, 4, -2, 0, -3, -1, 2,
+             2, -3, -1, -1, -3, -2, 2, 3, 0, -2, 1, 2, 0, -3,
+             (-4), 1, -1, 2, -1, 0, 3, -2, 4, -3, 4, 4, 1, -4,
+             0, -1, 1, 3, 0, 1, 3, 4, -3, 2, 4, 3, -1, 0,
+             (-1), 0, 1, -2, -4, 0, -4, -4, 2, 3, 2, -3, 1, 1,
+             1, -1, -4, 3, 1, -1, -3, -4, -4, 3, -1, -4, -1, 0,
+             (-1), -3, 4, 1, 2, -1, -2, -3, 3, 1, 3, -3, 4, -2],
+            dtype=self._dtype).reshape(3, 5, 7, 2)
+
+        self._gold_output = numpy.array(
+            [[[[4, 4], [3, 3], [3, 4], [4, -4]],
+              [[-3, 4], [-3, -4], [-4, -3], [1, -3]],
+              [[4, -2], [-1, 0], [-3, 3], [-1, 1]]],
+             [[[4, -3], [-4, 4], [-4, 3], [2, 4]],
+              [[3, 3], [-2, -3], [4, 4], [-2, -3]],
+              [[2, -3], [-3, 3], [1, -2], [0, -3]]],
+             [[[-4, 3], [3, 4], [4, 4], [1, -4]],
+              [[-4, 3], [-4, -4], [-4, -4], [1, 1]],
+              [[4, -3], [2, -3], [3, -3], [4, -2]]]], dtype=self._dtype)
+
+        self._gold_offs = numpy.array(
+            [[[[16, 1], [20, 7], [10, 23], [12, 27]],
+              [[28, 31], [34, 47], [38, 37], [54, 41]],
+              [[58, 57], [60, 61], [66, 65], [68, 69]]],
+             [[[70, 85], [76, 75], [78, 79], [96, 97]],
+              [[112, 101], [102, 117], [120, 107], [110, 111]],
+              [[126, 127], [130, 133], [136, 135], [138, 139]]],
+             [[[140, 157], [146, 161], [148, 151], [152, 153]],
+              [[184, 185], [172, 175], [190, 193], [180, 181]],
+              [[198, 197], [200, 203], [204, 207], [208, 209]]]],
+            dtype=numpy.int32)
+
+    def tearDown(self):
+        pass
+
+    def test_ocl(self):
+        # self.do_test(opencl.Device())
+        pass
 
     def test_cpu(self):
-        logging.info('starting CPU max pooling layer forward propagation '
-                     'test...')
-        c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
-        c.input = self._inp
-        c.initialize(device=None)
+        # self.do_test(None)
+        pass
+
+    def do_test(self, device):
+        c = pooling.StochasticPooling(DummyWorkflow(), kx=2, ky=2)
+        c.input = self._input
+        c.initialize(device=device)
         c.run()
+        c.output.map_read()
 
         max_diff = numpy.fabs(self._gold_output.ravel() -
                               c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
+        c.input_offset.map_read()
         max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offs.mem.ravel()).max()
+                              c.input_offset.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
                         " is %.6f" % (max_diff))
-        logging.info("test passed")
 
 
 class TestGDMaxPooling(unittest.TestCase):
@@ -119,7 +180,7 @@ class TestGDMaxPooling(unittest.TestCase):
         root.common.plotters_disabled = True
 
         self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self._inp = numpy.array(
+        self._input = numpy.array(
             [[[3, 3, -1, 1, 2, 3, 4],
               [-2, 4, -2, 3, -3, 1, -2],
               [-3, -1, 2, -3, 1, -4, 0],
@@ -135,8 +196,8 @@ class TestGDMaxPooling(unittest.TestCase):
               [-1, 1, -4, -4, 2, 2, 1],
               [1, -4, 1, -3, -4, -1, -1],
               [-1, 4, 2, -2, 3, 3, 4]]], dtype=self._dtype)
-        self._inp.shape = (3, 5, 7, 1)
-        self._input_offs = numpy.array(
+        self._input.shape = (3, 5, 7, 1)
+        self._input_offset = numpy.array(
             [8, 10, 5, 6, 14, 17, 19, 27, 29, 30, 33, 34,
              35, 38, 39, 48, 56, 51, 60, 55, 63, 65, 68, 69,
              70, 73, 74, 76, 92, 86, 95, 90, 99, 100,
@@ -176,9 +237,9 @@ class TestGDMaxPooling(unittest.TestCase):
                      'test...')
         c = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = formats.Vector()
-        c.input.mem = self._inp.copy()
-        c.input_offs = formats.Vector()
-        c.input_offs.mem = self._input_offs.copy()
+        c.input.mem = self._input.copy()
+        c.input_offset = formats.Vector()
+        c.input_offset.mem = self._input_offset.copy()
         c.err_output = formats.Vector()
         c.err_output.mem = self._err_output.copy()
         c.initialize(device=device)
@@ -201,9 +262,9 @@ class TestAvgPooling(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
-        self._inp = formats.Vector()
+        self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self._inp.mem = numpy.array(
+        self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
              (-3), 2, -1, 4, 2, 0, -3, 3, 1, -3, -4, -3, 0, -3,
@@ -236,10 +297,14 @@ class TestAvgPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        logging.info('starting OpenCL avg pooling layer forward propagation '
-                     'test...')
+        self.do_test(opencl.Device())
+
+    def test_cpu(self):
+        self.do_test(None)
+
+    def do_test(self, device):
         c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
-        c.input = self._inp
+        c.input = self._input
         cur_device = opencl.Device()
         c.initialize(device=cur_device)
         c.run()
@@ -248,21 +313,6 @@ class TestAvgPooling(unittest.TestCase):
                               c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
-        logging.info("test passed")
-
-    def test_cpu(self):
-        logging.info('starting CPU avg pooling layer forward propagation '
-                     'test...')
-        c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
-        c.input = self._inp
-        c.initialize(device=None)
-
-        c.run()
-        max_diff = numpy.fabs(self._gold_output.ravel() -
-                              c.output.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001, "max difference in output matrix"
-                        " is %.6f" % (max_diff))
-        logging.info("test passed")
 
 
 class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
@@ -271,7 +321,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
         root.common.plotters_disabled = True
 
         self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self._inp = numpy.array([
+        self._input = numpy.array([
             [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
              [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
              [[-3, -6], [-1, -2], [2, 4], [-3, -6], [1, 2], [-4, -8], [0, 0]],
@@ -346,7 +396,7 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
                      'test...')
         c = gd_pooling.GDAvgPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = formats.Vector()
-        c.input.mem = self._inp.copy()
+        c.input.mem = self._input.copy()
         c.err_output = formats.Vector()
         c.err_output.mem = self._err_output.copy()
         c.initialize(device=device)
@@ -365,13 +415,13 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
 
         forward = pooling.AvgPooling(DummyWorkflow(), kx=c.kx, ky=c.ky)
         forward.input = formats.Vector()
-        forward.input.mem = self._inp.copy()
+        forward.input.mem = self._input.copy()
         forward.initialize(device=self.device)
         forward.run()
         forward.output.map_read()
         target = forward.output.mem.ravel() - self._err_output.ravel()
 
-        self.numdiff_check_gd(forward, self._inp, None, None, target,
+        self.numdiff_check_gd(forward, self._input, None, None, target,
                               c.err_input.mem, None, None,
                               logging.info, self.assertLess)
 
