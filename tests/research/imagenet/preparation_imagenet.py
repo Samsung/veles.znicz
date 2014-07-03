@@ -38,7 +38,6 @@ import scipy.misc
 import sys
 
 import veles.config as config
-import veles.formats as formats
 from veles.logger import Logger
 from veles.znicz.external import xmltodict
 
@@ -100,31 +99,26 @@ class Main(Logger):
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
                                                  True)
         self.rect = kwargs.get("rect", (256, 256))
-        self.minibatch_data = formats.Vector()
-        self.minibatch_indices = formats.Vector()
-        self.normalize = kwargs.get("normalize", True)
-        self._max_minibatch_size = kwargs.get("minibatch_size", 100)
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
-        self._crop_color = kwargs.get(
-            "crop_color",
-            config.get(config.root.imagenet.crop_color) or (64, 64, 64))
         self._colorspace = kwargs.get(
             "colorspace", config.get(config.root.imagenet.colorspace) or "RGB")
         if self._colorspace == "GRAY":
             self._crop_color = self._crop_color[0]
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
-        self._force_reinit = kwargs.get(
-            "force_reinit",
-            config.get(config.root.imagenet.force_reinit) or False)
         Logger.__init__(self, **kwargs)
         self.images_0 = {
             "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
             "test": {}
             }
+        self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
+        self.s_count = numpy.zeros_like(self.s_mean)
+        self.s_min = numpy.empty_like(self.s_mean)
+        self.s_min[:] = 255
+        self.s_max = numpy.zeros_like(self.s_mean)
 
     @property
     def colorspace(self):
@@ -325,6 +319,32 @@ class Main(Logger):
         names_labels_dir = os.path.join(cached_data_fnme,
                                         "names_labels_%s_%s_0.pickle" %
                                         (self.year, self.series))
+        set_type = "train"
+        fnme = os.path.join(cached_data_fnme,
+                            IMAGES_JSON %
+                            (self.year, self.series, set_type))
+        original_data_dir = os.path.join(
+            cached_data_fnme,
+            "original_data_%s_%s_%s_0.dat" %
+            (self.year, self.series, set_type))
+        self.f_samples = open(original_data_dir, "wb")
+        try:
+            with open(fnme, 'r') as fp:
+                self.images_json[set_type] = json.load(fp)
+        except:
+            self.exception("Failed to load %s", fnme)
+        for f, _val in sorted(self.images_json[set_type].items()):
+            image_fnme = self.images_json[set_type][f]["path"]
+            image = self.decode_image(image_fnme)
+            i = 0
+            for bbx in self.images_json[set_type][f]["bbxs"]:
+                x = bbx["x"]
+                y = bbx["y"]
+                h_size = bbx["height"]
+                w_size = bbx["width"]
+                label = bbx["label"]
+                self.sample_rect(image, x, y, h_size, w_size, False)
+        self.s_mean = self.s_mean / self.s_count
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(cached_data_fnme,
                                 IMAGES_JSON %
@@ -351,7 +371,8 @@ class Main(Logger):
                     h_size = bbx["height"]
                     w_size = bbx["width"]
                     label = bbx["label"]
-                    sample = self.sample_rect(image, x, y, h_size, w_size)
+                    sample = self.sample_rect(image, x, y, h_size, w_size,
+                                              True)
                     sample_sobel = self.preprocess_sample(sample)
                     sobel = sample_sobel[1]
                     sample = sample_sobel[0]
@@ -364,9 +385,13 @@ class Main(Logger):
                     i += 1
             self.info("Saving images to %s" % original_data_dir)
             self.f_samples.close()
+            mean_image = {"train": [(self.s_mean, "mean_image")],
+                          "validation": [(self.s_mean, "mean_image")],
+                          "test": [(self.s_mean, "mean_image")]}
         if self.do_save_resized_images:
             self.imagenet_image_saver(data_names)
             self.imagenet_image_saver(self.sobel)
+            self.imagenet_image_saver(mean_image)
         with open(names_labels_dir, "wb") as fout:
             self.info("Saving (name, label) of images to %s" %
                       names_labels_dir)
@@ -385,77 +410,45 @@ class Main(Logger):
                 raise
         return data
 
-    def sample_rect(self, img, x_c, y_c, h_size, w_size):
+    def sample_rect(self, img, x_c, y_c, h_size, w_size, apply):
+        nn_width = self.rect[0]
+        nn_height = self.rect[1]
         x_min = x_c - w_size / 2
         y_min = y_c - h_size / 2
         x_max = x_min + w_size
         y_max = y_min + h_size
-        bbox = [x_min, y_min, x_max, y_max]
-        image_out = self.bbox_is_square(bbox, img)
-
-        return image_out
-
-    def bbox_is_square(self, bbox, img):
-        width = img.shape[1]
-        height = img.shape[0]
-        offset = (bbox[2] - bbox[0] - (bbox[3] - bbox[1])) / 2
-        if offset > 0:
-            # Width is bigger than height
-            bbox[1] -= int(numpy.floor(offset))
-            bbox[3] += int(numpy.ceil(offset))
-            bottom_height = -bbox[1]
-            if bottom_height > 0:
-                bbox[1] = 0
-            else:
-                bottom_height = 0
-            top_height = bbox[3] - height
-            if top_height > 0:
-                bbox[3] = height
-            else:
-                top_height = 0
-            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-            if bottom_height > 0:
-                fixup = numpy.empty((bottom_height, bbox[2] - bbox[0], 3),
-                                    dtype=img.dtype)
-                fixup[:, :, :] = self._crop_color
-                img = numpy.concatenate((fixup, img), axis=0)
-            if top_height > 0:
-                fixup = numpy.empty((top_height, bbox[2] - bbox[0], 3),
-                                    dtype=img.dtype)
-                fixup[:, :, :] = self._crop_color
-                img = numpy.concatenate((img, fixup), axis=0)
-        elif offset < 0:
-            # Height is bigger than width
-            bbox[0] += int(numpy.ceil(offset))
-            bbox[2] -= int(numpy.floor(offset))
-            left_width = -bbox[0]
-            if left_width > 0:
-                bbox[0] = 0
-            else:
-                left_width = 0
-            right_width = bbox[2] - width
-            if right_width > 0:
-                bbox[2] = width
-            else:
-                right_width = 0
-            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-            if left_width > 0:
-                fixup = numpy.empty((bbox[3] - bbox[1], left_width, 3),
-                                    dtype=img.dtype)
-                fixup[:, :, :] = self._crop_color
-                img = numpy.concatenate((fixup, img), axis=1)
-            if right_width > 0:
-                fixup = numpy.empty((bbox[3] - bbox[1], right_width, 3),
-                                    dtype=img.dtype)
-                fixup[:, :, :] = self._crop_color
-                img = numpy.concatenate((img, fixup), axis=1)
+        img = img[y_min:y_max, x_min:x_max].copy()
+        if img.shape[1] >= img.shape[0]:
+            dst_width = nn_width
+            dst_height = int(numpy.round(
+                float(dst_width) * img.shape[0] / img.shape[1]))
         else:
-            img = img[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-        assert img.shape[0] == img.shape[1]
-        if img.shape[0] != self.rect[0]:
-            img = cv2.resize(img, self.rect,
-                             interpolation=cv2.INTER_AREA)
-        return img
+            dst_height = nn_height
+            dst_width = int(numpy.round(
+                float(dst_height) * img.shape[1] / img.shape[0]))
+        assert dst_width <= nn_width and dst_height <= nn_height
+        img = cv2.resize(img, (dst_width, dst_height),
+                         interpolation=cv2.INTER_AREA)
+        dst_x_min = int(numpy.round(0.5 * (nn_width - dst_width)))
+        dst_y_min = int(numpy.round(0.5 * (nn_height - dst_height)))
+        dst_x_max = dst_x_min + img.shape[1]
+        dst_y_max = dst_y_min + img.shape[0]
+        assert dst_x_max <= nn_width and dst_y_max <= nn_height
+        if apply:
+            sample = self.s_mean.copy()
+            sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = img
+            numpy.around(sample, 0, sample)
+            numpy.clip(sample, 0, 255, sample)
+            return sample.astype(numpy.uint8)
+        self.s_mean[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += img
+        self.s_count[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += 1.0
+        numpy.minimum(self.s_min[dst_y_min:dst_y_max, dst_x_min:dst_x_max],
+                      img,
+                      self.s_min[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
+        numpy.maximum(self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max],
+                      img,
+                      self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
+        return None
 
     def generate_images_with_bbx(self):
         """
