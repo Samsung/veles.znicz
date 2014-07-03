@@ -49,7 +49,7 @@ class Forward(OpenCLUnit):
         self.rand = kwargs.get("rand", prng.get())
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.include_bias = kwargs.get("include_bias", True)
-        self.input = None
+        self.demand("input")
         self.output = formats.Vector()
         self.weights = formats.Vector()
         self.bias = formats.Vector()
