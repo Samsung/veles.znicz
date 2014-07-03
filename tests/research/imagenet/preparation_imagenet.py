@@ -30,6 +30,7 @@ import jpeg4py
 import json
 import logging
 import numpy
+import pickle
 import os
 from PIL import Image, ImageDraw
 import scipy.misc
@@ -39,7 +40,6 @@ import sys
 import veles.config as config
 import veles.formats as formats
 from veles.logger import Logger
-import veles.opencl_types as opencl_types
 from veles.znicz.external import xmltodict
 
 
@@ -92,22 +92,18 @@ class Main(Logger):
             "validation": {},
             "test": {}
             }
-        self.original_data = {
+        self.names_labels = {
             "train": [],
             "validation": [],
             "test": []
             }
-        self.original_labels = {
-            "train": [],
-            "validation": [],
-            "test": []
-            }
+        self.do_save_resized_images = kwargs.get("do_save_resized_images",
+                                                 True)
         self.rect = kwargs.get("rect", (256, 256))
         self.minibatch_data = formats.Vector()
         self.minibatch_indices = formats.Vector()
         self.normalize = kwargs.get("normalize", True)
         self._max_minibatch_size = kwargs.get("minibatch_size", 100)
-        self._dtype = opencl_types.dtypes[config.root.common.precision_type]
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
@@ -119,7 +115,7 @@ class Main(Logger):
         if self._colorspace == "GRAY":
             self._crop_color = self._crop_color[0]
         self._include_derivative = kwargs.get(
-            "derivative", config.get(config.root.imagenet.derivative) or False)
+            "derivative", config.get(config.root.imagenet.derivative) or True)
         self._force_reinit = kwargs.get(
             "force_reinit",
             config.get(config.root.imagenet.force_reinit) or False)
@@ -271,10 +267,18 @@ class Main(Logger):
 
     def preprocess_sample(self, data):
         if self._include_derivative:
-            deriv = cv2.Sobel(
+            deriv_x = cv2.Sobel(
                 cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
-                else data, cv2.CV_32F if self._dtype == numpy.float32
-                else cv2.CV_64F, 1, 1, ksize=self._sobel_kernel_size)
+                else data, cv2.CV_32F, 1, 0, ksize=self._sobel_kernel_size)
+            deriv_y = cv2.Sobel(
+                cv2.cvtColor(data, cv2.COLOR_RGB2GRAY) if data.shape[-1] > 1
+                else data, cv2.CV_32F, 0, 1, ksize=self._sobel_kernel_size)
+            deriv = numpy.sqrt(numpy.square(deriv_x) + numpy.square(deriv_y))
+            deriv -= deriv.min()
+            mx = deriv.max()
+            if mx:
+                deriv *= 255.0 / mx
+            deriv = numpy.clip(deriv, 0, 255).astype(numpy.uint8)
         if self.colorspace != "RGB" and not (data.shape[-1] == 1 and
                                              self.colorspace == "GRAY"):
             cv2.cvtColor(data, getattr(cv2, "COLOR_RGB2" + self._colorspace),
@@ -282,29 +286,30 @@ class Main(Logger):
         if self._include_derivative:
             shape = list(data.shape)
             shape[-1] += 1
-            res = numpy.empty(shape, dtype=self._dtype)
+            res = numpy.empty(shape, dtype=numpy.uint8)
             res[:, :, :-1] = data
             begindex = len(shape)
             res.ravel()[begindex::(begindex + 1)] = deriv.ravel()
         else:
-            res = data.astype(self._dtype)
-        return res
+            res = data
+        assert res.dtype == numpy.uint8
+        return (res, deriv)
 
     def imagenet_image_saver(self, data_names):
-        for set_type, _v in data_names.items():
+        for set_type in ("test", "validation", "train"):
             for (image, name) in data_names[set_type]:
                 out_dirs = {"test":
                             os.path.join(config.root.common.cache_dir,
                                          "tmpimg/imagenet_image_saver"
-                                         "/test/%s_.jpg" % name),
+                                         "/test/%s.jpg" % name),
                             "validation":
                             os.path.join(config.root.common.cache_dir,
                                          "tmpimg/imagenet_image_saver"
-                                         "/validation/%s_.jpg" % name),
+                                         "/validation/%s.jpg" % name),
                             "train":
                             os.path.join(config.root.common.cache_dir,
                                          "tmpimg/imagenet_image_saver"
-                                         "/train/%s_.jpg" % name)}
+                                         "/train/%s.jpg" % name)}
                 self.info("Saving image %s" % out_dirs[set_type])
                 try:
                     scipy.misc.imsave(out_dirs[set_type], image)
@@ -314,20 +319,30 @@ class Main(Logger):
 
     def generate_resized_dataset(self):
         self.info("Resized dataset")
+        self.sobel = {"train": [], "test": [], "validation": []}
         data_names = {"train": [], "test": [], "validation": []}
         cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
-        for set_type, _ in self.images_json.items():
+        names_labels_dir = os.path.join(cached_data_fnme,
+                                        "names_labels_%s_%s_0.pickle" %
+                                        (self.year, self.series))
+        for set_type in ("test", "validation", "train"):
             fnme = os.path.join(cached_data_fnme,
                                 IMAGES_JSON %
                                 (self.year, self.series, set_type))
+            original_data_dir = os.path.join(
+                cached_data_fnme,
+                "original_data_%s_%s_%s_0.dat" %
+                (self.year, self.series, set_type))
+            self.f_samples = open(original_data_dir, "wb")
             try:
                 with open(fnme, 'r') as fp:
                     self.images_json[set_type] = json.load(fp)
             except:
                 self.exception("Failed to load %s", fnme)
-            for f, _val in self.images_json[set_type].items():
+            for f, _val in sorted(self.images_json[set_type].items()):
                 image_fnme = self.images_json[set_type][f]["path"]
-                sample = self.decode_image(image_fnme)
+                image = self.decode_image(image_fnme)
+                i = 0
                 for bbx in self.images_json[set_type][f]["bbxs"]:
                     self.info("*****Resized image %s *****" %
                               self.images_json[set_type][f]["path"])
@@ -336,13 +351,26 @@ class Main(Logger):
                     h_size = bbx["height"]
                     w_size = bbx["width"]
                     label = bbx["label"]
-                    img = self.sample_rect(sample, x, y, h_size, w_size)
-                    img_sample = self.preprocess_sample(img)
-                    self.original_data[set_type].append(img_sample)
-                    self.original_labels[set_type].append(label)
-                    data_names[set_type].append((img, f))
-        self.imagenet_image_saver(data_names)
-        return (self.original_data, self.original_labels)
+                    sample = self.sample_rect(image, x, y, h_size, w_size)
+                    sample_sobel = self.preprocess_sample(sample)
+                    sobel = sample_sobel[1]
+                    sample = sample_sobel[0]
+                    sample.tofile(self.f_samples)
+                    name_image = f[:f.rfind(".")]
+                    name = name_image + ("_%s_bbx" % i)
+                    self.names_labels[set_type].append((name, label))
+                    data_names[set_type].append((sample, name))
+                    self.sobel[set_type].append((sobel, name + "_sobel"))
+                    i += 1
+            self.info("Saving images to %s" % original_data_dir)
+            self.f_samples.close()
+        if self.do_save_resized_images:
+            self.imagenet_image_saver(data_names)
+            self.imagenet_image_saver(self.sobel)
+        with open(names_labels_dir, "wb") as fout:
+            self.info("Saving (name, label) of images to %s" %
+                      names_labels_dir)
+            pickle.dump(self.names_labels, fout)
 
     def decode_image(self, file_name):
         try:
@@ -441,7 +469,7 @@ class Main(Logger):
             pass
         """
         cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
-        for set_type, _ in self.images_json.items():
+        for set_type in ("test", "validation", "train"):
             fnme = os.path.join(cached_data_fnme,
                                 IMAGES_JSON %
                                 (self.year, self.series, set_type))
@@ -450,7 +478,7 @@ class Main(Logger):
                     self.images_json[set_type] = json.load(fp)
             except:
                 self.exception("Failed to load %s", fnme)
-            for f, _val in self.images_json[set_type].items():
+            for f, _val in sorted(self.images_json[set_type].items()):
                 image_path = Image.open(self.images_json[set_type][f]["path"])
                 draw = ImageDraw.Draw(image_path)
                 for bbx in self.images_json[set_type][f]["bbxs"]:
@@ -510,6 +538,7 @@ class Main(Logger):
 
         self.info("End of job")
         return Main.EXIT_SUCCESS
+
 
 if __name__ == "__main__":
     sys.exit(Main().run())
