@@ -65,8 +65,10 @@ root.defaults = {
                                   "tmp %s/validation" % root.model),
                      os.path.join(root.common.cache_dir,
                                   "tmp %s/train" % root.model)]},
-    "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                          "channels_%s.pickle" % root.model),
+    "loader": {"cache_file_name": os.path.join(root.common.cache_dir,
+                                               "channels_%s.%d.pickle" %
+                                               (root.model,
+                                                sys.version_info[0])),
                "grayscale": False,
                "minibatch_size": 81,
                "n_threads": 32,
@@ -100,38 +102,26 @@ class Loader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, workflow, **kwargs):
-        channels_dir = kwargs.get("channels_dir", "")
-        self.layers = kwargs.get("layers", [54, 10])
-        rect = kwargs.get("rect", (264, 129))
-        grayscale = kwargs.get("grayscale", False)
-        cache_fnme = kwargs.get("cache_fnme", "")
-        find_negative = kwargs.get("find_negative", 0)
-        n_threads = kwargs.get("n_threads", 32)
-        kwargs["channels_dir"] = channels_dir
-        kwargs["rect"] = rect
-        kwargs["grayscale"] = grayscale
-        kwargs["cache_fnme"] = cache_fnme
-        kwargs["find_negative"] = find_negative
-        kwargs["n_threads"] = n_threads
         super(Loader, self).__init__(workflow, **kwargs)
+        self.channels_dir = kwargs.get("channels_dir", "")
+        self.layers = kwargs.get("layers", [54, 10])
+        self.rect = kwargs.get("rect", (264, 129))
+        self.grayscale = kwargs.get("grayscale", False)
+        self.cache_file_name = kwargs.get("cache_file_name", "")
+        self.find_negative = kwargs.get("find_negative", 0)
+        self.n_threads = kwargs.get("n_threads", 32)
         # : Top-level configuration from channels_dir/conf.py
         self.top_conf_ = None
         # : Configuration from channels_dir/subdirectory/conf.py
         self.subdir_conf_ = {}
-        self.channels_dir = channels_dir
-        self.cache_fnme = cache_fnme
-        self.rect = rect
-        self.grayscale = grayscale
         self.w_neg = None  # workflow for finding the negative dataset
-        self.find_negative = find_negative
         self.channel_map = None
-        self.n_threads = n_threads
         self.pos = {}
         self.sz = {}
         self.file_map = {}  # sample index to its file name map
         self.attributes_for_cached_data = [
             "channels_dir", "rect", "channel_map", "pos", "sz",
-            "class_lengths", "grayscale", "file_map", "cache_fnme"]
+            "class_lengths", "grayscale", "file_map", "cache_file_name"]
         self.exports = ["rect", "pos", "sz"]
         self.do_swap_axis = False
 
@@ -319,7 +309,7 @@ class Loader(loader.FullBatchLoader):
             return
 
         cached_data_fnme = (
-            self.cache_fnme or os.path.join(
+            self.cache_file_name or os.path.join(
                 root.common.cache_dir,
                 "%s_%s.%d.pickle" %
                 (os.path.basename(__file__), self.__class__.__name__,
@@ -332,6 +322,7 @@ class Loader(loader.FullBatchLoader):
             if self.layers[i].get("n_kernels") is not None:
                 self.do_swap_axis = True
         try:
+            print(cached_data_fnme)
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
             if obj["channels_dir"] != self.channels_dir:
@@ -639,7 +630,7 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, cache_fnme=root.loader.cache_fnme,
+        self.loader = Loader(self, cache_file_name=root.loader.cache_file_name,
                              find_negative=root.channels.find_negative,
                              grayscale=root.loader.grayscale,
                              n_threads=root.loader.n_threads,

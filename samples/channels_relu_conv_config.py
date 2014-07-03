@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import os
+import sys
 
 from veles.config import root
 
@@ -31,9 +32,10 @@ root.update = {"accumulator": {"bars": 30},
                                              root.model),
                                 os.path.join(root.common.cache_dir,
                                              "tmp %s/train" % root.model)]},
-               "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                     "channels_%s.pickle"
-                                                     % root.model),
+               "loader": {"cache_file_name":
+                          os.path.join(root.common.cache_dir,
+                                       "channels_%s.%d.pickle" %
+                                       (root.model, sys.version_info[0])),
                           "grayscale": False,
                           "minibatch_size": 40,
                           "n_threads": 32,

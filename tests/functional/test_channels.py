@@ -92,9 +92,10 @@ class TestChannels(unittest.TestCase):
                                           "tmp %s/validation" % root.model),
                              os.path.join(root.common.cache_dir,
                                           "tmp %s/train" % root.model)]},
-            "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                  "channels_%s.pickle" %
-                                                  root.model),
+            "loader": {"cache_file_name":
+                       os.path.join(root.common.cache_dir,
+                                    "channels_%s.%d.pickle" %
+                                    (root.model, sys.version_info[0])),
                        "grayscale": False,
                        "minibatch_size": 81,
                        "n_threads": 32,
@@ -134,9 +135,10 @@ class TestChannels(unittest.TestCase):
                                           "tmp %s/validation" % root.model),
                              os.path.join(root.common.cache_dir,
                                           "tmp %s/train" % root.model)]},
-            "loader": {"cache_fnme": os.path.join(root.common.cache_dir,
-                                                  "channels_%s.pickle" %
-                                                  root.model),
+            "loader": {"cache_file_name":
+                       os.path.join(root.common.cache_dir,
+                                    "channels_%s.%d.pickle" %
+                                    (root.model, sys.version_info[0])),
                        "grayscale": False,
                        "minibatch_size": 81,
                        "n_threads": 32,
