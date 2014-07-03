@@ -9,14 +9,14 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 """
 
 from __future__ import division
+import numpy as np
 import opencl4py as cl
 from zope.interface import implementer
 
 from veles import formats, OpenCLUnit
+import veles.random_generator as random_generator
 from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
-
-import numpy as np
 from veles.distributable import IDistributable, TriviallyDistributable
 
 
@@ -47,15 +47,19 @@ class Dropout(OpenCLUnit, TriviallyDistributable):
         self._dropout_ratio = value
 
 
-@implementer(IOpenCLUnit, IDistributable)
+@implementer(IOpenCLUnit)
 class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
     """
+    MIN_RANDOM_STATE = 0
+    MAX_RANDOM_STATE = 0x100000000
+
     def __init__(self, workflow, **kwargs):
+        super(DropoutForward, self).__init__(workflow, **kwargs)
         self.mask = formats.Vector()  # dropout mask
         self.states = formats.Vector()
-        super(DropoutForward, self).__init__(workflow, **kwargs)
+        self.rand = random_generator.get()
 
     @Dropout.dropout_ratio.setter
     def dropout_ratio(self, value):
@@ -67,7 +71,8 @@ class DropoutForward(Forward, Dropout):
         super(DropoutForward, self).initialize(device=device, **kwargs)
         self.mask.mem = np.empty_like(self.input.mem)
         self.states.mem = self.rand.randint(
-            low=0, high=0x100000000,
+            low=DropoutForward.MIN_RANDOM_STATE,
+            high=DropoutForward.MAX_RANDOM_STATE,
             size=self.input.mem.size * 4).astype(np.uint32)
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.size):
@@ -112,7 +117,7 @@ class DropoutForward(Forward, Dropout):
         self.states.unmap()
         self.mask.unmap()
         self.output.unmap()
-        self._threshold_arg_[0] = (0.0 + (1 << 64)) * self.dropout_ratio
+        self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.set_arg(1, self._threshold_arg_)
         self.set_arg(2, self._pass_arg_)

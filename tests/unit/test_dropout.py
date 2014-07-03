@@ -4,7 +4,7 @@
 """
 Created on April 25, 2014
 
-A unit test for drouput layer.
+A unit test for dropout layer.
 """
 import unittest
 import logging

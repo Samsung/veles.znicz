@@ -1,5 +1,6 @@
 #include "defines.cl"
 #include "highlight.cl"
+#include "random.cl"
 
 /// @brief xorshift128+
 __kernel void dropout_forward(__global const dtype    /* IN */    *inputs,
@@ -9,15 +10,8 @@ __kernel void dropout_forward(__global const dtype    /* IN */    *inputs,
                               __global dtype         /* OUT */    *mask,
                               __global dtype         /* OUT */    *output) {
   int index = get_global_id(0);
-
-  ulong2 seed = states[index];
-  ulong s1 = seed.x;
-  const ulong s0 = seed.y;
-  seed.x = s0;
-  s1 ^= s1 << 23;
-  ulong random = (seed.y = (s1 ^ s0 ^ (s1 >> 17) ^ (s0 >> 26))) + s0;
-  states[index] = seed;
-
+  ulong random;
+  xorshift128plus(states[index], random);
   dtype val = random < threshold ? 0 : pass;
   mask[index] = val;
   output[index] = inputs[index] * val;
