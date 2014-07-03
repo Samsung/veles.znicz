@@ -360,7 +360,7 @@ class TestConvCaffe(standard_test.StandardTest):
         grad_pool.err_output = Vector(top_err)
         grad_pool.err_output.map_write()
 
-        grad_pool.input_offs = fwd_pool.input_offs
+        grad_pool.input_offset = fwd_pool.input_offset
 
         grad_pool.initialize(device=self.device)
 

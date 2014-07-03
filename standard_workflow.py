@@ -117,7 +117,7 @@ class GradientUnitFactory(object):
             kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         if isinstance(fwd, pooling.MaxPooling):
-            grad_unit.link_attrs(fwd, "input_offs")
+            grad_unit.link_attrs(fwd, "input_offset")
         return grad_unit
 
     @staticmethod
@@ -281,7 +281,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
             attrs = []
             for attr in ("input", "output", "weights", "bias",
-                         "input_offs", "mask"):
+                         "input_offset", "mask"):
                 if hasattr(self.fwds[i], attr):
                     attrs.append(attr)
             self.gds[i].link_attrs(self.fwds[i], *attrs)

@@ -199,7 +199,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_max[-1].link_attrs(self.decision,
                                         ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
-            self.plt_max[-1].input_offs = 1
+            self.plt_max[-1].input_offset = 1
             self.plt_max[-1].link_from(prev)
             self.plt_max[-1].gate_skip = ~self.decision.epoch_ended
             prev = self.plt_max[-1]
@@ -212,7 +212,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_min[-1].link_attrs(self.decision,
                                         ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
-            self.plt_min[-1].input_offs = 2
+            self.plt_min[-1].input_offset = 2
             self.plt_min[-1].link_from(prev)
             self.plt_min[-1].gate_skip = ~self.decision.epoch_ended
             prev = self.plt_min[-1]

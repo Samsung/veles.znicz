@@ -174,7 +174,7 @@ class Workflow(OpenCLWorkflow):
             sliding=self.pool_forward.sliding)
         self.pool_gd.link_from(prev)
         self.pool_gd.link_attrs(prev, ("err_output", "err_input"))
-        self.pool_gd.link_attrs(self.pool_forward, "input", "input_offs")
+        self.pool_gd.link_attrs(self.pool_forward, "input", "input_offset")
         prev = self.pool_gd
 
         # Gradient descent layer for first convolutional layer

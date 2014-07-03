@@ -167,19 +167,19 @@ class GDMaxPooling(GDPooling):
     """Gradient Descent for max pooling unit.
 
     Must be assigned before initialize():
-        input_offs
+        input_offset
 
     Updates after run():
 
     Creates within initialize():
 
     Attributes:
-        input_offs: offsets in err_input where to copy err_output.
+        input_offset: offsets in err_input where to copy err_output.
         krn_err_input_clear_: OpenCL kernel for setting err_input with zeros.
     """
     def __init__(self, workflow, **kwargs):
         super(GDMaxPooling, self).__init__(workflow, **kwargs)
-        self.input_offs = None  # formats.Vector()
+        self.input_offset = None  # formats.Vector()
 
     def init_unpickled(self):
         super(GDMaxPooling, self).init_unpickled()
@@ -188,11 +188,11 @@ class GDMaxPooling(GDPooling):
     def initialize(self, **kwargs):
         super(GDMaxPooling, self).initialize(**kwargs)
 
-        if self.err_output.mem.size != self.input_offs.mem.size:
+        if self.err_output.mem.size != self.input_offset.mem.size:
             raise error.BadFormatError("Shape of err_output differs from "
-                                       "that of input_offs")
+                                       "that of input_offset")
 
-        self.input_offs.initialize(self.device)
+        self.input_offset.initialize(self.device)
 
         if self.device is None:
             return
@@ -201,35 +201,35 @@ class GDMaxPooling(GDPooling):
             self.krn_err_input_ = self.get_kernel("gd_max_pooling")
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.err_input.devmem,
-                                         self.input_offs.devmem)
+                                         self.input_offset.devmem)
 
     #IDistributable implementation
     def generate_data_for_slave(self, slave):
-        self.input_offs.map_read()
-        data = (self.input_offs.mem)
+        self.input_offset.map_read()
+        data = (self.input_offset.mem)
         return data
 
     def apply_data_from_master(self, data):
-        self.input_offs.map_invalidate()
-        self.input_offs.mem[:] = data[0][:]
+        self.input_offset.map_invalidate()
+        self.input_offset.mem[:] = data[0][:]
 
     def ocl_run(self):
         """Do gradient descent on OpenCL device.
         """
-        self.input_offs.unmap()  # we will use input_offs
+        self.input_offset.unmap()  # we will use input_offset
         return super(GDMaxPooling, self).ocl_run()
 
     def cpu_run(self):
         """Do gradient descent on CPU.
         """
         self.err_output.map_read()
-        self.input_offs.map_read()
+        self.input_offset.map_read()
         self.err_input.map_invalidate()
         self.err_input.mem[:] = 0
 
-        # self.input_offs can contain equal values
+        # self.input_offset can contain equal values
         for err, offset in numpy.nditer([self.err_output.mem,
-                                         self.input_offs.mem]):
+                                         self.input_offset.mem]):
             batch, y, x, ch = numpy.unravel_index(offset,
                                                   self.err_input.mem.shape)
             self.err_input.mem[batch, y, x, ch] += err
