@@ -74,12 +74,12 @@ class TestMaxPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        self.do_test(opencl.Device())
+        self._do_test(opencl.Device())
 
     def test_cpu(self):
-        self.do_test(None)
+        self._do_test(None)
 
-    def do_test(self, device):
+    def _do_test(self, device):
         c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
         c.initialize(device=device)
@@ -207,11 +207,11 @@ class TestStochasticPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        self.do_test(opencl.Device())
+        self._do_test(opencl.Device())
 
     def test_cpu(self):
         numpy.seterr(over='ignore')
-        self.do_test(None)
+        self._do_test(None)
         numpy.seterr(over='warn')
 
     def test_ocl_cpu_state(self):
@@ -227,7 +227,7 @@ class TestStochasticPooling(unittest.TestCase):
         c1._random_states.map_read()
         self.assertTrue((c1._random_states.mem == c2._random_states.mem).all())
 
-    def do_test(self, device):
+    def _do_test(self, device):
         c = pooling.StochasticPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
         c.initialize(device=device, states=self._states)
@@ -354,11 +354,11 @@ class TestStochasticAbsPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        self.do_test(opencl.Device())
+        self._do_test(opencl.Device())
 
     def test_cpu(self):
         numpy.seterr(over='ignore')
-        self.do_test(None)
+        self._do_test(None)
         numpy.seterr(over='warn')
 
     def test_ocl_cpu_state(self):
@@ -374,7 +374,7 @@ class TestStochasticAbsPooling(unittest.TestCase):
         c1._random_states.map_read()
         self.assertTrue((c1._random_states.mem == c2._random_states.mem).all())
 
-    def do_test(self, device):
+    def _do_test(self, device):
         c = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
         c.initialize(device=device, states=self._states)
@@ -511,12 +511,12 @@ class TestAvgPooling(unittest.TestCase):
         pass
 
     def test_ocl(self):
-        self.do_test(opencl.Device())
+        self._do_test(opencl.Device())
 
     def test_cpu(self):
-        self.do_test(None)
+        self._do_test(None)
 
-    def do_test(self, device):
+    def _do_test(self, device):
         c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
         cur_device = opencl.Device()
