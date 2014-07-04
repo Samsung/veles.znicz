@@ -50,6 +50,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
 
         gd = gd_deconv.GDDeconv(first.workflow, n_kernels=first.n_kernels,
                                 kx=first.kx, ky=first.ky,
+                                padding=first.padding, sliding=first.sliding,
                                 learning_rate=-1.0, weights_decay=0.0,
                                 gradient_moment=0.9)
         gd.weights = first.weights
@@ -103,6 +104,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
             batch_size = 3
             workflow = DummyWorkflow()
             forward = conv.Conv(workflow, n_kernels=9, kx=5, ky=5,
+                                padding=(2, 2, 2, 2), sliding=(1, 1),
                                 include_bias=False)
             inp = formats.Vector(numpy.zeros([batch_size * 2, 16, 16, 3],
                                              dtype=dtype))
@@ -131,7 +133,9 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         out.vv[sh[0]:] = numpy.nan
 
         backward = deconv.Deconv(forward.workflow, n_kernels=forward.n_kernels,
-                                 kx=forward.kx, ky=forward.ky)
+                                 kx=forward.kx, ky=forward.ky,
+                                 padding=forward.padding,
+                                 sliding=forward.sliding)
         backward.weights = forward.weights
         backward.input = out
         backward.initialize(device)
@@ -157,7 +161,8 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
     def _test_deconv_via_gd(self, forward):
         gd = gd_conv.GradientDescentConv(
             forward.workflow, n_kernels=forward.n_kernels,
-            kx=forward.kx, ky=forward.ky, include_bias=False)
+            kx=forward.kx, ky=forward.ky, include_bias=False,
+            padding=forward.padding, sliding=forward.sliding)
         gd.err_output = forward.output
         gd.weights = forward.weights
         gd.output = forward.output
