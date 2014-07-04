@@ -37,8 +37,8 @@ class TypeDict(UserDict):
             val = self.data.get(clazz)
             if val is not None:
                 return val
-            elif key != type:
-                hierarchy.extend(key.__bases__)
+            elif clazz != type:
+                hierarchy.extend(clazz.__bases__)
         raise KeyError("Unknown key %s" % str(key))
 
 
