@@ -32,7 +32,7 @@ import logging
 import numpy
 import pickle
 import os
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import scipy.misc
 #import shutil
 import sys
@@ -86,18 +86,19 @@ class Main(Logger):
         self.year = None
         self.series = None
         self.fnme = None
+        self.matrixes = []
         self.images_json = {
-            "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
+            "test": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
-            "test": {}
+            "train": {}
             }
         self.names_labels = {
-            "train": [],
+            "test": [],
             "validation": [],
-            "test": []
+            "train": []
             }
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
-                                                 True)
+                                                 False)
         self.rect = kwargs.get("rect", (256, 256))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
@@ -161,7 +162,7 @@ class Main(Logger):
         self.info("Looking for images in %s:", self.imagenet_dir_path)
         # finding dirs for images and bboxes
         map_items = MAPPING[self.year][self.series].items()
-        for set_type, (dir_images, dir_bboxes) in map_items:
+        for set_type, (dir_images, dir_bboxes) in sorted(map_items):
             print("------", set_type, dir_images, dir_bboxes)
             path = os.path.join(self.imagenet_dir_path, dir_images)
             self.info("Scanning JPG %s...", path)
@@ -311,6 +312,12 @@ class Main(Logger):
                     self.error("Could not save image to %s"
                                % (out_dirs[set_type]))
 
+    def to_4ch(self, a):
+        assert len(a.shape) == 3
+        aa = numpy.zeros([a.shape[0], a.shape[1], 4], dtype=a.dtype)
+        aa[:, :, 0:3] = a[:, :, 0:3]
+        return aa
+
     def generate_resized_dataset(self):
         self.info("Resized dataset")
         self.sobel = {"train": [], "test": [], "validation": []}
@@ -319,16 +326,19 @@ class Main(Logger):
         names_labels_dir = os.path.join(cached_data_fnme,
                                         "names_labels_%s_%s_0.pickle" %
                                         (self.year, self.series))
+        matrix_dir = os.path.join(cached_data_fnme,
+                                  "matrixes_%s_%s_0.pickle" %
+                                  (self.year, self.series))
+        count_samples_dir = os.path.join(cached_data_fnme,
+                                         "count_samples_%s_%s_0.pickle" %
+                                         (self.year, self.series))
         set_type = "train"
         fnme = os.path.join(cached_data_fnme,
                             IMAGES_JSON %
                             (self.year, self.series, set_type))
-        original_data_dir = os.path.join(
-            cached_data_fnme,
-            "original_data_%s_%s_%s_0.dat" %
-            (self.year, self.series, set_type))
-        self.f_samples = open(original_data_dir, "wb")
         try:
+            self.info("Loading images info from %s to calculate mean image"
+                      % fnme)
             with open(fnme, 'r') as fp:
                 self.images_json[set_type] = json.load(fp)
         except:
@@ -343,18 +353,36 @@ class Main(Logger):
                 h_size = bbx["height"]
                 w_size = bbx["width"]
                 label = bbx["label"]
-                self.sample_rect(image, x, y, h_size, w_size, False)
-        self.s_mean = self.s_mean / self.s_count
+                self.sample_rect(image, x, y, h_size, w_size, None)
+        self.s_mean /= self.s_count
+
+        # Convert mean to 0..255 uint8
+        mean = numpy.round(self.s_mean)
+        numpy.clip(mean, 0, 255, mean)
+        mean = self.to_4ch(mean).astype(numpy.uint8)
+
+        # Calculate reciprocal dispersion
+        disp = self.to_4ch(self.s_max - self.s_min)
+        rdisp = numpy.ones_like(disp)
+        nz = numpy.nonzero(disp)
+        rdisp[nz] = numpy.reciprocal(disp[nz])
+
+        self.info("Mean image is calculated")
+        self.matrixes.append(mean)
+        self.matrixes.append(rdisp)
+        test_count = 0
+        validation_count = 0
+        train_count = 0
         for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(cached_data_fnme,
-                                IMAGES_JSON %
+            fnme = os.path.join(cached_data_fnme, IMAGES_JSON %
                                 (self.year, self.series, set_type))
             original_data_dir = os.path.join(
                 cached_data_fnme,
-                "original_data_%s_%s_%s_0.dat" %
-                (self.year, self.series, set_type))
+                "original_data_%s_%s_0.dat" %
+                (self.year, self.series))
             self.f_samples = open(original_data_dir, "wb")
             try:
+                self.info("Loading images info from %s to resize" % fnme)
                 with open(fnme, 'r') as fp:
                     self.images_json[set_type] = json.load(fp)
             except:
@@ -366,13 +394,21 @@ class Main(Logger):
                 for bbx in self.images_json[set_type][f]["bbxs"]:
                     self.info("*****Resized image %s *****" %
                               self.images_json[set_type][f]["path"])
+                    if set_type == "test":
+                        test_count += 1
+                    elif set_type == "validation":
+                        validation_count += 1
+                    elif set_type == "train":
+                        train_count += 1
+                    else:
+                        self.error("Wrong set type")
                     x = bbx["x"]
                     y = bbx["y"]
                     h_size = bbx["height"]
                     w_size = bbx["width"]
                     label = bbx["label"]
                     sample = self.sample_rect(image, x, y, h_size, w_size,
-                                              True)
+                                              mean[:, :, 0:3])
                     sample_sobel = self.preprocess_sample(sample)
                     sobel = sample_sobel[1]
                     sample = sample_sobel[0]
@@ -382,12 +418,14 @@ class Main(Logger):
                     self.names_labels[set_type].append((name, label))
                     data_names[set_type].append((sample, name))
                     self.sobel[set_type].append((sobel, name + "_sobel"))
+                    self.count_samples = [test_count, validation_count,
+                                          train_count]
                     i += 1
             self.info("Saving images to %s" % original_data_dir)
             self.f_samples.close()
-            mean_image = {"train": [(self.s_mean, "mean_image")],
+            mean_image = {"test": [(self.s_mean, "mean_image")],
                           "validation": [(self.s_mean, "mean_image")],
-                          "test": [(self.s_mean, "mean_image")]}
+                          "train": [(self.s_mean, "mean_image")]}
         if self.do_save_resized_images:
             self.imagenet_image_saver(data_names)
             self.imagenet_image_saver(self.sobel)
@@ -396,6 +434,13 @@ class Main(Logger):
             self.info("Saving (name, label) of images to %s" %
                       names_labels_dir)
             pickle.dump(self.names_labels, fout)
+        with open(matrix_dir, "wb") as fout:
+            self.info("Saving mean, min and max matrix to %s" % matrix_dir)
+            pickle.dump(self.matrixes, fout)
+        with open(count_samples_dir, "wb") as fout:
+            self.info("Saving count of test, validation and train to %s"
+                      % count_samples_dir)
+            pickle.dump(self.count_samples, fout)
 
     def decode_image(self, file_name):
         try:
@@ -410,7 +455,7 @@ class Main(Logger):
                 raise
         return data
 
-    def sample_rect(self, img, x_c, y_c, h_size, w_size, apply):
+    def sample_rect(self, img, x_c, y_c, h_size, w_size, mean):
         nn_width = self.rect[0]
         nn_height = self.rect[1]
         x_min = x_c - w_size / 2
@@ -434,12 +479,10 @@ class Main(Logger):
         dst_x_max = dst_x_min + img.shape[1]
         dst_y_max = dst_y_min + img.shape[0]
         assert dst_x_max <= nn_width and dst_y_max <= nn_height
-        if apply:
-            sample = self.s_mean.copy()
+        if mean is not None:
+            sample = mean.copy()
             sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = img
-            numpy.around(sample, 0, sample)
-            numpy.clip(sample, 0, 255, sample)
-            return sample.astype(numpy.uint8)
+            return sample
         self.s_mean[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += img
         self.s_count[dst_y_min:dst_y_max, dst_x_min:dst_x_max] += 1.0
         numpy.minimum(self.s_min[dst_y_min:dst_y_max, dst_x_min:dst_x_max],
@@ -461,7 +504,22 @@ class Main(Logger):
             print("Failed to copy")
             pass
         """
+        fontsize = 25
+        label_txt = ""
+        digits_word = []
+        font = ImageFont.truetype(
+            os.path.join(config.root.common.test_dataset_root,
+                         "arial.ttf"), fontsize)
         cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
+        categories_path = os.path.join(cached_data_fnme,
+                                       "categories_imagenet_%s_list.txt"
+                                       % self.year)
+        self.categories = open(categories_path, "r")
+        for line in self.categories:
+            digits_label = line[:line.find("\t")]
+            word_label = line[line.find("\t") + 1:line.find("\n")]
+            digits_word.append((digits_label, word_label))
+        self.categories.close()
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(cached_data_fnme,
                                 IMAGES_JSON %
@@ -479,12 +537,18 @@ class Main(Logger):
                     y = bbx["y"]
                     h = bbx["height"]
                     w = bbx["width"]
+                    label = bbx["label"]
                     x_min = x - w / 2
                     y_min = y - h / 2
                     x_max = x_min + w
                     y_max = y_min + h
                     self.info("*****draw bbx in image %s *****" %
                               self.images_json[set_type][f]["path"])
+                    for dig_word in digits_word:
+                        if dig_word[0] == label:
+                            label_txt = dig_word[1]
+                    draw.text((x_min + 5, y_min), label_txt, fill=255,
+                              font=font)
                     draw.line((x_min, y_min, x_min, y_max),
                               fill="red", width=3)
                     draw.line((x_min, y_min, x_max, y_min),
