@@ -124,7 +124,6 @@ class Pooling(nn_units.Forward):
     def cpu_run(self):
         self.input.map_read()
         self.output.map_invalidate()
-        cut_index = 0
         for batch, ch in ((batch, ch) for batch in range(self._batch_size)
                           for ch in range(self._n_channels)):
             for out_x, out_y in ((out_x, out_y)
@@ -137,9 +136,7 @@ class Pooling(nn_units.Forward):
                 test_idx = y1 + self.ky
                 y2 = test_idx if test_idx <= self._sy else self._sy
                 cut = self.input.mem[batch, y1:y2, x1:x2, ch]
-                val = self.cpu_run_cut(cut, (cut_index, batch, y1, x1, ch,
-                                       out_y, out_x))
-                cut_index += 1
+                val = self.cpu_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
                 self.output.mem[batch, out_y, out_x, ch] = val
 
     def run(self):
@@ -210,9 +207,11 @@ class OffsetPooling(Pooling):
         super(OffsetPooling, self).cpu_run()
 
     def cpu_run_cut(self, cut, coords):
-        index, batch, y1, x1, ch, out_y, out_x = coords
-        cut_inner_index = self.cpu_run_cut_offset(cut, index)
-        i, j = numpy.unravel_index(cut_inner_index, cut.shape)
+        batch, y1, x1, ch, out_y, out_x = coords
+        cut_index = self.cpu_run_cut_offset(
+            cut, numpy.ravel_multi_index((batch, out_y, out_x, ch),
+                                         self.output.mem.shape))
+        i, j = numpy.unravel_index(cut_index, cut.shape)
         idx = numpy.ravel_multi_index((batch, y1 + i, x1 + j, ch),
                                       self.input.mem.shape)
         val = numpy.ravel(self.input.mem)[idx]
@@ -313,10 +312,19 @@ class StochasticPoolingBase(OffsetPooling):
     def initialize(self, **kwargs):
         super(StochasticPoolingBase, self).initialize(**kwargs)
 
-        self._random_states.mem = self.rand.randint(
-            low=StochasticPoolingBase.MIN_RANDOM_STATE,
-            high=StochasticPoolingBase.MAX_RANDOM_STATE,
-            size=self.output.mem.size * 4).astype(numpy.uint32)
+        states_size = self.output.mem.size * 4
+        states = kwargs.get('states')
+        if states is not None:
+            if states.size != states_size or \
+               states.dtype != numpy.uint32 or len(states.shape) > 1:
+                raise ValueError("The supplied states must be a 1D array of "
+                                 "size %d, dtype numpy.uint32" % states_size)
+            self._random_states.mem = states[:]
+        else:
+            self._random_states.mem = self.rand.randint(
+                low=StochasticPoolingBase.MIN_RANDOM_STATE,
+                high=StochasticPoolingBase.MAX_RANDOM_STATE,
+                size=states_size).astype(numpy.uint32)
 
         if self.device is None:
             return
@@ -326,6 +334,22 @@ class StochasticPoolingBase(OffsetPooling):
         self.assign_kernel("do_stochastic_pooling")
         self.set_args(self._random_states)
 
+    def cpu_run(self):
+        self._random_states.map_invalidate()
+        super(StochasticPoolingBase, self).cpu_run()
+
+    def calculate_position_cpu(self, index, vsum):
+        rnd = random_generator.xorshift128plus(
+            self._random_states.mem.view(numpy.uint64),
+            index * 2)
+        return rnd * vsum / numpy.iinfo(numpy.uint64).max
+
+    def calculate_random_index_cpu(self, cut, index):
+        rnd = random_generator.xorshift128plus(
+            self._random_states.mem.view(numpy.uint64),
+            index * 2)
+        return int(rnd * cut.size / numpy.iinfo(numpy.uint64).max)
+
 
 class StochasticPooling(StochasticPoolingBase):
     """StochasticPooling forward propagation.
@@ -333,8 +357,9 @@ class StochasticPooling(StochasticPoolingBase):
 
     def cpu_run_cut_offset(self, cut, index):
         vsum = numpy.sum(cut[cut > 0])
-        position = random_generator.RandomGenerator.xorshift128plus(
-            self._random_states, index * 2) / ((1 << 64) - 1.) * vsum
+        if vsum == 0:
+            return self.calculate_random_index_cpu(cut, index)
+        position = self.calculate_position_cpu(index, vsum)
         vsum = 0
         for i in range(cut.size):
             val = cut.ravel()[i]
@@ -353,9 +378,10 @@ class StochasticAbsPooling(StochasticPoolingBase):
         self.cl_sources_["pooling.cl"] = {"ABS_VALUES": 1}
 
     def cpu_run_cut_offset(self, cut, index):
-        vsum = numpy.sum(cut[cut > 0])
-        position = random_generator.RandomGenerator.xorshift128plus(
-            self._random_states, index * 2) / ((1 << 64) - 1.) * vsum
+        vsum = numpy.sum(numpy.abs(cut))
+        if vsum == 0:
+            return self.calculate_random_index_cpu(cut, index)
+        position = self.calculate_position_cpu(index, vsum)
         vsum = 0
         for i in range(cut.size):
             val = cut.ravel()[i]

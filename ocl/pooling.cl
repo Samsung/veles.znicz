@@ -174,15 +174,16 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
                            __global dtype         /* OUT */    *y,
                            __global int           /* OUT */    *h_offs,
                            __global ulong2    /* IN, OUT */    *states) {
-  int lucky = -1;  // any negative integer
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
 
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
+  int original_offset = offs;
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   dtype sum = 0;
+  int count = 0;
 
 #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
@@ -194,11 +195,11 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
 #endif
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
 #else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS) {
+         j++, x += N_CHANNELS, count++) {
 #endif
       dtype val = h[offs + x];
 #ifndef ABS_VALUES
@@ -214,10 +215,16 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
 
   ulong random;
   xorshift128plus(states[idx], random);
-  dtype pos = random / ((1 << 64) - 1.0) * sum;
+  // The index of the passed through
+  int lucky = -1;  // any negative integer
+  // All elements can be <= 0
+  int chosen_one = (sum == 0)? ((random + 0.) * count / ~0UL) : -1;
+  count = 0;
+  dtype pos = random * sum / ~0UL;
   sum = 0;
 
   // This is not just copy-paste of previous for-s
+  offs = original_offset;
 #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY && lucky < 0; i++, offs += SX * N_CHANNELS) {
@@ -228,13 +235,17 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
 #endif
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
 #else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS) {
+         j++, x += N_CHANNELS, count++) {
 #endif
-            dtype val = h[offs + x];
+      if (count == chosen_one) {
+        lucky = offs + x;
+        break;
+      }
+      dtype val = h[offs + x];
 #ifndef ABS_VALUES
       if (val <= 0) {
         continue;
