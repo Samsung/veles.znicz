@@ -15,7 +15,7 @@ import tarfile
 
 from veles.znicz.tests.unit import standard_test
 from veles.formats import Vector
-
+from veles import Logger
 from veles.znicz import activation
 from veles.znicz import all2all, conv, pooling, normalization
 from veles.znicz import evaluator
@@ -52,11 +52,12 @@ class LayerInfo(object):
         self.path = None
 
 
-class ComplexTest(standard_test.StandardTest):
+class ComplexTest(standard_test.StandardTest, Logger):
 
     def __init__(self, methodName='runTest'):
         self.layer_dict = {}
-        super(ComplexTest, self).__init__(methodName)
+        super(ComplexTest, self).__init__(methodName=methodName)
+        Logger.__init__(self)
 
     def _compress_snapshots(self):
         out_archive = tarfile.open(name=os.path.join(
@@ -75,7 +76,9 @@ class ComplexTest(standard_test.StandardTest):
         Reads a CIFAR export directory. Fills layer info path dictionary.
         """
 #        self._compress_snapshots()
+        self.info("Extracting snapshots...")
         self._extract_snapshots()
+        self.info("Finished")
 
         in_dir = os.path.join(self.data_dir_path, "cifar_export")
         iters = os.listdir(in_dir)
