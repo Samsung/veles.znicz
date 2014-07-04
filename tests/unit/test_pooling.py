@@ -91,10 +91,7 @@ class TestMaxPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         c.input_offset.map_read()
-        max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offset.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
-                        " is %.6f" % (max_diff))
+        self.assertTrue((c.input_offset.mem == self._gold_offs).all())
 
 
 class TestStochasticPooling(unittest.TestCase):
@@ -217,6 +214,19 @@ class TestStochasticPooling(unittest.TestCase):
         self.do_test(None)
         numpy.seterr(over='warn')
 
+    def test_ocl_cpu_state(self):
+        c1 = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
+        c1.input = self._input
+        c1.initialize(device=opencl.Device(), states=self._states)
+        c1.run()
+        c2 = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
+        c2.input = self._input
+        c2.initialize(device=None, states=self._states)
+        numpy.seterr(over='ignore')
+        c2.run()
+        c1._random_states.map_read()
+        self.assertTrue((c1._random_states.mem == c2._random_states.mem).all())
+
     def do_test(self, device):
         c = pooling.StochasticPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
@@ -228,10 +238,7 @@ class TestStochasticPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         c.input_offset.map_read()
-        max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offset.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
-                        " is %.6f" % (max_diff))
+        self.assertTrue((c.input_offset.mem == self._gold_offs).all())
 
 
 class TestStochasticAbsPooling(unittest.TestCase):
@@ -354,6 +361,19 @@ class TestStochasticAbsPooling(unittest.TestCase):
         self.do_test(None)
         numpy.seterr(over='warn')
 
+    def test_ocl_cpu_state(self):
+        c1 = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
+        c1.input = self._input
+        c1.initialize(device=opencl.Device(), states=self._states)
+        c1.run()
+        c2 = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
+        c2.input = self._input
+        c2.initialize(device=None, states=self._states)
+        numpy.seterr(over='ignore')
+        c2.run()
+        c1._random_states.map_read()
+        self.assertTrue((c1._random_states.mem == c2._random_states.mem).all())
+
     def do_test(self, device):
         c = pooling.StochasticAbsPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
@@ -365,10 +385,7 @@ class TestStochasticAbsPooling(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
                         " is %.6f" % (max_diff))
         c.input_offset.map_read()
-        max_diff = numpy.fabs(self._gold_offs.ravel() -
-                              c.input_offset.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001, "max difference in offs matrix"
-                        " is %.6f" % (max_diff))
+        self.assertTrue((c.input_offset.mem == self._gold_offs).all())
 
 
 class TestGDMaxPooling(unittest.TestCase):
