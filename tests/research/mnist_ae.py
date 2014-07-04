@@ -168,7 +168,7 @@ class Workflow(nn_units.NNWorkflow):
         GM = 0.00001
         KX = 5
         KY = 5
-        N_KERNELS = 25
+        N_KERNELS = 5
 
         unit = conv.Conv(self, n_kernels=N_KERNELS, kx=KX, ky=KY,
                          weights_filling="uniform", include_bias=False)
@@ -184,7 +184,7 @@ class Workflow(nn_units.NNWorkflow):
         unit = gd_pooling.GDMaxAbsPooling(
             self, kx=self.pool.kx, ky=self.pool.ky, sliding=(2, 2))
         unit.link_from(self.pool)
-        unit.link_attrs(self.pool, "input", "input_offs",
+        unit.link_attrs(self.pool, "input", "input_offset",
                         ("err_output", "output"))
         self.depool = unit
 
