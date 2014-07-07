@@ -8,19 +8,15 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import numpy
 import os
-from zope.interface import implementer
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-import veles.znicz.loader as loader
+from veles.znicz.samples.wine import Loader
 from veles.znicz.nn_units import NNSnapshotter
 
 
@@ -38,44 +34,6 @@ root.defaults = {"decision": {"fail_iterations": 250},
                                             "wine.data")}}
 
 
-@implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
-    """Loads Wine dataset.
-    """
-    def load_data(self):
-        fin = open(root.wine_relu.data_paths, "r")
-        aa = []
-        max_lbl = 0
-        while True:
-            s = fin.readline()
-            if not len(s):
-                break
-            aa.append(
-                numpy.fromstring(
-                    s, sep=",",
-                    dtype=opencl_types.dtypes[root.common.precision_type]))
-            max_lbl = max(max_lbl, int(aa[-1][0]))
-        fin.close()
-
-        self.original_data = numpy.zeros([len(aa), aa[0].shape[0] - 1],
-                                         dtype=numpy.float32)
-        self.original_labels = numpy.zeros(self.original_data.shape[0],
-                                           dtype=numpy.int32)
-
-        for i, a in enumerate(aa):
-            self.original_data[i] = a[1:]
-            self.original_labels[i] = int(a[0]) - 1
-            # formats.normalize(self.original_data[i])
-
-        IMul, IAdd = formats.normalize_pointwise(self.original_data)
-        self.original_data[:] *= IMul
-        self.original_data[:] += IAdd
-
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 0
-        self.class_lengths[2] = self.original_data.shape[0]
-
-
 class Workflow(nn_units.NNWorkflow):
     """Sample workflow for Wine dataset.
     """
@@ -89,7 +47,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

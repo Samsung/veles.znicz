@@ -8,19 +8,13 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import numpy
 import os
-import struct
-from zope.interface import implementer
 
 from veles.config import root
-import veles.error as error
-import veles.formats as formats
 import veles.plotting_units as plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
-#import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
@@ -28,12 +22,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
-#import veles.znicz.gd as gd
-#import veles.znicz.gd_conv as gd_conv
-import veles.znicz.loader as loader
-#from veles.interaction import Shell
-from veles.external.progressbar import ProgressBar
-#from veles.mutable import Bool
+from veles.znicz.samples.mnist import Loader
 
 
 mnist_dir = os.path.join(
@@ -59,97 +48,6 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                                           "train_label": train_label_dir}}}
 
 
-@implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
-    """Loads MNIST dataset.
-    """
-    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
-        """Loads data from original MNIST files.
-        """
-        self.info("Loading from original MNIST files...")
-
-        # Reading labels:
-        with open(labels_fnme, "rb") as fin:
-            header, = struct.unpack(">i", fin.read(4))
-            if header != 2049:
-                raise error.BadFormatError("Wrong header in train-labels")
-
-            n_labels, = struct.unpack(">i", fin.read(4))
-            if n_labels != labels_count:
-                raise error.BadFormatError("Wrong number of labels in "
-                                           "train-labels")
-
-            arr = numpy.zeros(n_labels, dtype=numpy.byte)
-            n = fin.readinto(arr)
-            if n != n_labels:
-                raise error.BadFormatError("EOF reached while reading labels "
-                                           "from train-labels")
-            self.original_labels[offs:offs + labels_count] = arr[:]
-            if (self.original_labels.min() != 0 or
-                    self.original_labels.max() != 9):
-                raise error.BadFormatError(
-                    "Wrong labels range in train-labels.")
-
-        # Reading images:
-        with open(images_fnme, "rb") as fin:
-            header, = struct.unpack(">i", fin.read(4))
-            if header != 2051:
-                raise error.BadFormatError("Wrong header in train-images")
-
-            n_images, = struct.unpack(">i", fin.read(4))
-            if n_images != n_labels:
-                raise error.BadFormatError("Wrong number of images in "
-                                           "train-images")
-
-            n_rows, n_cols = struct.unpack(">2i", fin.read(8))
-            if n_rows != 28 or n_cols != 28:
-                raise error.BadFormatError("Wrong images size in train-images,"
-                                           " should be 28*28")
-
-            # 0 - white, 255 - black
-            pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
-            n = fin.readinto(pixels)
-            if n != n_images * n_rows * n_cols:
-                raise error.BadFormatError("EOF reached while reading images "
-                                           "from train-images")
-
-        # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.info("Original range: [%.1f, %.1f];"
-                  " performing normalization..." % (images.min(),
-                                                    images.max()))
-        progress = ProgressBar(maxval=len(images), term_width=17)
-        progress.start()
-        for image in images:
-            progress.inc()
-            formats.normalize(image)
-        progress.finish()
-        self.original_data[offs:offs + n_images] = images[:]
-        self.info("Range after normalization: [%.1f, %.1f]" %
-                  (images.min(), images.max()))
-
-    def load_data(self):
-        """Here we will load MNIST data.
-        """
-        if hasattr(self, "_inited"):
-            raise ValueError("Failed")
-        self._inited = True
-        self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
-        self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
-
-        self.load_original(0, 10000, root.mnist.data_paths.test_label,
-                           root.mnist.data_paths.test_images)
-        self.load_original(10000, 60000,
-                           root.mnist.data_paths.train_label,
-                           root.mnist.data_paths.train_images)
-
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 10000
-        self.class_lengths[2] = 60000
-
-        self.original_data.shape = [70000, 28, 28, 1]
-
-
 class Workflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
@@ -160,7 +58,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="MNIST loader",
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         LR = 0.000001

@@ -74,9 +74,9 @@ class Loader(loader.FullBatchLoader):
             if n != n_labels:
                 raise error.BadFormatError("EOF reached while reading labels "
                                            "from train-labels")
-            self.original_labels[offs:offs + labels_count] = arr[:]
-            if (self.original_labels.min() != 0 or
-                    self.original_labels.max() != 9):
+            self.original_labels.mem[offs:offs + labels_count] = arr[:]
+            if (self.original_labels.mem.min() != 0 or
+                    self.original_labels.mem.max() != 9):
                 raise error.BadFormatError(
                     "Wrong labels range in train-labels.")
 
@@ -114,15 +114,16 @@ class Loader(loader.FullBatchLoader):
             progress.inc()
             formats.normalize(image)
         progress.finish()
-        self.original_data[offs:offs + n_images] = images[:]
+        self.original_data.mem[offs:offs + n_images] = images[:]
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))
 
     def load_data(self):
         """Here we will load MNIST data.
         """
-        self.original_labels = numpy.zeros([70000], dtype=numpy.int8)
-        self.original_data = numpy.zeros([70000, 28, 28], dtype=numpy.float32)
+        self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
+        self.original_data.mem = numpy.zeros([70000, 28, 28],
+                                             dtype=numpy.float32)
 
         self.load_original(0, 10000, root.mnist.data_paths.test_label,
                            root.mnist.data_paths.test_images)
@@ -145,7 +146,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Mnist fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

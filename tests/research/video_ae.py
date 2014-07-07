@@ -74,7 +74,8 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader = Loader(self,
                              train_paths=(root.video_ae.data_paths,),
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

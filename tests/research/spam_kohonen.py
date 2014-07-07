@@ -94,13 +94,14 @@ class Loader(loader.FullBatchLoader):
         progress.start()
         self.lemmas_map = sorted(lemmas)
         lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
-        self.original_labels = numpy.zeros([len(lines)], dtype=numpy.int32)
-        self.original_data = numpy.zeros([len(lines), len(lemmas)],
-                                         dtype=numpy.float32)
+        self.original_labels.mem = numpy.zeros([len(lines)], dtype=numpy.int32)
+        self.original_data.mem = numpy.zeros([len(lines), len(lemmas)],
+                                             dtype=numpy.float32)
         for index, sample in enumerate(data):
-            self.original_labels[index] = sample[0]
+            self.original_labels.mem[index] = sample[0]
             for lemma in sample[1]:
-                self.original_data[index, lemma_indices[lemma[0]]] = lemma[1]
+                self.original_data.mem[index,
+                                       lemma_indices[lemma[0]]] = lemma[1]
             progress.inc()
         progress.finish()
 
@@ -115,14 +116,14 @@ class Loader(loader.FullBatchLoader):
                   len(lemmas), avglength)
         self.info("Normalizing...")
         self.IMul, self.IAdd = formats.normalize_pointwise(
-            self.original_data[self.class_lengths[loader.VALID]:])
-        self.original_data *= self.IMul
-        self.original_data += self.IAdd
+            self.original_data.mem[self.class_lengths[loader.VALID]:])
+        self.original_data.mem *= self.IMul
+        self.original_data.mem += self.IAdd
         if self.class_lengths[loader.VALID] > 0:
-            v = self.original_data[:self.class_lengths[loader.VALID]]
+            v = self.original_data.mem[:self.class_lengths[loader.VALID]]
             self.info("Range after normalization: validation: [%.6f, %.6f]",
                       v.min(), v.max())
-        v = self.original_data[self.class_lengths[loader.VALID]:]
+        v = self.original_data.mem[self.class_lengths[loader.VALID]:]
         self.info("Range after normalization: train: [%.6f, %.6f]",
                   v.min(), v.max())
 
@@ -160,7 +161,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Kohonen Spam fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=False)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer

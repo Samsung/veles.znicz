@@ -54,10 +54,9 @@ class Loader(loader.FullBatchLoader):
             raise error.BadFormatError("Data in %s has the invalid shape" %
                                        file_name)
 
-        self.original_labels = False
-        self.original_data = numpy.zeros((1000, 2), dtype=numpy.float32)
-        self.original_data[:, 0] = data[0]
-        self.original_data[:, 1] = data[1]
+        self.original_data.mem = numpy.zeros((1000, 2), dtype=numpy.float32)
+        self.original_data.mem[:, 0] = data[0]
+        self.original_data.mem[:, 1] = data[1]
 
         self.class_lengths[0] = 0
         self.class_lengths[1] = 0
@@ -74,7 +73,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, name="Kohonen fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=False)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer

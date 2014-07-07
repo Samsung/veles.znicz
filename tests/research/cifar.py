@@ -8,8 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import cv2
-import numpy as np
+import numpy
 import os
 import pickle
 import six
@@ -45,7 +44,7 @@ root.defaults = {
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 180, "norm": "-1, 1",
-               "shuffle_limit": 1},
+               "shuffle_limit": 1, "sobel": False},
     "weights_plotter": {"limit": 64},
     "cifar": {"layers": [{"type": "all2all_tanh",
                           "learning_rate": 0.0005,
@@ -77,15 +76,17 @@ class Loader(loader.FullBatchLoader):
         """
         Adds 4th channel (Sobel filtered image) to `self.original_data`
         """
+        import cv2
 
-        sobel_data = np.zeros(shape=self.original_data.shape[:-1],
-                              dtype=np.float32)
+        sobel_data = numpy.zeros(shape=self.original_data.shape[:-1],
+                                 dtype=numpy.float32)
 
         for i in range(self.original_data.shape[0]):
             pic = self.original_data[i, :, :, 0:3]
             sobel_x = cv2.Sobel(pic, cv2.CV_32F, 1, 0, ksize=3)
             sobel_y = cv2.Sobel(pic, cv2.CV_32F, 0, 1, ksize=3)
-            sobel_total = np.sqrt(np.square(sobel_x) + np.square(sobel_y))
+            sobel_total = numpy.sqrt(numpy.square(sobel_x) +
+                                     numpy.square(sobel_y))
             sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
             formats.normalize(sobel_gray)
 
@@ -97,13 +98,14 @@ class Loader(loader.FullBatchLoader):
                 sobel_data[i, :, :] = sobel_gray
 
         sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
-        np.append(self.original_data, sobel_data, axis=3)
+        numpy.append(self.original_data, sobel_data, axis=3)
 
     def load_data(self):
         """Here we will load data.
         """
-        self.original_data = np.zeros([60000, 32, 32, 3], dtype=np.float32)
-        self.original_labels = np.zeros(60000, dtype=np.int32)
+        self.original_data.mem = numpy.zeros([60000, 32, 32, 3],
+                                             dtype=numpy.float32)
+        self.original_labels.mem = numpy.zeros(60000, dtype=numpy.int32)
 
         # Load Validation
         with open(root.cifar.data_paths.validation, "rb") as fin:
@@ -112,9 +114,9 @@ class Loader(loader.FullBatchLoader):
             else:
                 vle = pickle.load(fin)
         fin.close()
-        self.original_data[:10000] = formats.interleave(
+        self.original_data.mem[:10000] = formats.interleave(
             vle["data"].reshape(10000, 3, 32, 32))[:]
-        self.original_labels[:10000] = vle["labels"][:]
+        self.original_labels.mem[:10000] = vle["labels"][:]
 
         # Load Train
         for i in range(1, 6):
@@ -124,9 +126,10 @@ class Loader(loader.FullBatchLoader):
                     vle = pickle.load(fin, encoding='latin1')
                 else:
                     vle = pickle.load(fin)
-            self.original_data[i * 10000: (i + 1) * 10000] = (
+            self.original_data.mem[i * 10000: (i + 1) * 10000] = (
                 formats.interleave(vle["data"].reshape(10000, 3, 32, 32))[:])
-            self.original_labels[i * 10000: (i + 1) * 10000] = vle["labels"][:]
+            self.original_labels.mem[i * 10000: (i + 1) * 10000] = (
+                vle["labels"][:])
 
         self.class_lengths[0] = 0
         self.class_offsets[0] = 0
@@ -137,26 +140,26 @@ class Loader(loader.FullBatchLoader):
 
         self.total_samples = self.original_data.shape[0]
 
-        use_sobel = root.loader.get("sobel", False)
+        use_sobel = root.loader.sobel
         if use_sobel:
             self._add_sobel_chan()
 
         if root.loader.norm == "mean":
-            mean = np.mean(self.original_data[10000:], axis=0)
-            self.original_data -= mean
+            mean = numpy.mean(self.original_data[10000:], axis=0)
+            self.original_data.mem -= mean
             self.info("Validation range: %.6f %.6f %.6f",
-                      self.original_data[:10000].min(),
-                      self.original_data[:10000].max(),
-                      np.average(self.original_data[:10000]))
+                      self.original_data.mem[:10000].min(),
+                      self.original_data.mem[:10000].max(),
+                      numpy.average(self.original_data.mem[:10000]))
             self.info("Train range: %.6f %.6f %.6f",
-                      self.original_data[10000:].min(),
-                      self.original_data[10000:].max(),
-                      np.average(self.original_data[10000:]))
+                      self.original_data.mem[10000:].min(),
+                      self.original_data.mem[10000:].max(),
+                      numpy.average(self.original_data.mem[10000:]))
         elif root.loader.norm == "-1, 1":
-            for sample in self.original_data:
+            for sample in self.original_data.mem:
                 formats.normalize(sample)
         elif root.loader.norm == "-128, 128":
-            for sample in self.original_data:
+            for sample in self.original_data.mem:
                 formats.normalize(sample)
                 sample *= 128
         else:
@@ -176,7 +179,8 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, shuffle_limit=root.loader.shuffle_limit)
+        self.loader = Loader(self, shuffle_limit=root.loader.shuffle_limit,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

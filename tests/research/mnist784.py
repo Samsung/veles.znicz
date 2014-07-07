@@ -118,9 +118,9 @@ class Loader(mnist.Loader):
             self.class_targets[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.precision_type])
             formats.normalize(self.class_targets[i])
-        self.original_target = numpy.zeros(
+        self.original_target.mem = numpy.zeros(
             [self.original_labels.shape[0], self.class_targets.mem.shape[1]],
-            dtype=opencl_types.dtypes[root.common.precision_type])
+            dtype=self.original_data.dtype)
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
             self.original_target[i] = self.class_targets[label]
@@ -139,7 +139,8 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

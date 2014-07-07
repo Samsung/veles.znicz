@@ -55,19 +55,19 @@ class Loader(loader.FullBatchLoader):
             max_lbl = max(max_lbl, int(lines[-1][0]))
         fin.close()
 
-        self.original_data = numpy.zeros([len(lines), lines[0].shape[0] - 1],
-                                         dtype=numpy.float32)
-        self.original_labels = numpy.zeros(self.original_data.shape[0],
-                                           dtype=numpy.int32)
+        self.original_data.mem = numpy.zeros(
+            [len(lines), lines[0].shape[0] - 1], dtype=numpy.float32)
+        self.original_labels.mem = numpy.zeros(
+            self.original_data.shape[0], dtype=numpy.int32)
 
         for i, a in enumerate(lines):
             self.original_data[i] = a[1:]
             self.original_labels[i] = int(a[0]) - 1
             # formats.normalize(self.original_data[i])
 
-        IMul, IAdd = formats.normalize_pointwise(self.original_data)
-        self.original_data[:] *= IMul
-        self.original_data[:] += IAdd
+        IMul, IAdd = formats.normalize_pointwise(self.original_data.mem)
+        self.original_data.mem[:] *= IMul
+        self.original_data.mem[:] += IAdd
 
         self.class_lengths[0] = 0
         self.class_lengths[1] = 0
@@ -87,12 +87,13 @@ class Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self,
-                             minibatch_size=root.loader.minibatch_size)
+                             minibatch_size=root.loader.minibatch_size,
+                             on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
         del self.fwds[:]
-        for i in range(0, len(layers)):
+        for i in range(len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
                                          device=device)
@@ -140,6 +141,9 @@ class Workflow(nn_units.NNWorkflow):
         self.snapshotter.gate_skip = \
             (~self.loader.epoch_ended | ~self.decision.improved)
 
+        self.end_point.link_from(self.snapshotter)
+        self.end_point.gate_block = ~self.decision.complete
+
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.fwds)))
@@ -163,10 +167,8 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
 
-        self.end_point.link_from(self.gds[0])
-        self.end_point.gate_block = ~self.decision.complete
-
         self.loader.gate_block = self.decision.complete
+        self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device):
         super(Workflow, self).initialize(learning_rate=learning_rate,
