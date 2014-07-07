@@ -34,7 +34,7 @@ import pickle
 import os
 from PIL import Image, ImageDraw, ImageFont
 import scipy.misc
-#import shutil
+import shutil
 import sys
 
 import veles.config as config
@@ -97,8 +97,9 @@ class Main(Logger):
             "validation": [],
             "train": []
             }
+        self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
-                                                 False)
+                                                 True)
         self.rect = kwargs.get("rect", (256, 256))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
@@ -142,7 +143,8 @@ class Main(Logger):
                             choices=["img", "DET"],
                             help="set dataset type")
         parser.add_argument("command_to_run", type=str, default="",
-                            choices=["all", "draw_bbox", "resize", "init"],
+                            choices=["all", "draw_bbox", "resize", "init",
+                                     "get_valid"],
                             help="run functions: 'all' run all functions,"
                                  "'draw_bbox' run function which generate"
                                  "image with bboxes, 'resize' run function"
@@ -158,10 +160,15 @@ class Main(Logger):
         return parser
 
     def init_files(self):
-        self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
+        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
         self.info("Looking for images in %s:", self.imagenet_dir_path)
+        int_labels_dir = os.path.join(self.imagenet_dir_path,
+                                      "labels_int_%s_%s_0.txt" %
+                                      (self.year, self.series))
         # finding dirs for images and bboxes
+        zero_write = True
         map_items = MAPPING[self.year][self.series].items()
+        ind = 1
         for set_type, (dir_images, dir_bboxes) in sorted(map_items):
             print("------", set_type, dir_images, dir_bboxes)
             path = os.path.join(self.imagenet_dir_path, dir_images)
@@ -245,7 +252,23 @@ class Main(Logger):
                                             "y": y}
                                 self.images_0[set_type][
                                     image_fname]["bbxs"].append(dict_bbx)
-
+                                found = False
+                                if zero_write:
+                                    file_ind_labels = open(int_labels_dir, "w")
+                                    line_int_label = "%s\t%s\n" % (ind, label)
+                                    file_ind_labels.write(line_int_label)
+                                    file_ind_labels.close()
+                                    ind += 1
+                                    zero_write = False
+                                if label in open(int_labels_dir).read():
+                                    found = True
+                                file_ind_labels.close()
+                                file_ind_labels = open(int_labels_dir, "a")
+                                if found is False:
+                                    line_int_label = "%s\t%s\n" % (ind, label)
+                                    file_ind_labels.write(line_int_label)
+                                    ind += 1
+                                file_ind_labels.close()
             cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
             try:
                 os.mkdir(cached_data_fnme)
@@ -290,28 +313,6 @@ class Main(Logger):
         assert res.dtype == numpy.uint8
         return (res, deriv)
 
-    def imagenet_image_saver(self, data_names):
-        for set_type in ("test", "validation", "train"):
-            for (image, name) in data_names[set_type]:
-                out_dirs = {"test":
-                            os.path.join(config.root.common.cache_dir,
-                                         "tmpimg/imagenet_image_saver"
-                                         "/test/%s.jpg" % name),
-                            "validation":
-                            os.path.join(config.root.common.cache_dir,
-                                         "tmpimg/imagenet_image_saver"
-                                         "/validation/%s.jpg" % name),
-                            "train":
-                            os.path.join(config.root.common.cache_dir,
-                                         "tmpimg/imagenet_image_saver"
-                                         "/train/%s.jpg" % name)}
-                self.info("Saving image %s" % out_dirs[set_type])
-                try:
-                    scipy.misc.imsave(out_dirs[set_type], image)
-                except OSError:
-                    self.error("Could not save image to %s"
-                               % (out_dirs[set_type]))
-
     def to_4ch(self, a):
         assert len(a.shape) == 3
         aa = numpy.zeros([a.shape[0], a.shape[1], 4], dtype=a.dtype)
@@ -320,20 +321,33 @@ class Main(Logger):
 
     def generate_resized_dataset(self):
         self.info("Resized dataset")
-        self.sobel = {"train": [], "test": [], "validation": []}
-        data_names = {"train": [], "test": [], "validation": []}
-        cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
-        names_labels_dir = os.path.join(cached_data_fnme,
+        original_labels = []
+        int_word_labels = []
+        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+        names_labels_dir = os.path.join(self.imagenet_dir_path,
                                         "names_labels_%s_%s_0.pickle" %
                                         (self.year, self.series))
-        matrix_dir = os.path.join(cached_data_fnme,
+        matrix_dir = os.path.join(self.imagenet_dir_path,
                                   "matrixes_%s_%s_0.pickle" %
                                   (self.year, self.series))
-        count_samples_dir = os.path.join(cached_data_fnme,
+        count_samples_dir = os.path.join(self.imagenet_dir_path,
                                          "count_samples_%s_%s_0.pickle" %
                                          (self.year, self.series))
+        labels_int_dir = os.path.join(self.imagenet_dir_path,
+                                      "labels_int_%s_%s_0.txt" %
+                                      (self.year, self.series))
+        out_dir = os.path.join(config.root.common.cache_dir,
+                               "tmp_imagenet")
+        original_data_dir = os.path.join(
+            self.imagenet_dir_path,
+            "original_data_%s_%s_0.dat" % (self.year, self.series))
+        file_labels_int = open(labels_int_dir, "r")
+        for line in file_labels_int:
+            int_label = line[:line.find("\t")]
+            word_label = line[line.find("\t") + 1:line.find("\n")]
+            int_word_labels.append((int_label, word_label))
         set_type = "train"
-        fnme = os.path.join(cached_data_fnme,
+        fnme = os.path.join(self.imagenet_dir_path,
                             IMAGES_JSON %
                             (self.year, self.series, set_type))
         try:
@@ -360,27 +374,30 @@ class Main(Logger):
         mean = numpy.round(self.s_mean)
         numpy.clip(mean, 0, 255, mean)
         mean = self.to_4ch(mean).astype(numpy.uint8)
+        mean[:, :, 3:4] = 128
 
         # Calculate reciprocal dispersion
         disp = self.to_4ch(self.s_max - self.s_min)
-        rdisp = numpy.ones_like(disp)
-        nz = numpy.nonzero(disp)
-        rdisp[nz] = numpy.reciprocal(disp[nz])
+        rdisp = numpy.ones_like(disp.ravel())
+        nz = numpy.nonzero(disp.ravel())
+        rdisp[nz] = numpy.reciprocal(disp.ravel()[nz])
+        rdisp.shape = disp.shape
+        rdisp[:, :, 3:4] = 1.0 / 128
 
         self.info("Mean image is calculated")
+        out_path_mean = os.path.join(out_dir, "mean_image.JPEG")
+        scipy.misc.imsave(out_path_mean, self.s_mean)
         self.matrixes.append(mean)
         self.matrixes.append(rdisp)
         test_count = 0
         validation_count = 0
         train_count = 0
+        sample_count = 0
+        labels_count = 0
+        self.f_samples = open(original_data_dir, "wb")
         for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(cached_data_fnme, IMAGES_JSON %
+            fnme = os.path.join(self.imagenet_dir_path, IMAGES_JSON %
                                 (self.year, self.series, set_type))
-            original_data_dir = os.path.join(
-                cached_data_fnme,
-                "original_data_%s_%s_0.dat" %
-                (self.year, self.series))
-            self.f_samples = open(original_data_dir, "wb")
             try:
                 self.info("Loading images info from %s to resize" % fnme)
                 with open(fnme, 'r') as fp:
@@ -407,33 +424,37 @@ class Main(Logger):
                     h_size = bbx["height"]
                     w_size = bbx["width"]
                     label = bbx["label"]
+                    name = f[:f.rfind(".")] + ("_%s_bbx" % i)
                     sample = self.sample_rect(image, x, y, h_size, w_size,
                                               mean[:, :, 0:3])
                     sample_sobel = self.preprocess_sample(sample)
                     sobel = sample_sobel[1]
                     sample = sample_sobel[0]
-                    sample.tofile(self.f_samples)
-                    name_image = f[:f.rfind(".")]
-                    name = name_image + ("_%s_bbx" % i)
-                    self.names_labels[set_type].append((name, label))
-                    data_names[set_type].append((sample, name))
-                    self.sobel[set_type].append((sobel, name + "_sobel"))
+                    try:
+                        sample.tofile(self.f_samples)
+                        image_to_save = sample[:, :, 0:3]
+                        if self.do_save_resized_images:
+                            out_path_sample = os.path.join(
+                                out_dir, "all_samples/%s.JPEG" % name)
+                            scipy.misc.imsave(out_path_sample, image_to_save)
+                            out_path_sobel = os.path.join(
+                                out_dir, "all_samples/%s_sobel.JPEG" % name)
+                            scipy.misc.imsave(out_path_sobel, sobel)
+                        sample_count += 1
+                    except:
+                        pass
+                    for (int_label, word_label) in int_word_labels:
+                        if label == word_label:
+                            original_labels.append(int_label)
+                            labels_count += 1
                     self.count_samples = [test_count, validation_count,
                                           train_count]
                     i += 1
             self.info("Saving images to %s" % original_data_dir)
-            self.f_samples.close()
-            mean_image = {"test": [(self.s_mean, "mean_image")],
-                          "validation": [(self.s_mean, "mean_image")],
-                          "train": [(self.s_mean, "mean_image")]}
-        if self.do_save_resized_images:
-            self.imagenet_image_saver(data_names)
-            self.imagenet_image_saver(self.sobel)
-            self.imagenet_image_saver(mean_image)
         with open(names_labels_dir, "wb") as fout:
-            self.info("Saving (name, label) of images to %s" %
+            self.info("Saving labels of images to %s" %
                       names_labels_dir)
-            pickle.dump(self.names_labels, fout)
+            pickle.dump(original_labels, fout)
         with open(matrix_dir, "wb") as fout:
             self.info("Saving mean, min and max matrix to %s" % matrix_dir)
             pickle.dump(self.matrixes, fout)
@@ -441,6 +462,11 @@ class Main(Logger):
             self.info("Saving count of test, validation and train to %s"
                       % count_samples_dir)
             pickle.dump(self.count_samples, fout)
+        self.info("labels_count %s sample_count %s"
+                  % (labels_count, sample_count))
+        assert labels_count == sample_count
+        assert sample_count == train_count + validation_count + test_count
+        self.f_samples.close()
 
     def decode_image(self, file_name):
         try:
@@ -454,6 +480,36 @@ class Main(Logger):
                 self.exception("Failed to decode %s", file_name)
                 raise
         return data
+
+    def get_validation(self):
+        list_image = "/home/lpodoynitsina/Desktop/bird.txt"
+        # list_image: grep label_train *.xml > path_to_file.txt
+        # label_train: n01440764 (example)
+        # path_to_file.txt: "/home/lpodoynitsina/Desktop/fish.txt"
+        file_image = open(list_image, "r")
+        names_jpeg = []
+        names_xml = []
+        for line in file_image:
+            name_xml = line[:line.find(".xml") + 4]
+            name_jpeg = name_xml.replace(".xml", ".JPEG")
+            names_xml.append(name_xml)
+            names_jpeg.append(name_jpeg)
+        for name_image in names_jpeg:
+            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
+                                        ("temp/ILSVRC2012_img_val/%s"
+                                         % name_image))
+            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
+                                          ("2014/ILSVRC2012_img_val/%s"
+                                           % name_image))
+            shutil.copyfile(path_from_copy, path_to_copy)
+        for name_bbx in names_xml:
+            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
+                                        ("temp/ILSVRC2012_bbox_val_v2/%s"
+                                         % name_bbx))
+            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
+                                          ("2014/ILSVRC2012_bbox_val_v2/%s"
+                                           % name_bbx))
+            shutil.copyfile(path_from_copy, path_to_copy)
 
     def sample_rect(self, img, x_c, y_c, h_size, w_size, mean):
         nn_width = self.rect[0]
@@ -586,6 +642,8 @@ class Main(Logger):
             self.generate_images_with_bbx()
         elif self.command_to_run == "resize":
             self.generate_resized_dataset()
+        elif self.command_to_run == "get_valid":
+            self.get_validation()
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
