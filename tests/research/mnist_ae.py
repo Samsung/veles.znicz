@@ -176,7 +176,7 @@ class Workflow(nn_units.NNWorkflow):
         unit.link_attrs(self.loader, ("input", "minibatch_data"))
         self.conv = unit
 
-        unit = pooling.MaxAbsPooling(self, kx=3, ky=3, sliding=(2, 2))
+        unit = pooling.StochasticAbsPooling(self, kx=3, ky=3, sliding=(2, 2))
         unit.link_from(self.conv)
         unit.link_attrs(self.conv, ("input", "output"))
         self.pool = unit
