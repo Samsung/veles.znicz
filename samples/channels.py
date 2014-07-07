@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+from copy import copy
 import glymur
 import logging
 import numpy
@@ -436,7 +437,7 @@ class Loader(loader.FullBatchLoader):
         for subdir, subdir_conf in self.subdir_conf_.items():
             frame = subdir_conf["frame"]
             if subdir not in pos.keys():
-                pos[subdir] = frame.copy()  # bottom-right corner
+                pos[subdir] = copy(frame)  # bottom-right corner
                 rpos[subdir] = [0, 0]
             for pos_size in subdir_conf["channel_map"].values():
                 pos[subdir][0] = min(pos[subdir][0], pos_size["pos"][0])
