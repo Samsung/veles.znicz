@@ -9,11 +9,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-#import logging
 import numpy
 import os
 import pickle
-#import sys
 from zope.interface import implementer
 
 from veles.config import root
@@ -26,6 +24,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
+import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -34,7 +33,7 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
-
+root.model = "imagenet"
 root.defaults = {
     "decision": {"fail_iterations": 100000,
                  "use_dynamic_alpha": False,
@@ -43,6 +42,13 @@ root.defaults = {
     "loader": {"year": "temp",
                "series": "img",
                "minibatch_size": 100},
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.cache_dir,
+                                  "tmp %s/test" % root.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/validation" % root.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/train" % root.model)]},
     "weights_plotter": {"limit": 64},
     "imagenet": {"layers":
                  [{"type": "conv_relu", "n_kernels": 96,
@@ -142,7 +148,7 @@ class Loader(loader.Loader):
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
-        self.original_labels = [0]
+        self.original_labels = []
 
     def __getstate__(self):
         stt = super(Loader, self).__getstate__()
@@ -153,18 +159,12 @@ class Loader(loader.Loader):
     def load_data(self):
         names_labels_dir = root.loader.names_labels_dir
         count_samples_dir = root.loader.count_samples_dir
-        labels_int_dir = root.loader.labels_int_dir
         matrixes_dir = root.loader.matrixes_dir
         file_samples_dir = root.loader.file_samples_dir
         file_names_labels = open(names_labels_dir, "rb")
-        file_labels_int = open(labels_int_dir, "w")
-        file_labels_int.write("0     no object\n")
-        names_labels = pickle.load(file_names_labels)
-        for set_type in ("test", "validation", "train"):
-            for i, value in enumerate(names_labels[set_type]):
-                self.original_labels.append(i + 1)
-                line = "%s     %s\n" % (i + 1, value)
-                file_labels_int.write(line)
+        labels = pickle.load(file_names_labels)
+        for f in labels:
+            self.original_labels.append(f)
         file_names_labels.close()
         file_count_samples = open(count_samples_dir, "rb")
         self.class_lengths = pickle.load(file_count_samples)
@@ -198,7 +198,6 @@ class Loader(loader.Loader):
         for i, ii in enumerate(idxs[:self.minibatch_size]):
             self.file_samples.seek(int(ii) * sample_size)
             self.file_samples.readinto(self.minibatch_data[i])
-
         if not self.original_labels is False:
             for i, ii in enumerate(idxs[:self.minibatch_size]):
                 self.minibatch_labels[i] = self.original_labels[int(ii)]
@@ -231,6 +230,18 @@ class Workflow(StandardWorkflow):
 
         # Add fwds units
         self.parse_fwds_from_config()
+        # Add Image Saver unit
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=root.image_saver.out_dirs)
+        self.image_saver.link_from(self.fwds[-1])
+        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.image_saver.link_attrs(
+            self.loader,
+            #("input", "minibatch_data"),
+            ("indexes", "minibatch_indices"),
+            ("labels", "minibatch_labels"),
+            "minibatch_class", "minibatch_size")
+        self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
@@ -311,12 +322,6 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def parse_fwds_from_config(self):
-        """
-        Parsing forward units from config.
-        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
-        by link_from and link_attrs. If self.fwds is empty, links unit with
-        self.loader
-        """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
         del self.fwds[:]
@@ -327,11 +332,6 @@ class Workflow(StandardWorkflow):
             self.add_frwd_unit(unit)
 
     def add_frwd_unit(self, new_unit):
-        """
-        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
-        by link_from and link_attrs. If self.fwds is empty, links unit with
-        self.loader
-        """
         if len(self.fwds) > 0:
             prev_forward_unit = self.fwds[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
