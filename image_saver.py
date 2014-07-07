@@ -84,6 +84,11 @@ class ImageSaver(Unit):
                 xx[:, :, 2:3] = x[2:3, :, :].reshape(
                     x.shape[1], x.shape[2], 1)[:, :, 0:1]
                 return xx
+            if x.shape[2] == 4:
+                xx = numpy.empty([x.shape[0], x.shape[1], 3],
+                                 dtype=x.dtype)
+                xx[:, :, 0:3] = x[:, :, 0:3]
+                return xx
         return x.ravel()
 
     def initialize(self, **kwargs):
