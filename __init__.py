@@ -15,7 +15,7 @@ from veles.config import root
 root.common.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))
 
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __license__ = "Samsung Proprietary License"
 __copyright__ = "© 2013 Samsung Electronics Co., Ltd."
 
