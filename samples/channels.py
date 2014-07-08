@@ -9,23 +9,25 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+# os should be imported first, because of the following workaround
+import os
+# FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
+# in multithreaded mode.
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 from copy import copy
 import glymur
 import logging
 import numpy
-import os
-import pickle
 import re
 import scipy.misc
 import six
+from six.moves import cPickle as pickle
 import sys
 import threading
 import time
 import traceback
 from zope.interface import implementer
-
-# FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from veles.config import root
 import veles.error as error
@@ -531,9 +533,10 @@ class Loader(loader.FullBatchLoader):
                                  count=1024))
         # FIXME(a.kazantsev): numpy.dot is thread-safe with this value
         # on ubuntu 13.10 (due to the static number of buffers in libopenblas)
-        n_threads = self.n_threads
-        pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
-                                      queue_size=n_threads)
+        if not root.common.unit_test:
+            n_threads = self.n_threads
+            pool = thread_pool.ThreadPool(minthreads=1, maxthreads=n_threads,
+                                          queue_size=n_threads)
         data_lock = threading.Lock()
         stat_lock = threading.Lock()
         n_files = [0]
@@ -548,13 +551,22 @@ class Loader(loader.FullBatchLoader):
                 self.info("Will load from %s" % (relpath))
                 lbl = self.get_label(dirnme)
                 for fnme in files[relpath]:
-                    pool.callInThread(self.from_jp2_async,
-                                      fnme, pos[subdir], sz[subdir],
-                                      data_lock, stat_lock,
-                                      0 + i_sample, 0 + lbl, n_files,
-                                      total_files, n_negative, rand, progress)
+                    if root.common.unit_test:
+                        self.from_jp2_async(
+                            fnme, pos[subdir], sz[subdir],
+                            data_lock, stat_lock,
+                            0 + i_sample, 0 + lbl, n_files,
+                            total_files, n_negative, rand, progress)
+                    else:
+                        pool.callInThread(
+                            self.from_jp2_async,
+                            fnme, pos[subdir], sz[subdir],
+                            data_lock, stat_lock,
+                            0 + i_sample, 0 + lbl, n_files,
+                            total_files, n_negative, rand, progress)
                     i_sample += 1
-        pool.shutdown(execute_remaining=True)
+        if not root.common.unit_test:
+            pool.shutdown(execute_remaining=True)
         progress.finish()
 
         if (len(self._original_data) != len(self._original_labels) or
@@ -820,9 +832,10 @@ class Workflow(StandardWorkflow):
         """
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
-        self.end_point.link_from(self.gds[0])
+        self.end_point.link_from(self.snapshotter)
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
+        self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, minibatch_size, w_neg,
                    device):
