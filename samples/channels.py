@@ -224,9 +224,9 @@ class Loader(loader.FullBatchLoader):
 
     def append_sample(self, sample, lbl, fnme, n_negative, data_lock):
         data_lock.acquire()
-        self.original_data.append(sample)
-        self.original_labels.append(lbl)
-        ii = len(self.original_data) - 1
+        self._original_data.append(sample)
+        self._original_labels.append(lbl)
+        ii = len(self._original_data) - 1
         self.file_map[ii] = fnme
         if n_negative is not None:
             n_negative[0] += 1
@@ -304,10 +304,32 @@ class Loader(loader.FullBatchLoader):
             lbl = int(dirnme)
         return lbl
 
+    def _data_labels_to_vector(self):
+        self.original_data.mem = numpy.empty(
+            [len(self._original_data)] + list(self._original_data[0].shape),
+            dtype=numpy.float32)
+        i = 0
+        while len(self._original_data):
+            self.original_data.mem[i] = self._original_data.pop(0)
+            i += 1
+        del self._original_data
+
+        self.original_labels.mem = numpy.empty(
+            len(self._original_labels), dtype=numpy.int32)
+        i = 0
+        while len(self._original_labels):
+            self.original_labels.mem[i] = self._original_labels.pop(0)
+            i += 1
+        del self._original_labels
+
     def load_data(self):
-        if (self.original_data is not False and
-                self.original_labels is not False):
+        if (self.original_data.mem is not None and
+                self.original_labels is not None):
+            self.info("Data and Labels already initialized")
             return
+
+        self.original_data.reset()
+        self.original_labels.reset()
 
         cached_data_fnme = (
             self.cache_file_name or os.path.join(
@@ -323,7 +345,6 @@ class Loader(loader.FullBatchLoader):
             if self.layers[i].get("n_kernels") is not None:
                 self.do_swap_axis = True
         try:
-            print(cached_data_fnme)
             fin = open(cached_data_fnme, "rb")
             obj = pickle.load(fin)
             if obj["channels_dir"] != self.channels_dir:
@@ -355,17 +376,17 @@ class Loader(loader.FullBatchLoader):
                     self.sz[k][0], self.sz[k][1]))
             self.info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
-            self.shuffled_indices = pickle.load(fin)
-            self.original_labels = pickle.load(fin)
+            self.shuffled_indices.mem = pickle.load(fin)
+            self._original_labels = list(pickle.load(fin))
             # Get raw array from file
-            self.original_data = []
+            self._original_data = []
             store_negative = self.w_neg is not None and self.find_negative > 0
             old_file_map = []
             n_not_exists_anymore = 0
-            for i in range(len(self.original_labels)):
+            for i in range(len(self._original_labels)):
                 a = pickle.load(fin)
                 if store_negative:
-                    if self.original_labels[i]:
+                    if self._original_labels[i]:
                         del a
                         continue
                     if not os.path.isfile(self.file_map[i]):
@@ -373,13 +394,14 @@ class Loader(loader.FullBatchLoader):
                         del a
                         continue
                     old_file_map.append(self.file_map[i])
-                self.original_data.append(a)
+                self._original_data.append(a)
             self.prng.state = pickle.load(fin)
             fin.close()
             self.info("Succeeded")
             self.info("class_lengths=[%s]" % (
                 ", ".join(str(x) for x in self.class_lengths)))
             if not store_negative:
+                self._data_labels_to_vector()
                 return
             self.info("Will search for a negative set at most %d "
                       "samples per image" % (self.find_negative))
@@ -389,16 +411,16 @@ class Loader(loader.FullBatchLoader):
             for i, fnme in enumerate(old_file_map):
                 self.file_map[i] = fnme
             del old_file_map
-            n = len(self.original_data)
-            self.original_labels = list(0 for i in range(n))
-            self.shuffled_indices = False
+            n = len(self._original_data)
+            self._original_labels = list(0 for i in range(n))
+            self.shuffled_indices.reset()
             self.info("Done (%d extracted, %d not exists anymore)" % (
                 n, n_not_exists_anymore))
         except FileNotFoundError:
             self.info("Failed")
-            self.original_labels = []
-            self.original_data = []
-            self.shuffled_indices = False
+            self._original_labels = []
+            self._original_data = []
+            self.shuffled_indices.reset()
             self.file_map.clear()
 
         self.info("Will load data from original jp2 files")
@@ -535,12 +557,12 @@ class Loader(loader.FullBatchLoader):
         pool.shutdown(execute_remaining=True)
         progress.finish()
 
-        if (len(self.original_data) != len(self.original_labels) or
-                len(self.file_map) != len(self.original_labels)):
+        if (len(self._original_data) != len(self._original_labels) or
+                len(self.file_map) != len(self._original_labels)):
             raise Exception("Logic error")
 
         if self.w_neg is not None and self.find_negative > 0:
-            n_positive = numpy.count_nonzero(self.original_labels)
+            n_positive = numpy.count_nonzero(self._original_labels)
             self.info("Found %d negative samples (%.2f%%)" % (
                 n_negative[0], 100.0 * n_negative[0] / n_positive))
 
@@ -549,22 +571,23 @@ class Loader(loader.FullBatchLoader):
 
         self.class_lengths[0] = 0
         self.class_lengths[1] = 0
-        self.class_lengths[2] = len(self.original_data)
+        self.class_lengths[2] = len(self._original_data)
 
         # Randomly generate validation set from train.
         self.info("Will extract validation set from train")
+        self._data_labels_to_vector()
         self.extract_validation_from_train(rnd.get(2))
 
         # Saving all the samples
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
-        for i in self.shuffled_indices:
+        for i in self.shuffled_indices.mem:
             l = self.original_labels[i]
-            dir = "%s/%s" % (root.common.cache_dir, root.model)
+            dirnme = "%s/%s" % (root.common.cache_dir, root.model)
             try:
-                os.mkdir(dir)
+                os.mkdir(dirnme)
             except OSError:
                 pass
-            dirnme = "%s/%03d" % (dir, l)
+            dirnme = "%s/%03d" % (dirnme, l)
             try:
                 os.mkdir(dirnme)
             except OSError:
@@ -585,11 +608,11 @@ class Loader(loader.FullBatchLoader):
             for name in self.attributes_for_cached_data:
                 obj[name] = self.__dict__[name]
             pickle.dump(obj, fout)
-            pickle.dump(self.shuffled_indices, fout)
-            pickle.dump(self.original_labels, fout)
+            pickle.dump(self.shuffled_indices.mem, fout)
+            pickle.dump(self.original_labels.mem, fout)
             # Because pickle doesn't support greater than 4Gb arrays
-            for i in range(len(self.original_data)):
-                pickle.dump(self.original_data[i], fout)
+            for i in range(len(self.original_data.mem)):
+                pickle.dump(self.original_data.mem[i], fout)
             # Save random state
             pickle.dump(self.prng.state, fout)
         self.info("Done")
