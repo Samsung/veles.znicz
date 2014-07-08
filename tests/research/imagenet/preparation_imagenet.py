@@ -209,7 +209,6 @@ class Main(Logger):
                             xml_path = os.path.join(root_path, f)
                             with open(xml_path, "r") as fr:
                                 tree = xmltodict.parse(fr.read())
-                            #print("tree", tree)
                             temp_bbx = tree["annotation"]["object"]
                             if type(temp_bbx) is not list:
                                 temp_bbx = [temp_bbx]
@@ -255,8 +254,9 @@ class Main(Logger):
                                 found = False
                                 if zero_write:
                                     file_ind_labels = open(int_labels_dir, "w")
-                                    line_int_label = "%s\t%s\n" % (ind, label)
-                                    file_ind_labels.write(line_int_label)
+                                    file_ind_labels.write(
+                                        "0\tnegative image\n%s\t%s\n"
+                                        % (ind, label))
                                     file_ind_labels.close()
                                     ind += 1
                                     zero_write = False
@@ -323,15 +323,16 @@ class Main(Logger):
         self.info("Resized dataset")
         original_labels = []
         int_word_labels = []
+        zero_train = True
         self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
-        names_labels_dir = os.path.join(self.imagenet_dir_path,
-                                        "names_labels_%s_%s_0.pickle" %
-                                        (self.year, self.series))
+        original_labels_dir = os.path.join(self.imagenet_dir_path,
+                                           "original_labels_%s_%s_0.pickle" %
+                                           (self.year, self.series))
         matrix_dir = os.path.join(self.imagenet_dir_path,
                                   "matrixes_%s_%s_0.pickle" %
                                   (self.year, self.series))
         count_samples_dir = os.path.join(self.imagenet_dir_path,
-                                         "count_samples_%s_%s_0.pickle" %
+                                         "count_samples_%s_%s_0.json" %
                                          (self.year, self.series))
         labels_int_dir = os.path.join(self.imagenet_dir_path,
                                       "labels_int_%s_%s_0.txt" %
@@ -417,6 +418,13 @@ class Main(Logger):
                         validation_count += 1
                     elif set_type == "train":
                         train_count += 1
+                        if zero_train:
+                            mean.tofile(self.f_samples)
+                            original_labels.append(0)
+                            train_count += 1
+                            sample_count += 1
+                            labels_count += 1
+                            zero_train = False
                     else:
                         self.error("Wrong set type")
                     x = bbx["x"]
@@ -451,17 +459,17 @@ class Main(Logger):
                                           train_count]
                     i += 1
             self.info("Saving images to %s" % original_data_dir)
-        with open(names_labels_dir, "wb") as fout:
+        with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
-                      names_labels_dir)
+                      original_labels_dir)
             pickle.dump(original_labels, fout)
         with open(matrix_dir, "wb") as fout:
             self.info("Saving mean, min and max matrix to %s" % matrix_dir)
             pickle.dump(self.matrixes, fout)
-        with open(count_samples_dir, "wb") as fout:
+        with open(count_samples_dir, "w") as fout:
             self.info("Saving count of test, validation and train to %s"
                       % count_samples_dir)
-            pickle.dump(self.count_samples, fout)
+            json.dump(self.count_samples, fout)
         self.info("labels_count %s sample_count %s"
                   % (labels_count, sample_count))
         assert labels_count == sample_count
