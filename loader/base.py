@@ -440,13 +440,14 @@ class Loader(OpenCLUnit):
         offs = offs_test
         train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
         total_samples = train_samples + offs
-        original_labels = self.original_labels
+        self.original_labels.map_read()
+        original_labels = self.original_labels.mem
 
         if self.shuffled_indices.mem is None:
             self.shuffled_indices.mem = numpy.arange(
                 total_samples, dtype=numpy.int32)
         self.shuffled_indices.map_write()
-        shuffled_indexes = self.shuffled_indices.mem
+        shuffled_indices = self.shuffled_indices.mem
 
         # If there are no labels
         if original_labels is None:
@@ -455,9 +456,9 @@ class Loader(OpenCLUnit):
                 i = rand.randint(offs, offs + train_samples)
 
                 # Swap indexes
-                ii = shuffled_indexes[offs]
-                shuffled_indexes[offs] = shuffled_indexes[i]
-                shuffled_indexes[i] = ii
+                ii = shuffled_indices[offs]
+                shuffled_indices[offs] = shuffled_indices[i]
+                shuffled_indices[i] = ii
 
                 offs += 1
                 n -= 1
@@ -468,7 +469,7 @@ class Loader(OpenCLUnit):
             return
         # If there are labels
         nn = {}
-        for i in shuffled_indexes[offs:]:
+        for i in shuffled_indices[offs:]:
             l = original_labels[i]
             nn[l] = nn.get(l, 0) + 1
         n = 0
@@ -481,22 +482,22 @@ class Loader(OpenCLUnit):
             n += nn[l]
         while n > 0:
             i = rand.randint(offs, offs_test + train_samples)
-            l = original_labels[shuffled_indexes[i]]
+            l = original_labels[shuffled_indices[i]]
             if nn[l] <= 0:
                 # Move unused label to the end
 
                 # Swap indexes
-                ii = shuffled_indexes[offs_test + train_samples - 1]
-                shuffled_indexes[
-                    offs_test + train_samples - 1] = shuffled_indexes[i]
-                shuffled_indexes[i] = ii
+                ii = shuffled_indices[offs_test + train_samples - 1]
+                shuffled_indices[
+                    offs_test + train_samples - 1] = shuffled_indices[i]
+                shuffled_indices[i] = ii
 
                 train_samples -= 1
                 continue
             # Swap indexes
-            ii = shuffled_indexes[offs]
-            shuffled_indexes[offs] = shuffled_indexes[i]
-            shuffled_indexes[i] = ii
+            ii = shuffled_indices[offs]
+            shuffled_indices[offs] = shuffled_indices[i]
+            shuffled_indices[i] = ii
 
             nn[l] -= 1
             n -= 1
