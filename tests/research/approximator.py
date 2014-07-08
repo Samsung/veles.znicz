@@ -188,7 +188,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("target", "minibatch_targets"))
+                                  ("target", "minibatch_target"))
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
@@ -303,7 +303,7 @@ class Workflow(nn_units.NNWorkflow):
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.plt.inputs[:]
         self.plt.inputs.append(self.loader.minibatch_data)
-        self.plt.inputs.append(self.loader.minibatch_targets)
+        self.plt.inputs.append(self.loader.minibatch_target)
         self.plt.inputs.append(self.fwds[-1].output)
         del self.plt.input_fields[:]
         self.plt.input_fields.append(0)

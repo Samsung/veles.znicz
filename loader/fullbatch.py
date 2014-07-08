@@ -72,11 +72,11 @@ class FullBatchLoader(Loader):
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
 
-        self.minibatch_targets.reset()
+        self.minibatch_target.reset()
         if self.original_target.mem is not None:
             sh = [self.max_minibatch_size]
             sh.extend(self.original_target[0].shape)
-            self.minibatch_targets.mem = numpy.zeros(
+            self.minibatch_target.mem = numpy.zeros(
                 sh,
                 dtype=opencl_types.dtypes[config.root.common.precision_type])
 
@@ -137,9 +137,9 @@ class FullBatchLoader(Loader):
             defines.update({
                 "TARGET_SIZE": self.original_target.sample_size,
                 "original_target_dtype": opencl_types.numpy_dtype_to_opencl(
-                    self.original_data.dtype),
+                    self.original_target.dtype),
                 "minibatch_target_dtype": opencl_types.numpy_dtype_to_opencl(
-                    self.minibatch_data.dtype)
+                    self.minibatch_target.dtype)
             })
         self.build_program(defines, "fullbatch_loader.cl",
                            dtype=self.minibatch_data.dtype)
@@ -209,4 +209,4 @@ class FullBatchLoader(Loader):
 
         if self.original_target.mem is not None:
             for i, ii in enumerate(idxs[:self.minibatch_size]):
-                self.minibatch_targets[i] = self.original_target[int(ii)]
+                self.minibatch_target[i] = self.original_target[int(ii)]

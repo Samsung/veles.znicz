@@ -127,10 +127,10 @@ class Loader(loader.Loader):
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_targets.reset()
+        self.minibatch_target.reset()
         sh = [self.max_minibatch_size]
         sh.extend(self.class_targets[0].shape)
-        self.minibatch_targets.mem = numpy.zeros(
+        self.minibatch_target.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         self.minibatch_labels.reset()
@@ -154,7 +154,7 @@ class Loader(loader.Loader):
             fin.close()
             self.minibatch_data[i] = data
             self.minibatch_labels[i] = lbl
-            self.minibatch_targets[i] = self.class_targets[lbl]
+            self.minibatch_target[i] = self.class_targets[lbl]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -197,7 +197,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("target", "minibatch_targets"),
+                                  ("target", "minibatch_target"),
                                   ("labels", "minibatch_labels"),
                                   "class_targets")
         self.evaluator.link_attrs(self.fwds[-1], "output")

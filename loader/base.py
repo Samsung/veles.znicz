@@ -75,7 +75,7 @@ class Loader(OpenCLUnit):
         minibatch_data: data (should be scaled usually scaled to [-1, 1]).
         minibatch_indices: global indices of images in minibatch.
         minibatch_labels: labels for indexes in minibatch (classification).
-        minibatch_targets: target data (in case of MSE).
+        minibatch_target: target data (in case of MSE).
         shuffled_indices: indices for all dataset, shuffled with prng.
         samples_served: the total number of samples processed for all epochs.
         minibatch_class: current minibatch class.
@@ -111,7 +111,7 @@ class Loader(OpenCLUnit):
 
         self.minibatch_class = 0
         self.minibatch_data = formats.Vector()
-        self.minibatch_targets = formats.Vector()
+        self.minibatch_target = formats.Vector()
         self.minibatch_indices = formats.Vector()
         self.minibatch_labels = formats.Vector()
 
@@ -224,12 +224,12 @@ class Loader(OpenCLUnit):
         self._minibatch_data = value
 
     @property
-    def minibatch_targets(self):
-        return self._minibatch_targets
+    def minibatch_target(self):
+        return self._minibatch_target
 
-    @minibatch_targets.setter
-    def minibatch_targets(self, value):
-        self._minibatch_targets = value
+    @minibatch_target.setter
+    def minibatch_target(self, value):
+        self._minibatch_target = value
 
     @property
     def minibatch_indices(self):
@@ -545,8 +545,8 @@ class Loader(OpenCLUnit):
 
         if minibatch_size < self.max_minibatch_size:
             self.minibatch_data[minibatch_size:] = 0.0
-            if self.minibatch_targets:
-                self.minibatch_targets[minibatch_size:] = 0.0
+            if self.minibatch_target:
+                self.minibatch_target[minibatch_size:] = 0.0
             self.minibatch_labels[minibatch_size:] = -1
             self.minibatch_indices[minibatch_size:] = -1
 
@@ -560,7 +560,7 @@ class Loader(OpenCLUnit):
             True: no further processing needed.
             False: only indices were filled, further processing required.
         """
-        for v in (self.minibatch_data, self.minibatch_targets,
+        for v in (self.minibatch_data, self.minibatch_target,
                   self.minibatch_labels, self.minibatch_indices):
             v.map_invalidate()
         self.shuffled_indices.map_read()
