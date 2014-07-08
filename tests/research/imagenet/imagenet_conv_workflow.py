@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import json
 import numpy
 import os
 import pickle
@@ -26,6 +27,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
+import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -120,20 +122,17 @@ root.defaults = {
                    "gradient_moment": 0.9, "gradient_moment_bias": 0.9}]}}
 
 CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.loader.year)
-root.loader.names_labels_dir = os.path.join(
-    CACHED_DATA_FNME, "names_labels_%s_%s_0.pickle" %
+root.loader.original_labels_dir = os.path.join(
+    CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
     (root.loader.year, root.loader.series))
 root.loader.count_samples_dir = os.path.join(
-    CACHED_DATA_FNME, "count_samples_%s_%s_0.pickle" %
+    CACHED_DATA_FNME, "count_samples_%s_%s_0.json" %
     (root.loader.year, root.loader.series))
 root.loader.file_samples_dir = os.path.join(
     CACHED_DATA_FNME, "original_data_%s_%s_0.dat" %
     (root.loader.year, root.loader.series))
 root.loader.matrixes_dir = os.path.join(
     CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
-root.loader.labels_int_dir = os.path.join(
-    CACHED_DATA_FNME, "labels_int_%s_%s_0.txt" %
     (root.loader.year, root.loader.series))
 
 
@@ -144,7 +143,6 @@ class Loader(loader.Loader):
         super(Loader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
         self.rdisp = Vector()
-        self.file_samples = ""
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -157,23 +155,24 @@ class Loader(loader.Loader):
         return stt
 
     def load_data(self):
-        names_labels_dir = root.loader.names_labels_dir
+        original_labels_dir = root.loader.original_labels_dir
         count_samples_dir = root.loader.count_samples_dir
         matrixes_dir = root.loader.matrixes_dir
         file_samples_dir = root.loader.file_samples_dir
-        file_names_labels = open(names_labels_dir, "rb")
-        labels = pickle.load(file_names_labels)
+        file_original_labels = open(original_labels_dir, "rb")
+        labels = pickle.load(file_original_labels)
         for f in labels:
-            self.original_labels.append(f)
-        file_names_labels.close()
-        file_count_samples = open(count_samples_dir, "rb")
-        self.class_lengths = pickle.load(file_count_samples)
-        file_count_samples.close()
+            self.original_labels.append(int(f))
+        file_original_labels.close()
+        with open(count_samples_dir, "r") as fin:
+            for i, n in enumerate(json.load(fin)):
+                self.class_lengths[i] = n
         file_matrixes = open(matrixes_dir, "rb")
         matrixes = pickle.load(file_matrixes)
         self.mean.mem = matrixes[0]
         self.rdisp.mem = matrixes[1].astype(
             opencl_types.dtypes[root.common.precision_type])
+        self.rdisp.mem = self.rdisp.mem * 127.5
         self.file_samples = open(file_samples_dir, "rb")
 
     def create_minibatches(self):
@@ -183,9 +182,8 @@ class Loader(loader.Loader):
         self.minibatch_data.mem = numpy.zeros(shape, dtype=numpy.uint8)
 
         self.minibatch_labels.reset()
-        if not self.original_labels is False:
-            shape = [self.max_minibatch_size]
-            self.minibatch_labels.mem = numpy.zeros(shape, dtype=numpy.int32)
+        shape = [self.max_minibatch_size]
+        self.minibatch_labels.mem = numpy.zeros(shape, dtype=numpy.int32)
 
         self.minibatch_indices.reset()
         self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
@@ -218,18 +216,17 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, minibatch_size=root.loader.minibatch_size)
+        self.loader.link_from(self.repeater)
 
         self.meandispnorm = MeanDispNormalizer(self)
         self.meandispnorm.link_attrs(self.loader,
                                      ("input", "minibatch_data"),
                                      "mean", "rdisp")
-
-        self.loader.link_from(self.repeater)
-
         self.meandispnorm.link_from(self.loader)
 
         # Add fwds units
         self.parse_fwds_from_config()
+
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
@@ -237,7 +234,6 @@ class Workflow(StandardWorkflow):
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
-            #("input", "minibatch_data"),
             ("indexes", "minibatch_indices"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
@@ -245,7 +241,7 @@ class Workflow(StandardWorkflow):
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -274,8 +270,27 @@ class Workflow(StandardWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
+        self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
         self.create_gd_units_by_config()
+
+        # Add learning_rate_adjust unit
+        for gd_elm in self.gds:
+            lr_adjuster = lr_adjust.LearningRateAdjust(
+                self,
+                lr_function=lr_adjust.step_exp_adjust_policy(0.01, 0.1,
+                                                             100000),
+                bias_lr_function=lr_adjust.step_exp_adjust_policy(0.02, 0.1,
+                                                                  100000))
+            lr_adjuster.add_one_gd_unit(gd_elm)
+
+        lr_adjuster.link_from(self.gds[0])
+        self.repeater.link_from(lr_adjuster)
+
+        self.end_point.link_from(self.snapshotter)
+        self.end_point.gate_block = ~self.decision.complete
 
         # Error plotter
         self.plt = []
@@ -308,10 +323,10 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            if (layers[i].get("output_shape") is not None and
-                    layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.fwds[i],
-                                           ("get_shape_from", "input"))
+            #if (layers[i].get("output_shape") is not None and
+            #        layers[i]["type"] != "softmax"):
+            #    self.plt_mx[-1].link_attrs(self.fwds[i],
+            #                               ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
