@@ -26,7 +26,7 @@ class TestMnistRelu(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(120)
+    @timeout(12000)
     def test_mnist_relu(self):
         logging.info("Will test mnist workflow with relu config")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -98,8 +98,8 @@ class TestMnistRelu(unittest.TestCase):
         self.w.run()
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 350)
-        self.assertEqual(14, self.w.loader.epoch_number)
+        self.assertEqual(err, 359)
+        self.assertEqual(15, self.w.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":
