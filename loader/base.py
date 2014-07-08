@@ -440,8 +440,11 @@ class Loader(OpenCLUnit):
         offs = offs_test
         train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
         total_samples = train_samples + offs
-        self.original_labels.map_read()
-        original_labels = self.original_labels.mem
+        if isinstance(self.original_labels, formats.Vector):
+            self.original_labels.map_read()
+            original_labels = self.original_labels.mem
+        else:
+            original_labels = self.original_labels
 
         if self.shuffled_indices.mem is None:
             self.shuffled_indices.mem = numpy.arange(
