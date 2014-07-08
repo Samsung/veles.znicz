@@ -59,7 +59,7 @@ class TestKanji(unittest.TestCase):
                      device=self.device, weights=None, bias=None)
         w.run()
         err = w.decision.epoch_n_err[1]
-        self.assertEqual(err, 17)
+        self.assertEqual(err, 18)
         logging.info("All Ok")
 
 
