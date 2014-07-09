@@ -34,7 +34,7 @@ class Weights2D(plotter.Plotter):
         self.demand("input")
         self.get_shape_from = None
         self.limit = kwargs.get("limit", 64)
-        self.transposed = False
+        self.transposed = kwargs.get('transposed', False)
         self.yuv = Bool(kwargs.get("yuv", False))
         self.cm = None
         self.pp = None
@@ -47,20 +47,10 @@ class Weights2D(plotter.Plotter):
         if self.stripped_pickle:
             inp = state["input"][:self.limit]
             state["input"] = None
-            state["_pics_to_draw"] = self._prepare_pics(inp)
+            state["_pics_to_draw"] = self.prepare_pics(inp, self.transposed)
         return state
 
-    def _prepare_pics(self, inp):
-        pics = []
-
-        if type(inp) != numpy.ndarray or len(inp.shape) < 2:
-            raise ValueError("input should be a numpy array (2D at least)")
-
-        inp = inp.reshape(inp.shape[0], inp.size // inp.shape[0])
-
-        if self.transposed:
-            inp = inp.transpose()
-
+    def get_number_of_channels(self, inp):
         n_channels = 1
         if self.get_shape_from is None:
             sx = int(numpy.round(numpy.sqrt(inp.shape[1])))
@@ -76,7 +66,20 @@ class Weights2D(plotter.Plotter):
                 sx = self.get_shape_from[-2]
                 sy = self.get_shape_from[-3]
                 n_channels = self.get_shape_from[-1]
+        return n_channels, sx, sy
 
+    def prepare_pics(self, inp, transposed):
+        pics = []
+
+        if type(inp) != numpy.ndarray or len(inp.shape) < 2:
+            raise ValueError("input should be a numpy array (2D at least)")
+
+        inp = inp.reshape(inp.shape[0], inp.size // inp.shape[0])
+
+        if transposed:
+            inp = inp.transpose()
+
+        n_channels, sx, sy = self.get_number_of_channels(inp)
         sz = sx * sy * n_channels
 
         for i in range(inp.shape[0]):
@@ -97,27 +100,27 @@ class Weights2D(plotter.Plotter):
         figure.clf()
 
         pics = self._pics_to_draw
+        if len(pics) > 0:
+            n_cols = int(numpy.round(numpy.sqrt(len(pics))))
+            n_rows = int(numpy.ceil(len(pics) / n_cols))
 
-        n_cols = int(numpy.round(numpy.sqrt(len(pics))))
-        n_rows = int(numpy.ceil(len(pics) / n_cols))
-
-        i = 0
-        for _row in range(n_rows):
-            for _col in range(n_cols):
-                ax = figure.add_subplot(n_rows, n_cols, i + 1)
-                ax.cla()
-                ax.axis('off')
-                # ax.set_title(self.name)
-                if len(pics[i].shape) == 3:
-                    ax.imshow(pics[i], interpolation="nearest")
-                else:
-                    ax.imshow(pics[i], interpolation="nearest",
-                              cmap=self.cm.gray)
-                i += 1
+            i = 0
+            for _row in range(n_rows):
+                for _col in range(n_cols):
+                    ax = figure.add_subplot(n_rows, n_cols, i + 1)
+                    ax.cla()
+                    ax.axis('off')
+                    # ax.set_title(self.name)
+                    if len(pics[i].shape) == 3:
+                        ax.imshow(pics[i], interpolation="nearest")
+                    else:
+                        ax.imshow(pics[i], interpolation="nearest",
+                                  cmap=self.cm.gray)
+                    i += 1
+                    if i >= len(pics):
+                        break
                 if i >= len(pics):
                     break
-            if i >= len(pics):
-                break
 
         self.show_figure(figure)
         figure.canvas.draw()

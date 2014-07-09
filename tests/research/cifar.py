@@ -16,15 +16,16 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.formats as formats
-#from veles.mutable import Bool
+# from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
-#import veles.znicz.image_saver as image_saver
+# import veles.znicz.image_saver as image_saver
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.loader as loader
+import veles.znicz.diversity as diversity
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -46,6 +47,8 @@ root.defaults = {
     "loader": {"minibatch_size": 180, "norm": "-1, 1",
                "shuffle_limit": 1, "sobel": False},
     "weights_plotter": {"limit": 64},
+    "similar_weights_plotter": {'form': 1.1, 'peak': 0.5, 'magnitude': 0.65,
+                                'layers': {0}},
     "cifar": {"layers": [{"type": "all2all_tanh",
                           "learning_rate": 0.0005,
                           "weights_decay": 0.00005,
@@ -218,7 +221,7 @@ class Workflow(StandardWorkflow):
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        #self.evaluator.link_from(self.image_saver)
+        # self.evaluator.link_from(self.image_saver)
         self.evaluator.link_from(self.fwds[-1])
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
@@ -253,8 +256,8 @@ class Workflow(StandardWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        #self.image_saver.gate_skip = ~self.decision.improved
-        #self.image_saver.link_attrs(self.snapshotter,
+        # self.image_saver.gate_skip = ~self.decision.improved
+        # self.image_saver.link_attrs(self.snapshotter,
         #                            ("this_save_time", "time"))
         # for i in range(0, len(layers)):
         #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
@@ -331,7 +334,7 @@ class Workflow(StandardWorkflow):
         # Weights plotter
         self.plt_mx = []
         prev_channels = 3
-        for i in range(0, len(layers)):
+        for i in range(len(layers)):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
@@ -349,11 +352,28 @@ class Workflow(StandardWorkflow):
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
-            # elif isinstance(self.fwds[i], all2all.All2All):
-            #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
             self.plt_mx[-1].link_from(prev)
             self.plt_mx[-1].gate_skip = ~self.decision.epoch_ended
             prev = self.plt_mx[-1]
+            if isinstance(self.fwds[i], conv.Conv) and \
+               (i + 1) in root.similar_weights_plotter.layers:
+                plt_mx = diversity.SimilarWeights2D(
+                    self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
+                    limit=root.weights_plotter.limit,
+                    form_threshold=root.similar_weights_plotter.form,
+                    peak_threshold=root.similar_weights_plotter.peak,
+                    magnitude_threshold=root.similar_weights_plotter.magnitude)
+                self.plt_mx.append(plt_mx)
+                self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
+                self.plt_mx[-1].input_field = "mem"
+                self.plt_mx[-1].get_shape_from = self.plt_mx[-2].get_shape_from
+                if (layers[i].get("output_shape") is not None and
+                        layers[i]["type"] != "softmax"):
+                    self.plt_mx[-1].link_attrs(self.fwds[i],
+                                               ("get_shape_from", "input"))
+                self.plt_mx[-1].link_from(prev)
+                self.plt_mx[-1].gate_skip = ~self.decision.epoch_ended
+                prev = self.plt_mx[-1]
 
         """
         # MultiHistogram plotter
