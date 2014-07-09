@@ -289,15 +289,13 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             defines = {
                 'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                     opencl_types.numpy_dtype_to_opencl(dtype)],
-                'BATCH': self.err_output.mem.shape[0],
-                'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
+                'BATCH': self.err_output.shape[0],
+                'Y': self.err_output.sample_size,
                 'SAMPLE_SIZE': 'Y',
-                'N_TARGETS': (self.class_targets.mem.shape[0]
+                'N_TARGETS': (self.class_targets.shape[0]
                               if self.class_targets is not None else 0)}
 
-            self.build_program(defines, "ev_%d.cl" %
-                               (self.output.mem.size //
-                                self.output.mem.shape[0]),
+            self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
                                dtype=dtype)
 
             self.assign_kernel("ev_mse")
