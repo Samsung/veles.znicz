@@ -44,7 +44,8 @@ from veles.znicz.external import xmltodict
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
-IMAGES_JSON = "images_imagenet_%s_%s_%s_0.json"  # year, series, set_type
+IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
+# year, series, set_type, iteration
 
 MAPPING = {
     "temp": {
@@ -86,6 +87,9 @@ class Main(Logger):
         self.year = None
         self.series = None
         self.fnme = None
+        self.iteration = 0
+        self.count_classes = 0
+        self.count_dirs = 50
         self.matrixes = []
         self.images_json = {
             "test": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
@@ -111,7 +115,7 @@ class Main(Logger):
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
         Logger.__init__(self, **kwargs)
-        self.images_0 = {
+        self.images_iter = {
             "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
             "test": {}
@@ -144,7 +148,8 @@ class Main(Logger):
                             help="set dataset type")
         parser.add_argument("command_to_run", type=str, default="",
                             choices=["all", "draw_bbox", "resize", "init",
-                                     "get_valid"],
+                                     "get_valid", "split_valid",
+                                     "split_dataset"],
                             help="run functions: 'all' run all functions,"
                                  "'draw_bbox' run function which generate"
                                  "image with bboxes, 'resize' run function"
@@ -163,8 +168,8 @@ class Main(Logger):
         self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
         self.info("Looking for images in %s:", self.imagenet_dir_path)
         int_labels_dir = os.path.join(self.imagenet_dir_path,
-                                      "labels_int_%s_%s_0.txt" %
-                                      (self.year, self.series))
+                                      "labels_int_%s_%s_%s.txt" %
+                                      (self.year, self.series, self.iteration))
         # finding dirs for images and bboxes
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
@@ -173,7 +178,7 @@ class Main(Logger):
             print("------", set_type, dir_images, dir_bboxes)
             path = os.path.join(self.imagenet_dir_path, dir_images)
             self.info("Scanning JPG %s...", path)
-            temp_images = self.images_0[set_type]
+            temp_images = self.images_iter[set_type]
             for root_path, _tmp, files in os.walk(path, followlinks=True):
                 #print("ROOT=", root)
                 for f in files:
@@ -226,7 +231,7 @@ class Main(Logger):
                                 h = bbx_ymax - bbx_ymin
                                 x = 0.5 * w + bbx_xmin
                                 y = 0.5 * h + bbx_ymin
-                                image_lbl = self.images_0[
+                                image_lbl = self.images_iter[
                                     set_type][image_fname]["label"]
                                 if (bbx_lbl == image_lbl or
                                     (bbx_lbl != image_lbl and
@@ -241,7 +246,7 @@ class Main(Logger):
                                     self.warning(
                                         "could not find image"
                                         "label in file %s",
-                                        self.images_0[
+                                        self.images_iter[
                                             set_type][image_fname]["path"])
                                 dict_bbx = {"label": label,
                                             "angle": bbx_ang,
@@ -249,7 +254,7 @@ class Main(Logger):
                                             "height": h,
                                             "x": x,
                                             "y": y}
-                                self.images_0[set_type][
+                                self.images_iter[set_type][
                                     image_fname]["bbxs"].append(dict_bbx)
                                 found = False
                                 if zero_write:
@@ -274,12 +279,12 @@ class Main(Logger):
                 os.mkdir(cached_data_fnme)
             except OSError:
                 pass
-            fnme = os.path.join(cached_data_fnme,
-                                IMAGES_JSON %
-                                (self.year, self.series, set_type))
+            fnme = os.path.join(
+                cached_data_fnme, IMAGES_JSON %
+                (self.year, self.series, set_type, self.iteration))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
-                json.dump(self.images_0[set_type], fp)
+                json.dump(self.images_iter[set_type], fp)
 
         return None
 
@@ -325,32 +330,33 @@ class Main(Logger):
         int_word_labels = []
         zero_train = True
         self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
-        original_labels_dir = os.path.join(self.imagenet_dir_path,
-                                           "original_labels_%s_%s_0.pickle" %
-                                           (self.year, self.series))
-        matrix_dir = os.path.join(self.imagenet_dir_path,
-                                  "matrixes_%s_%s_0.pickle" %
-                                  (self.year, self.series))
-        count_samples_dir = os.path.join(self.imagenet_dir_path,
-                                         "count_samples_%s_%s_0.json" %
-                                         (self.year, self.series))
-        labels_int_dir = os.path.join(self.imagenet_dir_path,
-                                      "labels_int_%s_%s_0.txt" %
-                                      (self.year, self.series))
+        original_labels_dir = os.path.join(
+            self.imagenet_dir_path, "original_labels_%s_%s_%s.pickle" %
+            (self.year, self.series, self.iteration))
+        matrix_dir = os.path.join(
+            self.imagenet_dir_path, "matrixes_%s_%s_%s.pickle" %
+            (self.year, self.series, self.iteration))
+        count_samples_dir = os.path.join(
+            self.imagenet_dir_path, "count_samples_%s_%s_%s.json" %
+            (self.year, self.series, self.iteration))
+        labels_int_dir = os.path.join(
+            self.imagenet_dir_path, "labels_int_%s_%s_%s.txt" %
+            (self.year, self.series, self.iteration))
         out_dir = os.path.join(config.root.common.cache_dir,
                                "tmp_imagenet")
         original_data_dir = os.path.join(
-            self.imagenet_dir_path,
-            "original_data_%s_%s_0.dat" % (self.year, self.series))
+            self.imagenet_dir_path, "original_data_%s_%s_%s.dat" %
+            (self.year, self.series, self.iteration))
         file_labels_int = open(labels_int_dir, "r")
         for line in file_labels_int:
             int_label = line[:line.find("\t")]
             word_label = line[line.find("\t") + 1:line.find("\n")]
             int_word_labels.append((int_label, word_label))
+            self.count_classes += 1
         set_type = "train"
         fnme = os.path.join(self.imagenet_dir_path,
                             IMAGES_JSON %
-                            (self.year, self.series, set_type))
+                            (self.year, self.series, set_type, self.iteration))
         try:
             self.info("Loading images info from %s to calculate mean image"
                       % fnme)
@@ -361,13 +367,11 @@ class Main(Logger):
         for f, _val in sorted(self.images_json[set_type].items()):
             image_fnme = self.images_json[set_type][f]["path"]
             image = self.decode_image(image_fnme)
-            i = 0
             for bbx in self.images_json[set_type][f]["bbxs"]:
                 x = bbx["x"]
                 y = bbx["y"]
                 h_size = bbx["height"]
                 w_size = bbx["width"]
-                label = bbx["label"]
                 self.sample_rect(image, x, y, h_size, w_size, None)
         self.s_mean /= self.s_count
 
@@ -397,8 +401,9 @@ class Main(Logger):
         labels_count = 0
         self.f_samples = open(original_data_dir, "wb")
         for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(self.imagenet_dir_path, IMAGES_JSON %
-                                (self.year, self.series, set_type))
+            fnme = os.path.join(
+                self.imagenet_dir_path, IMAGES_JSON %
+                (self.year, self.series, set_type, self.iteration))
             try:
                 self.info("Loading images info from %s to resize" % fnme)
                 with open(fnme, 'r') as fp:
@@ -424,6 +429,7 @@ class Main(Logger):
                             train_count += 1
                             sample_count += 1
                             labels_count += 1
+                            self.count_classes += 1
                             zero_train = False
                     else:
                         self.error("Wrong set type")
@@ -489,36 +495,6 @@ class Main(Logger):
                 raise
         return data
 
-    def get_validation(self):
-        list_image = "/home/lpodoynitsina/Desktop/bird.txt"
-        # list_image: grep label_train *.xml > path_to_file.txt
-        # label_train: n01440764 (example)
-        # path_to_file.txt: "/home/lpodoynitsina/Desktop/fish.txt"
-        file_image = open(list_image, "r")
-        names_jpeg = []
-        names_xml = []
-        for line in file_image:
-            name_xml = line[:line.find(".xml") + 4]
-            name_jpeg = name_xml.replace(".xml", ".JPEG")
-            names_xml.append(name_xml)
-            names_jpeg.append(name_jpeg)
-        for name_image in names_jpeg:
-            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
-                                        ("temp/ILSVRC2012_img_val/%s"
-                                         % name_image))
-            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
-                                          ("2014/ILSVRC2012_img_val/%s"
-                                           % name_image))
-            shutil.copyfile(path_from_copy, path_to_copy)
-        for name_bbx in names_xml:
-            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
-                                        ("temp/ILSVRC2012_bbox_val_v2/%s"
-                                         % name_bbx))
-            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
-                                          ("2014/ILSVRC2012_bbox_val_v2/%s"
-                                           % name_bbx))
-            shutil.copyfile(path_from_copy, path_to_copy)
-
     def sample_rect(self, img, x_c, y_c, h_size, w_size, mean):
         nn_width = self.rect[0]
         nn_height = self.rect[1]
@@ -557,6 +533,173 @@ class Main(Logger):
                       self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
         return None
 
+    def get_validation(self):
+        list_image = "/home/lpodoynitsina/Desktop/bird.txt"
+        # list_image: grep label_train *.xml > path_to_file.txt
+        # label_train: n01440764 (example)
+        # path_to_file.txt: "/home/lpodoynitsina/Desktop/fish.txt"
+        file_image = open(list_image, "r")
+        names_jpeg = []
+        names_xml = []
+        for line in file_image:
+            name_xml = line[:line.find(".xml") + 4]
+            name_jpeg = name_xml.replace(".xml", ".JPEG")
+            names_xml.append(name_xml)
+            names_jpeg.append(name_jpeg)
+        for name_image in names_jpeg:
+            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
+                                        ("temp/ILSVRC2012_img_val/%s"
+                                         % name_image))
+            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
+                                          ("2014/ILSVRC2012_img_val/%s"
+                                           % name_image))
+            shutil.copyfile(path_from_copy, path_to_copy)
+        for name_bbx in names_xml:
+            path_to_copy = os.path.join(IMAGENET_BASE_PATH,
+                                        ("temp/ILSVRC2012_bbox_val_v2/%s"
+                                         % name_bbx))
+            path_from_copy = os.path.join(IMAGENET_BASE_PATH,
+                                          ("2014/ILSVRC2012_bbox_val_v2/%s"
+                                           % name_bbx))
+            shutil.copyfile(path_from_copy, path_to_copy)
+
+    def split_validation_to_dirs(self):
+        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+        path_to_img_validation = os.path.join(
+            self.imagenet_dir_path, "ILSVRC2012_img_val")
+        path_to_bbox_validation = os.path.join(
+            self.imagenet_dir_path, "ILSVRC2012_bbox_val_v2")
+        set_type = "validation"
+        fnme = os.path.join(self.imagenet_dir_path, IMAGES_JSON %
+                            (self.year, self.series, set_type, self.iteration))
+        try:
+            self.info("Loading images info from %s"
+                      " to split validation to dirs" % fnme)
+            with open(fnme, 'r') as fp:
+                self.images_json[set_type] = json.load(fp)
+        except:
+            self.exception("Failed to load %s", fnme)
+        for image_name, _val in sorted(self.images_json[set_type].items()):
+            image_path = self.images_json[set_type][image_name]["path"]
+            bbox_name = image_name.replace(".JPEG", ".xml")
+            bbox_path = os.path.join(path_to_bbox_validation, bbox_name)
+            zero_move = True
+            for bbx in self.images_json[set_type][image_name]["bbxs"]:
+                label = bbx["label"]
+                path_img_valid_dir = os.path.join(path_to_img_validation,
+                                                  str(label))
+                path_xml_valid_dir = os.path.join(path_to_bbox_validation,
+                                                  str(label))
+                try:
+                    os.mkdir(path_img_valid_dir)
+                except:
+                    pass
+                try:
+                    os.mkdir(path_xml_valid_dir)
+                except:
+                    pass
+                if zero_move:
+                    try:
+                        os.rename(image_path, os.path.join(path_img_valid_dir,
+                                                           image_name))
+                    except:
+                        pass
+                    try:
+                        os.rename(bbox_path, os.path.join(path_xml_valid_dir,
+                                                          bbox_name))
+                    except:
+                        pass
+                    zero_move = False
+
+    def split_dataset(self, count_dirs):
+        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+        self.common_split_dir = os.path.join(
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+        try:
+            os.mkdir(self.common_split_dir, 0o775)
+        except:
+            pass
+        labels_int_dir = os.path.join(
+            self.imagenet_dir_path, "labels_int_%s_%s_%s.txt" %
+            (self.year, self.series, self.iteration))
+        file_labels_int = open(labels_int_dir, "r")
+        self.classes = []
+        for line in file_labels_int:
+            int_class = int(line[:line.find("\t")])
+            label_class = line[line.find("\t") + 1:line.find("\n")]
+            self.classes.append((int_class, label_class))
+            self.count_classes += 1
+        self.count_classes -= 1  # - one negative class - 0
+        if self.count_classes:
+            for i_patch in range(1, count_dirs + 1):
+                path_to_patch_folder = os.path.join(
+                    self.common_split_dir, "%s" % (i_patch))
+                path_to_train_bbox_folder = os.path.join(
+                    path_to_patch_folder, "ILSVRC2012_bbox_train_v2")
+                path_to_train_img_folder = os.path.join(
+                    path_to_patch_folder, "ILSVRC2012_img_train")
+                path_to_val_bbox_folder = os.path.join(
+                    path_to_patch_folder, "ILSVRC2012_bbox_val_v2")
+                path_to_val_img_folder = os.path.join(
+                    path_to_patch_folder, "ILSVRC2012_img_val")
+                try:
+                    os.mkdir(path_to_patch_folder, 0o775)
+                except:
+                    pass
+                try:
+                    os.mkdir(path_to_train_bbox_folder, 0o775)
+                except:
+                    pass
+                try:
+                    os.mkdir(path_to_train_img_folder, 0o775)
+                except:
+                    pass
+                try:
+                    os.mkdir(path_to_val_bbox_folder, 0o775)
+                except:
+                    pass
+                try:
+                    os.mkdir(path_to_val_img_folder, 0o775)
+                except:
+                    pass
+                for i in range(i_patch, self.count_classes + 1, count_dirs):
+                    path_train_img_from = os.path.join(os.path.join(
+                        self.imagenet_dir_path,
+                        "ILSVRC2012_img_train"), self.classes[i][1])
+                    path_train_img_to = os.path.join(
+                        path_to_train_img_folder, self.classes[i][1])
+                    try:
+                        os.symlink(path_train_img_from, path_train_img_to)
+                    except:
+                        pass
+                    path_train_bbox_from = os.path.join(os.path.join(
+                        self.imagenet_dir_path,
+                        "ILSVRC2012_bbox_train_v2"), self.classes[i][1])
+                    path_train_bbox_to = os.path.join(
+                        path_to_train_bbox_folder, self.classes[i][1])
+                    try:
+                        os.symlink(path_train_bbox_from, path_train_bbox_to)
+                    except:
+                        pass
+                    path_valid_img_from = os.path.join(os.path.join(
+                        self.imagenet_dir_path,
+                        "ILSVRC2012_img_val"), self.classes[i][1])
+                    path_valid_img_to = os.path.join(
+                        path_to_val_img_folder, self.classes[i][1])
+                    try:
+                        os.symlink(path_valid_img_from, path_valid_img_to)
+                    except:
+                        pass
+                    path_valid_bbox_from = os.path.join(os.path.join(
+                        self.imagenet_dir_path,
+                        "ILSVRC2012_bbox_val_v2"), self.classes[i][1])
+                    path_valid_bbox_to = os.path.join(
+                        path_to_val_bbox_folder, self.classes[i][1])
+                    try:
+                        os.symlink(path_valid_bbox_from, path_valid_bbox_to)
+                    except:
+                        pass
+
     def generate_images_with_bbx(self):
         """
         self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
@@ -585,9 +728,9 @@ class Main(Logger):
             digits_word.append((digits_label, word_label))
         self.categories.close()
         for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(cached_data_fnme,
-                                IMAGES_JSON %
-                                (self.year, self.series, set_type))
+            fnme = os.path.join(
+                cached_data_fnme, IMAGES_JSON %
+                (self.year, self.series, set_type, self.iteration))
             try:
                 with open(fnme, 'r') as fp:
                     self.images_json[set_type] = json.load(fp)
@@ -652,6 +795,10 @@ class Main(Logger):
             self.generate_resized_dataset()
         elif self.command_to_run == "get_valid":
             self.get_validation()
+        elif self.command_to_run == "split_valid":
+            self.split_validation_to_dirs()
+        elif self.command_to_run == "split_dataset":
+            self.split_dataset(self.count_dirs)
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
