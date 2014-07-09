@@ -36,6 +36,8 @@ class Weights2D(plotter.Plotter):
         self.limit = kwargs.get("limit", 64)
         self.transposed = kwargs.get('transposed', False)
         self.yuv = Bool(kwargs.get("yuv", False))
+        self.split_channels = kwargs.get("split_channels", True)
+        self.column_align = kwargs.get("column_align", 4)
         self.cm = None
         self.pp = None
         self.show_figure = self.nothing
@@ -47,7 +49,7 @@ class Weights2D(plotter.Plotter):
         if self.stripped_pickle:
             inp = state["input"][:self.limit]
             state["input"] = None
-            state["_pics_to_draw"] = self.prepare_pics(inp, self.transposed)
+            state["_pics_to_draw"] = self._prepare_pics(inp, self.transposed)
         return state
 
     def get_number_of_channels(self, inp):
@@ -56,8 +58,10 @@ class Weights2D(plotter.Plotter):
             sx = int(numpy.round(numpy.sqrt(inp.shape[1])))
             sy = int(inp.shape[1]) // sx
         elif isinstance(self.get_shape_from, formats.Vector):
-            sx = self.get_shape_from.mem.shape[2]
-            sy = self.get_shape_from.mem.shape[1]
+            sx = self.get_shape_from.shape[2]
+            sy = self.get_shape_from.shape[1]
+            if len(self.get_shape_from.shape) == 4:
+                n_channels = self.get_shape_from.shape[3]
         else:
             if len(self.get_shape_from) == 2:
                 sx = self.get_shape_from[0]
@@ -68,7 +72,7 @@ class Weights2D(plotter.Plotter):
                 n_channels = self.get_shape_from[-1]
         return n_channels, sx, sy
 
-    def prepare_pics(self, inp, transposed):
+    def _prepare_pics(self, inp, transposed):
         pics = []
 
         if type(inp) != numpy.ndarray or len(inp.shape) < 2:
@@ -86,11 +90,20 @@ class Weights2D(plotter.Plotter):
             mem = inp[i].ravel()[:sz]
             if n_channels > 1:
                 w = mem.reshape(sy, sx, n_channels)
-                if n_channels == 2:
-                    w = w[:, :, 0].reshape(sy, sx)
-                elif n_channels > 3:
-                    w = w[:, :, :3].reshape(sy, sx, 3)
-                pics.append(formats.norm_image(w, self.yuv))
+                if self.split_channels:
+                    for ch in range(n_channels):
+                        pics.append(formats.norm_image(
+                            w[:, :, ch:ch + 1].reshape(sy, sx), self.yuv))
+                        if len(pics) >= self.limit:
+                            break
+                    if len(pics) >= self.limit:
+                        break
+                else:
+                    if n_channels == 2:
+                        w = w[:, :, 0].reshape(sy, sx)
+                    elif n_channels > 3:
+                        w = w[:, :, :3].reshape(sy, sx, 3)
+                    pics.append(formats.norm_image(w, self.yuv))
             else:
                 pics.append(formats.norm_image(mem.reshape(sy, sx), self.yuv))
         return pics
@@ -101,26 +114,27 @@ class Weights2D(plotter.Plotter):
 
         pics = self._pics_to_draw
         if len(pics) > 0:
-            n_cols = int(numpy.round(numpy.sqrt(len(pics))))
+            n_cols = formats.roundup(int(numpy.round(numpy.sqrt(len(pics)))),
+                                     self.column_align)
             n_rows = int(numpy.ceil(len(pics) / n_cols))
 
-            i = 0
-            for _row in range(n_rows):
-                for _col in range(n_cols):
-                    ax = figure.add_subplot(n_rows, n_cols, i + 1)
-                    ax.cla()
-                    ax.axis('off')
-                    # ax.set_title(self.name)
-                    if len(pics[i].shape) == 3:
-                        ax.imshow(pics[i], interpolation="nearest")
-                    else:
-                        ax.imshow(pics[i], interpolation="nearest",
-                                  cmap=self.cm.gray)
-                    i += 1
-                    if i >= len(pics):
-                        break
+        i = 0
+        for _row in range(n_rows):
+            for _col in range(n_cols):
+                ax = figure.add_subplot(n_rows, n_cols, i + 1)
+                ax.cla()
+                ax.axis('off')
+                # ax.set_title(self.name)
+                if len(pics[i].shape) == 3:
+                    ax.imshow(pics[i], interpolation="nearest")
+                else:
+                    ax.imshow(pics[i], interpolation="nearest",
+                              cmap=self.cm.gray)
+                i += 1
                 if i >= len(pics):
                     break
+            if i >= len(pics):
+                break
 
         self.show_figure(figure)
         figure.canvas.draw()
