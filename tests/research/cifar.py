@@ -48,7 +48,7 @@ root.defaults = {
                "shuffle_limit": 1, "sobel": False},
     "weights_plotter": {"limit": 64},
     "similar_weights_plotter": {'form': 1.1, 'peak': 0.5, 'magnitude': 0.65,
-                                'layers': {0}},
+                                'layers': {1}},
     "cifar": {"layers": [{"type": "all2all_tanh",
                           "learning_rate": 0.0005,
                           "weights_decay": 0.00005,

@@ -68,7 +68,7 @@ def get_similar_kernels(weights, channels=3,
     mean = numpy.mean(vals)
     stddev = numpy.std(vals)
     threshold = numpy.max([
-        numpy.min([0.95, mean + stddev * params.magnitude_threshold]), 0.7])
+        numpy.min([0.95, mean + stddev * params.magnitude_threshold]), 0.75])
     mask *= sub_matrix > threshold
 
     # Filter by peak sharpness
@@ -130,6 +130,7 @@ def get_similar_kernels(weights, channels=3,
 
 class SimilarWeights2D(Weights2D):
     def __init__(self, workflow, **kwargs):
+        kwargs['split_channels'] = False
         super(SimilarWeights2D, self).__init__(workflow, **kwargs)
         self.form_threshold = kwargs.get('form_threshold', 1.1)
         self.peak_threshold = kwargs.get('peak_threshold', 0.5)
@@ -144,6 +145,7 @@ class SimilarWeights2D(Weights2D):
             SimilarityCalculationParameters(
                 self.form_threshold, self.peak_threshold,
                 self.magnitude_threshold))
+        self.info("Founf similar kernels: %s", str(sims))
         siminp = numpy.empty((sum([len(s) for s in sims]), inp.shape[1]),
                              dtype=inp.dtype)
         counter = 0

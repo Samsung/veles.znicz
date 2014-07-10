@@ -49,7 +49,7 @@ class Weights2D(plotter.Plotter):
         if self.stripped_pickle:
             inp = state["input"][:self.limit]
             state["input"] = None
-            state["_pics_to_draw"] = self._prepare_pics(inp, self.transposed)
+            state["_pics_to_draw"] = self.prepare_pics(inp, self.transposed)
         return state
 
     def get_number_of_channels(self, inp):
@@ -72,7 +72,7 @@ class Weights2D(plotter.Plotter):
                 n_channels = self.get_shape_from[-1]
         return n_channels, sx, sy
 
-    def _prepare_pics(self, inp, transposed):
+    def prepare_pics(self, inp, transposed):
         pics = []
 
         if type(inp) != numpy.ndarray or len(inp.shape) < 2:
