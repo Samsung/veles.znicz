@@ -122,3 +122,6 @@ void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
 
 
 #undef MINIMUM
+
+
+KERNEL_CLEAR(err_input_clear, dtype)

@@ -106,7 +106,7 @@ class GDPooling(nn_units.GradientDescentBase):
                 dtype=self.err_output.mem.dtype)
 
         if self.krn_err_input_clear_ is None:
-            self.krn_err_input_clear_ = self.get_kernel("array_clear")
+            self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
     def print_debug_data(self, t_start):

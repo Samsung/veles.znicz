@@ -188,3 +188,6 @@ void bias_update(__global const dtype    /* IN */    *err_y,
 }
 #endif
 #endif
+
+
+KERNEL_CLEAR(err_input_clear, dtype)

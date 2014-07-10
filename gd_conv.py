@@ -185,7 +185,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.output.mem.size // self.output.mem.shape[0]),
                 dtype=dtype)
 
-            self.krn_err_input_clear_ = self.get_kernel("array_clear")
+            self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
             self.krn_err_input_ = self.get_kernel("err_h_update")
