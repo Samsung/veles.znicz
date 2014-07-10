@@ -9,7 +9,6 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import numpy
-import scipy.signal
 from zope.interface import implementer
 
 from veles.config import root
@@ -28,6 +27,7 @@ class Deconv(nn_units.Forward):
     Must be assigned before initialize():
         input
         weights
+        get_output_shape_from
 
     Updates after run():
         output
@@ -39,6 +39,7 @@ class Deconv(nn_units.Forward):
         input: input as batch of multichannel interleaved images.
         output: output as batch of multichannel interleaved images.
         weights: matrix of weights.
+        get_output_shape_from: Vector to get output shape from.
         n_kernels: number of convolutional kernels
                    in the corresponding convolutional layer.
         kx: kernel width.
@@ -68,16 +69,19 @@ class Deconv(nn_units.Forward):
         self.padding = tuple(padding)
         self.sliding = tuple(sliding)
         self.bias = None
+        self.get_output_shape_from = None
         self.exports.extend(("kx", "ky", "n_kernels", "padding", "sliding"))
-        self.demand("input", "weights")
+        self.demand("input", "weights", "get_output_shape_from")
         self.global_size = None
         self.local_size = None
+        self.hits = formats.Vector()
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
-        # Reuse err_h_update kernel
-        self.cl_sources_["gradient_descent_conv.cl"] = {}
-        self.krn_clear_ = None
+        self.cl_sources_["deconv.cl"] = {}
+        self.krn_clear_output_ = None
+        self.krn_clear_hits_ = None
+        self.krn_apply_hits_ = None
 
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
@@ -104,18 +108,14 @@ class Deconv(nn_units.Forward):
 
         dtype = self.input.mem.dtype
 
-        batch_size = self.input.shape[0]
-        output_channels = weights_shape[1] // (self.kx * self.ky)
-        sy = self.input.shape[1]
-        sx = self.input.shape[2]
-        output_sy = ((sy - 1) * self.sliding[1] +
-                     self.ky - self.padding[1] - self.padding[3])
-        output_sx = ((sx - 1) * self.sliding[0] +
-                     self.ky - self.padding[0] - self.padding[2])
-
-        output_shape = [batch_size, output_sy, output_sx, output_channels]
-        output_size = int(numpy.prod(output_shape))
-        if self.output.mem is None or self.output.size != output_size:
+        output_shape = list(self.get_output_shape_from.shape)
+        if len(output_shape) != 4:
+            raise error.BadFormatError("Incorrect get_output_shape_from shape")
+        if output_shape[0] != self.input.shape[0]:
+            raise error.BadFormatError(
+                "get_output_shape_from.shape[0] != input.shape[0]")
+        if (self.output.mem is None or
+                self.output.size != int(numpy.prod(output_shape))):
             self.output.reset()
             if root.common.unit_test:
                 output_shape[0] <<= 1
@@ -123,19 +123,23 @@ class Deconv(nn_units.Forward):
                 self.output.initialize(device)
                 self.output.map_write()
                 self.output.vv = self.output.mem
-                self.output.mem[batch_size:] = numpy.nan
-                self.output.mem = self.output.mem[:batch_size]
+                output_shape[0] >>= 1
+                self.output.mem[output_shape[0]:] = numpy.nan
+                self.output.mem = self.output.mem[:output_shape[0]]
                 formats.assert_addr(self.output.mem, self.output.vv)
             else:
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
         else:
             self.output.mem.shape = output_shape
-        del output_size
-        del output_shape
+
+        if self.hits.mem is None or self.hits.size != self.output.size:
+            self.hits.reset()
+            self.hits.mem = numpy.zeros(self.output.shape, dtype=numpy.int32)
 
         self.input.initialize(device)
         self.weights.initialize(device)
         self.output.initialize(device)
+        self.hits.initialize(device)
 
         if device is None:
             return
@@ -146,10 +150,10 @@ class Deconv(nn_units.Forward):
             'STORE_GRADIENT': 0,
             'INCLUDE_BIAS': 0,
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-            'BATCH': batch_size,
-            'SX': output_sx,
-            'SY': output_sy,
-            'N_CHANNELS': output_channels,
+            'BATCH': output_shape[0],
+            'SX': output_shape[2],
+            'SY': output_shape[1],
+            'N_CHANNELS': output_shape[3],
             'KX': self.kx,
             'KY': self.ky,
             'N_KERNELS': self.n_kernels,
@@ -162,14 +166,22 @@ class Deconv(nn_units.Forward):
         }
         my_defines = self.build_program(
             defines, "%s/deconv_%dx%dx%d_%dx%d_%d.cl" % (
-                root.common.cache_dir, output_sx, output_sy, output_channels,
+                root.common.cache_dir,
+                output_shape[2], output_shape[1], output_shape[3],
                 self.kx, self.ky, self.n_kernels), dtype=dtype)
 
-        self.assign_kernel("err_h_update")
-        self.set_args(self.input, self.weights, self.output)
+        self.assign_kernel("feed_layer")
+        self.set_args(self.input, self.weights, self.output, self.hits)
 
-        self.krn_clear_ = self.get_kernel("array_clear")
-        self.krn_clear_.set_arg(0, self.output.devmem)
+        self.krn_clear_output_ = self.get_kernel("clear_output")
+        self.krn_clear_output_.set_arg(0, self.output.devmem)
+
+        self.krn_clear_hits_ = self.get_kernel("clear_hits")
+        self.krn_clear_hits_.set_arg(0, self.hits.devmem)
+
+        self.krn_apply_hits_ = self.get_kernel("apply_hits")
+        self.krn_apply_hits_.set_arg(0, self.output.devmem)
+        self.krn_apply_hits_.set_arg(1, self.hits.devmem)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(dtype)]
@@ -184,44 +196,13 @@ class Deconv(nn_units.Forward):
         self.output.unmap()
         self.input.unmap()
         self.weights.unmap()
-        self.execute_kernel([self.output.mem.size], None, self.krn_clear_)
+        self.execute_kernel([self.output.size], None,
+                            self.krn_clear_output_)
+        self.execute_kernel([self.hits.size], None,
+                            self.krn_clear_hits_)
         self.execute_kernel(self.global_size, self.local_size)
+        self.execute_kernel([self.hits.size], None,
+                            self.krn_apply_hits_)
 
     def cpu_run(self):
-        if self.weights_transposed:
-            raise NotImplementedError(
-                "cpu_run is not implemented for transposed weights")
-
-        self.output.map_invalidate()
-        self.input.map_read()
-        self.weights.map_read()
-
-        batch_size = self.output.mem.shape[0]
-        sy = self.output.mem.shape[1]
-        sx = self.output.mem.shape[2]
-        n_channels = self.output.mem.size // (batch_size * sx * sy)
-        sx_full = self.padding[0] + sx + self.padding[2]
-        sy_full = self.padding[1] + sy + self.padding[3]
-
-        self.output.mem[:] = 0
-        # initialize sparse output error
-        sparse_input = numpy.zeros((
-            batch_size, sy_full - self.ky + 1, sx_full - self.kx + 1,
-            self.n_kernels), dtype=self.input.mem.dtype)
-        for (batch, i, j, k), vle in numpy.ndenumerate(self.input.mem):
-            sparse_input[batch, i * self.sliding[1],
-                         j * self.sliding[0], k] = vle
-        sample = numpy.empty((sy_full - self.ky + 1, sx_full - self.kx + 1))
-        for batch, k in ((batch, k)
-                         for batch in range(batch_size)
-                         for k in range(self.n_kernels)):
-            sample[:] = sparse_input[batch, :, :, k]
-            cur_kernel = self.weights.mem[k].reshape(self.ky, self.kx,
-                                                     n_channels)
-            for ch in range(n_channels):
-                output_full = scipy.signal.convolve2d(sample,
-                                                      cur_kernel[:, :, ch],
-                                                      mode='full')
-                self.output.mem[batch, :, :, ch] += \
-                    output_full[self.padding[1]:(sy_full - self.padding[3]),
-                                self.padding[0]:(sx_full - self.padding[2])]
+        raise RuntimeError("Not implemented")
