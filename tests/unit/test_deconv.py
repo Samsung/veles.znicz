@@ -17,7 +17,6 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 import veles.znicz.deconv as deconv
-import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd_deconv as gd_deconv
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.random_generator as rnd
@@ -56,6 +55,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         gd.weights = first.weights
         gd.input = forward.input
         gd.err_output = formats.Vector(err_output)
+        gd.hits = forward.hits
         gd.initialize(self.device)
         self.assertEqual(gd.err_input.shape, first.output.shape)
         gd.run()
@@ -77,22 +77,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                               err_input, weights_derivative, None,
                               logging.info, self.assertLess,
                               error_function_averaged=False,
-                              threshold=1.0e-3)
-
-    def test_deconv(self):
-        logging.info("GPU test...")
-        gpu, forward, _ = self._test_deconv(self.device, None)
-        logging.info("CPU test...")
-        cpu, forward, _ = self._test_deconv(None, forward)
-        max_diff = numpy.fabs(cpu - gpu).max()
-        logging.info("CPU-GPU difference is %.6f (cpu_max=%.6f gpu_max=%.6f)",
-                     max_diff, numpy.fabs(cpu).max(), numpy.fabs(gpu).max())
-        self.assertLess(max_diff, 0.0001)
-        logging.info("GD test...")
-        gd = self._test_deconv_via_gd(forward)
-        max_diff = numpy.fabs(gpu - gd).max()
-        logging.info("GPU-GD difference is %.6f", max_diff)
-        self.assertLess(max_diff, 0.0001)
+                              threshold=1.0e-4)
 
     def _test_deconv(self, device, forward):
         rnd.get().seed("%s/seed" % self.this_dir,
@@ -103,10 +88,10 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         if forward is None:
             batch_size = 3
             workflow = DummyWorkflow()
-            forward = conv.Conv(workflow, n_kernels=9, kx=5, ky=5,
-                                padding=(2, 2, 2, 2), sliding=(1, 1),
+            forward = conv.Conv(workflow, n_kernels=9, kx=7, ky=7,
+                                padding=(3, 3, 3, 3), sliding=(2, 2),
                                 include_bias=False)
-            inp = formats.Vector(numpy.zeros([batch_size * 2, 16, 16, 3],
+            inp = formats.Vector(numpy.zeros([batch_size * 2, 16, 16, 4],
                                              dtype=dtype))
             inp.initialize(device)
             inp.map_write()
@@ -138,6 +123,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                                  sliding=forward.sliding)
         backward.weights = forward.weights
         backward.input = out
+        backward.get_output_shape_from = forward.input
         backward.initialize(device)
 
         self.assertEqual(backward.output.shape, forward.input.shape,
@@ -157,20 +143,6 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                              "Written some values outside of the target array")
 
         return backward.output.mem.copy(), forward, backward
-
-    def _test_deconv_via_gd(self, forward):
-        gd = gd_conv.GradientDescentConv(
-            forward.workflow, n_kernels=forward.n_kernels,
-            kx=forward.kx, ky=forward.ky, include_bias=False,
-            padding=forward.padding, sliding=forward.sliding)
-        gd.err_output = forward.output
-        gd.weights = forward.weights
-        gd.output = forward.output
-        gd.input = forward.input
-        gd.initialize(self.device)
-        gd.gpu_err_input_update()
-        gd.err_input.map_read()
-        return gd.err_input.mem.copy()
 
 
 if __name__ == "__main__":

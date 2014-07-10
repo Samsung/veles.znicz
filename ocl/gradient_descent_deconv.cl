@@ -96,3 +96,11 @@ void weights_update(__global const dtype    /* IN */    *err_y,
   }
 }
 #endif
+
+__kernel
+void apply_hits(__global dtype    /* IN, OUT */    *err_output,
+                __global const int     /* IN */    *hits) {
+  int idx = get_global_id(0);
+  int n = hits[idx];
+  err_output[idx] /= n ? n : 1;
+}

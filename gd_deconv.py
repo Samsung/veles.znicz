@@ -68,6 +68,8 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.sliding = tuple(sliding)
         self.cl_const = None
         self.bias = None
+        self.hits = None
+        self.demand("hits")
         self.global_size_err_input = None
         self.local_size_err_input = None
         self.global_size_weights = None
@@ -77,6 +79,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         super(GDDeconv, self).init_unpickled()
         self.cl_sources_["gradient_descent_deconv.cl"] = {}
         self.krn_err_input_ = None
+        self.krn_apply_hits_ = None
         self.krn_weights_ = None
 
     def initialize(self, device, **kwargs):
@@ -86,6 +89,8 @@ class GDDeconv(nn_units.GradientDescentBase):
             raise error.BadFormatError("bias should not be set")
         if self.err_output.mem is None:
             raise error.BadFormatError("err_output should be assigned")
+        if self.hits.mem is None:
+            raise error.BadFormatError("hits should be assigned")
         if self.weights.mem is None:
             raise error.BadFormatError("weights should be assigned")
         if self.input.mem is None:
@@ -107,6 +112,10 @@ class GDDeconv(nn_units.GradientDescentBase):
                 self.err_output.shape[0] != self.input.shape[0]):
             raise error.BadFormatError(
                 "Incorrectly shaped err_output encountered")
+        if self.hits.dtype != numpy.int32:
+            raise error.BadFormatError("hits dtype should be numpy.int32")
+        if self.hits.size != self.err_output.size:
+            raise error.BadFormatError("Incorrectly shaped hits encountered")
 
         dtype = self.err_output.mem.dtype
 
@@ -147,6 +156,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.weights.initialize(device)
         self.input.initialize(device)
         self.err_output.initialize(device)
+        self.hits.initialize(device)
         self.err_input.initialize(device)
         if self.store_gradient:
             self.gradient_weights.initialize(device)
@@ -195,6 +205,10 @@ class GDDeconv(nn_units.GradientDescentBase):
                                        self.weights.devmem,
                                        self.gradient_weights.devmem)
 
+            self.krn_apply_hits_ = self.get_kernel("apply_hits")
+            self.krn_apply_hits_.set_args(self.err_output.devmem,
+                                          self.hits.devmem)
+
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(dtype)]
             if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
@@ -218,9 +232,12 @@ class GDDeconv(nn_units.GradientDescentBase):
                     formats.roundup(self.n_kernels, block_size)]
             self.local_size_weights = [block_size, block_size]
 
+    def gpu_err_output_update(self):
+        self.err_output.unmap()
+        self.hits.unmap()
+        self.execute_kernel([self.hits.size], None, self.krn_apply_hits_)
+
     def gpu_err_input_update(self):
-        """Backpropagate error (will compute err_input).
-        """
         if not self.need_err_input:
             return
         self.err_input.unmap()
@@ -230,15 +247,6 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.execute_kernel(self.global_size_err_input,
                             self.local_size_err_input,
                             self.krn_err_input_)
-
-    def cpu_err_input_update(self):
-        # TODO(a.kazantsev): copy paste from Conv.cpu_run.
-        if not self.need_err_input:
-            return
-        if self.weights_transposed:
-            raise NotImplementedError(
-                "cpu_run is not implemented for transposed weights")
-        raise NotImplementedError()
 
     def gpu_weights_update(self):
         self.input.unmap()
@@ -258,19 +266,10 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.execute_kernel(self.global_size_weights, self.local_size_weights,
                             self.krn_weights_)
 
-    def cpu_weights_update(self):
-        # TODO(a.kazantsev): implement.
-        if self.weights_transposed:
-            raise NotImplementedError(
-                "cpu_run is not implemented for transposed weights")
-        raise NotImplementedError()
-
     def ocl_run(self):
-        """Do gradient descent.
-        """
+        self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
 
     def cpu_run(self):
-        self.cpu_err_input_update()
-        self.cpu_weights_update()
+        raise RuntimeError("Not implemented")
