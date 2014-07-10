@@ -6,62 +6,65 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import json
-import os
+import numpy
 
-from veles.config import root
-from veles.znicz.loader import Loader
-
-IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
-# year, series, set_type, iteration
-IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
-                                  "imagenet")
-
-root.defaults = {"forward": {"year": "temp",
-                             "iteration": 0,
-                             "series": "img"}}
-root.forward.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH,
-                                              root.forward.year)
+from veles import OpenCLUnit
+import veles.formats as formats
 
 
-class ForwardStage1(Loader):
+class ForwardStage1Loader(OpenCLUnit):
     """
     Imagenet loader for first processing stage.
     """
 
-    def __init__(self, workflow, **kwargs):
-        super(ForwardStage1, self).__init__(workflow, **kwargs)
-        self.year = root.forward.year
-        self.iteration = root.forward.iteration
-        self.series = root.forward.series
-        self.images_json = {
-            "test": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
-            "validation": {},
-            "train": {}
-            }
+    def __init__(self, workflow, images_json, imagenet_path, **kwargs):
+        super(ForwardStage1Loader, self).__init__(workflow, **kwargs)
+        self.images_json = images_json
+        self.imagenet_path = imagenet_path
+        self.images = {}
+        self.mapping = {}
+        self.angle_step = kwargs.get('angle_step', 0.087266)  # 2 * PI / 72
+        self.scale_step = kwargs.get('scale_step', 0.1)
+        self.max_scale_steps = kwargs.get('max_scale_steps', 100)
+        self.stage = 1  # 1 or 2
+        self.current_image = ""
+        self.batch_data = formats.Vector()
+        self.batch_size = 0
+        self.batch_bboxes = formats.Vector()
+        self.demand("entry")  # first forward unit
 
-    def calculate_threshold(self):
-        self.imagenet_dir_path = root.forward.imagenet_dir_path
+    def initialize(self, device, **kwargs):
+        super(ForwardStage1Loader, self).initialize(**kwargs)
         for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(
-                self.imagenet_dir_path, IMAGES_JSON %
-                (self.year, self.series, set_type, self.iteration))
+            images_json = self.images_json % set_type
             try:
-                self.info("Loading images info from %s to calculate threshold"
-                          % fnme)
-                with open(fnme, 'r') as fp:
-                    self.images_json[set_type] = json.load(fp)
+                self.info("Loading images JSON from %s" % images_json)
+                with open(images_json, 'r') as fp:
+                    self.images[set_type] = json.load(fp)
             except:
-                self.exception("Failed to load %s", fnme)
-            for image_name, _val in sorted(self.images_json[set_type].items()):
-                image_fnme = self.images_json[set_type][image_name]["path"]
-                _image = self.decode_image(image_fnme)
-                i = 0
-                for bbx in self.images_json[set_type][image_name]["bbxs"]:
-                    _label = bbx["label"]
-                    _x = bbx["x"]
-                    _y = bbx["y"]
-                    _h_size = bbx["height"]
-                    _w_size = bbx["width"]
-                    _ang = bbx["angle"]
-                    _name_sample = (image_name[:image_name.rfind(".")] +
-                                    ("_%s_bbx" % i))
+                self.exception("Failed to load %s", images_json)
+            self.mapping[set_type] = {}
+            for image_name, meta in sorted(self.images[set_type].items()):
+                for bbx in meta["bbxs"]:
+                    label = bbx["label"]
+                    self.mapping[set_type][label].append(image_name)
+
+        aperture_size = 256 * 256 * 4  # FIXME: get it from self.entry
+        max_batch_size = int(2 * numpy.pi / self.angle_step) * \
+            self.max_scale_steps
+        self.batch_data.mem = numpy.zeros((max_batch_size, aperture_size),
+                                          dtype=self.entry.weights.mem.dtype)
+        self.batch_bboxes.mem = numpy.zeros(4 * max_batch_size,
+                                            dtype=numpy.int32)
+
+        if device is None:
+            return
+
+        self.batch_data.initialize(device)
+        self.batch_bboxes.initialize(device)
+
+    def calculate_scale_steps(self):
+        pass
+
+    def get_image_data(self, image_name):
+        pass
