@@ -44,7 +44,7 @@ from .processor import Processor
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
 IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
-# year, series, set_type, iteration
+# year, series, set_type, stage
 
 
 class Main(Processor):
@@ -59,7 +59,7 @@ class Main(Processor):
         self.year = None
         self.series = None
         self.fnme = None
-        self.iteration = 0
+        self.stage = None
         self.count_classes = 0
         self.count_dirs = 50
         self.matrixes = []
@@ -113,6 +113,8 @@ class Main(Processor):
         parser.add_argument("-s", "--series", type=str, default="img",
                             choices=["img", "DET"],
                             help="set dataset type")
+        parser.add_argument("-st", "--stage", default=0,
+                            help="set stage")
         parser.add_argument("command_to_run", type=str, default="",
                             choices=["all", "draw_bbox", "resize", "init",
                                      "get_valid", "split_valid",
@@ -155,7 +157,7 @@ class Main(Processor):
         self.info("Looking for images in %s:", self.imagenet_dir_path)
         int_labels_dir = os.path.join(self.imagenet_dir_path,
                                       "labels_int_%s_%s_%s.txt" %
-                                      (self.year, self.series, self.iteration))
+                                      (self.year, self.series, self.stage))
         # finding dirs for images and bboxes
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
@@ -266,7 +268,7 @@ class Main(Processor):
                 pass
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
-                (self.year, self.series, set_type, self.iteration))
+                (self.year, self.series, set_type, self.stage))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
                 json.dump(self.images_iter[set_type], fp)
@@ -317,21 +319,21 @@ class Main(Processor):
         self.imagenet_dir_path = path
         original_labels_dir = os.path.join(
             self.imagenet_dir_path, "original_labels_%s_%s_%s.pickle" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         matrix_dir = os.path.join(
             self.imagenet_dir_path, "matrixes_%s_%s_%s.pickle" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         count_samples_dir = os.path.join(
             self.imagenet_dir_path, "count_samples_%s_%s_%s.json" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         labels_int_dir = os.path.join(
             self.imagenet_dir_path, "labels_int_%s_%s_%s.txt" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         out_dir = os.path.join(config.root.common.cache_dir,
                                "tmp_imagenet")
         original_data_dir = os.path.join(
             self.imagenet_dir_path, "original_data_%s_%s_%s.dat" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         file_labels_int = open(labels_int_dir, "r")
         for line in file_labels_int:
             int_label = line[:line.find("\t")]
@@ -341,7 +343,7 @@ class Main(Processor):
         set_type = "train"
         fnme = os.path.join(self.imagenet_dir_path,
                             IMAGES_JSON %
-                            (self.year, self.series, set_type, self.iteration))
+                            (self.year, self.series, set_type, self.stage))
         try:
             self.info("Loading images info from %s to calculate mean image"
                       % fnme)
@@ -389,7 +391,7 @@ class Main(Processor):
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
-                (self.year, self.series, set_type, self.iteration))
+                (self.year, self.series, set_type, self.stage))
             try:
                 self.info("Loading images info from %s to resize" % fnme)
                 with open(fnme, 'r') as fp:
@@ -567,7 +569,7 @@ class Main(Processor):
             self.imagenet_dir_path, "ILSVRC2012_bbox_val_v2")
         set_type = "validation"
         fnme = os.path.join(self.imagenet_dir_path, IMAGES_JSON %
-                            (self.year, self.series, set_type, self.iteration))
+                            (self.year, self.series, set_type, self.stage))
         try:
             self.info("Loading images info from %s"
                       " to split validation to dirs" % fnme)
@@ -610,14 +612,14 @@ class Main(Processor):
     def split_dataset(self, count_dirs, path):
         self.imagenet_dir_path = path
         self.common_split_dir = os.path.join(
-            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.stage))
         try:
             os.mkdir(self.common_split_dir, 0o775)
         except:
             pass
         labels_int_dir = os.path.join(
             self.imagenet_dir_path, "labels_int_%s_%s_%s.txt" %
-            (self.year, self.series, self.iteration))
+            (self.year, self.series, self.stage))
         file_labels_int = open(labels_int_dir, "r")
         self.classes = []
         for line in file_labels_int:
@@ -698,7 +700,7 @@ class Main(Processor):
 
     def init_split_dataset(self, count_dirs):
         self.common_split_dir = os.path.join(
-            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.stage))
         for i_patch in range(1, count_dirs + 1):
             self.year = str(i_patch)
             path_to_patch_folder = os.path.join(
@@ -707,7 +709,7 @@ class Main(Processor):
 
     def resize_split_dataset(self, count_dirs):
         self.common_split_dir = os.path.join(
-            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.stage))
         for i_patch in range(1, count_dirs + 1):
             self.year = str(i_patch)
             path_to_patch_folder = os.path.join(
@@ -744,7 +746,7 @@ class Main(Processor):
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
                 cached_data_fnme, IMAGES_JSON %
-                (self.year, self.series, set_type, self.iteration))
+                (self.year, self.series, set_type, self.stage))
             try:
                 with open(fnme, 'r') as fp:
                     self.images_json[set_type] = json.load(fp)
@@ -797,6 +799,7 @@ class Main(Processor):
         self.year = args.year
         self.series = args.series
         self.command_to_run = args.command_to_run
+        self.stage = args.stage
         if self.command_to_run == "all":
             self.init_files(os.path.join(IMAGENET_BASE_PATH, self.year))
             self.generate_images_with_bbx(os.path.join(IMAGENET_BASE_PATH,
