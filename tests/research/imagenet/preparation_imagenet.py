@@ -47,33 +47,6 @@ IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
 IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
 # year, series, set_type, iteration
 
-MAPPING = {
-    "temp": {
-        "img": {
-            "train": ("ILSVRC2012_img_train", "ILSVRC2012_bbox_train_v2"),
-            "validation": ("ILSVRC2012_img_val", "ILSVRC2012_bbox_val_v2"),
-            "test": ("ILSVRC2012_img_test", ""),
-        },
-        "DET": {
-            "train": ("ILSVRC2014_DET_train", "ILSVRC2014_DET_bbox_train"),
-            "validation": ("ILSVRC2013_DET_val", "ILSVRC2013_DET_bbox_val"),
-            "test": ("ILSVRC2013_DET_test", ""),
-        },
-    },
-    "2014": {
-        "img": {
-            "train": ("ILSVRC2012_img_train", "ILSVRC2012_bbox_train_v2"),
-            "validation": ("ILSVRC2012_img_val", "ILSVRC2012_bbox_val_v2"),
-            "test": ("ILSVRC2012_img_test", ""),
-        },
-        "DET": {
-            "train": ("ILSVRC2014_DET_train", "ILSVRC2014_DET_bbox_train"),
-            "validation": ("ILSVRC2013_DET_val", "ILSVRC2013_DET_bbox_val"),
-            "test": ("ILSVRC2013_DET_test", ""),
-        },
-    }
-}
-
 
 class Main(Logger):
     EXIT_SUCCESS = 0
@@ -115,11 +88,6 @@ class Main(Logger):
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
         Logger.__init__(self, **kwargs)
-        self.images_iter = {
-            "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
-            "validation": {},
-            "test": {}
-            }
         self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
         self.s_count = numpy.zeros_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
@@ -149,7 +117,8 @@ class Main(Logger):
         parser.add_argument("command_to_run", type=str, default="",
                             choices=["all", "draw_bbox", "resize", "init",
                                      "get_valid", "split_valid",
-                                     "split_dataset"],
+                                     "split_dataset", "resize_split_dataset",
+                                     "init_split_dataset", "rotate_test"],
                             help="run functions: 'all' run all functions,"
                                  "'draw_bbox' run function which generate"
                                  "image with bboxes, 'resize' run function"
@@ -164,8 +133,26 @@ class Main(Logger):
             pass
         return parser
 
-    def init_files(self):
-        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+    def init_files(self, path_imagenet):
+        self.images_iter = {
+            "train": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
+            "validation": {},
+            "test": {}
+            }
+        MAPPING = {"% s" % self.year:
+                  {"img":
+                   {"train":
+                    ("ILSVRC2012_img_train", "ILSVRC2012_bbox_train_v2"),
+                    "validation":
+                    ("ILSVRC2012_img_val", "ILSVRC2012_bbox_val_v2"),
+                    "test": ("ILSVRC2012_img_test", "")},
+                   "DET":
+                   {"train":
+                    ("ILSVRC2014_DET_train", "ILSVRC2014_DET_bbox_train"),
+                    "validation":
+                    ("ILSVRC2013_DET_val", "ILSVRC2013_DET_bbox_val"),
+                    "test": ("ILSVRC2013_DET_test", "")}}}
+        self.imagenet_dir_path = path_imagenet
         self.info("Looking for images in %s:", self.imagenet_dir_path)
         int_labels_dir = os.path.join(self.imagenet_dir_path,
                                       "labels_int_%s_%s_%s.txt" %
@@ -274,13 +261,12 @@ class Main(Logger):
                                     file_ind_labels.write(line_int_label)
                                     ind += 1
                                 file_ind_labels.close()
-            cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
             try:
-                os.mkdir(cached_data_fnme)
+                os.mkdir(self.imagenet_dir_path)
             except OSError:
                 pass
             fnme = os.path.join(
-                cached_data_fnme, IMAGES_JSON %
+                self.imagenet_dir_path, IMAGES_JSON %
                 (self.year, self.series, set_type, self.iteration))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
@@ -324,12 +310,12 @@ class Main(Logger):
         aa[:, :, 0:3] = a[:, :, 0:3]
         return aa
 
-    def generate_resized_dataset(self):
+    def generate_resized_dataset(self, path):
         self.info("Resized dataset")
         original_labels = []
         int_word_labels = []
         zero_train = True
-        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+        self.imagenet_dir_path = path
         original_labels_dir = os.path.join(
             self.imagenet_dir_path, "original_labels_%s_%s_%s.pickle" %
             (self.year, self.series, self.iteration))
@@ -372,7 +358,8 @@ class Main(Logger):
                 y = bbx["y"]
                 h_size = bbx["height"]
                 w_size = bbx["width"]
-                self.sample_rect(image, x, y, h_size, w_size, None)
+                ang = bbx["angle"]
+                self.sample_rect(image, x, y, h_size, w_size, ang, None)
         self.s_mean /= self.s_count
 
         # Convert mean to 0..255 uint8
@@ -438,8 +425,9 @@ class Main(Logger):
                     h_size = bbx["height"]
                     w_size = bbx["width"]
                     label = bbx["label"]
+                    ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx" % i)
-                    sample = self.sample_rect(image, x, y, h_size, w_size,
+                    sample = self.sample_rect(image, x, y, h_size, w_size, ang,
                                               mean[:, :, 0:3])
                     sample_sobel = self.preprocess_sample(sample)
                     sobel = sample_sobel[1]
@@ -495,14 +483,16 @@ class Main(Logger):
                 raise
         return data
 
-    def sample_rect(self, img, x_c, y_c, h_size, w_size, mean):
+    def sample_rect(self, img, x_c, y_c, h_size, w_size, ang, mean):
         nn_width = self.rect[0]
         nn_height = self.rect[1]
+        Matr = cv2.getRotationMatrix2D((x_c, y_c), 360 - ang, 1)
+        img_rotate = cv2.warpAffine(img, Matr, (img.shape[1], img.shape[0]))
         x_min = x_c - w_size / 2
         y_min = y_c - h_size / 2
         x_max = x_min + w_size
         y_max = y_min + h_size
-        img = img[y_min:y_max, x_min:x_max].copy()
+        img = img_rotate[y_min:y_max, x_min:x_max].copy()
         if img.shape[1] >= img.shape[0]:
             dst_width = nn_width
             dst_height = int(numpy.round(
@@ -532,6 +522,25 @@ class Main(Logger):
                       img,
                       self.s_max[dst_y_min:dst_y_max, dst_x_min:dst_x_max])
         return None
+
+    def rotate_test(self):
+        image_fnme = "/home/lpodoynitsina/Desktop/1.JPEG"
+        img = self.decode_image(image_fnme)
+        ang = 30
+        mean_path = "/home/lpodoynitsina/Desktop/mean_image.JPEG"
+        mean = self.decode_image(mean_path)
+        xmin = 1
+        ymin = 198
+        xmax = 317
+        ymax = 352
+        w_size = xmax - xmin
+        h_size = ymax - ymin
+        x_c = 0.5 * w_size + xmin
+        y_c = 0.5 * h_size + ymin
+        sample = self.sample_rect(img, x_c, y_c, h_size, w_size, ang, mean)
+        image_to_save = sample[:, :, 0:3]
+        out_path_sample = os.path.join("/home/lpodoynitsina/Desktop/out.JPEG")
+        scipy.misc.imsave(out_path_sample, image_to_save)
 
     def get_validation(self):
         list_image = "/home/lpodoynitsina/Desktop/bird.txt"
@@ -563,8 +572,8 @@ class Main(Logger):
                                            % name_bbx))
             shutil.copyfile(path_from_copy, path_to_copy)
 
-    def split_validation_to_dirs(self):
-        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+    def split_validation_to_dirs(self, path):
+        self.imagenet_dir_path = path
         path_to_img_validation = os.path.join(
             self.imagenet_dir_path, "ILSVRC2012_img_val")
         path_to_bbox_validation = os.path.join(
@@ -611,8 +620,8 @@ class Main(Logger):
                         pass
                     zero_move = False
 
-    def split_dataset(self, count_dirs):
-        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+    def split_dataset(self, count_dirs, path):
+        self.imagenet_dir_path = path
         self.common_split_dir = os.path.join(
             IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
         try:
@@ -700,7 +709,25 @@ class Main(Logger):
                     except:
                         pass
 
-    def generate_images_with_bbx(self):
+    def init_split_dataset(self, count_dirs):
+        self.common_split_dir = os.path.join(
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+        for i_patch in range(1, count_dirs + 1):
+            self.year = str(i_patch)
+            path_to_patch_folder = os.path.join(
+                self.common_split_dir, "%s" % (i_patch))
+            self.init_files(path_to_patch_folder)
+
+    def resize_split_dataset(self, count_dirs):
+        self.common_split_dir = os.path.join(
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.iteration))
+        for i_patch in range(1, count_dirs + 1):
+            self.year = str(i_patch)
+            path_to_patch_folder = os.path.join(
+                self.common_split_dir, "%s" % (i_patch))
+            self.generate_resized_dataset(path_to_patch_folder)
+
+    def generate_images_with_bbx(self, path):
         """
         self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
         try:
@@ -717,7 +744,7 @@ class Main(Logger):
         font = ImageFont.truetype(
             os.path.join(config.root.common.test_dataset_root,
                          "arial.ttf"), fontsize)
-        cached_data_fnme = os.path.join(IMAGENET_BASE_PATH, self.year)
+        cached_data_fnme = path
         categories_path = os.path.join(cached_data_fnme,
                                        "categories_imagenet_%s_list.txt"
                                        % self.year)
@@ -784,21 +811,39 @@ class Main(Logger):
         self.series = args.series
         self.command_to_run = args.command_to_run
         if self.command_to_run == "all":
-            self.init_files()
-            self.generate_images_with_bbx()
-            self.generate_resized_dataset()
+            self.init_files(os.path.join(IMAGENET_BASE_PATH, self.year))
+            self.generate_images_with_bbx(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
+            self.generate_resized_dataset(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
+            self.split_validation_to_dirs(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
+            self.split_dataset(self.count_dirs,
+                               os.path.join(IMAGENET_BASE_PATH, self.year))
+            self.init_split_dataset(self.count_dirs)
+            self.resize_split_dataset(self.count_dirs)
         elif self.command_to_run == "init":
-            self.init_files()
+            self.init_files(os.path.join(IMAGENET_BASE_PATH, self.year))
         elif self.command_to_run == "draw_bbox":
-            self.generate_images_with_bbx()
+            self.generate_images_with_bbx(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
         elif self.command_to_run == "resize":
-            self.generate_resized_dataset()
+            self.generate_resized_dataset(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
         elif self.command_to_run == "get_valid":
             self.get_validation()
         elif self.command_to_run == "split_valid":
-            self.split_validation_to_dirs()
+            self.split_validation_to_dirs(os.path.join(IMAGENET_BASE_PATH,
+                                                       self.year))
         elif self.command_to_run == "split_dataset":
-            self.split_dataset(self.count_dirs)
+            self.split_dataset(self.count_dirs,
+                               os.path.join(IMAGENET_BASE_PATH, self.year))
+        elif self.command_to_run == "resize_split_dataset":
+            self.resize_split_dataset(self.count_dirs)
+        elif self.command_to_run == "init_split_dataset":
+            self.init_split_dataset(self.count_dirs)
+        elif self.command_to_run == "rotate_test":
+            self.rotate_test()
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
