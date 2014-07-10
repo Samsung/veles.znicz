@@ -16,7 +16,7 @@ import veles.config as config
 import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
-from veles.znicz.loader import (ILoader, Loader)
+from veles.znicz.loader import (ILoader, Loader, LoaderMSE)
 
 
 class IFullBatchLoader(Interface):
@@ -170,12 +170,12 @@ class FullBatchLoader(Loader):
         for i, ii in enumerate(idxs[:self.minibatch_size]):
             self.minibatch_data[i] = self.original_data[int(ii)]
 
-        if self.original_labels.mem:
+        if self.original_labels:
             for i, ii in enumerate(idxs[:self.minibatch_size]):
                 self.minibatch_labels[i] = self.original_labels[int(ii)]
 
 
-class FullBatchLoaderMSE(FullBatchLoader):
+class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
     """FullBatchLoader for MSE workflows.
     Attributes:
         original_targets: original target (Vector).
