@@ -42,7 +42,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                                                  "train": train_dir}}}
 
 
-class Loader(loader.ImageLoader):
+class Loader(loader.ImageLoaderMSE):
     def load_original(self, fnme):
         a = scipy.io.loadmat(fnme)
         for key in a.keys():
@@ -69,7 +69,7 @@ class Loader(loader.ImageLoader):
         super(Loader, self).initialize(**kwargs)
         self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
-                     self.original_target.min(), self.original_target.max()))
+                     self.original_targets.min(), self.original_targets.max()))
         # Normalization
         for i in range(0, self.original_data.shape[0]):
             data = self.original_data[i]
@@ -78,7 +78,7 @@ class Loader(loader.ImageLoader):
             m = data.mean()
             data -= m
             data *= 0.5
-            target = self.original_target[i]
+            target = self.original_targets[i]
             target /= 127.5
             target -= 1.0
             target -= m
@@ -87,11 +87,11 @@ class Loader(loader.ImageLoader):
         self.info("norm data range: (%.6f, %.6f), "
                   "norm target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
-                     self.original_target.min(), self.original_target.max()))
+                     self.original_targets.min(), self.original_targets.max()))
         """
         train_data = self.original_data[self.nextclass_offs[1]:
                                         self.nextclass_offs[2]]
-        train_target = self.original_target[self.nextclass_offs[1]:
+        train_target = self.original_targets[self.nextclass_offs[1]:
                                             self.nextclass_offs[2]]
 
         self.data_IMul, self.data_IAdd = formats.normalize_pointwise(
@@ -106,7 +106,7 @@ class Loader(loader.ImageLoader):
 
         train_data = self.original_data[self.nextclass_offs[1]:
                                         self.nextclass_offs[2]]
-        train_target = self.original_target[self.nextclass_offs[1]:
+        train_target = self.original_targets[self.nextclass_offs[1]:
                                             self.nextclass_offs[2]]
 
         self.info("train data normed range: (%.6f, %.6f)" % (
@@ -117,8 +117,8 @@ class Loader(loader.ImageLoader):
         if self.class_lengths[0]:
             test_data = self.original_data[:self.nextclass_offs[0]]
             formats.assert_addr(test_data, self.original_data)
-            test_target = self.original_target[:self.nextclass_offs[0]]
-            formats.assert_addr(test_target, self.original_target)
+            test_target = self.original_targets[:self.nextclass_offs[0]]
+            formats.assert_addr(test_target, self.original_targets)
 
             test_data *= self.data_IMul
             test_data += self.data_IAdd
@@ -134,9 +134,9 @@ class Loader(loader.ImageLoader):
             validation_data = self.original_data[self.nextclass_offs[0]:
                                                  self.nextclass_offs[1]]
             formats.assert_addr(validation_data, self.original_data)
-            validation_target = self.original_target[self.nextclass_offs[0]:
+            validation_target = self.original_targets[self.nextclass_offs[0]:
                                                      self.nextclass_offs[1]]
-            formats.assert_addr(validation_target, self.original_target)
+            formats.assert_addr(validation_target, self.original_targets)
 
             validation_data *= self.data_IMul
             validation_data += self.data_IAdd
@@ -188,7 +188,7 @@ class Workflow(nn_units.NNWorkflow):
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
-                                  ("target", "minibatch_target"))
+                                  ("target", "minibatch_targets"))
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
@@ -303,7 +303,7 @@ class Workflow(nn_units.NNWorkflow):
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.plt.inputs[:]
         self.plt.inputs.append(self.loader.minibatch_data)
-        self.plt.inputs.append(self.loader.minibatch_target)
+        self.plt.inputs.append(self.loader.minibatch_targets)
         self.plt.inputs.append(self.fwds[-1].output)
         del self.plt.input_fields[:]
         self.plt.input_fields.append(0)

@@ -14,7 +14,8 @@ from zope.interface import implementer
 
 import veles.error as error
 import veles.formats as formats
-from veles.znicz.loader import (IFullBatchLoader, FullBatchLoader)
+from veles.znicz.loader import (IFullBatchLoader, FullBatchLoader,
+                                FullBatchLoaderMSE)
 
 
 @implementer(IFullBatchLoader)
@@ -37,22 +38,12 @@ class ImageLoader(FullBatchLoader):
         is_valid_filename()
     """
     def __init__(self, workflow, **kwargs):
-        test_paths = kwargs.get("test_paths")
-        validation_paths = kwargs.get("validation_paths")
-        train_paths = kwargs.get("train_paths")
-        target_paths = kwargs.get("target_paths")
-        grayscale = kwargs.get("grayscale", True)
-        kwargs["test_paths"] = test_paths
-        kwargs["validation_paths"] = validation_paths
-        kwargs["train_paths"] = train_paths
-        kwargs["target_paths"] = target_paths
-        kwargs["grayscale"] = grayscale
         super(ImageLoader, self).__init__(workflow, **kwargs)
-        self.test_paths = test_paths
-        self.validation_paths = validation_paths
-        self.train_paths = train_paths
-        self.target_paths = target_paths
-        self.grayscale = grayscale
+        self.test_paths = kwargs.get("test_paths")
+        self.validation_paths = kwargs.get("validation_paths")
+        self.train_paths = kwargs.get("train_paths")
+        self.target_paths = kwargs.get("target_paths")
+        self.grayscale = kwargs.get("grayscale", True)
 
     def init_unpickled(self):
         super(ImageLoader, self).init_unpickled()
@@ -218,4 +209,8 @@ class ImageLoader(FullBatchLoader):
             for i, label in enumerate(self.original_labels.mem):
                 target[i] = self.target_by_lbl[label]
             self.target_by_lbl.clear()
-        self.original_target.mem = target
+        self.original_targets.mem = target
+
+
+class ImageLoaderMSE(ImageLoader, FullBatchLoaderMSE):
+    pass

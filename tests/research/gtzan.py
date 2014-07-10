@@ -201,7 +201,7 @@ class Loader(loader.Loader):
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_target.reset()
+        self.minibatch_targets.reset()
 
         self.minibatch_labels.reset()
         sh = [self.max_minibatch_size]

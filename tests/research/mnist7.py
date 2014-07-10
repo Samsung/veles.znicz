@@ -54,12 +54,12 @@ class Loader(mnist.Loader):
              [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],  # 8
              [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
             dtype=opencl_types.dtypes[root.common.precision_type])
-        self.original_target.mem = numpy.zeros(
+        self.original_targets.mem = numpy.zeros(
             [self.original_labels.shape[0], 7],
             dtype=self.original_data.dtype)
         for i in range(0, self.original_labels.shape[0]):
             label = self.original_labels[i]
-            self.original_target[i] = self.class_targets[label]
+            self.original_targets[i] = self.class_targets[label]
 
 
 class Workflow(nn_units.NNWorkflow):

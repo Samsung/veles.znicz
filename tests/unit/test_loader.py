@@ -31,14 +31,14 @@ class Loader(FullBatchLoader):
         self.original_data.mem = numpy.zeros([N, 28, 28],
                                              dtype=numpy.float32)
         # Will use different dtype for target
-        self.original_target.mem = numpy.zeros([N, 3, 3, 3],
-                                               dtype=numpy.int16)
+        self.original_targets.mem = numpy.zeros([N, 3, 3, 3],
+                                                dtype=numpy.int16)
 
         self.original_labels.mem[:] = rnd.get().randint(
             0, 1000, self.original_labels.size)
         rnd.get().fill(self.original_data.mem, -100, 100)
-        self.original_target.plain[:] = rnd.get().randint(
-            27, 1735, self.original_target.size)
+        self.original_targets.plain[:] = rnd.get().randint(
+            27, 1735, self.original_targets.size)
 
         self.class_lengths[0] = 0
         self.class_lengths[1] = 9737
@@ -70,16 +70,16 @@ class TestFullBatchLoader(unittest.TestCase):
                                dtype=unit.minibatch_data.dtype)
         res_labels = numpy.zeros([N] + list(unit.minibatch_labels.shape),
                                  dtype=unit.minibatch_labels.dtype)
-        res_target = numpy.zeros([N] + list(unit.minibatch_target.shape),
-                                 dtype=unit.minibatch_target.dtype)
+        res_target = numpy.zeros([N] + list(unit.minibatch_targets.shape),
+                                 dtype=unit.minibatch_targets.dtype)
         for i in range(N):
             unit.run()
             unit.minibatch_data.map_read()
             unit.minibatch_labels.map_read()
-            unit.minibatch_target.map_read()
+            unit.minibatch_targets.map_read()
             res_data[i] = unit.minibatch_data.mem
             res_labels[i] = unit.minibatch_labels.mem
-            res_target[i] = unit.minibatch_target.mem
+            res_target[i] = unit.minibatch_targets.mem
         return (res_data, res_labels, res_target)
 
 

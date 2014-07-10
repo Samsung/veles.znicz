@@ -65,7 +65,6 @@ class Loader(OpenCLUnit):
         total_samples: total number of samples in the dataset.
         class_lengths: number of samples per class.
         class_offsets: offset in samples where the next class begins.
-        class_targets: target for each class (in case of MSE).
         last_minibatch: if current minibatch is last in it's class.
         epoch_ended: True right after validation is completed and no samples
                      have been served since.
@@ -75,7 +74,6 @@ class Loader(OpenCLUnit):
         minibatch_data: data (should be scaled usually scaled to [-1, 1]).
         minibatch_indices: global indices of images in minibatch.
         minibatch_labels: labels for indexes in minibatch (classification).
-        minibatch_target: target data (in case of MSE).
         shuffled_indices: indices for all dataset, shuffled with prng.
         samples_served: the total number of samples processed for all epochs.
         minibatch_class: current minibatch class.
@@ -101,7 +99,6 @@ class Loader(OpenCLUnit):
         self._total_samples = 0
         self.class_lengths = [0, 0, 0]
         self.class_offsets = [0, 0, 0]
-        self.class_targets = formats.Vector()
 
         self.epoch_ended = Bool(False)
         self.epoch_number = 0
@@ -111,7 +108,6 @@ class Loader(OpenCLUnit):
 
         self.minibatch_class = 0
         self.minibatch_data = formats.Vector()
-        self.minibatch_target = formats.Vector()
         self.minibatch_indices = formats.Vector()
         self.minibatch_labels = formats.Vector()
 
@@ -222,14 +218,6 @@ class Loader(OpenCLUnit):
     @minibatch_data.setter
     def minibatch_data(self, value):
         self._minibatch_data = value
-
-    @property
-    def minibatch_target(self):
-        return self._minibatch_target
-
-    @minibatch_target.setter
-    def minibatch_target(self, value):
-        self._minibatch_target = value
 
     @property
     def minibatch_indices(self):
@@ -345,17 +333,17 @@ class Loader(OpenCLUnit):
         """
         if len(self.pending_minibatches_) > 0:
             self.pending_minibatches_.popitem()
-        self._serve_next_minibatch(None)
+        self.serve_next_minibatch(None)
         self._on_successful_serve()
 
     def ocl_run(self):
-        return self.cpu_run()
+        self.cpu_run()
 
     def generate_data_for_master(self):
         return True
 
     def generate_data_for_slave(self, slave):
-        self._serve_next_minibatch(slave.id)
+        self.serve_next_minibatch(slave.id)
         data = {'indices': self.minibatch_indices.mem}
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
                      "epoch_number"):
@@ -383,7 +371,7 @@ class Loader(OpenCLUnit):
             raise error.MasterSlaveCommunicationError(
                 "minibatch offset - size < 0")
         # Patch shuffled_indices so that received indices will be picked up
-        # during  _serve_next_minibatch()
+        # during  serve_next_minibatch()
         self.shuffled_indices.map_write()
         self.shuffled_indices.mem[self.minibatch_offset - self.minibatch_size:
                                   self.minibatch_offset] = indices
@@ -428,7 +416,7 @@ class Loader(OpenCLUnit):
         amount = ratio or self.validation_ratio
         rand = rand or self.prng
 
-        if amount <= 0:  # Dispose of validation set
+        if amount <= 0:  # Dispose validation set
             self.class_lengths[TRAIN] += self.class_lengths[VALID]
             self.class_lengths[VALID] = 0
             if self.shuffled_indices.mem is None:
@@ -459,9 +447,8 @@ class Loader(OpenCLUnit):
                 i = rand.randint(offs, offs + train_samples)
 
                 # Swap indexes
-                ii = shuffled_indices[offs]
-                shuffled_indices[offs] = shuffled_indices[i]
-                shuffled_indices[i] = ii
+                shuffled_indices[offs], shuffled_indices[i] = \
+                    shuffled_indices[i], shuffled_indices[offs]
 
                 offs += 1
                 n -= 1
@@ -519,19 +506,7 @@ class Loader(OpenCLUnit):
         self.prng.shuffle(self.shuffled_indices.mem[self.class_offsets[VALID]:
                                                     self.class_offsets[TRAIN]])
 
-    def _update_total_samples(self):
-        """Fills self.class_offsets from self.class_lengths.
-        """
-        total_samples = 0
-        for i, n in enumerate(self.class_lengths):
-            total_samples += n
-            self.class_offsets[i] = total_samples
-        self.total_samples = total_samples
-        if self.class_lengths[TRAIN] < 1:
-            raise ValueError("class_length for TRAIN dataset is invalid: %d" %
-                             self.class_lengths[TRAIN])
-
-    def _serve_next_minibatch(self, slave):
+    def serve_next_minibatch(self, slave):
         try:
             _, (minibatch_offset, minibatch_size) = \
                 self.failed_minibatches.popitem()
@@ -549,28 +524,38 @@ class Loader(OpenCLUnit):
 
         if minibatch_size < self.max_minibatch_size:
             self.minibatch_data[minibatch_size:] = 0.0
-            if self.minibatch_target:
-                self.minibatch_target[minibatch_size:] = 0.0
             self.minibatch_labels[minibatch_size:] = -1
             self.minibatch_indices[minibatch_size:] = -1
 
     def fill_indices(self, start_offset, count):
         """Fills minibatch_indices.
 
-        May fill minibatch_data labels, targets, etc.,
+        May fill minibatch data, labels, etc.,
         should return True in such case.
 
         Returns:
             True: no further processing needed.
             False: only indices were filled, further processing required.
         """
-        for v in (self.minibatch_data, self.minibatch_target,
-                  self.minibatch_labels, self.minibatch_indices):
+        for v in (self.minibatch_data, self.minibatch_labels,
+                  self.minibatch_indices):
             v.map_invalidate()
         self.shuffled_indices.map_read()
         self.minibatch_indices.mem = self.shuffled_indices[
             start_offset:start_offset + count]
         return False
+
+    def _update_total_samples(self):
+        """Fills self.class_offsets from self.class_lengths.
+        """
+        total_samples = 0
+        for i, n in enumerate(self.class_lengths):
+            total_samples += n
+            self.class_offsets[i] = total_samples
+        self.total_samples = total_samples
+        if self.class_lengths[TRAIN] < 1:
+            raise ValueError("class_length for TRAIN dataset is invalid: %d" %
+                             self.class_lengths[TRAIN])
 
     def _update_flags(self):
         """Resets epoch_ended and last_minibatch.
@@ -620,3 +605,33 @@ class Loader(OpenCLUnit):
             # The following line will reduce info message count
             # for small datasets
             self._minibatch_serve_timestamp_ = time.time()
+
+
+class LoaderMSE(Loader):
+    """Loader with MSE target data.
+    Attributes:
+        class_targets: target for each class.
+        minibatch_targets: target data.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(LoaderMSE, self).__init__(workflow, **kwargs)
+        self.class_targets = formats.Vector()
+        self.minibatch_targets = formats.Vector()
+
+    @property
+    def minibatch_targets(self):
+        return self._minibatch_target
+
+    @minibatch_targets.setter
+    def minibatch_targets(self, value):
+        self._minibatch_target = value
+
+    def serve_next_minibatch(self, slave):
+        super(LoaderMSE, self).serve_next_minibatch(slave)
+
+        if self.minibatch_size < self.max_minibatch_size:
+            self.minibatch_targets[self.minibatch_size:] = 0.0
+
+    def fill_indices(self, start_offset, count):
+        self.minibatch_targets.map_invalidate()
+        return super(LoaderMSE, self).fill_indices(start_offset, count)
