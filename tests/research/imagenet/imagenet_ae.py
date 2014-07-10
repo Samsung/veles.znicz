@@ -1,5 +1,3 @@
-#!/usr/bin/python3.3 -O
-
 """
 Created on July 4, 2014
 
@@ -26,7 +24,7 @@ import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.pooling as pooling
-import veles.znicz.gd_pooling as gd_pooling
+import veles.znicz.depooling as depooling
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -36,7 +34,7 @@ IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
 root.model = "imagenet"
 
-LR = 0.0000001
+LR = 0.000001
 LRB = LR
 WD = 0.004
 WDB = WD
@@ -47,10 +45,10 @@ root.defaults = {
     "decision": {"fail_iterations": 100000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "snapshotter": {"prefix": "imagenet"},
+    "snapshotter": {"prefix": "imagenet_ae"},
     "loader": {"year": "temp",
                "series": "img",
-               "minibatch_size": 20},
+               "minibatch_size": 13},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
                                   "tmp %s/test" % root.model),
@@ -227,18 +225,22 @@ class Workflow(StandardWorkflow):
         self.pool = unit
         self.fix(self.pool, "input", "output")
 
-        unit = gd_pooling.GDMaxAbsPooling(self, **layer_pool)
+        unit = depooling.Depooling(self)
         unit.link_from(self.pool)
-        unit.link_attrs(self.pool, "input", "input_offset",
-                        ("err_output", "output"))
+        unit.link_attrs(self.pool,
+                        ("input", "output"),
+                        ("output_offset", "input_offset"),
+                        ("get_output_shape_from", "input"))
         self.depool = unit
-        self.fix(self.depool, "input", "err_output", "err_input")
+        self.fix(self.depool, "input", "output_offset",
+                 "get_output_shape_from")
 
         unit = deconv.Deconv(self, **layer_conv)
         self.deconv = unit
         unit.link_from(self.depool)
-        unit.link_attrs(self.conv, "weights")
-        unit.link_attrs(self.depool, ("input", "err_input"))
+        unit.link_attrs(self.conv, "weights",
+                        ("get_output_shape_from", "input"))
+        unit.link_attrs(self.depool, ("input", "output"))
         self.fix(self.deconv, "input", "weights", "output")
 
         # Add evaluator for single minibatch
@@ -277,7 +279,7 @@ class Workflow(StandardWorkflow):
         unit = gd_deconv.GDDeconv(self, **layer_conv)
         self.gd_deconv = unit
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.deconv, "weights", "input")
+        unit.link_attrs(self.deconv, "weights", "input", "hits")
         unit.gate_skip = self.decision.gd_skip
         self.fix(self.gd_deconv, "err_output", "weights", "input", "err_input")
 
@@ -320,6 +322,7 @@ class Workflow(StandardWorkflow):
         prev = self.plt_inp
 
         # Output plotter
+        """
         self.plt_out = nn_plotting_units.Weights2D(
             self, name="Pooling Output", limit=96)
         self.plt_out.link_attrs(self.pool, ("input", "output"))
@@ -327,6 +330,7 @@ class Workflow(StandardWorkflow):
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_out
+        """
 
         # Deconv result plotter
         self.plt_deconv = nn_plotting_units.Weights2D(
