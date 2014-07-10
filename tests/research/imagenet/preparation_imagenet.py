@@ -167,15 +167,15 @@ class Main(Logger):
             self.info("Scanning JPG %s...", path)
             temp_images = self.images_iter[set_type]
             for root_path, _tmp, files in os.walk(path, followlinks=True):
-                #print("ROOT=", root)
+                # print("ROOT=", root)
                 for f in files:
                     if os.path.splitext(f)[1] == ".JPEG":
                         f_path = os.path.join(root_path, f)
                         #--------------------------------------------
                         # KGG check if dirs have duplicates filenames
                         # KGG it was checked - no diplicates; code commented
-                        #temp_image = temp_images.get(f)
-                        #if temp_image != None:
+                        # temp_image = temp_images.get(f)
+                        # if temp_image != None:
                         #    self.error("Duplicate file name:\n"
                         #               "present: %s\n    found: %s",
                         #               temp_image[0], f_path)
@@ -486,8 +486,9 @@ class Main(Logger):
     def sample_rect(self, img, x_c, y_c, h_size, w_size, ang, mean):
         nn_width = self.rect[0]
         nn_height = self.rect[1]
-        Matr = cv2.getRotationMatrix2D((x_c, y_c), 360 - ang, 1)
-        img_rotate = cv2.warpAffine(img, Matr, (img.shape[1], img.shape[0]))
+        rot_matrix = cv2.getRotationMatrix2D((x_c, y_c), 360 - ang, 1)
+        img_rotate = cv2.warpAffine(img, rot_matrix,
+                                    (img.shape[1], img.shape[0]))
         x_min = x_c - w_size / 2
         y_min = y_c - h_size / 2
         x_max = x_min + w_size
