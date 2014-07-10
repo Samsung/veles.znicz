@@ -67,7 +67,8 @@ def get_similar_kernels(weights, channels=3,
     vals = sub_matrix[sub_matrix > 0]
     mean = numpy.mean(vals)
     stddev = numpy.std(vals)
-    threshold = numpy.min(0.95, mean + stddev * params.magnitude_threshold)
+    threshold = numpy.max([
+        numpy.min([0.95, mean + stddev * params.magnitude_threshold]), 0.7])
     mask *= sub_matrix > threshold
 
     # Filter by peak sharpness
@@ -81,7 +82,8 @@ def get_similar_kernels(weights, channels=3,
     vals = corr_matrix[corr_matrix > 0]
     mean = numpy.mean(vals)
     stddev = numpy.std(vals)
-    threshold = numpy.min(0.95, mean + stddev * params.form_threshold)
+    threshold = numpy.max([
+        numpy.min([0.95, mean + stddev * params.form_threshold]), 0.8])
     mask *= corr_matrix > threshold
 
     # Fix boundary='symm' symmetry violation
