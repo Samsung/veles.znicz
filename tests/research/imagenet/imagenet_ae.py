@@ -137,16 +137,11 @@ class Loader(loader.Loader):
         self.file_samples = open(root.loader.samples_filename, "rb")
 
     def create_minibatches(self):
-        self.minibatch_data.reset()
         sh = [self.max_minibatch_size]
         sh.extend(self.mean.shape)
         self.minibatch_data.mem = numpy.zeros(sh, dtype=numpy.uint8)
-
-        self.minibatch_labels.reset()
         sh = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
-
-        self.minibatch_indices.reset()
         self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
                                                  dtype=numpy.int32)
 

@@ -121,23 +121,19 @@ class Loader(loader.LoaderMSE):
     def create_minibatches(self):
         """Allocate arrays for minibatch_data etc. here.
         """
-        self.minibatch_data.reset()
         sh = [self.max_minibatch_size]
         sh.extend(self.first_sample.shape)
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_targets.reset()
         sh = [self.max_minibatch_size]
         sh.extend(self.class_targets[0].shape)
         self.minibatch_targets.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_labels.reset()
         sh = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
 
-        self.minibatch_indices.reset()
         self.minibatch_indices.mem = numpy.zeros(len(self.index_map),
                                                  dtype=numpy.int32)
 

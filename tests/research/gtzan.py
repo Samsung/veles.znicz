@@ -196,19 +196,14 @@ class Loader(loader.Loader):
         for k in self.features:
             nn += self.norm_add[k].size
 
-        self.minibatch_data.reset()
         sh = [self.max_minibatch_size, nn * self.window_size]
         self.minibatch_data.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
-        self.minibatch_targets.reset()
-
-        self.minibatch_labels.reset()
         sh = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(
             sh, dtype=numpy.int8)
 
-        self.minibatch_indices.reset()
         sh = [self.max_minibatch_size]
         self.minibatch_indices.mem = numpy.zeros(sh, dtype=numpy.int32)
 

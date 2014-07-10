@@ -322,6 +322,7 @@ class Loader(OpenCLUnit):
                   *self.class_lengths)
         self.max_minibatch_size = kwargs.get("minibatch_size",
                                              self.max_minibatch_size)
+        self.on_before_create_minibatches()
         self.create_minibatches()
         if self.minibatch_data is None:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
@@ -496,6 +497,11 @@ class Loader(OpenCLUnit):
         self.class_lengths[TRAIN] = (total_samples - self.class_lengths[VALID]
                                      - offs_test)
 
+    def on_before_create_minibatches(self):
+        self.minibatch_data.reset()
+        self.minibatch_labels.reset()
+        self.minibatch_indices.reset()
+
     def shuffle(self):
         """Randomly shuffles the TRAIN dataset.
         """
@@ -625,6 +631,10 @@ class LoaderMSE(Loader):
     @minibatch_targets.setter
     def minibatch_targets(self, value):
         self._minibatch_target = value
+
+    def on_before_create_minibatches(self):
+        super(LoaderMSE, self).on_before_create_minibatches()
+        self.minibatch_targets.reset()
 
     def serve_next_minibatch(self, slave):
         super(LoaderMSE, self).serve_next_minibatch(slave)

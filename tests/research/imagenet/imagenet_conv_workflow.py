@@ -176,16 +176,13 @@ class Loader(loader.Loader):
         self.file_samples = open(file_samples_dir, "rb")
 
     def create_minibatches(self):
-        self.minibatch_data.reset()
         shape = [self.max_minibatch_size]
         shape.extend(self.mean.shape)
         self.minibatch_data.mem = numpy.zeros(shape, dtype=numpy.uint8)
 
-        self.minibatch_labels.reset()
         shape = [self.max_minibatch_size]
         self.minibatch_labels.mem = numpy.zeros(shape, dtype=numpy.int32)
 
-        self.minibatch_indices.reset()
         self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
                                                  dtype=numpy.int32)
 
@@ -323,7 +320,7 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            #if (layers[i].get("output_shape") is not None and
+            # if (layers[i].get("output_shape") is not None and
             #        layers[i]["type"] != "softmax"):
             #    self.plt_mx[-1].link_attrs(self.fwds[i],
             #                               ("get_shape_from", "input"))
