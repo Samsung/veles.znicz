@@ -146,9 +146,6 @@ class Deconv(nn_units.Forward):
 
         defines = {
             'USE_ATOMICS': 1,
-            'APPLY_GRADIENT': 0,
-            'STORE_GRADIENT': 0,
-            'INCLUDE_BIAS': 0,
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
             'BATCH': output_shape[0],
             'SX': output_shape[2],
@@ -187,15 +184,17 @@ class Deconv(nn_units.Forward):
             opencl_types.numpy_dtype_to_opencl(dtype)]
         if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
             raise error.Bug("Returned BLOCK_SIZE differs from expected")
+        kernel_applies_count = self.input.size // self.n_kernels
         self.global_size = [
             formats.roundup(weights_shape[1], block_size),
-            formats.roundup(self.input.size // self.n_kernels, block_size)]
+            formats.roundup(kernel_applies_count, block_size)]
         self.local_size = [block_size, block_size]
 
     def ocl_run(self):
         self.output.unmap()
         self.input.unmap()
         self.weights.unmap()
+        self.hits.unmap()
         self.execute_kernel([self.output.size], None,
                             self.krn_clear_output_)
         self.execute_kernel([self.hits.size], None,

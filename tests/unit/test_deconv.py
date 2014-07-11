@@ -77,7 +77,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                               err_input, weights_derivative, None,
                               logging.info, self.assertLess,
                               error_function_averaged=False,
-                              threshold=1.0e-4)
+                              threshold=1.0e-3)
 
     def _test_deconv(self, device, forward):
         rnd.get().seed("%s/seed" % self.this_dir,
@@ -89,9 +89,9 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
             batch_size = 3
             workflow = DummyWorkflow()
             forward = conv.Conv(workflow, n_kernels=9, kx=7, ky=7,
-                                padding=(3, 3, 3, 3), sliding=(2, 2),
+                                padding=(3, 3, 3, 3), sliding=(3, 3),
                                 include_bias=False)
-            inp = formats.Vector(numpy.zeros([batch_size * 2, 16, 16, 4],
+            inp = formats.Vector(numpy.zeros([batch_size * 2, 32, 32, 4],
                                              dtype=dtype))
             inp.initialize(device)
             inp.map_write()
