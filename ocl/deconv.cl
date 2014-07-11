@@ -1,23 +1,8 @@
 #include "defines.cl"
 #include "highlight.cl"
 
-#ifndef INCLUDE_BIAS
-#error "INCLUDE_BIAS should be defined"
-#endif
-#if INCLUDE_BIAS != 0
-#error "INCLUDE_BIAS should be 0"
-#endif
-
 #ifndef WEIGHTS_TRANSPOSED
 #error "WEIGHTS_TRANSPOSED should be defined"
-#endif
-
-#ifndef STORE_GRADIENT
-#error "STORE_GRADIENT should be defined"
-#endif
-
-#ifndef APPLY_GRADIENT
-#error "APPLY_GRADIENT should be defined"
 #endif
 
 #include "conv_common.cl"
@@ -34,7 +19,7 @@ void feed_layer(__global const dtype      /* IN */    *input,
                 __global dtype           /* OUT */    *output,
                 __global volatile int    /* OUT */    *hits) {
 
-  #define A_WIDTH (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
+  #define A_WIDTH (BATCH * KERNELS_PER_SAMPLE)
   #define B_WIDTH ELEMENTS_PER_KERNEL
   #define AB_COMMON N_KERNELS
 
@@ -60,12 +45,12 @@ void feed_layer(__global const dtype      /* IN */    *input,
 
   #define in_offs idx
   if ((valid) && (IN_REAL_OFFS_VALID)) {
-    ATOM_ADD(&output[IN_REAL_OFFS], sum);
-    atomic_inc(&hits[IN_REAL_OFFS]);
+    int offs = IN_REAL_OFFS;
+    ATOM_ADD(&output[offs], sum);
+    atomic_inc(&hits[offs]);
   }
   #undef in_offs
 }
-
 
 __kernel
 void apply_hits(__global dtype    /* IN, OUT */    *output,
