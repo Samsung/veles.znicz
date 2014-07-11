@@ -23,8 +23,6 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
-import veles.znicz.pooling as pooling
-import veles.znicz.depooling as depooling
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -49,23 +47,12 @@ root.defaults = {
     "loader": {"year": "temp",
                "series": "img",
                "minibatch_size": 13},
-    "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir,
-                                  "tmp %s/test" % root.model),
-                     os.path.join(root.common.cache_dir,
-                                  "tmp %s/validation" % root.model),
-                     os.path.join(root.common.cache_dir,
-                                  "tmp %s/train" % root.model)]},
-    "weights_plotter": {"limit": 64},
     "imagenet": {"layers":
-                 [{"type": "conv", "n_kernels": 96,
-                   "kx": 11, "ky": 11, "padding": (5, 5, 5, 5),
-                   "sliding": (1, 1),
+                 [{"type": "conv", "n_kernels": 48,
+                   "kx": 12, "ky": 12, "sliding": (4, 4),
                    "learning_rate": LR,
                    "weights_decay": WD,
                    "gradient_moment": GM},
-                  {"type": "stochastic_abs_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
 
                   {"type": "softmax", "output_shape": 5,
                    "learning_rate": LR, "learning_rate_bias": LRB,
@@ -95,6 +82,8 @@ class Loader(loader.Loader):
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
+        self.sx = 256
+        self.sy = 256
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -131,6 +120,10 @@ class Loader(loader.Loader):
             raise ValueError("rdisp matrix has NaNs")
         if numpy.count_nonzero(numpy.isinf(self.rdisp.mem)):
             raise ValueError("rdisp matrix has Infs")
+        if self.mean.shape != self.rdisp.shape:
+            raise ValueError("mean.shape != rdisp.shape")
+        if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
+            raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
         self.file_samples = open(root.loader.samples_filename, "rb")
 
@@ -212,36 +205,22 @@ class Workflow(StandardWorkflow):
 
         layer_conv = layers[0]
         layer_conv["include_bias"] = False
+        layer_conv["padding"] = deconv.Deconv.compute_padding(
+            self.loader.sx, self.loader.sy, layer_conv["kx"], layer_conv["ky"],
+            layer_conv["sliding"])
         unit = conv.Conv(self, **layer_conv)
         unit.link_from(self.meandispnorm)
         unit.link_attrs(self.meandispnorm, ("input", "output"))
         self.conv = unit
         self.fix(self.conv, "input", "output", "weights")
 
-        layer_pool = layers[1]
-        unit = pooling.StochasticAbsPooling(self, **layer_pool)
-        unit.link_from(self.conv)
-        unit.link_attrs(self.conv, ("input", "output"))
-        self.pool = unit
-        self.fix(self.pool, "input", "output")
-
-        unit = depooling.Depooling(self)
-        unit.link_from(self.pool)
-        unit.link_attrs(self.pool,
-                        ("input", "output"),
-                        ("output_offset", "input_offset"),
-                        ("get_output_shape_from", "input"))
-        self.depool = unit
-        self.fix(self.depool, "input", "output_offset",
-                 "get_output_shape_from")
-
         unit = deconv.Deconv(self, **layer_conv)
         self.deconv = unit
-        unit.link_from(self.depool)
-        unit.link_attrs(self.conv, "weights",
+        unit.link_from(self.conv)
+        unit.link_attrs(self.conv, "weights", ("input", "output"),
                         ("get_output_shape_from", "input"))
-        unit.link_attrs(self.depool, ("input", "output"))
-        self.fix(self.deconv, "input", "weights", "output")
+        self.fix(self.deconv, "input", "weights", "output",
+                 "get_output_shape_from")
 
         # Add evaluator for single minibatch
         unit = evaluator.EvaluatorMSE(self)
@@ -279,7 +258,7 @@ class Workflow(StandardWorkflow):
         unit = gd_deconv.GDDeconv(self, **layer_conv)
         self.gd_deconv = unit
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.deconv, "weights", "input", "hits")
+        unit.link_attrs(self.deconv, "weights", "input")
         unit.gate_skip = self.decision.gd_skip
         self.fix(self.gd_deconv, "err_output", "weights", "input", "err_input")
 
@@ -313,6 +292,7 @@ class Workflow(StandardWorkflow):
         prev = self.plt_mx
 
         # Input plotter
+        """
         self.plt_inp = nn_plotting_units.Weights2D(
             self, name="Conv Input", limit=20)
         self.plt_inp.link_attrs(self.conv, "input")
@@ -320,17 +300,16 @@ class Workflow(StandardWorkflow):
         self.plt_inp.link_from(prev)
         self.plt_inp.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_inp
+        """
 
         # Output plotter
-        """
         self.plt_out = nn_plotting_units.Weights2D(
-            self, name="Pooling Output", limit=96)
-        self.plt_out.link_attrs(self.pool, ("input", "output"))
-        self.plt_out.get_shape_from = self.pool.output
+            self, name="Conv Output", limit=96)
+        self.plt_out.link_attrs(self.conv, ("input", "output"))
+        self.plt_out.get_shape_from = self.conv.output
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_out
-        """
 
         # Deconv result plotter
         self.plt_deconv = nn_plotting_units.Weights2D(
