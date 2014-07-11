@@ -64,6 +64,9 @@ class TestConvBase(unittest.TestCase):
         unit.run()
         if device is not None:
             unit.output.map_read()
+            nz = numpy.count_nonzero(numpy.isnan(
+                unit.output.vv[unit.output.shape[0]:]))
+            self.assertEqual(nz, unit.output.size, "Overflow occured")
         nz = numpy.count_nonzero(numpy.isnan(unit.output.mem))
         self.assertEqual(nz, 0, "NaNs encountered")
         return unit.output.mem

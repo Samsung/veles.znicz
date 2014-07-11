@@ -81,6 +81,8 @@ class Conv(nn_units.Forward):
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
                              "padding", "sliding"))
+        self.global_size = None
+        self.local_size = None
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
@@ -117,8 +119,6 @@ class Conv(nn_units.Forward):
         self._fill_weights()
         self._fill_biases()
 
-        if root.common.unit_test:
-            self._batch_size <<= 1  # check for overflow
         output_shape = [
             self._batch_size,
             (self._sy + self.padding[1] + self.padding[3] - self.ky) //
@@ -129,8 +129,21 @@ class Conv(nn_units.Forward):
         output_size = int(numpy.prod(output_shape))
         if self.output.mem is None or self.output.mem.size != output_size:
             self.output.reset()
-            self.output.mem = numpy.zeros(output_shape,
-                                          dtype=self.input.mem.dtype)
+            if root.common.unit_test:
+                self.info("Unit test mode: allocating 2x memory for output")
+                output_shape[0] <<= 1
+                self.output.mem = numpy.zeros(output_shape,
+                                              dtype=self.input.mem.dtype)
+                self.output.initialize(device)
+                self.output.map_write()
+                self.output.vv = self.output.mem
+                output_shape[0] >>= 1
+                self.output.mem = self.output.vv[:output_shape[0]]
+                formats.assert_addr(self.output.mem, self.output.vv)
+                self.output.vv[output_shape[0]:] = numpy.nan
+            else:
+                self.output.mem = numpy.zeros(output_shape,
+                                              dtype=self.input.mem.dtype)
         del output_size
         del output_shape
 
@@ -138,12 +151,6 @@ class Conv(nn_units.Forward):
         self.output.initialize(device)
         self.weights.initialize(device)
         self.bias.initialize(device)
-
-        if root.common.unit_test:
-            self._batch_size >>= 1
-            self.output.vv = self.output.mem
-            self.output.mem = self.output.mem[:self._batch_size]
-            formats.assert_addr(self.output.mem, self.output.vv)
 
         if device is None:
             return
@@ -166,9 +173,10 @@ class Conv(nn_units.Forward):
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1]
         }
-        self.build_program(defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
-            root.common.cache_dir, self._sx, self._sy, self._n_channels,
-            self.kx, self.ky, self.n_kernels),
+        my_defines = self.build_program(
+            defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
+                root.common.cache_dir, self._sx, self._sy, self._n_channels,
+                self.kx, self.ky, self.n_kernels),
             dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
@@ -176,6 +184,16 @@ class Conv(nn_units.Forward):
             self.set_args(self.input, self.weights, self.bias, self.output)
         else:
             self.set_args(self.input, self.weights, self.output)
+
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
+        if block_size != my_defines["BLOCK_SIZE"]:
+            raise error.Bug("Inconsistent BLOCK_SIZE encountered")
+        self.global_size = [
+            formats.roundup(self.n_kernels, block_size),
+            formats.roundup(self.output.mem.size // self.n_kernels,
+                            block_size)]
+        self.local_size = [block_size, block_size]
 
     def print_debug_data(self, t_start):
         """Show some statistics.
@@ -204,17 +222,11 @@ class Conv(nn_units.Forward):
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.output.unmap()  # we will be updating output
-        self.input.unmap()  # we will use input
-        self.weights.unmap()  # we will use weights
-        self.bias.unmap()  # we will use bias
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
-        global_size = [formats.roundup(self.n_kernels, block_size),
-                       formats.roundup(self.output.mem.size // self.n_kernels,
-                                       block_size)]
-        local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size)
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
+        self.execute_kernel(self.global_size, self.local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
