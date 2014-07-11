@@ -26,7 +26,6 @@ try:
 except ImportError:
     import warnings
     warnings.warn("Failed to import OpenCV bindings")
-import jpeg4py
 import json
 import logging
 import numpy
@@ -38,8 +37,8 @@ import shutil
 import sys
 
 import veles.config as config
-from veles.logger import Logger
 from veles.znicz.external import xmltodict
+from .processor import Processor
 
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
@@ -48,7 +47,7 @@ IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
 # year, series, set_type, iteration
 
 
-class Main(Logger):
+class Main(Processor):
     EXIT_SUCCESS = 0
     EXIT_FAILURE = 1
 
@@ -87,7 +86,7 @@ class Main(Logger):
             self._crop_color = self._crop_color[0]
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
-        Logger.__init__(self, **kwargs)
+        super(Main, self).__init__(**kwargs)
         self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
         self.s_count = numpy.zeros_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
@@ -469,19 +468,6 @@ class Main(Logger):
         assert labels_count == sample_count
         assert sample_count == train_count + validation_count + test_count
         self.f_samples.close()
-
-    def decode_image(self, file_name):
-        try:
-            data = jpeg4py.JPEG(file_name).decode()
-        except jpeg4py.JPEGRuntimeError as e:
-            try:
-                data = numpy.array(Image.open(file_name).convert("RGB"))
-                self.warning("Falling back to PIL with file %s: %s",
-                             file_name, repr(e))
-            except:
-                self.exception("Failed to decode %s", file_name)
-                raise
-        return data
 
     def sample_rect(self, img, x_c, y_c, h_size, w_size, ang, mean):
         nn_width = self.rect[0]
