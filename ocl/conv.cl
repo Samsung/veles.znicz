@@ -33,13 +33,6 @@ void feed_layer(__global const dtype    /* IN */    *h,
                 #endif
                 __global dtype         /* OUT */    *y) {
 
-  #define SX_FULL (SX + PAD_LEFT + PAD_RIGHT)
-  #define SY_FULL (SY + PAD_TOP + PAD_BOTTOM)
-
-  #define KERNEL_APPLIES_PER_WIDTH ((SX_FULL - KX) / SLIDE_X + 1)
-  #define KERNEL_APPLIES_PER_HEIGHT ((SY_FULL - KY) / SLIDE_Y + 1)
-  #define KERNELS_PER_SAMPLE (KERNEL_APPLIES_PER_WIDTH * KERNEL_APPLIES_PER_HEIGHT)
-
   #define A_WIDTH (BATCH * KERNELS_PER_SAMPLE)
   #define B_WIDTH N_KERNELS
   #define AB_COMMON (KX * KY * N_CHANNELS)
