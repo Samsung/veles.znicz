@@ -18,6 +18,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
+from veles.znicz.deconv import Deconv
 
 
 @implementer(IOpenCLUnit)
@@ -53,23 +54,14 @@ class GDDeconv(nn_units.GradientDescentBase):
             ky = kwargs["ky"]
         except KeyError:
             raise KeyError("n_kernels, kx and ky are required parameters")
-        padding = kwargs.get("padding", (0, 0, 0, 0))  # Left Top Right Bottom
-        sliding = kwargs.get("sliding", (1, 1))  # X Y
-        kwargs["n_kernels"] = n_kernels
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["padding"] = padding
-        kwargs["sliding"] = sliding
         super(GDDeconv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
-        self.padding = tuple(padding)
-        self.sliding = tuple(sliding)
+        self.padding = kwargs.get("padding")
+        self.sliding = tuple(kwargs.get("sliding", (1, 1)))
         self.cl_const = None
         self.bias = None
-        self.hits = None
-        self.demand("hits")
         self.global_size_err_input = None
         self.local_size_err_input = None
         self.global_size_weights = None
@@ -78,8 +70,8 @@ class GDDeconv(nn_units.GradientDescentBase):
     def init_unpickled(self):
         super(GDDeconv, self).init_unpickled()
         self.cl_sources_["gradient_descent_deconv.cl"] = {}
+        self.krn_err_output_ = None
         self.krn_err_input_ = None
-        self.krn_apply_hits_ = None
         self.krn_weights_ = None
 
     def initialize(self, device, **kwargs):
@@ -89,8 +81,6 @@ class GDDeconv(nn_units.GradientDescentBase):
             raise error.BadFormatError("bias should not be set")
         if self.err_output.mem is None:
             raise error.BadFormatError("err_output should be assigned")
-        if self.hits.mem is None:
-            raise error.BadFormatError("hits should be assigned")
         if self.weights.mem is None:
             raise error.BadFormatError("weights should be assigned")
         if self.input.mem is None:
@@ -112,10 +102,6 @@ class GDDeconv(nn_units.GradientDescentBase):
                 self.err_output.shape[0] != self.input.shape[0]):
             raise error.BadFormatError(
                 "Incorrectly shaped err_output encountered")
-        if self.hits.dtype != numpy.int32:
-            raise error.BadFormatError("hits dtype should be numpy.int32")
-        if self.hits.size != self.err_output.size:
-            raise error.BadFormatError("Incorrectly shaped hits encountered")
 
         dtype = self.err_output.mem.dtype
 
@@ -129,6 +115,14 @@ class GDDeconv(nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
+
+        padding = Deconv.compute_padding(
+            sx, sy, self.kx, self.ky, self.sliding)
+        if self.padding is None:
+            self.padding = padding
+        elif self.padding != padding:
+            raise error.BadFormatError("Expected padding %s got %s" %
+                                       (str(padding), str(self.padding)))
 
         if (self.err_input.mem is None or
                 self.err_input.size != self.input.size):
@@ -156,7 +150,6 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.weights.initialize(device)
         self.input.initialize(device)
         self.err_output.initialize(device)
-        self.hits.initialize(device)
         self.err_input.initialize(device)
         if self.store_gradient:
             self.gradient_weights.initialize(device)
@@ -194,6 +187,9 @@ class GDDeconv(nn_units.GradientDescentBase):
                     self.err_output.mem.size // self.err_output.mem.shape[0]),
                 dtype=dtype)
 
+            self.krn_err_output_ = self.get_kernel("err_output_update")
+            self.krn_err_output_.set_arg(0, self.err_output.devmem)
+
             self.krn_err_input_ = self.get_kernel("feed_layer")
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.weights.devmem,
@@ -204,10 +200,6 @@ class GDDeconv(nn_units.GradientDescentBase):
                                        self.input.devmem,
                                        self.weights.devmem,
                                        self.gradient_weights.devmem)
-
-            self.krn_apply_hits_ = self.get_kernel("apply_hits")
-            self.krn_apply_hits_.set_args(self.err_output.devmem,
-                                          self.hits.devmem)
 
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(dtype)]
@@ -234,8 +226,7 @@ class GDDeconv(nn_units.GradientDescentBase):
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
-        self.hits.unmap()
-        self.execute_kernel([self.hits.size], None, self.krn_apply_hits_)
+        self.execute_kernel([self.err_output.size], None, self.krn_err_output_)
 
     def gpu_err_input_update(self):
         if not self.need_err_input:

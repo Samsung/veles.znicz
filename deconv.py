@@ -44,10 +44,28 @@ class Deconv(nn_units.Forward):
                    in the corresponding convolutional layer.
         kx: kernel width.
         ky: kernel height.
-        padding: tuple of virtual sample padding (left, top, right, bottom).
-        sliding: tuple of kernel sliding (by x-axis, by y-axis).
+        sliding: tuple of kernel sliding (by x-axis, by y-axis),
+                 kx, ky MUST be a multiple of sliding to avoid irregularities.
+        padding: tuple of virtual sample padding (left, top, right, bottom),
+                 will be computed automatically based on sliding.
         weights_transposed: assume weights matrix as a transposed one.
     """
+    @staticmethod
+    def compute_padding(sx, sy, kx, ky, sliding):
+        """Computes required padding.
+        """
+        if sliding[0] > (ky >> 1) or sliding[1] > (kx >> 1):
+            raise error.BadFormatError(
+                "sliding should not be greater than half of the kernel size")
+        if ky % sliding[0] != 0 or kx % sliding[1] != 0:
+            raise error.BadFormatError(
+                "Kernel size should be multiple of sliding")
+        return (kx - sliding[1], ky - sliding[0],
+                kx - sx % sliding[1] if sx % sliding[1] != 0
+                else kx - sliding[1],
+                ky - sy % sliding[0] if sy % sliding[0] != 0
+                else ky - sliding[0])
+
     def __init__(self, workflow, **kwargs):
         try:
             n_kernels = kwargs["n_kernels"]
@@ -55,33 +73,23 @@ class Deconv(nn_units.Forward):
             ky = kwargs["ky"]
         except KeyError:
             raise KeyError("n_kernels, kx and ky are required parameters")
-        padding = kwargs.get("padding", (0, 0, 0, 0))
-        sliding = kwargs.get("sliding", (1, 1))
-        kwargs["n_kernels"] = n_kernels
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["padding"] = padding
-        kwargs["sliding"] = sliding
         super(Deconv, self).__init__(workflow, **kwargs)
         self.n_kernels = n_kernels
         self.kx = kx
         self.ky = ky
-        self.padding = tuple(padding)
-        self.sliding = tuple(sliding)
+        self.padding = kwargs.get("padding")
+        self.sliding = tuple(kwargs.get("sliding", (1, 1)))
         self.bias = None
         self.get_output_shape_from = None
         self.exports.extend(("kx", "ky", "n_kernels", "padding", "sliding"))
         self.demand("input", "weights", "get_output_shape_from")
         self.global_size = None
         self.local_size = None
-        self.hits = formats.Vector()
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
         self.cl_sources_["deconv.cl"] = {}
         self.krn_clear_output_ = None
-        self.krn_clear_hits_ = None
-        self.krn_apply_hits_ = None
 
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
@@ -114,6 +122,15 @@ class Deconv(nn_units.Forward):
         if output_shape[0] != self.input.shape[0]:
             raise error.BadFormatError(
                 "get_output_shape_from.shape[0] != input.shape[0]")
+
+        padding = Deconv.compute_padding(
+            output_shape[2], output_shape[1], self.kx, self.ky, self.sliding)
+        if self.padding is None:
+            self.padding = padding
+        elif self.padding != padding:
+            raise error.BadFormatError("Expected padding %s got %s" %
+                                       (str(padding), str(self.padding)))
+
         if (self.output.mem is None or
                 self.output.size != int(numpy.prod(output_shape))):
             self.output.reset()
@@ -132,14 +149,9 @@ class Deconv(nn_units.Forward):
         else:
             self.output.mem.shape = output_shape
 
-        if self.hits.mem is None or self.hits.size != self.output.size:
-            self.hits.reset()
-            self.hits.mem = numpy.zeros(self.output.shape, dtype=numpy.int32)
-
         self.input.initialize(device)
         self.weights.initialize(device)
         self.output.initialize(device)
-        self.hits.initialize(device)
 
         if device is None:
             return
@@ -168,17 +180,10 @@ class Deconv(nn_units.Forward):
                 self.kx, self.ky, self.n_kernels), dtype=dtype)
 
         self.assign_kernel("feed_layer")
-        self.set_args(self.input, self.weights, self.output, self.hits)
+        self.set_args(self.input, self.weights, self.output)
 
         self.krn_clear_output_ = self.get_kernel("clear_output")
         self.krn_clear_output_.set_arg(0, self.output.devmem)
-
-        self.krn_clear_hits_ = self.get_kernel("clear_hits")
-        self.krn_clear_hits_.set_arg(0, self.hits.devmem)
-
-        self.krn_apply_hits_ = self.get_kernel("apply_hits")
-        self.krn_apply_hits_.set_arg(0, self.output.devmem)
-        self.krn_apply_hits_.set_arg(1, self.hits.devmem)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(dtype)]
@@ -194,14 +199,9 @@ class Deconv(nn_units.Forward):
         self.output.unmap()
         self.input.unmap()
         self.weights.unmap()
-        self.hits.unmap()
         self.execute_kernel([self.output.size], None,
                             self.krn_clear_output_)
-        self.execute_kernel([self.hits.size], None,
-                            self.krn_clear_hits_)
         self.execute_kernel(self.global_size, self.local_size)
-        self.execute_kernel([self.hits.size], None,
-                            self.krn_apply_hits_)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")

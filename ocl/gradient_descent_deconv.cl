@@ -20,6 +20,10 @@
 #error "APPLY_GRADIENT should be defined"
 #endif
 
+#if (KX % SLIDE_X != 0) || (KY % SLIDE_Y != 0)
+#error "Incorrect SLIDE"
+#endif
+
 #include "conv.cl"
 
 #if (STORE_GRADIENT > 0) || (APPLY_GRADIENT > 0)
@@ -98,9 +102,6 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 #endif
 
 __kernel
-void apply_hits(__global dtype    /* IN, OUT */    *err_output,
-                __global const int     /* IN */    *hits) {
-  int idx = get_global_id(0);
-  int n = hits[idx];
-  err_output[idx] /= n ? n : 1;
+void err_output_update(__global dtype /* IN, OUT */ *err_output) {
+  err_output[get_global_id(0)] /= (KX / SLIDE_X) * (KY / SLIDE_Y);
 }

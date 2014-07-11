@@ -33,6 +33,36 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         if not len(self.this_dir):
             self.this_dir = "."
 
+    def test_compute_padding(self):
+        sx = 128
+        for kx, slide in ((2, 1), (3, 1), (4, 1), (4, 2), (5, 1),
+                          (6, 1), (6, 2), (6, 3), (7, 1),
+                          (8, 1), (8, 2), (8, 4),
+                          (9, 1), (9, 3),
+                          (10, 1), (10, 2), (10, 5), (11, 1),
+                          (12, 1), (12, 2), (12, 3), (12, 4), (12, 6),
+                          (13, 1), (14, 1), (14, 2), (14, 7),
+                          (15, 1), (15, 3), (15, 5),
+                          (16, 1), (16, 2), (16, 4), (16, 8),
+                          (17, 1),
+                          (18, 1), (18, 2), (18, 3), (18, 6), (18, 9),
+                          (19, 1),
+                          (20, 1), (20, 2), (20, 4), (20, 5), (20, 10)):
+            self._test_compute_padding(sx, sx, kx, kx, (slide, slide))
+
+    def _test_compute_padding(self, sx, sy, kx, ky, sliding):
+        padding = deconv.Deconv.compute_padding(sx, sy, kx, ky, sliding)
+        a = numpy.zeros([sy + padding[1] + padding[3],
+                         sx + padding[0] + padding[2]], dtype=numpy.int32)
+        b = numpy.ones([ky, kx], dtype=numpy.int32)
+        for y in range(0, a.shape[0] - ky + 1, sliding[1]):
+            for x in range(0, a.shape[1] - kx + 1, sliding[0]):
+                a[y:y + ky, x:x + kx] += b
+        c = a[padding[1]:sy - padding[3], padding[0]:sx - padding[2]]
+        self.assertEqual(c.min(), c.max(), "Unequal distribution")
+        self.assertEqual(c.min(), (kx // sliding[1]) * (ky // sliding[0]),
+                         "Wrong value")
+
     def test_gd_deconv(self):
         logging.info("GDDeconv err_input overflow test...")
         _, first, forward = self._test_deconv(self.device, None)
@@ -55,7 +85,6 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         gd.weights = first.weights
         gd.input = forward.input
         gd.err_output = formats.Vector(err_output)
-        gd.hits = forward.hits
         gd.initialize(self.device)
         self.assertEqual(gd.err_input.shape, first.output.shape)
         gd.run()
@@ -88,10 +117,10 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         if forward is None:
             batch_size = 3
             workflow = DummyWorkflow()
-            forward = conv.Conv(workflow, n_kernels=9, kx=7, ky=7,
-                                padding=(3, 3, 3, 3), sliding=(3, 3),
+            forward = conv.Conv(workflow, n_kernels=9, kx=6, ky=6,
+                                padding=(4, 4, 4, 4), sliding=(2, 2),
                                 include_bias=False)
-            inp = formats.Vector(numpy.zeros([batch_size * 2, 32, 32, 4],
+            inp = formats.Vector(numpy.zeros([batch_size * 2, 18, 18, 4],
                                              dtype=dtype))
             inp.initialize(device)
             inp.map_write()
