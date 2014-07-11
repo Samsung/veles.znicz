@@ -36,7 +36,7 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
                   __global const dtype    /* IN */    *weights,
                   __global dtype         /* OUT */    *err_h) {
 
-  #define A_WIDTH (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
+  #define A_WIDTH (BATCH * KERNELS_PER_SAMPLE)
   #define B_WIDTH ELEMENTS_PER_KERNEL
   #define AB_COMMON N_KERNELS
 
@@ -163,7 +163,7 @@ void bias_update(__global const dtype    /* IN */    *err_y,
 
   #define A err_y
   #define A_WIDTH N_KERNELS
-  #define A_HEIGHT (BATCH * ((SX_FULL - KX) / SLIDE_X + 1) * ((SY_FULL - KY) / SLIDE_Y + 1))
+  #define A_HEIGHT (BATCH * KERNELS_PER_SAMPLE)
   #define A_COL
 
   #include "matrix_reduce.cl"
