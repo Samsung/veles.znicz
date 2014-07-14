@@ -145,6 +145,98 @@ class BackwardTanh(ActivationBackward):
 
 
 @implementer(IOpenCLUnit)
+class ForwardMul(ActivationForward):
+    """Forward pass for y = k * x.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(ForwardMul, self).__init__(workflow, **kwargs)
+        self._factor = float(kwargs.get("factor", 1.0))
+
+    def init_unpickled(self):
+        super(ForwardMul, self).init_unpickled()
+        self._cl_const = None
+
+    @property
+    def factor(self):
+        return self.factor
+
+    @factor.setter
+    def factor(self, value):
+        self._factor = float(value)
+        if self._kernel_ is None:
+            return
+        if self._cl_const is None:
+            self._cl_const = numpy.ones(1, dtype=self.output.dtype)
+        self._cl_const[0] = self._factor
+        self.set_arg(2, self._cl_const)
+
+    def initialize(self, device, **kwargs):
+        super(ForwardMul, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("forward_mul")
+        self.set_args()
+        self.factor = self._factor
+
+    def cpu_run(self):
+        inp = self.input.mem
+        out = self.output.mem
+        if formats.eq_addr(inp, out):
+            self.output.map_write()
+        else:
+            self.output.map_invalidate()
+            self.input.map_read()
+            numpy.copyto(out, inp)
+        out *= self.factor
+
+
+@implementer(IOpenCLUnit)
+class BackwardMul(ActivationBackward):
+    """Backward pass for y = k * x.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(BackwardMul, self).__init__(workflow, **kwargs)
+        self._factor = float(kwargs.get("factor", 1.0))
+
+    def init_unpickled(self):
+        super(BackwardMul, self).init_unpickled()
+        self._cl_const = None
+
+    @property
+    def factor(self):
+        return self.factor
+
+    @factor.setter
+    def factor(self, value):
+        self._factor = float(value)
+        if self._kernel_ is None:
+            return
+        if self._cl_const is None:
+            self._cl_const = numpy.ones(1, dtype=self.output.dtype)
+        self._cl_const[0] = self._factor
+        self.set_arg(3, self._cl_const)
+
+    def initialize(self, device, **kwargs):
+        super(BackwardMul, self).initialize(device=device, **kwargs)
+        if device is None:
+            return
+        self.assign_kernel("backward_mul")
+        self.set_args()
+        self.factor = self._factor
+
+    def cpu_run(self):
+        err_input = self.err_input.mem
+        err_output = self.err_output.mem
+        if formats.eq_addr(err_input, err_output):
+            self.err_input.map_write()
+        else:
+            self.err_input.map_invalidate()
+            self.err_output.map_read()
+        self.output.map_read()
+        err_input[:] = err_output[:] * self.factor
+
+
+@implementer(IOpenCLUnit)
 class ForwardRELU(ActivationForward):
     """Forward pass for y = log(1 + exp(x)).
     """

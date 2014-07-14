@@ -19,6 +19,24 @@ __kernel void backward_tanh(__global const dtype    /* IN */    *input,
 }
 
 
+__kernel void forward_mul(__global const dtype    /* IN */    *input,
+                          __global dtype         /* OUT */    *output,
+                          const dtype             /* IN */    factor) {
+  int idx = get_global_id(0);
+  output[idx] = input[idx] * factor;
+}
+
+
+__kernel void backward_mul(__global const dtype    /* IN */    *input,
+                           __global const dtype    /* IN */    *output,
+                           __global const dtype    /* IN */    *err_output,
+                           __global dtype         /* OUT */    *err_input,
+                           const dtype             /* IN */    factor) {
+  int idx = get_global_id(0);
+  err_input[idx] = err_output[idx] * factor;
+}
+
+
 __kernel void forward_relu(__global const dtype    /* IN */    *input,
                            __global dtype         /* OUT */    *output) {
   int idx = get_global_id(0);
