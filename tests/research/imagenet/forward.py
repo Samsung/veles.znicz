@@ -26,7 +26,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
     Imagenet loader for first processing stage.
     """
 
-    def __init__(self, workflow, images_json, **kwargs):
+    def __init__(self, workflow, images_json, labels_txt, **kwargs):
         """
         kwargs:
             angle_step        the step with which rotate images
@@ -42,6 +42,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         """
         super(ForwardStage1Loader, self).__init__(workflow, **kwargs)
         self.images_json = images_json
+        self.labels_txt = labels_txt
         self.angle_step = kwargs.get('angle_step', 2 * numpy.pi / 36)
         self.scale_steps = kwargs.get('scale_steps', 10)
         self.max_batch_size = kwargs.get('max_batch_size', 4000)
@@ -55,10 +56,13 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.no_bbox_mapping = defaultdict(list)
         self.aperture = 0
         self.substage = 1  # 1 or 2
+        self.max_bboxes = 128
         self.minibatch_data = formats.Vector()
         self.minibatch_size = 0
-        self.batch_bboxes = formats.Vector()
+        self.minibatch_bboxes = formats.Vector()
+        self.minibatch_labels = formats.Vector()
         self._state = ()
+        self._current_image = ""
         self._original_image_data = None
         self._image_iter = None
         self._min_scale = 0
@@ -81,26 +85,28 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                     self.images.update(json.load(fp))
             except:
                 self.exception("Failed to load %s", images_json)
-            for image_name, meta in sorted(self.images[set_type].items()):
-                bboxes = meta["bbxs"]
-                for bbox in bboxes:
-                    label = bbox["label"]
-                    self.bbox_mapping[label].append(image_name)
-                if len(bboxes) == 0:
-                    self.no_bbox_mapping[label].append(image_name)
+        with open(self.labels_txt, "r") as txt:
+            values = txt.read().split()
+            self._labels_mapping = dict(values[1::2], map(int, values[::2]))
         self.aperture = 256  # FIXME: get it from self.entry
         channels = 4  # FIXME: get it from self.entry
         self.minibatch_data.mem = numpy.zeros(
             (self.max_batch_size, self.aperture ** 2 * channels),
             dtype=self.entry.weights.mem.dtype)
-        self.minibatch_bboxes.mem = numpy.zeros(4 * self.max_batch_size,
-                                                dtype=numpy.int32)
+        self.minibatch_bboxes.mem = numpy.zeros(
+            (self.max_batch_size, self.max_bboxes, 4), dtype=numpy.uint16)
+        self.minibatch_labels.mem = numpy.zeros(
+            (self.max_batch_size, self.max_bboxes), dtype=numpy.int32)
+
+        self._image_iter = iter(self.images.keys())
+        self._set_next_state()
 
         if device is None:
             return
 
-        self.batch_data.initialize(device)
-        self.batch_bboxes.initialize(device)
+        self.minibatch_data.initialize(device)
+        self.minibatch_bboxes.initialize(device)
+        self.minibatch_labels.initialize(device)
 
     def _calculate_scale_min_max(self, shape):
         maxsize = numpy.max(shape[:2])
@@ -118,14 +124,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         scale_step = (max_scale - min_scale) / scale_steps
         for scale in numpy.arange(min_scale, max_scale + eps, scale_step):
             for angle in numpy.arange(0, 2 * numpy.pi, angle_step):
-                rotscmat = scale * numpy.array(
-                    [[numpy.cos(angle), -numpy.sin(angle)],
-                     [numpy.sin(angle), numpy.cos(angle)]])
-                bbox = numpy.array([[0, 0], [shape[1], 0],
-                                    [shape[1], shape[0]], [0, shape[0]]])
-                bbox = bbox.dot(rotscmat)
-                for dim in (0, 1):
-                    bbox[:, dim] -= numpy.min(bbox[:, dim])
+                bbox = self._transform_shape(shape, angle, scale)
                 bbox_width, bbox_height = [
                     numpy.max((numpy.max(bbox[:, i]), self.aperture))
                     for i in (0, 1)]
@@ -136,6 +135,21 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                         if self._check_aperture_payload(x, y, bbox):
                             res += 1
         return res
+
+    def _transform_shape(self, shape, angle, scale):
+        bbox = numpy.array([[0, 0], [shape[1], 0],
+                            [shape[1], shape[0]], [0, shape[0]]])
+        bbox = self._transform_bbox(bbox, angle, scale)
+        dxdy = [numpy.min(bbox[:, dim]) for dim in (0, 1)]
+        for dim in (0, 1):
+            bbox[:, dim] -= dxdy[dim]
+        return dxdy
+
+    def _transform_bbox(self, bbox, angle, scale):
+        matrix = scale * numpy.array(
+            [[numpy.cos(angle), -numpy.sin(angle)],
+             [numpy.sin(angle), numpy.cos(angle)]])
+        return bbox.dot(matrix)
 
     def _check_aperture_payload(self, x, y, bbox):
         return self._intersects((x, y), bbox) and \
@@ -183,22 +197,25 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         return inside / overall
 
     def _set_next_state(self):
-        transformed_image_data, angle, scale, bbox, x, y = self._state
-        x, y = self._set_next_x_y(transformed_image_data, bbox, x, y)
-        if x * y > 0:
-            self._state = (transformed_image_data, angle, scale, bbox, x, y)
-            return
-        scale += self._real_scale_step
-        if scale > self._max_scale:
-            scale = self._min_scale
-            angle += self._real_angle_step
+        try:
+            image_data, angle, scale, bbox, x, y = self._state
+            x, y = self._set_next_x_y(image_data, bbox, x, y)
+            if x * y > 0:
+                self._state = (image_data, angle, scale, bbox, x, y)
+                return
+            scale += self._real_scale_step
+            if scale > self._max_scale:
+                scale = self._min_scale
+                angle += self._real_angle_step
+        except ValueError:
+            angle = 2 * numpy.pi
         if angle >= 2 * numpy.pi:
             angle = 0
             self._load_next_image()
             scale = self._min_scale
-        bbox = self._transform_image(angle, scale)
-        self._set_next_x_y(transformed_image_data, bbox, x, y)
-        self._state = (transformed_image_data, angle, scale, bbox, x, y)
+        bbox, image_data = self._transform_image(angle, scale)
+        self._set_next_x_y(image_data, bbox, x, y)
+        self._state = (image_data, angle, scale, bbox, x, y)
 
     def _set_next_x_y(self, transformed_image_data, bbox, x, y):
         while x + self.aperture <= transformed_image_data.shape[1] and \
@@ -216,10 +233,12 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         return x, y
 
     def _load_next_image(self):
-        next_image = self._image_iter.__next__()
-        file_name = self.images[next_image]["path"]
+        self._current_image = next(self._image_iter)
+        file_name = self.images[self._current_image]["path"]
         self._original_image_data = self.decode_image(file_name)
         self._set_number_of_variants()
+        self._min_scale, self._max_scale = self._calculate_scale_min_max(
+            self._original_image_data.shape)
 
     def _set_number_of_variants(self):
         angle_step = self.angle_step
@@ -230,31 +249,93 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             nvars = self._calculate_number_of_variants(
                 self._original_image_data.shape, angle_step, scale_steps,
                 overlap_factor)
+            if nvars <= self.max_batch_size:
+                break
             if angle_step > numpy.pi / 6:
                 angle_step = numpy.pi / 6
-                continue
-            if angle_step > numpy.pi / 4:
-                angle_step = numpy.pi / 4
                 continue
             if scale_steps > 10:
                 scale_steps = 10
                 continue
-            if scale_steps > 5:
-                scale_steps = 5
-                continue
             if overlap_factor < 0.25:
                 overlap_factor = 0.25
+                continue
+            self.warning("Applied MEDIUM quality for %s", self._current_image)
+            if angle_step > numpy.pi / 4:
+                angle_step = numpy.pi / 4
+                continue
+            if scale_steps > 5:
+                scale_steps = 5
                 continue
             if overlap_factor < 0.5:
                 overlap_factor = 0.5
                 continue
-            raise NotImplementedError("No idea what to do in this situation")
+            self.warning("Applied LOW quality for %s", self._current_image)
+            if angle_step > numpy.pi / 2:
+                angle_step = numpy.pi / 2
+                continue
+            if scale_steps > 2:
+                scale_steps = 2
+                continue
+            self.error("Debug this image: %s", self._current_image)
+            raise NotImplementedError()
+        self.info("Will process %d transformations of %s",
+                  nvars, self._current_image)
+        return nvars
 
     def _transform_image(self, angle, scale):
         pass
 
+    def _get_bbox_from_json(self, bbox):
+        angle, x, y, width, height = [
+            float(bbox[l]) for l in ('angle', 'x', 'y', 'width', 'height')]
+        hwidth = width / 2
+        hheight = height / 2
+        bbox = numpy.array(((x - hwidth, y - hheight),
+                            (x + hwidth, y - hheight),
+                            (x + hwidth, y + hheight),
+                            (x - hwidth, y + hheight)))
+        return self._transform_bbox(bbox, angle, 1.0)
+
+    def _get_label_from_json(self, label):
+        return self._labels_mapping[label]
+
+    def _create_bbox(self, transformed_bbox):
+        return numpy.array(
+            [numpy.min(transformed_bbox[:, i]) for i in (0, 1)] +
+            [numpy.max(transformed_bbox[:, i]) for i in (0, 1)],
+            dtype=numpy.uint16)
+
     def cpu_run(self):
-        pass
+        self.ocl_run()
 
     def ocl_run(self):
-        transformed_image_data, angle, scale, bbox, x, y = self._state
+        self.minibatch_data.map_invalidate()
+        self.minibatch_bboxes.map_invalidate()
+
+        self.minibatch_size = self.max_minibatch_size
+        for index in range(self.max_minibatch_size):
+            transformed_image_data, angle, scale, _, _, _ = self._state
+            self.minibatch_data.mem[index] = transformed_image_data
+            if self.substage == 1:
+                dxdy = self._transform_shape(self._original_image_data.shape,
+                                             angle, scale)
+                meta = self.images[self._current_image]
+                for bbindex, bbox in enumerate(meta["bbxs"]):
+                    bbox = self._get_bbox_from_json(bbox)
+                    bbox = self._transform_bbox(bbox, angle, scale)
+                    for i in (0, 1):
+                        bbox[:, i] -= dxdy[i]
+                    self.minibatch_bboxes.mem[index, bbindex] = \
+                        self._create_bbox(bbox)
+                    self.minibatch_labels.mem[index, bbindex] = \
+                        self._get_label_from_json(bbox["label"])
+            else:
+                self.minibatch_labels.mem[index, 0] = \
+                    self._get_label_from_json(
+                        self.images[self._current_image]["label"])
+            try:
+                self._set_next_state()
+            except StopIteration:
+                self.minibatch_size = index + 1
+                break
