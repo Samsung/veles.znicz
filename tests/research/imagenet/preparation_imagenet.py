@@ -446,11 +446,12 @@ class Main(Processor):
                     elif set_type == "train":
                         train_count += 1
                         if zero_train:
-                            mean.tofile(self.f_samples)
-                            original_labels.append(0)
-                            train_count += 1
-                            sample_count += 1
-                            labels_count += 1
+                            for i in range(0, 20):
+                                mean.tofile(self.f_samples)
+                                original_labels.append(0)
+                                train_count += 1
+                                sample_count += 1
+                                labels_count += 1
                             self.count_classes += 1
                             zero_train = False
                     else:
@@ -469,9 +470,9 @@ class Main(Processor):
                         if label == word_label:
                             original_labels.append(int_label)
                             labels_count += 1
-                    self.count_samples = [test_count, validation_count,
-                                          train_count]
                     i += 1
+                self.count_samples = [test_count, validation_count,
+                                      train_count]
             self.info("Saving images to %s" % original_data_dir)
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
