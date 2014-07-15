@@ -101,7 +101,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.aperture = 256  # FIXME: get it from self.entry
         channels = 4  # FIXME: get it from self.entry
         self.minibatch_data.mem = numpy.zeros(
-            (self.max_batch_size, self.aperture ** 2 * channels),
+            (self.max_minibatch_size, self.aperture ** 2 * channels),
             dtype=self.entry.weights.mem.dtype)
         self.minibatch_bboxes.mem = numpy.zeros(
             (self.max_batch_size, self.max_bboxes, 4), dtype=numpy.uint16)
@@ -229,12 +229,14 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self._state = (image_data, angle, scale, bbox, x, y)
 
     def _set_next_x_y(self, transformed_image_data, bbox, x, y):
+        x += self.aperture
         while x + self.aperture <= transformed_image_data.shape[1] and \
                 not self._check_aperture_payload(x, y, bbox):
             x += self.aperture * self._real_overlap_factor
         if x + self.aperture <= transformed_image_data.shape[1]:
             return x, y
         x = 0
+        y += self.aperture
         while y + self.aperture <= transformed_image_data.shape[0] and \
                 not self._check_aperture_payload(x, y, bbox):
             y += self.aperture * self._real_overlap_factor
@@ -247,9 +249,12 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self._current_image = next(self._image_iter)
         file_name = self.images[self._current_image]["path"]
         self._original_image_data = self.decode_image(file_name)
-        self._set_number_of_variants()
+        _, self._real_angle_step, scale_steps, self._real_overlap_factor = \
+            self._set_number_of_variants()
         self._min_scale, self._max_scale = self._calculate_scale_min_max(
             self._original_image_data.shape)
+        self._real_scale_step = (self._max_scale - self._min_scale) / \
+            scale_steps
 
     def _set_number_of_variants(self):
         angle_step = self.angle_step
@@ -292,7 +297,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             raise NotImplementedError()
         self.info("Will process %d transformations of %s",
                   nvars, self._current_image)
-        return nvars
+        return nvars, angle_step, scale_steps, overlap_factor
 
     def _transform_image(self, angle, scale):
         """Transform original image by rotating and scaling, and also adding
@@ -441,15 +446,15 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                 _, dxdy = self._transform_shape(
                     self._original_image_data.shape, angle, scale)
                 meta = self.images[self._current_image]
-                for bbindex, bbox in enumerate(meta["bbxs"]):
-                    bbox = self._get_bbox_from_json(bbox)
+                for bbindex, jsbbox in enumerate(meta["bbxs"]):
+                    bbox = self._get_bbox_from_json(jsbbox)
                     bbox = self._transform_bbox(bbox, angle, scale)
                     for i in (0, 1):
                         bbox[:, i] -= dxdy[i]
                     self.minibatch_bboxes.mem[index, bbindex] = \
                         self._create_bbox(bbox)
                     self.minibatch_labels.mem[index, bbindex] = \
-                        self._get_label_from_json(bbox["label"])
+                        self._get_label_from_json(jsbbox["label"])
             else:
                 self.minibatch_labels.mem[index, 0] = \
                     self._get_label_from_json(
