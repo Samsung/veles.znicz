@@ -29,7 +29,8 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
     Imagenet loader for first processing stage.
     """
 
-    def __init__(self, workflow, images_json, labels_txt, **kwargs):
+    def __init__(self, workflow, images_json, labels_txt, matrices_pickle,
+                 **kwargs):
         """
         kwargs:
             angle_step        the step with which rotate images
@@ -46,6 +47,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         super(ForwardStage1Loader, self).__init__(workflow, **kwargs)
         self.images_json = images_json
         self.labels_txt = labels_txt
+        self.matrices_filename = matrices_pickle
         self.angle_step = kwargs.get('angle_step', 2 * numpy.pi / 36)
         self.scale_steps = kwargs.get('scale_steps', 10)
         self.max_batch_size = kwargs.get('max_batch_size', 4000)
@@ -64,6 +66,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.minibatch_size = 0
         self.minibatch_bboxes = formats.Vector()
         self.minibatch_labels = formats.Vector()
+        self._mean = None
         self._state = ()
         self._current_image = ""
         self._original_image_data = None
@@ -92,6 +95,8 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         with open(self.labels_txt, "r") as txt:
             values = txt.read().split()
             self._labels_mapping = dict(values[1::2], map(int, values[::2]))
+        with open(self.matrices_filename, "rb") as fin:
+            self._mean, _ = pickle.load(fin)
         self.aperture = 256  # FIXME: get it from self.entry
         channels = 4  # FIXME: get it from self.entry
         self.minibatch_data.mem = numpy.zeros(
@@ -409,8 +414,12 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             return
         self.minibatch_size = self.max_minibatch_size
         for index in range(self.max_minibatch_size):
-            transformed_image_data, angle, scale, _, _, _ = self._state
-            self.minibatch_data.mem[index] = transformed_image_data
+            transformed_image_data, angle, scale, _, x, y = self._state
+            sample = transformed_image_data[
+                y:(y + self.aperture), x:(x + self.aperture), :]
+            sample += self._mean * (
+                255 - sample[:, :, -2 if self.add_sobel else -1])
+            self.minibatch_data.mem[index] = sample
             if self.substage == 1:
                 _, dxdy = self._transform_shape(
                     self._original_image_data.shape, angle, scale)

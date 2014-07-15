@@ -14,7 +14,7 @@ from veles.znicz.tests.research.imagenet.forward import ForwardStage1Loader
 
 class TestForward1(unittest.TestCase):
     def setUp(self):
-        self.loader = ForwardStage1Loader(DummyWorkflow(), "", "")
+        self.loader = ForwardStage1Loader(DummyWorkflow(), "", "", "")
         self.loader.aperture = 256
 
     def test_intersects(self):
@@ -53,12 +53,9 @@ class TestForward1(unittest.TestCase):
         self.assertLess(area, 0.55)
 
     def test_calculate_number_of_variants(self):
-        """
         nvars = self.loader._calculate_number_of_variants(
             (640, 480), 2 * numpy.pi / 16, 10, 0.5)
         self.assertEqual(14130, nvars)
-        """
-        pass
 
     def test_transform_image(self):
         img = numpy.zeros((100, 200, 3), dtype=numpy.uint8)
