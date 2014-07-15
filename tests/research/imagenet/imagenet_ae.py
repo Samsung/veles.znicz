@@ -24,23 +24,35 @@ import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.nn_plotting_units as nn_plotting_units
+import veles.znicz.pooling as pooling
+import veles.znicz.depooling as depooling
+import veles.znicz.activation as activation
+import veles.znicz.all2all as all2all
+import veles.znicz.gd as gd
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.mean_disp_normalizer import MeanDispNormalizer
+from veles.units import IUnit, Unit
+from veles.distributable import TriviallyDistributable
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
 root.model = "imagenet"
 
-LR = 0.000001
-LRB = LR
+LR = 0.00001
 WD = 0.004
-WDB = WD
 GM = 0.9
-GMB = GM
+L1_VS_L2 = 0.0
+
+LRAA = 0.01
+LRBAA = LRAA
+WDAA = 0.004
+WDBAA = WDAA
+GMAA = 0.9
+GMBAA = GM
 
 root.defaults = {
-    "decision": {"fail_iterations": 100000,
+    "decision": {"fail_iterations": 25,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "snapshotter": {"prefix": "imagenet_ae"},
@@ -48,16 +60,54 @@ root.defaults = {
                "series": "img",
                "minibatch_size": 13},
     "imagenet": {"layers":
-                 [{"type": "conv", "n_kernels": 48,
-                   "kx": 12, "ky": 12, "sliding": (4, 4),
+                 [{"type": "ae_begin"},  # 256
+                  {"type": "conv", "n_kernels": 16,
+                   "kx": 8, "ky": 8, "sliding": (1, 1),
                    "learning_rate": LR,
                    "weights_decay": WD,
-                   "gradient_moment": GM},
+                   "gradient_moment": GM,
+                   "l1_vs_l2": L1_VS_L2},
+                  {"type": "stochastic_abs_pooling",
+                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "ae_end"},
+
+                  {"type": "activation_mul"},
+                  {"type": "ae_begin"},  # 128
+                  {"type": "conv", "n_kernels": 16,
+                   "kx": 8, "ky": 8, "sliding": (1, 1),
+                   "learning_rate": LR,
+                   "weights_decay": WD,
+                   "gradient_moment": GM,
+                   "l1_vs_l2": L1_VS_L2},
+                  {"type": "stochastic_abs_pooling",
+                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "ae_end"},
+
+                  {"type": "activation_mul"},
+                  {"type": "ae_begin"},  # 64
+                  {"type": "conv", "n_kernels": 16,
+                   "kx": 8, "ky": 8, "sliding": (1, 1),
+                   "learning_rate": LR,
+                   "weights_decay": WD,
+                   "gradient_moment": GM,
+                   "l1_vs_l2": L1_VS_L2},
+                  {"type": "stochastic_abs_pooling",
+                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                  {"type": "ae_end"},
+
+                  {"type": "activation_mul"},
+                  {"type": "all2all_tanh", "output_shape": 100,
+                   "learning_rate": LRAA, "learning_rate_bias": LRBAA,
+                   "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+                   "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
+                   "weights_stddev": 0.001, "bias_stddev": 0.001,
+                   "l1_vs_l2": L1_VS_L2},
 
                   {"type": "softmax", "output_shape": 5,
-                   "learning_rate": LR, "learning_rate_bias": LRB,
-                   "weights_decay": WD, "weights_decay_bias": WDB,
-                   "gradient_moment": GM, "gradient_moment_bias": GMB}]}}
+                   "learning_rate": LRAA, "learning_rate_bias": LRBAA,
+                   "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+                   "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
+                   "l1_vs_l2": L1_VS_L2}]}}
 
 CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.loader.year)
 root.loader.names_labels_filename = os.path.join(
@@ -72,6 +122,83 @@ root.loader.samples_filename = os.path.join(
 root.loader.matrixes_filename = os.path.join(
     CACHED_DATA_FNME, "4/matrixes_%s_%s_0.pickle" %
     (root.loader.year, root.loader.series))
+
+
+@implementer(IUnit)
+class NNRollback(Unit, TriviallyDistributable):
+    def __init__(self, workflow, **kwargs):
+        super(NNRollback, self).__init__(workflow, **kwargs)
+        self.lr_plus = kwargs.get("lr_plus", 1.1)
+        self.lr_minus = kwargs.get("lr_minus", 0.55)
+        self.plus_steps = kwargs.get("plus_steps", 1)
+        self.minus_steps = kwargs.get("minus_steps", 4)
+        self._plus_steps = self.plus_steps
+        self._minus_steps = self.minus_steps
+        self.improved = None
+        self.demand("improved")
+        self._gds = {}
+
+    def initialize(self, **kwargs):
+        pass
+
+    def run(self):
+        if self.improved:
+            self._plus_steps += 1
+            if self._plus_steps < self.plus_steps:
+                return
+            self._plus_steps = 0
+            self._minus_steps = 0
+            for _gd, kv in self._gds.items():
+                k = kv["lr_plus"]
+                if k is None:
+                    k = self.lr_plus
+                _gd.learning_rate *= k
+                _gd.learning_rate_bias *= k
+                self.info("Increased lr of %s by %.2f, new_lr %.2e",
+                          repr(_gd), k, _gd.learning_rate)
+                if _gd.weights:
+                    _gd.weights.map_read()
+                    kv["weights"] = _gd.weights.mem.copy()
+                if _gd.bias:
+                    _gd.bias.map_read()
+                    kv["bias"] = _gd.bias.mem.copy()
+        else:
+            self._minus_steps += 1
+            if self._minus_steps < self.minus_steps:
+                return
+            self._minus_steps = 0
+            self._plus_steps = 0
+            for _gd, kv in self._gds.items():
+                k = kv["lr_minus"]
+                if k is None:
+                    k = self.lr_minus
+                _gd.learning_rate *= k
+                _gd.learning_rate_bias *= k
+                self.info("Decreased lr of %s by %.2f, new_lr %.2e",
+                          repr(_gd), k, _gd.learning_rate)
+                if _gd.weights:
+                    if kv["weights"] is None:
+                        self.warning("No rollback for weights")
+                    else:
+                        _gd.weights.map_invalidate()
+                        _gd.weights.mem[:] = kv["weights"]
+                if _gd.bias:
+                    if kv["bias"] is None:
+                        self.warning("No rollback for bias")
+                    else:
+                        _gd.bias.map_invalidate()
+                        _gd.bias.mem[:] = kv["bias"]
+
+    def reset(self):
+        self._gds.clear()
+
+    def add_gd(self, _gd, lr_plus=None, lr_minus=None):
+        kv = self._gds.get(_gd, {})
+        kv["lr_plus"] = lr_plus
+        kv["lr_minus"] = lr_minus
+        kv["weights"] = None
+        kv["bias"] = None
+        self._gds[_gd] = kv
 
 
 @implementer(loader.ILoader)
@@ -179,15 +306,63 @@ class Workflow(StandardWorkflow):
                     raise ValueError("Fixed attribute has changed: %s.%s" %
                                      (unit.__class__.__name__, attr))
 
+    def init_unpickled(self):
+        super(Workflow, self).init_unpickled()
+        self.forward_map = {
+            "conv": conv.Conv,
+            "stochastic_abs_pooling": pooling.StochasticAbsPooling,
+            "max_abs_pooling": pooling.MaxAbsPooling,
+            "stochastic_pooling": pooling.StochasticPooling,
+            "max_pooling": pooling.MaxPooling,
+            "activation_mul": activation.ForwardMul,
+            "all2all": all2all.All2All,
+            "all2all_tanh": all2all.All2AllTanh,
+            "activation_tanhlog": activation.ForwardTanhLog,
+            "softmax": all2all.All2AllSoftmax}
+        self.de_map = {
+            conv.Conv: deconv.Deconv,
+            pooling.StochasticAbsPooling: depooling.Depooling,
+            pooling.MaxAbsPooling: depooling.Depooling,
+            pooling.StochasticPooling: depooling.Depooling,
+            pooling.MaxPooling: depooling.Depooling}
+        self.gd_map = {
+            deconv.Deconv: gd_deconv.GDDeconv,
+            all2all.All2All: gd.GradientDescent,
+            all2all.All2AllTanh: gd.GDTanh,
+            activation.ForwardTanhLog: activation.BackwardTanhLog,
+            all2all.All2AllSoftmax: gd.GDSM}
+
     def __init__(self, workflow, **kwargs):
+        self.forward_map = {
+            "conv": conv.Conv,
+            "stochastic_abs_pooling": pooling.StochasticAbsPooling,
+            "max_abs_pooling": pooling.MaxAbsPooling,
+            "stochastic_pooling": pooling.StochasticPooling,
+            "max_pooling": pooling.MaxPooling,
+            "activation_mul": activation.ForwardMul,
+            "all2all": all2all.All2All,
+            "all2all_tanh": all2all.All2AllTanh,
+            "activation_tanhlog": activation.ForwardTanhLog,
+            "softmax": all2all.All2AllSoftmax}
+        self.de_map = {
+            conv.Conv: deconv.Deconv,
+            pooling.StochasticAbsPooling: depooling.Depooling,
+            pooling.MaxAbsPooling: depooling.Depooling,
+            pooling.StochasticPooling: depooling.Depooling,
+            pooling.MaxPooling: depooling.Depooling}
+        self.gd_map = {
+            deconv.Deconv: gd_deconv.GDDeconv,
+            all2all.All2All: gd.GD,
+            all2all.All2AllTanh: gd.GDTanh,
+            activation.ForwardTanhLog: activation.BackwardTanhLog,
+            all2all.All2AllSoftmax: gd.GDSM}
+        self.fixed = {}
+
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
         super(Workflow, self).__init__(workflow, **kwargs)
-
-        self.saver = None
-        self.fixed = {}
 
         self.repeater.link_from(self.start_point)
 
@@ -202,31 +377,73 @@ class Workflow(StandardWorkflow):
                                      "mean", "rdisp")
         self.meandispnorm.link_from(self.loader)
         self.fix(self.meandispnorm, "input", "output", "mean", "rdisp")
+        prev = self.meandispnorm
 
-        layer_conv = layers[0]
-        layer_conv["include_bias"] = False
-        layer_conv["padding"] = deconv.Deconv.compute_padding(
-            self.loader.sx, self.loader.sy, layer_conv["kx"], layer_conv["ky"],
-            layer_conv["sliding"])
-        unit = conv.Conv(self, **layer_conv)
-        unit.link_from(self.meandispnorm)
-        unit.link_attrs(self.meandispnorm, ("input", "output"))
-        self.conv = unit
-        self.fix(self.conv, "input", "output", "weights")
+        ae = []
+        ae_layers = []
+        last_conv = None
+        self.n_ae = 0
+        in_ae = False
+        for layer in layers:
+            if layer["type"] == "ae_begin":
+                self.info("Autoencoder block begin")
+                in_ae = True
+                continue
+            if layer["type"] == "ae_end":
+                self.info("Autoencoder block end")
+                self.info("One AE at a time, so skipping other layers")
+                self.n_ae += 1
+                break
+            if layer["type"][:4] == "conv":
+                if in_ae:
+                    layer["include_bias"] = False
+                layer["padding"] = deconv.Deconv.compute_padding(
+                    self.loader.sx, self.loader.sy,
+                    layer["kx"], layer["ky"], layer["sliding"])
+            Forward = self.forward_map[layer["type"]]
+            unit = Forward(self, **layer)
+            if in_ae:
+                ae.append(unit)
+                ae_layers.append(layer)
+            self.fwds.append(unit)
+            unit.link_from(prev)
+            unit.link_attrs(prev, ("input", "output"))
+            if isinstance(unit, activation.ForwardMul):
+                unit.link_attrs(prev, "output")
+            self.fix(unit, "input", "output", "weights")
+            prev = unit
+            if layer["type"][:4] == "conv" and in_ae:
+                last_conv = prev
+        else:
+            raise error.BadFormatError("No autoencoder layers found")
 
-        unit = deconv.Deconv(self, **layer_conv)
-        self.deconv = unit
-        unit.link_from(self.conv)
-        unit.link_attrs(self.conv, "weights", ("input", "output"),
-                        ("get_output_shape_from", "input"))
-        self.fix(self.deconv, "input", "weights", "output",
-                 "get_output_shape_from")
+        if last_conv is None:
+            raise error.BadFormatError("No convolutional layer found")
 
-        # Add evaluator for single minibatch
+        de = []
+        for i in range(len(ae) - 1, -1, -1):
+            De = self.de_map[ae[i].__class__]
+            unit = De(self, **ae_layers[i])
+            de.append(unit)
+            self.fwds.append(unit)
+            unit.link_from(prev)
+            for dst_src in (("weights", "weights"),
+                            ("get_output_shape_from", "input"),
+                            ("output_offset", "input_offset")):
+                if hasattr(unit, dst_src[0]):
+                    unit.link_attrs(ae[i], dst_src)
+            unit.link_attrs(prev, ("input", "output"))
+            self.fix(unit, "input", "weights", "output",
+                     "get_output_shape_from")
+            prev = unit
+
+        assert len(ae) == len(de)
+
+        # Add evaluator unit
         unit = evaluator.EvaluatorMSE(self)
         self.evaluator = unit
-        unit.link_from(self.deconv)
-        unit.link_attrs(self.deconv, "output")
+        unit.link_from(self.fwds[-1])
+        unit.link_attrs(self.fwds[-1], "output")
         unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
         unit.link_attrs(self.meandispnorm, ("target", "output"))
         self.fix(self.evaluator, "output", "target", "err_output", "metrics")
@@ -251,24 +468,65 @@ class Workflow(StandardWorkflow):
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
         unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
 
+        unit = NNRollback(self)
+        self.rollback = unit
+        unit.link_from(self.snapshotter)
+        unit.improved = self.decision.train_improved
+        unit.gate_block = self.decision.complete
+        unit.gate_skip = ~self.loader.epoch_ended
+
         self.end_point.link_from(self.snapshotter)
         self.end_point.gate_block = ~self.decision.complete
 
-        # Add gradient descent units
-        unit = gd_deconv.GDDeconv(self, **layer_conv)
-        self.gd_deconv = unit
+        # Add gradient descent unit
+        GD = self.gd_map[self.fwds[-1].__class__]
+        unit = GD(self, **ae_layers[0])
+        self.gds.append(unit)
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.deconv, "weights", "input")
+        unit.link_attrs(self.fwds[-1], "weights", "input")
         unit.gate_skip = self.decision.gd_skip
-        self.fix(self.gd_deconv, "err_output", "weights", "input", "err_input")
+        self.fix(unit, "err_output", "weights", "input", "err_input")
+        self.rollback.add_gd(unit)
 
-        self.gd_deconv.need_err_input = False
-        self.repeater.link_from(self.gd_deconv)
+        assert len(self.gds) == 1
+
+        self.gds[0].need_err_input = False
+        self.repeater.link_from(self.gds[0])
 
         self.loader.gate_block = self.decision.complete
 
+        prev = self.add_plotters(self.rollback, last_conv, ae[-1])
+
+        self.gds[-1].link_from(prev)
+        self.gds[-1].gate_block = self.decision.complete
+
+    def del_plotters(self):
+        if hasattr(self, "plt"):
+            for p in self.plt:
+                p.unlink_all()
+                self.del_ref(p)
+            del self.plt
+        if hasattr(self, "plt_mx"):
+            self.plt_mx.unlink_all()
+            self.del_ref(self.plt_mx)
+            del self.plt_mx
+        if hasattr(self, "plt_inp"):
+            self.plt_inp.unlink_all()
+            self.del_ref(self.plt_inp)
+            del self.plt_inp
+        if hasattr(self, "plt_out"):
+            self.plt_out.unlink_all()
+            self.del_ref(self.plt_out)
+            del self.plt_out
+        if hasattr(self, "plt_deconv"):
+            self.plt_deconv.unlink_all()
+            self.del_ref(self.plt_deconv)
+            del self.plt_deconv
+
+    def add_plotters(self, prev, last_conv, last_ae):
+        self.del_plotters()
+
         # MSE plotter
-        prev = self.snapshotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
         for i in range(1, 3):
@@ -284,29 +542,26 @@ class Workflow(StandardWorkflow):
 
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
-            self, name="Weights", limit=96)
-        self.plt_mx.link_attrs(self.conv, ("input", "weights"))
-        self.plt_mx.get_shape_from = [layer_conv["kx"], layer_conv["ky"], 4]
+            self, name="Conv Weights", limit=96)
+        self.plt_mx.link_attrs(last_conv, ("input", "weights"))
+        self.plt_mx.get_shape_from = [last_conv.kx, last_conv.ky,
+                                      last_conv.input]
         self.plt_mx.link_from(prev)
         self.plt_mx.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_mx
 
         # Input plotter
-        """
         self.plt_inp = nn_plotting_units.Weights2D(
             self, name="Conv Input", limit=20)
-        self.plt_inp.link_attrs(self.conv, "input")
-        self.plt_inp.get_shape_from = self.conv.input
+        self.plt_inp.link_attrs(last_conv, "input")
         self.plt_inp.link_from(prev)
         self.plt_inp.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_inp
-        """
 
         # Output plotter
         self.plt_out = nn_plotting_units.Weights2D(
-            self, name="Conv Output", limit=96)
-        self.plt_out.link_attrs(self.conv, ("input", "output"))
-        self.plt_out.get_shape_from = self.conv.output
+            self, name="Output", limit=96)
+        self.plt_out.link_attrs(last_ae, ("input", "output"))
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_out
@@ -314,18 +569,249 @@ class Workflow(StandardWorkflow):
         # Deconv result plotter
         self.plt_deconv = nn_plotting_units.Weights2D(
             self, name="Deconv result", limit=20)
-        self.plt_deconv.link_attrs(self.deconv, ("input", "output"))
-        self.plt_deconv.get_shape_from = self.deconv.output
+        self.plt_deconv.link_attrs(self.fwds[-1], ("input", "output"))
         self.plt_deconv.link_from(prev)
         self.plt_deconv.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_deconv
 
-        self.gd_deconv.link_from(prev)
-        self.gd_deconv.gate_block = self.decision.complete
+        return prev
 
     def initialize(self, device, **kwargs):
+        if self.fwds[0].weights.mem is not None:
+            self.info("Restoring from snapshot detected, "
+                      "will adjust the workflow")
+            self.adjust_workflow()
+            self.info("Workflow adjusted, will initialize now")
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
+
+    def adjust_workflow(self):
+        self.info("Will extend %d autoencoder layers", self.n_ae)
+
+        layers = root.imagenet.layers
+        n_ae = 0
+        i_layer = 0
+        i_fwd = 0
+        i_fwd_last = 0
+        for layer in layers:
+            i_layer += 1
+            if layer["type"] == "ae_begin":
+                continue
+            if layer["type"] == "ae_end":
+                i_fwd_last = i_fwd
+                n_ae += 1
+                if n_ae >= self.n_ae:
+                    break
+                continue
+            i_fwd += 1
+        else:
+            self.warning("Already extended up to maximum layers, "
+                         "will continue training as it is")
+            return
+
+        i_fwd = i_fwd_last
+        for i in range(i_fwd, len(self.fwds)):
+            self.fwds[i].unlink_all()
+            self.del_ref(self.fwds[i])
+        del self.fwds[i_fwd:]
+        last_fwd = self.fwds[-1]
+        prev = last_fwd
+
+        ae = []
+        ae_layers = []
+        last_conv = None
+        in_ae = False
+        self.fixed.clear()
+        for layer in layers[i_layer:]:
+            if layer["type"] == "ae_begin":
+                self.info("Autoencoder block begin")
+                in_ae = True
+                continue
+            if layer["type"] == "ae_end":
+                self.info("Autoencoder block end")
+                self.info("One AE at a time, so skipping other layers")
+                self.n_ae += 1
+                break
+            if layer["type"][:4] == "conv":
+                if in_ae:
+                    layer["include_bias"] = False
+                layer["padding"] = deconv.Deconv.compute_padding(
+                    last_fwd.output.shape[2], last_fwd.output.shape[1],
+                    layer["kx"], layer["ky"], layer["sliding"])
+                self.info("Computed padding for (kx, ky)=(%d, %d) "
+                          "sliding=%s is %s", layer["kx"], layer["ky"],
+                          str(layer["sliding"]), str(layer["padding"]))
+            Forward = self.forward_map[layer["type"]]
+            unit = Forward(self, **layer)
+            if in_ae:
+                ae.append(unit)
+                ae_layers.append(layer)
+            self.fwds.append(unit)
+            unit.link_from(prev)
+            unit.link_attrs(prev, ("input", "output"))
+            if isinstance(unit, activation.ForwardMul):
+                unit.link_attrs(prev, "output")
+            self.fix(unit, "input", "output", "weights")
+            prev = unit
+            if layer["type"][:4] == "conv" and in_ae:
+                last_conv = prev
+
+        if last_conv is None and in_ae:
+            raise error.BadFormatError("No convolutional layer found")
+
+        if in_ae:
+            de = []
+            for i in range(len(ae) - 1, -1, -1):
+                De = self.de_map[ae[i].__class__]
+                unit = De(self, **ae_layers[i])
+                de.append(unit)
+                self.fwds.append(unit)
+                unit.link_from(prev)
+                for dst_src in (("weights", "weights"),
+                                ("get_output_shape_from", "input"),
+                                ("output_offset", "input_offset")):
+                    if hasattr(unit, dst_src[0]):
+                        unit.link_attrs(ae[i], dst_src)
+                unit.link_attrs(prev, ("input", "output"))
+                self.fix(unit, "input", "weights", "output",
+                         "get_output_shape_from")
+                prev = unit
+
+            unit = self.evaluator
+            unit.link_from(self.fwds[-1])
+            unit.link_attrs(self.fwds[-1], "output")
+            self.fix(self.evaluator, "output", "target", "err_output",
+                     "metrics")
+
+            assert len(self.gds) == 1
+
+            self.gds[0].unlink_all()
+            self.del_ref(self.gds[0])
+            del self.gds[:]
+
+            # Add gradient descent unit
+            GD = self.gd_map[self.fwds[-1].__class__]
+            unit = GD(self, **ae_layers[0])
+            self.gds.append(unit)
+            unit.link_attrs(self.evaluator, "err_output")
+            unit.link_attrs(self.fwds[-1], "weights", "input")
+            unit.gate_skip = self.decision.gd_skip
+            self.fix(unit, "err_output", "weights", "input", "err_input")
+            self.rollback.reset()
+            self.rollback.add_gd(unit)
+
+            assert len(self.gds) == 1
+
+            self.gds[0].need_err_input = False
+            self.repeater.link_from(self.gds[0])
+
+            prev = self.add_plotters(self.rollback, last_conv, ae[-1])
+
+            self.gds[-1].link_from(prev)
+            self.gds[-1].gate_block = self.decision.complete
+
+            # Reset last best error, `cause we have extended the workflow
+            self.decision.min_validation_mse = 1.0e30
+            self.decision.min_train_mse = 1.0e30
+            self.decision.min_validation_n_err = 1.0e30
+            self.decision.min_train_n_err = 1.0e30
+        else:
+            self.info("No more autoencoder levels, "
+                      "will switching to the classification task")
+
+            # Add evaluator unit
+            self.evaluator.unlink_all()
+            self.del_ref(self.evaluator)
+            self.evaluator = None
+            unit = evaluator.EvaluatorSoftmax(self)
+            self.evaluator = unit
+            unit.link_from(self.fwds[-1])
+            unit.link_attrs(self.fwds[-1], "output", "max_idx")
+            unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
+                            ("batch_size", "minibatch_size"))
+            self.fix(self.evaluator, "output", "max_idx",
+                     "labels", "err_output")
+
+            # Add decision unit
+            self.decision.unlink_all()
+            self.del_ref(self.decision)
+            self.decision = None
+            unit = decision.DecisionGD(
+                self, fail_iterations=root.decision.fail_iterations)
+            self.decision = unit
+            unit.link_from(self.evaluator)
+            unit.link_attrs(self.loader, "minibatch_class",
+                            "minibatch_size", "last_minibatch",
+                            "class_lengths", "epoch_ended",
+                            "epoch_number")
+            unit.link_attrs(self.evaluator, ("minibatch_n_err", "n_err"),
+                            ("minibatch_confusion_matrix", "confusion_matrix"),
+                            ("minibatch_max_err_y_sum", "max_err_output_sum"))
+            self.fix(self.decision, "minibatch_n_err", "class_lengths")
+
+            unit = self.snapshotter
+            unit.link_from(self.decision)
+            unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
+            unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
+
+            self.rollback.gate_block = self.decision.complete
+            self.rollback.improved = self.decision.train_improved
+
+            assert len(self.gds) == 1
+
+            self.gds[0].unlink_all()
+            self.del_ref(self.gds[0])
+            del self.gds[:]
+
+            # Add gradient descent units
+            self.rollback.reset()
+            prev_gd = self.evaluator
+            prev = None
+            gds = []
+            for i in range(len(self.fwds) - 1, i_fwd - 1, -1):
+                if self.fwds[i].__class__ not in self.gd_map:
+                    break
+                GD = self.gd_map[self.fwds[i].__class__]
+                unit = GD(self)
+                gds.append(unit)
+                if prev is not None:
+                    unit.link_from(prev)
+                unit.link_attrs(prev_gd, "err_output")
+                unit.link_attrs(self.fwds[i], "weights", "bias",
+                                "input", "output")
+                unit.gate_skip = self.decision.gd_skip
+                prev_gd = unit
+                prev = unit
+                self.fix(unit, "weights", "bias", "input", "output",
+                         "err_input", "err_output")
+                self.rollback.add_gd(unit)
+            self.gds = list(None for _ in gds)
+            for i, _gd in enumerate(gds):
+                self.gds[-(i + 1)] = _gd
+            del gds
+
+            self.gds[0].need_err_input = False
+            self.repeater.link_from(self.gds[0])
+
+            self.del_plotters()
+
+            # Error plotter
+            prev = self.rollback
+            self.plt = []
+            styles = ["r-", "b-", "k-"]
+            for i in range(1, 3):
+                self.plt.append(plotting_units.AccumulatingPlotter(
+                    self, name="Errors", plot_style=styles[i]))
+                self.plt[-1].input = self.decision.epoch_n_err_pt
+                self.plt[-1].input_field = i
+                self.plt[-1].link_from(prev)
+                self.plt[-1].gate_skip = ~self.decision.epoch_ended
+                prev = self.plt[-1]
+            self.plt[0].clear_plot = True
+            self.plt[-1].redraw_plot = True
+
+            self.gds[-1].link_from(prev)
+            self.gds[-1].gate_block = self.decision.complete
 
 
 def run(load, main):
