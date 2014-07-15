@@ -150,7 +150,7 @@ class ForwardMul(ActivationForward):
     """
     def __init__(self, workflow, **kwargs):
         super(ForwardMul, self).__init__(workflow, **kwargs)
-        self._factor = float(kwargs.get("factor", 1.0))
+        self._factor = kwargs.get("factor")
 
     def init_unpickled(self):
         super(ForwardMul, self).init_unpickled()
@@ -158,12 +158,12 @@ class ForwardMul(ActivationForward):
 
     @property
     def factor(self):
-        return self.factor
+        return self._factor
 
     @factor.setter
     def factor(self, value):
-        self._factor = float(value)
-        if self._kernel_ is None:
+        self._factor = None if value is None else float(value)
+        if self._kernel_ is None or value is None:
             return
         if self._cl_const is None:
             self._cl_const = numpy.ones(1, dtype=self.output.dtype)
@@ -177,6 +177,15 @@ class ForwardMul(ActivationForward):
         self.assign_kernel("forward_mul")
         self.set_args()
         self.factor = self._factor
+
+    def run(self):
+        if self.factor is None:  # autoset factor from first minibatch
+            self.input.map_read()
+            mx = numpy.fabs(self.input.mem).max()
+            factor = 0.75 / mx if mx else 0.75
+            self.info("Autosetting factor to %f", factor)
+            self.factor = factor
+        super(ForwardMul, self).run()
 
     def cpu_run(self):
         inp = self.input.mem
@@ -204,7 +213,7 @@ class BackwardMul(ActivationBackward):
 
     @property
     def factor(self):
-        return self.factor
+        return self._factor
 
     @factor.setter
     def factor(self, value):
