@@ -72,7 +72,9 @@ class DecisionBase(Unit):
     Defines:
         complete (mutable.Bool trigger) - everything's over flag
         improved (mutable.Bool trigger) - indicates whether the previous
-            epoch's results are better than those of the epoch before it.
+            epoch's validation results are better
+            than those of the epoch before it.
+        train_improved (mutable.Bool trigger) - like "improved", but for train.
         snapshot_suffix - the suitable suffix for the snapshot file name.
 
     Must be set before initialize():
@@ -92,6 +94,7 @@ class DecisionBase(Unit):
         self.verify_interface(IDecision)
         self.max_epochs = kwargs.get("max_epochs", None)
         self.improved = Bool(False)
+        self.train_improved = Bool(False)
         self.snapshot_suffix = ""
         self.epoch_timestamp = False
         self.demand("last_minibatch", "minibatch_class",
@@ -153,6 +156,7 @@ class DecisionBase(Unit):
 
         # Test and Validation sets processed
         if self.epoch_ended:
+            self.train_improved <<= self.train_improve_condition()
             self.improved <<= self.improve_condition()
             if self.improved:
                 suffixes = []
@@ -195,6 +199,9 @@ class TrivialDecision(object):
         pass
 
     def improve_condition(self):
+        return False
+
+    def train_improve_condition(self):
         return False
 
     def on_training_finished(self):
@@ -316,6 +323,9 @@ class DecisionGD(DecisionBase):
             self.min_n_err_epoch_number = self.epoch_number
             return True
         return False
+
+    def train_improve_condition(self):
+        return bool(self.epoch_n_err[TRAIN] < self.min_train_n_err)
 
     def on_training_finished(self):
         pass
@@ -446,13 +456,16 @@ class DecisionMSE(DecisionGD):
         minibatch_class = self.minibatch_class
         if (self.epoch_min_mse[minibatch_class] < self.min_validation_mse or
                 (self.epoch_min_mse[minibatch_class] == self.min_validation_mse
-                 and self.epoch_min_mse[2] < self.min_train_mse)):
+                 and self.epoch_min_mse[TRAIN] < self.min_train_mse)):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
-            self.min_train_mse = self.epoch_min_mse[2]
+            self.min_train_mse = self.epoch_min_mse[TRAIN]
             self.min_train_mse_epoch_number = self.epoch_number
             return True
         return super(DecisionMSE, self).improve_condition()
+
+    def train_improve_condition(self):
+        return bool(self.epoch_min_mse[TRAIN] < self.min_train_mse)
 
     def on_generate_data_for_master(self, data):
         super(DecisionMSE, self).on_generate_data_for_master(data)
