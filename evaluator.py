@@ -285,30 +285,29 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         if not self.device:
             return
 
-        if self.program_ is None:
-            defines = {
-                'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                    opencl_types.numpy_dtype_to_opencl(dtype)],
-                'BATCH': self.err_output.shape[0],
-                'Y': self.err_output.sample_size,
-                'SAMPLE_SIZE': 'Y',
-                'N_TARGETS': (self.class_targets.shape[0]
-                              if self.class_targets is not None else 0)}
+        defines = {
+            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
+                opencl_types.numpy_dtype_to_opencl(dtype)],
+            'BATCH': self.err_output.shape[0],
+            'Y': self.err_output.sample_size,
+            'SAMPLE_SIZE': 'Y',
+            'N_TARGETS': (self.class_targets.shape[0]
+                          if self.class_targets is not None else 0)}
 
-            self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
-                               dtype=dtype)
+        self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
+                           dtype=dtype)
 
-            self.assign_kernel("ev_mse")
-            self.set_args(self.output, self.target, self.err_output,
-                          self.metrics, self.mse.devmem)
+        self.assign_kernel("ev_mse")
+        self.set_args(self.output, self.target, self.err_output,
+                      self.metrics, self.mse.devmem)
 
-            if self.labels is not None and self.class_targets is not None:
-                self.krn_find_closest_ = self.get_kernel("mse_find_closest")
-                self.krn_find_closest_.set_args(
-                    self.output.devmem,
-                    self.class_targets.devmem,
-                    self.labels.devmem,
-                    self.n_err.devmem)
+        if self.labels is not None and self.class_targets is not None:
+            self.krn_find_closest_ = self.get_kernel("mse_find_closest")
+            self.krn_find_closest_.set_args(
+                self.output.devmem,
+                self.class_targets.devmem,
+                self.labels.devmem,
+                self.n_err.devmem)
 
     def ocl_run(self):
         self.err_output.unmap()
