@@ -47,29 +47,31 @@ class Weights2D(plotter.Plotter):
     def __getstate__(self):
         state = super(Weights2D, self).__getstate__()
         if self.stripped_pickle:
-            inp = state["input"][:self.limit]
             state["input"] = None
-            state["_pics_to_draw"] = self.prepare_pics(inp, self.transposed)
+            state["get_shape_from"] = None
+            state["_pics_to_draw"] = self.prepare_pics(
+                self.input.mem[:self.limit], self.transposed)
         return state
 
     def get_number_of_channels(self, inp):
         n_channels = 1
-        if self.get_shape_from is None:
-            sx = int(numpy.round(numpy.sqrt(inp.shape[1])))
-            sy = int(inp.shape[1]) // sx
-        elif isinstance(self.get_shape_from, formats.Vector):
-            sx = self.get_shape_from.shape[2]
-            sy = self.get_shape_from.shape[1]
-            if len(self.get_shape_from.shape) == 4:
-                n_channels = self.get_shape_from.shape[3]
+        get_shape_from = (self.input if self.get_shape_from is None
+                          else self.get_shape_from)
+        if isinstance(get_shape_from, formats.Vector):
+            sx = get_shape_from.shape[2]
+            sy = get_shape_from.shape[1]
+            if len(get_shape_from.shape) == 4:
+                n_channels = get_shape_from.shape[3]
         else:
-            if len(self.get_shape_from) == 2:
-                sx = self.get_shape_from[0]
-                sy = self.get_shape_from[1]
+            if len(get_shape_from) == 2:
+                sx = get_shape_from[0]
+                sy = get_shape_from[1]
             else:
-                sx = self.get_shape_from[-2]
-                sy = self.get_shape_from[-3]
-                n_channels = self.get_shape_from[-1]
+                sx = get_shape_from[-2]
+                sy = get_shape_from[-3]
+                n_channels = get_shape_from[-1]
+                if isinstance(n_channels, formats.Vector):
+                    n_channels = n_channels.shape[-1]
         return n_channels, sx, sy
 
     def prepare_pics(self, inp, transposed):
