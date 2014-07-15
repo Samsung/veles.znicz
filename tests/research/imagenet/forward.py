@@ -6,7 +6,10 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 from collections import defaultdict, namedtuple
+import cv2
 import json
+import logging
+import math
 import numpy
 from zope.interface import implementer
 
@@ -283,8 +286,126 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                   nvars, self._current_image)
         return nvars
 
-    def _transform_image(self, angle, scale):
-        pass
+    def _transform_image(self, angle, scale, add_sobel_channel=True):
+        """Transform original image by rotating and scaling, and also adding
+        alpha- and Sobel-channels (optionally).
+
+        Args:
+            image: 3D numpy array (shape=(height, width, colors_num);
+                dtype=numpy.uint8)
+            angle: rotation angle in radians
+            scale: scaling parameter (1.0 means no scaling)
+            add_sobel_channel: flag specifying adding Sobel-channel
+                to output image
+
+        Returns:
+            Tuple of out_image and out_bbox.
+
+            out_image: 3D numpy array in RGBA[S] format with image after
+                rotation and scaling (RGBA + Sobel-channel (optionally))
+                (shape=(img_side, img_side, colors_num + 2),
+                where img_side = 2 * max(height, width); dtype=numpy.uint8).
+            out_bbox: bounding box after rotation and scaling (list of
+                vertexes: [(x0, y0), (x1, y1), (x2, y2), (x3, y3)])
+        """
+        assert len(self._original_image_data.shape) == 3, "Bad image shape"
+
+        height = self._original_image_data.shape[0]
+        width = self._original_image_data.shape[1]
+        colors_num = self._original_image_data.shape[-1]
+
+        # get grayscale image
+        if colors_num > 1:
+            gray_img = cv2.cvtColor(self._original_image_data,
+                                    cv2.COLOR_RGB2GRAY)
+        else:
+            gray_img = self._original_image_data
+
+        # calculate optimal output image size
+        rot_matrix = cv2.getRotationMatrix2D((width / 2, height / 2),
+                                             angle * 180 / math.pi, scale)
+        bbox = [tuple(rot_matrix.dot(numpy.array([0, 0, 1]))),
+                tuple(rot_matrix.dot(numpy.array([width, 0, 1]))),
+                tuple(rot_matrix.dot(numpy.array([width, height, 1]))),
+                tuple(rot_matrix.dot(numpy.array([0, height, 1])))]
+        out_width = (max(bbox[0][0], bbox[1][0], bbox[2][0], bbox[3][0]) -
+                     min(bbox[0][0], bbox[1][0], bbox[2][0], bbox[3][0]))
+        out_width = max(out_width, width)
+        out_height = (max(bbox[0][1], bbox[1][1], bbox[2][1], bbox[3][1]) -
+                      min(bbox[0][1], bbox[1][1], bbox[2][1], bbox[3][1]))
+        out_height = max(out_height, height)
+        logging.debug("optimal output image size: %dx%d", out_width,
+                      out_height)
+
+        # calculate bounding box after rotation and scaling
+        center = (out_width / 2, out_height / 2)
+        rot_matrix = cv2.getRotationMatrix2D(center, angle * 180 / math.pi,
+                                             scale)
+        x0 = (out_width - width) / 2
+        y0 = (out_height - height) / 2
+        out_bbox = [tuple(rot_matrix.dot(numpy.array([x0, y0, 1]))),
+                    tuple(rot_matrix.dot(numpy.array([x0 + width, y0, 1]))),
+                    tuple(rot_matrix.dot(numpy.array([x0 + width,
+                                                      y0 + height, 1]))),
+                    tuple(rot_matrix.dot(numpy.array([x0, y0 + height, 1])))]
+        logging.debug("output bounding box: %s", out_bbox)
+
+        # initialize image with Sobel-channel
+        s_shape = (out_height, out_width)
+        s_img = numpy.zeros(shape=s_shape, dtype=numpy.uint8)
+
+        if add_sobel_channel:
+            # get results of Sobel-filtration in x- and y-directions
+            sobel_x = cv2.Sobel(gray_img, cv2.CV_32F, 1, 0, ksize=5)
+            sobel_y = cv2.Sobel(gray_img, cv2.CV_32F, 0, 1, ksize=5)
+
+            # join sobel_x and sobel_y and clip to uint8
+            sobel = numpy.sqrt(numpy.square(sobel_x) + numpy.square(sobel_y))
+            sobel -= sobel.min()
+            max_val = sobel.max()
+            if max_val:
+                sobel *= 255.0 / max_val
+            sobel = numpy.clip(sobel, 0, 255).astype(numpy.uint8)
+
+            # fill Sobel-channel
+            for (i, j), _ in numpy.ndenumerate(sobel):
+                out_i = center[1] - height / 2 + i
+                out_j = center[0] - width / 2 + j
+                s_img[out_i, out_j] = sobel[i, j]
+
+            # rotation and scaling for Sobel-channel
+            s_img = cv2.warpAffine(s_img, rot_matrix, (s_img.shape[1],
+                                                       s_img.shape[0]))
+
+        # fill RGB color values to expanded image and add alpha-channel
+        rgba_shape = (out_height, out_width, colors_num + 1)
+        rgba_img = numpy.zeros(shape=rgba_shape, dtype=numpy.uint8)
+        for i, j in ((i, j) for i in range(height) for j in range(width)):
+            out_i = center[1] - height / 2 + i
+            out_j = center[0] - width / 2 + j
+            for c in range(colors_num):
+                rgba_img[out_i, out_j, c] = self._original_image_data[i, j, c]
+            # set alpha-channel to 255 as default value
+            rgba_img[out_i, out_j, colors_num] = 255
+
+        # rotation and scaling for rgba_img
+        rgba_img = cv2.warpAffine(rgba_img, rot_matrix, (rgba_img.shape[1],
+                                                         rgba_img.shape[0]))
+
+        # add S-channels to RGBA image (if necessary)
+        if add_sobel_channel:
+            out_shape = (rgba_img.shape[0], rgba_img.shape[1], colors_num + 2)
+            out_img = numpy.empty(shape=out_shape, dtype=numpy.uint8)
+            for i, j in ((i, j) for i in range(rgba_img.shape[0])
+                         for j in range(rgba_img.shape[1])):
+                for c in range(colors_num + 1):
+                    out_img[i, j, c] = rgba_img[i, j, c]
+                out_img[i, j, colors_num + 1] = s_img[i, j]
+            logging.debug("shape of output image: %s", out_img.shape)
+            return out_img, out_bbox
+        else:
+            logging.debug("shape of output image: %s", rgba_img.shape)
+            return rgba_img, out_bbox
 
     def _get_bbox_from_json(self, bbox):
         angle, x, y, width, height = [
