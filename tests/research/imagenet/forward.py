@@ -124,7 +124,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         scale_step = (max_scale - min_scale) / scale_steps
         for scale in numpy.arange(min_scale, max_scale + eps, scale_step):
             for angle in numpy.arange(0, 2 * numpy.pi, angle_step):
-                bbox = self._transform_shape(shape, angle, scale)
+                bbox, _ = self._transform_shape(shape, angle, scale)
                 bbox_width, bbox_height = [
                     numpy.max((numpy.max(bbox[:, i]), self.aperture))
                     for i in (0, 1)]
@@ -143,7 +143,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         dxdy = [numpy.min(bbox[:, dim]) for dim in (0, 1)]
         for dim in (0, 1):
             bbox[:, dim] -= dxdy[dim]
-        return dxdy
+        return bbox, dxdy
 
     def _transform_bbox(self, bbox, angle, scale):
         matrix = scale * numpy.array(
@@ -318,8 +318,8 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             transformed_image_data, angle, scale, _, _, _ = self._state
             self.minibatch_data.mem[index] = transformed_image_data
             if self.substage == 1:
-                dxdy = self._transform_shape(self._original_image_data.shape,
-                                             angle, scale)
+                _, dxdy = self._transform_shape(
+                    self._original_image_data.shape, angle, scale)
                 meta = self.images[self._current_image]
                 for bbindex, bbox in enumerate(meta["bbxs"]):
                     bbox = self._get_bbox_from_json(bbox)
