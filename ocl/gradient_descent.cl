@@ -1,22 +1,4 @@
-#include "defines.cl"
-#include "highlight.cl"
-
-
-#ifndef INCLUDE_BIAS
-#error "INCLUDE_BIAS should be defined"
-#endif
-
-#ifndef WEIGHTS_TRANSPOSED
-#error "WEIGHTS_TRANSPOSED should be defined"
-#endif
-
-#ifndef STORE_GRADIENT
-#error "STORE_GRADIENT should be defined"
-#endif
-
-#ifndef APPLY_GRADIENT
-#error "APPLY_GRADIENT should be defined"
-#endif
+#include "gradient_descent_common.cl"
 
 
 /// @brief Computes backprogated error for previous layer:
@@ -65,11 +47,13 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
 /// @param h Layer input.
 /// @param weights Layer weights.
 /// @param gradient Computed gradient.
-/// @param alpha_batch (-global_alpha / batch_size).
-/// @param alpha_lambda (-global_alpha * global_lambda).
+/// @param lr learning_rate.
+/// @param lr_x_l learning_rate * lnorm_factor.
+/// @param l1_vs_l2 how much to prefer l1 over l2 (from [0, 1]).
 /// @param gradient_moment Moment for gradient.
-/// @details gradient = previous_gradient * gradient_moment +
-///                     err_y * h * alpha_batch + weights * alpha_lambda.
+/// @details gradient = previous_gradient * gradient_moment -
+///                     (err_y * h * lr +
+///                      lr_x_l * ((1 - l1_vs_l2) * weights + 0.5 * l1_vs_l2 * sign(weights)).
 ///          Should be defined externally:
 ///          BLOCK_SIZE - size of the block for matrix multiplication,
 ///          BATCH - minibatch size,
@@ -80,8 +64,9 @@ void weights_update(__global const dtype    /* IN */    *err_y,
                     __global const dtype    /* IN */    *h,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
-                    const dtype             /* IN */    alpha_batch,
-                    const dtype             /* IN */    alpha_lambda,
+                    const dtype             /* IN */    lr,
+                    const dtype             /* IN */    lr_x_l,
+                    const dtype             /* IN */    l1_vs_l2,
                     const dtype             /* IN */    gradient_moment) {
   #if WEIGHTS_TRANSPOSED > 0
   #define A_WIDTH H
@@ -114,7 +99,7 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   if (valid) {
     dtype weight = weights[idx];
-    dtype gd = sum * alpha_batch + weight * alpha_lambda;
+    dtype gd = -gradient_step(weight, sum, lr, lr_x_l, l1_vs_l2);
     #if STORE_GRADIENT > 0
     gd += gradient[idx] * gradient_moment;
     gradient[idx] = gd;
@@ -131,11 +116,13 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 /// @param bias Layer bias.
 /// @param err_y Backpropagated error.
 /// @param gradient Computed gradient to store in if not null.
-/// @param alpha_batch (-global_alpha / batch_size).
-/// @param alpha_lambda (-global_alpha * global_lambda).
+/// @param lr learning_rate.
+/// @param lr_x_l learning_rate * lnorm_factor.
+/// @param l1_vs_l2 how much to prefer l1 over l2 (from [0, 1]).
 /// @param gradient_moment Moment for gradient.
-/// @details gradient = previous_gradient * gradient_moment +
-///                     sum(err_y) * alpha_batch + bias * alpha_lambda.
+/// @details gradient = previous_gradient * gradient_moment -
+///                     (sum(err_y) * lr +
+///                      lr_x_l * ((1 - l1_vs_l2) * bias + 0.5 * l1_vs_l2 * sign(bias)).
 ///          Should be defined externally:
 ///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          BATCH - minibatch size,
@@ -144,8 +131,9 @@ __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void bias_update(__global const dtype    /* IN */    *err_y,
                  __global dtype     /* IN, OUT */    *bias,
                  __global dtype     /* IN, OUT */    *gradient,
-                 const dtype             /* IN */    alpha_batch,
-                 const dtype             /* IN */    alpha_lambda,
+                 const dtype             /* IN */    lr,
+                 const dtype             /* IN */    lr_x_l,
+                 const dtype             /* IN */    l1_vs_l2,
                  const dtype             /* IN */    gradient_moment) {
  
   #define A err_y
@@ -162,14 +150,14 @@ void bias_update(__global const dtype    /* IN */    *err_y,
 
   if (!tx) {
     sum += AS[0];
-    dtype weight = bias[bx];
-    dtype gd = sum * alpha_batch + weight * alpha_lambda;
+    dtype cur_bias = bias[bx];
+    dtype gd = -gradient_step(cur_bias, sum, lr, lr_x_l, l1_vs_l2);
     #if STORE_GRADIENT > 0
     gd += gradient[bx] * gradient_moment;
     gradient[bx] = gd;
     #endif
     #if APPLY_GRADIENT > 0
-    bias[bx] = weight + gd;
+    bias[bx] = cur_bias + gd;
     #endif
   }
 }

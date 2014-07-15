@@ -97,7 +97,7 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         if self.program_ is None:
             dtype = self.err_output.mem.dtype
-            self.cl_const = numpy.zeros(3, dtype=dtype)
+            self.cl_const = numpy.zeros(4, dtype=dtype)
 
             block_size = self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(dtype)]
@@ -144,8 +144,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.weights.map_write()
         self.gradient_weights.map_write()
 
-        alpha = -self.learning_rate
-        alpha_lambda = -self.learning_rate * self.weights_decay
+        lr = self.learning_rate
+        lr_x_l = self.learning_rate * self.weights_decay
+        l1_vs_l2 = self.l1_vs_l2
 
         err_output = formats.reshape(
             self.err_output.mem,
@@ -154,9 +155,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         inp = formats.reshape(
             self.input.mem, [self.input.mem.shape[0],
                              self.input.mem.size // self.input.mem.shape[0]])
-        gradient = numpy.dot(err_output.transpose(), inp)
-        gradient *= alpha
-        gradient += self.weights.mem * alpha_lambda
+        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+            self.weights.mem, numpy.dot(err_output.transpose(), inp),
+            lr, lr_x_l, l1_vs_l2)
         if self.store_gradient:
             gradient += self.gradient_weights.mem * self.gradient_moment
             self.gradient_weights.mem[:] = gradient[:]
@@ -174,12 +175,13 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.bias.map_write()
         self.gradient_bias.map_write()
 
-        alpha = -self.learning_rate_bias
-        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
+        lr = self.learning_rate_bias
+        lr_x_l = self.learning_rate_bias * self.weights_decay_bias
+        l1_vs_l2 = self.l1_vs_l2_bias
 
-        gradient = self.err_output.mem.sum(axis=0)
-        gradient *= alpha
-        gradient += self.bias.mem * alpha_lambda
+        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+            self.bias.mem, self.err_output.mem.sum(axis=0),
+            lr, lr_x_l, l1_vs_l2)
         if self.store_gradient:
             gradient += self.gradient_bias.mem * self.gradient_moment
             self.gradient_bias.mem[:] = gradient[:]
@@ -192,11 +194,13 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.weights.unmap()
         self.gradient_weights.unmap()
 
-        self.cl_const[0] = -self.learning_rate
-        self.cl_const[1] = -self.learning_rate * self.weights_decay
-        self.cl_const[2] = self.gradient_moment
-        self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
-                                   self.cl_const[1:2], self.cl_const[2:3])
+        self.cl_const[0] = self.learning_rate
+        self.cl_const[1] = self.learning_rate * self.weights_decay
+        self.cl_const[2] = self.l1_vs_l2
+        self.cl_const[3] = self.gradient_moment
+        self.krn_weights_.set_args(
+            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
+            self.cl_const[2:3], self.cl_const[3:4])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
         if self.weights_transposed:
@@ -224,11 +228,13 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.bias.unmap()
         self.gradient_bias.unmap()
 
-        self.cl_const[0] = -self.learning_rate_bias
-        self.cl_const[1] = -self.learning_rate_bias * self.weights_decay_bias
-        self.cl_const[2] = self.gradient_moment_bias
-        self.krn_bias_.set_args(cl.skip(3), self.cl_const[0:1],
-                                self.cl_const[1:2], self.cl_const[2:3])
+        self.cl_const[0] = self.learning_rate_bias
+        self.cl_const[1] = self.learning_rate_bias * self.weights_decay_bias
+        self.cl_const[2] = self.l1_vs_l2_bias
+        self.cl_const[3] = self.gradient_moment_bias
+        self.krn_bias_.set_args(
+            cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
+            self.cl_const[2:3], self.cl_const[3:4])
         global_size = [(self.err_output.mem.size //
                         self.err_output.mem.shape[0]) *
                        self.reduce_size]

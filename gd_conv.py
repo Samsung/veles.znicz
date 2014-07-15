@@ -153,7 +153,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
-            self.cl_const = numpy.zeros(3, dtype=dtype)
+            self.cl_const = numpy.zeros(4, dtype=dtype)
 
             self.reduce_size = min(self.reduce_size,
                                    self.kx * self.ky * n_channels)
@@ -215,14 +215,13 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
 
-        alpha_batch = -self.learning_rate
-        alpha_lambda = -self.learning_rate * self.weights_decay
-
-        self.cl_const[0] = alpha_batch
-        self.cl_const[1] = alpha_lambda
-        self.cl_const[2] = self.gradient_moment
-        self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
-                                   self.cl_const[1:2], self.cl_const[2:3])
+        self.cl_const[0] = self.learning_rate
+        self.cl_const[1] = self.learning_rate * self.weights_decay
+        self.cl_const[2] = self.l1_vs_l2
+        self.cl_const[3] = self.gradient_moment
+        self.krn_weights_.set_args(
+            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
+            self.cl_const[2:3], self.cl_const[3:4])
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
         if self.weights_transposed:
@@ -246,14 +245,13 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.bias.unmap()
         self.gradient_bias.unmap()
 
-        alpha_batch = -self.learning_rate_bias
-        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
-
-        self.cl_const[0] = alpha_batch
-        self.cl_const[1] = alpha_lambda
-        self.cl_const[2] = self.gradient_moment_bias
-        self.krn_bias_.set_args(cl.skip(3), self.cl_const[0:1],
-                                self.cl_const[1:2], self.cl_const[2:3])
+        self.cl_const[0] = self.learning_rate_bias
+        self.cl_const[1] = self.learning_rate_bias * self.weights_decay_bias
+        self.cl_const[2] = self.l1_vs_l2_bias
+        self.cl_const[3] = self.gradient_moment_bias
+        self.krn_bias_.set_args(
+            cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
+            self.cl_const[2:3], self.cl_const[3:4])
         global_size = [self.n_kernels * self.reduce_size]
         local_size = [self.reduce_size]
         self.execute_kernel(global_size, local_size, self.krn_bias_)
@@ -324,10 +322,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                     sample)
 
         # update weights
-        alpha_batch = -self.learning_rate
-        alpha_lambda = -self.learning_rate * self.weights_decay
-        gd_weights_reg = (gd_weights * alpha_batch +
-                          self.weights.mem * alpha_lambda)
+        lr = self.learning_rate
+        lr_x_l = self.learning_rate * self.weights_decay
+        l1_vs_l2 = self.l1_vs_l2
+        gd_weights_reg = -nn_units.GradientDescentBase.cpu_gradient_step(
+            self.weights.mem, gd_weights, lr, lr_x_l, l1_vs_l2)
         if self.store_gradient:
             gd_weights_reg += self.gradient_weights.mem * self.gradient_moment
             self.gradient_weights.mem[:] = gd_weights_reg[:]
@@ -353,9 +352,11 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                                      self.n_kernels)
             gd_bias += numpy.add.reduce(out)
         # update bias
-        alpha_batch = -self.learning_rate_bias
-        alpha_lambda = -self.learning_rate_bias * self.weights_decay_bias
-        gd_bias_reg = gd_bias * alpha_batch + self.bias.mem * alpha_lambda
+        lr = self.learning_rate
+        lr_x_l = self.learning_rate * self.weights_decay
+        l1_vs_l2 = self.l1_vs_l2
+        gd_bias_reg = -nn_units.GradientDescentBase.cpu_gradient_step(
+            self.bias.mem, gd_bias, lr, lr_x_l, l1_vs_l2)
         if self.store_gradient:
             gd_bias_reg += self.gradient_bias.mem * self.gradient_moment_bias
             self.gradient_bias.mem[:] = gd_bias_reg[:]

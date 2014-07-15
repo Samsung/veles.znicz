@@ -158,7 +158,7 @@ class GDDeconv(nn_units.GradientDescentBase):
             return
 
         if self.program_ is None:
-            self.cl_const = numpy.zeros(3, dtype=dtype)
+            self.cl_const = numpy.zeros(4, dtype=dtype)
 
             defines = {
                 'ACTIVATION_LINEAR': 1,
@@ -245,14 +245,17 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.weights.unmap()
         self.gradient_weights.unmap()
 
-        alpha_batch = -self.learning_rate
-        alpha_lambda = -self.learning_rate * self.weights_decay
+        lr = self.learning_rate
+        lr_x_l = self.learning_rate * self.weights_decay
+        l1_vs_l2 = self.l1_vs_l2
 
-        self.cl_const[0] = alpha_batch
-        self.cl_const[1] = alpha_lambda
-        self.cl_const[2] = self.gradient_moment
-        self.krn_weights_.set_args(cl.skip(4), self.cl_const[0:1],
-                                   self.cl_const[1:2], self.cl_const[2:3])
+        self.cl_const[0] = lr
+        self.cl_const[1] = lr_x_l
+        self.cl_const[2] = l1_vs_l2
+        self.cl_const[3] = self.gradient_moment
+        self.krn_weights_.set_args(
+            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
+            self.cl_const[2:3], self.cl_const[3:4])
 
         self.execute_kernel(self.global_size_weights, self.local_size_weights,
                             self.krn_weights_)

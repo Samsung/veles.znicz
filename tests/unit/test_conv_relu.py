@@ -59,8 +59,10 @@ class TestConvRelu(unittest.TestCase):
 
         c.run()
         c.output.map_read()  # get results back
-        nz = numpy.count_nonzero(c.output.vv[c.output.mem.shape[0]:].ravel())
-        self.assertEqual(nz, 0, "Overflow occured")
+        nz = numpy.count_nonzero(
+            numpy.isnan(c.output.vv[c.output.mem.shape[0]:].ravel()))
+        self.assertEqual(nz, c.output.vv[c.output.mem.shape[0]:].size,
+                         "Overflow occured")
 
         y = c.output.mem.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,

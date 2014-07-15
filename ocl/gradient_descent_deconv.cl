@@ -1,23 +1,7 @@
-#include "defines.cl"
-#include "highlight.cl"
+#include "gradient_descent_common.cl"
 
-#ifndef INCLUDE_BIAS
-#error "INCLUDE_BIAS should be defined"
-#endif
 #if INCLUDE_BIAS != 0
 #error "INCLUDE_BIAS should be 0"
-#endif
-
-#ifndef WEIGHTS_TRANSPOSED
-#error "WEIGHTS_TRANSPOSED should be defined"
-#endif
-
-#ifndef STORE_GRADIENT
-#error "STORE_GRADIENT should be defined"
-#endif
-
-#ifndef APPLY_GRADIENT
-#error "APPLY_GRADIENT should be defined"
 #endif
 
 #if (KX % SLIDE_X != 0) || (KY % SLIDE_Y != 0)
@@ -28,22 +12,15 @@
 
 #if (STORE_GRADIENT > 0) || (APPLY_GRADIENT > 0)
 /// @brief Calculate gradient for weights update.
-/// @param err_y Backpropagated error.
-/// @param h Layer input.
-/// @param weights Layer weights.
-/// @param gradient Computed gradient.
-/// @param alpha_batch (-global_alpha / batch_size).
-/// @param alpha_lambda (-global_alpha * global_lambda).
-/// @param gradient_moment Moment for gradient.
-/// @details gradient = previous_gradient * gradient_moment +
-///                     err_y * h * alpha_batch + weights * alpha_lambda.
+/// @details See gradient_descent.cl.
 __kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void weights_update(__global const dtype    /* IN */    *err_y,
                     __global const dtype    /* IN */    *h,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
-                    const dtype             /* IN */    alpha_batch,
-                    const dtype             /* IN */    alpha_lambda,
+                    const dtype             /* IN */    lr,
+                    const dtype             /* IN */    lr_x_l,
+                    const dtype             /* IN */    l1_vs_l2,
                     const dtype             /* IN */    gradient_moment) {
   #if WEIGHTS_TRANSPOSED > 0
 
@@ -89,7 +66,7 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   if (valid) {
     dtype weight = weights[idx];
-    dtype gd = sum * alpha_batch + weight * alpha_lambda;
+    dtype gd = -gradient_step(weight, sum, lr, lr_x_l, l1_vs_l2);
     #if STORE_GRADIENT > 0
     gd += gradient[idx] * gradient_moment;
     gradient[idx] = gd;

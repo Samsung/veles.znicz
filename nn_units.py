@@ -6,12 +6,14 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import gc
 import numpy
 import os
 import shutil
 import six
 import sys
 import tarfile
+import time
 import yaml
 from zope.interface import implementer
 
@@ -121,13 +123,15 @@ class GradientDescentBase(OpenCLUnit):
                                              self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", 0.00005)
         self.weights_decay_bias = kwargs.get("weights_decay_bias", 0.0)
-        self.weights_transposed = kwargs.get("weights_transposed", False)
+        self.l1_vs_l2 = kwargs.get("l1_vs_l2", 0)
+        self.l1_vs_l2_bias = kwargs.get("l1_vs_l2_bias", self.l1_vs_l2)
         self.gradient_moment = kwargs.get("gradient_moment", 0)
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment)
         self.store_gradient = kwargs.get("store_gradient", True)
         self.apply_gradient = kwargs.get("apply_gradient",
                                          not workflow.is_slave)
+        self.weights_transposed = kwargs.get("weights_transposed", False)
         self.need_err_input = kwargs.get("need_err_input", True)
         self.include_bias = kwargs.get("include_bias", True)
         self.store_gradient = bool(
@@ -195,6 +199,11 @@ class GradientDescentBase(OpenCLUnit):
 
     def drop_slave(self, slave):
         pass
+
+    @staticmethod
+    def cpu_gradient_step(weight, gradient, lr, lr_x_l, l1_vs_l2):
+        return gradient * lr + lr_x_l * ((1.0 - l1_vs_l2) * weight +
+                                         0.5 * l1_vs_l2 * numpy.sign(weight))
 
 
 class NNWorkflow(OpenCLWorkflow):
@@ -378,3 +387,9 @@ class NNSnapshotter(Snapshotter):
             for attr in ("input", "weights", "bias", "output",
                          "err_output", "err_input"):
                 self._log_attr(u, attr, logged)
+        del logged
+        t0 = time.time()
+        gc.collect()
+        dt = time.time() - t0
+        if dt > 1.0:
+            self.warning("gc.collect() took %.1f sec", dt)
