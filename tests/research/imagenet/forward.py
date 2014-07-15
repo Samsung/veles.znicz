@@ -8,13 +8,13 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 from collections import defaultdict, namedtuple
 import cv2
 import json
-import logging
 import math
 import numpy
 from zope.interface import implementer
 
 from veles import OpenCLUnit
 import veles.formats as formats
+from veles.pickle2 import pickle
 from veles.znicz.tests.research.imagenet.processor import Processor
 from veles.opencl_units import IOpenCLUnit
 
@@ -83,7 +83,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         super(ForwardStage1Loader, self).init_unpickled()
 
     def initialize(self, device, **kwargs):
-        super(ForwardStage1Loader, self).initialize(**kwargs)
+        super(ForwardStage1Loader, self).initialize(device=device, **kwargs)
         for set_type in ("test", "validation", "train"):
             images_json = self.images_json % set_type
             try:
@@ -94,7 +94,8 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                 self.exception("Failed to load %s", images_json)
         with open(self.labels_txt, "r") as txt:
             values = txt.read().split()
-            self._labels_mapping = dict(values[1::2], map(int, values[::2]))
+            self._labels_mapping = dict(zip(values[1::2],
+                                            map(int, values[::2])))
         with open(self.matrices_filename, "rb") as fin:
             self._mean, _ = pickle.load(fin)
         self.aperture = 256  # FIXME: get it from self.entry
@@ -218,23 +219,24 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                 angle += self._real_angle_step
         except ValueError:
             angle = 2 * numpy.pi
+            x = y = 0
         if angle >= 2 * numpy.pi:
             angle = 0
             self._load_next_image()
             scale = self._min_scale
-        bbox, image_data = self._transform_image(angle, scale)
+        image_data, bbox = self._transform_image(angle, scale)
         self._set_next_x_y(image_data, bbox, x, y)
         self._state = (image_data, angle, scale, bbox, x, y)
 
     def _set_next_x_y(self, transformed_image_data, bbox, x, y):
         while x + self.aperture <= transformed_image_data.shape[1] and \
-                not self.check_aperture_payload(x, y, bbox):
+                not self._check_aperture_payload(x, y, bbox):
             x += self.aperture * self._real_overlap_factor
         if x + self.aperture <= transformed_image_data.shape[1]:
             return x, y
         x = 0
         while y + self.aperture <= transformed_image_data.shape[0] and \
-                not self.check_aperture_payload(x, y, bbox):
+                not self._check_aperture_payload(x, y, bbox):
             y += self.aperture * self._real_overlap_factor
         if y + self.aperture <= transformed_image_data.shape[0]:
             return x, y
@@ -417,9 +419,24 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             transformed_image_data, angle, scale, _, x, y = self._state
             sample = transformed_image_data[
                 y:(y + self.aperture), x:(x + self.aperture), :]
-            sample += self._mean * (
-                255 - sample[:, :, -2 if self.add_sobel else -1])
-            self.minibatch_data.mem[index] = sample
+            if sample.shape[0] < self.aperture or \
+               sample.shape[1] < self.aperture:
+                offset_y, offset_x = ((self.aperture - sample.shape[i]) // 2
+                                      for i in (0, 1))
+                nsample = numpy.zeros(
+                    (self.aperture, self.aperture, sample.shape[-1]),
+                    dtype=sample.dtype)
+                nsample[offset_y:(offset_y + sample.shape[0]),
+                        offset_x:(offset_x + sample.shape[1]), :] = sample
+                sample = nsample
+            lcind = -2 if self.add_sobel else -1
+            mean = self._mean * (255 - sample[:, :, lcind])[..., None]
+            final = numpy.empty((self.aperture, self.aperture,
+                                 sample.shape[-1] - 1), dtype=sample.dtype)
+            final[:, :, :-1] = sample[:, :, :lcind] + mean[:, :, :-1]
+            if self.add_sobel:
+                final[:, :, -1] = sample[:, :, -1] + mean[:, :, -1]
+            self.minibatch_data.mem[index] = final.ravel()
             if self.substage == 1:
                 _, dxdy = self._transform_shape(
                     self._original_image_data.shape, angle, scale)

@@ -79,9 +79,24 @@ class TestForward1(unittest.TestCase):
 
 if __name__ == "__main__":
     # import sys;sys.argv = ['', 'Test.testIntersects']
-    unittest.main()
-    """
-    loader = ForwardStage1Loader(DummyWorkflow(), "", "")
-    while loader.minibatch_size > 0:
+    # unittest.main()
+    import os
+    import veles.formats as formats
+    base = "/data/veles/datasets/imagenet/2014_img_split_0/1"
+    loader = ForwardStage1Loader(
+        DummyWorkflow(),
+        os.path.join(base, "images_imagenet_1_img_%s_0.json"),
+        os.path.join(base, "labels_int_1_img_0.txt"),
+        os.path.join(base, "matrixes_1_img_0.pickle"))
+
+    class LayerStub(object):
+        def __init__(self):
+            self.weights = formats.Vector()
+            self.weights.mem = numpy.zeros((256, 256))
+
+    loader.entry = LayerStub()
+    loader.initialize(device=None)
+    while True:
         loader.run()
-    """
+        if loader.minibatch_size == 0:
+            break
