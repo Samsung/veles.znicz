@@ -434,6 +434,9 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.minibatch_data.map_invalidate()
         self.minibatch_bboxes.map_invalidate()
 
+        if self._state is ():
+            self.minibatch_size = 0
+            return
         self.minibatch_size = self.max_minibatch_size
         for index in range(self.max_minibatch_size):
             transformed_image_data, angle, scale, _, _, _ = self._state
@@ -458,5 +461,6 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             try:
                 self._set_next_state()
             except StopIteration:
+                self._state = ()
                 self.minibatch_size = index + 1
                 break
