@@ -19,14 +19,14 @@ from veles.znicz.tests.research.imagenet.processor import Processor
 from veles.opencl_units import IOpenCLUnit
 
 
-ForwardStage1LoaderState = namedtuple('ForwardStage1Loader',
+ForwardStage1LoaderState = namedtuple('ImagenetForwardLoader',
                                       ['image', 'angle', 'scale', 'position'])
 
 
 @implementer(IOpenCLUnit)
-class ForwardStage1Loader(OpenCLUnit, Processor):
+class ImagenetForwardLoader(OpenCLUnit, Processor):
     """
-    Imagenet loader for first processing stage.
+    Imagenet loader for the first processing stage.
     """
 
     def __init__(self, workflow, images_json, labels_txt, matrices_pickle,
@@ -42,9 +42,9 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                               between successive samples
             max_batch_size    the maximal overall amount of image
                               transformations
-            minibatch_size    the maximal size of one minibatch
+            max_minibatch_size    the maximal size of one minibatch
         """
-        super(ForwardStage1Loader, self).__init__(workflow, **kwargs)
+        super(ImagenetForwardLoader, self).__init__(workflow, **kwargs)
         self.images_json = images_json
         self.labels_txt = labels_txt
         self.matrices_filename = matrices_pickle
@@ -64,8 +64,12 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.max_bboxes = 128
         self.minibatch_data = formats.Vector()
         self.minibatch_size = 0
-        self.minibatch_bboxes = formats.Vector()
-        self.minibatch_labels = formats.Vector()
+        self.minibatch_bboxes = 0
+        self.minibatch_labels = 0
+        self.real_minibatch_bboxes = 0
+        self.minibatch_image_names = 0
+        self.minibatch_image_shapes = 0
+        self.labels_number = 0
         self._mean = None
         self._state = ()
         self._current_image = ""
@@ -80,10 +84,10 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.demand("entry")  # first forward unit
 
     def init_unpickled(self):
-        super(ForwardStage1Loader, self).init_unpickled()
+        super(ImagenetForwardLoader, self).init_unpickled()
 
     def initialize(self, device, **kwargs):
-        super(ForwardStage1Loader, self).initialize(device=device, **kwargs)
+        super(ImagenetForwardLoader, self).initialize(device=device, **kwargs)
         for set_type in ("test", "validation", "train"):
             images_json = self.images_json % set_type
             try:
@@ -96,6 +100,7 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             values = txt.read().split()
             self._labels_mapping = dict(zip(values[1::2],
                                             map(int, values[::2])))
+        self.labels_number = len(self._labels_mapping)
         with open(self.matrices_filename, "rb") as fin:
             self._mean, _ = pickle.load(fin)
         self.aperture = 256  # FIXME: get it from self.entry
@@ -103,10 +108,16 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self.minibatch_data.mem = numpy.zeros(
             (self.max_minibatch_size, self.aperture ** 2 * channels),
             dtype=self.entry.weights.mem.dtype)
-        self.minibatch_bboxes.mem = numpy.zeros(
-            (self.max_batch_size, self.max_bboxes, 4), dtype=numpy.uint16)
-        self.minibatch_labels.mem = numpy.zeros(
-            (self.max_batch_size, self.max_bboxes), dtype=numpy.int32)
+
+        self.minibatch_bboxes = numpy.zeros(
+            (self.max_minibatch_size, 4, 2), dtype=numpy.uint16)
+        self.real_minibatch_bboxes = numpy.zeros(
+            (self.max_minibatch_size, self.max_bboxes, 5), dtype=numpy.uint16)
+        # 5 = 4 borders (minx, miny, maxx, maxy) + 1 label
+        self.minibatch_labels = numpy.zeros(self.max_minibatch_size,
+                                            dtype=numpy.int32)
+        self.minibatch_image_names = [""] * self.max_minibatch_size
+        self.minibatch_image_shapes = [0] * self.max_minibatch_size
 
         self._image_iter = iter(self.images.keys())
         self._set_next_state()
@@ -115,8 +126,6 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             return
 
         self.minibatch_data.initialize(device)
-        self.minibatch_bboxes.initialize(device)
-        self.minibatch_labels.initialize(device)
 
     def _calculate_scale_min_max(self, shape):
         maxsize = numpy.max(shape[:2])
@@ -181,7 +190,8 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                 return False
         return True
 
-    def _inside(self, p, bbox):
+    @staticmethod
+    def inside(p, bbox):
         AB = bbox[1] - bbox[0]
         AP = numpy.array(p) - bbox[0]
         BC = bbox[2] - bbox[1]
@@ -191,18 +201,19 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             0 <= numpy.dot(BC, BP) <= numpy.dot(BC, BC)
 
     def _calculate_approximate_area_of_intersection(self, lp, bbox):
-        if self._inside(lp, bbox) and \
-           self._inside((lp[0] + self.aperture, lp[1]), bbox) and \
-           self._inside((lp[0] + self.aperture,
-                        lp[1] + self.aperture), bbox) and \
-           self._inside((lp[0], lp[1] + self.aperture), bbox):
+        if ImagenetForwardLoader.inside(lp, bbox) and \
+           ImagenetForwardLoader.inside((lp[0] + self.aperture, lp[1]),
+                                        bbox) and \
+           ImagenetForwardLoader.inside((lp[0] + self.aperture,
+                                         lp[1] + self.aperture), bbox) and \
+           ImagenetForwardLoader.inside((lp[0], lp[1] + self.aperture), bbox):
             return 1.0
         overall = 0
         inside = 0
         step = self.aperture / 10
         for x in numpy.arange(lp[0], lp[0] + self.aperture + step, step):
             for y in numpy.arange(lp[1], lp[1] + self.aperture, step):
-                inside += self._inside((x, y), bbox)
+                inside += ImagenetForwardLoader.inside((x, y), bbox)
                 overall += 1
         return inside / overall
 
@@ -246,7 +257,11 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         return x, y
 
     def _load_next_image(self):
-        self._current_image = next(self._image_iter)
+        while True:
+            self._current_image = next(self._image_iter)
+            if self.substage == 1 and \
+               len(self.images[self._current_image]["bbxs"]) > 0:
+                break
         file_name = self.images[self._current_image]["path"]
         self._original_image_data = self.decode_image(file_name)
         _, self._real_angle_step, scale_steps, self._real_overlap_factor = \
@@ -389,6 +404,29 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                               offset_x:(out_width + offset_x), :]
         return out_img, bbox
 
+    def _extract_sample(self):
+        transformed_image_data, _, _, _, x, y = self._state
+        sample = transformed_image_data[
+            y:(y + self.aperture), x:(x + self.aperture), :]
+        if sample.shape[0] < self.aperture or \
+           sample.shape[1] < self.aperture:
+            offset_y, offset_x = ((self.aperture - sample.shape[i]) // 2
+                                  for i in (0, 1))
+            nsample = numpy.zeros(
+                (self.aperture, self.aperture, sample.shape[-1]),
+                dtype=sample.dtype)
+            nsample[offset_y:(offset_y + sample.shape[0]),
+                    offset_x:(offset_x + sample.shape[1]), :] = sample
+            sample = nsample
+        lcind = -2 if self.add_sobel else -1
+        mean = self._mean * (255 - sample[:, :, lcind])[..., None]
+        final = numpy.empty((self.aperture, self.aperture,
+                             sample.shape[-1] - 1), dtype=sample.dtype)
+        final[:, :, :-1] = sample[:, :, :lcind] + mean[:, :, :-1]
+        if self.add_sobel:
+            final[:, :, -1] = sample[:, :, -1] + mean[:, :, -1]
+        return final
+
     def _get_bbox_from_json(self, bbox):
         angle, x, y, width, height = [
             float(bbox[l]) for l in ('angle', 'x', 'y', 'width', 'height')]
@@ -409,39 +447,22 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
             [numpy.max(transformed_bbox[:, i]) for i in (0, 1)],
             dtype=numpy.uint16)
 
-    def cpu_run(self):
-        self.ocl_run()
-
     def ocl_run(self):
+        self.cpu_run()
+
+    def cpu_run(self):
         self.minibatch_data.map_invalidate()
-        self.minibatch_bboxes.map_invalidate()
 
         if self._state is ():
             self.minibatch_size = 0
             return
         self.minibatch_size = self.max_minibatch_size
         for index in range(self.max_minibatch_size):
-            transformed_image_data, angle, scale, _, x, y = self._state
-            sample = transformed_image_data[
-                y:(y + self.aperture), x:(x + self.aperture), :]
-            if sample.shape[0] < self.aperture or \
-               sample.shape[1] < self.aperture:
-                offset_y, offset_x = ((self.aperture - sample.shape[i]) // 2
-                                      for i in (0, 1))
-                nsample = numpy.zeros(
-                    (self.aperture, self.aperture, sample.shape[-1]),
-                    dtype=sample.dtype)
-                nsample[offset_y:(offset_y + sample.shape[0]),
-                        offset_x:(offset_x + sample.shape[1]), :] = sample
-                sample = nsample
-            lcind = -2 if self.add_sobel else -1
-            mean = self._mean * (255 - sample[:, :, lcind])[..., None]
-            final = numpy.empty((self.aperture, self.aperture,
-                                 sample.shape[-1] - 1), dtype=sample.dtype)
-            final[:, :, :-1] = sample[:, :, :lcind] + mean[:, :, :-1]
-            if self.add_sobel:
-                final[:, :, -1] = sample[:, :, -1] + mean[:, :, -1]
-            self.minibatch_data.mem[index] = final.ravel()
+            _, angle, scale, tbbox, _, _ = self._state
+            self.minibatch_image_names[index] = self._current_image
+            self.minibatch_image_shapes[index] = \
+                self._original_image_data.shape[:2]
+            self.minibatch_data.mem[index] = self._extract_sample().ravel()
             if self.substage == 1:
                 _, dxdy = self._transform_shape(
                     self._original_image_data.shape, angle, scale)
@@ -451,14 +472,16 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
                     bbox = self._transform_bbox(bbox, angle, scale)
                     for i in (0, 1):
                         bbox[:, i] -= dxdy[i]
-                    self.minibatch_bboxes.mem[index, bbindex] = \
+                    self.real_minibatch_bboxes[index, bbindex, :4] = \
                         self._create_bbox(bbox)
-                    self.minibatch_labels.mem[index, bbindex] = \
+                    self.real_minibatch_bboxes[index, bbindex, 4] = \
                         self._get_label_from_json(jsbbox["label"])
-            else:
-                self.minibatch_labels.mem[index, 0] = \
-                    self._get_label_from_json(
-                        self.images[self._current_image]["label"])
+                self.real_minibatch_bboxes[
+                    index, len(meta["bbxs"]), :] = 0
+            self.minibatch_bboxes[index] = tbbox
+            self.minibatch_labels[index] = \
+                self._get_label_from_json(
+                    self.images[self._current_image]["label"])
             try:
                 self._set_next_state()
             except StopIteration:

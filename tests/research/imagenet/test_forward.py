@@ -9,12 +9,12 @@ import numpy
 import unittest
 
 from veles.tests import DummyWorkflow
-from veles.znicz.tests.research.imagenet.forward import ForwardStage1Loader
+from veles.znicz.tests.research.imagenet.forward import ImagenetForwardLoader
 
 
 class TestForward1(unittest.TestCase):
     def setUp(self):
-        self.loader = ForwardStage1Loader(DummyWorkflow(), "", "", "")
+        self.loader = ImagenetForwardLoader(DummyWorkflow(), "", "", "")
         self.loader.aperture = 256
 
     def test_intersects(self):
@@ -32,16 +32,16 @@ class TestForward1(unittest.TestCase):
                                    [0, 50], [-100, -100]])))
 
     def test_inside(self):
-        self.assertTrue(self.loader._inside(
+        self.assertTrue(ImagenetForwardLoader.inside(
             (0, 0), numpy.array([[-100, -100], [100, -100],
                                  [100, 100], [-100, 100]])))
-        self.assertFalse(self.loader._inside(
+        self.assertFalse(ImagenetForwardLoader.inside(
             (150, 150), numpy.array([[-100, -100], [100, -100],
                                      [100, 100], [-100, 100]])))
-        self.assertFalse(self.loader._inside(
+        self.assertFalse(ImagenetForwardLoader.inside(
             (60, 10), numpy.array([[0, 50], [100, 50],
                                    [100, 150], [0, 150]])))
-        self.assertTrue(self.loader._inside(
+        self.assertTrue(ImagenetForwardLoader.inside(
             (60, 60), numpy.array([[0, 50], [100, 50],
                                    [100, 150], [0, 150]])))
 
@@ -79,11 +79,12 @@ class TestForward1(unittest.TestCase):
 
 if __name__ == "__main__":
     # import sys;sys.argv = ['', 'Test.testIntersects']
-    # unittest.main()
+    unittest.main()
+    """
     import os
     import veles.formats as formats
     base = "/data/veles/datasets/imagenet/2014_img_split_0/1"
-    loader = ForwardStage1Loader(
+    loader = ImagenetForwardLoader(
         DummyWorkflow(),
         os.path.join(base, "images_imagenet_1_img_%s_0.json"),
         os.path.join(base, "labels_int_1_img_0.txt"),
@@ -100,3 +101,4 @@ if __name__ == "__main__":
         loader.run()
         if loader.minibatch_size == 0:
             break
+    """
