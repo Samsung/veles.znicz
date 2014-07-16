@@ -223,7 +223,7 @@ class BackwardMul(ActivationBackward):
         if self._cl_const is None:
             self._cl_const = numpy.ones(1, dtype=self.output.dtype)
         self._cl_const[0] = self._factor
-        self.set_arg(3, self._cl_const)
+        self.set_arg(4, self._cl_const)
 
     def initialize(self, device, **kwargs):
         super(BackwardMul, self).initialize(device=device, **kwargs)
