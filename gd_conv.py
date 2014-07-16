@@ -105,15 +105,16 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
-        if self.include_bias and self.bias.mem.size != self.n_kernels:
+        if self.include_bias and self.bias.size != self.n_kernels:
             raise error.BadFormatError("Expected bias to match n_kernels")
-        if self.input.mem.size != batch_size * sy * sx * n_channels:
+        if self.input.size != batch_size * sy * sx * n_channels:
             raise error.BadFormatError(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
-        if (self.err_input.mem is None or
-                self.err_input.mem.size != self.input.mem.size):
+        if (self.need_err_input and (
+                self.err_input.mem is None or
+                self.err_input.mem.size != self.input.mem.size)):
             self.err_input.reset()
             sh = self.input.mem.shape
             if root.common.unit_test:
@@ -156,39 +157,39 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         if device is None:
             return
 
-        if self.program_ is None:
-            self.cl_const = numpy.zeros(4, dtype=dtype)
+        self.cl_const = numpy.zeros(4, dtype=dtype)
 
-            self.reduce_size = min(self.reduce_size,
-                                   self.kx * self.ky * n_channels)
+        self.reduce_size = min(self.reduce_size,
+                               self.kx * self.ky * n_channels)
 
-            defines = {
-                'APPLY_GRADIENT': int(self.apply_gradient),
-                'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-                'STORE_GRADIENT': int(self.store_gradient),
-                'INCLUDE_BIAS': int(self.include_bias),
-                'USE_ATOMICS': 1,
-                'BATCH': batch_size,
-                'SX': sx,
-                'SY': sy,
-                'N_CHANNELS': n_channels,
-                'KX': self.kx,
-                'KY': self.ky,
-                'N_KERNELS': self.n_kernels,
-                'PAD_LEFT': self.padding[0],
-                'PAD_TOP': self.padding[1],
-                'PAD_RIGHT': self.padding[2],
-                'PAD_BOTTOM': self.padding[3],
-                'SLIDE_X': self.sliding[0],
-                'SLIDE_Y': self.sliding[1],
-                'REDUCE_SIZE': self.reduce_size
-            }
-            self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
-                root.common.cache_dir,
-                self.input.mem.size // self.input.mem.shape[0],
-                self.output.mem.size // self.output.mem.shape[0]),
-                dtype=dtype)
+        defines = {
+            'APPLY_GRADIENT': int(self.apply_gradient),
+            'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
+            'STORE_GRADIENT': int(self.store_gradient),
+            'INCLUDE_BIAS': int(self.include_bias),
+            'USE_ATOMICS': 1,
+            'BATCH': batch_size,
+            'SX': sx,
+            'SY': sy,
+            'N_CHANNELS': n_channels,
+            'KX': self.kx,
+            'KY': self.ky,
+            'N_KERNELS': self.n_kernels,
+            'PAD_LEFT': self.padding[0],
+            'PAD_TOP': self.padding[1],
+            'PAD_RIGHT': self.padding[2],
+            'PAD_BOTTOM': self.padding[3],
+            'SLIDE_X': self.sliding[0],
+            'SLIDE_Y': self.sliding[1],
+            'REDUCE_SIZE': self.reduce_size
+        }
+        self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
+            root.common.cache_dir,
+            self.input.mem.size // self.input.mem.shape[0],
+            self.output.mem.size // self.output.mem.shape[0]),
+            dtype=dtype)
 
+        if self.need_err_input:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
@@ -197,17 +198,17 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                          self.weights.devmem,
                                          self.err_input.devmem)
 
-            self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_args(self.err_output.devmem,
-                                       self.input.devmem,
-                                       self.weights.devmem,
-                                       self.gradient_weights.devmem)
+        self.krn_weights_ = self.get_kernel("weights_update")
+        self.krn_weights_.set_args(self.err_output.devmem,
+                                   self.input.devmem,
+                                   self.weights.devmem,
+                                   self.gradient_weights.devmem)
 
-            if self.include_bias:
-                self.krn_bias_ = self.get_kernel("bias_update")
-                self.krn_bias_.set_args(
-                    self.err_output.devmem, self.bias.devmem,
-                    self.gradient_bias.devmem)
+        if self.include_bias:
+            self.krn_bias_ = self.get_kernel("bias_update")
+            self.krn_bias_.set_args(
+                self.err_output.devmem, self.bias.devmem,
+                self.gradient_bias.devmem)
 
     def gpu_weights_update(self):
         self.input.unmap()

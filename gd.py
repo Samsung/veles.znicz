@@ -100,48 +100,47 @@ class GradientDescent(nn_units.GradientDescentBase):
         if self.device is None:
             return
 
-        if self.program_ is None:
-            dtype = self.err_output.mem.dtype
-            self.cl_const = numpy.zeros(4, dtype=dtype)
+        dtype = self.err_output.mem.dtype
+        self.cl_const = numpy.zeros(4, dtype=dtype)
 
-            block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(dtype)]
-            self.reduce_size = min(self.reduce_size, self.bias.mem.size)
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(dtype)]
+        self.reduce_size = min(self.reduce_size, self.bias.mem.size)
 
-            defines = {
-                "APPLY_GRADIENT": int(self.apply_gradient),
-                "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
-                "STORE_GRADIENT": int(self.store_gradient),
-                "INCLUDE_BIAS": int(self.include_bias),
-                "BLOCK_SIZE": block_size,
-                "BATCH": self.input.mem.shape[0],
-                "H": self.input.mem.size // self.input.mem.shape[0],
-                "Y": self.output.mem.size // self.output.mem.shape[0],
-                "REDUCE_SIZE": self.reduce_size
-            }
+        defines = {
+            "APPLY_GRADIENT": int(self.apply_gradient),
+            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
+            "STORE_GRADIENT": int(self.store_gradient),
+            "INCLUDE_BIAS": int(self.include_bias),
+            "BLOCK_SIZE": block_size,
+            "BATCH": self.input.mem.shape[0],
+            "H": self.input.mem.size // self.input.mem.shape[0],
+            "Y": self.output.mem.size // self.output.mem.shape[0],
+            "REDUCE_SIZE": self.reduce_size
+        }
 
-            self.build_program(defines, "gd_%d_%d.cl" % (
-                self.input.mem.size // self.input.mem.shape[0],
-                self.output.mem.size // self.output.mem.shape[0]),
-                dtype=dtype)
+        self.build_program(defines, "gd_%d_%d.cl" % (
+            self.input.mem.size // self.input.mem.shape[0],
+            self.output.mem.size // self.output.mem.shape[0]),
+            dtype=dtype)
 
-            if self.need_err_input:
-                self.krn_err_input_ = self.get_kernel("err_h_update")
-                self.krn_err_input_.set_args(
-                    self.err_output.devmem, self.weights.devmem,
-                    self.err_input.devmem)
+        if self.need_err_input:
+            self.krn_err_input_ = self.get_kernel("err_h_update")
+            self.krn_err_input_.set_args(
+                self.err_output.devmem, self.weights.devmem,
+                self.err_input.devmem)
 
-            self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_args(self.err_output.devmem,
-                                       self.input.devmem,
-                                       self.weights.devmem,
-                                       self.gradient_weights.devmem)
+        self.krn_weights_ = self.get_kernel("weights_update")
+        self.krn_weights_.set_args(self.err_output.devmem,
+                                   self.input.devmem,
+                                   self.weights.devmem,
+                                   self.gradient_weights.devmem)
 
-            if self.include_bias:
-                self.krn_bias_ = self.get_kernel("bias_update")
-                self.krn_bias_.set_args(
-                    self.err_output.devmem, self.bias.devmem,
-                    self.gradient_bias.devmem)
+        if self.include_bias:
+            self.krn_bias_ = self.get_kernel("bias_update")
+            self.krn_bias_.set_args(
+                self.err_output.devmem, self.bias.devmem,
+                self.gradient_bias.devmem)
 
     def cpu_weights_update(self):
         self.input.map_read()
