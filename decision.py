@@ -15,7 +15,7 @@ from zope.interface import implementer, Interface
 from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
-from veles.znicz.loader import CLASS_NAME, TRAIN, VALID
+from veles.znicz.loader import CLASS_NAME, TRAIN
 
 
 class IDecision(Interface):
@@ -253,10 +253,18 @@ class DecisionGD(DecisionBase):
         self.epoch_n_err = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt = [100.0, 100.0, 100.0]
         self.minibatch_n_err = None  # formats.Vector()
+
+        # minimum validation error and its epoch number
         self.min_validation_n_err = 1.0e30
-        self.min_n_err_epoch_number = 0
+        self.min_validation_n_err_epoch_number = -1
+
+        # train error when validation was minimum last time
+        self.min_train_validation_n_err = 1.0e30
+
+        # minimum train error and its epoch number
         self.min_train_n_err = 1.0e30
         self.min_train_n_err_epoch_number = -1
+
         self.confusion_matrixes = [None, None, None]
         self.minibatch_confusion_matrix = None  # formats.Vector()
         self.max_err_y_sums = [0, 0, 0]
@@ -315,17 +323,22 @@ class DecisionGD(DecisionBase):
                 self.minibatch_max_err_y_sum[0])
 
     def improve_condition(self):
-        if ((self.epoch_n_err[VALID] < self.min_validation_n_err or
-             (self.epoch_n_err[VALID] == self.min_validation_n_err
-              and self.epoch_n_err[TRAIN] < self.min_train_n_err))):
-            self.min_validation_n_err = self.epoch_n_err[VALID]
-            self.min_train_n_err = self.epoch_n_err[TRAIN]
-            self.min_n_err_epoch_number = self.epoch_number
+        minibatch_class = self.minibatch_class
+        if ((self.epoch_n_err[minibatch_class] < self.min_validation_n_err or
+             (self.epoch_n_err[minibatch_class] == self.min_validation_n_err
+              and self.epoch_n_err[TRAIN] < self.min_train_validation_n_err))):
+            self.min_validation_n_err = self.epoch_n_err[minibatch_class]
+            self.min_train_validation_n_err = self.epoch_n_err[TRAIN]
+            self.min_validation_n_err_epoch_number = self.epoch_number
             return True
         return False
 
     def train_improve_condition(self):
-        return bool(self.epoch_n_err[TRAIN] < self.min_train_n_err)
+        if self.epoch_n_err[TRAIN] < self.min_train_n_err:
+            self.min_train_n_err = self.epoch_n_err[TRAIN]
+            self.min_train_n_err_epoch_number = self.epoch_number
+            return True
+        return False
 
     def on_training_finished(self):
         pass
@@ -362,12 +375,10 @@ class DecisionGD(DecisionBase):
                 "minibatch_confusion_matrix"]
 
     def stop_condition(self):
-        if (self.min_validation_n_err <= 0 or
-            (not self.class_lengths[VALID] and
-             self.min_train_n_err <= 0)):
+        if self.min_validation_n_err <= 0:
             return True
-        if self.epoch_number - self.min_n_err_epoch_number > \
-           self.fail_iterations:
+        if (self.epoch_number - self.min_validation_n_err_epoch_number >
+                self.fail_iterations):
             return True
         return False
 
@@ -413,6 +424,7 @@ class DecisionMSE(DecisionGD):
         self.epoch_min_mse = [1.0e30, 1.0e30, 1.0e30]
         self.min_validation_mse = 1.0e30
         self.min_validation_mse_epoch_number = -1
+        self.min_train_validation_mse = 1.0e30
         self.min_train_mse = 1.0e30
         self.min_train_mse_epoch_number = -1
         self.epoch_metrics = [None, None, None]
@@ -459,13 +471,16 @@ class DecisionMSE(DecisionGD):
                  and self.epoch_min_mse[TRAIN] < self.min_train_mse)):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
-            self.min_train_mse = self.epoch_min_mse[TRAIN]
-            self.min_train_mse_epoch_number = self.epoch_number
+            self.min_train_validation_mse = self.epoch_min_mse[TRAIN]
             return True
         return super(DecisionMSE, self).improve_condition()
 
     def train_improve_condition(self):
-        return bool(self.epoch_min_mse[TRAIN] < self.min_train_mse)
+        if self.epoch_min_mse[TRAIN] < self.min_train_mse:
+            self.min_train_mse = self.epoch_min_mse[TRAIN]
+            self.min_train_mse_epoch_number = self.epoch_number
+            return True
+        return False
 
     def on_generate_data_for_master(self, data):
         super(DecisionMSE, self).on_generate_data_for_master(data)
@@ -515,14 +530,9 @@ class DecisionMSE(DecisionGD):
             self.minibatch_metrics[2] = 1.0e30
 
     def stop_condition(self):
-        if (self.min_validation_mse <= 0 or
-            (not self.class_lengths[VALID] and
-             self.min_train_mse <= 0)):
+        if self.min_validation_mse <= 0:
             return True
         if (self.epoch_number - self.min_validation_mse_epoch_number >
-            self.fail_iterations or
-            (not self.class_lengths[VALID] and
-             self.epoch_number - self.min_train_mse_epoch_number >
-             self.fail_iterations)):
+                self.fail_iterations):
             return True
         return False
