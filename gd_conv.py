@@ -89,6 +89,10 @@ class GradientDescentConv(nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         super(GradientDescentConv, self).initialize(device, **kwargs)
+
+        if self.err_output.shape != self.output.shape:
+            raise error.BadFormatError("err_output.shape != output.shape")
+
         batch_size = self.input.mem.shape[0]
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]

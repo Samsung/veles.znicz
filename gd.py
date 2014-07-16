@@ -14,6 +14,7 @@ import opencl4py as cl
 import time
 from zope.interface import implementer
 
+import veles.error as error
 from veles.external.prettytable import PrettyTable
 import veles.formats as formats
 import veles.opencl_types as opencl_types
@@ -63,6 +64,10 @@ class GradientDescent(nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         super(GradientDescent, self).initialize(device=device, **kwargs)
+
+        if self.err_output.shape != self.output.shape:
+            raise error.BadFormatError("err_output.shape != output.shape")
+
         if (self.need_err_input and
             (self.err_input.mem is None or
              self.err_input.mem.size != self.input.mem.size)):
