@@ -229,14 +229,14 @@ class ForwardStage1Loader(OpenCLUnit, Processor):
         self._state = (image_data, angle, scale, bbox, x, y)
 
     def _set_next_x_y(self, transformed_image_data, bbox, x, y):
-        x += self.aperture
+        x += self.aperture * self._real_overlap_factor
         while x + self.aperture <= transformed_image_data.shape[1] and \
                 not self._check_aperture_payload(x, y, bbox):
             x += self.aperture * self._real_overlap_factor
         if x + self.aperture <= transformed_image_data.shape[1]:
             return x, y
         x = 0
-        y += self.aperture
+        y += self.aperture * self._real_overlap_factor
         while y + self.aperture <= transformed_image_data.shape[0] and \
                 not self._check_aperture_payload(x, y, bbox):
             y += self.aperture * self._real_overlap_factor
