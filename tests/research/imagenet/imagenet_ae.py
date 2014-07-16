@@ -29,11 +29,14 @@ import veles.znicz.depooling as depooling
 import veles.znicz.activation as activation
 import veles.znicz.all2all as all2all
 import veles.znicz.gd as gd
+import veles.znicz.gd_pooling as gd_pooling
+import veles.znicz.gd_conv as gd_conv
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import TriviallyDistributable
+import veles.random_generator as prng
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
@@ -41,15 +44,21 @@ root.model = "imagenet"
 
 LR = 0.00001
 WD = 0.004
+WD = 0.0005
 GM = 0.9
 L1_VS_L2 = 0.0
 
 LRAA = 0.01
 LRBAA = LRAA
 WDAA = 0.004
+WDAA = 0.0005
 WDBAA = WDAA
 GMAA = 0.9
 GMBAA = GM
+
+FILLING = "gaussian"
+STDDEV_CONV = 0.01
+STDDEV_AA = 0.001
 
 root.defaults = {
     "decision": {"fail_iterations": 25,
@@ -59,13 +68,17 @@ root.defaults = {
     "loader": {"year": "temp",
                "series": "img",
                "minibatch_size": 13},
-    "imagenet": {"layers":
+    "imagenet": {"from_snapshot_add_layer": True,
+                 "fine_tuning_noise": 1.0e-6,
+                 "layers":
                  [{"type": "ae_begin"},  # 256
                   {"type": "conv", "n_kernels": 16,
                    "kx": 8, "ky": 8, "sliding": (1, 1),
                    "learning_rate": LR,
                    "weights_decay": WD,
                    "gradient_moment": GM,
+                   "weights_filling": FILLING,
+                   "weights_stddev": STDDEV_CONV,
                    "l1_vs_l2": L1_VS_L2},
                   {"type": "stochastic_abs_pooling",
                    "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -78,6 +91,8 @@ root.defaults = {
                    "learning_rate": LR,
                    "weights_decay": WD,
                    "gradient_moment": GM,
+                   "weights_filling": FILLING,
+                   "weights_stddev": STDDEV_CONV,
                    "l1_vs_l2": L1_VS_L2},
                   {"type": "stochastic_abs_pooling",
                    "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -90,6 +105,8 @@ root.defaults = {
                    "learning_rate": LR,
                    "weights_decay": WD,
                    "gradient_moment": GM,
+                   "weights_filling": FILLING,
+                   "weights_stddev": STDDEV_CONV,
                    "l1_vs_l2": L1_VS_L2},
                   {"type": "stochastic_abs_pooling",
                    "kx": 3, "ky": 3, "sliding": (2, 2)},
@@ -100,13 +117,15 @@ root.defaults = {
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-                   "weights_stddev": 0.001, "bias_stddev": 0.001,
+                   "weights_filling": "gaussian", "bias_filling": "gaussian",
+                   "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
 
                   {"type": "softmax", "output_shape": 5,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
+                   "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "l1_vs_l2": L1_VS_L2}]}}
 
 CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.loader.year)
@@ -329,35 +348,17 @@ class Workflow(StandardWorkflow):
             deconv.Deconv: gd_deconv.GDDeconv,
             all2all.All2All: gd.GradientDescent,
             all2all.All2AllTanh: gd.GDTanh,
+            all2all.All2AllSoftmax: gd.GDSM,
             activation.ForwardTanhLog: activation.BackwardTanhLog,
-            all2all.All2AllSoftmax: gd.GDSM}
-
-    def __init__(self, workflow, **kwargs):
-        self.forward_map = {
-            "conv": conv.Conv,
-            "stochastic_abs_pooling": pooling.StochasticAbsPooling,
-            "max_abs_pooling": pooling.MaxAbsPooling,
-            "stochastic_pooling": pooling.StochasticPooling,
-            "max_pooling": pooling.MaxPooling,
-            "activation_mul": activation.ForwardMul,
-            "all2all": all2all.All2All,
-            "all2all_tanh": all2all.All2AllTanh,
-            "activation_tanhlog": activation.ForwardTanhLog,
-            "softmax": all2all.All2AllSoftmax}
-        self.de_map = {
-            conv.Conv: deconv.Deconv,
-            pooling.StochasticAbsPooling: depooling.Depooling,
-            pooling.MaxAbsPooling: depooling.Depooling,
-            pooling.StochasticPooling: depooling.Depooling,
-            pooling.MaxPooling: depooling.Depooling}
-        self.gd_map = {
-            deconv.Deconv: gd_deconv.GDDeconv,
-            all2all.All2All: gd.GD,
-            all2all.All2AllTanh: gd.GDTanh,
-            activation.ForwardTanhLog: activation.BackwardTanhLog,
-            all2all.All2AllSoftmax: gd.GDSM}
+            activation.ForwardMul: activation.BackwardMul,
+            pooling.StochasticAbsPooling: gd_pooling.GDMaxAbsPooling,
+            pooling.StochasticPooling: gd_pooling.GDMaxPooling,
+            pooling.MaxAbsPooling: gd_pooling.GDMaxAbsPooling,
+            pooling.MaxPooling: gd_pooling.GDMaxPooling,
+            conv.Conv: gd_conv.GradientDescentConv}
         self.fixed = {}
 
+    def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
@@ -577,13 +578,68 @@ class Workflow(StandardWorkflow):
         return prev
 
     def initialize(self, device, **kwargs):
-        if self.fwds[0].weights.mem is not None:
+        if (self.fwds[0].weights.mem is not None and
+                root.imagenet.from_snapshot_add_layer):
             self.info("Restoring from snapshot detected, "
                       "will adjust the workflow")
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
+
+    def switch_to_fine_tuning(self):
+        if len(self.gds) == len(self.fwds):
+            self.info("Already at fine-tune stage, will exit with code 1 now")
+            os._exit(1)
+        # Add gradient descent units for the remaining forward units
+        self.gds[0].unlink_after()
+        self.gds[0].need_err_input = True
+        prev = self.gds[0]
+
+        for i in range(len(self.fwds) - len(self.gds) - 1, -1, -1):
+            GD = self.gd_map[self.fwds[i].__class__]
+            kwargs = {}
+            for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
+                         "factor", "include_bias"):
+                vle = getattr(self.fwds[i], attr, None)
+                if vle is not None:
+                    kwargs[attr] = vle
+            unit = GD(self, **kwargs)
+            self.gds.insert(0, unit)
+            unit.link_from(prev)
+            unit.link_attrs(prev, ("err_output", "err_input"))
+            if hasattr(self.fwds[i], "input_offset"):
+                unit.link_attrs(self.fwds[i], "weights", "input", "output",
+                                "input_offset")
+            else:
+                unit.link_attrs(self.fwds[i], "weights", "input", "output")
+            if self.fwds[i].bias is None:
+                unit.link_attrs(self.fwds[i], "bias")
+            unit.gate_skip = self.decision.gd_skip
+            prev = unit
+            self.fix(unit, "weights", "input", "output",
+                     "err_input", "err_output")
+
+        self.gds[0].need_err_input = False
+        self.repeater.link_from(self.gds[0])
+
+        self.rollback.reset()
+        noise = float(root.imagenet.fine_tuning_noise)
+        for unit in self.gds:
+            self.rollback.add_gd(unit)
+            if not noise:
+                continue
+            if unit.weights:
+                a = unit.weights.plain
+                a += prng.get().normal(0, noise, unit.weights.size)
+            if unit.bias:
+                a = unit.bias.plain
+                a += prng.get().normal(0, noise, unit.bias.size)
+
+        # Reset last best error, `cause we have modified the workflow
+        self.decision.min_validation_n_err = 1.0e30
+        self.decision.min_train_validation_n_err = 1.0e30
+        self.decision.min_train_n_err = 1.0e30
 
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
@@ -605,9 +661,8 @@ class Workflow(StandardWorkflow):
                 continue
             i_fwd += 1
         else:
-            self.warning("Already extended up to maximum layers, "
-                         "will continue training as it is")
-            return
+            self.warning("Will switch to the fine-tuning task")
+            return self.switch_to_fine_tuning()
 
         i_fwd = i_fwd_last
         for i in range(i_fwd, len(self.fwds)):
@@ -621,7 +676,6 @@ class Workflow(StandardWorkflow):
         ae_layers = []
         last_conv = None
         in_ae = False
-        self.fixed.clear()
         for layer in layers[i_layer:]:
             if layer["type"] == "ae_begin":
                 self.info("Autoencoder block begin")
@@ -712,12 +766,15 @@ class Workflow(StandardWorkflow):
 
             # Reset last best error, `cause we have extended the workflow
             self.decision.min_validation_mse = 1.0e30
+            self.decision.min_train_validation_mse = 1.0e30
             self.decision.min_train_mse = 1.0e30
             self.decision.min_validation_n_err = 1.0e30
+            self.decision.min_train_validation_n_err = 1.0e30
             self.decision.min_train_n_err = 1.0e30
         else:
             self.info("No more autoencoder levels, "
-                      "will switching to the classification task")
+                      "will switch to the classification task")
+            self.n_ae += 1
 
             # Add evaluator unit
             self.evaluator.unlink_all()
@@ -769,22 +826,42 @@ class Workflow(StandardWorkflow):
             prev = None
             gds = []
             for i in range(len(self.fwds) - 1, i_fwd - 1, -1):
-                if self.fwds[i].__class__ not in self.gd_map:
-                    break
                 GD = self.gd_map[self.fwds[i].__class__]
-                unit = GD(self)
+                kwargs = {}
+                for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
+                             "factor", "include_bias"):
+                    vle = getattr(self.fwds[i], attr, None)
+                    if vle is not None:
+                        kwargs[attr] = vle
+                unit = GD(self, **kwargs)
                 gds.append(unit)
                 if prev is not None:
                     unit.link_from(prev)
-                unit.link_attrs(prev_gd, "err_output")
-                unit.link_attrs(self.fwds[i], "weights", "bias",
-                                "input", "output")
+                if isinstance(prev_gd, evaluator.EvaluatorBase):
+                    unit.link_attrs(prev_gd, "err_output")
+                else:
+                    unit.link_attrs(prev_gd, ("err_output", "err_input"))
+                if hasattr(self.fwds[i], "input_offset"):
+                    unit.link_attrs(self.fwds[i], "weights", "bias",
+                                    "input", "output", "input_offset")
+                else:
+                    unit.link_attrs(self.fwds[i], "weights", "bias",
+                                    "input", "output")
                 unit.gate_skip = self.decision.gd_skip
                 prev_gd = unit
                 prev = unit
                 self.fix(unit, "weights", "bias", "input", "output",
                          "err_input", "err_output")
                 self.rollback.add_gd(unit)
+            # Strip gd's without weights
+            for i in range(len(gds) - 1, -1, -1):
+                if (isinstance(gds[i], gd.GradientDescent) or
+                        isinstance(gds[i], gd_conv.GradientDescentConv)):
+                    break
+                unit = gds.pop(-1)
+                unit.unlink_all()
+                self.del_ref(unit)
+                del self.fixed[unit]
             self.gds = list(None for _ in gds)
             for i, _gd in enumerate(gds):
                 self.gds[-(i + 1)] = _gd
