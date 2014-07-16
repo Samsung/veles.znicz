@@ -180,6 +180,7 @@ class GDMaxPooling(GDPooling):
     def __init__(self, workflow, **kwargs):
         super(GDMaxPooling, self).__init__(workflow, **kwargs)
         self.input_offset = None  # formats.Vector()
+        self.demand("input_offset")
 
     def init_unpickled(self):
         super(GDMaxPooling, self).init_unpickled()
@@ -188,7 +189,7 @@ class GDMaxPooling(GDPooling):
     def initialize(self, **kwargs):
         super(GDMaxPooling, self).initialize(**kwargs)
 
-        if self.err_output.mem.size != self.input_offset.mem.size:
+        if self.err_output.size != self.input_offset.size:
             raise error.BadFormatError("Shape of err_output differs from "
                                        "that of input_offset")
 
