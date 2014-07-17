@@ -15,11 +15,11 @@ from zope.interface import implementer
 
 from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
-from veles.distributable import IDistributable, Distributable
+from veles.distributable import IDistributable
 
 
 @implementer(IUnit, IDistributable)
-class LearningRateAdjust(Unit, Distributable):
+class LearningRateAdjust(Unit):
     """
     This unit should be linked from Decision to run with each minibatch.
     Does nothing if ``lr_function`` is not set.
@@ -33,12 +33,12 @@ class LearningRateAdjust(Unit, Distributable):
             (if nothing is set - `lr_function` is taken)
     """
     def __init__(self, workflow, **kwargs):
+        super(LearningRateAdjust, self).__init__(workflow, **kwargs)
         self._lr_function = kwargs.get("lr_function", None)
         self._bias_lr_function = kwargs.get("bias_lr_function",
                                             self._lr_function)
         self._gradient_units = []
         self._minibatches_count = 0
-        super(LearningRateAdjust, self).__init__(workflow, **kwargs)
         self._prev_lr = 1.0e30
         self._prev_bias_lr = 1.0e30
 
@@ -87,7 +87,7 @@ class LearningRateAdjust(Unit, Distributable):
 
         self._minibatches_count += 1
 
-    #IDistributable implementation
+    # IDistributable implementation
     def generate_data_for_slave(self, slave):
         data = (self._minibatches_count, self._lr_function,
                 self._bias_lr_function)
