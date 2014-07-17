@@ -7,6 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import json
 import numpy
 import os
 import pickle
@@ -236,8 +237,8 @@ class Loader(loader.Loader):
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = 256
-        self.sy = 256
+        self.sx = 216
+        self.sy = 216
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -259,8 +260,8 @@ class Loader(loader.Loader):
                   numpy.min(self.original_labels),
                   numpy.max(self.original_labels))
 
-        with open(root.loader.count_samples_filename, "rb") as fin:
-            for i, n in enumerate(pickle.load(fin)):
+        with open(root.loader.count_samples_filename, "r") as fin:
+            for i, n in enumerate(json.load(fin)):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
 

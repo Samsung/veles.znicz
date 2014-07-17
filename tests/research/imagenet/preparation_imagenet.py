@@ -79,7 +79,7 @@ class Main(Processor):
         self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
                                                  False)
-        self.rect = kwargs.get("rect", (256, 256))
+        self.rect = kwargs.get("rect", (216, 216))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
@@ -178,17 +178,15 @@ class Main(Processor):
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
         ind = 1
-        self.info("map_items %s" % map_items)
         for set_type, (dir_images, dir_bboxes) in sorted(map_items):
             print("------", set_type, dir_images, dir_bboxes)
             path = os.path.join(self.imagenet_dir_path, dir_images)
             self.info("Scanning JPG %s...", path)
             temp_images = self.images_iter[set_type]
             for root_path, _tmp, files in os.walk(path, followlinks=True):
-                print("ROOT=", root_path)
+                # print("ROOT=", root_path)
                 for f in files:
                     if os.path.splitext(f)[1] == ".JPEG":
-                        self.info("f %s" % f)
                         f_path = os.path.join(root_path, f)
                         #--------------------------------------------
                         # KGG check if dirs have duplicates filenames
@@ -214,7 +212,7 @@ class Main(Processor):
                 path = os.path.join(self.imagenet_dir_path, dir_bboxes)
                 self.info("Scanning xml %s...", path)
                 for root_path, _tmp, files in os.walk(path, followlinks=True):
-                    print("ROOT=", root_path)
+                    # print("ROOT=", root_path)
                     for f in files:
                         if os.path.splitext(f)[1] == ".xml":
                             image_fname = os.path.splitext(f)[0] + ".JPEG"
@@ -240,7 +238,6 @@ class Main(Processor):
                                     h = bbx_ymax - bbx_ymin
                                     x = 0.5 * w + bbx_xmin
                                     y = 0.5 * h + bbx_ymin
-                                    self.info("image_fname %s" % image_fname)
                                     image_lbl = self.images_iter[
                                         set_type][image_fname]["label"]
                                     if (bbx_lbl == image_lbl or
