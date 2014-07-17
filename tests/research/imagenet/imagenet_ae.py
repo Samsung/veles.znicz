@@ -39,9 +39,7 @@ from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
 import veles.external.prettytable as prettytable
 
-IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
-                                  "imagenet")
-root.model = "imagenet"
+IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root, "imagenet")
 
 LR = 0.00001
 WD = 0.004
@@ -65,6 +63,7 @@ STDDEV_CONV = 0.01
 STDDEV_AA = 0.001
 
 root.defaults = {
+    "model": "imagenet",
     "decision": {"fail_iterations": 25,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
