@@ -39,7 +39,7 @@ import veles.config as config
 import veles.random_generator as rnd
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
-
+from matplotlib import pyplot as plt
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
@@ -78,7 +78,7 @@ class Main(Processor):
             }
         self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
-                                                 True)
+                                                 False)
         self.rect = kwargs.get("rect", (256, 256))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
@@ -123,7 +123,8 @@ class Main(Processor):
                                      "split_valid", "split_dataset",
                                      "generate_negative", "init_split_dataset",
                                      "negative_split_dataset",
-                                     "resize_split_dataset", "split_train"],
+                                     "resize_split_dataset", "split_train",
+                                     "test_segmentation", "min_max_shape"],
                             help="run functions:"
                                  " 'draw_bbox' run function which generate"
                                  " image with bboxes, 'resize' run function"
@@ -177,15 +178,17 @@ class Main(Processor):
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
         ind = 1
+        self.info("map_items %s" % map_items)
         for set_type, (dir_images, dir_bboxes) in sorted(map_items):
             print("------", set_type, dir_images, dir_bboxes)
             path = os.path.join(self.imagenet_dir_path, dir_images)
             self.info("Scanning JPG %s...", path)
             temp_images = self.images_iter[set_type]
             for root_path, _tmp, files in os.walk(path, followlinks=True):
-                # print("ROOT=", root)
+                print("ROOT=", root_path)
                 for f in files:
                     if os.path.splitext(f)[1] == ".JPEG":
+                        self.info("f %s" % f)
                         f_path = os.path.join(root_path, f)
                         #--------------------------------------------
                         # KGG check if dirs have duplicates filenames
@@ -211,6 +214,7 @@ class Main(Processor):
                 path = os.path.join(self.imagenet_dir_path, dir_bboxes)
                 self.info("Scanning xml %s...", path)
                 for root_path, _tmp, files in os.walk(path, followlinks=True):
+                    print("ROOT=", root_path)
                     for f in files:
                         if os.path.splitext(f)[1] == ".xml":
                             image_fname = os.path.splitext(f)[0] + ".JPEG"
@@ -236,6 +240,7 @@ class Main(Processor):
                                     h = bbx_ymax - bbx_ymin
                                     x = 0.5 * w + bbx_xmin
                                     y = 0.5 * h + bbx_ymin
+                                    self.info("image_fname %s" % image_fname)
                                     image_lbl = self.images_iter[
                                         set_type][image_fname]["label"]
                                     if (bbx_lbl == image_lbl or
@@ -335,6 +340,7 @@ class Main(Processor):
         original_labels = []
         int_word_labels = []
         zero_train = True
+        self.do_negative = False
         self.imagenet_dir_path = path
         original_labels_dir = os.path.join(
             self.imagenet_dir_path, "original_labels_%s_%s_%s.pickle" %
@@ -375,6 +381,7 @@ class Main(Processor):
             path_to_save = path_to_save[:path_to_save.rfind("/")]
             path_to_save = os.path.join(path_to_save, "n00000000")
             if f.find("negative_image") != -1:
+                self.do_negative = True
                 self.sample_rect(
                     image, image.shape[1] / 2, image.shape[0] / 2,
                     image.shape[0], image.shape[1], 0, None)
@@ -402,8 +409,12 @@ class Main(Processor):
         rdisp[:, :, 3:4] = 1.0 / 128
 
         self.info("Mean image is calculated")
-        out_path_mean = os.path.join(path_to_save,
-                                     "mean_image_%s.JPEG" % self.year)
+        if self.do_negative is True:
+            out_path_mean = os.path.join(path_to_save,
+                                         "mean_image_%s.JPEG" % self.year)
+        else:
+            out_path_mean = os.path.join(self.imagenet_dir_path,
+                                         "mean_image_%s.JPEG" % self.year)
         scipy.misc.imsave(out_path_mean, self.s_mean)
         self.matrixes.append(mean)
         self.matrixes.append(rdisp)
@@ -640,11 +651,11 @@ class Main(Processor):
                 path_xml_valid_dir = os.path.join(path_to_bbox_validation,
                                                   str(label))
                 try:
-                    os.mkdir(path_img_valid_dir)
+                    os.mkdir(path_img_valid_dir, mode=0o775)
                 except:
                     pass
                 try:
-                    os.mkdir(path_xml_valid_dir)
+                    os.mkdir(path_xml_valid_dir, mode=0o775)
                 except:
                     pass
                 if zero_move:
@@ -795,20 +806,40 @@ class Main(Processor):
                 self.images_json[set_type] = json.load(fp)
         except:
             self.exception("Failed to load %s", fnme)
-        self.init_files(self.split_dir)
+        #self.init_files(self.split_dir)
         self.classes = []
         self.year = "2014"
         self.count_classes = 0
         self.imagenet_dir = os.path.join(IMAGENET_BASE_PATH, self.year)
         class_path = os.path.join(self.imagenet_dir, "ILSVRC2013_DET_val")
-        for root_path, sub_dirs, files in os.walk(class_path,
-                                                  followlinks=True):
+        for _root_path, sub_dirs, _files in os.walk(class_path,
+                                                    followlinks=True):
             for sub_dir in sub_dirs:
                 if sub_dir.find("none") == (-1):
                     self.classes.append(sub_dir)
                     self.count_classes += 1
         self.classes.sort()
+        digits_word = []
+        classes_word = []
         self.info("self.count_classes %s" % self.count_classes)
+        categories_path = os.path.join(self.imagenet_dir,
+                                       "indices_to_categories.txt")
+        self.categories = open(categories_path, "r")
+        for line in self.categories:
+            digits_label = line[:line.find("\t")]
+            word_label = line[line.find("\t") + 1:line.find("\n")]
+            digits_word.append((digits_label, word_label))
+        self.categories.close()
+        digits_word.sort()
+        for label in self.classes:
+            for (digits_label, word_label) in digits_word:
+                if label == digits_label:
+                    classes_word.append(word_label)
+        classes_word_path = os.path.join(
+            self.imagenet_dir, "classes_200_%s_%s_%s_%s.json" %
+            (self.year, self.series, set_type, self.stage))
+        with open(classes_word_path, 'w') as fp:
+            json.dump(classes_word, fp)
         if self.count_classes:
             for i in range(0, self.count_classes):
                 try:
@@ -834,7 +865,11 @@ class Main(Processor):
             for image_name, _val in sorted(self.images_json[set_type].items()):
                 image_path = self.images_json[set_type][image_name]["path"]
                 bbox_name = image_name.replace(".JPEG", ".xml")
-                bbx_path = os.path.join(bbox_path, bbox_name)
+                bbox_name_dir_ind = image_path[:image_path.rfind("/")]
+                bbox_name_dir = bbox_name_dir_ind[bbox_name_dir_ind.rfind("/")
+                                                  + 1:]
+                bbx_path = os.path.join(bbox_path, bbox_name_dir)
+                bbx_path = os.path.join(bbx_path, bbox_name)
                 ind = 0
                 if self.images_json[set_type][image_name]["bbxs"] == []:
                     try:
@@ -845,21 +880,21 @@ class Main(Processor):
                     try:
                         shutil.copyfile(
                             bbx_path, os.path.join(
-                                bbox_path, "bbox_is_none/%s" % (image_name)))
+                                bbox_path, "bbox_is_none/%s" % (bbox_name)))
                     except:
                         pass
                 for bbx in self.images_json[set_type][image_name]["bbxs"]:
                     label = bbx["label"]
-                    name = "%s_%s" % (ind, image_path)
                     try:
                         shutil.copyfile(image_path, os.path.join(
-                            img_path, "%s/%s" % (label, name)))
+                            img_path, "%s/%s" % (label, image_name)))
                     except:
                         pass
+                    name_bbx = image_name.replace(".JPEG", ".xml")
                     try:
                         shutil.copyfile(
                             bbx_path, os.path.join(
-                                bbox_path, "%s/%s" % (label, name)))
+                                bbox_path, "%s/%s" % (label, name_bbx)))
                     except:
                         pass
                     ind += 1
@@ -969,6 +1004,39 @@ class Main(Processor):
                              (path_bbx_from, path_bbx_to)):
                     raise RuntimeError("rsync failed")
 
+    def min_max_shape(self, path):
+        self.imagenet_dir_path = path
+        max_shape = 0
+        min_shape = 100000000
+        for set_type in ("test", "validation", "train"):
+            fnme = os.path.join(
+                self.imagenet_dir_path, IMAGES_JSON %
+                (self.year, self.series, set_type, self.stage))
+            try:
+                with open(fnme, 'r') as fp:
+                    self.images_json[set_type] = json.load(fp)
+            except:
+                self.exception("Failed to load %s", fnme)
+            for f, _val in sorted(self.images_json[set_type].items()):
+                image_fnme = self.images_json[set_type][f]["path"]
+                image = self.decode_image(image_fnme)
+                _width = image.shape[1]
+                _height = image.shape[0]
+                for bbx in self.images_json[set_type][f]["bbxs"]:
+                    bbx_height = bbx["height"]
+                    bbx_width = bbx["width"]
+                    shape = bbx_height * bbx_width
+                    if shape < min_shape:
+                        min_shape = shape
+                        min_height = bbx_height
+                        min_width = bbx_width
+                    if shape > max_shape:
+                        max_shape = shape
+                        max_height = bbx_height
+                        max_width = bbx_width
+        self.info("min_shape w %s h %s" % (min_width, min_height))
+        self.info("max_shape w %s h %s" % (max_width, max_height))
+
     def init_split_dataset(self, count_dirs):
         self.common_split_dir = os.path.join(
             IMAGENET_BASE_PATH, "%s_%s_split_%s" % (self.year, self.series,
@@ -1002,6 +1070,82 @@ class Main(Processor):
             self.info("run generate_negative_images in %s"
                       % path_to_patch_folder)
             self.generate_negative_images(path_to_patch_folder)
+
+    def test_segmentation(self):
+        src = "/home/lpodoynitsina/Desktop/image7.JPEG"
+        #dst = "/home/lpodoynitsina/Desktop/output.JPEG"
+        #cvPyrSegmentation(src, dst)
+        """
+        img = cv2.imread(src)
+        do_gray = False
+        if do_gray:
+            img = cv2.imread(src, 0)
+            img = cv2.medianBlur(img, 5)
+
+            _ret, th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+            th2 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                        cv2.THRESH_BINARY, 11, 2)
+            th3 = cv2.adaptiveThreshold(
+                img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY, 11, 2)
+
+            plt.subplot(2, 2, 1), plt.imshow(img, 'gray')
+            plt.title('input image')
+            plt.subplot(2, 2, 2), plt.imshow(th1, 'gray')
+            plt.title('Global Thresholding')
+            plt.subplot(2, 2, 3), plt.imshow(th2, 'gray')
+            plt.title('Adaptive Mean Thresholding')
+            plt.subplot(2, 2, 4), plt.imshow(th3, 'gray')
+            plt.title('Adaptive Gaussian Thresholding')
+        else:
+            _ret, _thresh1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+            _ret, _thresh2 = cv2.threshold(img, 127, 255,
+                                           cv2.THRESH_BINARY_INV)
+            _ret, _thresh3 = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
+            _ret, _thresh4 = cv2.threshold(img, 127, 255, cv2.THRESH_TOZERO)
+            _ret, _thresh5 = cv2.threshold(img, 127, 255,
+                                           cv2.THRESH_TOZERO_INV)
+
+            thresh = ['img', '_thresh1', '_thresh2', '_thresh3', '_thresh4',
+                      '_thresh5']
+
+            for i in range(0, 6):
+                plt.subplot(2, 3, i + 1), plt.imshow(eval(thresh[i]), 'gray')
+                plt.title(thresh[i])
+        """
+        img = cv2.imread(src, 0)
+        _ret1, _th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+
+        _ret2, _th2 = cv2.threshold(img, 0, 255,
+                                    cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        blur = cv2.GaussianBlur(img, (5, 5), 0)
+        _ret3, _th3 = cv2.threshold(blur, 0, 255,
+                                    cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        """
+        titles = ['img', 'histogram1', '_th1',
+                  'img', 'histogram2', '_th2',
+                  'blur', 'histogram3', '_th3']
+        """
+        plt.hist(blur.ravel(), 256)
+        blur_path = "/data/veles/tmp/bad_image.pickle"
+        with open(blur_path, "wb") as fout:
+            self.info("Saving labels of images to %s" %
+                      blur_path)
+            pickle.dump(blur.ravel(), fout)
+        """
+        for i in range(0, 3):
+            plt.subplot(3, 3, i * 3 + 1), plt.imshow(eval(titles[i * 3]),
+                                                     'gray')
+            plt.title(titles[i * 3])
+            plt.subplot(3, 3, i * 3 + 2), plt.hist(eval(titles[i * 3]).ravel(),
+                                                   256)
+            plt.title(titles[i * 3 + 1])
+            plt.subplot(3, 3, i * 3 + 3), plt.imshow(eval(titles[i * 3 + 2]),
+                                                     'gray')
+            plt.title(titles[i * 3 + 2])
+        """
+        #plt.show()
 
     def generate_negative_images(self, path):
         self.imagenet_dir_path = path
@@ -1271,7 +1415,11 @@ class Main(Processor):
             self.negative_split_dataset(self.count_dirs)
         elif self.command_to_run == "split_train":
             self.parsing_and_split_DET_datset(
-                os.path.join(IMAGENET_BASE_PATH, "train_objects"))
+                os.path.join(IMAGENET_BASE_PATH, "DET_dataset"))
+        elif self.command_to_run == "test_segmentation":
+            self.test_segmentation()
+        elif self.command_to_run == "min_max_shape":
+            self.min_max_shape(os.path.join(IMAGENET_BASE_PATH, self.year))
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
