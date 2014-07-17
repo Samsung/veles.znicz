@@ -37,6 +37,7 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
+import veles.external.prettytable as prettytable
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
@@ -47,6 +48,9 @@ WD = 0.004
 WD = 0.0005
 GM = 0.9
 L1_VS_L2 = 0.0
+
+LRFT = 0.001
+LRFTB = LRFT
 
 LRAA = 0.01
 LRBAA = LRAA
@@ -75,6 +79,7 @@ root.defaults = {
                   {"type": "conv", "n_kernels": 16,
                    "kx": 8, "ky": 8, "sliding": (1, 1),
                    "learning_rate": LR,
+                   "learning_rate_ft": LRFT,
                    "weights_decay": WD,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
@@ -89,6 +94,7 @@ root.defaults = {
                   {"type": "conv", "n_kernels": 16,
                    "kx": 8, "ky": 8, "sliding": (1, 1),
                    "learning_rate": LR,
+                   "learning_rate_ft": LRFT,
                    "weights_decay": WD,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
@@ -103,6 +109,7 @@ root.defaults = {
                   {"type": "conv", "n_kernels": 16,
                    "kx": 8, "ky": 8, "sliding": (1, 1),
                    "learning_rate": LR,
+                   "learning_rate_ft": LRFT,
                    "weights_decay": WD,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
@@ -115,6 +122,7 @@ root.defaults = {
                   {"type": "activation_mul"},
                   {"type": "all2all_tanh", "output_shape": 100,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
+                   "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
@@ -123,6 +131,7 @@ root.defaults = {
 
                   {"type": "softmax", "output_shape": 5,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
+                   "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
@@ -403,6 +412,7 @@ class Workflow(StandardWorkflow):
                     layer["kx"], layer["ky"], layer["sliding"])
             Forward = self.forward_map[layer["type"]]
             unit = Forward(self, **layer)
+            unit.layer = dict(layer)
             if in_ae:
                 ae.append(unit)
                 ae_layers.append(layer)
@@ -586,6 +596,20 @@ class Workflow(StandardWorkflow):
             self.info("Workflow adjusted, will initialize now")
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
+        self.dump_attributes()
+
+    def dump_attributes(self):
+        print("Dumping the workflow unit's attributes:")
+        table = prettytable.PrettyTable("#", "unit", "attr", "value")
+        table.align["#"] = "r"
+        table.align["unit"] = "l"
+        table.align["attr"] = "l"
+        table.align["value"] = "l"
+        table.max_width["value"] = 100
+        for i, u in enumerate(self.start_point.dependent_list()):
+            for k, v in sorted(u.__dict__.items()):
+                table.add_row(i, u.__class__.__name__, k, repr(v))
+        print(str(table))
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.fwds):
@@ -598,12 +622,15 @@ class Workflow(StandardWorkflow):
 
         for i in range(len(self.fwds) - len(self.gds) - 1, -1, -1):
             GD = self.gd_map[self.fwds[i].__class__]
-            kwargs = {}
+            kwargs = dict(self.fwds[i].layer)
             for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                          "factor", "include_bias"):
                 vle = getattr(self.fwds[i], attr, None)
                 if vle is not None:
                     kwargs[attr] = vle
+            kwargs["learning_rate"] = kwargs["learning_rate_ft"]
+            if "learning_rate_ft_bias" in kwargs:
+                kwargs["learning_rate_bias"] = kwargs["learning_rate_ft_bias"]
             unit = GD(self, **kwargs)
             self.gds.insert(0, unit)
             unit.link_from(prev)
@@ -697,6 +724,7 @@ class Workflow(StandardWorkflow):
                           str(layer["sliding"]), str(layer["padding"]))
             Forward = self.forward_map[layer["type"]]
             unit = Forward(self, **layer)
+            unit.layer = dict(layer)
             if in_ae:
                 ae.append(unit)
                 ae_layers.append(layer)
