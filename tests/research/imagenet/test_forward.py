@@ -79,8 +79,8 @@ class TestForward1(unittest.TestCase):
 
 if __name__ == "__main__":
     # import sys;sys.argv = ['', 'Test.testIntersects']
-    unittest.main()
-    """
+    # unittest.main()
+
     import os
     import veles.formats as formats
     base = "/data/veles/datasets/imagenet/2014_img_split_0/1"
@@ -101,4 +101,3 @@ if __name__ == "__main__":
         loader.run()
         if loader.minibatch_size == 0:
             break
-    """
