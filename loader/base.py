@@ -357,7 +357,8 @@ class Loader(OpenCLUnit):
 
     def apply_data_from_master(self, data):
         # Just feed single minibatch
-        for attr in ("minibatch_class", "minibatch_size", "minibatch_offset"):
+        for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
+                     'epoch_number'):
             setattr(self, attr, data[attr])
         self.last_minibatch <<= data['last_minibatch']
         self.epoch_ended <<= data['epoch_ended']
