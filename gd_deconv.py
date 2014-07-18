@@ -151,7 +151,8 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.weights.initialize(device)
         self.input.initialize(device)
         self.err_output.initialize(device)
-        self.err_input.initialize(device)
+        if self.need_err_input:
+            self.err_input.initialize(device)
         if self.store_gradient:
             self.gradient_weights.initialize(device)
 
