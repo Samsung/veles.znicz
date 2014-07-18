@@ -196,7 +196,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir,
-                                         compress="", time_interval=0)
+                                         time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

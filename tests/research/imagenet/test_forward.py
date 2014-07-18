@@ -9,7 +9,8 @@ import numpy
 import unittest
 
 from veles.tests import DummyWorkflow
-from veles.znicz.tests.research.imagenet.forward import ImagenetForwardLoader
+from veles.znicz.tests.research.imagenet.forward_loader import \
+    ImagenetForwardLoader
 
 
 class TestForward1(unittest.TestCase):
