@@ -1,0 +1,5 @@
+dimensions: 2
+max_abs_x: 500
+points: 100
+accuracy: 0.01
+function: schwefel
