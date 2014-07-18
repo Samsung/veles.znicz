@@ -750,6 +750,7 @@ class Workflow(StandardWorkflow):
             unit = self.evaluator
             unit.link_from(self.fwds[-1])
             unit.link_attrs(self.fwds[-1], "output")
+            unit.link_attrs(last_conv, ("target", "input"))
             self.fix(self.evaluator, "output", "target", "err_output",
                      "metrics")
 
