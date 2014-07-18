@@ -124,8 +124,9 @@ class GDDeconv(nn_units.GradientDescentBase):
             raise error.BadFormatError("Expected padding %s got %s" %
                                        (str(padding), str(self.padding)))
 
-        if (self.err_input.mem is None or
-                self.err_input.size != self.input.size):
+        if (self.need_err_input and (
+                self.err_input.mem is None or
+                self.err_input.size != self.input.size)):
             self.err_input.reset()
             sh = self.input.shape
             if root.common.unit_test:
@@ -190,10 +191,11 @@ class GDDeconv(nn_units.GradientDescentBase):
             self.krn_err_output_ = self.get_kernel("err_output_update")
             self.krn_err_output_.set_arg(0, self.err_output.devmem)
 
-            self.krn_err_input_ = self.get_kernel("feed_layer")
-            self.krn_err_input_.set_args(self.err_output.devmem,
-                                         self.weights.devmem,
-                                         self.err_input.devmem)
+            if self.need_err_input:
+                self.krn_err_input_ = self.get_kernel("feed_layer")
+                self.krn_err_input_.set_args(self.err_output.devmem,
+                                             self.weights.devmem,
+                                             self.err_input.devmem)
 
             self.krn_weights_ = self.get_kernel("weights_update")
             self.krn_weights_.set_args(self.err_output.devmem,
@@ -206,11 +208,12 @@ class GDDeconv(nn_units.GradientDescentBase):
             if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
                 raise error.Bug("Returned BLOCK_SIZE differs from expected")
 
-            self.global_size_err_input = [
-                formats.roundup(self.n_kernels, block_size),
-                formats.roundup(self.err_input.mem.size // self.n_kernels,
-                                block_size)]
-            self.local_size_err_input = [block_size, block_size]
+            if self.need_err_input:
+                self.global_size_err_input = [
+                    formats.roundup(self.n_kernels, block_size),
+                    formats.roundup(self.err_input.mem.size // self.n_kernels,
+                                    block_size)]
+                self.local_size_err_input = [block_size, block_size]
 
             if self.weights_transposed:
                 self.global_size_weights = [
