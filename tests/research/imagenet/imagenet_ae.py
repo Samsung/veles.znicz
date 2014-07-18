@@ -47,7 +47,6 @@ root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
 
 LR = 0.00001
 WD = 0.004
-WD = 0.0005
 GM = 0.9
 L1_VS_L2 = 0.0
 
@@ -55,9 +54,8 @@ LRFT = 0.001
 LRFTB = LRFT
 
 LRAA = 0.01
-LRBAA = LRAA
+LRBAA = LRAA * 2
 WDAA = 0.004
-WDAA = 0.0005
 WDBAA = WDAA
 GMAA = 0.9
 GMBAA = GM
@@ -68,12 +66,13 @@ STDDEV_AA = 0.001
 
 root.defaults = {
     "decision": {"fail_iterations": 25,
+                 "max_epochs": 75,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "snapshotter": {"prefix": "imagenet_ae"},
     "loader": {"year": "temp",
                "series": "img",
-               "minibatch_size": 13},
+               "minibatch_size": 14},
     "imagenet": {"from_snapshot_add_layer": True,
                  "fine_tuning_noise": 1.0e-6,
                  "layers":
@@ -225,8 +224,8 @@ class Loader(loader.Loader):
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = 216
-        self.sy = 216
+        self.sx = 288
+        self.sy = 288
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -449,7 +448,8 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         unit = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations, max_epochs=50)
+            self, fail_iterations=root.decision.fail_iterations,
+            max_epochs=root.decision.max_epochs)
         self.decision = unit
         unit.link_from(self.evaluator)
         unit.link_attrs(self.loader, "minibatch_class",
