@@ -40,6 +40,7 @@ import veles.random_generator as rnd
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
 from matplotlib import pyplot as plt
+import veles.znicz.tests.research.imagenet.background_detection as back_det
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
@@ -79,7 +80,7 @@ class Main(Processor):
         self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
                                                  False)
-        self.rect = kwargs.get("rect", (216, 216))
+        self.rect = kwargs.get("rect", (288, 288))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
@@ -124,7 +125,10 @@ class Main(Processor):
                                      "generate_negative", "init_split_dataset",
                                      "negative_split_dataset",
                                      "resize_split_dataset", "split_train",
-                                     "test_segmentation", "min_max_shape"],
+                                     "test_segmentation", "min_max_shape",
+                                     "generate_negative_DET", "test_load",
+                                     "remove_back",
+                                     "remove_back_split_dataset"],
                             help="run functions:"
                                  " 'draw_bbox' run function which generate"
                                  " image with bboxes, 'resize' run function"
@@ -388,7 +392,8 @@ class Main(Processor):
                 h_size = bbx["height"]
                 w_size = bbx["width"]
                 ang = bbx["angle"]
-                self.sample_rect(image, x, y, h_size, w_size, ang, None)
+                if h_size > 1 and w_size > 1:
+                    self.sample_rect(image, x, y, h_size, w_size, ang, None)
         self.s_mean /= self.s_count
 
         # Convert mean to 0..255 uint8
@@ -434,6 +439,17 @@ class Main(Processor):
             for f, _val in sorted(self.images_json[set_type].items()):
                 image_fnme = self.images_json[set_type][f]["path"]
                 image = self.decode_image(image_fnme)
+                self.info("image_fnme %s" % image_fnme)
+                if set_type == "train":
+                    folder_name = image_fnme[
+                        image_fnme.find("DET_train")
+                        + 10:image_fnme.rfind("/")]
+                elif set_type == "validation":
+                    folder_name = image_fnme[
+                        image_fnme.find("DET_val") + 8:image_fnme.rfind("/")]
+                else:
+                    folder_name = image_fnme[
+                        image_fnme.find("DET_test") + 9:image_fnme.rfind("/")]
                 i = 0
                 if f.find("negative_image") != -1:
                     if set_type == "test":
@@ -474,12 +490,31 @@ class Main(Processor):
                     y = bbx["y"]
                     h_size = bbx["height"]
                     w_size = bbx["width"]
-                    label = bbx["label"]
+                    if self.series == "img":
+                        label = bbx["label"]
+                    else:
+                        label = folder_name
+                    self.info("label %s" % label)
                     ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
-                    self.prep_and_save_sample(image, name, x, y, h_size,
-                                              w_size, ang, mean)
+                    if h_size > 1 and w_size > 1:
+                        self.prep_and_save_sample(image, name, x, y, h_size,
+                                                  w_size, ang, mean)
                     sample_count += 1
+                    if self.series == "DET":
+                        set_type = "train"
+                        self.year = "2014"
+                        imagenet_dir = os.path.join(IMAGENET_BASE_PATH,
+                                                    self.year)
+                        classes_word_path = os.path.join(
+                            imagenet_dir,
+                            "classes_200_%s_%s_%s_%s.json" %
+                            (self.year, self.series, set_type, self.stage))
+                        self.info("classes_word_path %s" % classes_word_path)
+                        with open(classes_word_path, 'r') as fp:
+                            int_word_labels = json.load(fp)
+                        self.info("int_word_labels %s"
+                                  % int_word_labels)
                     for (int_label, word_label) in int_word_labels:
                         if label == word_label:
                             original_labels.append(int_label)
@@ -521,6 +556,13 @@ class Main(Processor):
             out_path_sobel = os.path.join(
                 out_dir, "all_samples/sobel_%s" % name)
             scipy.misc.imsave(out_path_sobel, image_to_save_sobel)
+
+    def test_load_data(self):
+        path = ("/data/veles/datasets/imagenet/DET_dataset/" +
+                "original_labels_DET_dataset_DET_0.pickle")
+        with open(path, "rb") as fout:
+            fout_file = pickle.load(fout)
+            self.info("fout_file %s" % fout_file)
 
     def get_validation(self):
         list_image = "/home/lpodoynitsina/Desktop/bird.txt"
@@ -793,7 +835,7 @@ class Main(Processor):
         self.split_dir = path
         bbox_path = os.path.join(self.split_dir, "ILSVRC2014_DET_bbox_train")
         img_path = os.path.join(self.split_dir, "ILSVRC2014_DET_train")
-        self.year = "train_objects"
+        self.year = "DET_dataset"
         self.series = "DET"
         set_type = "train"
         fnme = os.path.join(os.path.join(self.split_dir, IMAGES_JSON %
@@ -828,15 +870,18 @@ class Main(Processor):
             digits_word.append((digits_label, word_label))
         self.categories.close()
         digits_word.sort()
+        ind = 0
         for label in self.classes:
             for (digits_label, word_label) in digits_word:
                 if label == digits_label:
-                    classes_word.append(word_label)
+                    ind += 1
+                    classes_word.append((ind, word_label))
         classes_word_path = os.path.join(
             self.imagenet_dir, "classes_200_%s_%s_%s_%s.json" %
             (self.year, self.series, set_type, self.stage))
         with open(classes_word_path, 'w') as fp:
             json.dump(classes_word, fp)
+        """
         if self.count_classes:
             for i in range(0, self.count_classes):
                 try:
@@ -1000,6 +1045,7 @@ class Main(Processor):
                 if os.system("rsync -aq '%s' '%s'" %
                              (path_bbx_from, path_bbx_to)):
                     raise RuntimeError("rsync failed")
+        """
 
     def min_max_shape(self, path):
         self.imagenet_dir_path = path
@@ -1068,10 +1114,19 @@ class Main(Processor):
                       % path_to_patch_folder)
             self.generate_negative_images(path_to_patch_folder)
 
+    def remove_background_split_dataset(self, count_dirs):
+        self.common_split_dir = os.path.join(
+            IMAGENET_BASE_PATH, "%s_split_%s" % (self.year, self.stage))
+        for i_patch in range(1, count_dirs + 1):
+            self.year = str(i_patch)
+            path_to_patch_folder = os.path.join(
+                self.common_split_dir, "%s" % (i_patch))
+            self.info("run remove_background in %s"
+                      % path_to_patch_folder)
+            self.remove_background(path_to_patch_folder)
+
     def test_segmentation(self):
         src = "/home/lpodoynitsina/Desktop/image7.JPEG"
-        #dst = "/home/lpodoynitsina/Desktop/output.JPEG"
-        #cvPyrSegmentation(src, dst)
         """
         img = cv2.imread(src)
         do_gray = False
@@ -1119,35 +1174,30 @@ class Main(Processor):
         blur = cv2.GaussianBlur(img, (5, 5), 0)
         _ret3, _th3 = cv2.threshold(blur, 0, 255,
                                     cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        """
         titles = ['img', 'histogram1', '_th1',
                   'img', 'histogram2', '_th2',
                   'blur', 'histogram3', '_th3']
-        """
-        plt.hist(blur.ravel(), 256)
         blur_path = "/data/veles/tmp/bad_image.pickle"
         with open(blur_path, "wb") as fout:
             self.info("Saving labels of images to %s" %
                       blur_path)
             pickle.dump(blur.ravel(), fout)
-        """
         for i in range(0, 3):
-            plt.subplot(3, 3, i * 3 + 1), plt.imshow(eval(titles[i * 3]),
-                                                     'gray')
+            plt.subplot(3, 3, i * 3 + 1)
+            plt.imshow(eval(titles[i * 3]), 'gray')
             plt.title(titles[i * 3])
-            plt.subplot(3, 3, i * 3 + 2), plt.hist(eval(titles[i * 3]).ravel(),
-                                                   256)
+            plt.subplot(3, 3, i * 3 + 2)
+            plt.hist(eval(titles[i * 3]).ravel(), 256)
             plt.title(titles[i * 3 + 1])
-            plt.subplot(3, 3, i * 3 + 3), plt.imshow(eval(titles[i * 3 + 2]),
-                                                     'gray')
+            plt.subplot(3, 3, i * 3 + 3)
+            plt.imshow(eval(titles[i * 3 + 2]), 'gray')
             plt.title(titles[i * 3 + 2])
-        """
-        #plt.show()
+        plt.show()
 
     def generate_negative_images(self, path):
         self.imagenet_dir_path = path
         min_size_max_side = 128
-        max_count_negative_in_class = 100
+        max_count_negative_in_class = 200
         count_negative_in_class = 0
         class_is_new = False
         prev_label = ""
@@ -1303,6 +1353,197 @@ class Main(Processor):
         sample_neg = img[y_min:y_max, x_min:x_max]
         return sample_neg
 
+    def generate_negative_DET(self):
+        self.year = "2014"
+        rand = rnd.get()
+        self.count_negative = 0
+        self.imagenet_dir_path = os.path.join(IMAGENET_BASE_PATH, self.year)
+        path_to_save = os.path.join(
+            IMAGENET_BASE_PATH,
+            "DET_dataset/ILSVRC2014_DET_train/n00000000")
+        path_DET_train = os.path.join(self.imagenet_dir_path,
+                                      "ILSVRC2014_DET_train")
+        path_DET_train_bbox = os.path.join(self.imagenet_dir_path,
+                                           "ILSVRC2014_DET_bbox_train")
+        ind = 0
+        for i in range(1, 201):
+            file_to_open = os.path.join(
+                self.imagenet_dir_path,
+                "ILSVRC2014_devkit/data/det_lists/train_pos_%s.txt" % i)
+            self.info("file_to_open %s" % file_to_open)
+            with open(file_to_open, "r") as file_positive:
+                for line in file_positive:
+                    name_image = line[line.find("/") + 1: line.find("\n")]
+                    path_for_positive_img = os.path.join(
+                        path_DET_train, line[:line.find("\n")]) + ".JPEG"
+                    image = self.decode_image(path_for_positive_img)
+                    path_for_positive_bbox = os.path.join(
+                        path_DET_train_bbox, line[:line.find("\n")]) + ".xml"
+                    with open(path_for_positive_bbox, "r") as fr:
+                        tree = xmltodict.parse(fr.read())
+                    if tree["annotation"].get("object") is not None:
+                        temp_bbx = tree["annotation"]["object"]
+                        if type(temp_bbx) is not list:
+                            temp_bbx = [temp_bbx]
+                        bbx_xmax = []
+                        bbx_xmin = []
+                        bbx_ymax = []
+                        bbx_ymin = []
+                        for bbx in temp_bbx:
+                            bbx_xmax.append(int(bbx["bndbox"]["xmax"]))
+                            bbx_xmin.append(int(bbx["bndbox"]["xmin"]))
+                            bbx_ymax.append(int(bbx["bndbox"]["ymax"]))
+                            bbx_ymin.append(int(bbx["bndbox"]["ymin"]))
+                            w_size = (int(bbx["bndbox"]["xmax"])
+                                      - int(bbx["bndbox"]["xmin"]))
+                            h_size = (int(bbx["bndbox"]["ymax"])
+                                      - int(bbx["bndbox"]["ymin"]))
+                        x_max = max(bbx_xmax)
+                        x_min = min(bbx_xmin)
+                        y_min = min(bbx_ymin)
+                        y_max = max(bbx_xmax)
+                        size_negative = max(
+                            x_min, y_min, image.shape[0] - y_max,
+                            image.shape[1] - x_max)
+                        if size_negative > 64:
+                            self.count_negative += 1
+                            for _ in range(16):
+                                if x_min == size_negative:
+                                    x_neg = x_min / 2
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    if (w_neg < size_negative or
+                                            h_neg < size_negative or w_neg
+                                            > x_min or
+                                            h_neg > image.shape[0]):
+                                        continue
+                                    y_neg = h_neg / 2 + (
+                                        image.shape[0] - h_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s.JPEG" %
+                                        (ind, name_image))
+                                    ind += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if y_min == size_negative:
+                                    y_neg = y_min / 2
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    if (w_neg < size_negative or
+                                            h_neg < size_negative or w_neg
+                                            > image.shape[1] or
+                                            h_neg > y_min):
+                                        continue
+                                    x_neg = w_neg / 2 + (
+                                        image.shape[1] - w_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s.JPEG" %
+                                        (ind, name_image))
+                                    ind += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if image.shape[1] - x_max == size_negative:
+                                    x_neg = (image.shape[1]
+                                             - x_max) / 2 + x_max
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    if (w_neg < size_negative or
+                                            h_neg < size_negative or w_neg
+                                            > image.shape[1] - x_max or
+                                            h_neg > image.shape[0]):
+                                        continue
+                                    y_neg = h_neg / 2 + (
+                                        image.shape[0] - h_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s.JPEG"
+                                        % (ind, name_image))
+                                    ind += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if image.shape[1] - x_max == size_negative:
+                                    y_neg = (image.shape[0]
+                                             - y_max) / 2 + y_max
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    if (w_neg < size_negative or
+                                            h_neg < size_negative or w_neg
+                                            > image.shape[1] or
+                                            h_neg > image.shape[0] - y_max):
+                                        continue
+                                    x_neg = w_neg / 2 + (
+                                        image.shape[1] - w_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s.JPEG"
+                                        % (ind, name_image))
+                                    ind += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                    else:
+                        self.error("NOT POSITIVE IMAGE! %s"
+                                   % path_for_positive_bbox)
+            self.info("self.count_negative %s" % self.count_negative)
+            file_positive.close()
+
+    def remove_background(self, path):
+        self.imagenet_dir_path = path
+        for set_type in ("test", "validation", "train"):
+            fnme = os.path.join(
+                self.imagenet_dir_path, IMAGES_JSON %
+                (self.year, self.series, set_type, self.stage))
+            try:
+                with open(fnme, 'r') as fp:
+                    self.images_json[set_type] = json.load(fp)
+            except:
+                self.exception("Failed to load %s", fnme)
+            for f, _val in sorted(self.images_json[set_type].items()):
+                image_fnme = self.images_json[set_type][f]["path"]
+                path_to_neg = image_fnme[:image_fnme.rfind("/")]
+                path = path_to_neg[:path_to_neg.rfind("/")]
+                path_to_neg = os.path.join(path, "n00000000")
+                self.info("path_to_neg %s" % path_to_neg)
+                dst = os.path.join(path, "bad_negative")
+        for root_path, _tmp, files in os.walk(path_to_neg, followlinks=True):
+            self.info("dst %s" % dst)
+            try:
+                os.mkdir(dst, mode=0o775)
+            except:
+                pass
+            for f in files:
+                if os.path.splitext(f)[1] == ".JPEG":
+                    f_path = os.path.join(root_path, f)
+                    good_backgr = back_det.is_background(f_path, 8.0)
+                    if not good_backgr:
+                        self.info("%s is bad background" % f_path)
+                        os.rename(f_path, os.path.join(dst, f))
+                    else:
+                        self.info("%s is good background" % f_path)
+        self.remove_dir(dst)
+
+    def remove_dir(self, path):
+        for rt, dirs, files in os.walk(path):
+            for f in files:
+                os.unlink(os.path.join(rt, f))
+            for d in dirs:
+                shutil.rmtree(os.path.join(rt, d))
+            os.removedirs(path)
+            logging.info("Remove directory %s" % path)
+
     def generate_images_with_bbx(self, path):
         """
         self.imagenet_dir_path = "%s/%s" % (IMAGENET_BASE_PATH, self.year)
@@ -1417,6 +1658,14 @@ class Main(Processor):
             self.test_segmentation()
         elif self.command_to_run == "min_max_shape":
             self.min_max_shape(os.path.join(IMAGENET_BASE_PATH, self.year))
+        elif self.command_to_run == "generate_negative_DET":
+            self.generate_negative_DET()
+        elif self.command_to_run == "test_load":
+            self.test_load_data()
+        elif self.command_to_run == "remove_back_split_dataset":
+            self.remove_background_split_dataset(self.count_dirs)
+        elif self.command_to_run == "remove_back":
+            self.remove_background(os.path.join(IMAGENET_BASE_PATH, self.year))
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
