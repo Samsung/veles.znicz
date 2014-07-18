@@ -40,103 +40,9 @@ from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
 import veles.external.prettytable as prettytable
 
-IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
-                                  "imagenet")
+IMAGENET_BASE_PATH = "/imagenet"
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")
-
-LR = 0.00001
-WD = 0.004
-GM = 0.9
-L1_VS_L2 = 0.0
-
-LRFT = 0.001
-LRFTB = LRFT
-
-LRAA = 0.01
-LRBAA = LRAA * 2
-WDAA = 0.004
-WDBAA = WDAA
-GMAA = 0.9
-GMBAA = GM
-
-FILLING = "gaussian"
-STDDEV_CONV = 0.01
-STDDEV_AA = 0.001
-
-root.defaults = {
-    "decision": {"fail_iterations": 25,
-                 "max_epochs": 75,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
-    "snapshotter": {"prefix": "imagenet_ae"},
-    "loader": {"year": "temp",
-               "series": "img",
-               "minibatch_size": 14},
-    "imagenet": {"from_snapshot_add_layer": True,
-                 "fine_tuning_noise": 1.0e-6,
-                 "layers":
-                 [{"type": "ae_begin"},  # 256
-                  {"type": "conv", "n_kernels": 16,
-                   "kx": 8, "ky": 8, "sliding": (1, 1),
-                   "learning_rate": LR,
-                   "learning_rate_ft": LRFT,
-                   "weights_decay": WD,
-                   "gradient_moment": GM,
-                   "weights_filling": FILLING,
-                   "weights_stddev": STDDEV_CONV,
-                   "l1_vs_l2": L1_VS_L2},
-                  {"type": "stochastic_abs_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "ae_end"},
-
-                  {"type": "activation_mul"},
-                  {"type": "ae_begin"},  # 128
-                  {"type": "conv", "n_kernels": 16,
-                   "kx": 8, "ky": 8, "sliding": (1, 1),
-                   "learning_rate": LR,
-                   "learning_rate_ft": LRFT,
-                   "weights_decay": WD,
-                   "gradient_moment": GM,
-                   "weights_filling": FILLING,
-                   "weights_stddev": STDDEV_CONV,
-                   "l1_vs_l2": L1_VS_L2},
-                  {"type": "stochastic_abs_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "ae_end"},
-
-                  {"type": "activation_mul"},
-                  {"type": "ae_begin"},  # 64
-                  {"type": "conv", "n_kernels": 16,
-                   "kx": 8, "ky": 8, "sliding": (1, 1),
-                   "learning_rate": LR,
-                   "learning_rate_ft": LRFT,
-                   "weights_decay": WD,
-                   "gradient_moment": GM,
-                   "weights_filling": FILLING,
-                   "weights_stddev": STDDEV_CONV,
-                   "l1_vs_l2": L1_VS_L2},
-                  {"type": "stochastic_abs_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "ae_end"},
-
-                  {"type": "activation_mul"},
-                  {"type": "all2all_tanh", "output_shape": 100,
-                   "learning_rate": LRAA, "learning_rate_bias": LRBAA,
-                   "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
-                   "weights_decay": WDAA, "weights_decay_bias": WDBAA,
-                   "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-                   "weights_filling": "gaussian", "bias_filling": "gaussian",
-                   "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
-                   "l1_vs_l2": L1_VS_L2},
-
-                  {"type": "softmax", "output_shape": 5,
-                   "learning_rate": LRAA, "learning_rate_bias": LRBAA,
-                   "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
-                   "weights_decay": WDAA, "weights_decay_bias": WDBAA,
-                   "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
-                   "weights_filling": "gaussian", "bias_filling": "gaussian",
-                   "l1_vs_l2": L1_VS_L2}]}}
 
 
 @implementer(IUnit)
@@ -459,9 +365,10 @@ class Workflow(StandardWorkflow):
         unit.link_attrs(self.evaluator, ("minibatch_metrics", "metrics"))
         self.fix(self.decision, "minibatch_metrics", "class_lengths")
 
-        unit = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                             directory=root.common.snapshot_dir,
-                             compress="", time_interval=0)
+        unit = NNSnapshotter(
+            self, prefix=root.snapshotter.prefix,
+            directory=("%s/%s" % (root.common.snapshot_dir, root.loader.year)),
+            compress="", time_interval=0)
         self.snapshotter = unit
         unit.link_from(self.decision)
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
@@ -582,6 +489,10 @@ class Workflow(StandardWorkflow):
                       "will adjust the workflow")
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
+        else:
+            self.decision.fail_iterations = root.decision.fail_iterations
+        self.info("Set decision.fail_iterations to %d",
+                  self.decision.fail_iterations)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
         self.dump_attributes()
@@ -655,6 +566,8 @@ class Workflow(StandardWorkflow):
         self.decision.min_validation_n_err = 1.0e30
         self.decision.min_train_validation_n_err = 1.0e30
         self.decision.min_train_n_err = 1.0e30
+
+        self.decision.fail_iterations += root.decision.fail_iterations * 10
 
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
@@ -788,6 +701,8 @@ class Workflow(StandardWorkflow):
             self.decision.min_validation_n_err = 1.0e30
             self.decision.min_train_validation_n_err = 1.0e30
             self.decision.min_train_n_err = 1.0e30
+
+            self.decision.fail_iterations += root.decision.fail_iterations
         else:
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
@@ -906,6 +821,8 @@ class Workflow(StandardWorkflow):
 
             self.gds[-1].link_from(prev)
             self.gds[-1].gate_block = self.decision.complete
+
+            self.decision.fail_iterations += root.decision.fail_iterations * 10
 
 
 def run(load, main):

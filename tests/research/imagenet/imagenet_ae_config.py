@@ -26,14 +26,15 @@ FILLING = "gaussian"
 STDDEV_CONV = 0.01
 STDDEV_AA = 0.001
 
-root.update = {
-    "decision": {"fail_iterations": 25,
-                 "max_epochs": 75,
+root.defaults = {
+    "decision": {"fail_iterations": 50,
+                 "max_epochs": 50,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "loader": {"year": "temp",
+    "loader": {"year": "6",
                "series": "img",
-               "minibatch_size": 14},
+               "minibatch_size": 72},
+    "snapshotter": {"prefix": "imagenet_ae"},
     "imagenet": {"from_snapshot_add_layer": True,
                  "fine_tuning_noise": 1.0e-6,
                  "layers":
@@ -102,7 +103,7 @@ root.update = {
                   {"type": "ae_end"},
 
                   {"type": "activation_mul"},
-                  {"type": "all2all_tanh", "output_shape": 100,
+                  {"type": "all2all_tanh", "output_shape": 260,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -111,7 +112,7 @@ root.update = {
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
 
-                  {"type": "softmax", "output_shape": 5,
+                  {"type": "softmax", "output_shape": 26,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
