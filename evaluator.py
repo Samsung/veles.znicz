@@ -10,6 +10,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.distributable import TriviallyDistributable
+import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit, IOpenCLUnit
@@ -254,6 +255,10 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
+
+        if self.target.shape != self.output.shape:
+            raise error.BadFormatError("target.shape != output.shape")
+
         self.cl_sources_["evaluator.cl"] = {}
 
         dtype = self.output.mem.dtype
