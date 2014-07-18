@@ -40,7 +40,10 @@ from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
 import veles.external.prettytable as prettytable
 
-IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root, "imagenet")
+IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
+                                  "imagenet")
+root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
+                                        "imagenet/snapshots")
 
 LR = 0.00001
 WD = 0.004
@@ -64,7 +67,6 @@ STDDEV_CONV = 0.01
 STDDEV_AA = 0.001
 
 root.defaults = {
-    "model": "imagenet",
     "decision": {"fail_iterations": 25,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
@@ -136,20 +138,6 @@ root.defaults = {
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "l1_vs_l2": L1_VS_L2}]}}
-
-CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.loader.year)
-root.loader.names_labels_filename = os.path.join(
-    CACHED_DATA_FNME, "4/names_labels_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
-root.loader.count_samples_filename = os.path.join(
-    CACHED_DATA_FNME, "4/count_samples_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
-root.loader.samples_filename = os.path.join(
-    CACHED_DATA_FNME, "4/original_data_%s_%s_0.dat" %
-    (root.loader.year, root.loader.series))
-root.loader.matrixes_filename = os.path.join(
-    CACHED_DATA_FNME, "4/matrixes_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
 
 
 @implementer(IUnit)
@@ -461,7 +449,7 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         unit = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.decision.fail_iterations, max_epochs=50)
         self.decision = unit
         unit.link_from(self.evaluator)
         unit.link_attrs(self.loader, "minibatch_class",
@@ -920,5 +908,19 @@ class Workflow(StandardWorkflow):
 
 
 def run(load, main):
+    root.snapshotter.prefix = "imagenet_ae_%s" % root.loader.year
+    CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
+    root.loader.names_labels_filename = os.path.join(
+        CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
+        (root.loader.year, root.loader.series))
+    root.loader.count_samples_filename = os.path.join(
+        CACHED_DATA_FNME, "count_samples_%s_%s_0.json" %
+        (root.loader.year, root.loader.series))
+    root.loader.samples_filename = os.path.join(
+        CACHED_DATA_FNME, "original_data_%s_%s_0.dat" %
+        (root.loader.year, root.loader.series))
+    root.loader.matrixes_filename = os.path.join(
+        CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
+        (root.loader.year, root.loader.series))
     load(Workflow, layers=root.imagenet.layers)
     main()
