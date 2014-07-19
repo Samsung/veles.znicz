@@ -49,8 +49,8 @@ root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
 class NNRollback(Unit, TriviallyDistributable):
     def __init__(self, workflow, **kwargs):
         super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1.1)
-        self.lr_minus = kwargs.get("lr_minus", 0.55)
+        self.lr_plus = kwargs.get("lr_plus", 1.05)
+        self.lr_minus = kwargs.get("lr_minus", 0.525)
         self.plus_steps = kwargs.get("plus_steps", 1)
         self.minus_steps = kwargs.get("minus_steps", 4)
         self._plus_steps = self.plus_steps

@@ -15,7 +15,7 @@ L1_VS_L2 = 0.0
 LRFT = 0.001
 LRFTB = LRFT
 
-LRAA = 0.01
+LRAA = 0.005
 LRBAA = LRAA * 2
 WDAA = 0.004
 WDBAA = 0
@@ -27,8 +27,8 @@ STDDEV_CONV = 0.01
 STDDEV_AA = 0.001
 
 root.defaults = {
-    "decision": {"fail_iterations": 50,
-                 "max_epochs": 50,
+    "decision": {"fail_iterations": 25,
+                 "max_epochs": 35,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "loader": {"year": "6",
