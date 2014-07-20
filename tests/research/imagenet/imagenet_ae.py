@@ -491,8 +491,9 @@ class Workflow(StandardWorkflow):
             self.info("Workflow adjusted, will initialize now")
         else:
             self.decision.fail_iterations = root.decision.fail_iterations
-        self.info("Set decision.fail_iterations to %d",
+        self.info("Set decision.fail_iterations to %d and complete=False",
                   self.decision.fail_iterations)
+        self.decision.complete <<= False
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
         self.dump_attributes()
@@ -821,6 +822,7 @@ class Workflow(StandardWorkflow):
 
             self.gds[-1].link_from(prev)
             self.gds[-1].gate_block = self.decision.complete
+            self.loader.gate_block = self.decision.complete
 
             self.decision.fail_iterations += root.decision.fail_iterations * 10
 
