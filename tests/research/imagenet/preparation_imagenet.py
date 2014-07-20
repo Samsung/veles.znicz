@@ -439,17 +439,18 @@ class Main(Processor):
             for f, _val in sorted(self.images_json[set_type].items()):
                 image_fnme = self.images_json[set_type][f]["path"]
                 image = self.decode_image(image_fnme)
-                self.info("image_fnme %s" % image_fnme)
                 if set_type == "train":
                     folder_name = image_fnme[
                         image_fnme.find("DET_train")
-                        + 10:image_fnme.rfind("/")]
+                        + 10:image_fnme.find("DET_train") + 19]
                 elif set_type == "validation":
                     folder_name = image_fnme[
-                        image_fnme.find("DET_val") + 8:image_fnme.rfind("/")]
+                        image_fnme.find("DET_val")
+                        + 8:image_fnme.find("DET_val") + 17]
                 else:
                     folder_name = image_fnme[
-                        image_fnme.find("DET_test") + 9:image_fnme.rfind("/")]
+                        image_fnme.find("DET_test")
+                        + 9:image_fnme.find("DET_test") + 18]
                 i = 0
                 if f.find("negative_image") != -1:
                     if set_type == "test":
@@ -502,19 +503,13 @@ class Main(Processor):
                                                   w_size, ang, mean)
                     sample_count += 1
                     if self.series == "DET":
-                        set_type = "train"
-                        self.year = "2014"
                         imagenet_dir = os.path.join(IMAGENET_BASE_PATH,
-                                                    self.year)
+                                                    "2014")
                         classes_word_path = os.path.join(
                             imagenet_dir,
-                            "classes_200_%s_%s_%s_%s.json" %
-                            (self.year, self.series, set_type, self.stage))
-                        self.info("classes_word_path %s" % classes_word_path)
+                            "classes_200_2014_DET_train_0.json")
                         with open(classes_word_path, 'r') as fp:
                             int_word_labels = json.load(fp)
-                        self.info("int_word_labels %s"
-                                  % int_word_labels)
                     for (int_label, word_label) in int_word_labels:
                         if label == word_label:
                             original_labels.append(int_label)
@@ -845,7 +840,7 @@ class Main(Processor):
                 self.images_json[set_type] = json.load(fp)
         except:
             self.exception("Failed to load %s", fnme)
-        #self.init_files(self.split_dir)
+        self.init_files(self.split_dir)
         self.classes = []
         self.year = "2014"
         self.count_classes = 0
@@ -881,7 +876,6 @@ class Main(Processor):
             (self.year, self.series, set_type, self.stage))
         with open(classes_word_path, 'w') as fp:
             json.dump(classes_word, fp)
-        """
         if self.count_classes:
             for i in range(0, self.count_classes):
                 try:
@@ -1045,7 +1039,6 @@ class Main(Processor):
                 if os.system("rsync -aq '%s' '%s'" %
                              (path_bbx_from, path_bbx_to)):
                     raise RuntimeError("rsync failed")
-        """
 
     def min_max_shape(self, path):
         self.imagenet_dir_path = path
