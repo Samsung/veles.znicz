@@ -490,10 +490,10 @@ class Workflow(StandardWorkflow):
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         else:
-            self.decision.fail_iterations = root.decision.fail_iterations
-        self.info("Set decision.fail_iterations to %d and complete=False",
-                  self.decision.fail_iterations)
+            self.decision.max_epochs = root.decision.max_epochs
         self.decision.complete <<= False
+        self.info("Set decision.max_epochs to %d and complete=False",
+                  self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
         self.dump_attributes()
@@ -568,7 +568,7 @@ class Workflow(StandardWorkflow):
         self.decision.min_train_validation_n_err = 1.0e30
         self.decision.min_train_n_err = 1.0e30
 
-        self.decision.fail_iterations += root.decision.fail_iterations * 10
+        self.decision.max_epochs += root.decision.max_epochs * 10
 
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
@@ -703,7 +703,7 @@ class Workflow(StandardWorkflow):
             self.decision.min_train_validation_n_err = 1.0e30
             self.decision.min_train_n_err = 1.0e30
 
-            self.decision.fail_iterations += root.decision.fail_iterations
+            self.decision.max_epochs += root.decision.max_epochs
         else:
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
@@ -824,7 +824,7 @@ class Workflow(StandardWorkflow):
             self.gds[-1].gate_block = self.decision.complete
             self.loader.gate_block = self.decision.complete
 
-            self.decision.fail_iterations += root.decision.fail_iterations * 10
+            self.decision.max_epochs += root.decision.max_epochs * 10
 
 
 def run(load, main):
