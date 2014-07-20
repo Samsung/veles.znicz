@@ -453,9 +453,9 @@ class DecisionMSE(DecisionGD):
         minibatch_class = self.minibatch_class
         self.minibatch_metrics.map_read()
         self.epoch_min_mse[minibatch_class] = (
-            min(self.minibatch_metrics[0] /
-                self.class_lengths[minibatch_class],
-                self.epoch_min_mse[minibatch_class]))
+            numpy.minimum(self.minibatch_metrics[0] /
+                          self.class_lengths[minibatch_class],
+                          self.epoch_min_mse[minibatch_class]))
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
             self.minibatch_metrics.mem[:])
@@ -501,10 +501,10 @@ class DecisionMSE(DecisionGD):
         if self.minibatch_metrics is not None:
             self.minibatch_metrics.map_write()
             self.minibatch_metrics[0] += data["minibatch_metrics"][0]
-            self.minibatch_metrics[1] = max(self.minibatch_metrics[1],
-                                            data["minibatch_metrics"][1])
-            self.minibatch_metrics[2] = min(self.minibatch_metrics[2],
-                                            data["minibatch_metrics"][2])
+            self.minibatch_metrics[1] = numpy.maximum(
+                self.minibatch_metrics[1], data["minibatch_metrics"][1])
+            self.minibatch_metrics[2] = numpy.minimum(
+                self.minibatch_metrics[2], data["minibatch_metrics"][2])
 
     def fill_snapshot_suffixes(self, ss):
         if self.minibatch_metrics is not None:
