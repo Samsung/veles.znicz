@@ -238,6 +238,9 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
+        self.slaves_plotter = plotting_units.SlaveStats(self)
+        self.slaves_plotter.link_from(self.decision)
+
         # Error plotter
         self.plt = []
         styles = ["g-", "r-", "k-"]
