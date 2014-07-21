@@ -411,7 +411,7 @@ class Main(Processor):
         rdisp[:, :, 3:4] = 1.0 / 128
 
         self.info("Mean image is calculated")
-        if self.do_negative is True:
+        if self.do_negative is True and self.series == "img":
             out_path_mean = os.path.join(path_to_save,
                                          "mean_image_%s.JPEG" % self.year)
         else:
@@ -1190,11 +1190,31 @@ class Main(Processor):
     def generate_negative_images(self, path):
         self.imagenet_dir_path = path
         min_size_max_side = 128
-        max_count_negative_in_class = 200
+        max_count_neg_in_class = 200
         count_negative_in_class = 0
         class_is_new = False
         prev_label = ""
         rand = rnd.get()
+        path_DET_train = os.path.join(self.imagenet_dir_path,
+                                      "ILSVRC2014_DET_train")
+        if self.series == "DET":
+            path_to_save = os.path.join(
+                self.imagenet_dir_path,
+                "ILSVRC2014_DET_train/n00000000")
+            try:
+                os.mkdir(path_to_save)
+            except:
+                pass
+        file_to_open = os.path.join(
+            IMAGENET_BASE_PATH,
+            "2014/ILSVRC2014_devkit/data/det_lists/train_partall.txt")
+        self.info("file_to_open %s" % file_to_open)
+        part_images = []
+        with open(file_to_open, "r") as file_part:
+            for line in file_part:
+                path_for_part_img = os.path.join(
+                    path_DET_train, line[:line.find("\n")]) + ".JPEG"
+                part_images.append(path_for_part_img)
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
@@ -1207,136 +1227,152 @@ class Main(Processor):
             ind = 0
             for f, _val in sorted(self.images_json[set_type].items()):
                 image_fnme = self.images_json[set_type][f]["path"]
-                path_to_save = image_fnme[:image_fnme.rfind("/")]
-                path_to_save = path_to_save[:path_to_save.rfind("/")]
-                path_to_save = os.path.join(path_to_save, "n00000000")
-                try:
-                    os.mkdir(path_to_save)
-                except:
-                    pass
-                image = self.decode_image(image_fnme)
-                if len(self.images_json[set_type][f]["bbxs"]) == 1:
-                    bbx = self.images_json[set_type][f]["bbxs"][0]
-                    x = bbx["x"]
-                    y = bbx["y"]
-                    h_size = bbx["height"]
-                    w_size = bbx["width"]
-                    ang = bbx["angle"]
-                    current_label = bbx["label"]
-                    if current_label != prev_label:
-                        class_is_new = True
-                    else:
-                        class_is_new = False
-                    prev_label = current_label
-                    x_min = x - w_size / 2
-                    y_min = y - h_size / 2
-                    x_max = x_min + w_size
-                    y_max = y_min + h_size
-                    if ang > 0:
-                        Matr = cv2.getRotationMatrix2D((x, y), 360 - ang, 1)
-                        image = cv2.warpAffine(
-                            image, Matr, (image.shape[1], image.shape[0]))
-                    if w_size >= h_size:
-                        min_size_min_side = (h_size * min_size_max_side
-                                             / w_size)
-                    else:
-                        min_size_min_side = (w_size * min_size_max_side
-                                             / h_size)
-                    if min_size_min_side < 64:
-                        min_size_min_side = 64
-                    if class_is_new is True:
-                        count_negative_in_class = 0
-                    if count_negative_in_class < max_count_negative_in_class:
-                        for _ in range(16):
-                            stripe = rand.randint(4)
-                            if stripe == 0:
-                                x_neg = x_min / 2
-                                w_neg = w_size
-                                h_neg = h_size
-                                #w_neg = x_min
-                                #h_neg = w_neg * h_size / w_size
-                                if (w_neg < min_size_min_side or
-                                        h_neg < min_size_min_side or w_neg
-                                        > x_min or
-                                        h_neg > image.shape[0]):
-                                    continue
-                                y_neg = h_neg / 2 + (
-                                    image.shape[0] - h_neg) * rand.rand()
-                                sample_neg = self.resize(
-                                    image, x_neg, y_neg, h_neg, w_neg)
-                                path_to_save_neg = os.path.join(
-                                    path_to_save,
-                                    "negative_image_%s_%s" % (ind, f))
-                                ind += 1
-                                count_negative_in_class += 1
-                                scipy.misc.imsave(path_to_save_neg, sample_neg)
-                                break
-                            if stripe == 1:
-                                y_neg = y_min / 2
-                                w_neg = w_size
-                                h_neg = h_size
-                                #h_neg = y_min
-                                #w_neg = h_neg * w_size / h_size
-                                if (w_neg < min_size_min_side or
-                                        h_neg < min_size_min_side or w_neg
-                                        > image.shape[1] or
-                                        h_neg > y_min):
-                                    continue
-                                x_neg = w_neg / 2 + (
-                                    image.shape[1] - w_neg) * rand.rand()
-                                sample_neg = self.resize(
-                                    image, x_neg, y_neg, h_neg, w_neg)
-                                path_to_save_neg = os.path.join(
-                                    path_to_save,
-                                    "negative_image_%s_%s" % (ind, f))
-                                ind += 1
-                                count_negative_in_class += 1
-                                scipy.misc.imsave(path_to_save_neg, sample_neg)
-                                break
-                            if stripe == 2:
-                                x_neg = (image.shape[1] - x_max) / 2 + x_max
-                                w_neg = w_size
-                                h_neg = h_size
-                                #w_neg = image.shape[1] - x_max
-                                #h_neg = w_neg * h_size / w_size
-                                if (w_neg < min_size_min_side or
-                                        h_neg < min_size_min_side or w_neg
-                                        > image.shape[1] - x_max or
-                                        h_neg > image.shape[0]):
-                                    continue
-                                y_neg = h_neg / 2 + (
-                                    image.shape[0] - h_neg) * rand.rand()
-                                sample_neg = self.resize(
-                                    image, x_neg, y_neg, h_neg, w_neg)
-                                path_to_save_neg = os.path.join(
-                                    path_to_save,
-                                    "negative_image_%s_%s" % (ind, f))
-                                ind += 1
-                                count_negative_in_class += 1
-                                scipy.misc.imsave(path_to_save_neg, sample_neg)
-                                break
-                            if stripe == 3:
-                                y_neg = (image.shape[0] - y_max) / 2 + y_max
-                                w_neg = w_size
-                                h_neg = h_size
-                                #h_neg = image.shape[0] - y_max
-                                #w_neg = h_neg * w_size / h_size
-                                if (w_neg < min_size_min_side or
-                                        h_neg < min_size_min_side or w_neg
-                                        > image.shape[1] or
-                                        h_neg > image.shape[0] - y_max):
-                                    continue
-                                x_neg = w_neg / 2 + (
-                                    image.shape[1] - w_neg) * rand.rand()
-                                sample_neg = self.resize(
-                                    image, x_neg, y_neg, h_neg, w_neg)
-                                path_to_save_neg = os.path.join(
-                                    path_to_save,
-                                    "negative_image_%s_%s" % (ind, f))
-                                ind += 1
-                                count_negative_in_class += 1
-                                scipy.misc.imsave(path_to_save_neg, sample_neg)
-                                break
+                do_negative = True
+                if self.series == "DET":
+                    for image_part in part_images:
+                        if image_fnme == image_part:
+                            self.info("image_fnme %s" % image_fnme)
+                            self.info("image_part %s" % image_part)
+                            do_negative = False
+                if self.series == "img":
+                    path_to_save = image_fnme[:image_fnme.rfind("/")]
+                    path_to_save = path_to_save[:path_to_save.rfind("/")]
+                    path_to_save = os.path.join(path_to_save, "n00000000")
+                    try:
+                        os.mkdir(path_to_save)
+                    except:
+                        pass
+                if do_negative:
+                    image = self.decode_image(image_fnme)
+                    if len(self.images_json[set_type][f]["bbxs"]) == 1:
+                        bbx = self.images_json[set_type][f]["bbxs"][0]
+                        x = bbx["x"]
+                        y = bbx["y"]
+                        h_size = bbx["height"]
+                        w_size = bbx["width"]
+                        ang = bbx["angle"]
+                        current_label = bbx["label"]
+                        if current_label != prev_label:
+                            class_is_new = True
+                        else:
+                            class_is_new = False
+                        prev_label = current_label
+                        x_min = x - w_size / 2
+                        y_min = y - h_size / 2
+                        x_max = x_min + w_size
+                        y_max = y_min + h_size
+                        if ang > 0:
+                            Matr = cv2.getRotationMatrix2D((x, y),
+                                                           360 - ang, 1)
+                            image = cv2.warpAffine(
+                                image, Matr, (image.shape[1], image.shape[0]))
+                        if w_size >= h_size:
+                            min_size_min_side = (h_size * min_size_max_side
+                                                 / w_size)
+                        else:
+                            min_size_min_side = (w_size * min_size_max_side
+                                                 / h_size)
+                        if min_size_min_side < 64:
+                            min_size_min_side = 64
+                        if class_is_new is True:
+                            count_negative_in_class = 0
+                        if count_negative_in_class < max_count_neg_in_class:
+                            for _ in range(16):
+                                stripe = rand.randint(4)
+                                if stripe == 0:
+                                    x_neg = x_min / 2
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    #w_neg = x_min
+                                    #h_neg = w_neg * h_size / w_size
+                                    if (w_neg < min_size_min_side or
+                                            h_neg < min_size_min_side or w_neg
+                                            > x_min or
+                                            h_neg > image.shape[0]):
+                                        continue
+                                    y_neg = h_neg / 2 + (
+                                        image.shape[0] - h_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s" % (ind, f))
+                                    ind += 1
+                                    count_negative_in_class += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if stripe == 1:
+                                    y_neg = y_min / 2
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    #h_neg = y_min
+                                    #w_neg = h_neg * w_size / h_size
+                                    if (w_neg < min_size_min_side or
+                                            h_neg < min_size_min_side or w_neg
+                                            > image.shape[1] or
+                                            h_neg > y_min):
+                                        continue
+                                    x_neg = w_neg / 2 + (
+                                        image.shape[1] - w_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s" % (ind, f))
+                                    ind += 1
+                                    count_negative_in_class += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if stripe == 2:
+                                    x_neg = (image.shape[1]
+                                             - x_max) / 2 + x_max
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    #w_neg = image.shape[1] - x_max
+                                    #h_neg = w_neg * h_size / w_size
+                                    if (w_neg < min_size_min_side or
+                                            h_neg < min_size_min_side or w_neg
+                                            > image.shape[1] - x_max or
+                                            h_neg > image.shape[0]):
+                                        continue
+                                    y_neg = h_neg / 2 + (
+                                        image.shape[0] - h_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s" % (ind, f))
+                                    ind += 1
+                                    count_negative_in_class += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
+                                if stripe == 3:
+                                    y_neg = (image.shape[0]
+                                             - y_max) / 2 + y_max
+                                    w_neg = w_size
+                                    h_neg = h_size
+                                    #h_neg = image.shape[0] - y_max
+                                    #w_neg = h_neg * w_size / h_size
+                                    if (w_neg < min_size_min_side or
+                                            h_neg < min_size_min_side or w_neg
+                                            > image.shape[1] or
+                                            h_neg > image.shape[0] - y_max):
+                                        continue
+                                    x_neg = w_neg / 2 + (
+                                        image.shape[1] - w_neg) * rand.rand()
+                                    sample_neg = self.resize(
+                                        image, x_neg, y_neg, h_neg, w_neg)
+                                    path_to_save_neg = os.path.join(
+                                        path_to_save,
+                                        "negative_image_%s_%s" % (ind, f))
+                                    ind += 1
+                                    count_negative_in_class += 1
+                                    scipy.misc.imsave(path_to_save_neg,
+                                                      sample_neg)
+                                    break
 
     def resize(self, img, x, y, h, w):
         x_min = x - w / 2
@@ -1361,8 +1397,8 @@ class Main(Processor):
         ind = 0
         for i in range(1, 201):
             file_to_open = os.path.join(
-                self.imagenet_dir_path,
-                "ILSVRC2014_devkit/data/det_lists/train_pos_%s.txt" % i)
+                IMAGENET_BASE_PATH,
+                "2014/ILSVRC2014_devkit/data/det_lists/train_pos_%s.txt" % i)
             self.info("file_to_open %s" % file_to_open)
             with open(file_to_open, "r") as file_positive:
                 for line in file_positive:
@@ -1495,22 +1531,28 @@ class Main(Processor):
 
     def remove_background(self, path):
         self.imagenet_dir_path = path
-        for set_type in ("test", "validation", "train"):
-            fnme = os.path.join(
-                self.imagenet_dir_path, IMAGES_JSON %
-                (self.year, self.series, set_type, self.stage))
-            try:
-                with open(fnme, 'r') as fp:
-                    self.images_json[set_type] = json.load(fp)
-            except:
-                self.exception("Failed to load %s", fnme)
-            for f, _val in sorted(self.images_json[set_type].items()):
-                image_fnme = self.images_json[set_type][f]["path"]
-                path_to_neg = image_fnme[:image_fnme.rfind("/")]
-                path = path_to_neg[:path_to_neg.rfind("/")]
-                path_to_neg = os.path.join(path, "n00000000")
-                self.info("path_to_neg %s" % path_to_neg)
-                dst = os.path.join(path, "bad_negative")
+        if self.series == "img":
+            for set_type in ("test", "validation", "train"):
+                fnme = os.path.join(
+                    self.imagenet_dir_path, IMAGES_JSON %
+                    (self.year, self.series, set_type, self.stage))
+                try:
+                    with open(fnme, 'r') as fp:
+                        self.images_json[set_type] = json.load(fp)
+                except:
+                    self.exception("Failed to load %s", fnme)
+                for f, _val in sorted(self.images_json[set_type].items()):
+                    image_fnme = self.images_json[set_type][f]["path"]
+                    path_to_neg = image_fnme[:image_fnme.rfind("/")]
+                    path = path_to_neg[:path_to_neg.rfind("/")]
+                    path_to_neg = os.path.join(path, "n00000000")
+                    dst = os.path.join(path, "bad_negative")
+        if self.series == "DET":
+            path_to_neg = os.path.join(self.imagenet_dir_path,
+                                       "ILSVRC2014_DET_train/n00000000")
+            dst = os.path.join(self.imagenet_dir_path,
+                               "ILSVRC2014_DET_train/bad_negative")
+            self.info("path_to_neg %s" % path_to_neg)
         for root_path, _tmp, files in os.walk(path_to_neg, followlinks=True):
             self.info("dst %s" % dst)
             try:
@@ -1526,7 +1568,7 @@ class Main(Processor):
                         os.rename(f_path, os.path.join(dst, f))
                     else:
                         self.info("%s is good background" % f_path)
-        self.remove_dir(dst)
+        #self.remove_dir(dst)
 
     def remove_dir(self, path):
         for rt, dirs, files in os.walk(path):
