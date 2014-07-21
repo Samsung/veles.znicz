@@ -274,7 +274,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         return super(Workflow, self).initialize(learning_rate=learning_rate,
                                                 weights_decay=weights_decay,
                                                 device=device)
