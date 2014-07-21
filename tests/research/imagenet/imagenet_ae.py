@@ -38,7 +38,6 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
-import veles.external.prettytable as prettytable
 
 IMAGENET_BASE_PATH = "/imagenet"
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
@@ -496,20 +495,6 @@ class Workflow(StandardWorkflow):
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
-        self.dump_attributes()
-
-    def dump_attributes(self):
-        print("Dumping the workflow unit's attributes:")
-        table = prettytable.PrettyTable("#", "unit", "attr", "value")
-        table.align["#"] = "r"
-        table.align["unit"] = "l"
-        table.align["attr"] = "l"
-        table.align["value"] = "l"
-        table.max_width["value"] = 100
-        for i, u in enumerate(self.start_point.dependent_list()):
-            for k, v in sorted(u.__dict__.items()):
-                table.add_row(i, u.__class__.__name__, k, repr(v))
-        print(str(table))
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.fwds):
