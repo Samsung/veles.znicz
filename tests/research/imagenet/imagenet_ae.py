@@ -723,11 +723,13 @@ class Workflow(StandardWorkflow):
                      "labels", "err_output")
 
             # Add decision unit
+            max_epochs = self.decision.max_epochs
             self.decision.unlink_all()
             self.del_ref(self.decision)
             self.decision = None
             unit = decision.DecisionGD(
-                self, fail_iterations=root.decision.fail_iterations)
+                self, fail_iterations=root.decision.fail_iterations,
+                max_epochs=max_epochs)
             self.decision = unit
             unit.link_from(self.evaluator)
             unit.link_attrs(self.loader, "minibatch_class",
