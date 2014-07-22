@@ -22,7 +22,7 @@ from veles.distributable import TriviallyDistributable
 
 @implementer(IOpenCLUnit)
 class Deconv(TriviallyDistributable, nn_units.Forward):
-    # First inherited nn_units.Forward, then TriviallyDistributable
+    # TriviallyDistributable overrides nn_units.Forward IDistributable
     """Deconvolutional layer for simple convolutional layer
     with linear activation and without bias.
 
