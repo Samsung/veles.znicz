@@ -220,6 +220,20 @@ class Main(Processor):
                     for f in files:
                         if os.path.splitext(f)[1] == ".xml":
                             image_fname = os.path.splitext(f)[0] + ".JPEG"
+                            image_fnme = self.images_iter[
+                                set_type][image_fname]["path"]
+                            if set_type == "train":
+                                folder_name = image_fnme[
+                                    image_fnme.find("DET_train")
+                                    + 10:image_fnme.find("DET_train") + 19]
+                            elif set_type == "validation":
+                                folder_name = image_fnme[
+                                    image_fnme.find("DET_val")
+                                    + 8:image_fnme.find("DET_val") + 17]
+                            else:
+                                folder_name = image_fnme[
+                                    image_fnme.find("DET_test")
+                                    + 9:image_fnme.find("DET_test") + 18]
                             xml_path = os.path.join(root_path, f)
                             with open(xml_path, "r") as fr:
                                 tree = xmltodict.parse(fr.read())
@@ -244,21 +258,26 @@ class Main(Processor):
                                     y = 0.5 * h + bbx_ymin
                                     image_lbl = self.images_iter[
                                         set_type][image_fname]["label"]
-                                    if (bbx_lbl == image_lbl or
-                                        (bbx_lbl != image_lbl and
-                                         image_lbl is None and
-                                         bbx_lbl is not None)):
-                                        label = bbx_lbl
-                                    elif (bbx_lbl != image_lbl and
-                                          image_lbl is not None):
-                                        label = image_lbl
-                                    else:
-                                        label = None
-                                        self.warning(
-                                            "could not find image"
-                                            "label in file %s",
-                                            self.images_iter[
-                                                set_type][image_fname]["path"])
+                                    if self.series == "img":
+                                        if (bbx_lbl == image_lbl or
+                                            (bbx_lbl != image_lbl and
+                                             image_lbl is None and
+                                             bbx_lbl is not None)):
+                                            label = bbx_lbl
+                                        elif (bbx_lbl != image_lbl and
+                                              image_lbl is not None):
+                                            label = image_lbl
+                                        else:
+                                            label = None
+                                            self.warning(
+                                                "could not find image"
+                                                "label in file %s",
+                                                self.images_iter[
+                                                    set_type][
+                                                    image_fname]["path"])
+                                    if self.series == "DET":
+                                        label = folder_name
+                                    self.info("label %s" % label)
                                     dict_bbx = {"label": label,
                                                 "angle": bbx_ang,
                                                 "width": w,
@@ -439,18 +458,6 @@ class Main(Processor):
             for f, _val in sorted(self.images_json[set_type].items()):
                 image_fnme = self.images_json[set_type][f]["path"]
                 image = self.decode_image(image_fnme)
-                if set_type == "train":
-                    folder_name = image_fnme[
-                        image_fnme.find("DET_train")
-                        + 10:image_fnme.find("DET_train") + 19]
-                elif set_type == "validation":
-                    folder_name = image_fnme[
-                        image_fnme.find("DET_val")
-                        + 8:image_fnme.find("DET_val") + 17]
-                else:
-                    folder_name = image_fnme[
-                        image_fnme.find("DET_test")
-                        + 9:image_fnme.find("DET_test") + 18]
                 i = 0
                 if f.find("negative_image") != -1:
                     if set_type == "test":
@@ -491,10 +498,7 @@ class Main(Processor):
                     y = bbx["y"]
                     h_size = bbx["height"]
                     w_size = bbx["width"]
-                    if self.series == "img":
-                        label = bbx["label"]
-                    else:
-                        label = folder_name
+                    label = bbx["label"]
                     self.info("label %s" % label)
                     ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
