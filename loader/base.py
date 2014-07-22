@@ -345,7 +345,7 @@ class Loader(OpenCLUnit):
 
     def generate_data_for_slave(self, slave):
         self.serve_next_minibatch(slave.id)
-        data = {'indices': self.minibatch_indices.mem}
+        data = {'indices': self.minibatch_indices.mem[:self.minibatch_size]}
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
                      "epoch_number"):
             data[attr] = getattr(self, attr)
@@ -363,7 +363,7 @@ class Loader(OpenCLUnit):
         self.last_minibatch <<= data['last_minibatch']
         self.epoch_ended <<= data['epoch_ended']
         indices = data['indices']
-        if len(indices) != self.minibatch_size:
+        if indices.size != self.minibatch_size:
             raise error.MasterSlaveCommunicationError(
                 "minibatch size mismatch")
         if self.minibatch_offset > len(self.shuffled_indices):
