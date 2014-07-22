@@ -17,10 +17,12 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.nn_units as nn_units
 import veles.error as error
+from veles.distributable import TriviallyDistributable
 
 
 @implementer(IOpenCLUnit)
-class Deconv(nn_units.Forward):
+class Deconv(TriviallyDistributable, nn_units.Forward):
+    # First inherited nn_units.Forward, then TriviallyDistributable
     """Deconvolutional layer for simple convolutional layer
     with linear activation and without bias.
 
