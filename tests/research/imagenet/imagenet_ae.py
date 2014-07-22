@@ -266,6 +266,9 @@ class Workflow(StandardWorkflow):
         kwargs["device"] = device
         super(Workflow, self).__init__(workflow, **kwargs)
 
+        self.slave_stats = plotting_units.SlaveStats(self)
+        self.slave_stats.link_from(self.start_point)
+
         self.repeater.link_from(self.start_point)
 
         self.loader = Loader(self, minibatch_size=root.loader.minibatch_size)
