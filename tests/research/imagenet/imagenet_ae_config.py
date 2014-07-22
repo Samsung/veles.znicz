@@ -15,16 +15,16 @@ L1_VS_L2 = 0.0
 LRFT = 0.001
 LRFTB = LRFT
 
-LRAA = 0.005
-LRBAA = LRAA * 2
+LRAA = 0.001
+LRBAA = LRAA
 WDAA = 0.004
-WDBAA = 0
+WDBAA = WDAA
 GMAA = 0.9
 GMBAA = GM
 
 FILLING = "gaussian"
 STDDEV_CONV = 0.01
-STDDEV_AA = 0.001
+STDDEV_AA = 0.003
 
 root.defaults = {
     "decision": {"fail_iterations": 25,

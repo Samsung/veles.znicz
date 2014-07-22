@@ -495,6 +495,7 @@ class Workflow(StandardWorkflow):
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
+        self.info("plt_out.shape is %s", str(self.plt_out.input.shape))
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.fwds):
@@ -731,6 +732,8 @@ class Workflow(StandardWorkflow):
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
 
+            self.end_point.gate_block = ~self.decision.complete
+
             self.rollback.gate_block = self.decision.complete
             self.rollback.improved = self.decision.train_improved
 
@@ -747,7 +750,7 @@ class Workflow(StandardWorkflow):
             gds = []
             for i in range(len(self.fwds) - 1, i_fwd - 1, -1):
                 GD = self.gd_map[self.fwds[i].__class__]
-                kwargs = {}
+                kwargs = dict(self.fwds[i].layer)
                 for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                              "factor", "include_bias"):
                     vle = getattr(self.fwds[i], attr, None)
@@ -806,6 +809,14 @@ class Workflow(StandardWorkflow):
                 prev = self.plt[-1]
             self.plt[0].clear_plot = True
             self.plt[-1].redraw_plot = True
+
+            # Output plotter
+            self.plt_out = nn_plotting_units.Weights2D(
+                self, name="Output", limit=96)
+            self.plt_out.link_attrs(self.fwds[i_fwd_last], "input")
+            self.plt_out.link_from(prev)
+            self.plt_out.gate_skip = ~self.decision.epoch_ended
+            prev = self.plt_out
 
             self.gds[-1].link_from(prev)
             self.gds[-1].gate_block = self.decision.complete
