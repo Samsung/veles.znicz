@@ -182,7 +182,7 @@ class ForwardMul(ActivationForward):
         if self.factor is None:  # autoset factor from first minibatch
             self.input.map_read()
             mx = numpy.fabs(self.input.mem).max()
-            factor = 0.75 / mx if mx else 0.75
+            factor = 0.9 / mx if mx else 0.9
             self.info("Autosetting factor to %f", factor)
             self.factor = factor
         super(ForwardMul, self).run()
