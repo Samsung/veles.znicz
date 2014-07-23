@@ -80,7 +80,7 @@ class Main(Processor):
         self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
                                                  False)
-        self.rect = kwargs.get("rect", (288, 288))
+        self.rect = kwargs.get("rect", (192, 192))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
@@ -1194,7 +1194,7 @@ class Main(Processor):
     def generate_negative_images(self, path):
         self.imagenet_dir_path = path
         min_size_max_side = 128
-        max_count_neg_in_class = 200
+        max_count_neg_in_class = 5
         count_negative_in_class = 0
         class_is_new = False
         prev_label = ""
@@ -1209,16 +1209,16 @@ class Main(Processor):
                 os.mkdir(path_to_save)
             except:
                 pass
-        file_to_open = os.path.join(
-            IMAGENET_BASE_PATH,
-            "2014/ILSVRC2014_devkit/data/det_lists/train_partall.txt")
-        self.info("file_to_open %s" % file_to_open)
-        part_images = []
-        with open(file_to_open, "r") as file_part:
-            for line in file_part:
-                path_for_part_img = os.path.join(
-                    path_DET_train, line[:line.find("\n")]) + ".JPEG"
-                part_images.append(path_for_part_img)
+            file_to_open = os.path.join(
+                IMAGENET_BASE_PATH,
+                "2014/ILSVRC2014_devkit/data/det_lists/train_partall.txt")
+            self.info("file_to_open %s" % file_to_open)
+            part_images = []
+            with open(file_to_open, "r") as file_part:
+                for line in file_part:
+                    path_for_part_img = os.path.join(
+                        path_DET_train, line[:line.find("\n")]) + ".JPEG"
+                    part_images.append(path_for_part_img)
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
@@ -1535,6 +1535,7 @@ class Main(Processor):
 
     def remove_background(self, path):
         self.imagenet_dir_path = path
+        paths_to_neg_dst = []
         if self.series == "img":
             for set_type in ("test", "validation", "train"):
                 fnme = os.path.join(
@@ -1549,29 +1550,41 @@ class Main(Processor):
                     image_fnme = self.images_json[set_type][f]["path"]
                     path_to_neg = image_fnme[:image_fnme.rfind("/")]
                     path = path_to_neg[:path_to_neg.rfind("/")]
-                    path_to_neg = os.path.join(path, "n00000000")
-                    dst = os.path.join(path, "bad_negative")
+                    do_append = True
+                    for path_neg_in in paths_to_neg_dst:
+                        if (os.path.join(path, "n00000000"),
+                                os.path.join(path,
+                                             "bad_negative")) == path_neg_in:
+                            do_append = False
+                    if do_append:
+                        paths_to_neg_dst.append(
+                            (os.path.join(path, "n00000000"),
+                             os.path.join(path, "bad_negative")))
         if self.series == "DET":
             path_to_neg = os.path.join(self.imagenet_dir_path,
                                        "ILSVRC2014_DET_train/n00000000")
             dst = os.path.join(self.imagenet_dir_path,
                                "ILSVRC2014_DET_train/bad_negative")
+            #self.info("path_to_neg %s" % path_to_neg)
+        for (path_to_neg, dst) in paths_to_neg_dst:
             self.info("path_to_neg %s" % path_to_neg)
-        for root_path, _tmp, files in os.walk(path_to_neg, followlinks=True):
             self.info("dst %s" % dst)
-            try:
-                os.mkdir(dst, mode=0o775)
-            except:
-                pass
-            for f in files:
-                if os.path.splitext(f)[1] == ".JPEG":
-                    f_path = os.path.join(root_path, f)
-                    good_backgr = back_det.is_background(f_path, 8.0)
-                    if not good_backgr:
-                        self.info("%s is bad background" % f_path)
-                        os.rename(f_path, os.path.join(dst, f))
-                    else:
-                        self.info("%s is good background" % f_path)
+            for root_path, _tmp, files in os.walk(path_to_neg,
+                                                  followlinks=True):
+                #self.info("dst %s" % dst)
+                try:
+                    os.mkdir(dst, mode=0o775)
+                except:
+                    pass
+                for f in files:
+                    if os.path.splitext(f)[1] == ".JPEG":
+                        f_path = os.path.join(root_path, f)
+                        good_backgr = back_det.is_background(f_path, 8.0)
+                        if not good_backgr:
+                            #self.info("%s is bad background" % f_path)
+                            os.rename(f_path, os.path.join(dst, f))
+                        #else:
+                            #self.info("%s is good background" % f_path)
         #self.remove_dir(dst)
 
     def remove_dir(self, path):
