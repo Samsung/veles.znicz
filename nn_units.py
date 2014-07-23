@@ -24,6 +24,7 @@ from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.random_generator as prng
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
+from veles.error import MasterSlaveCommunicationError
 
 
 @implementer(IDistributable)
@@ -225,6 +226,32 @@ class NNWorkflow(OpenCLWorkflow):
         self.evaluator = None
         self.decision = None
         self.gds = []
+
+    def validate_history(self):
+        """Raises error.MasterSlaveCommunicationError if apply-generate
+        history is invalid.
+        """
+        if not self.is_master:
+            return
+
+        from collections import defaultdict
+
+        self.debug("Checking the history...")
+        async = self.workflow.args.async
+        job_stack = defaultdict(int)
+        for index, record in enumerate(self.history):
+            sid = record[2]
+            if record[0] == "generate":
+                job_stack[sid] += 1
+            elif record[0] == "apply":
+                job_stack[sid] -= 1
+            if async and job_stack[sid] == 0:
+                raise MasterSlaveCommunicationError(
+                    "Apply-generate balance becomes zero at index %d" % index)
+            if not async and job_stack[sid] == 2:
+                raise MasterSlaveCommunicationError(
+                    "Apply-generate balance becomes 2 at index %d" % index)
+        self.info("History validation's been completed. Everything is OK.")
 
     def export(self, filename):
         """Exports workflow for use on DTV.
