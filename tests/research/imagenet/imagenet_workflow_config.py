@@ -101,7 +101,7 @@ root.update = {
                    "weights_filling": "gaussian",
                    "weights_stddev": 0.005},
 
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "all2all_relu", "output_shape": 4096,
                    "weights_filling": "gaussian",
@@ -111,7 +111,7 @@ root.update = {
                    "gradient_moment": 0.9, "gradient_moment_bias": 0.9,
                    "weights_decay": 0.0005, "weights_decay_bias": 0.0},
 
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "softmax", "output_shape": 4,
                    "gradient_moment": 0.9, "gradient_moment_bias": 0.9,

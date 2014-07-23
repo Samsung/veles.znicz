@@ -24,6 +24,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
+#import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -135,8 +136,8 @@ class Loader(loader.Loader):
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = 288
-        self.sy = 288
+        self.sx = 192
+        self.sy = 192
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -707,7 +708,19 @@ class Workflow(StandardWorkflow):
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
             self.n_ae += 1
-
+            """
+            # Add Image Saver unit
+            self.image_saver = image_saver.ImageSaver(
+                self, out_dirs=root.image_saver.out_dirs)
+            self.image_saver.link_from(self.fwds[-1])
+            self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+            self.image_saver.link_attrs(
+                self.loader,
+                ("indexes", "minibatch_indices"),
+                ("labels", "minibatch_labels"),
+                "minibatch_class", "minibatch_size")
+            self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
+            """
             # Add evaluator unit
             self.evaluator.unlink_all()
             self.del_ref(self.evaluator)
@@ -744,6 +757,11 @@ class Workflow(StandardWorkflow):
             unit.link_from(self.decision)
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
+            #self.image_saver.gate_skip = ~self.decision.improved
+            #self.image_saver.link_attrs(self.snapshotter,
+            #                            ("this_save_time", "time"))
+
+            self.end_point.gate_block = ~self.decision.complete
 
             self.end_point.gate_block = ~self.decision.complete
 
