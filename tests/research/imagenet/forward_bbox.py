@@ -11,7 +11,8 @@ from PIL import Image
 from zope.interface import implementer
 
 from veles.units import Unit, IUnit
-from .forward import ImagenetForwardLoader
+from veles.znicz.tests.research.imagenet.forward_loader import \
+    ImagenetForwardLoader
 
 
 @implementer(IUnit)

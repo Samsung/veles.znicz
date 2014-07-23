@@ -5,14 +5,15 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
 import os
-
+import sys
 
 from veles.config import root
 from veles.opencl_units import OpenCLWorkflow
 from veles.snapshotter import Snapshotter
 from veles.znicz.nn_units import Forward
 from veles.mean_disp_normalizer import MeanDispNormalizer
-from .forward_loader import ImagenetForwardLoader
+from veles.znicz.tests.research.imagenet.forward_loader import \
+    ImagenetForwardLoader
 from veles.znicz.tests.research.imagenet.forward_bbox import ImagenetBboxMapper
 
 
@@ -22,6 +23,7 @@ root.defaults = {
     "mapper": {"path": "",
                },
     "trained_workflow": "",
+    "imagenet_base": "/data/veles/datasets/imagenet/temp"
 }
 
 root.imagenet.from_snapshot_add_layer = False
@@ -40,6 +42,7 @@ root.loader.images_meta_filename = os.path.join(
 class ImagenetForward(OpenCLWorkflow):
     def __init__(self, workflow, **kwargs):
         super(ImagenetForward, self).__init__(workflow, **kwargs)
+        sys.path.append(os.path.dirname(__file__))
         self.train_wf = Snapshotter.import_(root.trained_workflow)
         units_to_remove = []
         for unit in self.train_wf:
