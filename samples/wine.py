@@ -170,12 +170,12 @@ class Workflow(nn_units.NNWorkflow):
         self.loader.gate_block = self.decision.complete
         self.gds[-1].gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          learning_rate_bias=learning_rate,
                                          weights_decay_bias=weights_decay,
-                                         device=device)
+                                         device=device, **kwargs)
 
 
 def run(load, main):
