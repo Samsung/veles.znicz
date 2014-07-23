@@ -27,6 +27,7 @@ import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
+import veles.znicz.dropout as dropout
 import veles.znicz.activation as activation
 import veles.znicz.all2all as all2all
 import veles.znicz.gd as gd
@@ -48,15 +49,19 @@ root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
 class NNRollback(Unit, TriviallyDistributable):
     def __init__(self, workflow, **kwargs):
         super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1.05)
-        self.lr_minus = kwargs.get("lr_minus", 0.525)
+        self.lr_plus = kwargs.get("lr_plus", 1.1)
+        self.lr_minus = kwargs.get("lr_minus", 0.5)
         self.plus_steps = kwargs.get("plus_steps", 1)
-        self.minus_steps = kwargs.get("minus_steps", 4)
+        self.minus_steps = kwargs.get("minus_steps", 3)
         self._plus_steps = self.plus_steps
         self._minus_steps = self.minus_steps
         self.improved = None
         self.demand("improved")
         self._gds = {}
+
+        # Workaround for difference in minibatch class serve order
+        # in clear run and after the resuming from the snapshot.
+        self._first_run = True
 
     def initialize(self, **kwargs):
         pass
@@ -82,7 +87,7 @@ class NNRollback(Unit, TriviallyDistributable):
                 if _gd.bias:
                     _gd.bias.map_read()
                     kv["bias"] = _gd.bias.mem.copy()
-        else:
+        elif not self._first_run:
             self._minus_steps += 1
             if self._minus_steps < self.minus_steps:
                 return
@@ -108,6 +113,7 @@ class NNRollback(Unit, TriviallyDistributable):
                     else:
                         _gd.bias.map_invalidate()
                         _gd.bias.mem[:] = kv["bias"]
+        self._first_run = False
 
     def reset(self):
         self._gds.clear()
@@ -238,7 +244,8 @@ class Workflow(StandardWorkflow):
             "all2all": all2all.All2All,
             "all2all_tanh": all2all.All2AllTanh,
             "activation_tanhlog": activation.ForwardTanhLog,
-            "softmax": all2all.All2AllSoftmax}
+            "softmax": all2all.All2AllSoftmax,
+            "dropout": dropout.DropoutForward}
         self.de_map = {
             conv.Conv: deconv.Deconv,
             pooling.StochasticAbsPooling: depooling.Depooling,
@@ -256,7 +263,8 @@ class Workflow(StandardWorkflow):
             pooling.StochasticPooling: gd_pooling.GDMaxPooling,
             pooling.MaxAbsPooling: gd_pooling.GDMaxAbsPooling,
             pooling.MaxPooling: gd_pooling.GDMaxPooling,
-            conv.Conv: gd_conv.GradientDescentConv}
+            conv.Conv: gd_conv.GradientDescentConv,
+            dropout.DropoutForward: dropout.DropoutBackward}
         self.fixed = {}
 
     def __init__(self, workflow, **kwargs):
@@ -517,19 +525,20 @@ class Workflow(StandardWorkflow):
                 vle = getattr(self.fwds[i], attr, None)
                 if vle is not None:
                     kwargs[attr] = vle
-            kwargs["learning_rate"] = kwargs["learning_rate_ft"]
+            if "learning_rate_ft" in kwargs:
+                kwargs["learning_rate"] = kwargs["learning_rate_ft"]
             if "learning_rate_ft_bias" in kwargs:
                 kwargs["learning_rate_bias"] = kwargs["learning_rate_ft_bias"]
             unit = GD(self, **kwargs)
             self.gds.insert(0, unit)
             unit.link_from(prev)
             unit.link_attrs(prev, ("err_output", "err_input"))
+            unit.link_attrs(self.fwds[i], "weights", "input", "output")
             if hasattr(self.fwds[i], "input_offset"):
-                unit.link_attrs(self.fwds[i], "weights", "input", "output",
-                                "input_offset")
-            else:
-                unit.link_attrs(self.fwds[i], "weights", "input", "output")
-            if self.fwds[i].bias is None:
+                unit.link_attrs(self.fwds[i], "input_offset")
+            if hasattr(self.fwds[i], "mask"):
+                unit.link_attrs(self.fwds[i], "mask")
+            if self.fwds[i].bias is not None:
                 unit.link_attrs(self.fwds[i], "bias")
             unit.gate_skip = self.decision.gd_skip
             prev = unit
@@ -542,7 +551,8 @@ class Workflow(StandardWorkflow):
         self.rollback.reset()
         noise = float(root.imagenet.fine_tuning_noise)
         for unit in self.gds:
-            self.rollback.add_gd(unit)
+            if not isinstance(unit, activation.Activation):
+                self.rollback.add_gd(unit)
             if not noise:
                 continue
             if unit.weights:
@@ -767,18 +777,20 @@ class Workflow(StandardWorkflow):
                     unit.link_attrs(prev_gd, "err_output")
                 else:
                     unit.link_attrs(prev_gd, ("err_output", "err_input"))
+                unit.link_attrs(self.fwds[i], "weights", "input", "output")
                 if hasattr(self.fwds[i], "input_offset"):
-                    unit.link_attrs(self.fwds[i], "weights", "bias",
-                                    "input", "output", "input_offset")
-                else:
-                    unit.link_attrs(self.fwds[i], "weights", "bias",
-                                    "input", "output")
+                    unit.link_attrs(self.fwds[i], "input_offset")
+                if hasattr(self.fwds[i], "mask"):
+                    unit.link_attrs(self.fwds[i], "mask")
+                if self.fwds[i].bias is not None:
+                    unit.link_attrs(self.fwds[i], "bias")
                 unit.gate_skip = self.decision.gd_skip
                 prev_gd = unit
                 prev = unit
                 self.fix(unit, "weights", "bias", "input", "output",
                          "err_input", "err_output")
-                self.rollback.add_gd(unit)
+                if not isinstance(unit, activation.Activation):
+                    self.rollback.add_gd(unit)
             # Strip gd's without weights
             for i in range(len(gds) - 1, -1, -1):
                 if (isinstance(gds[i], gd.GradientDescent) or
