@@ -9,7 +9,7 @@ import os
 from veles.config import root
 
 
-LR = 0.00001
+LR = 0.00009
 WD = 0.004
 GM = 0.9
 L1_VS_L2 = 0.0
@@ -47,9 +47,9 @@ root.defaults = {
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae"},
     "imagenet": {"from_snapshot_add_layer": True,
-                 "fine_tuning_noise": 0,
+                 "fine_tuning_noise": 1.0e-6,
                  "layers":
-                 [{"type": "ae_begin"},  # 216
+                 [{"type": "ae_begin"},  # 192
                   {"type": "conv", "n_kernels": 64,
                    "kx": 9, "ky": 9, "sliding": (3, 3),
                    "learning_rate": LR,
@@ -63,19 +63,6 @@ root.defaults = {
 
                   {"type": "activation_mul"},
                   {"type": "ae_begin"},  # 72
-                  {"type": "conv", "n_kernels": 96,
-                   "kx": 9, "ky": 9, "sliding": (3, 3),
-                   "learning_rate": LR,
-                   "learning_rate_ft": LRFT,
-                   "weights_decay": WD,
-                   "gradient_moment": GM,
-                   "weights_filling": FILLING,
-                   "weights_stddev": STDDEV_CONV,
-                   "l1_vs_l2": L1_VS_L2},
-                  {"type": "ae_end"},
-
-                  {"type": "activation_mul"},
-                  {"type": "ae_begin"},  # 36
                   {"type": "conv", "n_kernels": 128,
                    "kx": 6, "ky": 6, "sliding": (2, 2),
                    "learning_rate": LR,
@@ -88,8 +75,21 @@ root.defaults = {
                   {"type": "ae_end"},
 
                   {"type": "activation_mul"},
-                  {"type": "ae_begin"},  # 18
+                  {"type": "ae_begin"},  # 36
                   {"type": "conv", "n_kernels": 192,
+                   "kx": 6, "ky": 6, "sliding": (2, 2),
+                   "learning_rate": LR,
+                   "learning_rate_ft": LRFT,
+                   "weights_decay": WD,
+                   "gradient_moment": GM,
+                   "weights_filling": FILLING,
+                   "weights_stddev": STDDEV_CONV,
+                   "l1_vs_l2": L1_VS_L2},
+                  {"type": "ae_end"},
+
+                  {"type": "activation_mul"},
+                  {"type": "ae_begin"},  # 18
+                  {"type": "conv", "n_kernels": 256,
                    "kx": 6, "ky": 6, "sliding": (2, 2),
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
@@ -109,7 +109,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
                    "l1_vs_l2": L1_VS_L2},
-                  #{"type": "dropout", "dropout_ratio": 0.5},
+                  {"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "all2all_tanh", "output_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
@@ -119,7 +119,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
                    "l1_vs_l2": L1_VS_L2},
-                  #{"type": "dropout", "dropout_ratio": 0.5},
+                  {"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "softmax", "output_shape": 5,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,

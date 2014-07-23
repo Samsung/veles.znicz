@@ -41,7 +41,7 @@ from veles.units import IUnit, Unit
 from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
 
-IMAGENET_BASE_PATH = "/imagenet"
+IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet"
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")
 
@@ -855,7 +855,7 @@ class Workflow(StandardWorkflow):
             self.gds[-1].gate_block = self.decision.complete
             self.loader.gate_block = self.decision.complete
 
-            self.decision.max_epochs += root.decision.max_epochs * 10
+            self.decision.max_epochs += int(root.decision.max_epochs / 10)
 
 
 def run(load, main):
