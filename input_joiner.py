@@ -55,11 +55,11 @@ class InputJoiner(OpenCLUnit):
         super(InputJoiner, self).init_unpickled()
         self.cl_sources_["join.cl"] = {}
 
-    def initialize(self, **kwargs):
+    def initialize(self, device, **kwargs):
         if not len(self.inputs):
             raise error.BadFormatError("inputs should not be empty")
 
-        super(InputJoiner, self).initialize(**kwargs)
+        super(InputJoiner, self).initialize(device=device, **kwargs)
 
         if self.minibatch_size[0] is None:
             minibatch_size = self.inputs[0].mem.shape[0]

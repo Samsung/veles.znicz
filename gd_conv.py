@@ -88,7 +88,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.krn_bias_ = None
 
     def initialize(self, device, **kwargs):
-        super(GradientDescentConv, self).initialize(device, **kwargs)
+        super(GradientDescentConv, self).initialize(device=device, **kwargs)
 
         if self.err_output.shape != self.output.shape:
             raise error.BadFormatError("err_output.shape != output.shape")
@@ -538,9 +538,9 @@ class GDTanhConv(GradientDescentConv):
         output = self.output.mem
         self.err_output.mem *= output * output * (-0.388484177) + 1.14381894
 
-    def initialize(self, **kwargs):
+    def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_tanh.cl"] = {}
-        super(GDTanhConv, self).initialize(**kwargs)
+        super(GDTanhConv, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
@@ -563,9 +563,9 @@ class GDRELUConv(GradientDescentConv):
         output = self.output.mem
         self.err_output.mem *= 1.0 - numpy.exp(-output)
 
-    def initialize(self, **kwargs):
+    def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_relu.cl"] = {}
-        super(GDRELUConv, self).initialize(**kwargs)
+        super(GDRELUConv, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")
@@ -587,9 +587,9 @@ class GDStrictRELUConv(GradientDescentConv):
         output = self.output.mem
         self.err_output.mem *= numpy.greater(output, 0)
 
-    def initialize(self, **kwargs):
+    def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_strict_relu.cl"] = {}
-        super(GDStrictRELUConv, self).initialize(**kwargs)
+        super(GDStrictRELUConv, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
         self.krn_err_output_ = self.get_kernel("err_y_update")

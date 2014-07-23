@@ -16,10 +16,11 @@ from zope.interface import implementer
 import veles.error as error
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
+from veles.distributable import TriviallyDistributable
 
 
 @implementer(IOpenCLUnit)
-class GDPooling(nn_units.GradientDescentBase):
+class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
     """Gradient Descent for pooling unit.
 
     Must be assigned before initialize():
@@ -59,8 +60,8 @@ class GDPooling(nn_units.GradientDescentBase):
         self.krn_err_input_ = None
         self.krn_err_input_clear_ = None
 
-    def initialize(self, **kwargs):
-        super(GDPooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(GDPooling, self).initialize(device=device, **kwargs)
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
@@ -146,22 +147,6 @@ class GDPooling(nn_units.GradientDescentBase):
             return retval
         self.print_debug_data(t1)
 
-    #IDistributable implementation
-    def generate_data_for_slave(self, slave):
-        return None
-
-    def generate_data_for_master(self):
-        return None
-
-    def apply_data_from_master(self, data):
-        pass
-
-    def apply_data_from_slave(self, data, slave):
-        pass
-
-    def drop_slave(self, slave):
-        pass
-
 
 class GDMaxPooling(GDPooling):
     """Gradient Descent for max pooling unit.
@@ -186,8 +171,8 @@ class GDMaxPooling(GDPooling):
         super(GDMaxPooling, self).init_unpickled()
         self.krn_err_input_clear_ = None
 
-    def initialize(self, **kwargs):
-        super(GDMaxPooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(GDMaxPooling, self).initialize(device=device, **kwargs)
 
         if self.err_output.size != self.input_offset.size:
             raise error.BadFormatError("Shape of err_output differs from "
@@ -204,7 +189,7 @@ class GDMaxPooling(GDPooling):
                                          self.err_input.devmem,
                                          self.input_offset.devmem)
 
-    #IDistributable implementation
+    # IDistributable implementation
     def generate_data_for_slave(self, slave):
         self.input_offset.map_read()
         data = (self.input_offset.mem)
@@ -252,8 +237,8 @@ class GDAvgPooling(GDPooling):
     Creates within initialize():
 
     """
-    def initialize(self, **kwargs):
-        super(GDAvgPooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(GDAvgPooling, self).initialize(device=device, **kwargs)
 
         if self.device is None:
             return

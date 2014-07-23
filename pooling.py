@@ -16,12 +16,12 @@ from zope.interface import implementer
 import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
-from veles.distributable import IDistributable
+from veles.distributable import IDistributable, TriviallyDistributable
 import veles.random_generator as random_generator
 
 
-@implementer(IOpenCLUnit)
-class Pooling(nn_units.Forward):
+@implementer(IOpenCLUnit, IDistributable)
+class Pooling(TriviallyDistributable, nn_units.Forward):
     """Pooling forward propagation.
 
     Must be assigned before initialize():
@@ -57,8 +57,8 @@ class Pooling(nn_units.Forward):
         super(Pooling, self).init_unpickled()
         self.cl_sources_["pooling.cl"] = {}
 
-    def initialize(self, **kwargs):
-        super(Pooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(Pooling, self).initialize(device=device, **kwargs)
 
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
@@ -146,24 +146,7 @@ class Pooling(nn_units.Forward):
             return retval
         self.print_debug_data(t1)
 
-    # IDistributable implementation
-    def generate_data_for_slave(self, slave):
-        return None
 
-    def generate_data_for_master(self):
-        return None
-
-    def apply_data_from_master(self, data):
-        pass
-
-    def apply_data_from_slave(self, data, slave):
-        pass
-
-    def drop_slave(self, slave):
-        pass
-
-
-@implementer(IDistributable)
 class OffsetPooling(Pooling):
     """Pooling by offset forward propagation.
 
@@ -183,8 +166,8 @@ class OffsetPooling(Pooling):
         self.input_offset = formats.Vector()
         self.demand("input")
 
-    def initialize(self, **kwargs):
-        super(OffsetPooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(OffsetPooling, self).initialize(device=device, **kwargs)
 
         if (self.input_offset.mem is None or
                 self.input_offset.mem.size != self.output.mem.size):
@@ -224,26 +207,17 @@ class OffsetPooling(Pooling):
         data = (self.input_offset.mem)
         return data
 
-    def generate_data_for_master(self):
-        return None
-
-    def apply_data_from_slave(self, data, slave):
-        pass
-
     def apply_data_from_master(self, data):
         self.input_offset.map_invalidate()
         self.input_offset.mem[:] = data[0][:]
-
-    def drop_slave(self, slave):
-        pass
 
 
 class MaxPoolingBase(OffsetPooling):
     """MaxPooling forward propagation base class.
     """
 
-    def initialize(self, **kwargs):
-        super(MaxPoolingBase, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(MaxPoolingBase, self).initialize(device=device, **kwargs)
 
         if self.device is None:
             return
@@ -309,8 +283,8 @@ class StochasticPoolingBase(OffsetPooling):
         self._random_states = formats.Vector()
         self.rand = random_generator.get()
 
-    def initialize(self, **kwargs):
-        super(StochasticPoolingBase, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
 
         states_size = self.output.mem.size * 4
         states = kwargs.get('states')
@@ -400,8 +374,8 @@ class AvgPooling(Pooling):
     Creates within initialize():
 
     """
-    def initialize(self, **kwargs):
-        super(AvgPooling, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(AvgPooling, self).initialize(device=device, **kwargs)
 
         if self.device is None:
             return
