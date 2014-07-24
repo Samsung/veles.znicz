@@ -31,13 +31,13 @@ STDDEV_AA = 0.005
 #root.common.precision_type = "float"
 root.model = "imagenet"
 root.defaults = {
-    "decision": {"fail_iterations": 25,
+    "decision": {"fail_iterations": 40,
                  "max_epochs": 50,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "loader": {"year": "temp",
+    "loader": {"year": "data",
                "series": "img",
-               "minibatch_size": 14},
+               "minibatch_size": 300},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/test"),
@@ -47,10 +47,10 @@ root.defaults = {
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae"},
     "imagenet": {"from_snapshot_add_layer": True,
-                 "fine_tuning_noise": 1.0e-6,
+                 "fine_tuning_noise": 0,
                  "layers":
-                 [{"type": "ae_begin"},  # 192
-                  {"type": "conv", "n_kernels": 64,
+                 [{"type": "ae_begin"},  # 216
+                  {"type": "conv", "n_kernels": 96,
                    "kx": 9, "ky": 9, "sliding": (3, 3),
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
@@ -101,7 +101,7 @@ root.defaults = {
                   {"type": "ae_end"},
 
                   {"type": "activation_mul"},
-                  {"type": "all2all_tanh", "output_shape": 512,
+                  {"type": "all2all_tanh", "output_shape": 4096,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -109,9 +109,9 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "all2all_tanh", "output_shape": 512,
+                  {"type": "all2all_tanh", "output_shape": 4096,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -119,9 +119,9 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "softmax", "output_shape": 5,
+                  {"type": "softmax", "output_shape": 1001,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,

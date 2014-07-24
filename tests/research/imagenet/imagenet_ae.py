@@ -41,7 +41,7 @@ from veles.units import IUnit, Unit
 from veles.distributable import TriviallyDistributable
 import veles.random_generator as prng
 
-IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet"
+IMAGENET_BASE_PATH = "/export/home/imagenet/"
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")
 
@@ -50,8 +50,8 @@ root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
 class NNRollback(Unit, TriviallyDistributable):
     def __init__(self, workflow, **kwargs):
         super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1.1)
-        self.lr_minus = kwargs.get("lr_minus", 0.5)
+        self.lr_plus = kwargs.get("lr_plus", 1)
+        self.lr_minus = kwargs.get("lr_minus", 0.9)
         self.plus_steps = kwargs.get("plus_steps", 1)
         self.minus_steps = kwargs.get("minus_steps", 3)
         self._plus_steps = self.plus_steps
