@@ -700,7 +700,7 @@ class Main(Processor):
                 float(dst_height) * img.shape[1] / img.shape[0]))
         assert dst_width <= nn_width and dst_height <= nn_height
         img = cv2.resize(img, (dst_width, dst_height),
-                         interpolation=cv2.INTER_AREA)
+                         interpolation=cv2.INTER_LANCZOS4)
         dst_x_min = int(numpy.round(0.5 * (nn_width - dst_width)))
         dst_y_min = int(numpy.round(0.5 * (nn_height - dst_height)))
         dst_x_max = dst_x_min + img.shape[1]
@@ -1647,13 +1647,13 @@ class Main(Processor):
                              os.path.join(path, "bad_negative")))
         if self.series == "DET":
             path_to_neg_train = os.path.join(self.imagenet_dir_path,
-                                       "ILSVRC2014_DET_train/n00000000")
+                                             "ILSVRC2014_DET_train/n00000000")
             dst_train = os.path.join(self.imagenet_dir_path,
-                               "ILSVRC2014_DET_train/bad_negative")
+                                     "ILSVRC2014_DET_train/bad_negative")
             path_to_neg_valid = os.path.join(self.imagenet_dir_path,
-                                       "ILSVRC2013_DET_val/n00000000")
+                                             "ILSVRC2013_DET_val/n00000000")
             dst_valid = os.path.join(self.imagenet_dir_path,
-                               "ILSVRC2013_DET_val/bad_negative")
+                                     "ILSVRC2013_DET_val/bad_negative")
             paths_to_neg_dst.append((path_to_neg_train, dst_train))
             paths_to_neg_dst.append((path_to_neg_valid, dst_valid))
         for (path_to_neg, dst) in paths_to_neg_dst:
