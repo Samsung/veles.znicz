@@ -7,6 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
+from collections import defaultdict
 from copy import copy
 import numpy
 import time
@@ -111,7 +112,7 @@ class Loader(OpenCLUnit):
         self.minibatch_indices = formats.Vector()
         self.minibatch_labels = formats.Vector()
 
-        self.failed_minibatches = {}
+        self.failed_minibatches = []
         self._total_failed = 0
 
     def init_unpickled(self):
@@ -119,7 +120,7 @@ class Loader(OpenCLUnit):
         self._minibatch_offset_ = 0
         self._minibatch_size_ = 0
         self.shuffled_indices = formats.Vector()
-        self.pending_minibatches_ = {}
+        self.pending_minibatches_ = defaultdict(list)
         self._minibatch_serve_timestamp_ = time.time()
 
     @property
@@ -163,7 +164,11 @@ class Loader(OpenCLUnit):
                           self.samples_served, num,
                           100. * den / self.total_samples,
                           len(self.failed_minibatches),
-                          len(self.pending_minibatches_))
+                          self.pending_minibatches_size)
+
+    @property
+    def pending_minibatches_size(self):
+        return sum((len(v) for v in self.pending_minibatches_.values()))
 
     @property
     def minibatch_class(self):
@@ -306,9 +311,10 @@ class Loader(OpenCLUnit):
         # Move all pending minibatches to failed set
         if not self.epoch_ended:
             state["failed_minibatches"] = copy(state["failed_minibatches"])
-            state["failed_minibatches"].update(self.pending_minibatches_)
+            for pmb in self.pending_minibatches_.values():
+                state["failed_minibatches"].extend(pmb)
         else:
-            state["failed_minibatches"] = {}
+            state["failed_minibatches"] = []
         state["shuffled_indices"] = None  # to reduce pickle size
         return state
 
@@ -384,11 +390,10 @@ class Loader(OpenCLUnit):
             return
         try:
             self.minibatch_offset, self.minibatch_size = \
-                self.pending_minibatches_[slave.id]
+                self.pending_minibatches_[slave.id].pop()
         except KeyError:
             raise error.Bug("pending_minibatches_ does not contain %s" %
                             slave.id)
-        del self.pending_minibatches_[slave.id]
         self._on_successful_serve()
         if not self.has_data_for_slave:
             self.has_data_for_slave = self.last_minibatch
@@ -396,13 +401,12 @@ class Loader(OpenCLUnit):
     def drop_slave(self, slave):
         if slave.id in self.pending_minibatches_:
             self._total_failed += 1
-            self.failed_minibatches[slave.id] = \
-                self.pending_minibatches_[slave.id]
+            self.failed_minibatches.extend(self.pending_minibatches_[slave.id])
             del self.pending_minibatches_[slave.id]
             self.has_data_for_slave = True
             self.info("Jobs failed: %d/pending: %d",
                       len(self.failed_minibatches),
-                      len(self.pending_minibatches_))
+                      self.pending_minibatches_size)
 
     def extract_validation_from_train(self, rand=None, ratio=None):
         """Extracts validation dataset from train dataset randomly.
@@ -515,11 +519,11 @@ class Loader(OpenCLUnit):
 
     def serve_next_minibatch(self, slave):
         try:
-            _, (minibatch_offset, minibatch_size) = \
-                self.failed_minibatches.popitem()
-        except KeyError:
+            minibatch_offset, minibatch_size = self.failed_minibatches.pop()
+        except IndexError:
             minibatch_offset, minibatch_size = self._advance_global_offset()
-        self.pending_minibatches_[slave] = (minibatch_offset, minibatch_size)
+        self.pending_minibatches_[slave].append(
+            (minibatch_offset, minibatch_size))
         self.minibatch_offset, self.minibatch_size = \
             minibatch_offset, minibatch_size
 
@@ -571,7 +575,7 @@ class Loader(OpenCLUnit):
             # The flags will be explicitly set in apply_data_from_master()
             return
         self.last_minibatch <<= (self.class_ended and
-                                 len(self.pending_minibatches_) <= 1 and
+                                 self.pending_minibatches_size <= 1 and
                                  len(self.failed_minibatches) == 0)
         self.epoch_ended <<= self.last_minibatch and (
             self.minibatch_class == VALID or
