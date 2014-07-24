@@ -29,6 +29,7 @@ except ImportError:
 import json
 import logging
 import numpy
+import matplotlib.pyplot as plt
 import pickle
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -39,7 +40,6 @@ import veles.config as config
 import veles.random_generator as rnd
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
-from matplotlib import pyplot as plt
 import veles.znicz.tests.research.imagenet.background_detection as back_det
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
@@ -178,6 +178,10 @@ class Main(Processor):
         int_labels_dir = os.path.join(self.imagenet_dir_path,
                                       "labels_int_%s_%s_%s.txt" %
                                       (self.year, self.series, self.stage))
+        path_hierarchy = os.path.join(IMAGENET_BASE_PATH,
+                                      "2014/hierarchy_2014_DET_train_0.json")
+        with open(path_hierarchy, "r") as file_hier:
+            hierarchy = json.load(file_hier)
         # finding dirs for images and bboxes
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
@@ -220,20 +224,6 @@ class Main(Processor):
                     for f in files:
                         if os.path.splitext(f)[1] == ".xml":
                             image_fname = os.path.splitext(f)[0] + ".JPEG"
-                            image_fnme = self.images_iter[
-                                set_type][image_fname]["path"]
-                            if set_type == "train":
-                                folder_name = image_fnme[
-                                    image_fnme.find("DET_train")
-                                    + 10:image_fnme.find("DET_train") + 19]
-                            elif set_type == "validation":
-                                folder_name = image_fnme[
-                                    image_fnme.find("DET_val")
-                                    + 8:image_fnme.find("DET_val") + 17]
-                            else:
-                                folder_name = image_fnme[
-                                    image_fnme.find("DET_test")
-                                    + 9:image_fnme.find("DET_test") + 18]
                             xml_path = os.path.join(root_path, f)
                             with open(xml_path, "r") as fr:
                                 tree = xmltodict.parse(fr.read())
@@ -276,7 +266,10 @@ class Main(Processor):
                                                     set_type][
                                                     image_fname]["path"])
                                     if self.series == "DET":
-                                        label = folder_name
+                                        for sub_label, com_label in sorted(
+                                                hierarchy.items()):
+                                            if sub_label == bbx_lbl:
+                                                label = com_label
                                     self.info("label %s" % label)
                                     dict_bbx = {"label": label,
                                                 "angle": bbx_ang,
@@ -315,7 +308,7 @@ class Main(Processor):
                 (self.year, self.series, set_type, self.stage))
             # image - dict: "path_to_img", "label", "bbx": [{bbx}, {bbx}, ...]
             with open(fnme, 'w') as fp:
-                json.dump(self.images_iter[set_type], fp)
+                json.dump(self.images_iter[set_type], fp, indent=4)
 
         return None
 
@@ -356,6 +349,10 @@ class Main(Processor):
         return aa
 
     def generate_resized_dataset(self, path):
+        _display = os.getenv("DISPLAY")
+        if _display is not None:
+            os.unsetenv("DISPLAY")
+
         self.info("Resized dataset")
         original_labels = []
         int_word_labels = []
@@ -411,7 +408,7 @@ class Main(Processor):
                 h_size = bbx["height"]
                 w_size = bbx["width"]
                 ang = bbx["angle"]
-                if h_size > 1 and w_size > 1:
+                if h_size > 20 and w_size > 20:
                     self.sample_rect(image, x, y, h_size, w_size, ang, None)
         self.s_mean /= self.s_count
 
@@ -502,23 +499,23 @@ class Main(Processor):
                     self.info("label %s" % label)
                     ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
-                    if h_size > 1 and w_size > 1:
+                    if h_size > 20 and w_size > 20:
                         self.prep_and_save_sample(image, name, x, y, h_size,
                                                   w_size, ang, mean)
-                    sample_count += 1
-                    if self.series == "DET":
-                        imagenet_dir = os.path.join(IMAGENET_BASE_PATH,
-                                                    "2014")
-                        classes_word_path = os.path.join(
-                            imagenet_dir,
-                            "classes_200_2014_DET_train_0.json")
-                        with open(classes_word_path, 'r') as fp:
-                            int_word_labels = json.load(fp)
-                    for (int_label, word_label) in int_word_labels:
-                        if label == word_label:
-                            original_labels.append(int_label)
-                            labels_count += 1
-                    i += 1
+                        sample_count += 1
+                        if self.series == "DET":
+                            imagenet_dir = os.path.join(IMAGENET_BASE_PATH,
+                                                        "2014")
+                            classes_word_path = os.path.join(
+                                imagenet_dir,
+                                "classes_200_2014_DET_train_0.json")
+                            with open(classes_word_path, 'r') as fp:
+                                int_word_labels = json.load(fp)
+                        for (int_label, word_label) in int_word_labels:
+                            if label == word_label:
+                                original_labels.append(int_label)
+                                labels_count += 1
+                        i += 1
                 self.count_samples = [test_count, validation_count,
                                       train_count]
             self.info("Saving images to %s" % original_data_dir)
@@ -536,8 +533,11 @@ class Main(Processor):
         self.info("labels_count %s sample_count %s"
                   % (labels_count, sample_count))
         assert labels_count == sample_count
-        assert sample_count == train_count + validation_count + test_count
+        #assert sample_count == train_count + validation_count + test_count
         self.f_samples.close()
+
+        if _display is not None:
+            os.putenv("DISPLAY", _display)
 
     def prep_and_save_sample(self, image, name, x, y, h, w, ang, mean):
         out_dir = os.path.join(config.root.common.cache_dir,
@@ -556,12 +556,79 @@ class Main(Processor):
                 out_dir, "all_samples/sobel_%s" % name)
             scipy.misc.imsave(out_path_sobel, image_to_save_sobel)
 
-    def test_load_data(self):
-        path = ("/data/veles/datasets/imagenet/DET_dataset/" +
-                "original_labels_DET_dataset_DET_0.pickle")
-        with open(path, "rb") as fout:
+    def test_load_data(self, path):
+        self.imagenet_dir = path
+        path_labels = os.path.join(self.imagenet_dir,
+                                   "original_labels_%s_%s_%s.pickle"
+                                   % (self.year, self.series, self.stage))
+
+        path_data = os.path.join(self.imagenet_dir,
+                                 "original_data_%s_%s_%s.dat"
+                                 % (self.year, self.series, self.stage))
+        rand = rnd.get()
+        with open(path_labels, "rb") as fout:
             fout_file = pickle.load(fout)
-            self.info("fout_file %s" % fout_file)
+        i = int(rand.rand() * len(fout_file))
+        self.info("image number i %s" % i)
+        label = fout_file[i]
+        path_to_ind_labels = os.path.join(
+            self.imagenet_dir, "labels_int_%s_%s_%s.txt"
+            % (self.year, self.series, self.stage))
+        self.info("label %s" % label)
+        if label == 0:
+            label_num = "n00000000"
+            label_word = "negative_image"
+        if self.series == "img":
+            labels_ind = []
+            with open(path_to_ind_labels, "r") as ind_lab:
+                for line in ind_lab:
+                    ind = line[:line.find("\t")]
+                    lab = line[line.find("\t") + 1:line.find("\n")]
+                    labels_ind.append((ind, lab))
+            for ind, lab in labels_ind:
+                if label == ind:
+                    label_num = lab
+            self.info("label num %s" % label_num)
+            path_to_categories = os.path.join(IMAGENET_BASE_PATH,
+                                              "2014/indices_to_categories.txt")
+            num_word = []
+            with open(path_to_categories, "r") as word_lab:
+                for line in word_lab:
+                    num = line[:line.find("\t")]
+                    word = line[line.find("\t") + 1:line.find("\n")]
+                    num_word.append((num, word))
+            for num, word in num_word:
+                if num == label_num:
+                    label_word = word
+            self.info("categories %s" % label_word)
+        if self.series == "DET":
+            path_to_labels_word = os.path.join(
+                IMAGENET_BASE_PATH,
+                "2014/classes_200_2014_DET_train_0.json")
+            with open(path_to_labels_word, "r") as label_word:
+                label_cat = json.load(label_word)
+                for (ind, label_w) in label_cat:
+                    if label == ind:
+                        label_num = label_w
+            self.info("label num %s" % label_num)
+            path_to_categories = os.path.join(IMAGENET_BASE_PATH,
+                                              "2014/indices_to_categories.txt")
+            num_word = []
+            with open(path_to_categories, "r") as word_lab:
+                for line in word_lab:
+                    num = line[:line.find("\t")]
+                    word = line[line.find("\t") + 1:line.find("\n")]
+                    num_word.append((num, word))
+            for num, word in num_word:
+                if num == label_num:
+                    label_word = word
+            self.info("categories %s" % label_word)
+        self.file_samples = open(path_data, "rb")
+        sample = numpy.zeros([192, 192, 4], dtype=numpy.uint8)
+        self.file_samples.seek(i * sample.nbytes)
+        self.file_samples.readinto(sample)
+        plt.imshow(sample[:, :, 0:3].copy(), interpolation="nearest")
+        plt.show()
 
     def get_validation(self):
         list_image = "/home/lpodoynitsina/Desktop/bird.txt"
@@ -1202,13 +1269,30 @@ class Main(Processor):
         path_DET_train = os.path.join(self.imagenet_dir_path,
                                       "ILSVRC2014_DET_train")
         if self.series == "DET":
-            path_to_save = os.path.join(
+            path_to_save_train = os.path.join(
                 self.imagenet_dir_path,
                 "ILSVRC2014_DET_train/n00000000")
+            path_to_save_valid = os.path.join(
+                self.imagenet_dir_path,
+                "ILSVRC2013_DET_val/n00000000")
+            path_to_save_test = os.path.join(
+                self.imagenet_dir_path,
+                "ILSVRC2013_DET_test/n00000000")
             try:
-                os.mkdir(path_to_save)
+                os.mkdir(path_to_save_train)
             except:
                 pass
+            try:
+                os.mkdir(path_to_save_valid)
+            except:
+                pass
+            try:
+                os.mkdir(path_to_save_test)
+            except:
+                pass
+            path_to_save_dict = {"train": path_to_save_train,
+                                 "validation": path_to_save_valid,
+                                 "test": path_to_save_test}
             file_to_open = os.path.join(
                 IMAGENET_BASE_PATH,
                 "2014/ILSVRC2014_devkit/data/det_lists/train_partall.txt")
@@ -1220,6 +1304,7 @@ class Main(Processor):
                         path_DET_train, line[:line.find("\n")]) + ".JPEG"
                     part_images.append(path_for_part_img)
         for set_type in ("test", "validation", "train"):
+            path_to_save = path_to_save_dict[set_type]
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
                 (self.year, self.series, set_type, self.stage))
@@ -1561,11 +1646,16 @@ class Main(Processor):
                             (os.path.join(path, "n00000000"),
                              os.path.join(path, "bad_negative")))
         if self.series == "DET":
-            path_to_neg = os.path.join(self.imagenet_dir_path,
+            path_to_neg_train = os.path.join(self.imagenet_dir_path,
                                        "ILSVRC2014_DET_train/n00000000")
-            dst = os.path.join(self.imagenet_dir_path,
+            dst_train = os.path.join(self.imagenet_dir_path,
                                "ILSVRC2014_DET_train/bad_negative")
-            #self.info("path_to_neg %s" % path_to_neg)
+            path_to_neg_valid = os.path.join(self.imagenet_dir_path,
+                                       "ILSVRC2013_DET_val/n00000000")
+            dst_valid = os.path.join(self.imagenet_dir_path,
+                               "ILSVRC2013_DET_val/bad_negative")
+            paths_to_neg_dst.append((path_to_neg_train, dst_train))
+            paths_to_neg_dst.append((path_to_neg_valid, dst_valid))
         for (path_to_neg, dst) in paths_to_neg_dst:
             self.info("path_to_neg %s" % path_to_neg)
             self.info("dst %s" % dst)
@@ -1713,7 +1803,7 @@ class Main(Processor):
         elif self.command_to_run == "generate_negative_DET":
             self.generate_negative_DET()
         elif self.command_to_run == "test_load":
-            self.test_load_data()
+            self.test_load_data(os.path.join(IMAGENET_BASE_PATH, self.year))
         elif self.command_to_run == "remove_back_split_dataset":
             self.remove_background_split_dataset(self.count_dirs)
         elif self.command_to_run == "remove_back":

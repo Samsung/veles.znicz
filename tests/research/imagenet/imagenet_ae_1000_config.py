@@ -28,8 +28,7 @@ FILLING = "gaussian"
 STDDEV_CONV = 0.01
 STDDEV_AA = 0.005
 
-#root.common.precision_type = "float"
-root.model = "imagenet"
+root.common.precision_type = "float"
 root.defaults = {
     "decision": {"fail_iterations": 40,
                  "max_epochs": 50,
