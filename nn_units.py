@@ -193,10 +193,22 @@ class GradientDescentBase(OpenCLUnit):
     def apply_data_from_slave(self, data, slave):
         if self.weights.mem is not None:
             self.weights.map_write()
-            self.weights.mem += data[0]
+            if self.store_gradient:
+                self.gradient_weights.map_write()
+                self.gradient_weights.mem *= self.gradient_moment
+                self.gradient_weights.mem += data[0]
+                self.weights.mem += self.gradient_weights.mem
+            else:
+                self.weights.mem += data[0]
         if self.bias.mem is not None:
             self.bias.map_write()
-            self.bias.mem += data[1]
+            if self.store_gradient:
+                self.gradient_bias.map_write()
+                self.gradient_bias.mem *= self.gradient_moment_bias
+                self.gradient_bias.mem += data[1]
+                self.bias.mem += self.gradient_bias.mem
+            else:
+                self.bias.mem += data[1]
 
     def drop_slave(self, slave):
         pass
