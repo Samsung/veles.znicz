@@ -334,8 +334,8 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_hist.gate_block = self.decision.epoch_ended
         """
 
-    def initialize(self, learning_rate, weights_decay, minibatch_size,
-                   device, weights, bias):
+    def initialize(self, device, learning_rate, weights_decay, minibatch_size,
+                   weights, bias, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          minibatch_size=minibatch_size,

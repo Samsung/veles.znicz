@@ -194,7 +194,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, device, learning_rate, weights_decay, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)
