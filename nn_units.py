@@ -60,20 +60,24 @@ class Forward(OpenCLUnit):
                         "include_bias", "weights_transposed"]
 
     def generate_data_for_slave(self, slave):
-        self.weights.map_read()
-        self.bias.map_read()
-        data = (self.weights.mem.copy(),
-                self.bias.mem.copy() if self.bias.mem is not None else None)
+        data = [None, None]
+        if self.weights:
+            self.weights.map_read()
+            data[0] = self.weights.mem
+        if self.bias:
+            self.bias.map_read()
+            data[1] = self.bias.mem
         return data
 
     def generate_data_for_master(self):
         return None
 
     def apply_data_from_master(self, data):
-        self.weights.map_invalidate()
-        self.bias.map_invalidate()
-        numpy.copyto(self.weights.mem, data[0])
-        if self.bias.mem is not None:
+        if self.weights:
+            self.weights.map_invalidate()
+            numpy.copyto(self.weights.mem, data[0])
+        if self.bias:
+            self.bias.map_invalidate()
             numpy.copyto(self.bias.mem, data[1])
 
     def apply_data_from_slave(self, data, slave):
@@ -173,17 +177,16 @@ class GradientDescentBase(OpenCLUnit):
         self.learning_rate_bias = data[3]
         self.weights_decay_bias = data[4]
         self.gradient_moment_bias = data[5]
-        if self.gradient_weights.mem is not None:
+        if self.gradient_weights:
             self.gradient_weights.map_invalidate()
             self.gradient_weights.mem[:] = 0
-        if self.gradient_bias.mem is not None:
+        if self.gradient_bias:
             self.gradient_bias.map_invalidate()
             self.gradient_bias.mem[:] = 0
 
     def generate_data_for_master(self):
         if (not self.run_was_called or
-                (self.gradient_weights.mem is None and
-                    self.gradient_bias.mem is None)):
+                (not self.gradient_weights and not self.gradient_bias)):
             return None
         self.run_was_called = False
         self.gradient_weights.map_read()
@@ -191,7 +194,7 @@ class GradientDescentBase(OpenCLUnit):
         return (self.gradient_weights.mem, self.gradient_bias.mem)
 
     def apply_data_from_slave(self, data, slave):
-        if self.weights.mem is not None:
+        if self.weights:
             self.weights.map_write()
             if self.store_gradient:
                 self.gradient_weights.map_write()
@@ -200,7 +203,7 @@ class GradientDescentBase(OpenCLUnit):
                 self.weights.mem += self.gradient_weights.mem
             else:
                 self.weights.mem += data[0]
-        if self.bias.mem is not None:
+        if self.bias:
             self.bias.map_write()
             if self.store_gradient:
                 self.gradient_bias.map_write()

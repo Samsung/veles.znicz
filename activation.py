@@ -156,6 +156,20 @@ class ForwardMul(ActivationForward):
         super(ForwardMul, self).init_unpickled()
         self._cl_const = None
 
+    def generate_data_for_slave(self, slave):
+        return self.factor
+
+    def apply_data_from_master(self, data):
+        if self.factor != data:
+            self.info("Setting factor to %.6f", data)
+            self.factor = data
+
+    def generate_data_for_master(self):
+        return self.factor
+
+    def apply_data_from_slave(self, data, slave):
+        self.factor = min(self.factor, data)
+
     @property
     def factor(self):
         return self._factor
