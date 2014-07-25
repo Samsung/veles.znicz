@@ -199,6 +199,11 @@ class ImageLoader(FullBatchLoader):
 
         self.original_data.mem = data
 
+
+class ImageLoaderMSE(ImageLoader, FullBatchLoaderMSE):
+    def load_data(self):
+        super(ImageLoaderMSE, self).load_data()
+
         target = None
         for aa in self.target_by_lbl.values():
             sh = [len(self.original_data)]
@@ -210,7 +215,3 @@ class ImageLoader(FullBatchLoader):
                 target[i] = self.target_by_lbl[label]
             self.target_by_lbl.clear()
         self.original_targets.mem = target
-
-
-class ImageLoaderMSE(ImageLoader, FullBatchLoaderMSE):
-    pass
