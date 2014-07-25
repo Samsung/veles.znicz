@@ -416,7 +416,7 @@ class DecisionMSE(DecisionGD):
     """Rules the gradient descent mean square error (MSE) learning process.
 
     Attributes:
-        epoch_min_mse: minimum mse by class per epoch.
+        epoch_min_mse: minimum mse by class for one epoch.
         epoch_metrics: metrics for an epoch (same as minibatch_metrics).
     """
     def __init__(self, workflow, **kwargs):
@@ -453,9 +453,7 @@ class DecisionMSE(DecisionGD):
         minibatch_class = self.minibatch_class
         self.minibatch_metrics.map_read()
         self.epoch_min_mse[minibatch_class] = (
-            numpy.minimum(self.minibatch_metrics[0] /
-                          self.class_lengths[minibatch_class],
-                          self.epoch_min_mse[minibatch_class]))
+            self.minibatch_metrics[0] / self.class_lengths[minibatch_class])
         # Copy metrics
         self.epoch_metrics[minibatch_class][:] = (
             self.minibatch_metrics.mem[:])
@@ -480,7 +478,7 @@ class DecisionMSE(DecisionGD):
             self.min_train_mse = self.epoch_min_mse[TRAIN]
             self.min_train_mse_epoch_number = self.epoch_number
             return True
-        return False
+        return super(DecisionMSE, self).train_improve_condition()
 
     def on_generate_data_for_master(self, data):
         super(DecisionMSE, self).on_generate_data_for_master(data)
