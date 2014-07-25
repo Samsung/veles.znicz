@@ -331,6 +331,33 @@ class Loader(loader.Loader):
         raise error.Bug("Control should not go here")
 
 
+@implementer(IUnit, IDistributable)
+class Destroyer(Unit):
+    def initialize(self, **kwargs):
+        pass
+
+    def run(self):
+        if not self.is_slave:
+            self.info("Destroyer operational")
+            self.workflow.on_workflow_finished()
+
+    def generate_data_for_master(self):
+        return True
+
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        if not bool(self.gate_block) and not bool(self.gate_skip):
+            self.run()
+
+    def drop_slave(self, slave):
+        pass
+
+
 class Workflow(StandardWorkflow):
     """Workflow.
     """
@@ -524,13 +551,22 @@ class Workflow(StandardWorkflow):
 
         self.gds[-1].link_from(prev)
 
+        self.destroyer = Destroyer(self)
+
         self.add_end_point()
 
     def add_end_point(self):
+        self.rollback.gate_skip = (~self.loader.epoch_ended |
+                                   self.decision.complete)
         self.end_point.unlink_all()
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
+        if not hasattr(self, "destroyer"):
+            self.destroyer = Destroyer(self)
+        self.destroyer.unlink_all()
+        self.destroyer.link_from(self.gds[0])
+        self.destroyer.gate_block = ~self.decision.complete
 
     def del_plotters(self):
         if hasattr(self, "plt"):
@@ -556,6 +592,9 @@ class Workflow(StandardWorkflow):
             del self.plt_deconv
 
     def add_plotters(self, prev, last_conv, last_ae):
+        if not self.is_standalone:
+            return prev
+
         self.del_plotters()
 
         # MSE plotter
@@ -622,7 +661,8 @@ class Workflow(StandardWorkflow):
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
-        self.info("plt_out.shape is %s", str(self.plt_out.input.shape))
+        if hasattr(self, "plt_out"):
+            self.info("plt_out.shape is %s", str(self.plt_out.input.shape))
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.fwds):
@@ -939,30 +979,32 @@ class Workflow(StandardWorkflow):
             self.gds[0].need_err_input = False
             self.repeater.link_from(self.gds[0])
 
-            self.del_plotters()
-
-            # Error plotter
             prev = self.rollback
-            self.plt = []
-            styles = ["r-", "b-", "k-"]
-            for i in range(1, 3):
-                self.plt.append(plotting_units.AccumulatingPlotter(
-                    self, name="Errors", plot_style=styles[i]))
-                self.plt[-1].input = self.decision.epoch_n_err_pt
-                self.plt[-1].input_field = i
-                self.plt[-1].link_from(prev)
-                self.plt[-1].gate_skip = ~self.decision.epoch_ended
-                prev = self.plt[-1]
-            self.plt[0].clear_plot = True
-            self.plt[-1].redraw_plot = True
 
-            # Output plotter
-            self.plt_out = nn_plotting_units.Weights2D(
-                self, name="Output", limit=96)
-            self.plt_out.link_attrs(self.fwds[i_fwd_last], "input")
-            self.plt_out.link_from(prev)
-            self.plt_out.gate_skip = ~self.decision.epoch_ended
-            prev = self.plt_out
+            if self.is_standalone:
+                self.del_plotters()
+
+                # Error plotter
+                self.plt = []
+                styles = ["r-", "b-", "k-"]
+                for i in range(1, 3):
+                    self.plt.append(plotting_units.AccumulatingPlotter(
+                        self, name="Errors", plot_style=styles[i]))
+                    self.plt[-1].input = self.decision.epoch_n_err_pt
+                    self.plt[-1].input_field = i
+                    self.plt[-1].link_from(prev)
+                    self.plt[-1].gate_skip = ~self.decision.epoch_ended
+                    prev = self.plt[-1]
+                self.plt[0].clear_plot = True
+                self.plt[-1].redraw_plot = True
+
+                # Output plotter
+                self.plt_out = nn_plotting_units.Weights2D(
+                    self, name="Output", limit=96)
+                self.plt_out.link_attrs(self.fwds[i_fwd_last], "input")
+                self.plt_out.link_from(prev)
+                self.plt_out.gate_skip = ~self.decision.epoch_ended
+                prev = self.plt_out
 
             self.gds[-1].link_from(prev)
 
@@ -973,7 +1015,8 @@ class Workflow(StandardWorkflow):
 
 def run(load, main):
     IMAGENET_BASE_PATH = root.loader.path
-    root.snapshotter.prefix = "imagenet_ae_%s" % root.loader.year
+    root.snapshotter.prefix = "imagenet_ae_%s_%s" % (root.loader.year,
+                                                     root.loader.parallel)
     CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
         CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %

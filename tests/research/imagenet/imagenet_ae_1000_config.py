@@ -9,7 +9,7 @@ import os
 from veles.config import root
 
 
-LR = 0.0001
+LR = 0.00009
 WD = 0.004
 GM = 0.9
 L1_VS_L2 = 0.0
@@ -29,14 +29,16 @@ STDDEV_CONV = 0.01
 STDDEV_AA = 0.005
 
 root.common.precision_type = "float"
+
 root.defaults = {
     "decision": {"fail_iterations": 40,
-                 "max_epochs": 50,
+                 "max_epochs": 2,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "loader": {"year": "data",
+    "loader": {"year": "2014",
                "series": "img",
-               "minibatch_size": 300},
+               "minibatch_size": 720,
+               "path": "/export/home/imagenet/"},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/test"),
@@ -46,7 +48,7 @@ root.defaults = {
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae"},
     "imagenet": {"from_snapshot_add_layer": True,
-                 "fine_tuning_noise": 0,
+                 "fine_tuning_noise": 1.0e-6,
                  "layers":
                  [{"type": "ae_begin"},  # 216
                   {"type": "conv", "n_kernels": 96,
