@@ -151,11 +151,9 @@ class Loader(OpenCLUnit):
     @samples_served.setter
     def samples_served(self, value):
         self._samples_served = value
-        if value == 0:
-            return
-        num, den = divmod(self.samples_served, self.total_samples)
-        self.epoch_number = num
-        if not self.is_slave:
+        if not self.is_slave and value > 0:
+            num, den = divmod(self.samples_served, self.total_samples)
+            self.epoch_number = num
             now = time.time()
             if now - self._minibatch_serve_timestamp_ >= 10:
                 self._minibatch_serve_timestamp_ = now
