@@ -408,7 +408,7 @@ class Main(Processor):
                 h_size = bbx["height"]
                 w_size = bbx["width"]
                 ang = bbx["angle"]
-                if h_size > 20 and w_size > 20:
+                if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
                     self.sample_rect(image, x, y, h_size, w_size, ang, None)
         self.s_mean /= self.s_count
 
@@ -482,7 +482,7 @@ class Main(Processor):
                     self.info("label %s" % label)
                     ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
-                    if h_size > 20 and w_size > 20:
+                    if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
                         if set_type == "test":
                             test_count += 1
                         elif set_type == "validation":
