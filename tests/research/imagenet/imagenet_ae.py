@@ -138,7 +138,7 @@ class NNRollback(Unit):
                         bb.pop(0)
                     kv["gradient_bias"] = bb
         elif not self._first_run:
-            rollback_to = -1
+            rollback_to = 0  # -1
 
             # Check for NaNs
             for _gd, kv in self._gds.items():
@@ -503,11 +503,7 @@ class Workflow(StandardWorkflow):
         self.rollback = unit
         unit.link_from(self.snapshotter)
         unit.improved = self.decision.train_improved
-        unit.gate_block = self.decision.complete
-        unit.gate_skip = ~self.loader.epoch_ended
-
-        self.end_point.link_from(self.snapshotter)
-        self.end_point.gate_block = ~self.decision.complete
+        unit.gate_skip = ~self.loader.epoch_ended | self.decision.complete
 
         # Add gradient descent unit
         GD = self.gd_map[self.fwds[-1].__class__]
@@ -524,12 +520,17 @@ class Workflow(StandardWorkflow):
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
 
-        self.loader.gate_block = self.decision.complete
-
         prev = self.add_plotters(self.rollback, last_conv, ae[-1])
 
         self.gds[-1].link_from(prev)
-        self.gds[-1].gate_block = self.decision.complete
+
+        self.add_end_point()
+
+    def add_end_point(self):
+        self.end_point.unlink_all()
+        self.end_point.link_from(self.gds[0])
+        self.end_point.gate_block = ~self.decision.complete
+        self.loader.gate_block = self.decision.complete
 
     def del_plotters(self):
         if hasattr(self, "plt"):
@@ -684,6 +685,8 @@ class Workflow(StandardWorkflow):
 
         self.decision.max_epochs += root.decision.max_epochs * 10
 
+        self.add_end_point()
+
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
 
@@ -807,7 +810,6 @@ class Workflow(StandardWorkflow):
             prev = self.add_plotters(self.rollback, last_conv, ae[-1])
 
             self.gds[-1].link_from(prev)
-            self.gds[-1].gate_block = self.decision.complete
 
             # Reset last best error, `cause we have extended the workflow
             self.decision.min_validation_mse = 1.0e30
@@ -875,11 +877,8 @@ class Workflow(StandardWorkflow):
             self.image_saver.link_attrs(self.snapshotter,
                                         ("this_save_time", "time"))
 
-            self.end_point.gate_block = ~self.decision.complete
-
-            self.end_point.gate_block = ~self.decision.complete
-
-            self.rollback.gate_block = self.decision.complete
+            self.rollback.gate_skip = (~self.loader.epoch_ended |
+                                       self.decision.complete)
             self.rollback.improved = self.decision.train_improved
 
             assert len(self.gds) == 1
@@ -966,10 +965,10 @@ class Workflow(StandardWorkflow):
             prev = self.plt_out
 
             self.gds[-1].link_from(prev)
-            self.gds[-1].gate_block = self.decision.complete
-            self.loader.gate_block = self.decision.complete
 
             self.decision.max_epochs += root.decision.max_epochs * 10
+
+        self.add_end_point()
 
 
 def run(load, main):
