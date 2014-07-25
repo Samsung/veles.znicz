@@ -474,23 +474,6 @@ class Main(Processor):
                 for bbx in self.images_json[set_type][f]["bbxs"]:
                     self.info("*****Resized image %s *****" %
                               self.images_json[set_type][f]["path"])
-                    if set_type == "test":
-                        test_count += 1
-                    elif set_type == "validation":
-                        validation_count += 1
-                    elif set_type == "train":
-                        train_count += 1
-                        if zero_train:
-                            for i in range(0, 20):
-                                mean.tofile(self.f_samples)
-                                original_labels.append(0)
-                                train_count += 1
-                                sample_count += 1
-                                labels_count += 1
-                            self.count_classes += 1
-                            zero_train = False
-                    else:
-                        self.error("Wrong set type")
                     x = bbx["x"]
                     y = bbx["y"]
                     h_size = bbx["height"]
@@ -500,6 +483,24 @@ class Main(Processor):
                     ang = bbx["angle"]
                     name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
                     if h_size > 20 and w_size > 20:
+                        if set_type == "test":
+                            test_count += 1
+                        elif set_type == "validation":
+                            validation_count += 1
+                        elif set_type == "train":
+                            train_count += 1
+                            if zero_train:
+                                for i in range(0, 20):
+                                    mean.tofile(self.f_samples)
+                                    original_labels.append(0)
+                                    train_count += 1
+                                    sample_count += 1
+                                    labels_count += 1
+                                self.count_classes += 1
+                                zero_train = False
+                        else:
+                            self.error("Wrong set type")
+
                         self.prep_and_save_sample(image, name, x, y, h_size,
                                                   w_size, ang, mean)
                         sample_count += 1
@@ -533,7 +534,7 @@ class Main(Processor):
         self.info("labels_count %s sample_count %s"
                   % (labels_count, sample_count))
         assert labels_count == sample_count
-        #assert sample_count == train_count + validation_count + test_count
+        assert sample_count == train_count + validation_count + test_count
         self.f_samples.close()
 
         if _display is not None:
