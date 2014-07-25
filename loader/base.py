@@ -528,6 +528,9 @@ class Loader(OpenCLUnit):
                              minibatch_size):
             return
 
+        if self.is_master:
+            return
+
         self.fill_minibatch()
 
         if minibatch_size < self.max_minibatch_size:
