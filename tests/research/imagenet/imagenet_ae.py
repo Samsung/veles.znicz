@@ -24,7 +24,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
-#import veles.znicz.image_saver as image_saver
+import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -38,20 +38,19 @@ from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
-from veles.distributable import TriviallyDistributable
+from veles.distributable import IDistributable
 import veles.random_generator as prng
 
-IMAGENET_BASE_PATH = "/export/home/imagenet/"
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")
 
 
-@implementer(IUnit)
-class NNRollback(Unit, TriviallyDistributable):
+@implementer(IUnit, IDistributable)
+class NNRollback(Unit):
     def __init__(self, workflow, **kwargs):
         super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1)
-        self.lr_minus = kwargs.get("lr_minus", 0.9)
+        self.lr_plus = kwargs.get("lr_plus", 1.1)
+        self.lr_minus = kwargs.get("lr_minus", 0.5)
         self.plus_steps = kwargs.get("plus_steps", 1)
         self.minus_steps = kwargs.get("minus_steps", 3)
         self._plus_steps = self.plus_steps
@@ -59,15 +58,43 @@ class NNRollback(Unit, TriviallyDistributable):
         self.improved = None
         self.demand("improved")
         self._gds = {}
+        self.history_limit = 2
 
         # Workaround for difference in minibatch class serve order
         # in clear run and after the resuming from the snapshot.
         self._first_run = True
 
+    def init_unpickled(self):
+        super(NNRollback, self).init_unpickled()
+        self.slaves = {}
+
     def initialize(self, **kwargs):
+        self.info("lr_plus=%.2f lr_minus=%.2f", self.lr_plus, self.lr_minus)
+
+    def generate_data_for_slave(self, slave):
+        self.slaves[slave.id] = 1
+
+    def generate_data_for_master(self):
+        return True
+
+    def apply_data_from_master(self, data):
         pass
 
+    def apply_data_from_slave(self, data, slave):
+        self._slave_ended(slave)
+
+    def _slave_ended(self, slave):
+        if slave.id in self.slaves:
+            del self.slaves[slave.id]
+        if (not len(self.slaves) and not bool(self.gate_skip)
+                and not bool(self.gate_block)):
+            self.run()
+
+    def drop_slave(self, slave):
+        self._slave_ended(slave)
+
     def run(self):
+        self.info("Running NNRollback")
         if self.improved:
             self._plus_steps += 1
             if self._plus_steps < self.plus_steps:
@@ -84,14 +111,63 @@ class NNRollback(Unit, TriviallyDistributable):
                           repr(_gd), k, _gd.learning_rate)
                 if _gd.weights:
                     _gd.weights.map_read()
-                    kv["weights"] = _gd.weights.mem.copy()
+                    ww = kv.get("weights", [])
+                    ww.append(_gd.weights.mem.copy())
+                    while len(ww) > self.history_limit:
+                        ww.pop(0)
+                    kv["weights"] = ww
                 if _gd.bias:
                     _gd.bias.map_read()
-                    kv["bias"] = _gd.bias.mem.copy()
+                    bb = kv.get("bias", [])
+                    bb.append(_gd.bias.mem.copy())
+                    while len(bb) > self.history_limit:
+                        bb.pop(0)
+                    kv["bias"] = bb
+                if _gd.gradient_weights:
+                    _gd.gradient_weights.map_read()
+                    ww = kv.get("gradient_weights", [])
+                    ww.append(_gd.gradient_weights.mem.copy())
+                    while len(ww) > self.history_limit:
+                        ww.pop(0)
+                    kv["gradient_weights"] = ww
+                if _gd.gradient_bias:
+                    _gd.gradient_bias.map_read()
+                    bb = kv.get("gradient_bias", [])
+                    bb.append(_gd.gradient_bias.mem.copy())
+                    while len(bb) > self.history_limit:
+                        bb.pop(0)
+                    kv["gradient_bias"] = bb
         elif not self._first_run:
+            rollback_to = -1
+
+            # Check for NaNs
+            for _gd, kv in self._gds.items():
+                nz = 0
+                if _gd.weights:
+                    _gd.weights.map_read()
+                    nz += numpy.count_nonzero(numpy.isnan(_gd.weights.mem))
+                if _gd.bias:
+                    _gd.bias.map_read()
+                    nz += numpy.count_nonzero(numpy.isnan(_gd.bias.mem))
+                if _gd.gradient_weights:
+                    _gd.gradient_weights.map_read()
+                    nz += numpy.count_nonzero(
+                        numpy.isnan(_gd.gradient_weights.mem))
+                if _gd.gradient_bias:
+                    _gd.gradient_bias.map_read()
+                    nz += numpy.count_nonzero(
+                        numpy.isnan(_gd.gradient_bias.mem))
+                if nz:
+                    self.warning("NaNs encountered, will rollback to -%d",
+                                 self.history_limit)
+                    self._minus_steps = self.minus_steps
+                    rollback_to = 0
+                    break
+
             self._minus_steps += 1
             if self._minus_steps < self.minus_steps:
                 return
+
             self._minus_steps = 0
             self._plus_steps = 0
             for _gd, kv in self._gds.items():
@@ -103,17 +179,46 @@ class NNRollback(Unit, TriviallyDistributable):
                 self.info("Decreased lr of %s by %.2f, new_lr %.2e",
                           repr(_gd), k, _gd.learning_rate)
                 if _gd.weights:
-                    if kv["weights"] is None:
+                    ww = kv.get("weights")
+                    if ww is None:
                         self.warning("No rollback for weights")
                     else:
+                        self.info("Rolling back to stored weights")
                         _gd.weights.map_invalidate()
-                        _gd.weights.mem[:] = kv["weights"]
+                        _gd.weights.mem[:] = ww[rollback_to]
+                        if rollback_to >= 0:
+                            del ww[rollback_to + 1:]
                 if _gd.bias:
-                    if kv["bias"] is None:
+                    bb = kv.get("bias")
+                    if bb is None:
                         self.warning("No rollback for bias")
                     else:
+                        self.info("Rolling back to stored bias")
                         _gd.bias.map_invalidate()
-                        _gd.bias.mem[:] = kv["bias"]
+                        _gd.bias.mem[:] = bb[rollback_to]
+                        if rollback_to >= 0:
+                            del bb[rollback_to + 1:]
+                if _gd.gradient_weights:
+                    ww = kv.get("gradient_weights")
+                    if ww is None:
+                        self.warning("No rollback for gradient_weights")
+                    else:
+                        self.info("Rolling back to stored gradient_weights")
+                        _gd.gradient_weights.map_invalidate()
+                        _gd.gradient_weights.mem[:] = ww[rollback_to]
+                        if rollback_to >= 0:
+                            del ww[rollback_to + 1:]
+                if _gd.gradient_bias:
+                    bb = kv.get("gradient_bias")
+                    if bb is None:
+                        self.warning("No rollback for gradient_bias")
+                    else:
+                        self.info("Rolling back to stored gradient_bias")
+                        _gd.gradient_bias.map_invalidate()
+                        _gd.gradient_bias.mem[:] = bb[rollback_to]
+                        if rollback_to >= 0:
+                            del bb[rollback_to + 1:]
+
         self._first_run = False
 
     def reset(self):
@@ -123,8 +228,6 @@ class NNRollback(Unit, TriviallyDistributable):
         kv = self._gds.get(_gd, {})
         kv["lr_plus"] = lr_plus
         kv["lr_minus"] = lr_minus
-        kv["weights"] = None
-        kv["bias"] = None
         self._gds[_gd] = kv
 
 
@@ -155,14 +258,19 @@ class Loader(loader.Loader):
         with open(root.loader.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
-        self.info("Labels (min max): %d %d",
+        self.info("Labels (min max count): %d %d %d",
                   numpy.min(self.original_labels),
-                  numpy.max(self.original_labels))
+                  numpy.max(self.original_labels),
+                  len(self.original_labels))
 
         with open(root.loader.count_samples_filename, "r") as fin:
             for i, n in enumerate(json.load(fin)):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
+
+        if numpy.sum(self.class_lengths) != len(self.original_labels):
+            raise error.Bug(
+                "Number of labels missmatches sum of class lengths")
 
         with open(root.loader.matrixes_filename, "rb") as fin:
             matrixes = pickle.load(fin)
@@ -180,6 +288,9 @@ class Loader(loader.Loader):
             raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
         self.file_samples = open(root.loader.samples_filename, "rb")
+        if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 4) !=
+                len(self.original_labels)):
+            raise error.Bug("Wrong data file size")
 
     def create_minibatches(self):
         sh = [self.max_minibatch_size]
@@ -195,6 +306,9 @@ class Loader(loader.Loader):
         idxs = self.minibatch_indices.mem
         self.shuffled_indices.map_read()
         idxs[:count] = self.shuffled_indices[start_offset:start_offset + count]
+
+        if self.is_master:
+            return True
 
         self.minibatch_data.map_invalidate()
         self.minibatch_labels.map_invalidate()
@@ -708,7 +822,7 @@ class Workflow(StandardWorkflow):
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
             self.n_ae += 1
-            """
+
             # Add Image Saver unit
             self.image_saver = image_saver.ImageSaver(
                 self, out_dirs=root.image_saver.out_dirs)
@@ -720,14 +834,14 @@ class Workflow(StandardWorkflow):
                 ("labels", "minibatch_labels"),
                 "minibatch_class", "minibatch_size")
             self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
-            """
+
             # Add evaluator unit
             self.evaluator.unlink_all()
             self.del_ref(self.evaluator)
             self.evaluator = None
             unit = evaluator.EvaluatorSoftmax(self)
             self.evaluator = unit
-            unit.link_from(self.fwds[-1])
+            unit.link_from(self.image_saver)
             unit.link_attrs(self.fwds[-1], "output", "max_idx")
             unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
                             ("batch_size", "minibatch_size"))
@@ -757,9 +871,9 @@ class Workflow(StandardWorkflow):
             unit.link_from(self.decision)
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
-            #self.image_saver.gate_skip = ~self.decision.improved
-            #self.image_saver.link_attrs(self.snapshotter,
-            #                            ("this_save_time", "time"))
+            self.image_saver.gate_skip = ~self.decision.improved
+            self.image_saver.link_attrs(self.snapshotter,
+                                        ("this_save_time", "time"))
 
             self.end_point.gate_block = ~self.decision.complete
 
@@ -855,10 +969,11 @@ class Workflow(StandardWorkflow):
             self.gds[-1].gate_block = self.decision.complete
             self.loader.gate_block = self.decision.complete
 
-            self.decision.max_epochs += int(root.decision.max_epochs / 10)
+            self.decision.max_epochs += root.decision.max_epochs * 10
 
 
 def run(load, main):
+    IMAGENET_BASE_PATH = root.loader.path
     root.snapshotter.prefix = "imagenet_ae_%s" % root.loader.year
     CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
