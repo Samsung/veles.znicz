@@ -336,8 +336,6 @@ class Loader(OpenCLUnit):
     def cpu_run(self):
         """Prepares the minibatch.
         """
-        if len(self.pending_minibatches_) > 0:
-            self.pending_minibatches_.popitem()
         self.serve_next_minibatch(None)
         self._on_successful_serve()
 
@@ -520,8 +518,9 @@ class Loader(OpenCLUnit):
             minibatch_offset, minibatch_size = self.failed_minibatches.pop()
         except IndexError:
             minibatch_offset, minibatch_size = self._advance_global_offset()
-        self.pending_minibatches_[slave].append(
-            (minibatch_offset, minibatch_size))
+        if self.is_master:
+            self.pending_minibatches_[slave].append(
+                (minibatch_offset, minibatch_size))
         self.minibatch_offset, self.minibatch_size = \
             minibatch_offset, minibatch_size
 
@@ -573,7 +572,7 @@ class Loader(OpenCLUnit):
             # The flags will be explicitly set in apply_data_from_master()
             return
         self.last_minibatch <<= (self.class_ended and
-                                 self.pending_minibatches_size <= 1 and
+                                 self.pending_minibatches_size == 0 and
                                  len(self.failed_minibatches) == 0)
         self.epoch_ended <<= self.last_minibatch and (
             self.minibatch_class == VALID or
@@ -608,9 +607,10 @@ class Loader(OpenCLUnit):
     def _on_successful_serve(self):
         self.samples_served += self.minibatch_size
         if self.last_minibatch:
-            self.info("Last minibatch (%d total) of class %s served",
-                      self.class_lengths[self.minibatch_class],
-                      CLASS_NAME[self.minibatch_class].upper())
+            self.info("Last minibatch (%d total) of class %s served in epoch "
+                      "%d", self.class_lengths[self.minibatch_class],
+                      CLASS_NAME[self.minibatch_class].upper(),
+                      self.epoch_number)
             # The following line will reduce info message count
             # for small datasets
             self._minibatch_serve_timestamp_ = time.time()
