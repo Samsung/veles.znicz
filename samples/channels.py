@@ -35,7 +35,7 @@ import veles.formats as formats
 import veles.image as image
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
-import veles.random_generator as rnd
+import veles.random as rnd
 import veles.thread_pool as thread_pool
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv

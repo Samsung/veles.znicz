@@ -14,7 +14,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as random_generator
+import veles.random as random_generator
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.znicz.evaluator as evaluator
 

@@ -14,7 +14,7 @@ import unittest
 from veles.config import root
 from veles.mutable import Bool
 import veles.opencl as opencl
-import veles.random_generator as rnd
+import veles.random as rnd
 from veles.tests import timeout
 import veles.znicz.tests.research.mnist as mnist_relu
 import veles.tests.dummy_workflow as dummy_workflow

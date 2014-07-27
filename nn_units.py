@@ -21,7 +21,7 @@ import veles.config as config
 from veles.distributable import IDistributable
 import veles.formats as formats
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
-import veles.random_generator as prng
+import veles.random as prng
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
 from veles.error import MasterSlaveCommunicationError

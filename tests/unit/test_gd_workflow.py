@@ -25,7 +25,7 @@ import veles.znicz.pooling as pooling
 import veles.znicz.evaluator as evaluator
 import veles.znicz.normalization as normalization
 from veles.tests.dummy_workflow import DummyLauncher
-import veles.random_generator as rnd
+import veles.random as rnd
 import veles.opencl as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 

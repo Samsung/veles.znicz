@@ -15,7 +15,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random_generator as prng
+import veles.random as prng
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 from veles.tests.dummy_workflow import DummyWorkflow

@@ -17,7 +17,7 @@ from veles.distributable import IDistributable
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
-import veles.random_generator as random_generator
+import veles.random as random_generator
 from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 

@@ -15,7 +15,7 @@ import unittest
 from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
-import veles.random_generator as prng
+import veles.random as prng
 from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit import TrivialOpenCLUnit
 

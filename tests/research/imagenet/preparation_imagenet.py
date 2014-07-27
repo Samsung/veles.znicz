@@ -37,7 +37,7 @@ import scipy.misc
 import sys
 import shutil
 import veles.config as config
-import veles.random_generator as rnd
+import veles.random as rnd
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
 import veles.znicz.tests.research.imagenet.background_detection as back_det

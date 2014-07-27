@@ -21,7 +21,7 @@ import veles.error as error
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
-import veles.random_generator as rnd
+import veles.random as rnd
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision

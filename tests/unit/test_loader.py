@@ -14,7 +14,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.random_generator as rnd
+import veles.random as rnd
 from veles.znicz.loader import IFullBatchLoader, FullBatchLoaderMSE
 from veles.tests.dummy_workflow import DummyWorkflow
 

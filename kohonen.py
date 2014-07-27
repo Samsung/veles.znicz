@@ -15,7 +15,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
 import veles.znicz.decision as decision
-import veles.random_generator as prng
+import veles.random as prng
 from veles.znicz.decision import TrivialDecision
 
 

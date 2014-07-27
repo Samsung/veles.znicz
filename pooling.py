@@ -17,7 +17,7 @@ import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
-import veles.random_generator as random_generator
+import veles.random as random_generator
 
 
 @implementer(IOpenCLUnit, IDistributable)

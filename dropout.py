@@ -14,7 +14,7 @@ import opencl4py as cl
 from zope.interface import implementer
 
 from veles import formats, OpenCLUnit
-import veles.random_generator as random_generator
+import veles.random as random_generator
 from veles.opencl_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 from veles.distributable import IDistributable, TriviallyDistributable
