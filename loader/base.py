@@ -351,8 +351,6 @@ class Loader(OpenCLUnit):
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
                      "epoch_number"):
             data[attr] = getattr(self, attr)
-        data['last_minibatch'] = bool(self.last_minibatch)
-        data['epoch_ended'] = bool(self.epoch_ended)
         self.has_data_for_slave = ((not self.class_ended) or
                                    len(self.failed_minibatches) > 0)
         return data
@@ -360,10 +358,10 @@ class Loader(OpenCLUnit):
     def apply_data_from_master(self, data):
         # Just feed single minibatch
         for attr in ("minibatch_class", "minibatch_size", "minibatch_offset",
-                     'epoch_number'):
+                     "epoch_number"):
             setattr(self, attr, data[attr])
-        self.last_minibatch <<= data['last_minibatch']
-        self.epoch_ended <<= data['epoch_ended']
+        self.last_minibatch <<= False
+        self.epoch_ended <<= False
         indices = data['indices']
         if indices.size != self.minibatch_size:
             raise error.MasterSlaveCommunicationError(
