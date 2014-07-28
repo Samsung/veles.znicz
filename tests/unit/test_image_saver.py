@@ -17,7 +17,7 @@ import unittest
 
 from veles.config import root
 import veles.formats as formats
-import veles.random as prng
+import veles.prng as prng
 import veles.znicz.image_saver as image_saver
 import veles.tests.dummy_workflow as dummy_workflow
 

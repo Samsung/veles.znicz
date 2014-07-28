@@ -19,7 +19,7 @@ import veles.znicz.conv as conv
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 from veles.tests.dummy_workflow import DummyWorkflow
-import veles.random as rnd
+import veles.prng as rnd
 import veles.opencl as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 

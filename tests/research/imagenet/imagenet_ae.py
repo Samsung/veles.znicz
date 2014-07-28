@@ -39,7 +39,7 @@ from veles.znicz.standard_workflow import StandardWorkflow
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
-import veles.random as prng
+import veles.prng as prng
 
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")

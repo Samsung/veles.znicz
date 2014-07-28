@@ -14,7 +14,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
-import veles.random as prng
+import veles.prng as prng
 import veles.znicz.gd as gd
 from veles.tests.dummy_workflow import DummyWorkflow
 import veles.znicz.all2all as all2all

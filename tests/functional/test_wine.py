@@ -13,7 +13,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.random as rnd
+import veles.prng as rnd
 from veles.tests import timeout
 import veles.znicz.samples.wine as wine
 import veles.tests.dummy_workflow as dummy_workflow

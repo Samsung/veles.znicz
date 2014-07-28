@@ -14,7 +14,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.random as prng
+import veles.prng as prng
 from veles.tests import timeout
 import veles.znicz.samples.kanji as kanji
 import veles.tests.dummy_workflow as dummy_workflow

@@ -11,7 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 
 from veles.config import root
-import veles.random as rnd
+import veles.prng as rnd
 
 
 # optional parameters

@@ -17,7 +17,7 @@ import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
-import veles.random as random_generator
+import veles.prng as prng
 
 
 @implementer(IOpenCLUnit, IDistributable)
@@ -281,7 +281,7 @@ class StochasticPoolingBase(OffsetPooling):
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingBase, self).__init__(workflow, **kwargs)
         self._random_states = formats.Vector()
-        self.rand = random_generator.get()
+        self.rand = prng.get()
 
     def initialize(self, device, **kwargs):
         super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
@@ -313,13 +313,13 @@ class StochasticPoolingBase(OffsetPooling):
         super(StochasticPoolingBase, self).cpu_run()
 
     def calculate_position_cpu(self, index, vsum):
-        rnd = random_generator.xorshift128plus(
+        rnd = prng.xorshift128plus(
             self._random_states.mem.view(numpy.uint64),
             index * 2)
         return rnd * vsum / numpy.iinfo(numpy.uint64).max
 
     def calculate_random_index_cpu(self, cut, index):
-        rnd = random_generator.xorshift128plus(
+        rnd = prng.xorshift128plus(
             self._random_states.mem.view(numpy.uint64),
             index * 2)
         return int(rnd * cut.size / numpy.iinfo(numpy.uint64).max)

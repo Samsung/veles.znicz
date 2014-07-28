@@ -17,7 +17,7 @@ from veles.distributable import IDistributable
 import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
-import veles.random as random_generator
+import veles.prng as random_generator
 from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 
@@ -57,7 +57,7 @@ class Loader(OpenCLUnit):
     """Loads data and provides minibatch output interface.
 
     Attributes:
-        prng: veles.random_generator.RandomGenerator instance.
+        prng: veles.prng.RandomGenerator instance.
         normalize: normalize pixel values into [-1, 1] range.
                    True by default.
         validation_ratio: used by extract_validation_from_train() as a default
@@ -412,7 +412,7 @@ class Loader(OpenCLUnit):
         Parameters:
             amount: how many samples move from train dataset
                     relative to the entire samples count for each class.
-            rand: veles.random_generator.RandomGenerator, if None - will use
+            rand: veles.prng.RandomGenerator, if None - will use
                   self.prng.
         """
         amount = ratio or self.validation_ratio
