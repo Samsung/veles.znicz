@@ -13,10 +13,12 @@ import numpy
 import time
 from zope.interface import implementer
 
+import veles.error as error
 import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
+from veles.tests import DummyWorkflow
 import veles.prng as prng
 
 
@@ -52,6 +54,7 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         self.ky = ky
         self.sliding = sliding
         self.exports.extend(("kx", "ky", "sliding"))
+        self._no_output = False
 
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
@@ -71,16 +74,17 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
             0 if self._sy % self.sliding[1] == 0 else 1)
         self._output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
-        if (self.output.mem is None or
-                self.output.mem.size != self._output_size):
+        self._output_shape = [self._batch_size, self._out_sy, self._out_sx,
+                              self._n_channels]
+        if (not self._no_output and (not self.output or
+                                     self.output.size != self._output_size)):
             self.output.reset()
-            self.output.mem = numpy.zeros(
-                [self._batch_size, self._out_sy, self._out_sx,
-                 self._n_channels],
-                dtype=self.input.mem.dtype)
+            self.output.mem = numpy.zeros(self._output_shape,
+                                          dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
-        self.output.initialize(self.device)
+        if not self._no_output:
+            self.output.initialize(self.device)
 
         if self.device is None:
             return
@@ -117,8 +121,8 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         """
         self.output.unmap()  # we will be updating output
         self.input.unmap()  # we will use input
-        y = self.output.mem
-        global_size = [y.shape[3] * y.shape[2], y.shape[1] * y.shape[0]]
+        sh = self._output_shape
+        global_size = [sh[3] * sh[2], sh[1] * sh[0]]
         self.execute_kernel(global_size, None)
 
     def cpu_run(self):
@@ -169,13 +173,15 @@ class OffsetPooling(Pooling):
     def initialize(self, device, **kwargs):
         super(OffsetPooling, self).initialize(device=device, **kwargs)
 
-        if (self.input_offset.mem is None or
-                self.input_offset.mem.size != self.output.mem.size):
+        if (not self._no_output and (
+                not self.input_offset or
+                self.input_offset.size != self.output.size)):
             self.input_offset.reset()
             self.input_offset.mem = numpy.zeros(self.output.mem.shape,
                                                 dtype=numpy.int32)
 
-        self.input_offset.initialize(self.device)
+        if not self._no_output:
+            self.input_offset.initialize(self.device)
 
     def set_args(self, *args):
         super(OffsetPooling, self).set_args(self.input, self.output,
@@ -260,69 +266,64 @@ class MaxAbsPooling(MaxPoolingBase):
 class StochasticPoolingBase(OffsetPooling):
     """Stochastic pooling forward propagation.
 
-    Must be assigned before initialize():
-
-    Updates after run():
-        input_offset
-
-    Creates within initialize():
-        input_offset
-        _random_states
-
     Attributes:
-        input_offset: random offset in the input, probability of which is
-        proportional to input values. In case of negative inputs, treat them
-        as zeros.
+        uniform: instance of veles.prng.Uniform.
     """
-
-    MIN_RANDOM_STATE = 0
-    MAX_RANDOM_STATE = 0x100000000
-
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingBase, self).__init__(workflow, **kwargs)
-        self._random_states = formats.Vector()
-        self.rand = prng.get()
+        self.uniform = kwargs.get("uniform")
+
+    def init_unpickled(self):
+        super(StochasticPoolingBase, self).init_unpickled()
+        self._rand_set = False
+        self._rand_arg = 3
+        self._kernel_name = "do_stochastic_pooling"
 
     def initialize(self, device, **kwargs):
         super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
 
-        states_size = self.output.mem.size * 4
-        states = kwargs.get('states')
-        if states is not None:
-            if states.size != states_size or \
-               states.dtype != numpy.uint32 or len(states.shape) > 1:
-                raise ValueError("The supplied states must be a 1D array of "
-                                 "size %d, dtype numpy.uint32" % states_size)
-            self._random_states.mem = states[:]
-        else:
-            self._random_states.mem = self.rand.randint(
-                low=StochasticPoolingBase.MIN_RANDOM_STATE,
-                high=StochasticPoolingBase.MAX_RANDOM_STATE,
-                size=states_size).astype(numpy.uint32)
+        if self.uniform is None:
+            self.uniform = prng.Uniform(DummyWorkflow())
+
+        if self.uniform.output_bytes < (self._output_size << 1):
+            if self.uniform.is_initialized:
+                raise error.AlreadyExistsError(
+                    "uniform is already initialized and "
+                    "has not enough output size")
+            self.uniform.output_bytes = self._output_size << 1
 
         if self.device is None:
             return
 
-        self._random_states.initialize(self.device)
-
-        self.assign_kernel("do_stochastic_pooling")
-        self.set_args(self._random_states)
+        self.assign_kernel(self._kernel_name)
+        self.set_args()
 
     def cpu_run(self):
-        self._random_states.map_invalidate()
+        if not self.uniform.is_initialized:
+            self.uniform.initialize(self.device)
+            self.info("Initialized StochasticPoolingBase.uniform with "
+                      "output_bytes=%d", self.uniform.output_bytes)
+        self.uniform.fill_cpu(self._output_size << 1)
         super(StochasticPoolingBase, self).cpu_run()
 
+    def ocl_run(self):
+        if not self.uniform.is_initialized:
+            self.uniform.initialize(self.device)
+            self.info("Initialized StochasticPoolingBase.uniform with "
+                      "output_bytes=%d", self.uniform.output_bytes)
+        if not self._rand_set:
+            self.set_arg(self._rand_arg, self.uniform.output)
+            self._rand_set = True
+        self.uniform.fill_ocl(self._output_size << 1)
+        super(StochasticPoolingBase, self).ocl_run()
+
     def calculate_position_cpu(self, index, vsum):
-        rnd = prng.xorshift128plus(
-            self._random_states.mem.view(numpy.uint64),
-            index * 2)
-        return rnd * vsum / numpy.iinfo(numpy.uint64).max
+        rnd = self.uniform.output.mem.view(dtype=numpy.uint16)[index]
+        return rnd * vsum / 65536
 
     def calculate_random_index_cpu(self, cut, index):
-        rnd = prng.xorshift128plus(
-            self._random_states.mem.view(numpy.uint64),
-            index * 2)
-        return int(rnd * cut.size / numpy.iinfo(numpy.uint64).max)
+        rnd = self.uniform.output.mem.view(dtype=numpy.uint16)[index]
+        return int(rnd * cut.size >> 16)
 
 
 class StochasticPooling(StochasticPoolingBase):
@@ -362,6 +363,47 @@ class StochasticAbsPooling(StochasticPoolingBase):
             vsum += abs(val)
             if position <= vsum:
                 return i
+
+
+class StochasticPoolingDepooling(StochasticPooling):
+    """Stochastic pooling with depooling in-place.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(StochasticPoolingDepooling, self).__init__(workflow, **kwargs)
+        self._no_output = True
+        self.cl_sources_["pooling.cl"] = {"USE_POOLING_DEPOOLING": 1}
+
+    def init_unpickled(self):
+        super(StochasticPoolingDepooling, self).init_unpickled()
+        self._rand_arg = 1
+        self._kernel_name = "do_stochastic_pooling_depooling"
+
+    def set_args(self, *args):
+        self.set_arg(0, self.input)
+
+    def cpu_run(self):
+        raise RuntimeError("Not implemented")
+
+
+class StochasticAbsPoolingDepooling(StochasticAbsPooling):
+    """Stochastic abs pooling with depooling in-place.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(StochasticAbsPoolingDepooling, self).__init__(workflow, **kwargs)
+        self._no_output = True
+        self.cl_sources_["pooling.cl"] = {"ABS_VALUES": 1,
+                                          "USE_POOLING_DEPOOLING": 1}
+
+    def init_unpickled(self):
+        super(StochasticAbsPoolingDepooling, self).init_unpickled()
+        self._rand_arg = 1
+        self._kernel_name = "do_stochastic_pooling_depooling"
+
+    def set_args(self, *args):
+        self.set_arg(0, self.input)
+
+    def cpu_run(self):
+        raise RuntimeError("Not implemented")
 
 
 class AvgPooling(Pooling):
