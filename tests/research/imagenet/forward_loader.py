@@ -478,7 +478,7 @@ class ImagenetForwardLoader(OpenCLUnit, Processor):
                         self._get_label_from_json(jsbbox["label"])
                 self.real_minibatch_bboxes[
                     index, len(meta["bbxs"]), :] = 0
-            self.minibatch_bboxes[index] = tbbox
+            self.minibatch_bboxes[index] = (angle, tbbox)
             self.minibatch_labels[index] = \
                 self._get_label_from_json(
                     self.images[self._current_image]["label"])
