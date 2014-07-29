@@ -43,9 +43,13 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         krn_err_input_: OpenCL kernel for computing err_input.
     """
     def __init__(self, workflow, **kwargs):
-        kx = kwargs.get("kx", 2)
-        ky = kwargs.get("ky", 2)
-        sliding = kwargs.get("sliding", (kx, ky))
+        try:
+            kx = kwargs["kx"]
+            ky = kwargs["ky"]
+            sliding = kwargs["sliding"]
+        except KeyError:
+            raise KeyError(
+                "kx, ky and sliding should be provided to constructor")
         kwargs["kx"] = kx
         kwargs["ky"] = ky
         kwargs["sliding"] = sliding
@@ -53,6 +57,7 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         self.kx = kx
         self.ky = ky
         self.sliding = sliding
+        self.demand("input", "err_output")
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
@@ -74,13 +79,12 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
 
-        if self.err_output.mem.size != output_size:
+        if self.err_output.size != output_size:
             raise error.BadFormatError(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
 
-        if (self.err_input.mem is None or
-                self.err_input.mem.size != self.input.mem.size):
+        if not self.err_input or self.err_input.size != self.input.size:
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.input.mem)
 
