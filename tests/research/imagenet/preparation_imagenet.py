@@ -212,8 +212,15 @@ class Main(Processor):
                         if (temp_label[0] == 'n'):
                             label = temp_label
                         bbx = []
+                        try:
+                            shape = Image.open(f_path).size
+                        except:
+                            shape = (-1, -1)
+                            self.warning("Failed to determine the size of %s",
+                                         f_path)
                         temp_images[f] = {"path": f_path, "label": label,
-                                          "bbxs": bbx}
+                                          "bbxs": bbx, "width": shape[0],
+                                          "height": shape[1]}
                     else:
                         self.warning("Unexpected file in dir %s", f)
             if dir_bboxes != "":
@@ -272,6 +279,7 @@ class Main(Processor):
                                                 label = com_label
                                     self.info("label %s" % label)
                                     dict_bbx = {"label": label,
+                                                "conf": 1.0,
                                                 "angle": bbx_ang,
                                                 "width": w,
                                                 "height": h,
@@ -1373,8 +1381,8 @@ class Main(Processor):
                                     x_neg = x_min / 2
                                     w_neg = w_size
                                     h_neg = h_size
-                                    #w_neg = x_min
-                                    #h_neg = w_neg * h_size / w_size
+                                    # w_neg = x_min
+                                    # h_neg = w_neg * h_size / w_size
                                     if (w_neg < min_size_min_side or
                                             h_neg < min_size_min_side or w_neg
                                             > x_min or
@@ -1396,8 +1404,8 @@ class Main(Processor):
                                     y_neg = y_min / 2
                                     w_neg = w_size
                                     h_neg = h_size
-                                    #h_neg = y_min
-                                    #w_neg = h_neg * w_size / h_size
+                                    # h_neg = y_min
+                                    # w_neg = h_neg * w_size / h_size
                                     if (w_neg < min_size_min_side or
                                             h_neg < min_size_min_side or w_neg
                                             > image.shape[1] or
@@ -1420,8 +1428,8 @@ class Main(Processor):
                                              - x_max) / 2 + x_max
                                     w_neg = w_size
                                     h_neg = h_size
-                                    #w_neg = image.shape[1] - x_max
-                                    #h_neg = w_neg * h_size / w_size
+                                    # w_neg = image.shape[1] - x_max
+                                    # h_neg = w_neg * h_size / w_size
                                     if (w_neg < min_size_min_side or
                                             h_neg < min_size_min_side or w_neg
                                             > image.shape[1] - x_max or
@@ -1444,8 +1452,8 @@ class Main(Processor):
                                              - y_max) / 2 + y_max
                                     w_neg = w_size
                                     h_neg = h_size
-                                    #h_neg = image.shape[0] - y_max
-                                    #w_neg = h_neg * w_size / h_size
+                                    # h_neg = image.shape[0] - y_max
+                                    # w_neg = h_neg * w_size / h_size
                                     if (w_neg < min_size_min_side or
                                             h_neg < min_size_min_side or w_neg
                                             > image.shape[1] or
@@ -1662,7 +1670,7 @@ class Main(Processor):
             self.info("dst %s" % dst)
             for root_path, _tmp, files in os.walk(path_to_neg,
                                                   followlinks=True):
-                #self.info("dst %s" % dst)
+                # self.info("dst %s" % dst)
                 try:
                     os.mkdir(dst, mode=0o775)
                 except:
@@ -1672,11 +1680,11 @@ class Main(Processor):
                         f_path = os.path.join(root_path, f)
                         good_backgr = back_det.is_background(f_path, 8.0)
                         if not good_backgr:
-                            #self.info("%s is bad background" % f_path)
+                            # self.info("%s is bad background" % f_path)
                             os.rename(f_path, os.path.join(dst, f))
-                        #else:
-                            #self.info("%s is good background" % f_path)
-        #self.remove_dir(dst)
+                        # else:
+                            # self.info("%s is good background" % f_path)
+        # self.remove_dir(dst)
 
     def remove_dir(self, path):
         for rt, dirs, files in os.walk(path):
