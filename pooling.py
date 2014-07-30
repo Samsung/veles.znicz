@@ -43,8 +43,11 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
     """
     def __init__(self, workflow, **kwargs):
-        kx = kwargs.get("kx", 2)
-        ky = kwargs.get("ky", 2)
+        try:
+            kx = kwargs["kx"]
+            ky = kwargs["ky"]
+        except KeyError:
+            raise KeyError("kx and ky are required constructor parameters")
         sliding = kwargs.get("sliding", (kx, ky))
         kwargs["kx"] = kx
         kwargs["ky"] = ky
@@ -68,10 +71,18 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         self._sx = self.input.mem.shape[2]
         self._n_channels = self.input.mem.size // (self._batch_size *
                                                    self._sx * self._sy)
-        self._out_sx = self._sx // self.sliding[0] + (
-            0 if self._sx % self.sliding[0] == 0 else 1)
-        self._out_sy = self._sy // self.sliding[1] + (
-            0 if self._sy % self.sliding[1] == 0 else 1)
+
+        last_x = self._sx - self.kx
+        last_y = self._sy - self.ky
+        if last_x % self.sliding[0] == 0:
+            self._out_sx = last_x // self.sliding[0] + 1
+        else:
+            self._out_sx = last_x // self.sliding[0] + 2
+        if last_y % self.sliding[1] == 0:
+            self._out_sy = last_y // self.sliding[1] + 1
+        else:
+            self._out_sy = last_y // self.sliding[1] + 2
+
         self._output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
         self._output_shape = [self._batch_size, self._out_sy, self._out_sx,

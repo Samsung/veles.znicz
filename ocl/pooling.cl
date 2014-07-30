@@ -1,24 +1,6 @@
-#include "defines.cl"
-#include "highlight.cl"
+#include "pooling_common.cl"
 #include "random.cl"
 
-
-#define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
-
-
-#if SX % SLIDE_X == 0
-#define OUT_SX (SX / SLIDE_X)
-#else
-#define OUT_SX (SX / SLIDE_X + 1)
-#endif
-#if SY % SLIDE_Y == 0
-#define OUT_SY (SY / SLIDE_Y)
-#else
-#define OUT_SY (SY / SLIDE_Y + 1)
-#endif
-
-#define TARGET_PIXEL_X (target_x / N_CHANNELS)
-#define TARGET_CHANNEL (target_x % N_CHANNELS)
 
 /// @brief Does max pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
@@ -68,16 +50,15 @@ void do_max_pooling(__global const dtype    /* IN */    *h,
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
 #endif
       dtype vle = h[offs + x];
-#ifndef ABS_VALUES
-      if (vle > max_vle) {
-#else
+#ifdef ABS_VALUES
       dtype absvle = fabs(vle);
-      if (absvle > max_absvle) {
-        max_absvle = absvle;
+      bool hit = (absvle > max_absvle);
+      max_absvle = (hit) ? absvle : max_absvle;
+#else
+      bool hit = (vle > max_vle);
 #endif
-        max_vle = vle;
-        max_offs = offs + x;
-      }
+      max_vle = (hit) ? vle : max_vle;
+      max_offs = (hit) ? offs + x : max_offs;
     }
   }
 
@@ -90,17 +71,6 @@ void do_max_pooling(__global const dtype    /* IN */    *h,
 /// @brief Does avg pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
-/// @details Should be defined externally:
-///          SX - input image width,
-///          SY - input image height,
-///          N_CHANNELS - number of input channels,
-///          KX - pooling kernel width,
-///          KY - pooling kernel height,
-///          SLIDE_X - kernel sliding by x-axis,
-///          SLIDE_Y - kernel sliding by y-axis.
-///          Kernel should be run as:
-///          global_size = [out_width, out_height],
-///          local_size = None.
 __kernel
 void do_avg_pooling(__global const dtype    /* IN */    *h,
                     __global dtype         /* OUT */    *y) {
@@ -113,41 +83,41 @@ void do_avg_pooling(__global const dtype    /* IN */    *h,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
+#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-  #else
+#else
   // There are partial windows at the bottom
   for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
-  #endif
-    #if (OUT_SX - 1) * SLIDE_X + KX == SX
+#endif
+#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
-    #else
+#else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
-    #endif
+#endif
       smm += h[offs + x];
     }
   }
 
-  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
-  #define NY KY
-  #else
-  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
-  #endif
+#if (OUT_SY - 1) * SLIDE_Y + KY == SY
+#define NY KY
+#else
+#define NY MIN(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
+#endif
 
-  #if (OUT_SX - 1) * SLIDE_X + KX == SX
-  #define NX KX
-  #else
-  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
-  #endif
+#if (OUT_SX - 1) * SLIDE_X + KX == SX
+#define NX KX
+#else
+#define NX MIN(KX, SX - TARGET_PIXEL_X * SLIDE_X)
+#endif
 
-  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
-  y[idx] = smm / (NX * NY);
+int idx = target_y * OUT_SX * N_CHANNELS + target_x;
+y[idx] = smm / (NX * NY);
 
-  #undef NX
-  #undef NY
+#undef NX
+#undef NY
 }
 
 
@@ -205,10 +175,10 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
          j++, x += N_CHANNELS, count++) {
 #endif
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
     }
@@ -218,9 +188,9 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
   // The index of the passed through
   int lucky = 0;
   // All elements can be <= 0
-  int chosen_one = (sum == 0) ? (count * random) >> 16 : -1;
-  count = 0;
-  dtype pos = (sum * random) / 65536;
+  dtype pos_add = (sum == 0) ? 1 : 0;
+  dtype pos_factor = (sum == 0) ? count : sum;
+  dtype pos = (pos_factor * random) / 65536;
   sum = 0;
 
   // This is not just copy-paste of previous for-s
@@ -235,22 +205,20 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
 #endif
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
 #else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
+         j++, x += N_CHANNELS) {
 #endif
-      lucky = (count == chosen_one) ? offs + x : lucky;
-      sum = (count == chosen_one) ? -MAXFLOAT : sum;
-
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
+      sum += pos_add;
 
       lucky = (pos <= sum) ? offs + x : lucky;
       sum = (pos <= sum) ? -MAXFLOAT : sum;
@@ -297,10 +265,10 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
          j++, x += N_CHANNELS, count++) {
 #endif
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
     }
@@ -310,9 +278,9 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
   // The index of the passed through
   int lucky = 0;
   // All elements can be <= 0
-  int chosen_one = (sum == 0) ? (count * random) >> 16 : -1;
-  count = 0;
-  dtype pos = (sum * random) / 65536;
+  dtype pos_add = (sum == 0) ? 1 : 0;
+  dtype pos_factor = (sum == 0) ? count : sum;
+  dtype pos = (pos_factor * random) / 65536;
   sum = 0;
 
   // This is not just copy-paste of previous for-s
@@ -327,22 +295,20 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
 #endif
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
 #else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
+         j++, x += N_CHANNELS) {
 #endif
-      lucky = (count == chosen_one) ? offs + x : lucky;
-      sum = (count == chosen_one) ? -MAXFLOAT : sum;
-
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
+      sum += pos_add;
 
       lucky = (pos <= sum) ? offs + x : lucky;
       sum = (pos <= sum) ? -MAXFLOAT : sum;
@@ -363,11 +329,11 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
 #endif
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
 #else
     // There are partial windows at the right
     for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
+         j++, x += N_CHANNELS) {
 #endif
       h[offs + x] = (offs + x == lucky) ? chosen_value : 0;
     }
@@ -380,6 +346,3 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
 #undef TARGET_PIXEL_X
 #undef OUT_SY
 #undef OUT_SX
-
-
-#undef MINIMUM

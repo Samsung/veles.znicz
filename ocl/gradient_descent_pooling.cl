@@ -1,26 +1,7 @@
 #if (SLIDE_X < KX) || (SLIDE_Y < KY)
 #define USE_ATOMICS 1
 #endif
-#include "defines.cl"
-#include "highlight.cl"
-
-
-#define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
-
-
-#if SX % SLIDE_X == 0
-#define OUT_SX (SX / SLIDE_X)
-#else
-#define OUT_SX (SX / SLIDE_X + 1)
-#endif
-#if SY % SLIDE_Y == 0
-#define OUT_SY (SY / SLIDE_Y)
-#else
-#define OUT_SY (SY / SLIDE_Y + 1)
-#endif
-
-#define TARGET_PIXEL_X (target_x / N_CHANNELS)
-#define TARGET_CHANNEL (target_x % N_CHANNELS)
+#include "pooling_common.cl"
 
 
 /// @brief Backpropagates max pooling.
@@ -79,13 +60,13 @@ void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
   #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   #define NY KY
   #else
-  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
+  #define NY MIN(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
   #endif
 
   #if (OUT_SX - 1) * SLIDE_X + KX == SX
   #define NX KX
   #else
-  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
+  #define NX MIN(KX, SX - TARGET_PIXEL_X * SLIDE_X)
   #endif
 
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
@@ -119,9 +100,6 @@ void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
 #undef TARGET_PIXEL_X
 #undef OUT_SY
 #undef OUT_SX
-
-
-#undef MINIMUM
 
 
 KERNEL_CLEAR(err_input_clear, dtype)

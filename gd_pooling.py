@@ -42,7 +42,14 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         err_input: backpropagation errors for input (will compute its).
         krn_err_input_: OpenCL kernel for computing err_input.
     """
-    def __init__(self, workflow, kx, ky, sliding, **kwargs):
+    def __init__(self, workflow, **kwargs):
+        try:
+            kx = kwargs["kx"]
+            ky = kwargs["ky"]
+            sliding = kwargs["sliding"]
+        except KeyError:
+            raise KeyError(
+                "kx, ky and sliding are required constructor parameters")
         super(GDPooling, self).__init__(workflow, **kwargs)
         self.kx = kx
         self.ky = ky
@@ -62,10 +69,18 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         self._sx = self.input.mem.shape[2]
         self._n_channels = self.input.mem.size // (self._batch_size *
                                                    self._sx * self._sy)
-        self._out_sx = self._sx // self.sliding[0] + (
-            0 if self._sx % self.sliding[0] == 0 else 1)
-        self._out_sy = self._sy // self.sliding[1] + (
-            0 if self._sy % self.sliding[1] == 0 else 1)
+
+        last_x = self._sx - self.kx
+        last_y = self._sy - self.ky
+        if last_x % self.sliding[0] == 0:
+            self._out_sx = last_x // self.sliding[0] + 1
+        else:
+            self._out_sx = last_x // self.sliding[0] + 2
+        if last_y % self.sliding[1] == 0:
+            self._out_sy = last_y // self.sliding[1] + 1
+        else:
+            self._out_sy = last_y // self.sliding[1] + 2
+
         output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
 
