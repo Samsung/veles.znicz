@@ -62,8 +62,10 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         self._sx = self.input.mem.shape[2]
         self._n_channels = self.input.mem.size // (self._batch_size *
                                                    self._sx * self._sy)
-        self._out_sx = (self._sx - self.kx) // self.sliding[0] + 1
-        self._out_sy = (self._sy - self.ky) // self.sliding[1] + 1
+        self._out_sx = self._sx // self.sliding[0] + (
+            0 if self._sx % self.sliding[0] == 0 else 1)
+        self._out_sy = self._sy // self.sliding[1] + (
+            0 if self._sy % self.sliding[1] == 0 else 1)
         output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
 
@@ -113,9 +115,6 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
                 output.shape[3], self.sliding[0], self.sliding[1],
                 time.time() - t_start))
 
-    def get_global_size(self):
-        return [self.current_batch_size * self.err_output.sample_size]
-
     def ocl_run(self):
         """Do gradient descent.
         """
@@ -127,7 +126,10 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
                             self.krn_err_input_clear_)
 
         # Compute err_h
-        self.execute_kernel(self.get_global_size(), None, self.krn_err_input_)
+        self.execute_kernel(
+            [(self.batch_size or self.err_output.mem.shape[0]) *
+             (self.err_output.mem.size // self.err_output.mem.shape[0])], None,
+            self.krn_err_input_)
 
     def cpu_run(self):
         raise NotImplementedError()
@@ -239,10 +241,6 @@ class GDAvgPooling(GDPooling):
             self.krn_err_input_ = self.get_kernel("gd_avg_pooling")
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.err_input.devmem)
-
-    def get_global_size(self):
-        return [self._out_sx * self._n_channels,
-                self._out_sy * self.current_batch_size]
 
     def cpu_run(self):
         self.err_output.map_read()

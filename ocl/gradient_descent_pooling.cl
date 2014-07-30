@@ -5,11 +5,19 @@
 #include "highlight.cl"
 
 
-// Pool only full-size kernels
-#define LAST_APPLY_X (SX - KX)
-#define LAST_APPLY_Y (SY - KY)
-#define OUT_SX (LAST_APPLY_X / SLIDE_X + 1)
-#define OUT_SY (LAST_APPLY_Y / SLIDE_Y + 1)
+#define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
+
+
+#if SX % SLIDE_X == 0
+#define OUT_SX (SX / SLIDE_X)
+#else
+#define OUT_SX (SX / SLIDE_X + 1)
+#endif
+#if SY % SLIDE_Y == 0
+#define OUT_SY (SY / SLIDE_Y)
+#else
+#define OUT_SY (SY / SLIDE_Y + 1)
+#endif
 
 #define TARGET_PIXEL_X (target_x / N_CHANNELS)
 #define TARGET_CHANNEL (target_x % N_CHANNELS)
@@ -58,23 +66,42 @@ void gd_max_pooling(__global const dtype    /* IN */    *err_y,
 ///          SLIDE_X - kernel sliding by x-axis,
 ///          SLIDE_Y - kernel sliding by y-axis.
 ///          Kernel should be run as:
-///          global_size = [out_width, out_height],
+///          global_size = [number of elements in err_y],
 ///          local_size = None.
 __kernel
 void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
                     __global dtype         /* OUT */    *err_h) {
-  int target_x = get_global_id(0),
-      target_y = get_global_id(1);
+  int target_x = get_global_id(0) % (OUT_SX * N_CHANNELS),
+      target_y = get_global_id(0) / (OUT_SX * N_CHANNELS);
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
       start_y = target_y % OUT_SY * SLIDE_Y;
 
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
+  #define NY KY
+  #else
+  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
+  #endif
+
+  #if (OUT_SX - 1) * SLIDE_X + KX == SX
+  #define NX KX
+  #else
+  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
+  #endif
+
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
-  dtype avg = err_y[idx] / (KX * KY);
+  dtype avg = err_y[idx] / (NY * NX);
 
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
-
+  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
+  #else
+  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
+  #endif
+    #if (OUT_SX - 1) * SLIDE_X + KX == SX
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
+    #else
+    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
+    #endif
       #if (SLIDE_X >= KX) && (SLIDE_Y >= KY)
       err_h[offs + x] = avg;
       #else
@@ -82,6 +109,9 @@ void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
       #endif
     }
   }
+
+  #undef NX
+  #undef NY
 }
 
 
@@ -89,6 +119,9 @@ void gd_avg_pooling(__global const dtype    /* IN */    *err_y,
 #undef TARGET_PIXEL_X
 #undef OUT_SY
 #undef OUT_SX
+
+
+#undef MINIMUM
 
 
 KERNEL_CLEAR(err_input_clear, dtype)

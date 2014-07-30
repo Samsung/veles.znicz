@@ -43,13 +43,9 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
     """
     def __init__(self, workflow, **kwargs):
-        try:
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-            sliding = kwargs["sliding"]
-        except KeyError:
-            raise KeyError(
-                "kx, ky and sliding are required constructor parameters")
+        kx = kwargs.get("kx", 2)
+        ky = kwargs.get("ky", 2)
+        sliding = kwargs.get("sliding", (kx, ky))
         kwargs["kx"] = kx
         kwargs["ky"] = ky
         kwargs["sliding"] = sliding
@@ -72,8 +68,10 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         self._sx = self.input.mem.shape[2]
         self._n_channels = self.input.mem.size // (self._batch_size *
                                                    self._sx * self._sy)
-        self._out_sx = (self._sx - self.kx) // self.sliding[0] + 1
-        self._out_sy = (self._sy - self.ky) // self.sliding[1] + 1
+        self._out_sx = self._sx // self.sliding[0] + (
+            0 if self._sx % self.sliding[0] == 0 else 1)
+        self._out_sy = self._sy // self.sliding[1] + (
+            0 if self._sy % self.sliding[1] == 0 else 1)
         self._output_size = self._n_channels * self._out_sx * self._out_sy * \
             self._batch_size
         self._output_shape = [self._batch_size, self._out_sy, self._out_sx,
@@ -380,13 +378,6 @@ class StochasticPoolingDepooling(StochasticPooling):
         self._rand_arg = 1
         self._kernel_name = "do_stochastic_pooling_depooling"
 
-    def initialize(self, device, **kwargs):
-        super(StochasticPoolingDepooling, self).initialize(device, **kwargs)
-        if ((self._sx - self.kx) % self.sliding[0] != 0 or
-                (self._sy - self.ky) % self.sliding[1] != 0):
-            raise NotImplementedError(
-                "Pooling-Depooling is not implemented for partial windows")
-
     def set_args(self, *args):
         self.set_arg(0, self.input)
 
@@ -394,12 +385,25 @@ class StochasticPoolingDepooling(StochasticPooling):
         raise RuntimeError("Not implemented")
 
 
-class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
+class StochasticAbsPoolingDepooling(StochasticAbsPooling):
     """Stochastic abs pooling with depooling in-place.
     """
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPoolingDepooling, self).__init__(workflow, **kwargs)
-        self.cl_sources_["pooling.cl"]["ABS_VALUES"] = 1
+        self._no_output = True
+        self.cl_sources_["pooling.cl"] = {"ABS_VALUES": 1,
+                                          "USE_POOLING_DEPOOLING": 1}
+
+    def init_unpickled(self):
+        super(StochasticAbsPoolingDepooling, self).init_unpickled()
+        self._rand_arg = 1
+        self._kernel_name = "do_stochastic_pooling_depooling"
+
+    def set_args(self, *args):
+        self.set_arg(0, self.input)
+
+    def cpu_run(self):
+        raise RuntimeError("Not implemented")
 
 
 class AvgPooling(Pooling):
