@@ -3,7 +3,7 @@ Created on July 4, 2014
 
 Imagenet recognition.
 
-Copyright (c) 2013 Samsung Electronics Co., Ltd.
+Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
 
@@ -40,6 +40,7 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
 import veles.prng as prng
+from veles.tests import DummyWorkflow
 
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")
@@ -388,6 +389,14 @@ class Workflow(StandardWorkflow):
             "activation_tanhlog": activation.ForwardTanhLog,
             "softmax": all2all.All2AllSoftmax,
             "dropout": dropout.DropoutForward}
+        self.last_de_map = {  # If the last unit in ae-layer => replace with:
+            pooling.StochasticAbsPooling:
+            pooling.StochasticAbsPoolingDepooling,
+            pooling.StochasticPooling: pooling.StochasticPoolingDepooling}
+        self.last_de_unmap = {  # When adding next autoencoder => replace with:
+            pooling.StochasticAbsPoolingDepooling:
+            pooling.StochasticAbsPooling,
+            pooling.StochasticPoolingDepooling: pooling.StochasticPooling}
         self.de_map = {
             conv.Conv: deconv.Deconv,
             pooling.StochasticAbsPooling: depooling.Depooling,
@@ -439,6 +448,7 @@ class Workflow(StandardWorkflow):
         last_conv = None
         self.n_ae = 0
         in_ae = False
+        self.uniform = None
         for layer in layers:
             if layer["type"] == "ae_begin":
                 self.info("Autoencoder block begin")
@@ -461,6 +471,10 @@ class Workflow(StandardWorkflow):
             if in_ae:
                 ae.append(unit)
                 ae_layers.append(layer)
+            if isinstance(unit, pooling.StochasticPoolingBase):
+                if self.uniform is None:
+                    self.uniform = prng.Uniform(DummyWorkflow())
+                unit.uniform = self.uniform
             self.fwds.append(unit)
             unit.link_from(prev)
             unit.link_attrs(prev, ("input", "output"))
@@ -478,6 +492,23 @@ class Workflow(StandardWorkflow):
 
         de = []
         for i in range(len(ae) - 1, -1, -1):
+            if (i == len(ae) - 1 and id(ae[-1]) == id(self.fwds[-1]) and
+                    ae[-1].__class__ in self.last_de_map):
+                self.info("Replacing pooling with pooling-depooling")
+                De = self.last_de_map[ae[-1].__class__]
+                unit = De(self, **ae_layers[i])
+                unit.uniform = ae[-1].uniform
+                unit.layer = ae[-1].layer
+                unit.link_attrs(self.fwds[-2], ("input", "output"))
+                del self.fwds[-1]
+                ae[-1].unlink_all()
+                self.del_ref(ae[-1])
+                ae[-1] = unit
+                self.fwds.append(unit)
+                unit.link_from(self.fwds[-2])
+                prev = unit
+                self.fix(unit, "input", "uniform")
+                continue
             De = self.de_map[ae[i].__class__]
             unit = De(self, **ae_layers[i])
             de.append(unit)
@@ -758,6 +789,20 @@ class Workflow(StandardWorkflow):
         last_fwd = self.fwds[-1]
         prev = last_fwd
 
+        if prev.__class__ in self.last_de_unmap:
+            self.info("Replacing pooling-depooling with pooling")
+            Forward = self.last_de_unmap[prev.__class__]
+            layer = prev.layer
+            uniform = prev.uniform
+            prev.unlink_all()
+            self.del_ref(prev)
+            unit = Forward(self, **layer)
+            self.fwds[-1] = unit
+            unit.uniform = uniform
+            unit.link_attrs(self.fwds[-2], ("input", "output"))
+            self.fix(unit, "input", "output", "input_offset", "uniform")
+            prev = unit
+
         ae = []
         ae_layers = []
         last_conv = None
@@ -792,6 +837,8 @@ class Workflow(StandardWorkflow):
             unit.link_attrs(prev, ("input", "output"))
             if isinstance(unit, activation.ForwardMul):
                 unit.link_attrs(prev, "output")
+            if isinstance(unit, pooling.StochasticPoolingBase):
+                unit.uniform = self.uniform
             self.fix(unit, "input", "output", "weights")
             prev = unit
             if layer["type"][:4] == "conv" and in_ae:
@@ -803,6 +850,23 @@ class Workflow(StandardWorkflow):
         if in_ae:
             de = []
             for i in range(len(ae) - 1, -1, -1):
+                if (i == len(ae) - 1 and id(ae[-1]) == id(self.fwds[-1]) and
+                        ae[-1].__class__ in self.last_de_map):
+                    self.info("Replacing pooling with pooling-depooling")
+                    De = self.last_de_map[ae[-1].__class__]
+                    unit = De(self, **ae_layers[i])
+                    unit.uniform = ae[-1].uniform
+                    unit.layer = ae[-1].layer
+                    unit.link_attrs(self.fwds[-2], ("input", "output"))
+                    del self.fwds[-1]
+                    ae[-1].unlink_all()
+                    self.del_ref(ae[-1])
+                    ae[-1] = unit
+                    self.fwds.append(unit)
+                    unit.link_from(self.fwds[-2])
+                    prev = unit
+                    self.fix(unit, "input", "uniform")
+                    continue
                 De = self.de_map[ae[i].__class__]
                 unit = De(self, **ae_layers[i])
                 de.append(unit)
