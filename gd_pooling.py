@@ -42,17 +42,7 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         err_input: backpropagation errors for input (will compute its).
         krn_err_input_: OpenCL kernel for computing err_input.
     """
-    def __init__(self, workflow, **kwargs):
-        try:
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-            sliding = kwargs["sliding"]
-        except KeyError:
-            raise KeyError(
-                "kx, ky and sliding should be provided to constructor")
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["sliding"] = sliding
+    def __init__(self, workflow, kx, ky, sliding, **kwargs):
         super(GDPooling, self).__init__(workflow, **kwargs)
         self.kx = kx
         self.ky = ky
