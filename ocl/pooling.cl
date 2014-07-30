@@ -3,22 +3,15 @@
 #include "random.cl"
 
 
-#define MINIMUM(a, b) ((a) < (b) ? (a) : (b))
-
-
-#if SX % SLIDE_X == 0
-#define OUT_SX (SX / SLIDE_X)
-#else
-#define OUT_SX (SX / SLIDE_X + 1)
-#endif
-#if SY % SLIDE_Y == 0
-#define OUT_SY (SY / SLIDE_Y)
-#else
-#define OUT_SY (SY / SLIDE_Y + 1)
-#endif
+// Pool only full-size kernels
+#define LAST_APPLY_X (SX - KX)
+#define LAST_APPLY_Y (SY - KY)
+#define OUT_SX (LAST_APPLY_X / SLIDE_X + 1)
+#define OUT_SY (LAST_APPLY_Y / SLIDE_Y + 1)
 
 #define TARGET_PIXEL_X (target_x / N_CHANNELS)
 #define TARGET_CHANNEL (target_x % N_CHANNELS)
+
 
 /// @brief Does max pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
@@ -53,31 +46,20 @@ void do_max_pooling(__global const dtype    /* IN */    *h,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
-#endif
       dtype vle = h[offs + x];
-#ifndef ABS_VALUES
-      if (vle > max_vle) {
-#else
+#ifdef ABS_VALUES
       dtype absvle = fabs(vle);
-      if (absvle > max_absvle) {
-        max_absvle = absvle;
+      bool hit = (absvle > max_absvle);
+      max_absvle = (hit) ? absvle : max_absvle;
+#else
+      bool hit = (vle > max_vle);
 #endif
-        max_vle = vle;
-        max_offs = offs + x;
-      }
+      max_vle = (hit) ? vle : max_vle;
+      max_offs = (hit) ? offs + x : max_offs;
     }
   }
 
@@ -90,17 +72,6 @@ void do_max_pooling(__global const dtype    /* IN */    *h,
 /// @brief Does avg pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
-/// @details Should be defined externally:
-///          SX - input image width,
-///          SY - input image height,
-///          N_CHANNELS - number of input channels,
-///          KX - pooling kernel width,
-///          KY - pooling kernel height,
-///          SLIDE_X - kernel sliding by x-axis,
-///          SLIDE_Y - kernel sliding by y-axis.
-///          Kernel should be run as:
-///          global_size = [out_width, out_height],
-///          local_size = None.
 __kernel
 void do_avg_pooling(__global const dtype    /* IN */    *h,
                     __global dtype         /* OUT */    *y) {
@@ -113,41 +84,16 @@ void do_avg_pooling(__global const dtype    /* IN */    *h,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
 
-  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-  #else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY); i++, y++, offs += SX * N_CHANNELS) {
-  #endif
-    #if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
     for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
-    #else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS); j++, x += N_CHANNELS) {
-    #endif
       smm += h[offs + x];
     }
   }
 
-  #if (OUT_SY - 1) * SLIDE_Y + KY == SY
-  #define NY KY
-  #else
-  #define NY MINIMUM(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
-  #endif
-
-  #if (OUT_SX - 1) * SLIDE_X + KX == SX
-  #define NX KX
-  #else
-  #define NX MINIMUM(KX, SX - TARGET_PIXEL_X * SLIDE_X)
-  #endif
-
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
-  y[idx] = smm / (NX * NY);
-
-  #undef NX
-  #undef NY
+  y[idx] = smm / (KX * KY);
 }
 
 
@@ -158,17 +104,6 @@ void do_avg_pooling(__global const dtype    /* IN */    *h,
 /// @param rand random numbers.
 /// @details If ABS_VALUES is defined, use absolute values; otherwise,
 /// discard negative ones.
-/// Should be defined externally:
-///          SX - input image width,
-///          SY - input image height,
-///          N_CHANNELS - number of input channels,
-///          KX - pooling kernel width,
-///          KY - pooling kernel height,
-///          SLIDE_X - kernel sliding by x-axis,
-///          SLIDE_Y - kernel sliding by y-axis.
-///          Kernel should be run as:
-///          global_size = [out_width, out_height],
-///          local_size = None.
 #if KX * KY > 65536
 #error "Too large kernel size for the current stochastic pooling implementation"
 #endif
@@ -186,29 +121,16 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
   int original_offset = offs;
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   dtype sum = 0;
-  int count = 0;
 
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY);
-       i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
-#endif
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
     }
@@ -218,39 +140,25 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
   // The index of the passed through
   int lucky = 0;
   // All elements can be <= 0
-  int chosen_one = (sum == 0) ? (count * random) >> 16 : -1;
-  count = 0;
-  dtype pos = (sum * random) / 65536;
+  dtype pos_add = (sum == 0) ? 1 : 0;
+  dtype pos_factor = (sum == 0) ? KX * KY : sum;
+  dtype pos = (pos_factor * random) / 65536;
   sum = 0;
 
   // This is not just copy-paste of previous for-s
   offs = original_offset;
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY);
-       i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
-#endif
-      lucky = (count == chosen_one) ? offs + x : lucky;
-      sum = (count == chosen_one) ? -MAXFLOAT : sum;
-
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
+      sum += pos_add;
 
       lucky = (pos <= sum) ? offs + x : lucky;
       sum = (pos <= sum) ? -MAXFLOAT : sum;
@@ -278,29 +186,16 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
   int original_offset = offs;
   int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   dtype sum = 0;
-  int count = 0;
 
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY);
-       i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
-#endif
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
     }
@@ -310,39 +205,25 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
   // The index of the passed through
   int lucky = 0;
   // All elements can be <= 0
-  int chosen_one = (sum == 0) ? (count * random) >> 16 : -1;
-  count = 0;
-  dtype pos = (sum * random) / 65536;
+  dtype pos_add = (sum == 0) ? 1 : 0;
+  dtype pos_factor = (sum == 0) ? KX * KY : sum;
+  dtype pos = (pos_factor * random) / 65536;
   sum = 0;
 
   // This is not just copy-paste of previous for-s
   offs = original_offset;
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY);
-       i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
-#endif
-      lucky = (count == chosen_one) ? offs + x : lucky;
-      sum = (count == chosen_one) ? -MAXFLOAT : sum;
-
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
       dtype val = h[offs + x];
-#ifndef ABS_VALUES
-      val = max(val, (dtype)0);
-#else
+#ifdef ABS_VALUES
       val = fabs(val);
+#else
+      val = max(val, (dtype)0);
 #endif
       sum += val;
+      sum += pos_add;
 
       lucky = (pos <= sum) ? offs + x : lucky;
       sum = (pos <= sum) ? -MAXFLOAT : sum;
@@ -353,22 +234,10 @@ void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
 
   // This is not just copy-paste of previous for-s
   offs = original_offset;
-#if (OUT_SY - 1) * SLIDE_Y + KY == SY
   // No partial windows at the bottom
   for (int i = 0; i < KY; i++, offs += SX * N_CHANNELS) {
-#else
-  // There are partial windows at the bottom
-  for (int i = 0, y = start_y; (i < KY) && (y < SY);
-       i++, y++, offs += SX * N_CHANNELS) {
-#endif
-#if (OUT_SX - 1) * SLIDE_X + KX == SX
     // No partial windows at the right
-    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS, count++) {
-#else
-    // There are partial windows at the right
-    for (int j = 0, x = start_x; (j < KX) && (x < SX * N_CHANNELS);
-         j++, x += N_CHANNELS, count++) {
-#endif
+    for (int j = 0, x = start_x; j < KX; j++, x += N_CHANNELS) {
       h[offs + x] = (offs + x == lucky) ? chosen_value : 0;
     }
   }
