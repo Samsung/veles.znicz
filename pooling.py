@@ -396,25 +396,12 @@ class StochasticPoolingDepooling(StochasticPooling):
         raise RuntimeError("Not implemented")
 
 
-class StochasticAbsPoolingDepooling(StochasticAbsPooling):
+class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
     """Stochastic abs pooling with depooling in-place.
     """
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPoolingDepooling, self).__init__(workflow, **kwargs)
-        self._no_output = True
-        self.cl_sources_["pooling.cl"] = {"ABS_VALUES": 1,
-                                          "USE_POOLING_DEPOOLING": 1}
-
-    def init_unpickled(self):
-        super(StochasticAbsPoolingDepooling, self).init_unpickled()
-        self._rand_arg = 1
-        self._kernel_name = "do_stochastic_pooling_depooling"
-
-    def set_args(self, *args):
-        self.set_arg(0, self.input)
-
-    def cpu_run(self):
-        raise RuntimeError("Not implemented")
+        self.cl_sources_["pooling.cl"]["ABS_VALUES"] = 1
 
 
 class AvgPooling(Pooling):
