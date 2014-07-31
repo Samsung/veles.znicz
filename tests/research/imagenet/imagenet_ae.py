@@ -16,6 +16,7 @@ from zope.interface import implementer
 from veles.config import root
 import veles.error as error
 from veles.formats import Vector
+from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.conv as conv
@@ -24,7 +25,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
-import veles.znicz.image_saver as image_saver
+#import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -50,8 +51,8 @@ root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
 class NNRollback(Unit):
     def __init__(self, workflow, **kwargs):
         super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1.1)
-        self.lr_minus = kwargs.get("lr_minus", 0.5)
+        self.lr_plus = kwargs.get("lr_plus", 1.04)
+        self.lr_minus = kwargs.get("lr_minus", 0.65)
         self.plus_steps = kwargs.get("plus_steps", 1)
         self.minus_steps = kwargs.get("minus_steps", 3)
         self._plus_steps = self.plus_steps
@@ -240,8 +241,8 @@ class Loader(loader.Loader):
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = 192
-        self.sy = 192
+        self.sx = root.loader.sx
+        self.sy = root.loader.sy
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -508,6 +509,7 @@ class Workflow(StandardWorkflow):
                 unit.link_from(self.fwds[-2])
                 prev = unit
                 self.fix(unit, "input", "uniform")
+                de.append(unit)  # for the later assert to work
                 continue
             De = self.de_map[ae[i].__class__]
             unit = De(self, **ae_layers[i])
@@ -519,7 +521,10 @@ class Workflow(StandardWorkflow):
                             ("output_offset", "input_offset")):
                 if hasattr(unit, dst_src[0]):
                     unit.link_attrs(ae[i], dst_src)
-            unit.link_attrs(prev, ("input", "output"))
+            if isinstance(prev, pooling.StochasticPoolingDepooling):
+                unit.link_attrs(prev, "input")
+            else:
+                unit.link_attrs(prev, ("input", "output"))
             self.fix(unit, "input", "weights", "output",
                      "get_output_shape_from")
             prev = unit
@@ -587,6 +592,7 @@ class Workflow(StandardWorkflow):
         self.add_end_point()
 
     def add_end_point(self):
+        self.rollback.gate_block = Bool(False)
         self.rollback.gate_skip = (~self.loader.epoch_ended |
                                    self.decision.complete)
         self.end_point.unlink_all()
@@ -598,6 +604,18 @@ class Workflow(StandardWorkflow):
         self.destroyer.unlink_all()
         self.destroyer.link_from(self.gds[0])
         self.destroyer.gate_block = ~self.decision.complete
+
+        uu = None
+        for u in self.start_point.links_to.keys():
+            if isinstance(u, plotting_units.SlaveStats):
+                uu = u
+                break
+        if uu is not None:
+            self.warning("Found malicious plotter, will purge it")
+            uu.unlink_before()
+            self.del_ref(uu)
+            del uu
+            self.warning("Purge succeeded")
 
     def del_plotters(self):
         if hasattr(self, "plt"):
@@ -663,7 +681,10 @@ class Workflow(StandardWorkflow):
         # Output plotter
         self.plt_out = nn_plotting_units.Weights2D(
             self, name="Output", limit=96)
-        self.plt_out.link_attrs(last_ae, ("input", "output"))
+        if isinstance(last_ae, pooling.StochasticPoolingDepooling):
+            self.plt_out.link_attrs(last_ae, "input")
+        else:
+            self.plt_out.link_attrs(last_ae, ("input", "output"))
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_out
@@ -686,8 +707,10 @@ class Workflow(StandardWorkflow):
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         else:
+            #self.loader.max_minibatch_size = 360
             self.decision.max_epochs = root.decision.max_epochs
         self.decision.complete <<= False
+        #self.loader.max_minibatch_size = 240
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
@@ -877,7 +900,10 @@ class Workflow(StandardWorkflow):
                                 ("output_offset", "input_offset")):
                     if hasattr(unit, dst_src[0]):
                         unit.link_attrs(ae[i], dst_src)
-                unit.link_attrs(prev, ("input", "output"))
+                if isinstance(prev, pooling.StochasticPoolingDepooling):
+                    unit.link_attrs(prev, "input")
+                else:
+                    unit.link_attrs(prev, ("input", "output"))
                 self.fix(unit, "input", "weights", "output",
                          "get_output_shape_from")
                 prev = unit
@@ -924,11 +950,12 @@ class Workflow(StandardWorkflow):
             self.decision.min_train_n_err = 1.0e30
 
             self.decision.max_epochs += root.decision.max_epochs
+
         else:
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
             self.n_ae += 1
-
+            """
             # Add Image Saver unit
             self.image_saver = image_saver.ImageSaver(
                 self, out_dirs=root.image_saver.out_dirs)
@@ -940,14 +967,14 @@ class Workflow(StandardWorkflow):
                 ("labels", "minibatch_labels"),
                 "minibatch_class", "minibatch_size")
             self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
-
+            """
             # Add evaluator unit
             self.evaluator.unlink_all()
             self.del_ref(self.evaluator)
             self.evaluator = None
             unit = evaluator.EvaluatorSoftmax(self)
             self.evaluator = unit
-            unit.link_from(self.image_saver)
+            unit.link_from(self.fwds[-1])
             unit.link_attrs(self.fwds[-1], "output", "max_idx")
             unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
                             ("batch_size", "minibatch_size"))
@@ -977,9 +1004,9 @@ class Workflow(StandardWorkflow):
             unit.link_from(self.decision)
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
-            self.image_saver.gate_skip = ~self.decision.improved
-            self.image_saver.link_attrs(self.snapshotter,
-                                        ("this_save_time", "time"))
+            #self.image_saver.gate_skip = ~self.decision.improved
+            #self.image_saver.link_attrs(self.snapshotter,
+            #                            ("this_save_time", "time"))
 
             self.rollback.gate_skip = (~self.loader.epoch_ended |
                                        self.decision.complete)
@@ -1072,15 +1099,14 @@ class Workflow(StandardWorkflow):
 
             self.gds[-1].link_from(prev)
 
-            self.decision.max_epochs += root.decision.max_epochs * 10
+            self.decision.max_epochs += 7
 
         self.add_end_point()
 
 
 def run(load, main):
     IMAGENET_BASE_PATH = root.loader.path
-    root.snapshotter.prefix = "imagenet_ae_%s_%s" % (root.loader.year,
-                                                     root.loader.parallel)
+    root.snapshotter.prefix = "imagenet_ae_%s" % root.loader.year
     CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
         CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
