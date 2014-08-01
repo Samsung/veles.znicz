@@ -36,12 +36,13 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 20,
+                 "decision": {"fail_iterations": 300,
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_size": 60},
                  "mnist": {"learning_rate": 0.03,
-                           "weights_decay": 0.0,
+                           "weights_decay": 0.0005,
+                           "factor_ortho": 0.3,
                            "layers": [100, 10],
                            "data_paths": {"test_images": test_image_dir,
                                           "test_label": test_label_dir,
@@ -221,7 +222,8 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         for i in range(len(self.fwds) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self,
-                                    learning_rate=root.mnist.learning_rate)
+                                    learning_rate=root.mnist.learning_rate,
+                                    factor_ortho=root.mnist.factor_ortho)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))

@@ -21,11 +21,12 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 root.update = {"all2all": {"weights_stddev": 0.05},
-               "decision": {"fail_iterations": 100,
+               "decision": {"fail_iterations": 300,
                             "snapshot_prefix": "mnist"},
                "loader": {"minibatch_size": 60},
                "mnist": {"learning_rate": 0.03,
-                         "weights_decay": 0.0,
+                         "weights_decay": 0.0005,
+                         "factor_ortho": 0.3,
                          "layers": [100, 10],
                          "data_paths": {"test_images": test_image_dir,
                                         "test_label": test_label_dir,
