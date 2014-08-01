@@ -25,7 +25,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
-#import veles.znicz.image_saver as image_saver
+# import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -707,16 +707,20 @@ class Workflow(StandardWorkflow):
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         else:
-            #self.loader.max_minibatch_size = 360
-            self.decision.max_epochs = root.decision.max_epochs
+            self.decision.max_epochs += root.decision.max_epochs
         self.decision.complete <<= False
-        #self.loader.max_minibatch_size = 240
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
         self.check_fixed()
-        if hasattr(self, "plt_out"):
-            self.info("plt_out.shape is %s", str(self.plt_out.input.shape))
+        self.dump_shapes()
+
+    def dump_shapes(self):
+        self.info("Input-Output Shapes:")
+        for i, fwd in enumerate(self.fwds):
+            self.info("%d: %s: %s => %s", i, repr(fwd),
+                      str(fwd.input.shape) if fwd.input else "None",
+                      str(fwd.output.shape) if fwd.output else "None")
 
     def switch_to_fine_tuning(self):
         if len(self.gds) == len(self.fwds):
@@ -823,8 +827,10 @@ class Workflow(StandardWorkflow):
             self.fwds[-1] = unit
             unit.uniform = uniform
             unit.link_attrs(self.fwds[-2], ("input", "output"))
+            unit.create_output()
             self.fix(unit, "input", "output", "input_offset", "uniform")
             prev = unit
+            last_fwd = unit
 
         ae = []
         ae_layers = []

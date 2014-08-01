@@ -10,7 +10,8 @@ from veles.config import root
 
 
 LR = 0.00005
-WD = 0.004
+WD = 0.0005
+ORTHO = 0.3
 GM = 0.9
 L1_VS_L2 = 0.0
 
@@ -20,6 +21,7 @@ LRFTB = LRFT * 2
 LRAA = 0.001
 LRBAA = LRAA * 2
 WDAA = 0.0005
+ORTHOAA = 0.3
 WDBAA = 0
 GMAA = 0.9
 GMBAA = GM
@@ -32,7 +34,7 @@ root.common.precision_type = "float"
 
 root.defaults = {
     "decision": {"fail_iterations": 70,
-                 "max_epochs": 15,
+                 "max_epochs": 27,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "loader": {"year": "216_10",
@@ -50,7 +52,7 @@ root.defaults = {
                      os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae"},
-    "imagenet": {"from_snapshot_add_layer": False,
+    "imagenet": {"from_snapshot_add_layer": True,
                  "fine_tuning_noise": 1.0e-6,
                  "layers":
                  [{"type": "ae_begin"},  # 216
@@ -59,6 +61,7 @@ root.defaults = {
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
                    "weights_decay": WD,
+                   "factor_ortho": ORTHO,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
                    "weights_stddev": STDDEV_CONV,
@@ -74,6 +77,7 @@ root.defaults = {
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
                    "weights_decay": WD,
+                   "factor_ortho": ORTHO,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
                    "weights_stddev": STDDEV_CONV,
@@ -89,6 +93,7 @@ root.defaults = {
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
                    "weights_decay": WD,
+                   "factor_ortho": ORTHO,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
                    "weights_stddev": STDDEV_CONV,
@@ -104,6 +109,7 @@ root.defaults = {
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
                    "weights_decay": WD,
+                   "factor_ortho": ORTHO,
                    "gradient_moment": GM,
                    "weights_filling": FILLING,
                    "weights_stddev": STDDEV_CONV,
@@ -117,6 +123,7 @@ root.defaults = {
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+                   "factor_ortho": ORTHOAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
@@ -127,6 +134,7 @@ root.defaults = {
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
+                   "factor_ortho": ORTHOAA,
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "weights_stddev": STDDEV_AA, "bias_stddev": 1,
