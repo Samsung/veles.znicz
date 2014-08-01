@@ -826,6 +826,7 @@ class Workflow(StandardWorkflow):
             unit = Forward(self, **layer)
             self.fwds[-1] = unit
             unit.uniform = uniform
+            unit.link_from(self.fwds[-2])
             unit.link_attrs(self.fwds[-2], ("input", "output"))
             unit.create_output()
             self.fix(unit, "input", "output", "input_offset", "uniform")
@@ -1010,9 +1011,9 @@ class Workflow(StandardWorkflow):
             unit.link_from(self.decision)
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
-            #self.image_saver.gate_skip = ~self.decision.improved
-            #self.image_saver.link_attrs(self.snapshotter,
-            #                            ("this_save_time", "time"))
+            # self.image_saver.gate_skip = ~self.decision.improved
+            # self.image_saver.link_attrs(self.snapshotter,
+            #                             ("this_save_time", "time"))
 
             self.rollback.gate_skip = (~self.loader.epoch_ended |
                                        self.decision.complete)
