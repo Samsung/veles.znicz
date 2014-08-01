@@ -28,7 +28,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         kwargs["view_group"] = "LOADER"
         super(ImagenetForwardLoaderBbox, self).__init__(workflow, **kwargs)
         self.bboxes_file_name = bboxes_file_name
-        self.aperture = 0
+        self.aperture = kwargs.get("aperture", 216)
+        self.channels = kwargs.get("channels", 4)
         self.max_minibatch_size = kwargs.get('minibatch_size', 128)
         self.minibatch_data = formats.Vector()
         self.minibatch_size = 0
@@ -36,7 +37,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.minibatch_images = 0
         self.add_sobel = kwargs.get('sobel', True)
         self.ended = Bool()
-        self.demand("entry")  # first forward unit
+        #self.demand("entry")  # first forward unit
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
@@ -48,14 +49,12 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         with open(self.bboxes_file_name, "rb") as fin:
             self.bboxes = pickle.load(fin)
         self.info("Successfully loaded")
-        self.bbox_iter = [iter(self.bboxes), None]
-        self.bbox_iter[1] = iter(next(self.bbox_iter[0])['bbxs'])
+        self.bbox_iter = [iter(self.bboxes.items()), None]
+        self.bbox_iter[1] = iter(next(self.bbox_iter[0])[1]['bbxs'])
 
-        self.aperture = 256  # FIXME: get it from self.entry
-        channels = 4  # FIXME: get it from self.entry
         self.minibatch_data.mem = numpy.zeros(
-            (self.max_minibatch_size, self.aperture ** 2 * channels),
-            dtype=self.entry.weights.mem.dtype)
+            (self.max_minibatch_size, self.aperture ** 2 * self.channels),
+            dtype=numpy.uint8)
 
         self.minibatch_bboxes = numpy.zeros(
             (self.max_minibatch_size, 4, 2), dtype=numpy.uint16)
