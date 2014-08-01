@@ -66,6 +66,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.local_size_err_input = None
         self.global_size_weights = None
         self.local_size_weights = None
+        self.reduce_size = 64
 
     def init_unpickled(self):
         super(GDDeconv, self).init_unpickled()
@@ -159,74 +160,119 @@ class GDDeconv(nn_units.GradientDescentBase):
         if device is None:
             return
 
-        if self.program_ is None:
-            self.cl_const = numpy.zeros(4, dtype=dtype)
+        self.cl_const = numpy.zeros(5, dtype=dtype)
 
-            defines = {
-                'ACTIVATION_LINEAR': 1,
-                'APPLY_GRADIENT': int(self.apply_gradient),
-                'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-                'STORE_GRADIENT': int(self.store_gradient),
-                'INCLUDE_BIAS': 0,
-                'BATCH': batch_size,
-                'SX': sx,
-                'SY': sy,
-                'N_CHANNELS': n_channels,
-                'KX': self.kx,
-                'KY': self.ky,
-                'N_KERNELS': self.n_kernels,
-                'PAD_LEFT': self.padding[0],
-                'PAD_TOP': self.padding[1],
-                'PAD_RIGHT': self.padding[2],
-                'PAD_BOTTOM': self.padding[3],
-                'SLIDE_X': self.sliding[0],
-                'SLIDE_Y': self.sliding[1]
-            }
-            my_defines = self.build_program(
-                defines, "%s/gd_deconv_%d_%d.cl" % (
-                    root.common.cache_dir,
-                    self.input.mem.size // self.input.mem.shape[0],
-                    self.err_output.mem.size // self.err_output.mem.shape[0]),
-                dtype=dtype)
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(dtype)]
 
-            self.krn_err_output_ = self.get_kernel("err_output_update")
-            self.krn_err_output_.set_arg(0, self.err_output.devmem)
+        side = self.weights.shape[1 if self.weights_transposed else 0]
+        other = self.weights.size // side
 
-            if self.need_err_input:
-                self.krn_err_input_ = self.get_kernel("feed_layer")
-                self.krn_err_input_.set_args(self.err_output.devmem,
-                                             self.weights.devmem,
-                                             self.err_input.devmem)
+        if self.factor_ortho:
+            self.reduce_size = min(self.reduce_size,
+                                   max(self.weights.shape[0],
+                                       self.weights.shape[1]))
+            if not self.wwt or self.wwt.size < side * side:
+                self.wwt.reset()
+                self.wwt.mem = numpy.zeros([side, side], dtype=dtype)
+            if not self.row_sums or self.row_sums.size < side:
+                self.row_sums.reset()
+                self.row_sums.mem = numpy.zeros(side, dtype=dtype)
+            if not self.col_sums or self.col_sums.size < other:
+                self.col_sums.reset()
+                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
 
-            self.krn_weights_ = self.get_kernel("weights_update")
-            self.krn_weights_.set_args(self.err_output.devmem,
-                                       self.input.devmem,
-                                       self.weights.devmem,
-                                       self.gradient_weights.devmem)
+            self.wwt.initialize(self.device)
+            self.row_sums.initialize(self.device)
+            self.col_sums.initialize(self.device)
+        else:
+            self.reduce_size = min(self.reduce_size, other)
+        self.reduce_size = formats.roundup(self.reduce_size, 32)
 
-            block_size = self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(dtype)]
-            if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
-                raise error.Bug("Returned BLOCK_SIZE differs from expected")
+        defines = {
+            'USE_ORTHO': int(bool(self.factor_ortho)),
+            'H': other,
+            'Y': side,
+            'ACTIVATION_LINEAR': 1,
+            'APPLY_GRADIENT': int(self.apply_gradient),
+            'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
+            'STORE_GRADIENT': int(self.store_gradient),
+            'INCLUDE_BIAS': 0,
+            'BATCH': batch_size,
+            'SX': sx,
+            'SY': sy,
+            'N_CHANNELS': n_channels,
+            'KX': self.kx,
+            'KY': self.ky,
+            'N_KERNELS': self.n_kernels,
+            'PAD_LEFT': self.padding[0],
+            'PAD_TOP': self.padding[1],
+            'PAD_RIGHT': self.padding[2],
+            'PAD_BOTTOM': self.padding[3],
+            'SLIDE_X': self.sliding[0],
+            'SLIDE_Y': self.sliding[1],
+            'REDUCE_SIZE': self.reduce_size
+        }
+        my_defines = self.build_program(
+            defines, "%s/gd_deconv_%d_%d.cl" % (
+                root.common.cache_dir,
+                self.input.mem.size // self.input.mem.shape[0],
+                self.err_output.mem.size // self.err_output.mem.shape[0]),
+            dtype=dtype)
 
-            if self.need_err_input:
-                self.global_size_err_input = [
-                    formats.roundup(self.n_kernels, block_size),
-                    formats.roundup(self.err_input.mem.size // self.n_kernels,
-                                    block_size)]
-                self.local_size_err_input = [block_size, block_size]
+        self.krn_err_output_ = self.get_kernel("err_output_update")
+        self.krn_err_output_.set_arg(0, self.err_output.devmem)
 
-            if self.weights_transposed:
-                self.global_size_weights = [
-                    formats.roundup(self.n_kernels, block_size),
-                    formats.roundup(self.kx * self.ky * n_channels,
-                                    block_size)]
-            else:
-                self.global_size_weights = [
-                    formats.roundup(self.kx * self.ky * n_channels,
-                                    block_size),
-                    formats.roundup(self.n_kernels, block_size)]
-            self.local_size_weights = [block_size, block_size]
+        if self.need_err_input:
+            self.krn_err_input_ = self.get_kernel("feed_layer")
+            self.krn_err_input_.set_args(self.err_output.devmem,
+                                         self.weights.devmem,
+                                         self.err_input.devmem)
+
+        self.krn_weights_ = self.get_kernel("weights_update")
+        self.krn_weights_.set_args(self.err_output.devmem,
+                                   self.input.devmem,
+                                   self.weights.devmem,
+                                   self.gradient_weights.devmem)
+
+        if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
+            raise error.Bug("Returned BLOCK_SIZE differs from expected")
+
+        if self.need_err_input:
+            self.global_size_err_input = [
+                formats.roundup(self.n_kernels, block_size),
+                formats.roundup(self.err_input.mem.size // self.n_kernels,
+                                block_size)]
+            self.local_size_err_input = [block_size, block_size]
+
+        if self.weights_transposed:
+            self.global_size_weights = [
+                formats.roundup(self.n_kernels, block_size),
+                formats.roundup(self.kx * self.ky * n_channels,
+                                block_size)]
+        else:
+            self.global_size_weights = [
+                formats.roundup(self.kx * self.ky * n_channels,
+                                block_size),
+                formats.roundup(self.n_kernels, block_size)]
+        self.local_size_weights = [block_size, block_size]
+
+        if self.factor_ortho:
+            self.krn_compute_wwt_ = self.get_kernel("compute_wwt")
+            self.krn_compute_wwt_.set_args(self.weights.devmem,
+                                           self.wwt.devmem)
+            self.krn_compute_row_sums_ = self.get_kernel("compute_row_sums")
+            self.krn_compute_row_sums_.set_args(self.wwt.devmem,
+                                                self.row_sums.devmem)
+            self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
+            self.krn_compute_col_sums_.set_args(self.weights.devmem,
+                                                self.col_sums.devmem)
+
+            self.krn_weights_.set_arg(9, self.row_sums.devmem)
+            self.krn_weights_.set_arg(10, self.col_sums.devmem)
+
+            self.info("Using orthogonalization factor of %.6f",
+                      self.factor_ortho)
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
@@ -250,11 +296,35 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.gradient_weights.unmap()
 
         lr = self.learning_rate
-        lr_x_l = self.learning_rate * self.weights_decay
+        factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
 
+        block_size = self.device.device_info.BLOCK_SIZE[
+            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
+
+        local_size = [block_size, block_size]
+        if self.factor_ortho:
+            self.wwt.unmap()
+            self.row_sums.unmap()
+            self.col_sums.unmap()
+            side = self.wwt.shape[0]
+            other = self.weights.size // side
+            self.execute_kernel(
+                [formats.roundup(side, block_size),
+                 formats.roundup(side, block_size)],
+                local_size, self.krn_compute_wwt_)
+            self.execute_kernel(
+                [side * self.reduce_size], [self.reduce_size],
+                self.krn_compute_row_sums_)
+            self.execute_kernel(
+                [other * self.reduce_size], [self.reduce_size],
+                self.krn_compute_col_sums_)
+
+            self.cl_const[4] = self.factor_ortho
+            self.krn_weights_.set_arg(8, self.cl_const[4:5])
+
         self.cl_const[0] = lr
-        self.cl_const[1] = lr_x_l
+        self.cl_const[1] = factor_l12
         self.cl_const[2] = l1_vs_l2
         self.cl_const[3] = self.gradient_moment
         self.krn_weights_.set_args(

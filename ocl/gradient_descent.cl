@@ -1,6 +1,11 @@
 #include "gradient_descent_common.cl"
 
 
+#if USE_ORTHO > 0
+#include "weights_ortho.cl"
+#endif
+
+
 /// @brief Computes backprogated error for previous layer:
 ///        err_h = err_y * weights.
 /// @details Should be defined externally:
@@ -48,12 +53,12 @@ void err_h_update(__global const dtype    /* IN */    *err_y,
 /// @param weights Layer weights.
 /// @param gradient Computed gradient.
 /// @param lr learning_rate.
-/// @param lr_x_l learning_rate * lnorm_factor.
+/// @param factor_l12 lnorm_factor.
 /// @param l1_vs_l2 how much to prefer l1 over l2 (from [0, 1]).
 /// @param gradient_moment Moment for gradient.
 /// @details gradient = previous_gradient * gradient_moment -
-///                     (err_y * h * lr +
-///                      lr_x_l * ((1 - l1_vs_l2) * weights + 0.5 * l1_vs_l2 * sign(weights)).
+///                     lr * (err_y * h +
+///                     factor_l12 * ((1 - l1_vs_l2) * weights + 0.5 * l1_vs_l2 * sign(weights)).
 ///          Should be defined externally:
 ///          BLOCK_SIZE - size of the block for matrix multiplication,
 ///          BATCH - minibatch size,
@@ -65,9 +70,15 @@ void weights_update(__global const dtype    /* IN */    *err_y,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
                     const dtype             /* IN */    lr,
-                    const dtype             /* IN */    lr_x_l,
+                    const dtype             /* IN */    factor_l12,
                     const dtype             /* IN */    l1_vs_l2,
-                    const dtype             /* IN */    gradient_moment) {
+                    const dtype             /* IN */    gradient_moment
+#if USE_ORTHO > 0
+                    , const dtype           /* IN */    factor_ortho,
+                    __global dtype          /* IN */    *row_sums,
+                    __global dtype          /* IN */    *col_sums
+#endif
+                    ) {
   #if WEIGHTS_TRANSPOSED > 0
   #define A_WIDTH H
   #define B_WIDTH Y
@@ -99,7 +110,15 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   if (valid) {
     dtype weight = weights[idx];
-    dtype gd = -gradient_step(weight, sum, lr, lr_x_l, l1_vs_l2);
+    dtype gd = -lr * (sum + gradient_step_l12(weight, factor_l12, l1_vs_l2)
+#if USE_ORTHO > 0
+    #if WEIGHTS_TRANSPOSED > 0
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(0), get_global_id(1), row_sums, col_sums)
+    #else
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(1), get_global_id(0), row_sums, col_sums)
+    #endif
+#endif
+               );
     #if STORE_GRADIENT > 0
     gd += gradient[idx] * gradient_moment;
     gradient[idx] = gd;
@@ -117,12 +136,12 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 /// @param err_y Backpropagated error.
 /// @param gradient Computed gradient to store in if not null.
 /// @param lr learning_rate.
-/// @param lr_x_l learning_rate * lnorm_factor.
+/// @param factor_l12 lnorm_factor.
 /// @param l1_vs_l2 how much to prefer l1 over l2 (from [0, 1]).
 /// @param gradient_moment Moment for gradient.
 /// @details gradient = previous_gradient * gradient_moment -
-///                     (sum(err_y) * lr +
-///                      lr_x_l * ((1 - l1_vs_l2) * bias + 0.5 * l1_vs_l2 * sign(bias)).
+///                     lr * (sum(err_y) +
+///                     factor_l12 * ((1 - l1_vs_l2) * bias + 0.5 * l1_vs_l2 * sign(bias)).
 ///          Should be defined externally:
 ///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          BATCH - minibatch size,
@@ -132,7 +151,7 @@ void bias_update(__global const dtype    /* IN */    *err_y,
                  __global dtype     /* IN, OUT */    *bias,
                  __global dtype     /* IN, OUT */    *gradient,
                  const dtype             /* IN */    lr,
-                 const dtype             /* IN */    lr_x_l,
+                 const dtype             /* IN */    factor_l12,
                  const dtype             /* IN */    l1_vs_l2,
                  const dtype             /* IN */    gradient_moment) {
  
@@ -151,7 +170,7 @@ void bias_update(__global const dtype    /* IN */    *err_y,
   if (!tx) {
     sum += AS[0];
     dtype cur_bias = bias[bx];
-    dtype gd = -gradient_step(cur_bias, sum, lr, lr_x_l, l1_vs_l2);
+    dtype gd = -lr * (sum + gradient_step_l12(cur_bias, factor_l12, l1_vs_l2));
     #if STORE_GRADIENT > 0
     gd += gradient[bx] * gradient_moment;
     gradient[bx] = gd;

@@ -1,5 +1,9 @@
 #include "gradient_descent_common.cl"
 
+#if USE_ORTHO > 0
+#include "weights_ortho.cl"
+#endif
+
 #if INCLUDE_BIAS != 0
 #error "INCLUDE_BIAS should be 0"
 #endif
@@ -19,9 +23,15 @@ void weights_update(__global const dtype    /* IN */    *err_y,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
                     const dtype             /* IN */    lr,
-                    const dtype             /* IN */    lr_x_l,
+                    const dtype             /* IN */    factor_l12,
                     const dtype             /* IN */    l1_vs_l2,
-                    const dtype             /* IN */    gradient_moment) {
+                    const dtype             /* IN */    gradient_moment
+#if USE_ORTHO > 0
+                    , const dtype           /* IN */    factor_ortho,
+                    __global dtype          /* IN */    *row_sums,
+                    __global dtype          /* IN */    *col_sums
+#endif
+                    ) {
   #if WEIGHTS_TRANSPOSED > 0
 
   #define A_WIDTH ELEMENTS_PER_KERNEL
@@ -66,7 +76,15 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   if (valid) {
     dtype weight = weights[idx];
-    dtype gd = -gradient_step(weight, sum, lr, lr_x_l, l1_vs_l2);
+    dtype gd = -lr * (sum + gradient_step_l12(weight, factor_l12, l1_vs_l2)
+#if USE_ORTHO > 0
+    #if WEIGHTS_TRANSPOSED > 0
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(0), get_global_id(1), row_sums, col_sums)
+    #else
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(1), get_global_id(0), row_sums, col_sums)
+    #endif
+#endif
+               );
     #if STORE_GRADIENT > 0
     gd += gradient[idx] * gradient_moment;
     gradient[idx] = gd;

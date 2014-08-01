@@ -139,6 +139,10 @@ class GradientDescentBase(OpenCLUnit):
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.need_err_input = kwargs.get("need_err_input", True)
         self.include_bias = kwargs.get("include_bias", True)
+        self.factor_ortho = kwargs.get("factor_ortho", 0)
+        self.wwt = formats.Vector()  # for orthogonalization
+        self.row_sums = formats.Vector()  # for orthogonalization
+        self.col_sums = formats.Vector()  # for orthogonalization
         self.store_gradient = bool(
             (not workflow.is_slave and
              (self.gradient_moment or self.gradient_moment_bias)) or
@@ -217,9 +221,15 @@ class GradientDescentBase(OpenCLUnit):
         pass
 
     @staticmethod
-    def cpu_gradient_step(weight, gradient, lr, lr_x_l, l1_vs_l2):
-        return gradient * lr + lr_x_l * ((1.0 - l1_vs_l2) * weight +
-                                         0.5 * l1_vs_l2 * numpy.sign(weight))
+    def cpu_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
+                          factor_ortho=0, row_sums=None, col_sums=None):
+        g = gradient.copy()
+        g += factor_l12 * ((1.0 - l1_vs_l2) * weight +
+                           0.5 * l1_vs_l2 * numpy.sign(weight))
+        if factor_ortho:
+            for i, row in enumerate(g):
+                row += factor_ortho * row_sums[i] * (col_sums - weight[i])
+        return lr * g
 
 
 class NNWorkflow(OpenCLWorkflow):

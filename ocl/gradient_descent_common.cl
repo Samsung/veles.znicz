@@ -22,7 +22,7 @@
 #endif
 
 
-#define gradient_step(weight, gradient, lr, lr_x_l, l1_vs_l2) (gradient * lr + lr_x_l * (((dtype)1.0 - l1_vs_l2) * weight + (dtype)0.5 * l1_vs_l2 * sign(weight)))
+#define gradient_step_l12(weight, factor, l1_vs_l2) (factor * (((dtype)1.0 - l1_vs_l2) * weight + (dtype)0.5 * l1_vs_l2 * sign(weight)))
 
 
 #endif  // _GRADIENT_DESCENT_COMMON_

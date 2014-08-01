@@ -63,9 +63,7 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         super(Pooling, self).init_unpickled()
         self.cl_sources_["pooling.cl"] = {}
 
-    def initialize(self, device, **kwargs):
-        super(Pooling, self).initialize(device=device, **kwargs)
-
+    def create_output(self):
         self._batch_size = self.input.mem.shape[0]
         self._sy = self.input.mem.shape[1]
         self._sx = self.input.mem.shape[2]
@@ -92,6 +90,11 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
             self.output.reset()
             self.output.mem = numpy.zeros(self._output_shape,
                                           dtype=self.input.mem.dtype)
+
+    def initialize(self, device, **kwargs):
+        super(Pooling, self).initialize(device=device, **kwargs)
+
+        self.create_output()
 
         self.input.initialize(self.device)
         if not self._no_output:
@@ -382,10 +385,10 @@ class StochasticPoolingDepooling(StochasticPooling):
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingDepooling, self).__init__(workflow, **kwargs)
         self._no_output = True
-        self.cl_sources_["pooling.cl"] = {"USE_POOLING_DEPOOLING": 1}
 
     def init_unpickled(self):
         super(StochasticPoolingDepooling, self).init_unpickled()
+        self.cl_sources_["pooling.cl"]["USE_POOLING_DEPOOLING"] = 1
         self._rand_arg = 1
         self._kernel_name = "do_stochastic_pooling_depooling"
 
@@ -401,6 +404,9 @@ class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
     """
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPoolingDepooling, self).__init__(workflow, **kwargs)
+
+    def init_unpickled(self):
+        super(StochasticAbsPoolingDepooling, self).init_unpickled()
         self.cl_sources_["pooling.cl"]["ABS_VALUES"] = 1
 
 
