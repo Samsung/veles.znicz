@@ -422,9 +422,8 @@ class Workflow(StandardWorkflow):
         self.gds[-1].unlink_before()
         self.gds[-1].link_from(prev)
 
-    def initialize(self, minibatch_size, device):
-        super(Workflow, self).initialize(minibatch_size=minibatch_size,
-                                         device=device)
+    def initialize(self, device, **kwargs):
+        super(Workflow, self).initialize(device, **kwargs)
 
 
 def run(load, main):
