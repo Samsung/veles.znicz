@@ -169,25 +169,11 @@ class GDDeconv(nn_units.GradientDescentBase):
         other = self.weights.size // side
 
         if self.factor_ortho:
-            self.reduce_size = min(self.reduce_size,
-                                   max(self.weights.shape[0],
-                                       self.weights.shape[1]))
-            if not self.wwt or self.wwt.size < side * side:
-                self.wwt.reset()
-                self.wwt.mem = numpy.zeros([side, side], dtype=dtype)
-            if not self.row_sums or self.row_sums.size < side:
-                self.row_sums.reset()
-                self.row_sums.mem = numpy.zeros(side, dtype=dtype)
             if not self.col_sums or self.col_sums.size < other:
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-
-            self.wwt.initialize(self.device)
-            self.row_sums.initialize(self.device)
             self.col_sums.initialize(self.device)
-        else:
-            self.reduce_size = min(self.reduce_size, other)
-        self.reduce_size = formats.roundup(self.reduce_size, 32)
+        self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
 
         defines = {
             'USE_ORTHO': int(bool(self.factor_ortho)),
@@ -258,21 +244,10 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.local_size_weights = [block_size, block_size]
 
         if self.factor_ortho:
-            self.krn_compute_wwt_ = self.get_kernel("compute_wwt")
-            self.krn_compute_wwt_.set_args(self.weights.devmem,
-                                           self.wwt.devmem)
-            self.krn_compute_row_sums_ = self.get_kernel("compute_row_sums")
-            self.krn_compute_row_sums_.set_args(self.wwt.devmem,
-                                                self.row_sums.devmem)
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-
-            self.krn_weights_.set_arg(9, self.row_sums.devmem)
-            self.krn_weights_.set_arg(10, self.col_sums.devmem)
-
-            self.info("Using orthogonalization factor of %.6f",
-                      self.factor_ortho)
+            self.krn_weights_.set_arg(9, self.col_sums.devmem)
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
@@ -299,23 +274,10 @@ class GDDeconv(nn_units.GradientDescentBase):
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
 
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
-
-        local_size = [block_size, block_size]
         if self.factor_ortho:
-            self.wwt.unmap()
-            self.row_sums.unmap()
             self.col_sums.unmap()
-            side = self.wwt.shape[0]
+            side = self.weights.shape[1 if self.weights_transposed else 0]
             other = self.weights.size // side
-            self.execute_kernel(
-                [formats.roundup(side, block_size),
-                 formats.roundup(side, block_size)],
-                local_size, self.krn_compute_wwt_)
-            self.execute_kernel(
-                [side * self.reduce_size], [self.reduce_size],
-                self.krn_compute_row_sums_)
             self.execute_kernel(
                 [other * self.reduce_size], [self.reduce_size],
                 self.krn_compute_col_sums_)

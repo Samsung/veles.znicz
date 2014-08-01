@@ -72,8 +72,7 @@ void weights_update(__global const dtype    /* IN */    *err_y,
                     const dtype             /* IN */    gradient_moment
 #if USE_ORTHO > 0
                     , const dtype           /* IN */    factor_ortho,
-                    __global dtype          /* IN */    *row_sums,
-                    __global dtype          /* IN */    *col_sums
+                    __global const dtype    /* IN */    *col_sums
 #endif
                     ) {
   #if WEIGHTS_TRANSPOSED > 0
@@ -123,9 +122,9 @@ void weights_update(__global const dtype    /* IN */    *err_y,
     dtype gd = -lr * (sum + gradient_step_l12(weight, factor_l12, l1_vs_l2)
 #if USE_ORTHO > 0
     #if WEIGHTS_TRANSPOSED > 0
-               + gradient_step_ortho(weight, factor_ortho, get_global_id(0), get_global_id(1), row_sums, col_sums)
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(1), Y, col_sums)
     #else
-               + gradient_step_ortho(weight, factor_ortho, get_global_id(1), get_global_id(0), row_sums, col_sums)
+               + gradient_step_ortho(weight, factor_ortho, get_global_id(0), Y, col_sums)
     #endif
 #endif
                );
