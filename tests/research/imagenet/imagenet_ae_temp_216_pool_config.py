@@ -11,7 +11,7 @@ from veles.config import root
 
 LR = 0.00005
 WD = 0.0005
-ORTHO = 0.3
+ORTHO = 0.001
 GM = 0.9
 L1_VS_L2 = 0.0
 
@@ -21,7 +21,7 @@ LRFTB = LRFT * 2
 LRAA = 0.001
 LRBAA = LRAA * 2
 WDAA = 0.0005
-ORTHOAA = 0.3
+ORTHOAA = 0.001
 WDBAA = 0
 GMAA = 0.9
 GMBAA = GM
@@ -34,7 +34,7 @@ root.common.precision_type = "float"
 
 root.defaults = {
     "decision": {"fail_iterations": 70,
-                 "max_epochs": 27,
+                 "max_epochs": 25,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
     "loader": {"year": "216_10",

@@ -474,7 +474,8 @@ class Workflow(StandardWorkflow):
                 ae_layers.append(layer)
             if isinstance(unit, pooling.StochasticPoolingBase):
                 if self.uniform is None:
-                    self.uniform = prng.Uniform(DummyWorkflow())
+                    self.uniform = prng.Uniform(DummyWorkflow(),
+                                                num_states=512)
                 unit.uniform = self.uniform
             self.fwds.append(unit)
             unit.link_from(prev)
