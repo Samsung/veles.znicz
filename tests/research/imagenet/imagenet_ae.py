@@ -1107,7 +1107,7 @@ class Workflow(StandardWorkflow):
 
             self.gds[-1].link_from(prev)
 
-            self.decision.max_epochs += 7
+            self.decision.max_epochs += 15
 
         self.add_end_point()
 
