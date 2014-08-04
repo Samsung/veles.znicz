@@ -825,6 +825,7 @@ class Workflow(StandardWorkflow):
             prev.unlink_all()
             self.del_ref(prev)
             unit = Forward(self, **layer)
+            unit.layer = layer
             self.fwds[-1] = unit
             unit.uniform = uniform
             unit.link_from(self.fwds[-2])
