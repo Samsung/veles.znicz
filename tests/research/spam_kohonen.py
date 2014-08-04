@@ -223,7 +223,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plotters[1].link_from(self.decision)
         self.plotters[1].gate_block = ~self.loader.epoch_ended
 
-    def initialize(self, device):
+    def initialize(self, device, **kwargs):
         return super(Workflow, self).initialize(device=device)
 
 
