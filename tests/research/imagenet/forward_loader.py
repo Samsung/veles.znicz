@@ -6,6 +6,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import cv2
+import gc
 import math
 import numpy
 from zope.interface import implementer
@@ -36,13 +37,13 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         kwargs["view_group"] = "LOADER"
         super(ImagenetForwardLoaderBbox, self).__init__(workflow, **kwargs)
         self.bboxes_file_name = bboxes_file_name
-        self.aperture = kwargs.get("aperture", 216)
-        self.channels = kwargs.get("channels", 4)
-        self.max_minibatch_size = kwargs.get('minibatch_size', 128)
+        self.aperture = 0
+        self.channels = 0
         self.minibatch_data = formats.Vector()
         self.minibatch_size = 0
+        self.max_minibatch_size = 0
         self.minibatch_bboxes = 0
-        self.add_sobel = self.channels == 4
+        self.add_sobel = False
         self.angle_step = kwargs.get("angle_step", numpy.pi / 6)
         self.max_angle = kwargs.get("max_angle", numpy.pi)
         self.ended = Bool()
@@ -53,7 +54,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._next_image_bbox = None  # used when another image appears
         self._mean = None
         self._mean_file_name = matrices_pickle
-        # self.demand("entry")  # first forward unit
+        self.demand("entry")  # first forward unit
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
@@ -61,14 +62,20 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     def initialize(self, device, **kwargs):
         super(ImagenetForwardLoaderBbox, self).initialize(
             device=device, **kwargs)
+        shape = self.entry.mem.shape
+        self.max_minibatch_size = shape[0]
+        self.aperture = shape[1]
+        self.channels = shape[-1]
+        self.add_sobel = self.channels == 4
         self.info("Loading bboxes from %s...", self.bboxes_file_name)
         with open(self.bboxes_file_name, "rb") as fin:
             self.bboxes = pickle.load(fin)
         self.info("Successfully loaded")
         self.info("Loading mean image...")
-        with open(self.matrices_filename, "rb") as fin:
+        with open(self._mean_file_name, "rb") as fin:
             self._mean, _ = pickle.load(fin)
         self.info("Successfully loaded")
+        gc.collect()
         self.bbox_iter = [iter(self.bboxes.items()), None]
         self._next_image()
 
@@ -214,13 +221,14 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.current_image = next_img[0]
         self._current_image_data = self.decode_image(next_img[1]["path"])
         self.image_ended <<= True
+        self._next_image_bbox = self._next_bbox()
 
     def _next_bbox(self):
         try:
             bbox = next(self.bbox_iter[1])
         except StopIteration:
             self._next_image()
-            return self._next_bbox()
+            return self._next_image_bbox
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
@@ -260,12 +268,14 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
     def cpu_run(self):
         self.minibatch_data.map_invalidate()
+        bbox = None
 
         for index in range(self.max_minibatch_size):
             self.image_ended <<= False
             self.minibatch_size = index
             if self._next_image_bbox is not None:
                 bbox, self._next_image_bbox = self._next_image_bbox, None
+                angle, flip = self._state
             else:
                 try:
                     angle, flip = self._next_state()
@@ -275,6 +285,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                     except StopIteration:
                         self.ended <<= True
                         return
+                    angle, flip = self._state
             if self.image_ended:
                 self._next_image_bbox = bbox
             else:
