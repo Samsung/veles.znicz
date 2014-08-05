@@ -51,6 +51,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         padding: tuple of virtual sample padding (left, top, right, bottom),
                  will be computed automatically based on sliding.
         weights_transposed: assume weights matrix as a transposed one.
+        unsafe_padding: flag to enable unsafe padding and/or sliding.
     """
     @staticmethod
     def compute_padding(sx, sy, kx, ky, sliding):
@@ -87,6 +88,8 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.demand("input", "weights", "get_output_shape_from")
         self.global_size = None
         self.local_size = None
+        self.unsafe_padding = kwargs.get("unsafe_padding", False)
+        self.hits = formats.Vector()
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
@@ -125,13 +128,23 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             raise error.BadFormatError(
                 "get_output_shape_from.shape[0] != input.shape[0]")
 
-        padding = Deconv.compute_padding(
-            output_shape[2], output_shape[1], self.kx, self.ky, self.sliding)
-        if self.padding is None:
-            self.padding = padding
-        elif self.padding != padding:
-            raise error.BadFormatError("Expected padding %s got %s" %
-                                       (str(padding), str(self.padding)))
+        try:
+            padding = Deconv.compute_padding(
+                output_shape[2], output_shape[1],
+                self.kx, self.ky, self.sliding)
+            if self.padding is None:
+                self.padding = padding
+            elif self.padding != padding:
+                raise error.BadFormatError("Expected padding %s got %s" %
+                                           (str(padding), str(self.padding)))
+        except error.BadFormatError:
+            if not self.unsafe_padding:
+                raise
+            self.warning("Using unsafe padding of %s", str(self.padding))
+            if (not self.hits or
+                    self.hits.size != int(numpy.prod(output_shape))):
+                self.hits.reset()
+                self.hits.mem = numpy.zeros(output_shape, dtype=numpy.int32)
 
         if (self.output.mem is None or
                 self.output.size != int(numpy.prod(output_shape))):
@@ -154,6 +167,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.input.initialize(device)
         self.weights.initialize(device)
         self.output.initialize(device)
+        self.hits.initialize(device)
 
         if device is None:
             return
@@ -173,7 +187,8 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             'PAD_RIGHT': self.padding[2],
             'PAD_BOTTOM': self.padding[3],
             'SLIDE_X': self.sliding[0],
-            'SLIDE_Y': self.sliding[1]
+            'SLIDE_Y': self.sliding[1],
+            'USE_HITS': int(bool(self.hits))
         }
         my_defines = self.build_program(
             defines, "%s/deconv_%dx%dx%d_%dx%d_%d.cl" % (
@@ -197,13 +212,27 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             formats.roundup(kernel_applies_count, block_size)]
         self.local_size = [block_size, block_size]
 
+        if self.hits:
+            self.krn_apply_hits_ = self.get_kernel("apply_hits")
+            self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
+
+            self.krn_clear_hits_ = self.get_kernel("clear_hits")
+            self.krn_clear_hits_.set_arg(0, self.hits.devmem)
+
+            self.set_arg(3, self.hits)
+
     def ocl_run(self):
         self.output.unmap()
         self.input.unmap()
         self.weights.unmap()
-        self.execute_kernel([self.output.size], None,
-                            self.krn_clear_output_)
-        self.execute_kernel(self.global_size, self.local_size)
+        self.execute_kernel([self.output.size], None, self.krn_clear_output_)
+        if self.hits:
+            self.hits.unmap()
+            self.execute_kernel([self.hits.size], None, self.krn_clear_hits_)
+            self.execute_kernel(self.global_size, self.local_size)
+            self.execute_kernel([self.hits.size], None, self.krn_apply_hits_)
+        else:
+            self.execute_kernel(self.global_size, self.local_size)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")

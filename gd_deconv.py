@@ -67,6 +67,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         self.global_size_weights = None
         self.local_size_weights = None
         self.reduce_size = 64
+        self.hits = None
 
     def init_unpickled(self):
         super(GDDeconv, self).init_unpickled()
@@ -117,13 +118,18 @@ class GDDeconv(nn_units.GradientDescentBase):
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
 
-        padding = Deconv.compute_padding(
-            sx, sy, self.kx, self.ky, self.sliding)
-        if self.padding is None:
-            self.padding = padding
-        elif self.padding != padding:
-            raise error.BadFormatError("Expected padding %s got %s" %
-                                       (str(padding), str(self.padding)))
+        try:
+            padding = Deconv.compute_padding(
+                sx, sy, self.kx, self.ky, self.sliding)
+            if self.padding is None:
+                self.padding = padding
+            elif self.padding != padding:
+                raise error.BadFormatError("Expected padding %s got %s" %
+                                           (str(padding), str(self.padding)))
+        except error.BadFormatError:
+            if not self.hits:
+                raise
+            self.warning("Using unsafe padding of %s", str(self.padding))
 
         if (self.need_err_input and (
                 self.err_input.mem is None or
@@ -156,6 +162,8 @@ class GDDeconv(nn_units.GradientDescentBase):
             self.err_input.initialize(device)
         if self.store_gradient:
             self.gradient_weights.initialize(device)
+        if self.hits:
+            self.hits.initialize(device)
 
         if device is None:
             return
@@ -197,7 +205,8 @@ class GDDeconv(nn_units.GradientDescentBase):
             'PAD_BOTTOM': self.padding[3],
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1],
-            'REDUCE_SIZE': self.reduce_size
+            'REDUCE_SIZE': self.reduce_size,
+            'USE_HITS': int(bool(self.hits))
         }
         my_defines = self.build_program(
             defines, "%s/gd_deconv_%d_%d.cl" % (
@@ -208,6 +217,8 @@ class GDDeconv(nn_units.GradientDescentBase):
 
         self.krn_err_output_ = self.get_kernel("err_output_update")
         self.krn_err_output_.set_arg(0, self.err_output.devmem)
+        if self.hits:
+            self.krn_err_output_.set_arg(1, self.hits.devmem)
 
         if self.need_err_input:
             self.krn_err_input_ = self.get_kernel("feed_layer")

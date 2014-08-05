@@ -8,7 +8,7 @@
 #error "INCLUDE_BIAS should be 0"
 #endif
 
-#if (KX % SLIDE_X != 0) || (KY % SLIDE_Y != 0)
+#if (!(USE_HITS > 0)) && ((KX % SLIDE_X != 0) || (KY % SLIDE_Y != 0))
 #error "Incorrect SLIDE"
 #endif
 
@@ -95,7 +95,17 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 }
 #endif
 
+#if USE_HITS > 0
+__kernel
+void err_output_update(__global dtype    /* IN, OUT */    *err_output,
+                       __global const int     /* IN */    *hits) {
+  int idx = get_global_id(0);
+  int n = hits[idx];
+  err_output[idx] /= n ? n : 1;
+}
+#else
 __kernel
 void err_output_update(__global dtype /* IN, OUT */ *err_output) {
   err_output[get_global_id(0)] /= (KX / SLIDE_X) * (KY / SLIDE_Y);
 }
+#endif
