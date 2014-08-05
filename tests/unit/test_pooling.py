@@ -18,6 +18,7 @@ import veles.opencl_types as opencl_types
 import veles.prng as prng
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
+import veles.znicz.depooling as depooling
 from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
@@ -466,16 +467,15 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
         forward.initialize(device=device)
         forward.run()
 
-        gd = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=3, ky=3,
-                                     sliding=(3, 3))
-        gd.input_offset = forward.input_offset
-        gd.err_output = forward.output
-        gd.input = forward.input
-        gd.initialize(device)
-        gd.run()
-        gd.err_input.map_read()
+        de = depooling.Depooling(DummyWorkflow())
+        de.output_offset = forward.input_offset
+        de.input = forward.output
+        de.get_output_shape_from = forward.input
+        de.initialize(device)
+        de.run()
+        de.output.map_read()
 
-        diff = gd.err_input.mem - unit.input.mem
+        diff = de.output.mem - unit.input.mem
         self.assertEqual(numpy.count_nonzero(diff), 0)
 
         return unit.input.mem.copy()
