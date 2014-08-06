@@ -22,6 +22,7 @@ from veles.tests.dummy_workflow import DummyWorkflow
 import veles.prng as rnd
 import veles.opencl as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
+from veles.formats import Vector
 
 
 class TestDeconv(unittest.TestCase, GDNumDiff):
@@ -32,6 +33,31 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         self.this_dir = os.path.dirname(__file__)
         if not len(self.this_dir):
             self.this_dir = "."
+        self.dtype = opencl_types.dtypes[root.common.precision_type]
+
+    def test_fixed(self):
+        inp = numpy.ones([1, 4, 4, 1], dtype=self.dtype)
+        forward = conv.Conv(DummyWorkflow(), kx=3, ky=3, n_kernels=1,
+                            padding=(0, 0, 0, 0), sliding=(1, 1),
+                            include_bias=False)
+        forward.input = Vector(inp)
+        forward.initialize(self.device)
+        forward.weights.map_invalidate()
+        forward.weights.mem[:] = 1.0
+        forward.run()
+
+        de = deconv.Deconv(DummyWorkflow(), kx=forward.kx, ky=forward.ky,
+                           n_kernels=forward.n_kernels,
+                           padding=forward.padding, sliding=forward.sliding,
+                           unsafe_padding=True)
+        de.input = forward.output
+        de.get_output_shape_from = forward.input
+        de.weights = forward.weights
+        de.initialize(self.device)
+        de.run()
+        de.output.map_read()
+        nz = numpy.count_nonzero(de.output.mem - inp * 9)
+        self.assertEqual(nz, 0)
 
     def test_compute_padding(self):
         sx = 128

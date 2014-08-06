@@ -53,9 +53,9 @@ void feed_layer(__global const dtype      /* IN */    *input,
   #define in_offs idx
   if ((valid) && (IN_REAL_OFFS_VALID)) {
 #if USE_HITS > 0
-    int idx = IN_REAL_OFFS;
-    ATOM_ADD(&output[idx], sum);
-    atomic_inc(&hits[idx]);
+    int i = IN_REAL_OFFS;
+    ATOM_ADD(&output[i], sum);
+    atomic_inc(&hits[i]);
 #else
     sum /= (KX / SLIDE_X) * (KY / SLIDE_Y);
     ATOM_ADD(&output[IN_REAL_OFFS], sum);
