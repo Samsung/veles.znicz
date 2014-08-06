@@ -128,7 +128,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "all2all_tanh", "output_shape": 2048,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
@@ -139,7 +139,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "softmax", "output_shape": 201,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,

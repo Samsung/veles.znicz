@@ -26,7 +26,7 @@ GMBAA = GM
 
 FILLING = "gaussian"
 STDDEV_CONV = 0.01
-STDDEV_AA = 0.001
+STDDEV_AA = 0.005
 
 root.common.precision_type = "float"
 
@@ -49,7 +49,7 @@ root.defaults = {
                      os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/train")]},
     "snapshotter": {"prefix": "imagenet_ae"},
-    "imagenet": {"from_snapshot_add_layer": False,
+    "imagenet": {"from_snapshot_add_layer": True,
                  "fine_tuning_noise": 0,
                  "layers":
                  [{"type": "ae_begin"},  # 216
@@ -112,7 +112,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "all2all_tanh", "output_shape": 4096,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
@@ -122,7 +122,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  {"type": "dropout", "dropout_ratio": 0.5},
+                  #{"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "softmax", "output_shape": 1001,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
