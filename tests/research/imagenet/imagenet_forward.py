@@ -29,11 +29,12 @@ root.defaults = {
                "series": "img",
                "do_shuffle": False,
                "path": "/data/veles/datasets/imagenet",
-               "path_to_bboxes": "/data/veles/raw_bboxes.4.pickle",
+               "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
+                                 "raw_bboxes_4classes_img_val.4.pickle",
                "angle_step": numpy.pi / 6,
                "max_angle": numpy.pi},
-    "trained_workflow": "/data/veles/datasets/imagenet/snapshots/DET/2014/"
-                        "imagenet_ae_2014_0.039943.3.pickle",
+    "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
+                        "imagenet_ae_216_pool_27.12pt.3.pickle",
     "imagenet_base": "/data/veles/datasets/imagenet/temp"
 }
 
@@ -92,7 +93,6 @@ class ImagenetForward(OpenCLWorkflow):
         self.loader = ImagenetForwardLoaderBbox(
             self,
             bboxes_file_name=root.loader.path_to_bboxes,
-            matrices_pickle=root.loader.matrixes_filename,
             angle_step=root.loader.angle_step,
             max_angle=root.loader.max_angle)
         self.loader.link_from(self.repeater)
@@ -107,6 +107,7 @@ class ImagenetForward(OpenCLWorkflow):
         self.meandispnorm = train_wf.meandispnorm
         self.meandispnorm.workflow = self
         self.meandispnorm.link_from(self.loader)
+        self.loader.link_attrs(self.meandispnorm, "mean")
         self.fwds[0].link_from(self.meandispnorm)
         self.fwds[0].link_attrs(self.loader, "minibatch_data")
         self.repeater.link_from(self.fwds[-1])
@@ -136,9 +137,6 @@ def run(load, main):
         (root.loader.year, root.loader.series))
     root.loader.samples_filename = os.path.join(
         CACHED_DATA_FNME, "original_data_%s_%s_0_forward.dat" %
-        (root.loader.year, root.loader.series))
-    root.loader.matrixes_filename = os.path.join(
-        CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
         (root.loader.year, root.loader.series))
     root.loader.labels_int_dir = os.path.join(
         CACHED_DATA_FNME, "labels_int_%s_%s_0.txt" %

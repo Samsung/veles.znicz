@@ -6,7 +6,6 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import cv2
-import gc
 import math
 import numpy
 from zope.interface import implementer
@@ -17,6 +16,7 @@ from veles.mutable import Bool
 from veles.pickle2 import pickle
 from veles.znicz.tests.research.imagenet.processor import Processor
 from veles.opencl_units import IOpenCLUnit
+from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
 
 
 @implementer(IOpenCLUnit)
@@ -33,7 +33,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         current_image        current image file name (dict key)
     """
 
-    def __init__(self, workflow, bboxes_file_name, matrices_pickle, **kwargs):
+    def __init__(self, workflow, bboxes_file_name, **kwargs):
         kwargs["view_group"] = "LOADER"
         super(ImagenetForwardLoaderBbox, self).__init__(workflow, **kwargs)
         self.bboxes_file_name = bboxes_file_name
@@ -52,9 +52,12 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.current_image = ""  # image file name == pickled dict's key
         self._current_image_data = None
         self._next_image_bbox = None  # used when another image appears
-        self._mean = None
-        self._mean_file_name = matrices_pickle
-        self.demand("entry")  # first forward unit
+        self.mean = None
+        self.total = 0
+        self._progress = None
+        self.bboxes = {}
+        # entry is the first forward unit
+        self.demand("entry", "mean")
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
@@ -69,24 +72,29 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.add_sobel = self.channels == 4
         self.info("Loading bboxes from %s...", self.bboxes_file_name)
         with open(self.bboxes_file_name, "rb") as fin:
-            self.bboxes = pickle.load(fin)
+            while True:
+                try:
+                    img = pickle.load(fin)
+                    self.bboxes[img[0]] = img[1]
+                    self.total += len(img[1]["bbxs"])
+                except EOFError:
+                    break
         self.info("Successfully loaded")
-        self.info("Loading mean image...")
-        with open(self._mean_file_name, "rb") as fin:
-            self._mean, _ = pickle.load(fin)
-        self.info("Successfully loaded")
-        gc.collect()
-        self.bbox_iter = [iter(self.bboxes.items()), None]
+        self.total *= 2  # flip
+        self.total *= int(self.max_angle / self.angle_step)
+        self.info("Total %d shots", self.total)
+        self._progress = ProgressBar(maxval=self.total,
+                                     widgets=['Progress: ', Percentage(), ' ',
+                                              Bar()])
+        self._progress.start()
+        self.bbox_iter = [iter(sorted(self.bboxes.items())), None]
         self._next_image()
 
         self.minibatch_data.mem = numpy.zeros(
             (self.max_minibatch_size, self.aperture ** 2 * self.channels),
             dtype=numpy.uint8)
 
-        self.minibatch_bboxes = numpy.zeros(
-            (self.max_minibatch_size, 4, 2), dtype=numpy.uint16)
-
-        self.minibatch_images = [] * self.max_minibatch_size
+        self.minibatch_bboxes = [None] * self.max_minibatch_size
 
         if device is None:
             return
@@ -139,7 +147,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
         # calculate optimal output image size
         bbox, _ = self._transform_shape(orig_shape, angle, scale)
-        out_width, out_height = (int(numpy.max(bbox[:, i])) for i in (0, 1))
+        out_width, out_height = (int(numpy.round(numpy.max(bbox[:, i])))
+                                 for i in (0, 1))
         tmp_width, tmp_height = max(out_width, width), max(out_height, height)
 
         # calculate bounding box after rotation and scaling
@@ -155,9 +164,9 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         offset_y = max(0, (tmp_height - height) // 2)
         out_img[offset_y:(height + offset_y), offset_x:(width + offset_x),
                 :colors_num] = img
-        # set alpha channel to 255 as default value
+        # set alpha channel to 1 as default value
         out_img[offset_y:(height + offset_y), offset_x:(width + offset_x),
-                colors_num] = 255
+                colors_num] = 1
 
         # rotation and scaling for out_img
         out_img[:, :, :(colors_num + 1)] = cv2.warpAffine(
@@ -165,7 +174,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             tuple(reversed(out_img.shape[:2])))
         if flip:
             out_img[:, :, :(colors_num + 1)] = cv2.flip(
-                out_img[:, :, :(colors_num + 1)], flipCode=1)
+                out_img[:, :, :(colors_num + 1)], 1)
 
         # add S-channels to RGBA image (if necessary)
         if self.add_sobel:
@@ -192,11 +201,11 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             s_img = cv2.warpAffine(s_img, rot_matrix,
                                    tuple(reversed(s_img.shape[:2])))
             if flip:
-                cv2.flip(s_img, s_img, flipCode=1)
+                cv2.flip(s_img, 1, s_img)
             out_img[:, :, -1] = s_img
 
         # crop the result in case of scale < 1
-        if out_width < width or tmp_height < height:
+        if out_width < width or out_height < height:
             offset_x = max(0, (tmp_width - out_width) // 2)
             offset_y = max(0, (tmp_height - out_height) // 2)
             out_img = out_img[offset_y:(out_height + offset_y),
@@ -232,8 +241,16 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
-        xmin, ymin, xmax, ymax = (bbox['xmin'], bbox['ymin'],
-                                  bbox['xmax'], bbox['ymax'])
+        try:
+            xmin, ymin, xmax, ymax = (bbox['xmin'], bbox['ymin'],
+                                      bbox['xmax'], bbox['ymax'])
+        except KeyError:
+            x, y, width, height = (bbox['x'], bbox['y'],
+                                   bbox['width'], bbox['height'])
+            xmin = x - width / 2
+            ymin = y - height / 2
+            xmax = xmin + width
+            ymax = ymin + height
         # Crop the image to supplied bbox
         cropped = self.crop_image(self._current_image_data,
                                   (xmin, ymin, xmax, ymax))
@@ -250,17 +267,29 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
         # Rotate the cropped part, scaling to aperture at once and possibly
         # flipping
-        sample = self._transform_image(cropped, angle, scale, flip)
+        sample = self._transform_image(cropped, angle, scale, flip)[0]
 
         # Last step is to alpha blend with mean image
-        assert sample.shape[0] == sample.shape[1] == self.aperture
+        try:
+            assert sample.shape[0] <= self.aperture and \
+                sample.shape[1] <= self.aperture
+        except AssertionError:
+            import pdb
+            pdb.set_trace()
+
         lcind = -2 if self.add_sobel else -1
-        mean = self._mean * (255 - sample[:, :, lcind])[..., None]
-        final = numpy.empty((self.aperture, self.aperture,
-                             sample.shape[-1] - 1), dtype=sample.dtype)
-        final[:, :, :-1] = sample[:, :, :lcind] + mean[:, :, :-1]
+        height, width = sample.shape[:2]
+        xoff = (self.aperture - width) // 2
+        yoff = (self.aperture - height) // 2
+        final = self.mean.mem.copy()
+        final[yoff:(yoff + height), xoff:(xoff + width), :] *= \
+            (1 - sample[:, :, lcind])[..., None]
+        final[yoff:(yoff + height), xoff:(xoff + width),
+              :-1 if self.add_sobel else final.shape[-1]] += \
+            sample[:, :, :lcind] * sample[:, :, lcind][..., None]
         if self.add_sobel:
-            final[:, :, -1] = sample[:, :, -1] + mean[:, :, -1]
+            final[yoff:(yoff + height), xoff:(xoff + width), -1] += \
+                sample[:, :, -1] * sample[:, :, lcind]
         return final
 
     def ocl_run(self):
@@ -271,6 +300,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         bbox = None
 
         for index in range(self.max_minibatch_size):
+            self._progress.inc()
             self.image_ended <<= False
             self.minibatch_size = index
             if self._next_image_bbox is not None:
@@ -284,12 +314,13 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                         bbox = self._next_bbox()
                     except StopIteration:
                         self.ended <<= True
+                        self._progress.finish()
                         return
                     angle, flip = self._state
             if self.image_ended:
                 self._next_image_bbox = bbox
             else:
                 self.minibatch_data[index] = \
-                    self._get_bbox_data(bbox, angle, flip)
+                    self._get_bbox_data(bbox, angle, flip).ravel()
                 self.minibatch_bboxes[index] = bbox
         self.minibatch_size = self.max_minibatch_size
