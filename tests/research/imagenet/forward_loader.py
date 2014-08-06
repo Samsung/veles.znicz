@@ -44,7 +44,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.max_minibatch_size = 0
         self.minibatch_bboxes = 0
         self.add_sobel = False
-        self.angle_step = kwargs.get("angle_step", numpy.pi / 6)
+        self.angle_step = kwargs.get("angle_step", numpy.pi / 4)
         self.max_angle = kwargs.get("max_angle", numpy.pi)
         self.ended = Bool()
         self.image_ended = Bool()

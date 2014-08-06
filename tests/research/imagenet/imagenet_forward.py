@@ -12,16 +12,16 @@ from zope.interface import implementer
 
 
 from veles.config import root
-from veles.formats import Vector
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.opencl_units import OpenCLWorkflow
 from veles.snapshotter import Snapshotter
-from veles.mutable import Bool
 from veles.znicz.nn_units import Forward
 from veles.units import Unit, IUnit
 from veles.workflow import Repeater
 from veles.znicz.tests.research.imagenet.forward_loader import \
     ImagenetForwardLoaderBbox
+from veles.znicz.tests.research.imagenet.forward_json import \
+    ImagenetResultWriter
 
 
 root.defaults = {
@@ -35,38 +35,47 @@ root.defaults = {
                "max_angle": numpy.pi},
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
-    "imagenet_base": "/data/veles/datasets/imagenet/temp"
+    "imagenet_base": "/data/veles/datasets/imagenet/temp",
+    "result_path": "/data/veles/tmp/result_%s_%s_0.json"
 }
+
+root.result_path = root.result_path % (root.loader.year, root.loader.series)
 
 
 @implementer(IUnit)
 class MergeBboxes(Unit):
     def __init__(self, workflow, **kwargs):
         super(MergeBboxes, self).__init__(workflow, **kwargs)
-        self.probabilities = None
-        self.path_to_bboxes = kwargs.get("path_to_bboxes", "")
-        self.bbox_for_merge = Vector()
-        self.aperture = None
-        self.channels = None
-        self.bboxes_for_merge = []
-        self.image_end = Bool(False)
-        self.ind_minibatch_end = 0
-        self.ind_minibatch_begin = 0
+        self.winners = []
+        self._prev_image = ""
+        self._current_bboxes = {}
+        self.demand("probabilities", "current_image", "minibatch_bboxes",
+                    "minibatch_size", "ended")
 
     def initialize(self, device, **kwargs):
-        self.bboxes_for_merge = []
+        pass
 
     def run(self):
-        if self.image_end:
-            # merge
-            del self.bboxes_for_merge[:]
-            self.image_end = False
-        if self.image_end is not True:
-            count_bboxes_in_minibatch = self.probabilities.shape[0]
-            self.ind_minibatch_end += count_bboxes_in_minibatch
-            for i in range(self.ind_minibatch_begin, self.ind_minibatch_end):
-                self.bboxes_for_merge.append(self.probabilities[i])
-            self.ind_minibatch_begin += count_bboxes_in_minibatch
+        self.probabilities.map_read()
+
+        if self.current_image != self._prev_image or self.ended:
+            prev_image = self._prev_image
+            self._prev_image = self.current_image
+            if prev_image:
+                self.debug("Merging %d bboxes", len(self._current_bboxes))
+                winning_bboxes = None
+                # TODO(v.markovtsev): calculate the winning bboxes from
+                # self._current_bboxes
+                self.winners.append({"path": self.current_image,
+                                     "bbxs": winning_bboxes})
+                self._current_bboxes = {}
+        for index, bbox in enumerate(
+                self.minibatch_bboxes[:self.minibatch_size]):
+            key = tuple(bbox[k] for k in ("x", "y", "width", "height"))
+            self._current_bboxes[key] = numpy.maximum(
+                self._current_bboxes[key]
+                if key in self._current_bboxes else 0,
+                self.probabilities[index])
 
 
 class ImagenetForward(OpenCLWorkflow):
@@ -96,6 +105,7 @@ class ImagenetForward(OpenCLWorkflow):
             angle_step=root.loader.angle_step,
             max_angle=root.loader.max_angle)
         self.loader.link_from(self.repeater)
+        self.loader.gate_block = self.loader.ended
 
         self.fwds = []
         for fwd in train_wf.fwds:
@@ -110,28 +120,28 @@ class ImagenetForward(OpenCLWorkflow):
         self.loader.link_attrs(self.meandispnorm, "mean")
         self.fwds[0].link_from(self.meandispnorm)
         self.fwds[0].link_attrs(self.loader, "minibatch_data")
-        self.repeater.link_from(self.fwds[-1])
-        self.loader.gate_block = self.loader.ended
 
-        """
-        self.mergebboxes = MergeBboxes(
-            self, path_to_bboxes=root.loader.path_to_bboxes)
+        self.mergebboxes = MergeBboxes(self)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
+        self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
+                                    "minibatch_bboxes", "minibatch_size")
         self.mergebboxes.link_attrs(
             self.loader, "aperture", "channels")
         self.mergebboxes.link_from(self.fwds[-1])
+        self.repeater.link_from(self.mergebboxes)
 
-        self.end_point.link_from(self.mergebboxes)
-        """
-        self.end_point.link_from(self.loader)
-        self.end_point.gate_block = ~self.loader.ended
+        self.json_writer = ImagenetResultWriter(
+            self, root.loader.labels_int_dir, root.result_path)
+        self.json_writer.link_attrs(self.mergebboxes, "winners")
+        self.json_writer.link_from(self.mergebboxes)
+        self.end_point.link_from(self.json_writer)
+        self.json_writer.gate_block = ~self.loader.ended
 
 
 def run(load, main):
     root.imagenet.from_snapshot_add_layer = False
-    IMAGENET_BASE_PATH = root.loader.path
-    CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
+    CACHED_DATA_FNME = os.path.join(root.imagenet_base, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
         CACHED_DATA_FNME, "original_labels_%s_%s_0_forward.pickle" %
         (root.loader.year, root.loader.series))

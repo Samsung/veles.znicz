@@ -6,7 +6,6 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import json
-import numpy
 import os
 from PIL import Image
 from zope.interface import implementer
@@ -33,12 +32,13 @@ class ImagenetResultWriter(Unit):
                                             values[1::2]))
 
     def run(self):
-        """Winners must be of the format: {"path": ..., "bboxes": [...]}
+        """Winners must be of the format: {"path": ..., "bbxs": [...]}
         Each bbox is {"conf": %f, "label": %d, "angle": %f,
-                      "bbox": numpy array of shape (4, 2)}.
+                      "bbox": {"x": ..., "y": ..., ...}}.
         """
         if self.winners is None:
             return
+        self.info("Writing the results for %d images...", len(self.winners))
         for win in self.winners:
             fn = win["path"]
             try:
@@ -47,20 +47,12 @@ class ImagenetResultWriter(Unit):
                 shape = (-1, -1)
                 self.warning("Failed to determine the size of %s", fn)
             bboxes = []
-            for bbox in win["bboxes"]:
-                bb_coords = bbox["bbox"]
-                angle = bbox["angle"]
-                matrix = numpy.array([[numpy.cos(angle), numpy.sin(angle)],
-                                      [-numpy.sin(angle), numpy.cos(angle)]])
-                bb_rot = bb_coords.dot(matrix)
-                width, height = (numpy.max(bb_rot[:, i]) -
-                                 numpy.min(bb_rot[:, i]) for i in (0, 1))
-                x, y = (numpy.mean(bb_coords[:, i]) for i in (0, 1))
+            for bbox in win["bbxs"]:
                 bboxes.append({
                     "conf": bbox["conf"],
                     "label": self._labels_mapping[bbox["label"]],
-                    "angle": angle, "x": x, "y": y,
-                    "width": width, "height": height
+                    "angle": "0", "x": bbox["x"], "y": bbox["y"],
+                    "width": bbox["width"], "height": bbox["height"]
                 })
             self._results[os.path.basename(fn)] = {
                 "path": fn,
