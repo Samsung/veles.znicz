@@ -30,20 +30,25 @@ import json
 import logging
 import numpy
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import pickle
 import os
 from PIL import Image, ImageDraw, ImageFont
 import scipy.misc
-import sys
 import shutil
+import sys
 import veles.config as config
+import veles.formats as formats
 import veles.prng as rnd
+import veles.znicz.conv as conv
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
 import veles.znicz.tests.research.imagenet.background_detection as back_det
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet")
+
+#IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet/2014"
 IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
 # year, series, set_type, stage
 
@@ -79,8 +84,8 @@ class Main(Processor):
             }
         self.ind_labels = []
         self.do_save_resized_images = kwargs.get("do_save_resized_images",
-                                                 False)
-        self.rect = kwargs.get("rect", (192, 192))
+                                                 True)
+        self.rect = kwargs.get("rect", (216, 216))
         self._sobel_kernel_size = kwargs.get(
             "sobel_kernel_size",
             config.get(config.root.imagenet.sobel_ksize) or 5)
@@ -112,13 +117,19 @@ class Main(Processor):
                             choices=Main.LOG_LEVEL_MAP.keys(),
                             help="set logging verbosity level")
         parser.add_argument("-y", "--year", type=str, default="temp",
-                            choices=["2014", "2013", "temp", "DET_dataset"],
                             help="set dataset year")
         parser.add_argument("-s", "--series", type=str, default="img",
                             choices=["img", "DET"],
                             help="set dataset type")
         parser.add_argument("-st", "--stage", default=0,
                             help="set stage")
+        parser.add_argument("-w", "--snapshot", type=str, default="",
+                            help="snapshot path")
+        parser.add_argument("-b", "--backgroud", type=str, default="mean",
+                            choices=["mean", "mean_and_image",
+                                     "expanding_blur", "blur",
+                                     "random_last_line"],
+                            help="set backgroud of resized images")
         parser.add_argument("command_to_run", type=str, default="",
                             choices=["draw_bbox", "resize", "init",
                                      "split_valid", "split_dataset",
@@ -127,8 +138,9 @@ class Main(Processor):
                                      "resize_split_dataset", "split_train",
                                      "test_segmentation", "min_max_shape",
                                      "generate_negative_DET", "test_load",
-                                     "remove_back",
-                                     "remove_back_split_dataset"],
+                                     "remove_back", "visualize",
+                                     "remove_back_split_dataset",
+                                     "resize_validation", "none_bboxes"],
                             help="run functions:"
                                  " 'draw_bbox' run function which generate"
                                  " image with bboxes, 'resize' run function"
@@ -165,7 +177,7 @@ class Main(Processor):
                    {"train":
                     ("ILSVRC2012_img_train", "ILSVRC2012_bbox_train_v2"),
                     "validation":
-                    ("ILSVRC2012_img_val", "ILSVRC2012_bbox_val_v2"),
+                    ("ILSVRC2012_img_val", "ILSVRC2012_bbox_val_v3"),
                     "test": ("ILSVRC2012_img_test", "")},
                    "DET":
                    {"train":
@@ -180,8 +192,9 @@ class Main(Processor):
                                       (self.year, self.series, self.stage))
         path_hierarchy = os.path.join(IMAGENET_BASE_PATH,
                                       "2014/hierarchy_2014_DET_train_0.json")
-        with open(path_hierarchy, "r") as file_hier:
-            hierarchy = json.load(file_hier)
+        if self.series == "DET":
+            with open(path_hierarchy, "r") as file_hier:
+                hierarchy = json.load(file_hier)
         # finding dirs for images and bboxes
         zero_write = True
         map_items = MAPPING[self.year][self.series].items()
@@ -356,6 +369,169 @@ class Main(Processor):
         aa[:, :, 0:3] = a[:, :, 0:3]
         return aa
 
+    def visualize_snapshot(self, path, limit):
+        with open(path, "rb") as snap_file:
+            snapshot = pickle.load(snap_file)
+        for forward in snapshot.fwds:
+            weights = forward.weights.mem
+            if weights is not None and isinstance(forward, conv.Conv):
+                size = weights.shape[1]
+                weights = weights.reshape(weights.shape[0],
+                                          weights.size // weights.shape[0])
+                pics = []
+                for _kernel_number in range(weights.shape[0]):
+                    n_channels = int(size / (forward.kx * forward.ky))
+                    mem = weights[_kernel_number].ravel()[:size]
+                    kernel = mem.reshape([forward.ky, forward.kx, n_channels])
+                    for ch in range(n_channels):
+                        pics.append(
+                            formats.norm_image(
+                                kernel[:, :, ch:ch
+                                       + 1].reshape(forward.ky, forward.kx)))
+                        if len(pics) >= limit:
+                            break
+                    if len(pics) >= limit:
+                        break
+                self.info("pics is ready")
+                self.info("pics %s" % len(pics))
+                figure = plt.figure()
+                figure.clf()
+                if len(pics) > 0:
+                    n_cols = formats.roundup(
+                        int(numpy.round(numpy.sqrt(len(pics)))), 4)
+                    n_rows = int(numpy.ceil(len(pics) / n_cols))
+                self.info("n_cols %s" % n_cols)
+                self.info("n_rows %s" % n_rows)
+                i = 0
+                for _row in range(n_rows):
+                    for _col in range(n_cols):
+                        ax = figure.add_subplot(n_rows, n_cols, i + 1)
+                        ax.cla()
+                        ax.axis('off')
+                        ax.imshow(pics[i], interpolation="nearest",
+                                  cmap=cm.Greys_r)
+                        i += 1
+                        if i >= len(pics):
+                            break
+                    if i >= len(pics):
+                        break
+                self.info("show")
+                plt.show()
+
+    def resize_validation(self, path):
+        _display = os.getenv("DISPLAY")
+        if _display is not None:
+            os.unsetenv("DISPLAY")
+        self.imagenet_dir_path = path
+        #self.year = "forward"
+        set_type = "validation"
+        original_labels = []
+        int_word_labels = []
+        self.info("Resized validation to query of Neural Network")
+
+        original_labels_dir = os.path.join(
+            self.imagenet_dir_path, "original_labels_%s_%s_%s_forward.pickle" %
+            (self.year, self.series, self.stage))
+        path_for_matrixes = os.path.join(
+            self.imagenet_dir_path, "matrixes_%s_%s_%s.pickle" %
+            (self.year, self.series, self.stage))
+        original_data_dir = os.path.join(
+            self.imagenet_dir_path, "original_data_%s_%s_%s_forward.dat" %
+            (self.year, self.series, self.stage))
+        labels_int_dir = os.path.join(
+            self.imagenet_dir_path, "labels_int_%s_%s_%s.txt" %
+            (self.year, self.series, self.stage))
+        try:
+            file_labels_int = open(labels_int_dir, "r")
+            for line in file_labels_int:
+                int_label = line[:line.find("\t")]
+                word_label = line[line.find("\t") + 1:line.find("\n")]
+                int_word_labels.append((int_label, word_label))
+        except:
+            pass
+        with open(path_for_matrixes, "rb") as file_matr:
+            matrixes = pickle.load(file_matr)
+        mean = matrixes[0]
+        fnme = os.path.join(self.imagenet_dir_path,
+                            "images_imagenet_%s_%s_%s_%s_forward.json" %
+                            (self.year, self.series, set_type, self.stage))
+        try:
+            self.info("Loading images info from %s to resize" % fnme)
+            with open(fnme, 'r') as fp:
+                self.images_json[set_type] = json.load(fp)
+        except:
+            self.exception("Failed to load %s", fnme)
+        sample_count = 0
+        labels_count = 0
+        self.f_samples = open(original_data_dir, "wb")
+        for f, _val in sorted(self.images_json[set_type].items()):
+            image_fnme = self.images_json[set_type][f]["path"]
+            image = self.decode_image(image_fnme)
+            i = 0
+            for bbx in self.images_json[set_type][f]["bbxs"]:
+                self.info("*****Resized image %s *****" %
+                          self.images_json[set_type][f]["path"])
+                x = bbx["x"]
+                y = bbx["y"]
+                h_size = bbx["height"]
+                w_size = bbx["width"]
+                label = bbx["label"]
+                self.info("label %s" % label)
+                ang = bbx["angle"]
+                name = f[:f.rfind(".")] + ("_%s_bbx.JPEG" % i)
+                if h_size >= 1 and w_size >= 1 and h_size * w_size >= 1:
+                    self.prep_and_save_sample(image, name, x, y, h_size,
+                                              w_size, ang, mean)
+                    sample_count += 1
+                    if self.series == "DET":
+                        imagenet_dir = os.path.join(IMAGENET_BASE_PATH,
+                                                    "2014")
+                        classes_word_path = os.path.join(
+                            imagenet_dir,
+                            "classes_200_2014_DET_train_0.json")
+                        with open(classes_word_path, 'r') as fp:
+                            int_word_labels = json.load(fp)
+                    if len(int_word_labels):
+                        for (int_label, word_label) in int_word_labels:
+                            if label == word_label:
+                                original_labels.append(int_label)
+                                labels_count += 1
+                    else:
+                        original_labels.append(0)
+                        labels_count += 1
+                    i += 1
+        self.info("Saving images to %s" % original_data_dir)
+        with open(original_labels_dir, "wb") as fout:
+            self.info("Saving labels of images to %s" %
+                      original_labels_dir)
+            pickle.dump(original_labels, fout)
+        self.info("labels_count %s sample_count %s"
+                  % (labels_count, sample_count))
+        assert labels_count == sample_count
+        self.f_samples.close()
+
+    def calculate_bbox_is_none(self, path):
+        self.imagenet_dir_path = path
+        file_none_bboxes = os.path.join(
+            self.imagenet_dir_path, "bbox_is_none.txt")
+        set_type = "train"
+        fnme = os.path.join(
+            self.imagenet_dir_path, IMAGES_JSON %
+            (self.year, self.series, set_type, self.stage))
+        try:
+            self.info("Loading images info from %s to resize" % fnme)
+            with open(fnme, 'r') as fp:
+                self.images_json[set_type] = json.load(fp)
+        except:
+            self.exception("Failed to load %s", fnme)
+        for f, _val in sorted(self.images_json[set_type].items()):
+            image_fnme = self.images_json[set_type][f]["path"]
+            if (len(self.images_json[set_type][f]["bbxs"]) == 0
+                    and f.find("negative_image") == -1):
+                self.info("Image without bboxes %s" % image_fnme)
+                with open(file_none_bboxes, "a") as fin:
+                    fin.write("%s\n" % image_fnme)
+
     def generate_resized_dataset(self, path):
         _display = os.getenv("DISPLAY")
         if _display is not None:
@@ -407,6 +583,7 @@ class Main(Processor):
             path_to_save = os.path.join(path_to_save, "n00000000")
             if f.find("negative_image") != -1:
                 self.do_negative = True
+
                 self.sample_rect(
                     image, image.shape[1] / 2, image.shape[0] / 2,
                     image.shape[0], image.shape[1], 0, None)
@@ -633,7 +810,7 @@ class Main(Processor):
                     label_word = word
             self.info("categories %s" % label_word)
         self.file_samples = open(path_data, "rb")
-        sample = numpy.zeros([192, 192, 4], dtype=numpy.uint8)
+        sample = numpy.zeros([216, 216, 4], dtype=numpy.uint8)
         self.file_samples.seek(i * sample.nbytes)
         self.file_samples.readinto(sample)
         plt.imshow(sample[:, :, 0:3].copy(), interpolation="nearest")
@@ -689,32 +866,97 @@ class Main(Processor):
         scipy.misc.imsave(out_path_sample, image_to_save)
 
     def sample_rect(self, img, x_c, y_c, h_size, w_size, ang, mean):
-        nn_width = self.rect[0]
-        nn_height = self.rect[1]
+        aperture = self.rect[0]
         rot_matrix = cv2.getRotationMatrix2D((x_c, y_c), 360 - ang, 1)
         img_rotate = cv2.warpAffine(img, rot_matrix,
                                     (img.shape[1], img.shape[0]))
-        x_min = x_c - w_size / 2
-        y_min = y_c - h_size / 2
-        x_max = x_min + w_size
-        y_max = y_min + h_size
-        img = img_rotate[y_min:y_max, x_min:x_max].copy()
-        if img.shape[1] >= img.shape[0]:
-            dst_width = nn_width
-            dst_height = int(numpy.round(
-                float(dst_width) * img.shape[0] / img.shape[1]))
+        if self.background != "mean":
+            max_size = max(w_size, h_size)
+            x_min = max(x_c - max_size / 2, 0)
+            y_min = max(y_c - max_size / 2, 0)
+            x_max = min(x_min + max_size, img.shape[1])
+            y_max = min(y_min + max_size, img.shape[0])
+            img = img_rotate[y_min:y_max, x_min:x_max]
+            scale = aperture / max_size
+            dst_bbox = tuple([int(numpy.round(img.shape[i] * scale))
+                              for i in (1, 0)])
+            img = cv2.resize(img, dst_bbox, interpolation=cv2.INTER_LANCZOS4)
+            if not (img.shape[0] == img.shape[1] == aperture):
+                if img.shape[0] < aperture:
+                    dst_x_min = 0
+                    dst_y_min = (aperture - img.shape[0]
+                                 if y_c - max_size / 2 < 0 else 0)
+                    if self.background != "mean_and_image":
+                        line = (img[0:1, 0:img.shape[1], :3]
+                                if y_c - max_size / 2 < 0 else
+                                img[(img.shape[0] - 1):img.shape[0],
+                                    0:img.shape[1], :3])
+                        background = numpy.zeros([dst_y_min, aperture, 3],
+                                                 dtype=numpy.uint8)
+                        new_line = line.copy()
+                        for i in range(background.shape[0] - 1, -1, -1):
+                            if self.background != "random_last_line":
+                                new_line = line.copy()
+                                new_line = new_line.reshape(line.shape[1], 3)
+                                numpy.random.shuffle(new_line)
+                                new_line = new_line.reshape(line.shape[0],
+                                                            line.shape[1], 3)
+                                background[i] = new_line[:]
+                            elif self.background != "blur":
+                                blur = cv2.blur(new_line, ksize=(3, 3))
+                                background[i] = blur[:]
+                                new_line = blur
+                            elif self.background != "expanding_blur":
+                                blur = cv2.blur(new_line, ksize=(i + 1, i + 1))
+                                background[i] = blur[:]
+                                new_line = blur
+                            else:
+                                self.error("Wrong background")
+                elif img.shape[1] < aperture:
+                    dst_y_min = 0
+                    dst_x_min = (aperture - img.shape[1]
+                                 if x_c - max_size / 2 < 0 else 0)
+                    if self.background != "mean_and_image":
+                        line = (img[0:img.shape[0], 0:1, :3]
+                                if x_c - max_size / 2 < 0 else
+                                img[0:img.shape[0],
+                                    (img.shape[1] - 1):img.shape[1], :3])
+                        background = numpy.zeros([aperture, dst_x_min, 3],
+                                                 dtype=numpy.uint8)
+                        # TO_DO: added different backgrounds for this case
+                else:
+                    assert False
+            else:
+                dst_x_min = 0
+                dst_y_min = 0
+
+            dst_x_max = dst_x_min + img.shape[1]
+            dst_y_max = dst_y_min + img.shape[0]
+            # TO_DO: added background to the image
         else:
-            dst_height = nn_height
-            dst_width = int(numpy.round(
-                float(dst_height) * img.shape[1] / img.shape[0]))
-        assert dst_width <= nn_width and dst_height <= nn_height
-        img = cv2.resize(img, (dst_width, dst_height),
-                         interpolation=cv2.INTER_LANCZOS4)
-        dst_x_min = int(numpy.round(0.5 * (nn_width - dst_width)))
-        dst_y_min = int(numpy.round(0.5 * (nn_height - dst_height)))
-        dst_x_max = dst_x_min + img.shape[1]
-        dst_y_max = dst_y_min + img.shape[0]
-        assert dst_x_max <= nn_width and dst_y_max <= nn_height
+            nn_width = self.rect[0]
+            nn_height = self.rect[1]
+            x_min = x_c - w_size / 2
+            y_min = y_c - h_size / 2
+            x_max = x_min + w_size
+            y_max = y_min + h_size
+            img = img_rotate[y_min:y_max, x_min:x_max].copy()
+            if img.shape[1] >= img.shape[0]:
+                dst_width = nn_width
+                dst_height = int(numpy.round(
+                    float(dst_width) * img.shape[0] / img.shape[1]))
+            else:
+                dst_height = nn_height
+                dst_width = int(numpy.round(
+                    float(dst_height) * img.shape[1] / img.shape[0]))
+            assert dst_width <= nn_width and dst_height <= nn_height
+            img = cv2.resize(img, (dst_width, dst_height),
+                             interpolation=cv2.INTER_LANCZOS4)
+            dst_x_min = int(numpy.round(0.5 * (nn_width - dst_width)))
+            dst_y_min = int(numpy.round(0.5 * (nn_height - dst_height)))
+            dst_x_max = dst_x_min + img.shape[1]
+            dst_y_max = dst_y_min + img.shape[0]
+            assert dst_x_max <= nn_width and dst_y_max <= nn_height
         if mean is not None:
             sample = mean.copy()
             sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = img
@@ -735,7 +977,7 @@ class Main(Processor):
             path_to_img_validation = os.path.join(
                 self.imagenet_dir_path, "ILSVRC2012_img_val")
             path_to_bbox_validation = os.path.join(
-                self.imagenet_dir_path, "ILSVRC2012_bbox_val_v2")
+                self.imagenet_dir_path, "ILSVRC2012_bbox_val_v3")
         elif self.series == "DET":
             path_to_img_validation = os.path.join(
                 self.imagenet_dir_path, "ILSVRC2013_DET_val")
@@ -1313,7 +1555,8 @@ class Main(Processor):
                         path_DET_train, line[:line.find("\n")]) + ".JPEG"
                     part_images.append(path_for_part_img)
         for set_type in ("test", "validation", "train"):
-            path_to_save = path_to_save_dict[set_type]
+            if self.series == "DET":
+                path_to_save = path_to_save_dict[set_type]
             fnme = os.path.join(
                 self.imagenet_dir_path, IMAGES_JSON %
                 (self.year, self.series, set_type, self.stage))
@@ -1779,6 +2022,7 @@ class Main(Processor):
         self.series = args.series
         self.command_to_run = args.command_to_run
         self.stage = args.stage
+        self.backgroud = args.backgroud
         if self.command_to_run == "init":
             self.init_files(os.path.join(IMAGENET_BASE_PATH, self.year))
         elif self.command_to_run == "draw_bbox":
@@ -1787,6 +2031,9 @@ class Main(Processor):
         elif self.command_to_run == "resize":
             self.generate_resized_dataset(os.path.join(IMAGENET_BASE_PATH,
                                                        self.year))
+        elif self.command_to_run == "resize_validation":
+            self.resize_validation(os.path.join(IMAGENET_BASE_PATH,
+                                                self.year))
         elif self.command_to_run == "split_valid":
             self.split_validation_to_dirs(os.path.join(IMAGENET_BASE_PATH,
                                                        self.year))
@@ -1817,6 +2064,11 @@ class Main(Processor):
             self.remove_background_split_dataset(self.count_dirs)
         elif self.command_to_run == "remove_back":
             self.remove_background(os.path.join(IMAGENET_BASE_PATH, self.year))
+        elif self.command_to_run == "visualize":
+            self.visualize_snapshot(args.snapshot, 625)
+        elif self.command_to_run == "none_bboxes":
+            self.calculate_bbox_is_none(os.path.join(IMAGENET_BASE_PATH,
+                                                     self.year))
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
