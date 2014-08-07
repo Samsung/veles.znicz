@@ -51,7 +51,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._state = (0.0, False)  # angle, flip
         self.current_image = ""  # image file name == pickled dict's key
         self._current_image_data = None
-        self._next_image_bbox = None  # used when another image appears
+        self._current_bbox = None  # used when another image appears
         self.mean = None
         self.total = 0
         self._progress = None
@@ -230,14 +230,14 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.current_image = next_img[0]
         self._current_image_data = self.decode_image(next_img[1]["path"])
         self.image_ended <<= True
-        self._next_image_bbox = self._next_bbox()
+        self._current_bbox = self._next_bbox()
 
     def _next_bbox(self):
         try:
             bbox = next(self.bbox_iter[1])
         except StopIteration:
             self._next_image()
-            return self._next_image_bbox
+            return self._current_bbox
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
@@ -297,28 +297,29 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
     def cpu_run(self):
         self.minibatch_data.map_invalidate()
-        bbox = None
+        bbox = self._current_bbox
 
         for index in range(self.max_minibatch_size):
             self._progress.inc()
-            self.image_ended <<= False
-            self.minibatch_size = index
-            if self._next_image_bbox is not None:
-                bbox, self._next_image_bbox = self._next_image_bbox, None
+            if self.image_ended:
+                bbox, self._current_bbox = self._current_bbox, None
                 angle, flip = self._state
+                self.image_ended <<= False
             else:
                 try:
                     angle, flip = self._next_state()
                 except StopIteration:
                     try:
-                        bbox = self._next_bbox()
+                        self._current_bbox = bbox = self._next_bbox()
                     except StopIteration:
+                        self.minibatch_size = index
                         self.ended <<= True
                         self._progress.finish()
                         return
                     angle, flip = self._state
             if self.image_ended:
-                self._next_image_bbox = bbox
+                self.minibatch_size = index
+                return
             else:
                 self.minibatch_data[index] = \
                     self._get_bbox_data(bbox, angle, flip).ravel()
