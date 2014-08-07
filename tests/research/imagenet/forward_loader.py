@@ -74,9 +74,9 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         with open(self.bboxes_file_name, "rb") as fin:
             while True:
                 try:
-                    img = pickle.load(fin)
-                    self.bboxes[img[0]] = img[1]
-                    self.total += len(img[1]["bbxs"])
+                    img = pickle.load(fin)[1]
+                    self.bboxes[img["path"]] = img
+                    self.total += len(img["bbxs"])
                 except EOFError:
                     break
         self.info("Successfully loaded")
