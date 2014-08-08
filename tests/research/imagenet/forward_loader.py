@@ -6,8 +6,11 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import cv2
+from collections import defaultdict
 import math
 import numpy
+import time
+from twisted.internet import reactor
 from zope.interface import implementer
 
 from veles import OpenCLUnit
@@ -17,9 +20,11 @@ from veles.pickle2 import pickle
 from veles.znicz.tests.research.imagenet.processor import Processor
 from veles.opencl_units import IOpenCLUnit
 from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
+from veles.workflow import NoMoreJobs
+from veles.distributable import IDistributable
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, IDistributable)
 class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     """
     Imagenet loader for the first processing stage.
@@ -61,6 +66,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
+        self._failed_minibatches = []
+        self._pending_minibatches = defaultdict(list)
 
     @property
     def current_image_size(self):
@@ -100,6 +107,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             dtype=numpy.uint8)
 
         self.minibatch_bboxes = [None] * self.max_minibatch_size
+        self._last_info_time = time.time()
 
         if device is None:
             return
@@ -301,8 +309,15 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.cpu_run()
 
     def cpu_run(self):
+        if self.ended:
+            raise NoMoreJobs()
         self.minibatch_data.map_invalidate()
         bbox = self._current_bbox
+        now = time.time()
+        if now - self._last_info_time > 60:
+            self._last_info_time = now
+            self.info("Processed %d / %d (%d%%)", self._progress.currval,
+                      self._progress.maxval, self._progress.percent)
 
         for index in range(self.max_minibatch_size):
             self._progress.inc()
@@ -319,7 +334,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                     except StopIteration:
                         self.minibatch_size = index
                         self.ended <<= True
-                        self._progress.finish()
+                        reactor.callFromThread(self._progress.finish)
                         return
                     angle, flip = self._state
             if self.image_ended:
@@ -328,5 +343,35 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             else:
                 self.minibatch_data[index] = \
                     self._get_bbox_data(bbox, angle, flip).ravel()
-                self.minibatch_bboxes[index] = bbox
+                self.minibatch_bboxes[index] = (bbox, angle, flip)
         self.minibatch_size = self.max_minibatch_size
+
+    def generate_data_for_slave(self, slave):
+        if len(self._failed_minibatches) > 0:
+            return self._failed_minibatches.pop()
+        self.cpu_run()
+        job = {"minibatch_bboxes": self.minibatch_bboxes,
+               "minibatch_size": self.minibatch_size,
+               "current_image": self.current_image,
+               "current_image_size": self.current_image_size}
+        self._pending_minibatches[slave].append(job)
+        return job
+
+    def generate_data_for_master(self):
+        return None
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def apply_data_from_master(self, data):
+        self.minibatch_bboxes = data["minibatch_bboxes"]
+        self.minibatch_size = data["minibatch_siZe"]
+        self.current_image = data["current_image"]
+        self._current_image_data = numpy.empty(data["current_image_size"])
+        for index in range(self.minibatch_size):
+            self.minibatch_data[index] = \
+                self._get_bbox_data(*self.minibatch_bboxes[index]).ravel()
+
+    def drop_slave(self, slave):
+        if slave in self._pending_minibatches:
+            self._failed_minibatches.extend(self._pending_minibatches[slave])

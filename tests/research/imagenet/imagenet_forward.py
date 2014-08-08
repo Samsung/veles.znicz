@@ -14,6 +14,7 @@ from zope.interface import implementer
 from veles.config import root
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.opencl_units import OpenCLWorkflow
+from veles.pickle2 import pickle, best_protocol
 from veles.snapshotter import Snapshotter
 from veles.znicz.nn_units import Forward
 from veles.units import Unit, IUnit
@@ -24,6 +25,7 @@ from veles.znicz.tests.research.imagenet.forward_json import \
     ImagenetResultWriter
 from veles.znicz.tests.research.imagenet.forward_bbox import \
     merge_bboxes_by_dict
+from veles.distributable import IDistributable
 
 
 root.defaults = {
@@ -38,13 +40,16 @@ root.defaults = {
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
     "imagenet_base": "/data/veles/datasets/imagenet/temp",
-    "result_path": "/data/veles/tmp/result_%s_%s_0.json"
+    "result_path": "/data/veles/tmp/result_%s_%s_0.json",
+    "mergebboxes": {"raw_path":
+                    "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
+                    "ignore_negative": True}
 }
 
 root.result_path = root.result_path % (root.loader.year, root.loader.series)
 
 
-@implementer(IUnit)
+@implementer(IUnit, IDistributable)
 class MergeBboxes(Unit):
     def __init__(self, workflow, **kwargs):
         super(MergeBboxes, self).__init__(workflow, **kwargs)
@@ -52,11 +57,15 @@ class MergeBboxes(Unit):
         self._prev_image = ""
         self._current_bboxes = {}
         self.max_per_class = kwargs.get("max_per_class", 5)
+        self.ignore_negative = kwargs.get("ignore_negative", True)
+        self.save_raw = kwargs.get("save_raw_file_name", "")
+        self.rawfd = None
         self.demand("probabilities", "current_image", "minibatch_bboxes",
                     "minibatch_size", "ended", "current_image_size")
 
     def initialize(self, device, **kwargs):
-        pass
+        if self.save_raw:
+            self.rawfd = open(self.save_raw, "wb")
 
     def run(self):
         self.probabilities.map_read()
@@ -65,6 +74,12 @@ class MergeBboxes(Unit):
             prev_image = self._prev_image
             self._prev_image = self.current_image
             if prev_image:
+                if self.rawfd is not None:
+                    pickle.dump({self.current_image: self._current_bboxes},
+                                self.rawfd, protocol=best_protocol)
+                    if self.ended:
+                        self.rawfd.close()
+                        self.info("Wrote %s", self.save_raw)
                 self.debug("Merging %d bboxes", len(self._current_bboxes))
                 winning_bboxes = merge_bboxes_by_dict(
                     self._current_bboxes, self.current_image_size,
@@ -74,11 +89,29 @@ class MergeBboxes(Unit):
                 self._current_bboxes = {}
         for index, bbox in enumerate(
                 self.minibatch_bboxes[:self.minibatch_size]):
-            key = tuple(bbox[k] for k in ("x", "y", "width", "height"))
+            key = tuple(bbox[0][k] for k in ("x", "y", "width", "height"))
             self._current_bboxes[key] = numpy.maximum(
                 self._current_bboxes[key]
                 if key in self._current_bboxes else 0,
                 self.probabilities[index])
+            if self.ignore_negative:
+                self._current_bboxes[key][0] = 0
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
+
+    def apply_data_from_master(self, data):
+        self._prev_image = self.current_image
+        self._current_bboxes.clear()
+
+    def generate_data_for_master(self):
+        return None
+
+    def generate_data_for_slave(self, slave):
+        return {}
 
 
 class ImagenetForward(OpenCLWorkflow):
@@ -124,7 +157,10 @@ class ImagenetForward(OpenCLWorkflow):
         self.fwds[0].link_from(self.meandispnorm)
         self.fwds[0].link_attrs(self.loader, "minibatch_data")
 
-        self.mergebboxes = MergeBboxes(self)
+        self.mergebboxes = MergeBboxes(
+            self, save_raw_file_name=root.mergebboxes.raw_path % (
+                root.loader.year, root.loader.series, best_protocol),
+            ignore_negative=root.mergebboxes.ignore_negative)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
@@ -154,4 +190,4 @@ def run(load, main):
         CACHED_DATA_FNME, "labels_int_%s_%s_0.txt" %
         (root.loader.year, root.loader.series))
     load(ImagenetForward)
-    main()
+    main(forward_mode=True)

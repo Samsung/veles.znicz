@@ -64,7 +64,6 @@ class ImagenetResultWriter(Unit):
                 "width": shape[0], "height": shape[1],
                 "bbxs": bboxes
             }
-
-    def write(self):
         with open(self.result_path, "w") as fout:
             json.dump(self._results, fout, indent=4)
+        self.info("Wrote %s", self.result_path)
