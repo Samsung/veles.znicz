@@ -342,7 +342,7 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
 
     Returns:
         list: a list of BBOXes with their prob scores
-            (label, [ymin, xmin, ymax, xmax, score])
+            (label, score, [ymin, xmin, ymax, xmax])
     """
     bboxes = []
     probs = []
@@ -363,11 +363,13 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
             bboxes, probs[:, label_idx], pic_size, max_bboxes=max_per_class)
 
         for bbox_id in range(bboxes_for_label.shape[0]):
+            current_bbox = bboxes_for_label[bbox_id]
             bboxes_with_probs.append((label_idx,
-                                      list(bboxes_for_label[bbox_id])))
+                                      float(current_bbox[4]),
+                                      list(current_bbox[:4])))
 
     bboxes_with_probs = sorted(bboxes_with_probs, reverse=True,
-                               key=lambda x: x[1][4])
+                               key=lambda x: x[1])
     if max_per_class is not None:
         return bboxes_with_probs[:max_per_class]
     else:
