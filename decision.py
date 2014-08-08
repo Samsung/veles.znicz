@@ -15,6 +15,7 @@ from zope.interface import implementer, Interface
 from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
+from veles.workflow import NoMoreJobs
 from veles.znicz.loader import CLASS_NAME, TRAIN
 
 
@@ -129,6 +130,8 @@ class DecisionBase(Unit):
         return data
 
     def generate_data_for_slave(self, slave):
+        if self.complete:
+            raise NoMoreJobs()
         if self.epoch_timestamp is False:
             self.epoch_timestamp = time.time()
         data = {}
