@@ -34,7 +34,8 @@ class ImagenetResultWriter(Unit):
     def run(self):
         """Winners must be of the format: {"path": ..., "bbxs": [...]}
         Each bbox is {"conf": %f, "label": %d, "angle": %f,
-                      "bbox": {"x": ..., "y": ..., ...}}.
+                      "bbox": (label_index, confidence,
+                               (xmin, ymin, xmax, ymax))}.
         """
         if self.winners is None:
             return
@@ -48,11 +49,14 @@ class ImagenetResultWriter(Unit):
                 self.warning("Failed to determine the size of %s", fn)
             bboxes = []
             for bbox in win["bbxs"]:
+                coords = bbox[2]
+                width, height = coords[2] - coords[0], coords[3] - coords[1]
+                x, y = (coords[2] + coords[0]) / 2, (coords[3] - coords[1]) / 2
                 bboxes.append({
-                    "conf": bbox["conf"],
-                    "label": self._labels_mapping[bbox["label"]],
-                    "angle": "0", "x": bbox["x"], "y": bbox["y"],
-                    "width": bbox["width"], "height": bbox["height"]
+                    "conf": bbox[1],
+                    "label": self._labels_mapping[bbox[0]],
+                    "angle": "0", "x": x, "y": y,
+                    "width": width, "height": height
                 })
             self._results[os.path.basename(fn)] = {
                 "path": fn,
