@@ -62,6 +62,11 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
 
+    @property
+    def current_image_size(self):
+        return self._current_image_data.shape[:2] \
+            if self._current_image_data is not None else 0
+
     def initialize(self, device, **kwargs):
         super(ImagenetForwardLoaderBbox, self).initialize(
             device=device, **kwargs)

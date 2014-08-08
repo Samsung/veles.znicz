@@ -22,6 +22,8 @@ from veles.znicz.tests.research.imagenet.forward_loader import \
     ImagenetForwardLoaderBbox
 from veles.znicz.tests.research.imagenet.forward_json import \
     ImagenetResultWriter
+from veles.znicz.tests.research.imagenet.forward_bbox import \
+    merge_bboxes_by_dict
 
 
 root.defaults = {
@@ -31,7 +33,7 @@ root.defaults = {
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
                                  "raw_bboxes_4classes_img_val.4.pickle",
-               "angle_step": numpy.pi / 6,
+               "angle_step": numpy.pi / 4,
                "max_angle": numpy.pi},
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
@@ -49,8 +51,9 @@ class MergeBboxes(Unit):
         self.winners = []
         self._prev_image = ""
         self._current_bboxes = {}
+        self.max_per_class = kwargs.get("max_per_class", 5)
         self.demand("probabilities", "current_image", "minibatch_bboxes",
-                    "minibatch_size", "ended")
+                    "minibatch_size", "ended", "current_image_size")
 
     def initialize(self, device, **kwargs):
         pass
@@ -63,9 +66,9 @@ class MergeBboxes(Unit):
             self._prev_image = self.current_image
             if prev_image:
                 self.debug("Merging %d bboxes", len(self._current_bboxes))
-                winning_bboxes = None
-                # TODO(v.markovtsev): calculate the winning bboxes from
-                # self._current_bboxes
+                winning_bboxes = merge_bboxes_by_dict(
+                    self._current_bboxes, self.current_image_size,
+                    self.max_per_class)
                 self.winners.append({"path": self.current_image,
                                      "bbxs": winning_bboxes})
                 self._current_bboxes = {}
@@ -125,9 +128,8 @@ class ImagenetForward(OpenCLWorkflow):
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
-                                    "minibatch_bboxes", "minibatch_size")
-        self.mergebboxes.link_attrs(
-            self.loader, "aperture", "channels")
+                                    "minibatch_bboxes", "minibatch_size",
+                                    "current_image_size")
         self.mergebboxes.link_from(self.fwds[-1])
         self.repeater.link_from(self.mergebboxes)
 
