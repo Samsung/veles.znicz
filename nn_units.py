@@ -59,7 +59,13 @@ class Forward(OpenCLUnit):
         self.exports = ["weights", "bias",
                         "include_bias", "weights_transposed"]
 
+    def initialize(self, device, **kwargs):
+        super(Forward, self).initialize(device=device, **kwargs)
+        self.forward_mode = kwargs.get("forward_mode", False)
+
     def generate_data_for_slave(self, slave):
+        if self.forward_mode:
+            return None
         data = [None, None]
         if self.weights:
             self.weights.map_read()
@@ -73,6 +79,8 @@ class Forward(OpenCLUnit):
         return None
 
     def apply_data_from_master(self, data):
+        if self.forward_mode:
+            return
         if self.weights:
             self.weights.map_invalidate()
             numpy.copyto(self.weights.mem, data[0])
