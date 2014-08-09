@@ -43,7 +43,8 @@ root.defaults = {
     "result_path": "/data/veles/tmp/result_%s_%s_0.json",
     "mergebboxes": {"raw_path":
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
-                    "ignore_negative": True}
+                    "ignore_negative": True,
+                    "max_per_class": 5}
 }
 
 root.result_path = root.result_path % (root.loader.year, root.loader.series)
@@ -81,6 +82,10 @@ class MergeBboxes(Unit):
                         self.rawfd.close()
                         self.info("Wrote %s", self.save_raw)
                 self.debug("Merging %d bboxes", len(self._current_bboxes))
+                if self.ignore_negative:
+                    for key in self._current_bboxes:
+                        self._current_bboxes[key] = \
+                            self._current_bboxes[key][1:]
                 winning_bboxes = merge_bboxes_by_dict(
                     self._current_bboxes, self.current_image_size,
                     self.max_per_class)
@@ -94,8 +99,6 @@ class MergeBboxes(Unit):
                 self._current_bboxes[key]
                 if key in self._current_bboxes else 0,
                 self.probabilities[index])
-            if self.ignore_negative:
-                self._current_bboxes[key][0] = 0
 
     def apply_data_from_slave(self, data, slave):
         pass
@@ -160,7 +163,8 @@ class ImagenetForward(OpenCLWorkflow):
         self.mergebboxes = MergeBboxes(
             self, save_raw_file_name=root.mergebboxes.raw_path % (
                 root.loader.year, root.loader.series, best_protocol),
-            ignore_negative=root.mergebboxes.ignore_negative)
+            ignore_negative=root.mergebboxes.ignore_negative,
+            max_per_class=root.mergebboxes.max_per_class)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
