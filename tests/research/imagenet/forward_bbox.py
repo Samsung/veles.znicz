@@ -22,11 +22,10 @@ class BBox(object):
 
     @staticmethod
     def from_center_view(x_center, y_center, width, height):
-        xmin = x_center - int(round((width - 1) / 2.))
-        xmax = x_center + int(round((width - 1) / 2.))
-        ymin = y_center - int(round((height - 1) / 2.))
-        ymax = y_center + int(round((height - 1) / 2.))
-
+        xmin = round(x_center - (width - 1) / 2.)
+        xmax = round(x_center + (width - 1) / 2.)
+        ymin = round(y_center - (height - 1) / 2.)
+        ymax = round(y_center + (height - 1) / 2.)
         return BBox(ymin, xmin, ymax, xmax)
 
     @staticmethod
@@ -215,52 +214,57 @@ def load_synsets(synsets_path):
     return synsets, synset_names, synset_indexes
 
 
-'''
-This script make bounding boxes (bboxes) includes objects of class from
-raw bboxes.
-Created on Jul 15, 2014
-
-'''
-
-
-def merge_bboxes_by_probs_one(bboxes, probs, img_size, thr=0, border_thr=0.05):
+def merge_bboxes_to_one(bboxes, probs, img_size, thr=0, padding_ratio=0.05):
     """
     This function merges  a bounding box based on bounding boxes from dets.
-    It averages coordinates of dets proportional  their score.
+    It averages coordinates of `dets` proportional to their score.
 
     Args:
-        bboxes (ndarray): each row is ['xmin', 'ymin', 'xmax', 'ymax', 'score']
+        bboxes (ndarray): each row is ['ymin', 'xmin', 'ymax', 'xmax']
         probs (ndarray): each i'th row  is score of i'th bbox
         img_size (ndarray): include size of image from which bboxes was
             extracted (first element -- height, second -- width)
         thr (float): threshold parameter:in shaping final bbox involve only
             boxes with score >= thr
-        border_thr (float): padding ratio
+        padding_ratio (float): padding ratio ()
     Returns:
-        final (ndarray): bounding box includes region of interest
+        final_bbox (ndarray): merged bounding box `[ymin, xmin, ymax, xmax]`
+        final_prob(float): max probability
     """
+    #Merged BBOX
     pic_height, pic_width = img_size
-    final_bbox = numpy.zeros(shape=(1, 4))
-    cum_prob = 0
-    for i in range(bboxes.shape[0]):
-        prob = probs[i]
-        if prob >= thr:
-            cum_prob += prob
-            final_bbox[0, :] += prob * bboxes[i, 0:4]
-    final_bbox = final_bbox / cum_prob
-    width = final_bbox[0, 2] - final_bbox[0, 0]
-    height = final_bbox[0, 3] - final_bbox[0, 1]
-    final_bbox[0, 0] = max(0, final_bbox[0, 0] - border_thr * width)
-    final_bbox[0, 2] = min(final_bbox[0, 2] + border_thr * width,
-                           pic_width)
-    final_bbox[0, 1] = max(0, final_bbox[0, 1] - border_thr * height)
-    final_bbox[0, 3] = min(final_bbox[0, 3] + border_thr * height,
-                           pic_height)
-    return final_bbox
+    final_bbox = numpy.zeros(shape=4)
+    assert probs.min() >= 0
+    if probs.max() == 0:
+        for i in range(bboxes.shape[0]):
+            final_bbox += bboxes[i]
+    else:
+        cum_prob = 0
+        for i in range(bboxes.shape[0]):
+            prob = probs[i]
+            if prob >= thr:
+                cum_prob += prob
+                final_bbox += prob * bboxes[i]
+        final_bbox = final_bbox / cum_prob
+
+    # Padding
+    ymin, xmin, ymax, xmax = final_bbox
+    width = xmax - xmin + 1
+    height = ymax - ymin + 1
+
+    ymin = max(0, ymin - height * padding_ratio)
+    xmin = max(0, xmin - width * padding_ratio)
+    ymax = min(pic_height - 1, ymax + height * padding_ratio)
+    xmax = min(pic_width - 1, xmax + width * padding_ratio)
+
+    final_bbox = numpy.array((ymin, xmin, ymax, xmax))
+
+    return final_bbox, numpy.max(probs)
 
 
 def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
-                          secondary_thr=0, overlap_thr=0.3, max_bboxes=None):
+                          secondary_thr=0.02, overlap_thr=0.3,
+                          max_bboxes=None):
     """
     This function makes some bounding boxes based on bounding boxes from dets.
     It  makes next steps iteratively:
@@ -270,64 +274,61 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
     3. Merges bboxes from steps 1 and 2, for other bboxes go to step 1.
 
     Args:
-        bboxes (ndarray): each row is ['xmin', 'ymin', 'xmax', 'ymax', 'score']
+        bboxes (ndarray): each row is ['ymin', 'xmin', 'ymax', 'xmax']
         probs (ndarray): each i'th row  is score of i'th bbox
         img_size (ndarray): include size of image from which bboxes was
             extracted (first element -- height, second -- width)
-        primary_thr (float): in result_bboxes are included  only bbox with
+        primary_thr (float): in result_bboxes are included only bboxes with
             score >= primary_thr
-        secondary_thr (float): thr for  merge_bboxes_by_probs_one
+        secondary_thr (float): thr for merge_bboxes_to_one
         overlap_thr (float): threshold for step 2
         max_bboxes(int): max num of bboxes to return
     Returns:
-        result_bboxes (ndarray): bounding boxes after merge
+        result_bboxes(ndarray): bounding boxes after merge
+        result_probs(ndarray): scores for merged BBOXes
     """
-    dets = numpy.zeros(shape=(bboxes.shape[0], 5))
-    dets[:, 0: 4] = bboxes[:, :]
-    dets[:, 4] = probs[:]
 
-#     dets = numpy.zeros(shape=(0, 5))
-#     elem = numpy.zeros(shape=(1, 5))
-#     for i in range(bboxes.shape[0]):
-#         if probs[i] >= primary_thr:
-#             elem[0,0: 4] = bboxes[i,:]
-#             elem[4] = probs[i]
-#             dets = numpy.append(dets, elem, axis=0)
-    result_bboxes = numpy.zeros(shape=(0, 5))
-    while numpy.shape(dets)[0] != 0:
-        cur_bbox = numpy.argmax(dets[:, 4])
-        if(dets[cur_bbox, 4] < primary_thr):
-            return result_bboxes
-        elif max_bboxes is not None:
-            if result_bboxes.shape[0] == max_bboxes:
-                return result_bboxes
+    # indices of bboxes (with ascending probability > secondary_thr)
+    bbox_ids = list(numpy.argsort(probs))
 
-        dets_new = numpy.zeros(shape=(0, 5))
-        merge_bboxes = numpy.zeros(shape=(0, 5))
-        for i in range(dets.shape[0]):
-            r1 = dets[i, 0:4]  # current box coordinates
-            r2 = dets[cur_bbox, 0:4]  # candidate for merge coordinates
-            area1 = (r2[2] - r2[0]) * (r2[3] - r2[1])
-            area2 = (r1[2] - r1[0]) * (r1[3] - r1[1])
-            min_area = min(area1, area2)
-            area_of_intersect = max(0, min(r1[2], r2[2]) - max(r1[0], r2[0])) \
-                * max(0, min(r1[3], r2[3]) - max(r1[1], r2[1]))
-            if area_of_intersect >= overlap_thr * min_area:
-                merge_bboxes = numpy.append(
-                    merge_bboxes, numpy.reshape(dets[i, :], newshape=(1, 5)),
-                    axis=0)
-            else:
-                dets_new = numpy.append(dets_new, numpy.reshape(
-                    dets[i, :], newshape=(1, 5)), axis=0)
-        rb = merge_bboxes_by_probs_one(merge_bboxes[:, 0: 4],
-                                       merge_bboxes[:, 4],
-                                       img_size, secondary_thr)
-        r = numpy.zeros(shape=(1, 5))
-        r[0, 0:4] = rb
-        r[0, 4] = max(merge_bboxes[:, 4])
-        result_bboxes = numpy.append(result_bboxes, r, axis=0)
-        dets = dets_new
-    return result_bboxes
+    # remove all raw_bboxes with prob < secondary_thr
+    for i in range(len(bbox_ids) - 1, -1, -1):
+        if probs[bbox_ids[i]] < secondary_thr:
+            bbox_ids.pop(i)
+
+    result_bboxes = []
+    result_probs = []
+
+    while len(bbox_ids) > 0 and len(result_bboxes) < max_bboxes:
+        main_index = len(bbox_ids) - 1
+
+        if probs[bbox_ids[main_index]] < primary_thr:
+            break
+        # find all BBOXes, overlapping with top-scored one
+        overlapping_indices = []
+        for i in range(main_index, -1, -1):
+            if bbox_overlap_ratio(bboxes[bbox_ids[main_index]],
+                                  bboxes[bbox_ids[i]]) >= overlap_thr:
+                overlapping_indices.append(i)
+
+        ids_to_merge = [bbox_ids[i] for i in overlapping_indices]
+
+        # merging them
+        bboxes_to_merge = bboxes[ids_to_merge]
+        probs_to_merge = probs[ids_to_merge]
+
+        merged_bbox, merged_prob = merge_bboxes_to_one(
+            bboxes_to_merge, probs_to_merge, img_size)
+
+        result_bboxes.append(merged_bbox)
+        result_probs.append(merged_prob)
+
+        # removing merged BBOXes from raw bbox pool
+        overlapping_indices = sorted(overlapping_indices, reverse=True)
+        for i in overlapping_indices:
+            bbox_ids.pop(i)
+
+    return numpy.array(result_bboxes), numpy.array(result_probs)
 
 
 def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
@@ -336,7 +337,8 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
         scores
 
     Args:
-        bbox_dict(dict): BBOX dict
+        bbox_dict(dict): BBOX dict, keys are BBOXes (ymin, ymax, xmin, xmax),
+            values are probability score vectors
         pic_path(str): path to picture to detect (to get known its shape)
         max_per_class(int): how many top-scored BBOXes (PER CLASS!) to return
 
@@ -359,14 +361,15 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
     bboxes_with_probs = []
 
     for label_idx in range(probs.shape[1]):
-        bboxes_for_label = merge_bboxes_by_probs(
+        bboxes_for_label, probs_for_label = merge_bboxes_by_probs(
             bboxes, probs[:, label_idx], pic_size, max_bboxes=max_per_class)
 
-        for bbox_id in range(bboxes_for_label.shape[0]):
-            current_bbox = bboxes_for_label[bbox_id]
+        for bbox_index in range(bboxes_for_label.shape[0]):
+            current_bbox = bboxes_for_label[bbox_index]
+            current_prob = probs_for_label[bbox_index]
             bboxes_with_probs.append((label_idx,
-                                      float(current_bbox[4]),
-                                      list(current_bbox[:4])))
+                                      current_prob,
+                                      list(current_bbox)))
 
     bboxes_with_probs = sorted(bboxes_with_probs, reverse=True,
                                key=lambda x: x[1])
