@@ -6,6 +6,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 import json
+import numpy
 import os
 from PIL import Image
 from zope.interface import implementer
@@ -53,10 +54,12 @@ class ImagenetResultWriter(Unit):
                 width, height = coords[2] - coords[0], coords[3] - coords[1]
                 x, y = (coords[2] + coords[0]) / 2, (coords[3] - coords[1]) / 2
                 bboxes.append({
-                    "conf": bbox[1],
+                    "conf": float(bbox[1]),
                     "label": self._labels_mapping[bbox[0]],
-                    "angle": "0", "x": x, "y": y,
-                    "width": width, "height": height
+                    "angle": "0", "x": int(numpy.round(x)),
+                    "y": int(numpy.round(y)),
+                    "width": int(numpy.round(width)),
+                    "height": int(numpy.round(height))
                 })
             self._results[os.path.basename(fn)] = {
                 "path": fn,

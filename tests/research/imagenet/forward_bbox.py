@@ -231,7 +231,7 @@ def merge_bboxes_to_one(bboxes, probs, img_size, thr=0, padding_ratio=0.05):
         final_bbox (ndarray): merged bounding box `[ymin, xmin, ymax, xmax]`
         final_prob(float): max probability
     """
-    #Merged BBOX
+    # Merged BBOX
     pic_height, pic_width = img_size
     final_bbox = numpy.zeros(shape=4)
     assert probs.min() >= 0
@@ -346,6 +346,7 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
         list: a list of BBOXes with their prob scores
             (label, score, [ymin, xmin, ymax, xmax])
     """
+    assert len(bbox_dict) > 0
     bboxes = []
     probs = []
 
@@ -367,8 +368,7 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
         for bbox_index in range(bboxes_for_label.shape[0]):
             current_bbox = bboxes_for_label[bbox_index]
             current_prob = probs_for_label[bbox_index]
-            bboxes_with_probs.append((label_idx,
-                                      current_prob,
+            bboxes_with_probs.append((label_idx, current_prob,
                                       list(current_bbox)))
 
     bboxes_with_probs = sorted(bboxes_with_probs, reverse=True,

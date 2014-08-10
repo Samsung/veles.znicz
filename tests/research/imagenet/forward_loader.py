@@ -50,10 +50,12 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.minibatch_bboxes = 0
         self.add_sobel = False
         self.angle_step = kwargs.get("angle_step", numpy.pi / 4)
+        assert self.angle_step > 0
         self.max_angle = kwargs.get("max_angle", numpy.pi)
+        self.min_angle = kwargs.get("min_angle", -numpy.pi)
         self.ended = Bool()
         self.image_ended = Bool()
-        self._state = (0.0, False)  # angle, flip
+        self._state = (self.min_angle, False)  # angle, flip
         self.current_image = ""  # image file name == pickled dict's key
         self._current_image_data = None
         self._current_bbox = None  # used when another image appears
@@ -62,12 +64,13 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._progress = None
         self.bboxes = {}
         # entry is the first forward unit
-        self.demand("entry", "mean")
+        self.demand("entry_shape", "mean")
 
     def init_unpickled(self):
         super(ImagenetForwardLoaderBbox, self).init_unpickled()
         self._failed_minibatches = []
         self._pending_minibatches = defaultdict(list)
+        self._progress_prevval = 0
 
     @property
     def current_image_size(self):
@@ -77,8 +80,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     def initialize(self, device, **kwargs):
         super(ImagenetForwardLoaderBbox, self).initialize(
             device=device, **kwargs)
-        shape = self.entry.mem.shape
-        self.max_minibatch_size = shape[0]
+        shape = self.entry_shape
+        self.max_minibatch_size = kwargs.get("minibatch_size", shape[0])
         self.aperture = shape[1]
         self.channels = shape[-1]
         self.add_sobel = self.channels == 4
@@ -93,9 +96,10 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                     break
         self.info("Successfully loaded")
         self.total *= 2  # flip
-        self.total *= int(self.max_angle / self.angle_step)
+        self.total *= int(numpy.ceil((self.max_angle - self.min_angle +
+                                      0.0001) / self.angle_step))
         self.info("Total %d shots", self.total)
-        self._progress = ProgressBar(maxval=self.total,
+        self._progress = ProgressBar(maxval=self.total, term_width=40,
                                      widgets=['Progress: ', Percentage(), ' ',
                                               Bar()])
         self._progress.start()
@@ -104,7 +108,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
 
         self.minibatch_data.mem = numpy.zeros(
             (self.max_minibatch_size, self.aperture ** 2 * self.channels),
-            dtype=numpy.uint8)
+            dtype=numpy.uint8).reshape(shape)
 
         self.minibatch_bboxes = [None] * self.max_minibatch_size
         self._last_info_time = time.time()
@@ -228,11 +232,11 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     def _next_state(self):
         angle, flip = self._state
         angle += self.angle_step
-        if angle > self.max_angle:
+        if angle > self.max_angle + 0.0001:
             if flip:
-                self._state = (0.0, False)
+                self._state = (self.min_angle, False)
                 raise StopIteration()
-            self._state = (0.0, True)
+            self._state = (self.min_angle, True)
         else:
             self._state = (angle, flip)
         return self._state
@@ -315,12 +319,22 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         bbox = self._current_bbox
         now = time.time()
         if now - self._last_info_time > 60:
+            self.info(
+                "Processed %d / %d (%d%%), took %.1f sec, "
+                "will complete in %.1f hours",
+                self._progress.currval, self._progress.maxval,
+                self._progress.percent, now - self._last_info_time,
+                (now - self._last_info_time) /
+                (self._progress.currval - self._progress_prevval) *
+                (self._progress.maxval - self._progress.currval) / 3600)
+            self._progress_prevval = self._progress.currval
             self._last_info_time = now
-            self.info("Processed %d / %d (%d%%)", self._progress.currval,
-                      self._progress.maxval, self._progress.percent)
 
         for index in range(self.max_minibatch_size):
-            self._progress.inc()
+            try:
+                self._progress.inc()
+            except ValueError:
+                pass
             if self.image_ended:
                 bbox, self._current_bbox = self._current_bbox, None
                 angle, flip = self._state
@@ -342,7 +356,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                 return
             else:
                 self.minibatch_data[index] = \
-                    self._get_bbox_data(bbox, angle, flip).ravel()
+                    self._get_bbox_data(bbox, angle, flip)  # .ravel()
                 self.minibatch_bboxes[index] = (bbox, angle, flip)
         self.minibatch_size = self.max_minibatch_size
 

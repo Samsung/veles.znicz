@@ -31,16 +31,17 @@ from veles.distributable import IDistributable
 root.defaults = {
     "loader": {"year": "216_pool",
                "series": "img",
-               "do_shuffle": False,
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
                                  "raw_bboxes_4classes_img_val.4.pickle",
-               "angle_step": numpy.pi / 4,
-               "max_angle": numpy.pi},
+               "angle_step": numpy.pi / 3,
+               "max_angle": numpy.pi / 3,
+               "min_angle": (-numpy.pi / 3),
+               "minibatch_size": 64},
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
     "imagenet_base": "/data/veles/datasets/imagenet/temp",
-    "result_path": "/data/veles/tmp/result_%s_%s_0.json",
+    "result_path": "/data/veles/tmp/result_%s_%s_test_0.json",
     "mergebboxes": {"raw_path":
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
                     "ignore_negative": True,
@@ -71,27 +72,6 @@ class MergeBboxes(Unit):
     def run(self):
         self.probabilities.map_read()
 
-        if self.current_image != self._prev_image or self.ended:
-            prev_image = self._prev_image
-            self._prev_image = self.current_image
-            if prev_image:
-                if self.rawfd is not None:
-                    pickle.dump({self.current_image: self._current_bboxes},
-                                self.rawfd, protocol=best_protocol)
-                    if self.ended:
-                        self.rawfd.close()
-                        self.info("Wrote %s", self.save_raw)
-                self.debug("Merging %d bboxes", len(self._current_bboxes))
-                if self.ignore_negative:
-                    for key in self._current_bboxes:
-                        self._current_bboxes[key] = \
-                            self._current_bboxes[key][1:]
-                winning_bboxes = merge_bboxes_by_dict(
-                    self._current_bboxes, self.current_image_size,
-                    self.max_per_class)
-                self.winners.append({"path": self.current_image,
-                                     "bbxs": winning_bboxes})
-                self._current_bboxes = {}
         for index, bbox in enumerate(
                 self.minibatch_bboxes[:self.minibatch_size]):
             key = tuple(bbox[0][k] for k in ("x", "y", "width", "height"))
@@ -99,6 +79,30 @@ class MergeBboxes(Unit):
                 self._current_bboxes[key]
                 if key in self._current_bboxes else 0,
                 self.probabilities[index])
+
+        if self.current_image != self._prev_image or self.ended:
+            prev_image = self._prev_image
+            self._prev_image = self.current_image
+            if prev_image:
+                if self.rawfd is not None:
+                    pickle.dump({prev_image: self._current_bboxes},
+                                self.rawfd, protocol=best_protocol)
+                    self.rawfd.flush()
+                    if self.ended:
+                        self.rawfd.close()
+                        self.info("Wrote %s", self.save_raw)
+                self.debug("Merging %d bboxes of %s",
+                           len(self._current_bboxes), prev_image)
+                if self.ignore_negative:
+                    for key in self._current_bboxes:
+                        self._current_bboxes[key] = \
+                            self._current_bboxes[key][1:]
+                winning_bboxes = merge_bboxes_by_dict(
+                    self._current_bboxes, self.current_image_size,
+                    self.max_per_class)
+                self.winners.append({"path": prev_image,
+                                     "bbxs": winning_bboxes})
+                self._current_bboxes = {}
 
     def apply_data_from_slave(self, data, slave):
         pass
@@ -142,7 +146,8 @@ class ImagenetForward(OpenCLWorkflow):
             self,
             bboxes_file_name=root.loader.path_to_bboxes,
             angle_step=root.loader.angle_step,
-            max_angle=root.loader.max_angle)
+            max_angle=root.loader.max_angle,
+            min_angle=root.loader.min_angle)
         self.loader.link_from(self.repeater)
         self.loader.gate_block = self.loader.ended
 
@@ -152,13 +157,15 @@ class ImagenetForward(OpenCLWorkflow):
             self.fwds.append(fwd)
         del train_wf.fwds[:]
 
-        self.loader.link_attrs(self.fwds[0], ("entry", "input"))
+        self.loader.entry_shape = list(self.fwds[0].input.shape)
+        self.loader.entry_shape[0] = root.loader.minibatch_size
         self.meandispnorm = train_wf.meandispnorm
         self.meandispnorm.workflow = self
         self.meandispnorm.link_from(self.loader)
+        self.meandispnorm.link_attrs(self.loader, ("input", "minibatch_data"))
         self.loader.link_attrs(self.meandispnorm, "mean")
         self.fwds[0].link_from(self.meandispnorm)
-        self.fwds[0].link_attrs(self.loader, "minibatch_data")
+        self.fwds[0].link_attrs(self.meandispnorm, ("input", "output"))
 
         self.mergebboxes = MergeBboxes(
             self, save_raw_file_name=root.mergebboxes.raw_path % (
@@ -194,4 +201,4 @@ def run(load, main):
         CACHED_DATA_FNME, "labels_int_%s_%s_0.txt" %
         (root.loader.year, root.loader.series))
     load(ImagenetForward)
-    main(forward_mode=True)
+    main(forward_mode=True, minibatch_size=root.loader.minibatch_size)
