@@ -23,6 +23,7 @@ class ImagenetResultWriter(Unit):
         super(ImagenetResultWriter, self).__init__(workflow, **kwargs)
         self.labels_txt = labels_txt
         self.result_path = result_path
+        self.ignore_negative = kwargs.get("ignore_negative", True)
         self.demand("winners")
 
     def initialize(self, **kwargs):
@@ -51,11 +52,14 @@ class ImagenetResultWriter(Unit):
             bboxes = []
             for bbox in win["bbxs"]:
                 coords = bbox[2]
-                width, height = coords[2] - coords[0], coords[3] - coords[1]
-                x, y = (coords[2] + coords[0]) / 2, (coords[3] - coords[1]) / 2
+                height, width = coords[2] - coords[0], coords[3] - coords[1]
+                assert width > 0
+                assert height > 0
+                y, x = (coords[2] + coords[0]) / 2, (coords[3] + coords[1]) / 2
                 bboxes.append({
                     "conf": float(bbox[1]),
-                    "label": self._labels_mapping[bbox[0]],
+                    "label": self._labels_mapping[bbox[0] +
+                        (1 if self.ignore_negative else 0)],
                     "angle": "0", "x": int(numpy.round(x)),
                     "y": int(numpy.round(y)),
                     "width": int(numpy.round(width)),
