@@ -10,13 +10,27 @@ from scipy.io import loadmat
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 
+class InvalidBBox(Exception):
+    pass
+
+
 def get_bbox_min_max(bbox, iwh):
-    angle = bbox["angle"]
+    # our angle is always zero
+    """
+    angle = float(bbox["angle"])
     matrix = numpy.array([[numpy.cos(angle), -numpy.sin(angle)],
                           [numpy.sin(angle), numpy.cos(angle)]])
+    """
     w, h = bbox["width"], bbox["height"]
-    bb = numpy.array([[0, 0], [w, 0], [w, h], [0, h]])
+    x, y = bbox["x"], bbox["y"]
+    if w <= 0 or h <= 0:
+        raise InvalidBBox()
+    bb = numpy.array([[x - w // 2, y - h // 2], [x - w // 2 + w, y - h // 2],
+                      [x - w // 2 + w, y - h // 2 + h],
+                      [x - w // 2, y - h // 2 + h]])
+    """
     bb = bb.dot(matrix)
+    """
     xmin, ymin = [max(numpy.min(bb[:, i]), 0) for i in (0, 1)]
     xmax, ymax = [min(numpy.max(bb[:, i]), iwh[i]) for i in (0, 1)]
     return xmin, ymin, xmax, ymax
@@ -47,16 +61,28 @@ def convert_DET(idk, dset, ijson, otxt):
         img_mapping = dict(zip(values[::2], map(int, values[1::2])))
     print("Read %d image indices" % len(img_mapping))
     labels = loadmat(os.path.join(idk, "data/meta_det.mat"))
-    labels_mapping = {s[1]: s[0] for s in labels['synsets']}
+    labels_mapping = {str(s[1][0]): int(s[0][0][0])
+                      for s in labels['synsets'][0]}
     print("Read %d labels" % len(labels_mapping))
     for key, val in sorted(ijson.items()):
-        bbox = max(val["bbxs"], key=lambda bbox: bbox["conf"])
+        if len(val["bbxs"]) == 0:
+            print("Warning: %s has no bboxes" % key)
+            continue
         iwh = get_image_dims(val)
-        minmaxs = get_bbox_min_max(bbox, iwh)
-        otxt.write(("%d %d %.3f " + "%d " * 4 + "\n") % ((
-                   img_mapping[os.path.splitext(key)[0]],
-                   labels_mapping[bbox["label"]],
-                   bbox["conf"]) + minmaxs))
+        for bbox in val["bbxs"]:
+            try:
+                minmaxs = get_bbox_min_max(bbox, iwh)
+            except InvalidBBox:
+                print("Warning: %s has a bbox with an invalid width or "
+                      "height: %s" % (key, bbox))
+                continue
+            try:
+                otxt.write(("%d %d %.3f " + "%d " * 4 + "\n") % ((
+                           img_mapping[os.path.splitext(key)[0]],
+                           labels_mapping[bbox["label"]],
+                           bbox["conf"]) + minmaxs))
+            except KeyError:
+                pass
 
 
 def convert_CLS_LOC(idk, dset, ijson, otxt):
@@ -112,11 +138,13 @@ def main():
     with open(ifile, "r") as json_file:
         ijson = json.load(json_file)
     print("Read %d files from %s" % (len(ijson), base_file))
-    with open("%s.txt" % os.path.splitext(base_file)[0], "w") as otxt:
+    result_path = "%s.txt" % os.path.splitext(base_file)[0]
+    with open(result_path, "w") as otxt:
         if mode == "DET":
             convert_DET(idk, dset, ijson, otxt)
         else:
             convert_CLS_LOC(idk, dset, ijson, otxt)
+    print("Wrote %s" % result_path)
 
 if __name__ == "__main__":
     sys.exit(main())
