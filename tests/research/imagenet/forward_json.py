@@ -58,8 +58,8 @@ class ImagenetResultWriter(Unit):
                 y, x = (coords[2] + coords[0]) / 2, (coords[3] + coords[1]) / 2
                 bboxes.append({
                     "conf": float(bbox[1]),
-                    "label": self._labels_mapping[bbox[0] +
-                        (1 if self.ignore_negative else 0)],
+                    "label": self._labels_mapping[
+                        bbox[0] + (1 if self.ignore_negative else 0)],
                     "angle": "0", "x": int(numpy.round(x)),
                     "y": int(numpy.round(y)),
                     "width": int(numpy.round(width)),

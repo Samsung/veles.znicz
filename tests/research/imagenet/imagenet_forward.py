@@ -57,6 +57,7 @@ class MergeBboxes(Unit):
         super(MergeBboxes, self).__init__(workflow, **kwargs)
         self.winners = []
         self._prev_image = ""
+        self._prev_image_size = 0
         self._current_bboxes = {}
         self.max_per_class = kwargs.get("max_per_class", 5)
         self.ignore_negative = kwargs.get("ignore_negative", True)
@@ -69,8 +70,18 @@ class MergeBboxes(Unit):
         if self.save_raw:
             self.rawfd = open(self.save_raw, "wb")
 
+    def validate(self, winners, image, raw):
+        for winner in winners:
+            bbox = winner[2]
+            if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+                self.error("%s: validation failed\n\nwinners:\n%s\n\nraw:\n%s",
+                           image, winners, raw.keys())
+
     def run(self):
         self.probabilities.map_read()
+        if not self._prev_image:
+            self._prev_image_size = self.current_image_size
+            self._prev_image = self.current_image
 
         for index, bbox in enumerate(
                 self.minibatch_bboxes[:self.minibatch_size]):
@@ -83,26 +94,25 @@ class MergeBboxes(Unit):
         if self.current_image != self._prev_image or self.ended:
             prev_image = self._prev_image
             self._prev_image = self.current_image
-            if prev_image:
-                if self.rawfd is not None:
-                    pickle.dump({prev_image: self._current_bboxes},
-                                self.rawfd, protocol=best_protocol)
-                    self.rawfd.flush()
-                    if self.ended:
-                        self.rawfd.close()
-                        self.info("Wrote %s", self.save_raw)
-                self.debug("Merging %d bboxes of %s",
-                           len(self._current_bboxes), prev_image)
-                if self.ignore_negative:
-                    for key in self._current_bboxes:
-                        self._current_bboxes[key] = \
-                            self._current_bboxes[key][1:]
-                winning_bboxes = merge_bboxes_by_dict(
-                    self._current_bboxes, self.current_image_size,
-                    self.max_per_class)
-                self.winners.append({"path": prev_image,
-                                     "bbxs": winning_bboxes})
-                self._current_bboxes = {}
+            if self.rawfd is not None:
+                pickle.dump({prev_image: self._current_bboxes},
+                            self.rawfd, protocol=best_protocol)
+                self.rawfd.flush()
+                if self.ended:
+                    self.rawfd.close()
+                    self.info("Wrote %s", self.save_raw)
+            self.debug("Merging %d bboxes of %s",
+                       len(self._current_bboxes), prev_image)
+            if self.ignore_negative:
+                for key in self._current_bboxes:
+                    self._current_bboxes[key] = self._current_bboxes[key][1:]
+            winning_bboxes = merge_bboxes_by_dict(
+                self._current_bboxes, self._prev_image_size,
+                self.max_per_class)
+            self.validate(winning_bboxes, prev_image, self._current_bboxes)
+            self.winners.append({"path": prev_image, "bbxs": winning_bboxes})
+            self._current_bboxes = {}
+            self._prev_image_size = self.current_image_size
 
     def apply_data_from_slave(self, data, slave):
         pass
@@ -181,7 +191,8 @@ class ImagenetForward(OpenCLWorkflow):
         self.repeater.link_from(self.mergebboxes)
 
         self.json_writer = ImagenetResultWriter(
-            self, root.loader.labels_int_dir, root.result_path)
+            self, root.loader.labels_int_dir, root.result_path,
+            ignore_negative=root.mergebboxes.ignore_negative)
         self.json_writer.link_attrs(self.mergebboxes, "winners")
         self.json_writer.link_from(self.mergebboxes)
         self.end_point.link_from(self.json_writer)
