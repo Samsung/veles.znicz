@@ -352,6 +352,14 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
 
     for key, val in bbox_dict.items():
         x_center, y_center, w, h = key
+        try:
+            assert x_center + w / 2 < pic_size[1] + 1
+            assert x_center - w / 2 > -1
+            assert y_center + h / 2 < pic_size[0] + 1
+            assert y_center - h / 2 > -1
+        except AssertionError:
+            import pdb
+            pdb.set_trace()
         bbox = BBox.from_center_view(x_center, y_center, w, h).to_caffe_view()
         bboxes.append(bbox)
         probs.append(val)
