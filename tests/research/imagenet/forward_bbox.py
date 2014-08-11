@@ -214,7 +214,7 @@ def load_synsets(synsets_path):
     return synsets, synset_names, synset_indexes
 
 
-def merge_bboxes_to_one(bboxes, probs, img_size, thr=0, padding_ratio=0.05):
+def merge_bboxes_to_one(bboxes, probs, img_size, padding_ratio=0.05):
     """
     This function merges  a bounding box based on bounding boxes from dets.
     It averages coordinates of `dets` proportional to their score.
@@ -231,20 +231,19 @@ def merge_bboxes_to_one(bboxes, probs, img_size, thr=0, padding_ratio=0.05):
         final_bbox (ndarray): merged bounding box `[ymin, xmin, ymax, xmax]`
         final_prob(float): max probability
     """
-    # Merged BBOX
+    # Merging BBOX
     pic_height, pic_width = img_size
     final_bbox = numpy.zeros(shape=4)
     assert probs.min() >= 0
     if probs.max() == 0:
         for i in range(bboxes.shape[0]):
-            final_bbox += bboxes[i]
+            final_bbox += bboxes[i] / bboxes.shape[0]
     else:
         cum_prob = 0
         for i in range(bboxes.shape[0]):
             prob = probs[i]
-            if prob >= thr:
-                cum_prob += prob
-                final_bbox += prob * bboxes[i]
+            cum_prob += prob
+            final_bbox += prob * bboxes[i]
         final_bbox = final_bbox / cum_prob
 
     # Padding
@@ -299,9 +298,12 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
     result_bboxes = []
     result_probs = []
 
-    while len(bbox_ids) > 0 and len(result_bboxes) < max_bboxes:
+    while len(bbox_ids) > 0:
         main_index = len(bbox_ids) - 1
 
+        if max_bboxes is not None:
+            if len(result_bboxes) >= max_bboxes:
+                break
         if probs[bbox_ids[main_index]] < primary_thr:
             break
         # find all BBOXes, overlapping with top-scored one
@@ -331,16 +333,20 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
     return numpy.array(result_bboxes), numpy.array(result_probs)
 
 
-def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
+def merge_bboxes_by_dict(bbox_dict, pic_size, max_bboxes=None,
+                         primary_thr=0.1, secondary_thr=0.001):
     """
-    Takes BBOX dict: keys are BBOXes in CAFFE format, values are prediction
-        scores
+    Takes BBOX dict: keys are BBOXes in VELES format, values are prediction
+        scores. Merges overlapping BBOXes and adjusts their coordinates.
 
     Args:
-        bbox_dict(dict): BBOX dict, keys are BBOXes (ymin, ymax, xmin, xmax),
+        bbox_dict(dict): BBOX dict, keys are BBOXes (x_cen, y_cen, w, h),
             values are probability score vectors
         pic_path(str): path to picture to detect (to get known its shape)
-        max_per_class(int): how many top-scored BBOXes (PER CLASS!) to return
+        max_bboxes(int): how many top-scored BBOXes to return at max
+        primary_thr(float): not to return merged BBOXes with smaller prob score
+        secondary_thr(float): BBOXes with smaller prob scores cannot be merged
+            into greater prob ones.
 
     Returns:
         list: a list of BBOXes with their prob scores
@@ -371,7 +377,9 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
 
     for label_idx in range(probs.shape[1]):
         bboxes_for_label, probs_for_label = merge_bboxes_by_probs(
-            bboxes, probs[:, label_idx], pic_size, max_bboxes=max_per_class)
+            bboxes, probs[:, label_idx], pic_size,
+            primary_thr=primary_thr, secondary_thr=secondary_thr,
+            max_bboxes=max_bboxes)
 
         for bbox_index in range(bboxes_for_label.shape[0]):
             current_bbox = bboxes_for_label[bbox_index]
@@ -381,7 +389,7 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_per_class=None):
 
     bboxes_with_probs = sorted(bboxes_with_probs, reverse=True,
                                key=lambda x: x[1])
-    if max_per_class is not None:
-        return bboxes_with_probs[:max_per_class]
+    if max_bboxes is not None:
+        return bboxes_with_probs[:max_bboxes]
     else:
         return bboxes_with_probs
