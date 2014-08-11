@@ -331,10 +331,6 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             self._last_info_time = now
 
         for index in range(self.max_minibatch_size):
-            try:
-                self._progress.inc()
-            except ValueError:
-                pass
             if self.image_ended:
                 bbox, self._current_bbox = self._current_bbox, None
                 angle, flip = self._state
@@ -347,16 +343,18 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                         self._current_bbox = bbox = self._next_bbox()
                     except StopIteration:
                         self.minibatch_size = index
+                        self._current_image_data = None
                         self.ended <<= True
                         reactor.callFromThread(self._progress.finish)
                         return
                     angle, flip = self._state
+                self._progress.inc()
             if self.image_ended:
                 self.minibatch_size = index
                 return
             else:
                 self.minibatch_data[index] = \
-                    self._get_bbox_data(bbox, angle, flip)  # .ravel()
+                    self._get_bbox_data(bbox, angle, flip)
                 self.minibatch_bboxes[index] = (bbox, angle, flip)
         self.minibatch_size = self.max_minibatch_size
 
