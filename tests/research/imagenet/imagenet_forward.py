@@ -33,15 +33,15 @@ root.defaults = {
                "series": "img",
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes":
-               # "/data/veles/datasets/imagenet/raw_bboxes/"
-               # "raw_bboxes_4classes_img_val.4.pickle",
-               "/data/veles/tmp/result_216_pool_img_test_0.json",
+               "/data/veles/datasets/imagenet/raw_bboxes/"
+               "raw_bboxes_4classes_img_val.4.pickle",
+               # "/data/veles/tmp/result_216_pool_img_test_0.json",
                # "/data/veles/tmp/result_216_pool_img_test_1.json",
-               "angle_step": 0.01,
-               "max_angle": 0,
-               "min_angle": 0,
+               "angle_step": numpy.pi / 3,
+               "max_angle": numpy.pi / 3,
+               "min_angle": (-numpy.pi / 3),
                "minibatch_size": 64,
-               "only_this_file": "00009111",
+               "only_this_file": "",
                "raw_bboxes_min_area": 256,
                "raw_bboxes_min_size": 8,
                "raw_bboxes_min_area_ratio": 0.005,
@@ -54,7 +54,7 @@ root.defaults = {
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
-                    "probability_threshold": 0.9,
+                    "probability_threshold": 0.95,
                     "mode": ""}
 }
 

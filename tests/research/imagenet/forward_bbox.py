@@ -120,15 +120,16 @@ def bbox_has_inclusion(bbox_a, bbox_b, area_ratio=0.9):
     Returns:
         bool
     """
-    [ymin_a, xmin_a, ymax_a, xmax_a] = list(bbox_a)
-    [ymin_b, xmin_b, ymax_b, xmax_b] = list(bbox_b)
+    ymin_a, xmin_a, ymax_a, xmax_a = bbox_a
+    ymin_b, xmin_b, ymax_b, xmax_b = bbox_b
 
     area_a = (xmax_a - xmin_a + 1) * (ymax_a - ymin_a + 1)
     area_b = (xmax_b - xmin_b + 1) * (ymax_b - ymin_b + 1)
 
     min_area = min(area_a, area_b)
 
-    return (bbox_overlap(bbox_a, bbox_b) >= min_area * area_ratio)
+    return (bbox_overlap(bbox_a, bbox_b) >= min_area * area_ratio,
+            area_a > area_b)
 
 
 def draw_bbox(img, bbox, bgr_color=None, prob=None):
@@ -358,7 +359,7 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
                 overlapping_indices.append(i)
             elif use_inclusions:
                 if bbox_has_inclusion(bboxes[bbox_ids[main_index]],
-                                      bboxes[bbox_ids[i]]):
+                                      bboxes[bbox_ids[i]])[0]:
                     overlapping_indices.append(i)
 
         ids_to_merge = [bbox_ids[i] for i in overlapping_indices]
@@ -439,6 +440,21 @@ def merge_bboxes_by_dict(bbox_dict, pic_size,
     bboxes_with_probs = sorted(bboxes_with_probs, reverse=True,
                                key=lambda x: x[1])
     if max_bboxes is not None:
-        return bboxes_with_probs[:max_bboxes]
-    else:
-        return bboxes_with_probs
+        bboxes_with_probs = bboxes_with_probs[:max_bboxes]
+
+    nested = set()
+    for index1, bbp1 in enumerate(bboxes_with_probs):
+        if index1 in nested:
+            continue
+        bbox1 = bbp1[2]
+        for index2, bbp2 in enumerate(bboxes_with_probs):
+            if index2 in nested or index1 == index2:
+                continue
+            bbox2 = bbp2[2]
+            incl, which = bbox_has_inclusion(bbox1, bbox2, area_ratio=1.0)
+            if incl:
+                nested.add(index2 if which else index1)
+    bboxes_with_probs = [bboxes_with_probs[i]
+                         for i in range(len(bboxes_with_probs))
+                         if i not in nested]
+    return bboxes_with_probs
