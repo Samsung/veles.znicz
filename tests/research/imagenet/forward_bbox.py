@@ -284,6 +284,25 @@ def merge_bboxes_to_one(bboxes, probs, img_size, padding_ratio=0.05):
     return final_bbox, numpy.max(probs)
 
 
+def bbox_is_small(bbox, h_min, w_min, min_area=None):
+    """
+    Returns True if BBOX is smaller than min params.
+    """
+    [ymin, xmin, ymax, xmax] = list(bbox)
+    width = (xmax - xmin + 1)
+    if width < w_min:
+        return True
+    height = (ymax - ymin + 1)
+    if height < h_min:
+        return True
+    area = width * height
+
+    if min_area is not None:
+        if area < min_area:
+            return True
+    return False
+
+
 def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
                           secondary_thr=0.02, overlap_thr=0.3,
                           max_bboxes=None, use_inclusions=False):
@@ -316,6 +335,8 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
     # remove all raw_bboxes with prob < secondary_thr
     for i in range(len(bbox_ids) - 1, -1, -1):
         if probs[bbox_ids[i]] < secondary_thr:
+            bbox_ids.pop(i)
+        elif bbox_is_small(bboxes[bbox_ids[i]], h_min=20, w_min=20):
             bbox_ids.pop(i)
 
     result_bboxes = []
