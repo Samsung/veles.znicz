@@ -33,15 +33,15 @@ root.defaults = {
                "series": "img",
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes":
-               "/data/veles/datasets/imagenet/raw_bboxes/"
-               "raw_bboxes_4classes_img_val.4.pickle",
-               # "/data/veles/tmp/result_216_pool_img_test_0.json",
+               # "/data/veles/datasets/imagenet/raw_bboxes/"
+               # "raw_bboxes_4classes_img_val.4.pickle",
+               "/data/veles/tmp/result_216_pool_img_test_0.json",
                # "/data/veles/tmp/result_216_pool_img_test_1.json",
                "angle_step": 0.01,
                "max_angle": 0,
                "min_angle": 0,
                "minibatch_size": 64,
-               "only_this_file": "00007197",
+               "only_this_file": "00009111",
                "raw_bboxes_min_area": 256,
                "raw_bboxes_min_size": 8,
                "raw_bboxes_min_area_ratio": 0.005,
@@ -54,7 +54,7 @@ root.defaults = {
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
-                    "probability_threshold": 0.8,
+                    "probability_threshold": 0.9,
                     "mode": ""}
 }
 
@@ -132,6 +132,12 @@ class MergeBboxes(Unit):
                     self._current_bboxes, pic_size=self._prev_image_size,
                     max_bboxes=self.max_per_class)
                 self.validate(winning_bboxes, prev_image, self._current_bboxes)
+                if not self.ignore_negative:
+                    tmp_bboxes = []
+                    for bbox in winning_bboxes:
+                        if bbox[0] > 0:
+                            tmp_bboxes.append(bbox)
+                    winning_bboxes = tmp_bboxes
             elif self.mode == "final":
                 winning_bboxes = []
                 for bbox, probs in sorted(self._current_bboxes.items()):

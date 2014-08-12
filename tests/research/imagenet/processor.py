@@ -39,3 +39,6 @@ class Processor(Logger):
     def crop_image(self, img, bbox):
         xmin, ymin, xmax, ymax = bbox
         return img[ymin:ymax, xmin:xmax]
+
+    def image_size(self, path):
+        return Image.open(path).size

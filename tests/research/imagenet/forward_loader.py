@@ -41,6 +41,14 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         current_image        current image file name (dict key)
     """
 
+    HARDCODED_BBOXES = [(0.479, 0.598, 0.319, 0.213),
+                        (0.454, 0.556, 0.501, 0.457),
+                        (0.499, 0.606, 0.394, 0.3854),
+                        (0.489, 0.518, 0.672, 0.717),
+                        (0.465, 0.502, 0.294, 0.708),
+                        (0.492, 0.489, 0.711, 0.447),
+                        (0.503, 0.631, 0.4, 0.302)]
+
     def __init__(self, workflow, bboxes_file_name, **kwargs):
         kwargs["view_group"] = "LOADER"
         super(ImagenetForwardLoaderBbox, self).__init__(workflow, **kwargs)
@@ -104,10 +112,20 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                 while True:
                     try:
                         img = pickle.load(fin)[1]
-                        if img["path"].find(self.only_this_file) < 0:
+                        path = img["path"]
+                        if path.find(self.only_this_file) < 0:
                             continue
-                        self.bboxes[img["path"]] = img
-                        self.total += len(img["bbxs"])
+                        self.bboxes[path] = img
+                        size = self.image_size(path)
+                        bboxes = img["bbxs"]
+                        for bbox in ImagenetForwardLoaderBbox.HARDCODED_BBOXES:
+                            x = numpy.round(bbox[0] * size[0])
+                            y = numpy.round(bbox[1] * size[1])
+                            width = numpy.round(bbox[2] * size[0])
+                            height = numpy.round(bbox[3] * size[1])
+                            bboxes.append({"x": x, "y": y,
+                                           "width": width, "height": height})
+                        self.total += len(bboxes)
                     except EOFError:
                         break
         elif ext == ".json":
@@ -262,7 +280,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                       imsize[0] * imsize[1] * self.raw_bboxes_min_area_ratio):
             return True
         if min(width, height) < max(self.raw_bboxes_min_size,
-                                    numpy.min(imsize) * \
+                                    numpy.min(imsize) *
                                     self.raw_bboxes_min_size_ratio):
             return True
         return False
