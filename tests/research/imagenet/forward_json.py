@@ -24,7 +24,7 @@ class ImagenetResultWriter(Unit):
         self.labels_txt = labels_txt
         self.result_path = result_path
         self.ignore_negative = kwargs.get("ignore_negative", True)
-        self.demand("winners")
+        self.demand("winners", "mode")
 
     def initialize(self, **kwargs):
         self._results = {}
@@ -35,9 +35,8 @@ class ImagenetResultWriter(Unit):
 
     def run(self):
         """Winners must be of the format: {"path": ..., "bbxs": [...]}
-        Each bbox is {"conf": %f, "label": %d, "angle": %f,
-                      "bbox": (label_index, confidence,
-                               (xmin, ymin, xmax, ymax))}.
+        Each bbox is (confidence, label, (xmin, ymin, xmax, ymax)) if
+        mode is "merge" else (confidence, label, {x, y, width, height)).
         """
         if self.winners is None:
             return
@@ -51,20 +50,35 @@ class ImagenetResultWriter(Unit):
                 self.warning("Failed to determine the size of %s", fn)
             bboxes = []
             for bbox in win["bbxs"]:
-                coords = bbox[2]
-                height, width = coords[2] - coords[0], coords[3] - coords[1]
-                assert width > 0
-                assert height > 0
-                y, x = (coords[2] + coords[0]) / 2, (coords[3] + coords[1]) / 2
-                bboxes.append({
-                    "conf": float(bbox[1]),
-                    "label": self._labels_mapping[
-                        bbox[0] + (1 if self.ignore_negative else 0)],
-                    "angle": "0", "x": int(numpy.round(x)),
-                    "y": int(numpy.round(y)),
-                    "width": int(numpy.round(width)),
-                    "height": int(numpy.round(height))
-                })
+                if self.mode == "merge":
+                    coords = bbox[2]
+                    height, width = coords[2] - coords[0], \
+                        coords[3] - coords[1]
+                    assert width > 0
+                    assert height > 0
+                    y, x = (coords[2] + coords[0]) / 2, \
+                        (coords[3] + coords[1]) / 2
+                    bboxes.append({
+                        "conf": float(bbox[1]),
+                        "label": self._labels_mapping[
+                            bbox[0] + (1 if self.ignore_negative else 0)],
+                        "angle": "0", "x": int(numpy.round(x)),
+                        "y": int(numpy.round(y)),
+                        "width": int(numpy.round(width)),
+                        "height": int(numpy.round(height))
+                    })
+                elif self.mode == "final":
+                    bboxes.append({
+                        "conf": float(bbox[1]),
+                        "label": self._labels_mapping[
+                            bbox[0] + (1 if self.ignore_negative else 0)],
+                        "angle": "0", "x": int(numpy.round(bbox[2][0])),
+                        "y": int(numpy.round(bbox[2][1])),
+                        "width": int(numpy.round(bbox[2][2])),
+                        "height": int(numpy.round(bbox[2][3]))
+                    })
+                else:
+                    assert False
             self._results[os.path.basename(fn)] = {
                 "path": fn,
                 "label": "",

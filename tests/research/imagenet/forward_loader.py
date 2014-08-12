@@ -7,13 +7,16 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 import cv2
 from collections import defaultdict
+import json
 import math
 import numpy
+import os
 import time
 from twisted.internet import reactor
 from zope.interface import implementer
 
 from veles import OpenCLUnit
+import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
 from veles.pickle2 import pickle
@@ -62,6 +65,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.mean = None
         self.total = 0
         self._progress = None
+        self.mode = ""
         self.bboxes = {}
         # entry is the first forward unit
         self.demand("entry_shape", "mean")
@@ -86,14 +90,26 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.channels = shape[-1]
         self.add_sobel = self.channels == 4
         self.info("Loading bboxes from %s...", self.bboxes_file_name)
-        with open(self.bboxes_file_name, "rb") as fin:
-            while True:
-                try:
-                    img = pickle.load(fin)[1]
-                    self.bboxes[img["path"]] = img
-                    self.total += len(img["bbxs"])
-                except EOFError:
-                    break
+        ext = os.path.splitext(self.bboxes_file_name)[1]
+        if ext == ".pickle":
+            self.mode = "merge"
+            with open(self.bboxes_file_name, "rb") as fin:
+                while True:
+                    try:
+                        img = pickle.load(fin)[1]
+                        self.bboxes[img["path"]] = img
+                        self.total += len(img["bbxs"])
+                    except EOFError:
+                        break
+        elif ext == ".json":
+            self.mode = "final"
+            with open(self.bboxes_file_name, "r") as fin:
+                self.bboxes = {val["path"]: val
+                               for val in json.load(fin).values()}
+            self.total = sum((len(val["bbxs"])
+                              for val in self.bboxes.values()))
+        else:
+            raise error.BadFormatError()
         self.info("Successfully loaded")
         self.total *= 2  # flip
         self.total *= int(numpy.ceil((self.max_angle - self.min_angle +

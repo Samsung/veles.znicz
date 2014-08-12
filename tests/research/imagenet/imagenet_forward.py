@@ -32,11 +32,13 @@ root.defaults = {
     "loader": {"year": "216_pool",
                "series": "img",
                "path": "/data/veles/datasets/imagenet",
-               "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
-                                 "raw_bboxes_4classes_img_val.4.pickle",
-               "angle_step": numpy.pi / 3,
-               "max_angle": numpy.pi / 3,
-               "min_angle": (-numpy.pi / 3),
+               # "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
+               #                  "raw_bboxes_4classes_img_val.4.pickle",
+               "path_to_bboxes":
+               "/data/veles/tmp/result_216_pool_img_test_0.json",
+               "angle_step": 0.01,
+               "max_angle": 0,
+               "min_angle": 0,
                "minibatch_size": 64},
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
@@ -44,8 +46,9 @@ root.defaults = {
     "result_path": "/data/veles/tmp/result_%s_%s_test_0.json",
     "mergebboxes": {"raw_path":
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
-                    "ignore_negative": True,
-                    "max_per_class": 5}
+                    "ignore_negative": False,
+                    "max_per_class": 5,
+                    "probability_threshold": 0.8}
 }
 
 root.result_path = root.result_path % (root.loader.year, root.loader.series)
@@ -62,9 +65,10 @@ class MergeBboxes(Unit):
         self.max_per_class = kwargs.get("max_per_class", 5)
         self.ignore_negative = kwargs.get("ignore_negative", True)
         self.save_raw = kwargs.get("save_raw_file_name", "")
+        self.probability_threshold = kwargs.get("probability_threshold", 0.8)
         self.rawfd = None
         self.demand("probabilities", "current_image", "minibatch_bboxes",
-                    "minibatch_size", "ended", "current_image_size")
+                    "minibatch_size", "ended", "current_image_size", "mode")
 
     def initialize(self, device, **kwargs):
         if self.save_raw:
@@ -90,6 +94,16 @@ class MergeBboxes(Unit):
                 self._current_bboxes[key]
                 if key in self._current_bboxes else 0,
                 self.probabilities[index])
+            offset = 0 if self.ignore_negative else 1
+            currbb = self._current_bboxes.get(key)
+            if currbb is None:
+                currbb = self.probabilities[index]
+            else:
+                currbb[offset:] = numpy.maximum(
+                    currbb[offset:], self.probabilities[index][offset:])
+                if not self.ignore_negative:
+                    currbb[0] = min(currbb[0], self.probabilities[index][0])
+            self._current_bboxes[key] = currbb
 
         if self.current_image != self._prev_image or self.ended:
             prev_image = self._prev_image
@@ -101,15 +115,27 @@ class MergeBboxes(Unit):
                 if self.ended:
                     self.rawfd.close()
                     self.info("Wrote %s", self.save_raw)
-            self.debug("Merging %d bboxes of %s",
-                       len(self._current_bboxes), prev_image)
             if self.ignore_negative:
                 for key in self._current_bboxes:
                     self._current_bboxes[key] = self._current_bboxes[key][1:]
-            winning_bboxes = merge_bboxes_by_dict(
-                self._current_bboxes, self._prev_image_size,
-                self.max_per_class)
-            self.validate(winning_bboxes, prev_image, self._current_bboxes)
+            if self.mode == "merge":
+                self.debug("Merging %d bboxes of %s",
+                           len(self._current_bboxes), prev_image)
+                winning_bboxes = merge_bboxes_by_dict(
+                    self._current_bboxes, self._prev_image_size,
+                    self.max_per_class)
+                self.validate(winning_bboxes, prev_image, self._current_bboxes)
+            elif self.mode == "final":
+                winning_bboxes = []
+                for bbox, probs in self._current_bboxes.items():
+                    maxidx = numpy.argmax(probs)
+                    if not self.ignore_negative and maxidx == 0:
+                        return
+                    prob = probs[maxidx]
+                    if prob >= self.probability_threshold:
+                        winning_bboxes.append((maxidx, prob, bbox))
+            else:
+                assert False
             self.winners.append({"path": prev_image, "bbxs": winning_bboxes})
             self._current_bboxes = {}
             self._prev_image_size = self.current_image_size
@@ -181,12 +207,13 @@ class ImagenetForward(OpenCLWorkflow):
             self, save_raw_file_name=root.mergebboxes.raw_path % (
                 root.loader.year, root.loader.series, best_protocol),
             ignore_negative=root.mergebboxes.ignore_negative,
-            max_per_class=root.mergebboxes.max_per_class)
+            max_per_class=root.mergebboxes.max_per_class,
+            probability_threshold=root.mergebboxes.probability_threshold)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
                                     "minibatch_bboxes", "minibatch_size",
-                                    "current_image_size")
+                                    "current_image_size", "mode")
         self.mergebboxes.link_from(self.fwds[-1])
         self.repeater.link_from(self.mergebboxes)
 
@@ -194,6 +221,7 @@ class ImagenetForward(OpenCLWorkflow):
             self, root.loader.labels_int_dir, root.result_path,
             ignore_negative=root.mergebboxes.ignore_negative)
         self.json_writer.link_attrs(self.mergebboxes, "winners")
+        self.json_writer.link_attrs(self.loader, "mode")
         self.json_writer.link_from(self.mergebboxes)
         self.end_point.link_from(self.json_writer)
         self.json_writer.gate_block = ~self.loader.ended
