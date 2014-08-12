@@ -129,8 +129,8 @@ class MergeBboxes(Unit):
                 self.debug("Merging %d bboxes of %s",
                            len(self._current_bboxes), prev_image)
                 winning_bboxes = merge_bboxes_by_dict(
-                    self._current_bboxes, self._prev_image_size,
-                    self.max_per_class)
+                    self._current_bboxes, pic_size=self._prev_image_size,
+                    max_bboxes=self.max_per_class)
                 self.validate(winning_bboxes, prev_image, self._current_bboxes)
             elif self.mode == "final":
                 winning_bboxes = []
