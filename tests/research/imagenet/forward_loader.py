@@ -67,6 +67,13 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._progress = None
         self.mode = ""
         self.bboxes = {}
+        self.only_this_file = kwargs.get("only_this_file", "")
+        self.raw_bboxes_min_area = kwargs.get("raw_bboxes_min_area", 0)
+        self.raw_bboxes_min_size = kwargs.get("raw_bboxes_min_size", 0)
+        self.raw_bboxes_min_area_ratio = kwargs.get(
+            "raw_bboxes_min_area_ratio", 0)
+        self.raw_bboxes_min_size_ratio = kwargs.get(
+            "raw_bboxes_min_size_ratio", 0)
         # entry is the first forward unit
         self.demand("entry_shape", "mean")
 
@@ -97,6 +104,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                 while True:
                     try:
                         img = pickle.load(fin)[1]
+                        if img["path"].find(self.only_this_file) < 0:
+                            continue
                         self.bboxes[img["path"]] = img
                         self.total += len(img["bbxs"])
                     except EOFError:
@@ -245,6 +254,19 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                               offset_x:(out_width + offset_x), :]
         return out_img, bbox
 
+    def bbox_is_small(self, bbox):
+        width, height = bbox['width'], bbox['height']
+        area = width * height
+        imsize = self.current_image_size
+        if area < max(self.raw_bboxes_min_area,
+                      imsize[0] * imsize[1] * self.raw_bboxes_min_area_ratio):
+            return True
+        if min(width, height) < max(self.raw_bboxes_min_size,
+                                    numpy.min(imsize) * \
+                                    self.raw_bboxes_min_size_ratio):
+            return True
+        return False
+
     def _next_state(self):
         angle, flip = self._state
         angle += self.angle_step
@@ -266,24 +288,23 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._current_bbox = self._next_bbox()
 
     def _next_bbox(self):
-        try:
-            bbox = next(self.bbox_iter[1])
-        except StopIteration:
-            self._next_image()
-            return self._current_bbox
+        while True:
+            try:
+                bbox = next(self.bbox_iter[1])
+            except StopIteration:
+                self._next_image()
+                return self._current_bbox
+            if not self.bbox_is_small(bbox):
+                break
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
-        try:
-            xmin, ymin, xmax, ymax = (bbox['xmin'], bbox['ymin'],
-                                      bbox['xmax'], bbox['ymax'])
-        except KeyError:
-            x, y, width, height = (bbox['x'], bbox['y'],
-                                   bbox['width'], bbox['height'])
-            xmin = x - width / 2
-            ymin = y - height / 2
-            xmax = xmin + width
-            ymax = ymin + height
+        x, y, width, height = (bbox['x'], bbox['y'],
+                               bbox['width'], bbox['height'])
+        xmin = x - width / 2
+        ymin = y - height / 2
+        xmax = xmin + width
+        ymax = ymin + height
         # Crop the image to supplied bbox
         cropped = self.crop_image(self._current_image_data,
                                   (xmin, ymin, xmax, ymax))

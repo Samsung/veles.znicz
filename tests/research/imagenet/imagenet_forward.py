@@ -32,14 +32,20 @@ root.defaults = {
     "loader": {"year": "216_pool",
                "series": "img",
                "path": "/data/veles/datasets/imagenet",
-               # "path_to_bboxes": "/data/veles/datasets/imagenet/raw_bboxes/"
-               #                  "raw_bboxes_4classes_img_val.4.pickle",
                "path_to_bboxes":
-               "/data/veles/tmp/result_216_pool_img_test_0.json",
+               "/data/veles/datasets/imagenet/raw_bboxes/"
+               "raw_bboxes_4classes_img_val.4.pickle",
+               # "/data/veles/tmp/result_216_pool_img_test_0.json",
+               # "/data/veles/tmp/result_216_pool_img_test_1.json",
                "angle_step": 0.01,
                "max_angle": 0,
                "min_angle": 0,
-               "minibatch_size": 64},
+               "minibatch_size": 64,
+               "only_this_file": "00007197",
+               "raw_bboxes_min_area": 256,
+               "raw_bboxes_min_size": 8,
+               "raw_bboxes_min_area_ratio": 0.005,
+               "raw_bboxes_min_size_ratio": 0.05},
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
     "imagenet_base": "/data/veles/datasets/imagenet/temp",
@@ -48,7 +54,8 @@ root.defaults = {
                     "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
-                    "probability_threshold": 0.8}
+                    "probability_threshold": 0.8,
+                    "mode": ""}
 }
 
 root.result_path = root.result_path % (root.loader.year, root.loader.series)
@@ -127,10 +134,11 @@ class MergeBboxes(Unit):
                 self.validate(winning_bboxes, prev_image, self._current_bboxes)
             elif self.mode == "final":
                 winning_bboxes = []
-                for bbox, probs in self._current_bboxes.items():
+                for bbox, probs in sorted(self._current_bboxes.items()):
+                    print(bbox, probs)
                     maxidx = numpy.argmax(probs)
                     if not self.ignore_negative and maxidx == 0:
-                        return
+                        continue
                     prob = probs[maxidx]
                     if prob >= self.probability_threshold:
                         winning_bboxes.append((maxidx, prob, bbox))
@@ -183,7 +191,12 @@ class ImagenetForward(OpenCLWorkflow):
             bboxes_file_name=root.loader.path_to_bboxes,
             angle_step=root.loader.angle_step,
             max_angle=root.loader.max_angle,
-            min_angle=root.loader.min_angle)
+            min_angle=root.loader.min_angle,
+            only_this_file=root.loader.only_this_file,
+            raw_bboxes_min_area=root.loader.raw_bboxes_min_area,
+            raw_bboxes_min_size=root.loader.raw_bboxes_min_size,
+            raw_bboxes_min_area_ratio=root.loader.raw_bboxes_min_area_ratio,
+            raw_bboxes_min_size_ratio=root.loader.raw_bboxes_min_size_ratio)
         self.loader.link_from(self.repeater)
         self.loader.gate_block = self.loader.ended
 
@@ -213,21 +226,27 @@ class ImagenetForward(OpenCLWorkflow):
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
                                     "minibatch_bboxes", "minibatch_size",
-                                    "current_image_size", "mode")
-        self.mergebboxes.link_from(self.fwds[-1])
-        self.repeater.link_from(self.mergebboxes)
-
+                                    "current_image_size")
         self.json_writer = ImagenetResultWriter(
             self, root.loader.labels_int_dir, root.result_path,
             ignore_negative=root.mergebboxes.ignore_negative)
+        if root.mergebboxes.mode:
+            self.mergebboxes.mode = root.mergebboxes.mode
+            self.json_writer.mode = root.mergebboxes.mode
+        else:
+            self.mergebboxes.link_attrs(self.loader, "mode")
+            self.json_writer.link_attrs(self.loader, "mode")
+        self.mergebboxes.link_from(self.fwds[-1])
+        self.repeater.link_from(self.mergebboxes)
+
         self.json_writer.link_attrs(self.mergebboxes, "winners")
-        self.json_writer.link_attrs(self.loader, "mode")
         self.json_writer.link_from(self.mergebboxes)
         self.end_point.link_from(self.json_writer)
         self.json_writer.gate_block = ~self.loader.ended
 
 
 def run(load, main):
+    numpy.set_printoptions(precision=3, suppress=True)
     root.imagenet.from_snapshot_add_layer = False
     CACHED_DATA_FNME = os.path.join(root.imagenet_base, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
