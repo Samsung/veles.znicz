@@ -60,6 +60,9 @@ class BBox(object):
                 "height": self.ymax - self.ymin + 1,
                 "label": None, "angle": 0.}
 
+    def area(self):
+        return (self.xmax - self.xmin + 1) * (self.ymax - self.ymin + 1)
+
 
 def bbox_overlap(bbox_a, bbox_b):
     """
@@ -94,6 +97,7 @@ def bbox_overlap_ratio(bbox_a, bbox_b):
         float
 
     """
+
     overlap_area = bbox_overlap(bbox_a, bbox_b)
     [ymin_a, xmin_a, ymax_a, xmax_a] = list(bbox_a)
     [ymin_b, xmin_b, ymax_b, xmax_b] = list(bbox_b)
@@ -106,6 +110,25 @@ def bbox_overlap_ratio(bbox_a, bbox_b):
         return 0
     else:
         return overlap_area / union_area
+
+
+def bbox_has_inclusion(bbox_a, bbox_b, area_ratio=0.9):
+    """
+    Args:
+        bbox_a(:class:`numpy.ndarray`): [ymin_a, xmin_a, ymax_a, xmax_a]
+        bbox_b(:class:`numpy.ndarray`): [ymin_b, xmin_b, ymax_b, xmax_b]
+    Returns:
+        bool
+    """
+    [ymin_a, xmin_a, ymax_a, xmax_a] = list(bbox_a)
+    [ymin_b, xmin_b, ymax_b, xmax_b] = list(bbox_b)
+
+    area_a = (xmax_a - xmin_a + 1) * (ymax_a - ymin_a + 1)
+    area_b = (xmax_b - xmin_b + 1) * (ymax_b - ymin_b + 1)
+
+    min_area = min(area_a, area_b)
+
+    return (bbox_overlap(bbox_a, bbox_b) >= min_area * area_ratio)
 
 
 def draw_bbox(img, bbox, bgr_color=None, prob=None):
@@ -263,7 +286,7 @@ def merge_bboxes_to_one(bboxes, probs, img_size, padding_ratio=0.05):
 
 def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
                           secondary_thr=0.02, overlap_thr=0.3,
-                          max_bboxes=None):
+                          max_bboxes=None, use_inclusions=False):
     """
     This function makes some bounding boxes based on bounding boxes from dets.
     It  makes next steps iteratively:
@@ -312,6 +335,10 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
             if bbox_overlap_ratio(bboxes[bbox_ids[main_index]],
                                   bboxes[bbox_ids[i]]) >= overlap_thr:
                 overlapping_indices.append(i)
+            elif use_inclusions:
+                if bbox_has_inclusion(bboxes[bbox_ids[main_index]],
+                                      bboxes[bbox_ids[i]]):
+                    overlapping_indices.append(i)
 
         ids_to_merge = [bbox_ids[i] for i in overlapping_indices]
 
@@ -333,8 +360,9 @@ def merge_bboxes_by_probs(bboxes, probs, img_size, primary_thr=0,
     return numpy.array(result_bboxes), numpy.array(result_probs)
 
 
-def merge_bboxes_by_dict(bbox_dict, pic_size, max_bboxes=None,
-                         primary_thr=0.1, secondary_thr=0.001):
+def merge_bboxes_by_dict(bbox_dict, pic_size,
+                         primary_thr=0.1, secondary_thr=0.001,
+                         max_bboxes=None, use_inclusions=True):
     """
     Takes BBOX dict: keys are BBOXes in VELES format, values are prediction
         scores. Merges overlapping BBOXes and adjusts their coordinates.
@@ -378,8 +406,8 @@ def merge_bboxes_by_dict(bbox_dict, pic_size, max_bboxes=None,
     for label_idx in range(probs.shape[1]):
         bboxes_for_label, probs_for_label = merge_bboxes_by_probs(
             bboxes, probs[:, label_idx], pic_size,
-            primary_thr=primary_thr, secondary_thr=secondary_thr,
-            max_bboxes=max_bboxes)
+            max_bboxes=max_bboxes, use_inclusions=use_inclusions,
+            primary_thr=primary_thr, secondary_thr=secondary_thr)
 
         for bbox_index in range(bboxes_for_label.shape[0]):
             current_bbox = bboxes_for_label[bbox_index]
