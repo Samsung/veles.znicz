@@ -7,6 +7,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 import cv2
 from collections import defaultdict
+import datetime
 import json
 import math
 import numpy
@@ -24,19 +25,18 @@ from veles.znicz.tests.research.imagenet.processor import Processor
 from veles.opencl_units import IOpenCLUnit
 from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
 from veles.workflow import NoMoreJobs
-from veles.distributable import IDistributable
 
 
-@implementer(IOpenCLUnit, IDistributable)
+@implementer(IOpenCLUnit)
 class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     """
     Imagenet loader for the first processing stage.
 
     Defines:
-        image_ended          Bool which signals when the current image ends
         ended                Bool which signals when dataset is voer
         minibatch_data       actual data to apply forward propagation
         minibatch_bboxes     corresponding bboxes
+        minibatch_images     list of tuples (path, shape) for each bbox
         minibatch_size       minibatch size
         current_image        current image file name (dict key)
     """
@@ -57,6 +57,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.channels = 0
         self.minibatch_data = formats.Vector()
         self.minibatch_size = 0
+        self.minibatch_images = []
         self.max_minibatch_size = 0
         self.minibatch_bboxes = 0
         self.add_sobel = False
@@ -64,8 +65,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         assert self.angle_step > 0
         self.max_angle = kwargs.get("max_angle", numpy.pi)
         self.min_angle = kwargs.get("min_angle", -numpy.pi)
+        self._calc_angles()
         self.ended = Bool()
-        self.image_ended = Bool()
         self._state = (self.min_angle, False)  # angle, flip
         self.current_image = ""  # image file name == pickled dict's key
         self._current_image_data = None
@@ -73,6 +74,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.mean = None
         self.total = 0
         self._progress = None
+        self._initial_state = True
         self.mode = ""
         self.bboxes = {}
         self.only_this_file = kwargs.get("only_this_file", "")
@@ -82,6 +84,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             "raw_bboxes_min_area_ratio", 0)
         self.raw_bboxes_min_size_ratio = kwargs.get(
             "raw_bboxes_min_size_ratio", 0)
+        self.min_index = kwargs.get("min_index", 0)
+        self.max_index = kwargs.get("max_index", 0)
         # entry is the first forward unit
         self.demand("entry_shape", "mean")
 
@@ -96,22 +100,27 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         return self._current_image_data.shape[:2] \
             if self._current_image_data is not None else 0
 
-    def initialize(self, device, **kwargs):
-        super(ImagenetForwardLoaderBbox, self).initialize(
-            device=device, **kwargs)
-        shape = self.entry_shape
-        self.max_minibatch_size = kwargs.get("minibatch_size", shape[0])
-        self.aperture = shape[1]
-        self.channels = shape[-1]
-        self.add_sobel = self.channels == 4
+    def _calc_angles(self):
+        self.angles = int(numpy.ceil((self.max_angle - self.min_angle +
+                                      0.0001) / self.angle_step))
+
+    def _load_bboxes(self):
         self.info("Loading bboxes from %s...", self.bboxes_file_name)
         ext = os.path.splitext(self.bboxes_file_name)[1]
         if ext == ".pickle":
             self.mode = "merge"
+            index = 0
+            self.info("Will load images in interval [%d, %d)", self.min_index,
+                      self.max_index)
             with open(self.bboxes_file_name, "rb") as fin:
                 while True:
                     try:
+                        if self.max_index > 0 and index >= self.max_index:
+                            break
                         img = pickle.load(fin)[1]
+                        index += 1
+                        if index < self.min_index:
+                            continue
                         path = img["path"]
                         if path.find(self.only_this_file) < 0:
                             continue
@@ -128,6 +137,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                         self.total += len(bboxes)
                     except EOFError:
                         break
+            self.info("Loaded %d images", index - self.min_index)
         elif ext == ".json":
             self.mode = "final"
             with open(self.bboxes_file_name, "r") as fin:
@@ -139,15 +149,27 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             raise error.BadFormatError()
         self.info("Successfully loaded")
         self.total *= 2  # flip
-        self.total *= int(numpy.ceil((self.max_angle - self.min_angle +
-                                      0.0001) / self.angle_step))
+        self.total *= self.angles
         self.info("Total %d shots", self.total)
+        if self.total == 0:
+            return
         self._progress = ProgressBar(maxval=self.total, term_width=40,
                                      widgets=['Progress: ', Percentage(), ' ',
                                               Bar()])
         self._progress.start()
         self.bbox_iter = [iter(sorted(self.bboxes.items())), None]
         self._next_image()
+        self._initial_state = True
+
+    def initialize(self, device, **kwargs):
+        super(ImagenetForwardLoaderBbox, self).initialize(
+            device=device, **kwargs)
+        shape = self.entry_shape
+        self.max_minibatch_size = kwargs.get("minibatch_size", shape[0])
+        self.aperture = shape[1]
+        self.channels = shape[-1]
+        self.add_sobel = self.channels == 4
+        self._load_bboxes()
 
         self.minibatch_data.mem = numpy.zeros(
             (self.max_minibatch_size, self.aperture ** 2 * self.channels),
@@ -156,10 +178,20 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.minibatch_bboxes = [None] * self.max_minibatch_size
         self._last_info_time = time.time()
 
+        self.minibatch_images.extend([""] * self.max_minibatch_size)
+
         if device is None:
             return
 
         self.minibatch_data.initialize(device)
+
+    def reset(self):
+        self.total = 0
+        self._calc_angles()
+        self._load_bboxes()
+        self.ended <<= False
+        self._last_info_time = time.time()
+        self._progress_prevval = 0
 
     def _transform_shape(self, shape, angle, scale):
         bbox = numpy.array([[0, 0], [shape[1], 0],
@@ -286,6 +318,9 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         return False
 
     def _next_state(self):
+        if self._initial_state:
+            self._initial_state = False
+            return self._state
         angle, flip = self._state
         angle += self.angle_step
         if angle > self.max_angle + 0.0001:
@@ -302,7 +337,6 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self.bbox_iter[1] = iter(next_img[1]['bbxs'])
         self.current_image = next_img[0]
         self._current_image_data = self.decode_image(next_img[1]["path"])
-        self.image_ended <<= True
         self._current_bbox = self._next_bbox()
 
     def _next_bbox(self):
@@ -314,6 +348,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                 return self._current_bbox
             if not self.bbox_is_small(bbox):
                 break
+            else:
+                self._progress.update(self._progress.currval + 2 * self.angles)
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
@@ -376,69 +412,31 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         if now - self._last_info_time > 60:
             self.info(
                 "Processed %d / %d (%d%%), took %.1f sec, "
-                "will complete in %.1f hours",
+                "will complete in %s",
                 self._progress.currval, self._progress.maxval,
                 self._progress.percent, now - self._last_info_time,
-                (now - self._last_info_time) /
+                datetime.timedelta(seconds=(now - self._last_info_time) /
                 (self._progress.currval - self._progress_prevval) *
-                (self._progress.maxval - self._progress.currval) / 3600)
+                (self._progress.maxval - self._progress.currval)))
             self._progress_prevval = self._progress.currval
             self._last_info_time = now
 
         for index in range(self.max_minibatch_size):
-            if self.image_ended:
-                bbox, self._current_bbox = self._current_bbox, None
-                angle, flip = self._state
-                self.image_ended <<= False
-            else:
+            try:
+                angle, flip = self._next_state()
+            except StopIteration:
                 try:
-                    angle, flip = self._next_state()
+                    self._current_bbox = bbox = self._next_bbox()
                 except StopIteration:
-                    try:
-                        self._current_bbox = bbox = self._next_bbox()
-                    except StopIteration:
-                        self.minibatch_size = index
-                        self._current_image_data = None
-                        self.ended <<= True
-                        reactor.callFromThread(self._progress.finish)
-                        return
-                    angle, flip = self._state
-                self._progress.inc()
-            if self.image_ended:
-                self.minibatch_size = index
-                return
-            else:
-                self.minibatch_data[index] = \
-                    self._get_bbox_data(bbox, angle, flip)
-                self.minibatch_bboxes[index] = (bbox, angle, flip)
+                    self.minibatch_size = index
+                    self._current_image_data = None
+                    self.ended <<= True
+                    reactor.callFromThread(self._progress.finish)
+                    return
+                angle, flip = self._state
+            self._progress.inc()
+            self.minibatch_data[index] = self._get_bbox_data(bbox, angle, flip)
+            self.minibatch_bboxes[index] = (bbox, angle, flip)
+            self.minibatch_images[index] = (self.current_image,
+                                            self.current_image_size)
         self.minibatch_size = self.max_minibatch_size
-
-    def generate_data_for_slave(self, slave):
-        if len(self._failed_minibatches) > 0:
-            return self._failed_minibatches.pop()
-        self.cpu_run()
-        job = {"minibatch_bboxes": self.minibatch_bboxes,
-               "minibatch_size": self.minibatch_size,
-               "current_image": self.current_image,
-               "current_image_size": self.current_image_size}
-        self._pending_minibatches[slave].append(job)
-        return job
-
-    def generate_data_for_master(self):
-        return None
-
-    def apply_data_from_slave(self, data, slave):
-        pass
-
-    def apply_data_from_master(self, data):
-        self.minibatch_bboxes = data["minibatch_bboxes"]
-        self.minibatch_size = data["minibatch_siZe"]
-        self.current_image = data["current_image"]
-        self._current_image_data = numpy.empty(data["current_image_size"])
-        for index in range(self.minibatch_size):
-            self.minibatch_data[index] = \
-                self._get_bbox_data(*self.minibatch_bboxes[index]).ravel()
-
-    def drop_slave(self, slave):
-        if slave in self._pending_minibatches:
-            self._failed_minibatches.extend(self._pending_minibatches[slave])

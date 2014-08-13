@@ -7,6 +7,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 import gc
 import numpy
 import os
+import shutil
 import sys
 from zope.interface import implementer
 
@@ -25,7 +26,6 @@ from veles.znicz.tests.research.imagenet.forward_json import \
     ImagenetResultWriter
 from veles.znicz.tests.research.imagenet.forward_bbox import \
     merge_bboxes_by_dict
-from veles.distributable import IDistributable
 
 
 root.defaults = {
@@ -36,12 +36,16 @@ root.defaults = {
                "/data/veles/datasets/imagenet/raw_bboxes/"
                "raw_bboxes_4classes_img_val.4.pickle",
                # "/data/veles/tmp/result_216_pool_img_test_0.json",
-               # "/data/veles/tmp/result_216_pool_img_test_1.json",
-               "angle_step": numpy.pi / 3,
-               "max_angle": numpy.pi / 3,
-               "min_angle": (-numpy.pi / 3),
+               "min_index": 0,
+               "max_index": 0,
+               "angle_step_final": numpy.pi / 12,
+               "max_angle_final": numpy.pi / 12,
+               "min_angle_final": (-numpy.pi / 12),
+               "angle_step_merge": 1,
+               "max_angle_merge": 0,
+               "min_angle_merge": 0,
                "minibatch_size": 64,
-               "only_this_file": "",
+               "only_this_file": "9396",
                "raw_bboxes_min_area": 256,
                "raw_bboxes_min_size": 8,
                "raw_bboxes_min_area_ratio": 0.005,
@@ -49,33 +53,35 @@ root.defaults = {
     "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
                         "imagenet_ae_216_pool_27.12pt.3.pickle",
     "imagenet_base": "/data/veles/datasets/imagenet/temp",
-    "result_path": "/data/veles/tmp/result_%s_%s_test_0.json",
+    "result_path": "/data/veles/tmp/result_%d_%d_%s_%s_test_1.json",
     "mergebboxes": {"raw_path":
-                    "/data/veles/tmp/result_raw_%s_%s_0.%d.pickle",
+                    "/data/veles/tmp/result_raw_%s_%s_1.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
                     "probability_threshold": 0.95,
                     "mode": ""}
 }
 
-root.result_path = root.result_path % (root.loader.year, root.loader.series)
+root.result_path = root.result_path % (
+    root.loader.min_index, root.loader.max_index,
+    root.loader.year, root.loader.series)
 
 
-@implementer(IUnit, IDistributable)
+@implementer(IUnit)
 class MergeBboxes(Unit):
     def __init__(self, workflow, **kwargs):
         super(MergeBboxes, self).__init__(workflow, **kwargs)
         self.winners = []
-        self._prev_image = ""
-        self._prev_image_size = 0
-        self._current_bboxes = {}
+        self._image = ""
+        self._image_size = 0
+        self._bboxes = {}
         self.max_per_class = kwargs.get("max_per_class", 5)
         self.ignore_negative = kwargs.get("ignore_negative", True)
         self.save_raw = kwargs.get("save_raw_file_name", "")
         self.probability_threshold = kwargs.get("probability_threshold", 0.8)
         self.rawfd = None
-        self.demand("probabilities", "current_image", "minibatch_bboxes",
-                    "minibatch_size", "ended", "current_image_size", "mode")
+        self.demand("probabilities", "minibatch_bboxes", "minibatch_images",
+                    "minibatch_size", "ended", "mode")
 
     def initialize(self, device, **kwargs):
         if self.save_raw:
@@ -90,85 +96,74 @@ class MergeBboxes(Unit):
 
     def run(self):
         self.probabilities.map_read()
-        if not self._prev_image:
-            self._prev_image_size = self.current_image_size
-            self._prev_image = self.current_image
 
-        for index, bbox in enumerate(
-                self.minibatch_bboxes[:self.minibatch_size]):
-            key = tuple(bbox[0][k] for k in ("x", "y", "width", "height"))
-            self._current_bboxes[key] = numpy.maximum(
-                self._current_bboxes[key]
-                if key in self._current_bboxes else 0,
-                self.probabilities[index])
-            offset = 0 if self.ignore_negative else 1
-            currbb = self._current_bboxes.get(key)
-            if currbb is None:
-                currbb = self.probabilities[index]
-            else:
-                currbb[offset:] = numpy.maximum(
-                    currbb[offset:], self.probabilities[index][offset:])
-                if not self.ignore_negative:
-                    currbb[0] = min(currbb[0], self.probabilities[index][0])
-            self._current_bboxes[key] = currbb
+        if not self._image:
+            self._image, self._image_size = self.minibatch_images[0]
 
-        if self.current_image != self._prev_image or self.ended:
-            prev_image = self._prev_image
-            self._prev_image = self.current_image
-            if self.rawfd is not None:
-                pickle.dump({prev_image: self._current_bboxes},
-                            self.rawfd, protocol=best_protocol)
-                self.rawfd.flush()
-                if self.ended:
-                    self.rawfd.close()
-                    self.info("Wrote %s", self.save_raw)
-            if self.ignore_negative:
-                for key in self._current_bboxes:
-                    self._current_bboxes[key] = self._current_bboxes[key][1:]
-            if self.mode == "merge":
-                self.debug("Merging %d bboxes of %s",
-                           len(self._current_bboxes), prev_image)
-                winning_bboxes = merge_bboxes_by_dict(
-                    self._current_bboxes, pic_size=self._prev_image_size,
-                    max_bboxes=self.max_per_class)
-                self.validate(winning_bboxes, prev_image, self._current_bboxes)
-                if not self.ignore_negative:
-                    tmp_bboxes = []
-                    for bbox in winning_bboxes:
-                        if bbox[0] > 0:
-                            tmp_bboxes.append(bbox)
-                    winning_bboxes = tmp_bboxes
-            elif self.mode == "final":
-                winning_bboxes = []
-                for bbox, probs in sorted(self._current_bboxes.items()):
-                    print(bbox, probs)
-                    maxidx = numpy.argmax(probs)
-                    if not self.ignore_negative and maxidx == 0:
-                        continue
-                    prob = probs[maxidx]
-                    if prob >= self.probability_threshold:
-                        winning_bboxes.append((maxidx, prob, bbox))
-            else:
-                assert False
-            self.winners.append({"path": prev_image, "bbxs": winning_bboxes})
-            self._current_bboxes = {}
-            self._prev_image_size = self.current_image_size
+        for index in range(self.minibatch_size):
+            img, img_size = self.minibatch_images[index]
+            if self._image != img:
+                self.merge()
+                self._image, self._image_size = img, img_size
+            self.add_bbox(index, self.minibatch_bboxes[index])
+        if self.ended and len(self._bboxes) > 0:
+            self.merge()
 
-    def apply_data_from_slave(self, data, slave):
-        pass
+    def reset(self):
+        self._image = ""
+        self.winners.clear()
 
-    def drop_slave(self, slave):
-        pass
+    def add_bbox(self, index, bbox):
+        key = tuple(bbox[0][k] for k in ("x", "y", "width", "height"))
+        offset = 0 if self.ignore_negative else 1
+        currbb = self._bboxes.get(key)
+        if currbb is None:
+            currbb = self.probabilities[index].copy()
+        else:
+            currbb[offset:] = numpy.maximum(
+                currbb[offset:], self.probabilities[index][offset:])
+            if not self.ignore_negative:
+                currbb[0] = min(currbb[0], self.probabilities[index][0])
+        self._bboxes[key] = currbb
 
-    def apply_data_from_master(self, data):
-        self._prev_image = self.current_image
-        self._current_bboxes.clear()
-
-    def generate_data_for_master(self):
-        return None
-
-    def generate_data_for_slave(self, slave):
-        return {}
+    def merge(self):
+        if self.rawfd is not None and self.mode == "merge":
+            pickle.dump({self._image: self._bboxes},
+                        self.rawfd, protocol=best_protocol)
+            self.rawfd.flush()
+            if self.ended:
+                self.rawfd.close()
+                self.info("Wrote %s", self.save_raw)
+        if self.ignore_negative:
+            for key in self._bboxes:
+                self._bboxes[key] = self._bboxes[key][1:]
+        if self.mode == "merge":
+            winning_bboxes = merge_bboxes_by_dict(
+                self._bboxes, pic_size=self._image_size,
+                max_bboxes=self.max_per_class)
+            self.validate(winning_bboxes, self._image, self._bboxes)
+            if not self.ignore_negative:
+                tmp_bboxes = []
+                for bbox in winning_bboxes:
+                    if bbox[0] > 0:
+                        tmp_bboxes.append(bbox)
+                winning_bboxes = tmp_bboxes
+            self.debug("Merged %d bboxes of %s to %d bboxes",
+                       len(self._bboxes), self._image, len(winning_bboxes))
+        elif self.mode == "final":
+            winning_bboxes = []
+            for bbox, probs in sorted(self._bboxes.items()):
+                self.debug("%s: %s %s", self._image, bbox, probs)
+                maxidx = numpy.argmax(probs)
+                if not self.ignore_negative and maxidx == 0:
+                    continue
+                prob = probs[maxidx]
+                if prob >= self.probability_threshold:
+                    winning_bboxes.append((maxidx, prob, bbox))
+        else:
+            assert False
+        self.winners.append({"path": self._image, "bbxs": winning_bboxes})
+        self._bboxes = {}
 
 
 class ImagenetForward(OpenCLWorkflow):
@@ -195,9 +190,11 @@ class ImagenetForward(OpenCLWorkflow):
         self.loader = ImagenetForwardLoaderBbox(
             self,
             bboxes_file_name=root.loader.path_to_bboxes,
-            angle_step=root.loader.angle_step,
-            max_angle=root.loader.max_angle,
-            min_angle=root.loader.min_angle,
+            min_index=root.loader.min_index,
+            max_index=root.loader.max_index,
+            angle_step=root.loader.angle_step_merge,
+            max_angle=root.loader.max_angle_merge,
+            min_angle=root.loader.min_angle_merge,
             only_this_file=root.loader.only_this_file,
             raw_bboxes_min_area=root.loader.raw_bboxes_min_area,
             raw_bboxes_min_size=root.loader.raw_bboxes_min_size,
@@ -230,9 +227,8 @@ class ImagenetForward(OpenCLWorkflow):
             probability_threshold=root.mergebboxes.probability_threshold)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
-        self.mergebboxes.link_attrs(self.loader, "current_image", "ended",
-                                    "minibatch_bboxes", "minibatch_size",
-                                    "current_image_size")
+        self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",
+                                    "minibatch_size", "minibatch_images")
         self.json_writer = ImagenetResultWriter(
             self, root.loader.labels_int_dir, root.result_path,
             ignore_negative=root.mergebboxes.ignore_negative)
@@ -249,6 +245,26 @@ class ImagenetForward(OpenCLWorkflow):
         self.json_writer.link_from(self.mergebboxes)
         self.end_point.link_from(self.json_writer)
         self.json_writer.gate_block = ~self.loader.ended
+
+    def on_workflow_finished(self, force_propagate=False):
+        if self.loader.mode == "merge":
+            print('-' * 80)
+            print('====  FINAL  ===')
+            print('-' * 80)
+            self.loader.angle_step = root.loader.angle_step_final
+            self.loader.min_angle = root.loader.min_angle_final
+            self.loader.max_angle = root.loader.max_angle_final
+            self.loader.bboxes_file_name = root.result_path
+            shutil.copy(root.result_path, root.result_path + ".raw")
+            self.loader.reset()
+            if self.loader.total == 0:
+                print("No bboxes for final stage - return")
+                super(ImagenetForward, self).on_workflow_finished()
+                return
+            self.mergebboxes.reset()
+            self.run()
+        else:
+            super(ImagenetForward, self).on_workflow_finished()
 
 
 def run(load, main):

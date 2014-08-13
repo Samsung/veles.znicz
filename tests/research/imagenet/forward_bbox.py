@@ -452,7 +452,7 @@ def merge_bboxes_by_dict(bbox_dict, pic_size,
                 continue
             bbox2 = bbp2[2]
             incl, which = bbox_has_inclusion(bbox1, bbox2, area_ratio=1.0)
-            if incl:
+            if incl and bbp1[0] == bbp2[0]:
                 nested.add(index2 if which else index1)
     bboxes_with_probs = [bboxes_with_probs[i]
                          for i in range(len(bboxes_with_probs))
