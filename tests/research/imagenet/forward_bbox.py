@@ -92,8 +92,8 @@ def bbox_overlap(bbox_a, bbox_b):
     Returns:
         int
     """
-    [ymin_a, xmin_a, ymax_a, xmax_a] = list(bbox_a)
-    [ymin_b, xmin_b, ymax_b, xmax_b] = list(bbox_b)
+    ymin_a, xmin_a, ymax_a, xmax_a = bbox_a
+    ymin_b, xmin_b, ymax_b, xmax_b = bbox_b
 
     x_intersection = min(xmax_a, xmax_b) - max(xmin_a, xmin_b) + 1
     y_intersection = min(ymax_a, ymax_b) - max(ymin_a, ymin_b) + 1
@@ -117,8 +117,8 @@ def bbox_overlap_ratio(bbox_a, bbox_b):
     """
 
     overlap_area = bbox_overlap(bbox_a, bbox_b)
-    [ymin_a, xmin_a, ymax_a, xmax_a] = list(bbox_a)
-    [ymin_b, xmin_b, ymax_b, xmax_b] = list(bbox_b)
+    ymin_a, xmin_a, ymax_a, xmax_a = bbox_a
+    ymin_b, xmin_b, ymax_b, xmax_b = bbox_b
 
     area_a = (xmax_a - xmin_a + 1) * (ymax_a - ymin_a + 1)
     area_b = (xmax_b - xmin_b + 1) * (ymax_b - ymin_b + 1)
@@ -460,19 +460,105 @@ def merge_bboxes_by_dict(bbox_dict, pic_size,
     if max_bboxes is not None:
         bboxes_with_probs = bboxes_with_probs[:max_bboxes]
 
+    return remove_inner_bboxes(bboxes_with_probs)
+
+
+def remove_inner_bboxes(bboxes_with_probs):
+    if len(bboxes_with_probs) == 1:
+        return bboxes_with_probs
     nested = set()
     for index1, bbp1 in enumerate(bboxes_with_probs):
         if index1 in nested:
             continue
         bbox1 = bbp1[2]
         for index2, bbp2 in enumerate(bboxes_with_probs):
-            if index2 in nested or index1 == index2:
+            if index2 in nested or index1 == index2 or bbp1[0] != bbp2[0]:
                 continue
             bbox2 = bbp2[2]
-            incl, which = bbox_has_inclusion(bbox1, bbox2, area_ratio=1.0)
-            if incl and bbp1[0] == bbp2[0]:
+            incl, which = bbox_has_inclusion(bbox1, bbox2, area_ratio=0.9)
+            if incl:
                 nested.add(index2 if which else index1)
-    bboxes_with_probs = [bboxes_with_probs[i]
-                         for i in range(len(bboxes_with_probs))
-                         if i not in nested]
+    return [bboxes_with_probs[i] for i in range(len(bboxes_with_probs))
+            if i not in nested]
+
+
+def postprocess_bboxes_of_the_same_label(bboxes_with_probs):
+    if len(bboxes_with_probs) == 1:
+        return bboxes_with_probs
+    found = True
+    while found:
+        found = False
+        for index1, bbp1 in enumerate(bboxes_with_probs):
+            bbox1 = bbp1[2]
+            for index2, bbp2 in enumerate(bboxes_with_probs):
+                if index1 == index2 or bbp1[0] != bbp2[0]:
+                    continue
+                bbox2 = bbp2[2]
+                incl, which = bbox_has_inclusion(
+                    BBox.from_center_view(*bbox1).to_caffe_view(),
+                    BBox.from_center_view(*bbox2).to_caffe_view(),
+                    area_ratio=0.3)
+                if not incl:
+                    continue
+                index_small, index_big = ((index1, index2)[int(b)]
+                                          for b in (which, not which))
+                bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
+                                        for b in (which, not which))
+                cbbox = tuple(reversed(bbox_small[:2])) * 2
+                bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
+                merged_bbox = tuple((min(bbox_big[i], cbbox[i])
+                                     for i in range(2))) + \
+                    tuple((max(bbox_big[i], cbbox[i]) for i in range(2, 4)))
+                merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
+                               (merged_bbox[0] + merged_bbox[2]) / 2,
+                               merged_bbox[3] - merged_bbox[1],
+                               merged_bbox[2] - merged_bbox[0])
+                bboxes_with_probs[index_big] = (
+                    bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
+                bboxes_with_probs = bboxes_with_probs[:index_small] + \
+                    bboxes_with_probs[(index_small + 1):]
+                found = True
+                break
+            if found:
+                break
+    found = True
+    while found:
+        found = False
+        for index1, bbp1 in enumerate(bboxes_with_probs):
+            bbox1 = bbp1[2]
+            for index2, bbp2 in enumerate(bboxes_with_probs):
+                if index1 == index2 or bbp1[0] != bbp2[0]:
+                    continue
+                bbox2 = bbp2[2]
+                incl, which = bbox_has_inclusion(
+                    BBox.from_center_view(*bbox1).to_caffe_view(),
+                    BBox.from_center_view(*bbox2).to_caffe_view(),
+                    area_ratio=0.05)
+                if not incl:
+                    continue
+                index_small, index_big = ((index1, index2)[int(b)]
+                                          for b in (which, not which))
+                bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
+                                        for b in (which, not which))
+                area_small = bbox_small[2] * bbox_small[3]
+                area_big = bbox_big[2] * bbox_big[3]
+                if area_small / area_big > 0.5:
+                    continue
+                cbbox = tuple(reversed(bbox_small[:2])) * 2
+                bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
+                merged_bbox = tuple((min(bbox_big[i], cbbox[i])
+                                     for i in range(2))) + \
+                    tuple((max(bbox_big[i], cbbox[i]) for i in range(2, 4)))
+                merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
+                               (merged_bbox[0] + merged_bbox[2]) / 2,
+                               merged_bbox[3] - merged_bbox[1],
+                               merged_bbox[2] - merged_bbox[0])
+                bboxes_with_probs[index_big] = (
+                    bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
+                bboxes_with_probs = bboxes_with_probs[:index_small] + \
+                    bboxes_with_probs[(index_small + 1):]
+                found = True
+                break
+            if found:
+                break
     return bboxes_with_probs

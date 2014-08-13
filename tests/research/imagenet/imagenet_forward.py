@@ -25,7 +25,7 @@ from veles.znicz.tests.research.imagenet.forward_loader import \
 from veles.znicz.tests.research.imagenet.forward_json import \
     ImagenetResultWriter
 from veles.znicz.tests.research.imagenet.forward_bbox import \
-    merge_bboxes_by_dict
+    merge_bboxes_by_dict, postprocess_bboxes_of_the_same_label
 
 
 root.defaults = {
@@ -173,6 +173,8 @@ class MergeBboxes(Unit):
                 winning_bboxes.append(max_prob_bbox)
                 self.debug("%s: used last chance, %s", self._image,
                            max_prob_bbox)
+            winning_bboxes = postprocess_bboxes_of_the_same_label(
+                winning_bboxes)
         else:
             assert False
         self.winners.append({"path": self._image, "bbxs": winning_bboxes})

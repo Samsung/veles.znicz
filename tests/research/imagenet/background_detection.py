@@ -11,7 +11,6 @@ except ImportError:
 import numpy
 import scipy.stats
 import statsmodels as sm
-import statsmodels.tools
 
 
 def is_background(pic_path, thr=8.0):

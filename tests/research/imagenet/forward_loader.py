@@ -416,9 +416,9 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                 "will complete in %s",
                 self._progress.currval, self._progress.maxval,
                 self._progress.percent, now - self._last_info_time,
-                datetime.timedelta(seconds=(now - self._last_info_time) /
-                (self._progress.currval - self._progress_prevval) *
-                (self._progress.maxval - self._progress.currval)))
+                datetime.timedelta(seconds=(now - self._last_info_time) / (
+                    self._progress.currval - self._progress_prevval) * (
+                    self._progress.maxval - self._progress.currval)))
             self._progress_prevval = self._progress.currval
             self._last_info_time = now
 

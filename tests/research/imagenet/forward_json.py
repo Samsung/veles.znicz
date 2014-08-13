@@ -35,7 +35,7 @@ class ImagenetResultWriter(Unit):
 
     def run(self):
         """Winners must be of the format: {"path": ..., "bbxs": [...]}
-        Each bbox is (confidence, label, (xmin, ymin, xmax, ymax)) if
+        Each bbox is (confidence, label, (ymin, xmin, ymax, xmax)) if
         mode is "merge" else (confidence, label, {x, y, width, height)).
         """
         if self.winners is None:

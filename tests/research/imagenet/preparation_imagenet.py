@@ -48,7 +48,7 @@ import veles.znicz.tests.research.imagenet.background_detection as back_det
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
                                   "imagenet/temp")
 
-#IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet/2014"
+# IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet/2014"
 IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
 # year, series, set_type, stage
 
@@ -426,7 +426,7 @@ class Main(Processor):
         if _display is not None:
             os.unsetenv("DISPLAY")
         self.imagenet_dir_path = path
-        #self.year = "forward"
+        # self.year = "forward"
         set_type = "validation"
         original_labels = []
         int_word_labels = []
@@ -1986,7 +1986,7 @@ class Main(Processor):
             digits_word.append((digits_label, word_label))
         self.categories.close()
         digits_word.sort()
-        #colors = ("red", "green", "blue", "yellow", "pink", "black", "white",
+        # colors = ("red", "green", "blue", "yellow", "pink", "black", "white",
         #          "orange", "brown", "cyan")
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
@@ -2017,7 +2017,7 @@ class Main(Processor):
                     for dig_word in digits_word:
                         if dig_word[0] == label:
                             label_txt = dig_word[1]
-                    #color = colors[numpy.random.randint(len(colors))]
+                    # color = colors[numpy.random.randint(len(colors))]
                     color = "red"
                     draw.text((x_min + 5, y_min), label_txt, fill=color,
                               font=font)
