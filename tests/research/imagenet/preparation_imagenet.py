@@ -46,7 +46,7 @@ from veles.znicz.tests.research.imagenet.processor import Processor
 import veles.znicz.tests.research.imagenet.background_detection as back_det
 
 IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
-                                  "imagenet")
+                                  "imagenet/temp")
 
 #IMAGENET_BASE_PATH = "/data/veles/datasets/imagenet/2014"
 IMAGES_JSON = "images_imagenet_%s_%s_%s_%s.json"
@@ -69,8 +69,10 @@ class Main(Processor):
         self.series = None
         self.fnme = None
         self.stage = None
+        self.background = None
         self.count_classes = 0
         self.count_dirs = 40
+        self.do_bboxes_map = False
         self.matrixes = []
         self.images_json = {
             "test": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
@@ -96,8 +98,8 @@ class Main(Processor):
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
         super(Main, self).__init__(**kwargs)
-        self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
-        self.s_count = numpy.zeros_like(self.s_mean)
+        self.s_mean = numpy.zeros((768, 1024) + (3,), dtype=numpy.float64)
+        self.s_count = numpy.ones_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
         self.s_min[:] = 255
         self.s_max = numpy.zeros_like(self.s_mean)
@@ -125,7 +127,7 @@ class Main(Processor):
                             help="set stage")
         parser.add_argument("-w", "--snapshot", type=str, default="",
                             help="snapshot path")
-        parser.add_argument("-b", "--backgroud", type=str, default="mean",
+        parser.add_argument("-b", "--background", type=str, default="mean",
                             choices=["mean", "mean_and_image",
                                      "expanding_blur", "blur",
                                      "random_last_line"],
@@ -408,7 +410,8 @@ class Main(Processor):
                         ax = figure.add_subplot(n_rows, n_cols, i + 1)
                         ax.cla()
                         ax.axis('off')
-                        ax.imshow(pics[i], interpolation="nearest",
+                        ax.imshow(pics[i],
+                                  interpolation=("nearest", "lanczos")[1],
                                   cmap=cm.Greys_r)
                         i += 1
                         if i >= len(pics):
@@ -564,7 +567,7 @@ class Main(Processor):
             word_label = line[line.find("\t") + 1:line.find("\n")]
             int_word_labels.append((int_label, word_label))
             self.count_classes += 1
-        set_type = "train"
+        set_type = "validation"
         fnme = os.path.join(self.imagenet_dir_path,
                             IMAGES_JSON %
                             (self.year, self.series, set_type, self.stage))
@@ -583,19 +586,37 @@ class Main(Processor):
             path_to_save = os.path.join(path_to_save, "n00000000")
             if f.find("negative_image") != -1:
                 self.do_negative = True
-
                 self.sample_rect(
                     image, image.shape[1] / 2, image.shape[0] / 2,
                     image.shape[0], image.shape[1], 0, None)
+            h_scale = 768 / image.shape[0]
+            w_scale = 1024 / image.shape[1]
             for bbx in self.images_json[set_type][f]["bbxs"]:
                 x = bbx["x"]
                 y = bbx["y"]
                 h_size = bbx["height"]
                 w_size = bbx["width"]
                 ang = bbx["angle"]
-                if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
-                    self.sample_rect(image, x, y, h_size, w_size, ang, None)
-        self.s_mean /= self.s_count
+                if self.do_bboxes_map:
+                    x *= w_scale
+                    w_size *= w_scale
+                    y *= h_scale
+                    h_size *= h_scale
+                    self.s_mean[
+                        (y - h_size // 2):(y - h_size // 2 + h_size),
+                        (x - w_size // 2):(x - w_size // 2 + w_size)] += (255,
+                                                                          255,
+                                                                          255)
+                    continue
+                else:
+                    if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
+                        self.sample_rect(image, x, y, h_size, w_size, ang,
+                                         None)
+        if self.do_bboxes_map:
+            self.s_mean /= numpy.max(self.s_mean)
+            self.s_mean *= 255
+        else:
+            self.s_mean /= self.s_count
 
         # Convert mean to 0..255 uint8
         mean = numpy.round(self.s_mean)
@@ -1956,8 +1977,8 @@ class Main(Processor):
             os.path.join(config.root.common.test_dataset_root,
                          "arial.ttf"), fontsize)
         cached_data_fnme = path
-        categories_path = os.path.join(cached_data_fnme,
-                                       "indices_to_categories.txt")
+        categories_path = ("/data/veles/datasets/imagenet/2014/"
+                           + "indices_to_categories.txt")
         self.categories = open(categories_path, "r")
         for line in self.categories:
             digits_label = line[:line.find("\t")]
@@ -1965,6 +1986,8 @@ class Main(Processor):
             digits_word.append((digits_label, word_label))
         self.categories.close()
         digits_word.sort()
+        #colors = ("red", "green", "blue", "yellow", "pink", "black", "white",
+        #          "orange", "brown", "cyan")
         for set_type in ("test", "validation", "train"):
             fnme = os.path.join(
                 cached_data_fnme, IMAGES_JSON %
@@ -1977,6 +2000,10 @@ class Main(Processor):
             for f, _val in sorted(self.images_json[set_type].items()):
                 image_path = Image.open(self.images_json[set_type][f]["path"])
                 draw = ImageDraw.Draw(image_path)
+                self.info("*****draw bbx in image %s *****" %
+                          self.images_json[set_type][f]["path"])
+                self.info("self.images_json[set_type][f][bbxs] %s"
+                          % self.images_json[set_type][f]["bbxs"])
                 for bbx in self.images_json[set_type][f]["bbxs"]:
                     x = bbx["x"]
                     y = bbx["y"]
@@ -1987,21 +2014,25 @@ class Main(Processor):
                     y_min = y - h / 2
                     x_max = x_min + w
                     y_max = y_min + h
-                    self.info("*****draw bbx in image %s *****" %
-                              self.images_json[set_type][f]["path"])
                     for dig_word in digits_word:
                         if dig_word[0] == label:
                             label_txt = dig_word[1]
-                    draw.text((x_min + 5, y_min), label_txt, fill=255,
+                    #color = colors[numpy.random.randint(len(colors))]
+                    color = "red"
+                    draw.text((x_min + 5, y_min), label_txt, fill=color,
                               font=font)
                     draw.line((x_min, y_min, x_min, y_max),
-                              fill="red", width=3)
+                              fill=color,
+                              width=2)
                     draw.line((x_min, y_min, x_max, y_min),
-                              fill="red", width=3)
+                              fill=color,
+                              width=2)
                     draw.line((x_min, y_max, x_max, y_max),
-                              fill="red", width=3)
+                              fill=color,
+                              width=2)
                     draw.line((x_max, y_min, x_max, y_max),
-                              fill="red", width=3)
+                              fill=color,
+                              width=2)
                 path_to_image = self.images_json[set_type][f]["path"]
                 ind_path = path_to_image.rfind("/")
                 try:
@@ -2009,7 +2040,7 @@ class Main(Processor):
                 except OSError:
                     pass
                 path_to_image = path_to_image.replace(
-                    self.year, "images_with_bb_%s" % self.series)
+                    self.year, "images_with_bboxes_%s" % self.year)
                 image_path.save(path_to_image, "JPEG")
 
     def run(self):
@@ -2022,7 +2053,7 @@ class Main(Processor):
         self.series = args.series
         self.command_to_run = args.command_to_run
         self.stage = args.stage
-        self.backgroud = args.backgroud
+        self.background = args.background
         if self.command_to_run == "init":
             self.init_files(os.path.join(IMAGENET_BASE_PATH, self.year))
         elif self.command_to_run == "draw_bbox":
@@ -2065,7 +2096,7 @@ class Main(Processor):
         elif self.command_to_run == "remove_back":
             self.remove_background(os.path.join(IMAGENET_BASE_PATH, self.year))
         elif self.command_to_run == "visualize":
-            self.visualize_snapshot(args.snapshot, 625)
+            self.visualize_snapshot(args.snapshot, 900)
         elif self.command_to_run == "none_bboxes":
             self.calculate_bbox_is_none(os.path.join(IMAGENET_BASE_PATH,
                                                      self.year))
