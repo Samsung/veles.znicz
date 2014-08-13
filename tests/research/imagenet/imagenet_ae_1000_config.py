@@ -14,7 +14,7 @@ WD = 0.004
 GM = 0.9
 L1_VS_L2 = 0.0
 
-LRFT = 0.001
+LRFT = 0.003
 LRFTB = LRFT * 2
 
 LRAA = 0.03
@@ -104,7 +104,7 @@ root.defaults = {
                   {"type": "ae_end"},
 
                   {"type": "activation_mul"},
-                  {"type": "all2all_tanh", "output_shape": 4096,
+                  {"type": "all2all_tanh", "output_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -114,7 +114,7 @@ root.defaults = {
                    "l1_vs_l2": L1_VS_L2},
                   #{"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "all2all_tanh", "output_shape": 4096,
+                  {"type": "all2all_tanh", "output_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,

@@ -62,6 +62,10 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
         self.cl_sources_["pooling.cl"] = {}
+        if not hasattr(self, "_no_output"):
+            self._no_output = False
+        if not hasattr(self, "uniform"):
+            self.uniform = None
 
     def create_output(self):
         self._batch_size = self.input.mem.shape[0]

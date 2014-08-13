@@ -25,7 +25,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
-# import veles.znicz.image_saver as image_saver
+import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -710,6 +710,10 @@ class Workflow(StandardWorkflow):
         else:
             self.decision.max_epochs += root.decision.max_epochs
         self.decision.complete <<= False
+        for gds in self.gds:
+            gds.learning_rate = 0.00001
+        #self.loader.max_minibatch_size = 14
+        #self.decision.max_epochs = 100000
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(Workflow, self).initialize(device, **kwargs)
@@ -734,7 +738,13 @@ class Workflow(StandardWorkflow):
 
         for i in range(len(self.fwds) - len(self.gds) - 1, -1, -1):
             GD = self.gd_map[self.fwds[i].__class__]
-            kwargs = dict(self.fwds[i].layer)
+            if hasattr(self.fwds[i], "layer"):
+                kwargs = dict(self.fwds[i].layer)
+            elif isinstance(self.fwds[i], pooling.StochasticPoolingBase):
+                kwargs = {"kx": self.fwds[i].kx, "ky": self.fwds[i].ky,
+                          "sliding": self.fwds[i].sliding}
+            else:
+                raise error.Bug("Control should not go there")
             for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                          "factor", "include_bias"):
                 vle = getattr(self.fwds[i], attr, None)
@@ -785,6 +795,25 @@ class Workflow(StandardWorkflow):
         self.decision.max_epochs += root.decision.max_epochs * 10
 
         self.add_end_point()
+
+        # self.reset_weights()
+
+    def reset_weights(self):
+        for unit in self:
+            if not hasattr(unit, "layer"):
+                continue
+            if hasattr(unit, "weights") and unit.weights:
+                self.info("RESETTING weights for %s", repr(unit))
+                a = unit.weights.plain
+                a *= 0
+                a += prng.get().normal(0, unit.layer["weights_stddev"],
+                                       unit.weights.size)
+            if hasattr(unit, "bias") and unit.bias:
+                self.info("RESETTING bias for %s", repr(unit))
+                a = unit.bias.plain
+                a *= 0
+                a += prng.get().normal(0, unit.layer["bias_stddev"],
+                                       unit.bias.size)
 
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
@@ -964,7 +993,6 @@ class Workflow(StandardWorkflow):
             self.info("No more autoencoder levels, "
                       "will switch to the classification task")
             self.n_ae += 1
-            """
             # Add Image Saver unit
             self.image_saver = image_saver.ImageSaver(
                 self, out_dirs=root.image_saver.out_dirs)
@@ -976,14 +1004,13 @@ class Workflow(StandardWorkflow):
                 ("labels", "minibatch_labels"),
                 "minibatch_class", "minibatch_size")
             self.image_saver.link_attrs(self.meandispnorm, ("input", "output"))
-            """
             # Add evaluator unit
             self.evaluator.unlink_all()
             self.del_ref(self.evaluator)
             self.evaluator = None
             unit = evaluator.EvaluatorSoftmax(self)
             self.evaluator = unit
-            unit.link_from(self.fwds[-1])
+            unit.link_from(self.image_saver)
             unit.link_attrs(self.fwds[-1], "output", "max_idx")
             unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
                             ("batch_size", "minibatch_size"))
@@ -1013,9 +1040,9 @@ class Workflow(StandardWorkflow):
             unit.link_from(self.decision)
             unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
             unit.gate_skip = ~self.loader.epoch_ended | ~self.decision.improved
-            # self.image_saver.gate_skip = ~self.decision.improved
-            # self.image_saver.link_attrs(self.snapshotter,
-            #                             ("this_save_time", "time"))
+            self.image_saver.gate_skip = ~self.decision.improved
+            self.image_saver.link_attrs(self.snapshotter,
+                                        ("this_save_time", "time"))
 
             self.rollback.gate_skip = (~self.loader.epoch_ended |
                                        self.decision.complete)

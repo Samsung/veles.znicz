@@ -168,7 +168,12 @@ class ForwardMul(ActivationForward):
         return self.factor
 
     def apply_data_from_slave(self, data, slave):
-        self.factor = min(self.factor, data)
+        if data is None:
+            return
+        if self.factor is None:
+            self.factor = data
+        else:
+            self.factor = min(self.factor, data)
 
     @property
     def factor(self):

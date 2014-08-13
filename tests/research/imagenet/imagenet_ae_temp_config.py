@@ -14,10 +14,10 @@ WD = 0.004
 GM = 0.9
 L1_VS_L2 = 0.0
 
-LRFT = 0.01
+LRFT = 0.0001
 LRFTB = LRFT * 2
 
-LRAA = 0.01
+LRAA = 0.001
 LRBAA = LRAA * 2
 WDAA = 0.0005
 WDBAA = 0
@@ -65,7 +65,7 @@ root.defaults = {
 
                   {"type": "activation_mul"},
                   {"type": "ae_begin"},  # 64
-                  {"type": "conv", "n_kernels": 128,
+                  {"type": "conv", "n_kernels": 192,
                    "kx": 6, "ky": 6, "sliding": (2, 2),
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
@@ -78,7 +78,7 @@ root.defaults = {
 
                   {"type": "activation_mul"},
                   {"type": "ae_begin"},  # 32
-                  {"type": "conv", "n_kernels": 192,
+                  {"type": "conv", "n_kernels": 224,
                    "kx": 6, "ky": 6, "sliding": (2, 2),
                    "learning_rate": LR,
                    "learning_rate_ft": LRFT,
