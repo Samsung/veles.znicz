@@ -63,6 +63,24 @@ class BBox(object):
     def area(self):
         return (self.xmax - self.xmin + 1) * (self.ymax - self.ymin + 1)
 
+    def draw_on_pic(self, img, bgr_color=None, text=None, line_width=1):
+        """
+        Returns:
+            ndarray: a pic with BBOX drawn on.
+        """
+        if bgr_color is None:
+            bgr_color = numpy.random.randint(low=100, high=255,
+                                             size=3).tolist()
+
+        out_pic = img.copy()
+
+        if text is not None:
+            cv2.putText(out_pic, text, (int(self.xmin), int(self.ymin) - 2),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, bgr_color)
+        return cv2.rectangle(out_pic, (int(self.xmin), int(self.ymin)),
+                             (int(self.xmax), int(self.ymax)), bgr_color,
+                             line_width)
+
 
 def bbox_overlap(bbox_a, bbox_b):
     """
