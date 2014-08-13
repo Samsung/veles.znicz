@@ -55,7 +55,7 @@ root.defaults = {
     "imagenet_base": "/data/veles/datasets/imagenet/temp",
     "result_path": "/data/veles/tmp/result_%d_%d_%s_%s_test_1.json",
     "mergebboxes": {"raw_path":
-                    "/data/veles/tmp/result_raw_%s_%s_1.%d.pickle",
+                    "/data/veles/tmp/result_raw_%d_%d_%s_%s_1.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
                     "probability_threshold": 0.98,
@@ -238,7 +238,8 @@ class ImagenetForward(OpenCLWorkflow):
             root.mergebboxes.last_chance_probability_threshold
         self.mergebboxes = MergeBboxes(
             self, save_raw_file_name=root.mergebboxes.raw_path % (
-                root.loader.year, root.loader.series, best_protocol),
+                root.loader.min_index, root.loader.max_index, root.loader.year,
+                root.loader.series, best_protocol),
             ignore_negative=root.mergebboxes.ignore_negative,
             max_per_class=root.mergebboxes.max_per_class,
             probability_threshold=root.mergebboxes.probability_threshold,
