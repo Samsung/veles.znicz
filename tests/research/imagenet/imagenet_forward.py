@@ -45,7 +45,7 @@ root.defaults = {
                "max_angle_merge": 0,
                "min_angle_merge": 0,
                "minibatch_size": 64,
-               "only_this_file": "9396",
+               "only_this_file": "",
                "raw_bboxes_min_area": 256,
                "raw_bboxes_min_size": 8,
                "raw_bboxes_min_area_ratio": 0.005,
@@ -58,7 +58,8 @@ root.defaults = {
                     "/data/veles/tmp/result_raw_%s_%s_1.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 5,
-                    "probability_threshold": 0.95,
+                    "probability_threshold": 0.98,
+                    "last_chance_probability_threshold": 0.85,
                     "mode": ""}
 }
 
@@ -79,6 +80,8 @@ class MergeBboxes(Unit):
         self.ignore_negative = kwargs.get("ignore_negative", True)
         self.save_raw = kwargs.get("save_raw_file_name", "")
         self.probability_threshold = kwargs.get("probability_threshold", 0.8)
+        self.last_chance_probability_threshold = kwargs.get(
+            "last_chance_probability_threshold", 0.7)
         self.rawfd = None
         self.demand("probabilities", "minibatch_bboxes", "minibatch_images",
                     "minibatch_size", "ended", "mode")
@@ -152,14 +155,24 @@ class MergeBboxes(Unit):
                        len(self._bboxes), self._image, len(winning_bboxes))
         elif self.mode == "final":
             winning_bboxes = []
+            max_prob = 0
+            max_prob_bbox = None
             for bbox, probs in sorted(self._bboxes.items()):
                 self.debug("%s: %s %s", self._image, bbox, probs)
                 maxidx = numpy.argmax(probs)
                 if not self.ignore_negative and maxidx == 0:
                     continue
                 prob = probs[maxidx]
+                if prob > max_prob:
+                    max_prob = prob
+                    max_prob_bbox = (maxidx, prob, bbox)
                 if prob >= self.probability_threshold:
                     winning_bboxes.append((maxidx, prob, bbox))
+            if len(winning_bboxes) == 0 and \
+               max_prob > self.last_chance_probability_threshold:
+                winning_bboxes.append(max_prob_bbox)
+                self.debug("%s: used last chance, %s", self._image,
+                           max_prob_bbox)
         else:
             assert False
         self.winners.append({"path": self._image, "bbxs": winning_bboxes})
@@ -219,12 +232,15 @@ class ImagenetForward(OpenCLWorkflow):
         self.fwds[0].link_from(self.meandispnorm)
         self.fwds[0].link_attrs(self.meandispnorm, ("input", "output"))
 
+        lc_probability_threshold = \
+            root.mergebboxes.last_chance_probability_threshold
         self.mergebboxes = MergeBboxes(
             self, save_raw_file_name=root.mergebboxes.raw_path % (
                 root.loader.year, root.loader.series, best_protocol),
             ignore_negative=root.mergebboxes.ignore_negative,
             max_per_class=root.mergebboxes.max_per_class,
-            probability_threshold=root.mergebboxes.probability_threshold)
+            probability_threshold=root.mergebboxes.probability_threshold,
+            last_chance_probability_threshold=lc_probability_threshold)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",

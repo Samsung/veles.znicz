@@ -103,6 +103,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
     def _calc_angles(self):
         self.angles = int(numpy.ceil((self.max_angle - self.min_angle +
                                       0.0001) / self.angle_step))
+        self.info("Will rotate each bbox %d times", self.angles)
 
     def _load_bboxes(self):
         self.info("Loading bboxes from %s...", self.bboxes_file_name)
@@ -137,7 +138,7 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                         self.total += len(bboxes)
                     except EOFError:
                         break
-            self.info("Loaded %d images", index - self.min_index)
+            self.info("Loaded %d images", len(self.bboxes))
         elif ext == ".json":
             self.mode = "final"
             with open(self.bboxes_file_name, "r") as fin:
