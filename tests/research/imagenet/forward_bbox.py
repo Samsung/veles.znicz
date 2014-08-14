@@ -485,80 +485,99 @@ def remove_inner_bboxes(bboxes_with_probs):
 def postprocess_bboxes_of_the_same_label(bboxes_with_probs):
     if len(bboxes_with_probs) == 1:
         return bboxes_with_probs
-    found = True
-    while found:
-        found = False
-        for index1, bbp1 in enumerate(bboxes_with_probs):
-            bbox1 = bbp1[2]
-            for index2, bbp2 in enumerate(bboxes_with_probs):
-                if index1 == index2 or bbp1[0] != bbp2[0]:
-                    continue
-                bbox2 = bbp2[2]
-                incl, which = bbox_has_inclusion(
-                    BBox.from_center_view(*bbox1).to_caffe_view(),
-                    BBox.from_center_view(*bbox2).to_caffe_view(),
-                    area_ratio=0.3)
-                if not incl:
-                    continue
-                index_small, index_big = ((index1, index2)[int(b)]
-                                          for b in (which, not which))
-                bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
-                                        for b in (which, not which))
-                cbbox = tuple(reversed(bbox_small[:2])) * 2
-                bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
-                merged_bbox = tuple((min(bbox_big[i], cbbox[i])
-                                     for i in range(2))) + \
-                    tuple((max(bbox_big[i], cbbox[i]) for i in range(2, 4)))
-                merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
-                               (merged_bbox[0] + merged_bbox[2]) / 2,
-                               merged_bbox[3] - merged_bbox[1],
-                               merged_bbox[2] - merged_bbox[0])
-                bboxes_with_probs[index_big] = (
-                    bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
-                bboxes_with_probs = bboxes_with_probs[:index_small] + \
-                    bboxes_with_probs[(index_small + 1):]
-                found = True
-                break
-            if found:
-                break
-    found = True
-    while found:
-        found = False
-        for index1, bbp1 in enumerate(bboxes_with_probs):
-            bbox1 = bbp1[2]
-            for index2, bbp2 in enumerate(bboxes_with_probs):
-                if index1 == index2 or bbp1[0] != bbp2[0]:
-                    continue
-                bbox2 = bbp2[2]
-                incl, which = bbox_has_inclusion(
-                    BBox.from_center_view(*bbox1).to_caffe_view(),
-                    BBox.from_center_view(*bbox2).to_caffe_view(),
-                    area_ratio=0.05)
-                if not incl:
-                    continue
-                index_small, index_big = ((index1, index2)[int(b)]
-                                          for b in (which, not which))
-                bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
-                                        for b in (which, not which))
-                area_small = bbox_small[2] * bbox_small[3]
-                area_big = bbox_big[2] * bbox_big[3]
-                if area_small / area_big > 0.5:
-                    continue
-                cbbox = tuple(reversed(bbox_small[:2])) * 2
-                bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
-                merged_bbox = tuple((min(bbox_big[i], cbbox[i])
-                                     for i in range(2))) + \
-                    tuple((max(bbox_big[i], cbbox[i]) for i in range(2, 4)))
-                merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
-                               (merged_bbox[0] + merged_bbox[2]) / 2,
-                               merged_bbox[3] - merged_bbox[1],
-                               merged_bbox[2] - merged_bbox[0])
-                bboxes_with_probs[index_big] = (
-                    bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
-                bboxes_with_probs = bboxes_with_probs[:index_small] + \
-                    bboxes_with_probs[(index_small + 1):]
-                found = True
-                break
-            if found:
-                break
+    changed = True
+    transformed_bboxes = {bbox[2]: 1 for bbox in bboxes_with_probs}
+    while changed:
+        changed = False
+        found = True
+        while found:
+            # Stage 1: merge nested bboxes of the same label
+            found = False
+            for index1, bbp1 in enumerate(bboxes_with_probs):
+                bbox1 = bbp1[2]
+                for index2, bbp2 in enumerate(bboxes_with_probs):
+                    if index1 == index2 or bbp1[0] != bbp2[0]:
+                        continue
+                    bbox2 = bbp2[2]
+                    incl, which = bbox_has_inclusion(
+                        BBox.from_center_view(*bbox1).to_caffe_view(),
+                        BBox.from_center_view(*bbox2).to_caffe_view(),
+                        area_ratio=0.3)
+                    if not incl:
+                        continue
+                    index_small, index_big = ((index1, index2)[int(b)]
+                                              for b in (which, not which))
+                    bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
+                                            for b in (which, not which))
+                    cbbox = tuple(reversed(bbox_small[:2])) * 2
+                    bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
+                    merged_bbox = tuple((min(bbox_big[i], cbbox[i])
+                                         for i in range(2))) + \
+                        tuple((max(bbox_big[i], cbbox[i])
+                               for i in range(2, 4)))
+                    merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
+                                   (merged_bbox[0] + merged_bbox[2]) / 2,
+                                   merged_bbox[3] - merged_bbox[1],
+                                   merged_bbox[2] - merged_bbox[0])
+                    bboxes_with_probs[index_big] = (
+                        bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
+                    bboxes_with_probs = bboxes_with_probs[:index_small] + \
+                        bboxes_with_probs[(index_small + 1):]
+                    transformed_bboxes[merged_bbox] = \
+                        transformed_bboxes[bbox1] + transformed_bboxes[bbox2]
+                    found = True
+                    changed = True
+                    break
+                if found:
+                    break
+        # Stage 2: merge near bboxes of the same label, if one is small
+        found = True
+        while found:
+            found = False
+            for index1, bbp1 in enumerate(bboxes_with_probs):
+                bbox1 = bbp1[2]
+                for index2, bbp2 in enumerate(bboxes_with_probs):
+                    if index1 == index2 or bbp1[0] != bbp2[0]:
+                        continue
+                    bbox2 = bbp2[2]
+                    incl, which = bbox_has_inclusion(
+                        BBox.from_center_view(*bbox1).to_caffe_view(),
+                        BBox.from_center_view(*bbox2).to_caffe_view(),
+                        area_ratio=0.05)
+                    if not incl:
+                        continue
+                    index_small, index_big = ((index1, index2)[int(b)]
+                                              for b in (which, not which))
+                    bbox_small, bbox_big = ((bbox1, bbox2)[int(b)]
+                                            for b in (which, not which))
+                    area_small = bbox_small[2] * bbox_small[3]
+                    area_big = bbox_big[2] * bbox_big[3]
+                    if area_small / area_big > 0.5:
+                        continue
+                    cbbox = tuple(reversed(bbox_small[:2])) * 2
+                    bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()
+                    merged_bbox = tuple((min(bbox_big[i], cbbox[i])
+                                         for i in range(2))) + \
+                        tuple((max(bbox_big[i], cbbox[i])
+                               for i in range(2, 4)))
+                    merged_bbox = ((merged_bbox[1] + merged_bbox[3]) / 2,
+                                   (merged_bbox[0] + merged_bbox[2]) / 2,
+                                   merged_bbox[3] - merged_bbox[1],
+                                   merged_bbox[2] - merged_bbox[0])
+                    bboxes_with_probs[index_big] = (
+                        bbp1[0], max(bbp1[1], bbp2[1]), merged_bbox)
+                    bboxes_with_probs = bboxes_with_probs[:index_small] + \
+                        bboxes_with_probs[(index_small + 1):]
+                    transformed_bboxes[merged_bbox] = \
+                        transformed_bboxes[bbox1] + transformed_bboxes[bbox2]
+                    found = True
+                    changed = True
+                    break
+                if found:
+                    break
+    # Stage 3: take into account the number of transformed bboxes by each label
+    for index, bbox in enumerate(bboxes_with_probs):
+        bboxes_with_probs[index] = (
+            bbox[0], 1.0 - (1.0 - bbox[1]) / transformed_bboxes[bbox[2]],
+            bbox[2])
     return bboxes_with_probs

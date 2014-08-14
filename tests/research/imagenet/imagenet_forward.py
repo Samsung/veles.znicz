@@ -57,7 +57,7 @@ root.defaults = {
     "mergebboxes": {"raw_path":
                     "/data/veles/tmp/result_raw_%d_%d_%s_%s_1.%d.pickle",
                     "ignore_negative": False,
-                    "max_per_class": 5,
+                    "max_per_class": 6,
                     "probability_threshold": 0.98,
                     "last_chance_probability_threshold": 0.85,
                     "mode": ""}
@@ -142,42 +142,57 @@ class MergeBboxes(Unit):
                 self._bboxes[key] = self._bboxes[key][1:]
         if self.mode == "merge":
             winning_bboxes = merge_bboxes_by_dict(
-                self._bboxes, pic_size=self._image_size,
-                max_bboxes=self.max_per_class)
+                self._bboxes, pic_size=self._image_size)
             self.validate(winning_bboxes, self._image, self._bboxes)
             if not self.ignore_negative:
                 tmp_bboxes = []
-                for bbox in winning_bboxes:
+                for bbox in winning_bboxes[:self.max_per_class]:
                     if bbox[0] > 0:
                         tmp_bboxes.append(bbox)
+                if len(tmp_bboxes) == 0:
+                    for bbox in winning_bboxes[self.max_per_class:]:
+                        if bbox[0] > 0:
+                            tmp_bboxes.append(bbox)
+                            if len(tmp_bboxes) >= self.max_per_class:
+                                break
                 winning_bboxes = tmp_bboxes
             self.debug("Merged %d bboxes of %s to %d bboxes",
                        len(self._bboxes), self._image, len(winning_bboxes))
         elif self.mode == "final":
-            winning_bboxes = []
-            max_prob = 0
-            max_prob_bbox = None
+            candidate_bboxes = []
+
             for bbox, probs in sorted(self._bboxes.items()):
                 self.debug("%s: %s %s", self._image, bbox, probs)
                 maxidx = numpy.argmax(probs)
                 if not self.ignore_negative and maxidx == 0:
                     continue
                 prob = probs[maxidx]
+                if prob >= self.last_chance_probability_threshold:
+                    candidate_bboxes.append((maxidx, prob, bbox))
+            candidate_bboxes = postprocess_bboxes_of_the_same_label(
+                candidate_bboxes)
+
+            self.debug("Picked %d candidates", len(candidate_bboxes))
+            winning_bboxes = []
+            max_prob = 0
+            max_prob_bbox = None
+            for bbox in candidate_bboxes:
+                self.debug("%s: %s %d %.3f", self._image, bbox[2], *bbox[:2])
+                prob = bbox[1]
                 if prob > max_prob:
                     max_prob = prob
-                    max_prob_bbox = (maxidx, prob, bbox)
+                    max_prob_bbox = bbox
                 if prob >= self.probability_threshold:
-                    winning_bboxes.append((maxidx, prob, bbox))
-            if len(winning_bboxes) == 0 and \
-               max_prob > self.last_chance_probability_threshold:
+                    winning_bboxes.append(bbox)
+            if len(winning_bboxes) == 0 and max_prob_bbox is not None:
                 winning_bboxes.append(max_prob_bbox)
                 self.debug("%s: used last chance, %s", self._image,
                            max_prob_bbox)
-            winning_bboxes = postprocess_bboxes_of_the_same_label(
-                winning_bboxes)
+            self.debug("%d bboxes win", len(winning_bboxes))
         else:
             assert False
-        self.winners.append({"path": self._image, "bbxs": winning_bboxes})
+        if len(winning_bboxes) > 0:
+            self.winners.append({"path": self._image, "bbxs": winning_bboxes})
         self._bboxes = {}
 
 
