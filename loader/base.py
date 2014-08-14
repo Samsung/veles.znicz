@@ -563,8 +563,9 @@ class Loader(OpenCLUnit):
             self.class_offsets[i] = total_samples
         self.total_samples = total_samples
         if self.class_lengths[TRAIN] < 1:
-            raise ValueError("class_length for TRAIN dataset is invalid: %d" %
-                             self.class_lengths[TRAIN])
+            raise ValueError(
+                "class_length for TRAIN dataset is invalid: %d" %
+                self.class_lengths[TRAIN])
 
     def _update_flags(self):
         """Resets epoch_ended and last_minibatch.
