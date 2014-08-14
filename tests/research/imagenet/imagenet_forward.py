@@ -60,7 +60,10 @@ root.defaults = {
                     "max_per_class": 6,
                     "probability_threshold": 0.98,
                     "last_chance_probability_threshold": 0.85,
-                    "mode": ""}
+                    "mode": "",
+                    "labels_compatibility":
+                    '/data/veles/datasets/imagenet/temp/216_pool/'
+                    'label_compatibility.4.pickle'}
 }
 
 root.result_path = root.result_path % (
@@ -70,7 +73,7 @@ root.result_path = root.result_path % (
 
 @implementer(IUnit)
 class MergeBboxes(Unit):
-    def __init__(self, workflow, **kwargs):
+    def __init__(self, workflow, labels_compatibility, **kwargs):
         super(MergeBboxes, self).__init__(workflow, **kwargs)
         self.winners = []
         self._image = ""
@@ -83,12 +86,18 @@ class MergeBboxes(Unit):
         self.last_chance_probability_threshold = kwargs.get(
             "last_chance_probability_threshold", 0.7)
         self.rawfd = None
+        self.labels_compatibility_file_name = labels_compatibility
         self.demand("probabilities", "minibatch_bboxes", "minibatch_images",
-                    "minibatch_size", "ended", "mode")
+                    "minibatch_size", "ended", "mode", "labels_mapping")
 
     def initialize(self, device, **kwargs):
         if self.save_raw:
             self.rawfd = open(self.save_raw, "wb")
+        with open(self.labels_compatibility_file_name, 'rb') as fin:
+            self.labels_compatibility, labels_array = pickle.load(fin)
+        self.labels_compatibility_reverse_mapping = {
+            lbl: index for index, lbl in enumerate(labels_array)}
+        self.compatibility_threshold = numpy.mean(self.labels_compatibility)
 
     def validate(self, winners, image, raw):
         for winner in winners:
@@ -106,11 +115,11 @@ class MergeBboxes(Unit):
         for index in range(self.minibatch_size):
             img, img_size = self.minibatch_images[index]
             if self._image != img:
-                self.merge()
+                self._merge()
                 self._image, self._image_size = img, img_size
             self.add_bbox(index, self.minibatch_bboxes[index])
         if self.ended and len(self._bboxes) > 0:
-            self.merge()
+            self._merge()
 
     def reset(self):
         self._image = ""
@@ -129,7 +138,36 @@ class MergeBboxes(Unit):
                 currbb[0] = min(currbb[0], self.probabilities[index][0])
         self._bboxes[key] = currbb
 
-    def merge(self):
+    def _bboxes_compatibility(self, bbox1, bbox2):
+        if bbox1[0] == bbox2[0]:
+            return 1
+        try:
+            n1, n2 = (1 + self.labels_compatibility_reverse_mapping[
+                self.labels_mapping[bbox[0] +
+                                    (1 if self.ignore_negative else 0)]]
+                      for bbox in (bbox1, bbox2))
+        except KeyError:
+            return 0
+        return self.labels_compatibility[n1, n2]
+
+    def _distance_from_center(self, bbox):
+        dx = bbox[2][0] - self._image_size[1] / 2
+        dy = bbox[2][1] - self._image_size[0] / 2
+        return numpy.sqrt(dx * dx + dy * dy)
+
+    def _remove_incompatible_bboxes(self, bboxes):
+        sorted_bboxes = list(sorted(
+            bboxes, key=lambda bbox: self._distance_from_center(bbox)))
+        best = sorted_bboxes[0]
+        winners = []
+        for bbox in sorted_bboxes:
+            if self._bboxes_compatibility(best, bbox) > \
+               self.compatibility_threshold or \
+               bbox[2][2] * bbox[2][3] >= best[2][2] * best[2][3]:
+                winners.append(bbox)
+        return winners
+
+    def _merge(self):
         if self.rawfd is not None and self.mode == "merge":
             pickle.dump({self._image: self._bboxes},
                         self.rawfd, protocol=best_protocol)
@@ -188,6 +226,9 @@ class MergeBboxes(Unit):
                 winning_bboxes.append(max_prob_bbox)
                 self.debug("%s: used last chance, %s", self._image,
                            max_prob_bbox)
+            if len(winning_bboxes) > 1:
+                winning_bboxes = self._remove_incompatible_bboxes(
+                    winning_bboxes)
             self.debug("%d bboxes win", len(winning_bboxes))
         else:
             assert False
@@ -258,7 +299,8 @@ class ImagenetForward(OpenCLWorkflow):
             ignore_negative=root.mergebboxes.ignore_negative,
             max_per_class=root.mergebboxes.max_per_class,
             probability_threshold=root.mergebboxes.probability_threshold,
-            last_chance_probability_threshold=lc_probability_threshold)
+            last_chance_probability_threshold=lc_probability_threshold,
+            labels_compatibility=root.mergebboxes.labels_compatibility)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",
@@ -266,6 +308,7 @@ class ImagenetForward(OpenCLWorkflow):
         self.json_writer = ImagenetResultWriter(
             self, root.loader.labels_int_dir, root.result_path,
             ignore_negative=root.mergebboxes.ignore_negative)
+        self.mergebboxes.link_attrs(self.json_writer, "labels_mapping")
         if root.mergebboxes.mode:
             self.mergebboxes.mode = root.mergebboxes.mode
             self.json_writer.mode = root.mergebboxes.mode

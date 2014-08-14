@@ -23,6 +23,7 @@ class ImagenetResultWriter(Unit):
         super(ImagenetResultWriter, self).__init__(workflow, **kwargs)
         self.labels_txt = labels_txt
         self.result_path = result_path
+        self.labels_mapping = {}
         self.ignore_negative = kwargs.get("ignore_negative", True)
         self.demand("winners", "mode")
 
@@ -30,8 +31,8 @@ class ImagenetResultWriter(Unit):
         self._results = {}
         with open(self.labels_txt, "r") as txt:
             values = txt.read().split()
-            self._labels_mapping = dict(zip(map(int, values[::2]),
-                                            values[1::2]))
+            self.labels_mapping.update(dict(zip(map(int, values[::2]),
+                                                values[1::2])))
 
     def run(self):
         """Winners must be of the format: {"path": ..., "bbxs": [...]}
@@ -60,7 +61,7 @@ class ImagenetResultWriter(Unit):
                         (coords[3] + coords[1]) / 2
                     bboxes.append({
                         "conf": float(bbox[1]),
-                        "label": self._labels_mapping[
+                        "label": self.labels_mapping[
                             bbox[0] + (1 if self.ignore_negative else 0)],
                         "angle": "0", "x": int(numpy.round(x)),
                         "y": int(numpy.round(y)),
@@ -70,7 +71,7 @@ class ImagenetResultWriter(Unit):
                 elif self.mode == "final":
                     bboxes.append({
                         "conf": float(bbox[1]),
-                        "label": self._labels_mapping[
+                        "label": self.labels_mapping[
                             bbox[0] + (1 if self.ignore_negative else 0)],
                         "angle": "0", "x": int(numpy.round(bbox[2][0])),
                         "y": int(numpy.round(bbox[2][1])),
