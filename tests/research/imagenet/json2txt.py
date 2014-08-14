@@ -8,6 +8,7 @@ import os
 from scipy.io import loadmat
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from veles.znicz.tests.research.imagenet.forward_bbox import BBox
 
 
 class InvalidBBox(Exception):
@@ -105,17 +106,32 @@ def convert_CLS_LOC(idk, dset, ijson, otxt):
     1000 ).  The number of labels per line can vary, but not more than 5
     (extra labels are ignored).
     """
+
+    val_size = 50000
+
     labels = loadmat(os.path.join(idk, "data/meta_clsloc.mat"))
-    labels_mapping = {s[1]: s[0] for s in labels['synsets']}
-    print("Read %d labels" % len(labels_mapping))
-    for _, val in sorted(ijson.items()):
-        bboxes = val["bbxs"]
-        iwh = get_image_dims(val)
-        for bbox in list(sorted(bboxes, key=lambda bbox: bbox["conf"],
-                                reverse=True))[:5]:
-            minmaxs = get_bbox_min_max(bbox, iwh)
-            otxt.write(("%d " * 5 + "\n") % (
-                (labels_mapping[bbox["label"]],) + minmaxs))
+    synset_indices = {}
+    for s in labels["synsets"][0]:
+        index, synset, name = s[0][0][0], s[1][0], s[2][0]
+        synset_indices[synset] = index
+
+    for i in range(val_size):
+        pic_name = "ILSVRC2012_val_%.8d.JPEG" % (i + 1);
+        line_to_write = ""
+        if pic_name in ijson:
+            bboxes = filter(lambda x: x["label"] in synset_indices,
+                            ijson[pic_name]["bbxs"])
+            for bbox in list(sorted(bboxes, key=lambda box: box["conf"],
+                                    reverse=True))[:5]:
+                line_to_write += str(synset_indices[bbox["label"]])
+                box_obj = BBox.from_json_dict(bbox)
+                line_to_write += (" %.0f %.0f %.0f %.0f " %
+                                  (box_obj.xmin, box_obj.ymin,
+                                   box_obj.xmax, box_obj.ymax))
+        if line_to_write == "":
+            line_to_write += "0 0 1 0 1"  # class None
+        otxt.write(line_to_write)
+        otxt.write("\n")
 
 
 def main():
