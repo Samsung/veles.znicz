@@ -116,11 +116,11 @@ def convert_CLS_LOC(idk, dset, ijson, otxt):
         synset_indices[synset] = index
 
     for i in range(val_size):
-        pic_name = "ILSVRC2012_val_%.8d.JPEG" % (i + 1);
+        pic_name = "ILSVRC2012_val_%.8d.JPEG" % (i + 1)
         line_to_write = ""
         if pic_name in ijson:
-            bboxes = filter(lambda x: x["label"] in synset_indices,
-                            ijson[pic_name]["bbxs"])
+            bboxes = [x for x in ijson[pic_name]["bbxs"]
+                      if x["label"] in synset_indices]
             for bbox in list(sorted(bboxes, key=lambda box: box["conf"],
                                     reverse=True))[:5]:
                 line_to_write += str(synset_indices[bbox["label"]])
