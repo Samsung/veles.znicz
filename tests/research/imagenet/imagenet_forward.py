@@ -34,8 +34,9 @@ root.defaults = {
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes":
                "/data/veles/datasets/imagenet/raw_bboxes/"
-               "raw_bboxes_4classes_img_val.4.pickle",
-               # "/data/veles/tmp/result_216_pool_img_test_0.json",
+               # "raw_bboxes_4classes_img_val.4.pickle",
+               "raw_bboxes_4classes_img_val.2.t_0_9.median.pickle",
+               # "/data/veles/tmp/result_0_0_216_pool_img_test_1.json",
                "min_index": 0,
                "max_index": 0,
                "angle_step_final": numpy.pi / 12,
@@ -63,7 +64,8 @@ root.defaults = {
                     "mode": "",
                     "labels_compatibility":
                     '/data/veles/datasets/imagenet/temp/216_pool/'
-                    'label_compatibility.4.pickle'}
+                    'label_compatibility.4.pickle',
+                    "use_compatibility": True}
 }
 
 root.result_path = root.result_path % (
@@ -87,6 +89,7 @@ class MergeBboxes(Unit):
             "last_chance_probability_threshold", 0.7)
         self.rawfd = None
         self.labels_compatibility_file_name = labels_compatibility
+        self.use_compatibility = kwargs.get("use_compatibility", True)
         self.demand("probabilities", "minibatch_bboxes", "minibatch_images",
                     "minibatch_size", "ended", "mode", "labels_mapping")
 
@@ -226,7 +229,7 @@ class MergeBboxes(Unit):
                 winning_bboxes.append(max_prob_bbox)
                 self.debug("%s: used last chance, %s", self._image,
                            max_prob_bbox)
-            if len(winning_bboxes) > 1:
+            if self.use_compatibility and len(winning_bboxes) > 1:
                 winning_bboxes = self._remove_incompatible_bboxes(
                     winning_bboxes)
             self.debug("%d bboxes win", len(winning_bboxes))
@@ -300,7 +303,8 @@ class ImagenetForward(OpenCLWorkflow):
             max_per_class=root.mergebboxes.max_per_class,
             probability_threshold=root.mergebboxes.probability_threshold,
             last_chance_probability_threshold=lc_probability_threshold,
-            labels_compatibility=root.mergebboxes.labels_compatibility)
+            labels_compatibility=root.mergebboxes.labels_compatibility,
+            use_compatibility=root.mergebboxes.use_compatibility)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",

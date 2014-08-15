@@ -543,7 +543,7 @@ def postprocess_bboxes_of_the_same_label(bboxes_with_probs):
                     incl, which = bbox_has_inclusion(
                         BBox.from_center_view(*bbox1).to_caffe_view(),
                         BBox.from_center_view(*bbox2).to_caffe_view(),
-                        area_ratio=0.05)
+                        area_ratio=0)
                     if not incl:
                         continue
                     index_small, index_big = ((index1, index2)[int(b)]
@@ -552,7 +552,7 @@ def postprocess_bboxes_of_the_same_label(bboxes_with_probs):
                                             for b in (which, not which))
                     area_small = bbox_small[2] * bbox_small[3]
                     area_big = bbox_big[2] * bbox_big[3]
-                    if area_small / area_big > 0.5:
+                    if area_small / area_big > 0.75:
                         continue
                     cbbox = tuple(reversed(bbox_small[:2])) * 2
                     bbox_big = BBox.from_center_view(*bbox_big).to_caffe_view()

@@ -301,8 +301,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         if out_width < width or out_height < height:
             offset_x = max(0, (tmp_width - out_width) // 2)
             offset_y = max(0, (tmp_height - out_height) // 2)
-            out_img = out_img[offset_y:(out_height + offset_y),
-                              offset_x:(out_width + offset_x), :]
+            out_img = out_img[offset_y:(self.aperture + offset_y),
+                              offset_x:(self.aperture + offset_x), :]
         return out_img, bbox
 
     def bbox_is_small(self, bbox):
@@ -354,12 +354,12 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         return bbox
 
     def _get_bbox_data(self, bbox, angle, flip):
-        x, y, width, height = (bbox['x'], bbox['y'],
-                               bbox['width'], bbox['height'])
+        x, y, width, height = (bbox[p] for p in ('x', 'y', 'width', 'height'))
         xmin = x - width / 2
         ymin = y - height / 2
         xmax = xmin + width
         ymax = ymin + height
+
         # Crop the image to supplied bbox
         cropped = self.crop_image(self._current_image_data,
                                   (xmin, ymin, xmax, ymax))
