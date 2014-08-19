@@ -12,9 +12,9 @@ import os
 
 from veles.config import root
 import veles.plotting_units as plotting_units
-import veles.znicz.nn_plotting_units as nn_plotting_units
-import veles.znicz.conv as conv
-import veles.znicz.all2all as all2all
+# import veles.znicz.nn_plotting_units as nn_plotting_units
+# import veles.znicz.conv as conv
+# import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.lr_adjust as lra
@@ -167,7 +167,7 @@ class Workflow(StandardWorkflow):
             self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
-
+        """
         # Weights plotter
         self.plt_mx = []
         prev_channels = 1
@@ -193,6 +193,7 @@ class Workflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+        """
 
     def initialize(self, device, learning_rate, weights_decay, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
