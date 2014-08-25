@@ -14,16 +14,15 @@ from veles.znicz.tests.research.imagenet.loader import LoaderDetection
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.znicz import lr_adjust
 
-import logging
-
 root.common.update = {"precision_type": "float", }
 
 root.defaults = {
+    "precision_type": "float",
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "imagenet_caffe"},
     "loader": {"minibatch_size": 256},
-    "imagenet_caffe": {"learning_rate": 0.00016,
+    "imagenet_caffe": {"learning_rate": 0.0001,
                        "weights_decay": 0.0,
                        "layers":
                        [{"type": "conv_relu", "n_kernels": 96,
@@ -91,11 +90,10 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = LoaderDetection(
-            self, max_minibatch_size=256, minibatch_size=256,
+            self, max_minibatch_size=256, minibatch_size=128,
             ipath="/data/veles/datasets/imagenet/2013",
             dbpath="/data/veles/datasets/imagenets/2013/db",
             year="2013", series="img")
-        self.loader.setup(level=logging.DEBUG)
         self.loader.load_data()
 
         self.loader.link_from(self.repeater)
@@ -242,7 +240,7 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)
