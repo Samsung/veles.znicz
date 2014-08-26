@@ -62,8 +62,10 @@ root.defaults = {
 
 @implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
+
     """Loads Cifar dataset.
     """
+
     def __init__(self, workflow, **kwargs):
         super(Loader, self).__init__(workflow, **kwargs)
         self.shuffle_limit = kwargs.get("shuffle_limit", 2000000000)
@@ -171,8 +173,10 @@ class Loader(loader.FullBatchLoader):
 
 
 class Workflow(StandardWorkflow):
+
     """Sample workflow.
     """
+
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
@@ -269,6 +273,7 @@ class Workflow(StandardWorkflow):
         for gd_elm in self.gds:
             lr_adjuster = lr_adjust.LearningRateAdjust(
                 self,
+                name="adj_" + gd_elm.name,
                 lr_function=lr_adjust.arbitrary_step_policy(
                     [(gd_elm.learning_rate, 60000),
                      (gd_elm.learning_rate / 10., 65000),
@@ -277,10 +282,9 @@ class Workflow(StandardWorkflow):
                     [(gd_elm.learning_rate, 60000),
                      (gd_elm.learning_rate / 10., 65000),
                      (gd_elm.learning_rate / 100., 70000)])
-                )
+            )
             lr_adjuster.add_one_gd_unit(gd_elm)
-
-        lr_adjuster.link_from(self.gds[0])
+            lr_adjuster.link_from(self.gds[0])
 
         self.repeater.link_from(lr_adjuster)
 

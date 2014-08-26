@@ -32,6 +32,7 @@ class LearningRateAdjust(Unit):
             iteration number and returns :class:`float` **bias** learning rate
             (if nothing is set - `lr_function` is taken)
     """
+
     def __init__(self, workflow, **kwargs):
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
         self._lr_function = kwargs.get("lr_function", None)
@@ -71,15 +72,16 @@ class LearningRateAdjust(Unit):
         Adjusts learning rates of GD units according to ``lr_function``
         Should be run every minibatch before GD units.
         """
+
         if self._lr_function is not None:
-            learning_rate = self._lr_function(self._minibatches_count)
+            learning_rate = float(self._lr_function(self._minibatches_count))
             if learning_rate != self._prev_lr:
                 self._prev_lr = learning_rate
                 for gd_elm in self._gradient_units:
                     gd_elm.learning_rate = learning_rate
 
         if self._bias_lr_function is not None:
-            bias_lr = self._bias_lr_function(self._minibatches_count)
+            bias_lr = float(self._bias_lr_function(self._minibatches_count))
             if bias_lr != self._prev_bias_lr:
                 self._prev_bias_lr = learning_rate
                 for gd_elm in self._gradient_units:
