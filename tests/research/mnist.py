@@ -32,7 +32,8 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.defaults = {
     "learning_rate_adjust": {"do": False},
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist"},
     "loader": {"minibatch_size": 60},
     "weights_plotter": {"limit": 64},
@@ -41,13 +42,13 @@ root.defaults = {
               "layers":
               [{"type": "all2all", "output_shape": 100,
                 "learning_rate": 0.03, "weights_decay": 0.0,
-                "gradient_moment": 0.0,
+                "gradient_moment": 0.0, "factor_ortho": 0.001,
                 "weights_filling": "uniform", "weights_stddev": 0.05,
                 "bias_filling": "uniform", "bias_stddev": 0.05},
                {"type": "activation_tanh"},
                {"type": "softmax", "output_shape": 10,
                 "learning_rate": 0.03, "weights_decay": 0.0,
-                "gradient_moment": 0.0,
+                "gradient_moment": 0.0, "factor_ortho": 0.0,
                 "weights_filling": "uniform", "weights_stddev": 0.05,
                 "bias_filling": "uniform", "bias_stddev": 0.05}],
               "data_paths": {"test_images":  test_image_dir,
@@ -88,7 +89,8 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.decision.fail_iterations,
+            max_epochs=root.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
