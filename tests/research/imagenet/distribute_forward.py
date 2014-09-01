@@ -45,6 +45,6 @@ if __name__ == "__main__":
     print('')
     for index, minmax in enumerate(minmaxs):
         print(index)
-        print('scripts/velescli.py -p '' -s -d 0:1 --debug MergeBboxes  '
+        print('scripts/velescli.py -p "" -s -d 0:1 --debug MergeBboxes  '
               'veles/znicz/tests/research/imagenet/imagenet_forward.py - '
               'root.loader.min_index=%d root.loader.max_index=%d' % minmax)

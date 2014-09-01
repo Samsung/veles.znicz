@@ -55,8 +55,8 @@ def convert_DET(idk, dset, ijson, otxt):
 
     <image_index> <ILSVRC2014_DET_ID> <confidence> <xmin> <ymin> <xmax> <ymax>
     """
-    img_file = os.path.join(idk, "data/det_lists/%s.txt" % "val"
-                            if dset == "validation" else "test")
+    img_file = os.path.join(idk, "data/det_lists/%s.txt" % ("val"
+                            if dset == "validation" else "test"))
     with open(img_file, "r") as txt:
         values = txt.read().split()
         img_mapping = dict(zip(values[::2], map(int, values[1::2])))

@@ -111,6 +111,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         if ext == ".pickle":
             self.mode = "merge"
             index = 0
+            with open('/data/veles/tmp/empty_images.txt', 'r') as fin:
+                empty = set(fin.readlines())
             self.info("Will load images in interval [%d, %d)", self.min_index,
                       self.max_index)
             with open(self.bboxes_file_name, "rb") as fin:
@@ -124,6 +126,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
                             continue
                         path = img["path"]
                         if path.find(self.only_this_file) < 0:
+                            continue
+                        if os.path.basename(path) + '\n' not in empty:
                             continue
                         self.bboxes[path] = img
                         size = self.image_size(path)
@@ -383,8 +387,8 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
             assert sample.shape[0] <= self.aperture and \
                 sample.shape[1] <= self.aperture
         except AssertionError:
-            import pdb
-            pdb.set_trace()
+            self.warning("bbox data overflow: %d %d", *sample.shape[:2])
+            sample = sample[:self.aperture, :self.aperture, :]
 
         lcind = -2 if self.add_sobel else -1
         height, width = sample.shape[:2]

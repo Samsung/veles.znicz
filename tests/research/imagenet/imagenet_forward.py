@@ -29,14 +29,15 @@ from veles.znicz.tests.research.imagenet.forward_bbox import \
 
 
 root.defaults = {
-    "loader": {"year": "216_pool",
-               "series": "img",
+    "loader": {"year": "DET_dataset",
+               "series": "DET",
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes":
                "/data/veles/datasets/imagenet/raw_bboxes/"
-               # "raw_bboxes_4classes_img_val.4.pickle",
-               "raw_bboxes_4classes_img_val.2.t_0_9.median.pickle",
-               # "/data/veles/tmp/result_0_0_216_pool_img_test_1.json",
+               "raw_bboxes_det_test_npics_40152.4.pickle",
+               #"/data/veles/datasets/imagenet/final_jsons
+               #/raw_json/need_final_good/"
+               #"result_final_11762_12622_raw_DET_dataset_DET_test_1.json",
                "min_index": 0,
                "max_index": 0,
                "angle_step_final": numpy.pi / 12,
@@ -45,22 +46,27 @@ root.defaults = {
                "angle_step_merge": 1,
                "max_angle_merge": 0,
                "min_angle_merge": 0,
-               "minibatch_size": 64,
-               "only_this_file": "",
+               #"angle_step_merge": numpy.pi / 12,
+               #"max_angle_merge": numpy.pi / 12,
+               #"min_angle_merge": (-numpy.pi / 12),
+               "minibatch_size": 32,
+               "only_this_file": "000000",
                "raw_bboxes_min_area": 256,
                "raw_bboxes_min_size": 8,
                "raw_bboxes_min_area_ratio": 0.005,
                "raw_bboxes_min_size_ratio": 0.05},
-    "trained_workflow": "/data/veles/datasets/imagenet/snapshots/216_pool/"
-                        "imagenet_ae_216_pool_27.12pt.3.pickle",
-    "imagenet_base": "/data/veles/datasets/imagenet/temp",
-    "result_path": "/data/veles/tmp/result_%d_%d_%s_%s_test_1.json",
+    "trained_workflow": "/data/veles/datasets/imagenet/snapshots/DET/2014/"
+                        "imagenet_ae_2014_56.32pt.4.pickle",
+    "imagenet_base": "/data/veles/datasets/imagenet",
+    "result_path": "/data/veles/tmp/imagenet/final/"
+                   "result_final_%d_%d_%s_%s_test_1.json",
     "mergebboxes": {"raw_path":
-                    "/data/veles/tmp/result_raw_%d_%d_%s_%s_1.%d.pickle",
+                    "/data/veles/tmp/imagenet/"
+                    "result_raw_final_%d_%d_%s_%s_1.%d.pickle",
                     "ignore_negative": False,
                     "max_per_class": 6,
-                    "probability_threshold": 0.98,
-                    "last_chance_probability_threshold": 0.85,
+                    "probability_threshold": 0.45,
+                    "last_chance_probability_threshold": 0.39,
                     "mode": "",
                     "labels_compatibility":
                     '/data/veles/datasets/imagenet/temp/216_pool/'
@@ -68,9 +74,9 @@ root.defaults = {
                     "use_compatibility": True}
 }
 
-root.result_path = root.result_path % (
-    root.loader.min_index, root.loader.max_index,
-    root.loader.year, root.loader.series)
+#root.result_path = root.result_path % (
+#    root.loader.min_index, root.loader.max_index,
+#    root.loader.year, root.loader.series)
 
 
 @implementer(IUnit)
@@ -208,11 +214,21 @@ class MergeBboxes(Unit):
                 if not self.ignore_negative and maxidx == 0:
                     continue
                 prob = probs[maxidx]
+                self.warning("prob %s" % prob)
                 if prob >= self.last_chance_probability_threshold:
+                    self.info("prob %s" % prob)
+                    self.info("threshold %s" %
+                              self.last_chance_probability_threshold)
+                    candidate_bboxes.append((maxidx, prob, bbox))
+            if len(candidate_bboxes) == 0:
+                for bbox, probs in sorted(self._bboxes.items()):
+                    maxidx = numpy.argmax(probs)
+                    if not self.ignore_negative and maxidx == 0:
+                        continue
+                    prob = probs[maxidx]
                     candidate_bboxes.append((maxidx, prob, bbox))
             candidate_bboxes = postprocess_bboxes_of_the_same_label(
                 candidate_bboxes)
-
             self.debug("Picked %d candidates", len(candidate_bboxes))
             winning_bboxes = []
             max_prob = 0
@@ -235,8 +251,7 @@ class MergeBboxes(Unit):
             self.debug("%d bboxes win", len(winning_bboxes))
         else:
             assert False
-        if len(winning_bboxes) > 0:
-            self.winners.append({"path": self._image, "bbxs": winning_bboxes})
+        self.winners.append({"path": self._image, "bbxs": winning_bboxes})
         self._bboxes = {}
 
 
@@ -350,6 +365,9 @@ class ImagenetForward(OpenCLWorkflow):
 
 def run(load, main):
     numpy.set_printoptions(precision=3, suppress=True)
+    root.result_path = root.result_path % (
+        root.loader.min_index, root.loader.max_index,
+        root.loader.year, root.loader.series)
     root.imagenet.from_snapshot_add_layer = False
     CACHED_DATA_FNME = os.path.join(root.imagenet_base, str(root.loader.year))
     root.loader.names_labels_filename = os.path.join(
