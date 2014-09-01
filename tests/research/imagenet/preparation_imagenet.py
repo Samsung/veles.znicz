@@ -74,6 +74,7 @@ class Main(Processor):
         self.count_dirs = 40
         self.do_bboxes_map = False
         self.matrixes = []
+        self.do_diff_bboxes = True
         self.images_json = {
             "test": {},  # dict: {"path", "label", "bbx": [{bbx}, {bbx}, ...]}
             "validation": {},
@@ -98,7 +99,11 @@ class Main(Processor):
         self._include_derivative = kwargs.get(
             "derivative", config.get(config.root.imagenet.derivative) or True)
         super(Main, self).__init__(**kwargs)
-        self.s_mean = numpy.zeros((768, 1024) + (3,), dtype=numpy.float64)
+        if self.do_bboxes_map:
+            self.s_mean = numpy.zeros((768, 1024) + (3,), dtype=numpy.float64)
+        else:
+            self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
+        self.matr_diff = numpy.zeros((201, 201), dtype=numpy.float64)
         self.s_count = numpy.ones_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
         self.s_min[:] = 255
@@ -142,6 +147,7 @@ class Main(Processor):
                                      "generate_negative_DET", "test_load",
                                      "remove_back", "visualize",
                                      "remove_back_split_dataset",
+                                     "classes_to_labels",
                                      "resize_validation", "none_bboxes"],
                             help="run functions:"
                                  " 'draw_bbox' run function which generate"
@@ -552,6 +558,9 @@ class Main(Processor):
         matrix_dir = os.path.join(
             self.imagenet_dir_path, "matrixes_%s_%s_%s.pickle" %
             (self.year, self.series, self.stage))
+        matrix_diff = os.path.join(
+            self.imagenet_dir_path, "diff_matrix_%s_%s_%s.pickle" %
+            (self.year, self.series, self.stage))
         count_samples_dir = os.path.join(
             self.imagenet_dir_path, "count_samples_%s_%s_%s.json" %
             (self.year, self.series, self.stage))
@@ -567,7 +576,7 @@ class Main(Processor):
             word_label = line[line.find("\t") + 1:line.find("\n")]
             int_word_labels.append((int_label, word_label))
             self.count_classes += 1
-        set_type = "validation"
+        set_type = "train"
         fnme = os.path.join(self.imagenet_dir_path,
                             IMAGES_JSON %
                             (self.year, self.series, set_type, self.stage))
@@ -578,7 +587,12 @@ class Main(Processor):
                 self.images_json[set_type] = json.load(fp)
         except:
             self.exception("Failed to load %s", fnme)
-        for f, _val in sorted(self.images_json[set_type].items()):
+        img_count = len(self.images_json[set_type])
+        for index, (f, _val) in enumerate(
+                sorted(self.images_json[set_type].items())):
+            if index % 1000 == 0:
+                self.info("%d / %d (%d %%)", index, img_count,
+                          int(index * 100 / img_count))
             image_fnme = self.images_json[set_type][f]["path"]
             image = self.decode_image(image_fnme)
             path_to_save = image_fnme[:image_fnme.rfind("/")]
@@ -608,6 +622,20 @@ class Main(Processor):
                                                                           255,
                                                                           255)
                     continue
+                elif self.do_diff_bboxes:
+                    if len(self.images_json[set_type][f]["bbxs"]) >= 2:
+                        label = bbx["label"]
+                        self.info("Bbox is %s" % bbx)
+                        for (int_label, word_label) in int_word_labels:
+                            if label == word_label:
+                                ind_class = int_label
+                        for j_bbox in self.images_json[set_type][f]["bbxs"]:
+                            j_label = j_bbox["label"]
+                            for (j_int_label, j_word_label) in int_word_labels:
+                                if j_label == j_word_label:
+                                    j_ind_class = j_int_label
+                            self.matr_diff[ind_class, j_ind_class] += 1
+                    continue
                 else:
                     if h_size >= 8 and w_size >= 8 and h_size * w_size >= 256:
                         self.sample_rect(image, x, y, h_size, w_size, ang,
@@ -615,6 +643,14 @@ class Main(Processor):
         if self.do_bboxes_map:
             self.s_mean /= numpy.max(self.s_mean)
             self.s_mean *= 255
+        elif self.do_diff_bboxes:
+            self.matr_diff /= numpy.max(self.matr_diff)
+            self.info("Matrix %s" % self.matr_diff)
+            with open(matrix_diff, "wb") as fout:
+                self.info("Saving diff matrix to %s" % matrix_diff)
+                pickle.dump(self.matr_diff, fout)
+            self.matr_diff *= 255
+            return
         else:
             self.s_mean /= self.s_count
 
@@ -762,6 +798,18 @@ class Main(Processor):
             out_path_sobel = os.path.join(
                 out_dir, "all_samples/sobel_%s" % name)
             scipy.misc.imsave(out_path_sobel, image_to_save_sobel)
+
+    def classes_to_labels(self):
+        path_to_classes = ("/data/veles/datasets/" +
+                           "imagenet/2014/classes_200_2014_DET_train_0.json")
+        path_to_labels = ("/data/veles/datasets/imagenet/" +
+                          "DET_dataset/labels_int_2014_DET_0.txt")
+        with open(path_to_classes, "r") as label_word:
+                label_cat = json.load(label_word)
+                for (ind, label_w) in label_cat:
+                    file_ind_labels = open(path_to_labels, "a")
+                    file_ind_labels.write("%s\t%s\n" % (ind, label_w))
+                    file_ind_labels.close()
 
     def test_load_data(self, path):
         self.imagenet_dir = path
@@ -2100,6 +2148,8 @@ class Main(Processor):
         elif self.command_to_run == "none_bboxes":
             self.calculate_bbox_is_none(os.path.join(IMAGENET_BASE_PATH,
                                                      self.year))
+        elif self.command_to_run == "classes_to_labels":
+            self.classes_to_labels()
         else:
             self.info("Choose command to run: 'all' run all functions,"
                       "'draw_bbox' run function which generate"
