@@ -9,7 +9,7 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 """
 
 from __future__ import division
-import numpy as np
+import numpy
 import opencl4py as cl
 from zope.interface import implementer
 
@@ -69,15 +69,15 @@ class DropoutForward(Forward, Dropout):
 
     def initialize(self, device, **kwargs):
         super(DropoutForward, self).initialize(device=device, **kwargs)
-        self.mask.mem = np.empty_like(self.input.mem)
+        self.mask.mem = numpy.empty_like(self.input.mem)
         self.states.mem = self.rand.randint(
             low=DropoutForward.MIN_RANDOM_STATE,
             high=DropoutForward.MAX_RANDOM_STATE,
-            size=self.input.mem.size * 4).astype(np.uint32)
+            size=self.input.mem.size * 4).astype(numpy.uint32)
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.size):
             self.output.reset()
-            self.output.mem = np.zeros_like(self.input.mem)
+            self.output.mem = numpy.zeros_like(self.input.mem)
 
         if self.device is None:
             return  # if is master
@@ -86,8 +86,8 @@ class DropoutForward(Forward, Dropout):
         self.output.initialize(device)
         self.states.initialize(device)
         self.mask.initialize(device)
-        self._threshold_arg_ = np.empty(1, dtype=np.uint64)
-        self._pass_arg_ = np.empty(1, dtype=self.input.mem.dtype)
+        self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)
+        self._pass_arg_ = numpy.empty(1, dtype=self.input.mem.dtype)
 
         self.build_program({}, "dropout_forward.cl",
                            dtype=self.input.mem.dtype)
@@ -99,29 +99,37 @@ class DropoutForward(Forward, Dropout):
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
         self.rand.fill(self.mask.mem, -self.dropout_ratio, leave_ratio)
-        np.maximum(self.mask.mem, 0, self.mask.mem)
-        np.ceil(self.mask.mem, self.mask.mem)
+        numpy.maximum(self.mask.mem, 0, self.mask.mem)
+        numpy.ceil(self.mask.mem, self.mask.mem)
         self.mask.mem[:] = (self.mask.mem.astype(self.input.mem.dtype) /
                             leave_ratio)
 
     def cpu_run(self):
         self.output.map_invalidate()
-        self.mask.map_invalidate()
         self.input.map_read()
-        self.calc_mask()
-        np.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
-                    formats.ravel(self.output.mem))
+        if not self.forward_mode:
+            self.mask.map_invalidate()
+            self.calc_mask()
+            numpy.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
+                           formats.ravel(self.output.mem))
+        else:
+            self.output.mem[:] = self.input.mem
 
     def ocl_run(self):
         self.input.unmap()
-        self.states.unmap()
-        self.mask.unmap()
         self.output.unmap()
-        self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
-        self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
-        self.set_arg(1, self._threshold_arg_)
-        self.set_arg(2, self._pass_arg_)
-        self.execute_kernel((self.input.mem.size,), None)
+        if not self.forward_mode:
+            self.states.unmap()
+            self.mask.unmap()
+            self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
+            self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
+            self.set_arg(1, self._threshold_arg_)
+            self.set_arg(2, self._pass_arg_)
+            self.execute_kernel((self.input.mem.size,), None)
+        else:
+            self.device.queue_.copy_buffer(
+                self.input.devmem, self.output.devmem, 0, 0,
+                self.output.nbytes, need_event=False)
 
 
 @implementer(IOpenCLUnit, IDistributable)
@@ -139,7 +147,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
         if (self.err_input.mem is None or
                 self.err_input.mem.size != self.err_output.mem.size):
             self.err_input.reset()
-            self.err_input.mem = np.zeros_like(self.err_output.mem)
+            self.err_input.mem = numpy.zeros_like(self.err_output.mem)
 
         if self.device is None:
             return  # if is master
@@ -160,8 +168,8 @@ class DropoutBackward(GradientDescentBase, Dropout):
             self.err_output.map_read()
             self.err_input.map_invalidate()
         self.mask.map_read()
-        np.multiply(self.err_output.mem.ravel(), self.mask.mem.ravel(),
-                    formats.ravel(self.err_input.mem))
+        numpy.multiply(self.err_output.mem.ravel(), self.mask.mem.ravel(),
+                       formats.ravel(self.err_input.mem))
 
     def ocl_run(self):
         self.err_output.unmap()
