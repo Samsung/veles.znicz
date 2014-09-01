@@ -610,7 +610,6 @@ class Loader(loader.FullBatchLoader):
 
         self.info("class_lengths=[%s]" % (
             ", ".join(str(x) for x in self.class_lengths)))
-
         if not save_to_cache:
             return
         self.info("Saving loaded data for later faster load to "
@@ -660,9 +659,10 @@ class Workflow(StandardWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
+        kwargs["name"] = kwargs.get("name", "channels")
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        self.saver = None
+        #self.saver = None
 
         self.repeater.link_from(self.start_point)
 
@@ -771,6 +771,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
         """
+        """
         # Weights plotter
         self.plt_mx = []
         prev_channels = 3
@@ -795,6 +796,7 @@ class Workflow(StandardWorkflow):
             #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+        """
         """
         # Histogram plotter
         self.plt_hist = []
@@ -838,7 +840,7 @@ class Workflow(StandardWorkflow):
         self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, minibatch_size, w_neg,
-                   device):
+                   device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          minibatch_size=minibatch_size,
