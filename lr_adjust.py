@@ -38,6 +38,7 @@ class LearningRateAdjust(Unit):
         self._lr_function = kwargs.get("lr_function", None)
         self._bias_lr_function = kwargs.get("bias_lr_function",
                                             self._lr_function)
+
         self._gradient_units = []
         self._minibatches_count = 0
         self._prev_lr = 1.0e30
@@ -72,6 +73,8 @@ class LearningRateAdjust(Unit):
         Adjusts learning rates of GD units according to ``lr_function``
         Should be run every minibatch before GD units.
         """
+        if self.is_slave:
+            return
 
         if self._lr_function is not None:
             learning_rate = float(self._lr_function(self._minibatches_count))
@@ -91,19 +94,17 @@ class LearningRateAdjust(Unit):
 
     # IDistributable implementation
     def generate_data_for_slave(self, slave):
-        data = (self._minibatches_count, self._lr_function,
-                self._bias_lr_function)
-        return data
-
-    def generate_data_for_master(self):
         return None
 
+    def generate_data_for_master(self):
+        return True
+
     def apply_data_from_master(self, data):
-        self._minibatches_count, self._lr_function, self._bias_lr_function = \
-            data
+        pass
 
     def apply_data_from_slave(self, data, slave):
-        pass
+        if not bool(self.gate_block) and not bool(self.gate_skip):
+            self.run()
 
     def drop_slave(self, slave):
         pass
