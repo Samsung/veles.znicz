@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -O
+#!/usr/bin/python3.3 -O
 """
 Created on Jul 3, 2013
 
@@ -62,10 +62,8 @@ root.defaults = {
 
 @implementer(loader.IFullBatchLoader)
 class Loader(loader.FullBatchLoader):
-
     """Loads Cifar dataset.
     """
-
     def __init__(self, workflow, **kwargs):
         super(Loader, self).__init__(workflow, **kwargs)
         self.shuffle_limit = kwargs.get("shuffle_limit", 2000000000)
@@ -172,17 +170,15 @@ class Loader(loader.FullBatchLoader):
                              + str(root.loader.norm))
 
 
-class Workflow(StandardWorkflow):
-
+class Cifar_Workflow(StandardWorkflow):
     """Sample workflow.
     """
-
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(Cifar_Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
@@ -273,26 +269,24 @@ class Workflow(StandardWorkflow):
         for gd_elm in self.gds:
             lr_adjuster = lr_adjust.LearningRateAdjust(
                 self,
-                name="adj_" + gd_elm.name,
                 lr_function=lr_adjust.arbitrary_step_policy(
                     [(gd_elm.learning_rate, 60000),
-                     (gd_elm.learning_rate / 10., 65000),
-                     (gd_elm.learning_rate / 100., 70000)]),
+                     (gd_elm.learning_rate / 10., 5000),
+                     (gd_elm.learning_rate / 100., 100000000)]),
                 bias_lr_function=lr_adjust.arbitrary_step_policy(
                     [(gd_elm.learning_rate, 60000),
-                     (gd_elm.learning_rate / 10., 65000),
-                     (gd_elm.learning_rate / 100., 70000)])
-            )
+                     (gd_elm.learning_rate / 10., 5000),
+                     (gd_elm.learning_rate / 100., 100000000)])
+                )
             lr_adjuster.add_one_gd_unit(gd_elm)
-            lr_adjuster.link_from(self.gds[0])
 
+        lr_adjuster.link_from(self.gds[0])
         self.repeater.link_from(lr_adjuster)
 
-        self.end_point.link_from(self.snapshotter)
+        self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
-        self.gds[-1].gate_block = self.decision.complete
 
         prev = self.snapshotter
 
@@ -427,9 +421,10 @@ class Workflow(StandardWorkflow):
         self.gds[-1].link_from(prev)
 
     def initialize(self, device, **kwargs):
-        super(Workflow, self).initialize(device, **kwargs)
+        self.generate_graph("/home/lpodoynitsina/Desktop/1.png")
+        super(Cifar_Workflow, self).initialize(device, **kwargs)
 
 
 def run(load, main):
-    load(Workflow, layers=root.cifar.layers)
+    load(Cifar_Workflow, layers=root.cifar.layers)
     main(minibatch_size=root.loader.minibatch_size)
