@@ -1,4 +1,3 @@
-#!/usr/bin/python3.3 -O
 # encoding: utf-8
 
 """
@@ -51,7 +50,7 @@ class LocalResponseNormalizer(OpenCLUnit):
             subsums[:, :, :, i] = np.sum(array_slice, axis=3)
         return subsums
 
-    #IDistributable implementation
+    # IDistributable implementation
     def generate_data_for_slave(self, slave):
         return None
 
@@ -120,7 +119,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
         self.input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_)
 
-    #IDistributable implementation
+    # IDistributable implementation
     def generate_data_for_slave(self, slave):
         return None
 
@@ -215,7 +214,7 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
         self.err_input.unmap()
         self.execute_kernel(self._global_size_, self._local_size_)
 
-    #IDistributable implementation
+    # IDistributable implementation
     def generate_data_for_slave(self, slave):
         return None
 

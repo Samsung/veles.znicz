@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3 -O
+#!/usr/bin/python3 -O
 # encoding: utf-8
 """
 Created on Apr 18, 2014

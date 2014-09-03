@@ -805,11 +805,11 @@ class Main(Processor):
         path_to_labels = ("/data/veles/datasets/imagenet/" +
                           "DET_dataset/labels_int_2014_DET_0.txt")
         with open(path_to_classes, "r") as label_word:
-                label_cat = json.load(label_word)
-                for (ind, label_w) in label_cat:
-                    file_ind_labels = open(path_to_labels, "a")
-                    file_ind_labels.write("%s\t%s\n" % (ind, label_w))
-                    file_ind_labels.close()
+            label_cat = json.load(label_word)
+            for (ind, label_w) in label_cat:
+                file_ind_labels = open(path_to_labels, "a")
+                file_ind_labels.write("%s\t%s\n" % (ind, label_w))
+                file_ind_labels.close()
 
     def test_load_data(self, path):
         self.imagenet_dir = path

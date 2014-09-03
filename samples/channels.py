@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3 -O
+#!/usr/bin/python3 -O
 
 """
 Created on April 22, 2014
@@ -37,13 +37,10 @@ from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.prng as rnd
 import veles.thread_pool as thread_pool
-import veles.znicz.all2all as all2all
-import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 # import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
-import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.external.progressbar import ProgressBar
@@ -662,7 +659,7 @@ class Workflow(StandardWorkflow):
         kwargs["name"] = kwargs.get("name", "channels")
         super(Workflow, self).__init__(workflow, **kwargs)
 
-        #self.saver = None
+        # self.saver = None
 
         self.repeater.link_from(self.start_point)
 

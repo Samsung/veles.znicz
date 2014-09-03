@@ -18,7 +18,6 @@ import os
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.pyplot as plt
 from veles.config import root
-from multiprocessing import Pool
 
 
 def defaults():
@@ -68,13 +67,13 @@ def set_config(filename):
                 deeper_node = True
                 _type = value
             if "[" in line:
-                value = value[1:len(value)-1]
+                value = value[1:len(value) - 1]
                 _list = []
                 while value != "":
                     if "," in value:
                         ind = value.index(",")
                         _list.append(type_determ(value[0:ind]))
-                        value = value[ind+1:]
+                        value = value[ind + 1:]
                     else:
                         _list.append(type_determ(value))
                         value = ""
@@ -102,7 +101,7 @@ def set_config(filename):
                                    in range(root.optimization.dimensions)]
     if (type(choice) == str):
         root.optimization.choice = [choice for _i
-                                   in range(root.optimization.dimensions)]
+                                    in range(root.optimization.dimensions)]
     while len(root.optimization.choice) < root.optimization.dimensions:
         root.optimization.choice.append("betw")
 
@@ -112,11 +111,11 @@ def gray(code_length):
     if code_length == 2:
         return ["00", "01", "11", "10"]
     else:
-        codes = gray(code_length-1)
+        codes = gray(code_length - 1)
         codes_size = len(codes)
         for i in range(codes_size):
-            codes.append("1"+codes[codes_size-i-1])
-            codes[codes_size-i-1] = "0"+codes[codes_size-i-1]
+            codes.append("1" + codes[codes_size - i - 1])
+            codes[codes_size - i - 1] = "0" + codes[codes_size - i - 1]
         return codes
 
 
@@ -133,8 +132,8 @@ def fitness(param):
         dimensions_number = len(param)
         summation = 0
         for i in param:
-            summation += (-i*math.sin(math.sqrt(math.fabs(i))))
-        return 1/(418.9829*dimensions_number+summation)
+            summation += (-i * math.sin(math.sqrt(math.fabs(i))))
+        return 1 / (418.9829 * dimensions_number + summation)
 
 
 def bin_to_num(binaries, dl, codes):
@@ -164,7 +163,8 @@ def num_to_bin(numbers, codes):
             binary += "1"
         else:
             binary += "0"
-        binary += codes[int(math.fabs(numbers[i]/root.optimization.accuracy))]
+        binary += codes[int(math.fabs(numbers[i] /
+                                      root.optimization.accuracy))]
     return binary
 
 
@@ -180,18 +180,18 @@ class Chromosome(object):
                     rand = numpy.random.choice([min_x[j], max_x[j]])
                     self.numeric.append(rand)
                 elif type(min_x[j]) == float or type(max_x[j]) == float:
-                    rand = random.randint(int(min_x[j]*accuracy),
-                                          int(max_x[j]*accuracy))
-                    self.numeric.append(rand/accuracy)
+                    rand = random.randint(int(min_x[j] * accuracy),
+                                          int(max_x[j] * accuracy))
+                    self.numeric.append(rand / accuracy)
                 else:
                     rand = random.randint(min_x[j], max_x[j])
                     self.numeric.append(rand)
-                    rand = int(rand*accuracy)
+                    rand = int(rand * accuracy)
                 if root.optimization.code == "gray":
                     if rand > 0:
-                        self.binary += ("1"+codes[rand])
+                        self.binary += ("1" + codes[rand])
                     else:
-                        self.binary += ("0"+codes[rand])
+                        self.binary += ("0" + codes[rand])
         else:
             self.numeric = numeric
             self.numeric_correct()
@@ -207,14 +207,14 @@ class Chromosome(object):
             dimensions_number = len(self.numeric)
             summation = 0
             for i in self.numeric:
-                summation += (-i*math.sin(math.sqrt(math.fabs(i))))
-            return 1/(418.9829*dimensions_number+summation)
+                summation += (-i * math.sin(math.sqrt(math.fabs(i))))
+            return 1 / (418.9829 * dimensions_number + summation)
 
     def numeric_correct(self):
         for pos in range(len(self.numeric)):
             max_x = root.optimization.max_x[pos]
             min_x = root.optimization.min_x[pos]
-            diff = max_x-min_x
+            diff = max_x - min_x
             while not (self.numeric[pos] <= max_x and
                        self.numeric[pos] >= min_x):
                 if self.numeric[pos] > max_x:
@@ -226,13 +226,13 @@ class Chromosome(object):
         """changes 0 to 1 and 1 to 0"""
         mutant = ""
         for _i in range(points):
-            pos = random.randint(1, len(self.binary)-2)
+            pos = random.randint(1, len(self.binary) - 2)
             p_m = numpy.random.rand()
             if p_m < probability:
                 if self.binary[pos] == "0":
-                    mutant = self.binary[:pos]+"1"+self.binary[pos+1:]
+                    mutant = self.binary[:pos] + "1" + self.binary[pos + 1:]
                 else:
-                    mutant = self.binary[:pos]+"0"+self.binary[pos+1:]
+                    mutant = self.binary[:pos] + "0" + self.binary[pos + 1:]
             else:
                 mutant = self.binary
         self.binary = mutant
@@ -242,25 +242,25 @@ class Chromosome(object):
         if root.optimization.code == "gray":
             mutant = ""
             for _i in range(points):
-                pos1 = numpy.random.randint(0, len(self.binary)-1)
-                pos2 = numpy.random.randint(0, len(self.binary)-1)
+                pos1 = numpy.random.randint(0, len(self.binary) - 1)
+                pos2 = numpy.random.randint(0, len(self.binary) - 1)
                 p_m = numpy.random.rand()
                 if p_m < probability:
                     if pos1 < pos2:
-                        mutant = (self.binary[:pos1]+self.binary[pos1] +
-                                  self.binary[pos1+1:pos2]+self.binary[pos2] +
-                                  self.binary[pos2+1:])
+                        mutant = (self.binary[:pos1] + self.binary[pos1] +
+                                  self.binary[pos1 + 1:pos2] +
+                                  self.binary[pos2] + self.binary[pos2 + 1:])
                     else:
-                        mutant = (self.binary[:pos2]+self.binary[pos2] +
-                                  self.binary[pos2+1:pos1]+self.binary[pos1] +
-                                  self.binary[pos1+1:])
+                        mutant = (self.binary[:pos2] + self.binary[pos2] +
+                                  self.binary[pos2 + 1:pos1] +
+                                  self.binary[pos1] + self.binary[pos1 + 1:])
                 else:
                     mutant = self.binary
             self.binary = mutant
         else:
             for _i in range(points):
-                pos1 = numpy.random.randint(0, len(self.numeric)-1)
-                pos2 = numpy.random.randint(0, len(self.numeric)-1)
+                pos1 = numpy.random.randint(0, len(self.numeric) - 1)
+                pos2 = numpy.random.randint(0, len(self.numeric) - 1)
                 p_m = numpy.random.rand()
                 if p_m < probability:
                     temp = self.numeric[pos1]
@@ -278,9 +278,9 @@ class Chromosome(object):
                 self.numeric[pos] = numpy.random.choice[min_x[pos], max_x[pos]]
             else:
                 isint = (type(self.numeric[pos]) == int)
-                diff = max_x[pos]-min_x[pos]
-                max_prob = min_x[pos]+diff/2
-                gauss = random.gauss(max_prob, math.sqrt(diff/6))
+                diff = max_x[pos] - min_x[pos]
+                max_prob = min_x[pos] + diff / 2
+                gauss = random.gauss(max_prob, math.sqrt(diff / 6))
                 p_m = numpy.random.rand()
                 if p_m < probability:
                     if numpy.random.random() < 0.5:
@@ -336,7 +336,7 @@ class Genetic(object):
                 max_abs_x = math.fabs(root.optimization.min_x[i])
             if math.fabs(root.optimization.max_x[i]) > max_abs_x:
                 max_abs_x = math.fabs(root.optimization.max_x[i])
-        max_coded_int = int(max_abs_x/root.optimization.accuracy)
+        max_coded_int = int(max_abs_x / root.optimization.accuracy)
         # Length of code of one int number
         self.dl = int(math.ceil(math.log2(max_coded_int)))
         self.codes = gray(self.dl)
@@ -351,7 +351,7 @@ class Genetic(object):
             chromo = self.new_chromo(root.optimization.dimensions,
                                      root.optimization.min_x,
                                      root.optimization.max_x,
-                                     1/root.optimization.accuracy,
+                                     1 / root.optimization.accuracy,
                                      self.codes)
             self.add(chromo)
             self.population_fitness += chromo.fitness
@@ -371,7 +371,7 @@ class Genetic(object):
             self.chromosomes.append(chromo)
             return
         elif (chromo_num < root.population.chromosomes or
-              chromo.fitness > self.chromosomes[chromo_num-1].fitness):
+              chromo.fitness > self.chromosomes[chromo_num - 1].fitness):
             j = 0
             while (j < chromo_num and
                    self.chromosomes[j].fitness > chromo.fitness):
@@ -385,7 +385,7 @@ class Genetic(object):
         len_num = root.optimization.dimensions
         for i in range(root.population.chromosomes):
             self.outfile.write("\t [")
-            for j in range(len_num-1):
+            for j in range(len_num - 1):
                 if math.fabs(self.chromosomes[i].numeric[j]) < 100:
                     self.outfile.write(" ")
                 if math.fabs(self.chromosomes[i].numeric[j]) < 10:
@@ -393,21 +393,21 @@ class Genetic(object):
                 if self.chromosomes[i].numeric[j] > 0:
                     self.outfile.write(" ")
                 self.outfile.write("%4.3f, " % self.chromosomes[i].numeric[j])
-            if math.fabs(self.chromosomes[i].numeric[len_num-1]) < 100:
+            if math.fabs(self.chromosomes[i].numeric[len_num - 1]) < 100:
                 self.outfile.write(" ")
-            if math.fabs(self.chromosomes[i].numeric[len_num-1]) < 10:
+            if math.fabs(self.chromosomes[i].numeric[len_num - 1]) < 10:
                 self.outfile.write(" ")
-            if self.chromosomes[i].numeric[len_num-1] > 0:
+            if self.chromosomes[i].numeric[len_num - 1] > 0:
                 self.outfile.write(" ")
             self.outfile.write("%4.3f ]\t  F = %.5f\n" %
-                               (self.chromosomes[i].numeric[len_num-1],
+                               (self.chromosomes[i].numeric[len_num - 1],
                                 self.chromosomes[i].fitness))
         self.outfile.write("\n")
 
     def sort(self):
         """Sorting chromosomes by fitness function"""
-        for i in range(root.population.chromosomes-2):
-            j = i+1
+        for i in range(root.population.chromosomes - 2):
+            j = i + 1
             while j < root.population.chromosomes:
                 if self.chromosomes[i].fitness < self.chromosomes[j].fitness:
                     temp = self.chromosomes[i]
@@ -453,12 +453,13 @@ class Genetic(object):
         bound = []
         sum_v = 0.0
         for i in range(root.population.chromosomes):
-            sum_v += 1.0*self.chromosomes[i].fitness/self.population_fitness
-            bound.append(100*sum_v)
+            sum_v += 1.0 * self.chromosomes[i].fitness / \
+                self.population_fitness
+            bound.append(100 * sum_v)
         bound.append(100)
         parents = []
         for i in range(root.selection.roulette.select_size):
-            rand = 100*numpy.random.rand()
+            rand = 100 * numpy.random.rand()
             j = 0
             while rand > bound[j]:
                 j += 1
@@ -469,7 +470,7 @@ class Genetic(object):
         """random selection of chromosomes for crossing"""
         parents = []
         for _i in range(root.selection.random.select_size):
-            rand = numpy.random.randint(0, root.population.chromosomes-1)
+            rand = numpy.random.randint(0, root.population.chromosomes - 1)
             parents.append(self.chromosomes[rand])
         return parents
 
@@ -477,7 +478,7 @@ class Genetic(object):
         """tournament selection of chromosomes for crossing"""
         tournament_pool = []
         for _i in range(root.selection.tournament.tournament_size):
-            rand = numpy.random.randint(0, root.population.chromosomes-1)
+            rand = numpy.random.randint(0, root.population.chromosomes - 1)
             j = 0
             while (j != len(tournament_pool) and
                    tournament_pool[j] < self.chromosomes[rand]):
@@ -490,15 +491,15 @@ class Genetic(object):
         cross_num = 0
         while cross_num < root.crossing.pointed.crossings:
             print("\tcross #%d" % cross_num)
-            rand1 = random.randint(0, len(parents)-1)
+            rand1 = random.randint(0, len(parents) - 1)
             parent1 = parents[rand1].binary
-            rand2 = random.randint(0, len(parents)-1)
+            rand2 = random.randint(0, len(parents) - 1)
             parent2 = parents[rand2].binary
             cross_points = [0, ]
             l = 0
             for _i in range(root.crossing.pointed.points):
                 while l in cross_points:
-                    l = random.randint(1, len(parent1)-2)
+                    l = random.randint(1, len(parent1) - 2)
                 j = 0
                 while j != len(cross_points) and cross_points[j] < l:
                     j += 1
@@ -507,22 +508,22 @@ class Genetic(object):
             cross1 = ""
             cross2 = ""
             i = 1
-            while i <= root.crossing.pointed.points+1:
+            while i <= root.crossing.pointed.points + 1:
                 if i % 2 == 0:
-                    cross1 += parent1[cross_points[i-1]:cross_points[i]]
-                    cross2 += parent2[cross_points[i-1]:cross_points[i]]
+                    cross1 += parent1[cross_points[i - 1]:cross_points[i]]
+                    cross2 += parent2[cross_points[i - 1]:cross_points[i]]
                 else:
-                    cross1 += parent2[cross_points[i-1]:cross_points[i]]
-                    cross2 += parent1[cross_points[i-1]:cross_points[i]]
+                    cross1 += parent2[cross_points[i - 1]:cross_points[i]]
+                    cross2 += parent1[cross_points[i - 1]:cross_points[i]]
                 i += 1
             (num1, num2) = bin_to_num([cross1, cross2], self.dl, self.codes)
             chromo_son1 = self.new_chromo(0, root.optimization.min_x,
                                           root.optimization.max_x,
-                                          1/root.optimization.accuracy,
+                                          1 / root.optimization.accuracy,
                                           self.codes, cross1, num1)
             chromo_son2 = self.new_chromo(0, root.optimization.min_x,
                                           root.optimization.max_x,
-                                          1/root.optimization.accuracy,
+                                          1 / root.optimization.accuracy,
                                           self.codes, cross2, num2)
             chromo_son1.size = len(chromo_son1.numeric)
             chromo_son2.size = len(chromo_son2.numeric)
@@ -535,9 +536,9 @@ class Genetic(object):
         cross_num = 0
         while cross_num < root.crossing.uniform.crossings:
             if root.optimization.code == "gray":
-                rand1 = random.randint(0, len(parents)-1)
+                rand1 = random.randint(0, len(parents) - 1)
                 parent1 = parents[rand1].binary
-                rand2 = random.randint(0, len(parents)-1)
+                rand2 = random.randint(0, len(parents) - 1)
                 parent2 = parents[rand2].binary
                 cross = ""
                 for i in range(len(parent1)):
@@ -549,12 +550,12 @@ class Genetic(object):
                 numeric = bin_to_num([cross], self.dl, self.codes)[0]
                 chromo_son = self.new_chromo(0, root.optimization.min_x,
                                              root.optimization.max_x,
-                                             1/root.optimization.accuracy,
+                                             1 / root.optimization.accuracy,
                                              self.codes, cross, numeric)
             else:
-                rand1 = random.randint(0, len(parents)-1)
+                rand1 = random.randint(0, len(parents) - 1)
                 parent1 = parents[rand1].numeric
-                rand2 = random.randint(0, len(parents)-1)
+                rand2 = random.randint(0, len(parents) - 1)
                 parent2 = parents[rand2].numeric
                 cross = []
                 for i in range(len(parent1)):
@@ -565,7 +566,7 @@ class Genetic(object):
                         cross.append(parent2[i])
                 chromo_son = self.new_chromo(0, root.optimization.min_x,
                                              root.optimization.max_x,
-                                             1/root.optimization.accuracy,
+                                             1 / root.optimization.accuracy,
                                              self.codes, None, cross)
             print("\tcrossing uniform #%d fitness = %.2f" %
                   (cross_num, chromo_son.fitness))
@@ -594,36 +595,23 @@ class Genetic(object):
                         cross1.append(parent2[i])
                         cross2.append(parent1[i])
                 elif type(parent1[i]) == int:
-                    k = int(a*parent1[i]+(1-a)*parent2[i])
+                    k = int(a * parent1[i] + (1 - a) * parent2[i])
                     cross1.append(k)
-                    cross2.append(parent1[i]+parent2[i]-k)
+                    cross2.append(parent1[i] + parent2[i] - k)
                 else:
-                    cross1.append(a*parent1[i]+(1-a)*parent2[i])
-                    cross2.append((1-a)*parent1[i]+a*parent2[i])
+                    cross1.append(a * parent1[i] + (1 - a) * parent2[i])
+                    cross2.append((1 - a) * parent1[i] + a * parent2[i])
             if root.optimization.code == "gray":
                 (bin1, bin2) = (num_to_bin(cross1, self.codes),
                                 num_to_bin(cross2, self.codes))
             else:
                 (bin1, bin2) = ("", "")
-#             param1 = (0, root.optimization.min_x, root.optimization.max_x,
-#                       1/root.optimization.accuracy,self.codes, bin1,
-#                       cross1, 0)
-#             param2 = (0, root.optimization.min_x, root.optimization.max_x,
-#                       1/root.optimization.accuracy, self.codes, bin2,
-#                       cross2, 1)
-#             (chromo1, chromo2) = p.starmap(_getattr,
-#                                            [(self, "new_chromo", param1),
-#                                             (self, "new_chromo", param2)])
-            (chromo1, chromo2) = (self.new_chromo(0, root.optimization.min_x,
-                                                  root.optimization.max_x,
-                                                  1/root.optimization.accuracy,
-                                                  self.codes, bin1,
-                                                  cross1),
-                                  self.new_chromo(0, root.optimization.min_x,
-                                                  root.optimization.max_x,
-                                                  1/root.optimization.accuracy,
-                                                  self.codes, bin2,
-                                                  cross2))
+            chromo1 = self.new_chromo(
+                0, root.optimization.min_x, root.optimization.max_x,
+                1 / root.optimization.accuracy, self.codes, bin1, cross1)
+            chromo2 = self.new_chromo(
+                0, root.optimization.min_x, root.optimization.max_x,
+                1 / root.optimization.accuracy, self.codes, bin2, cross2)
             self.add(chromo1)
             self.add(chromo2)
             print("\tcrossing arithmetical #%d fitness = %.2f and %.2f"
@@ -654,9 +642,9 @@ class Genetic(object):
                     else:
                         correct2 = -root.optimization.min_x[i]
                     a = numpy.random.rand()
-                    gene = (correct1*(math.pow(correct1*parent1[i]+correct2, a)
-                                      * math.pow(correct1*parent2[i]+correct2,
-                                                 (1-a))-correct2))
+                    gene = (correct1 * (math.pow(
+                        correct1 * parent1[i] + correct2, a) * math.pow(
+                        correct1 * parent2[i] + correct2, (1 - a)) - correct2))
                     if type(parent1[i]) == int:
                         gene = int(gene)
                     cross.append(gene)
@@ -665,7 +653,7 @@ class Genetic(object):
                 binary = num_to_bin(cross, self.codes)
             chromo_son = self.new_chromo(0, root.optimization.min_x,
                                          root.optimization.max_x,
-                                         1/root.optimization.accuracy,
+                                         1 / root.optimization.accuracy,
                                          self.codes, binary, cross, 10)
             self.add(chromo_son)
             print("\tcrossing geometric #%d fitness = %.2f"
@@ -710,8 +698,8 @@ class Genetic(object):
             average_fit.append(self.population_fitness
                                / root.population.chromosomes)
             best_fit.append(self.chromosomes[0].fitness)
-            worst_fit.append(self.chromosomes[n-1].fitness)
-            median.append(self.chromosomes[int(n/2)].fitness)
+            worst_fit.append(self.chromosomes[n - 1].fitness)
+            median.append(self.chromosomes[int(n / 2)].fitness)
             ax.plot(worst_fit, "-b", label="worst")
 #             ax.plot(average_fit, "-k", label="average")
 #             ax.plot(median, "-g", label="median")
@@ -720,16 +708,16 @@ class Genetic(object):
                 ax.legend(loc="upper right")
             plt.draw()
             stop = self.stop(epoch_num,
-                             best_fit[epoch_num]-median[epoch_num],
-                             time.time()-start_time)
+                             best_fit[epoch_num] - median[epoch_num],
+                             time.time() - start_time)
             if stop:
                 break
-            if(median[epoch_num] < median[epoch_num-1] or
-               best_fit[epoch_num] < best_fit[epoch_num-1]):
+            if(median[epoch_num] < median[epoch_num - 1] or
+               best_fit[epoch_num] < best_fit[epoch_num - 1]):
                 print("epoch %d" % epoch_num)
                 print("median - best = %.2f - %.2f = %.2f" %
                       (best_fit[epoch_num], median[epoch_num],
-                       best_fit[epoch_num]-median[epoch_num]))
+                       best_fit[epoch_num] - median[epoch_num]))
             # Selection witn chosen method
             chromo = getattr(self, "selection_" + _select_type)()
             # Crossing with all chosen methods
@@ -761,7 +749,7 @@ class Genetic(object):
                         mut_pool.remove(rand)
                         mutants += 1
             print("\ttime for epoch #%d = %.2f" %
-                  (epoch_num, time.time()-start_time))
+                  (epoch_num, time.time() - start_time))
             print("the best chromosome is", end=" ")
             print(self.chromosomes[0].numeric)
             print("its fitness = %.2f" % self.chromosomes[0].fitness)
