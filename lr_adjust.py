@@ -103,7 +103,7 @@ class LearningRateAdjust(Unit):
         pass
 
     def apply_data_from_slave(self, data, slave):
-        if not bool(self.gate_block) and not bool(self.gate_skip):
+        if not self.gate_block and not self.gate_skip:
             self.run()
 
     def drop_slave(self, slave):
@@ -120,9 +120,9 @@ def exp_adjust_policy(base_lr, gamma, a_ratio):
     :math:`LR = LR_{base} \\gamma^{a\\,iter}`
 
     Returns:
-        :class:`function(iter)`
+        :class:`function(itr)`
     """
-    return lambda iter: base_lr * (gamma ** (a_ratio * iter))
+    return lambda itr: base_lr * (gamma ** (a_ratio * itr))
 
 
 def fixed_adjust_policy(base_lr):
@@ -134,7 +134,7 @@ def fixed_adjust_policy(base_lr):
     Returns:
         :class:`function(iter)`
     """
-    return lambda iter: base_lr
+    return lambda itr: base_lr
 
 
 def step_exp_adjust_policy(base_lr, gamma, step):
@@ -143,9 +143,9 @@ def step_exp_adjust_policy(base_lr, gamma, step):
     :math:`LR = LR_{base} \\gamma^{floor(\\frac{iter}{step})}`
 
     Returns:
-        :class:`function(iter)`
+        :class:`function(itr)`
     """
-    return lambda iter: base_lr * gamma ** floor(float(iter) / float(step))
+    return lambda itr: base_lr * gamma ** floor(float(itr) / float(step))
 
 
 def inv_adjust_policy(base_lr, gamma, pow_ratio):
@@ -153,9 +153,9 @@ def inv_adjust_policy(base_lr, gamma, pow_ratio):
     :math:`LR = LR_{base} \\dot (1 + \\gamma \\, iter) ^ {-pow}`
 
     Returns:
-        :class:`function(iter)`
+        :class:`function(itr)`
     """
-    return lambda iter: base_lr * (1.0 + gamma * iter) ** (-pow_ratio)
+    return lambda itr: base_lr * (1.0 + gamma * itr) ** (-pow_ratio)
 
 
 def arbitrary_step_policy(lrs_with_lengths):
@@ -169,7 +169,7 @@ def arbitrary_step_policy(lrs_with_lengths):
             which learning rate should be set for each number of iterations,
             one by one.
     Returns:
-        :class:`function(iter)`: this function returns 0 when last length ends
+        :class:`function(itr)`: this function returns 0 when last length ends
     """
     assert lrs_with_lengths is not None
 
