@@ -18,6 +18,7 @@ import os
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.pyplot as plt
 from veles.config import root
+from multiprocessing import Pool
 
 
 def defaults():
@@ -101,7 +102,7 @@ def set_config(filename):
                                    in range(root.optimization.dimensions)]
     if (type(choice) == str):
         root.optimization.choice = [choice for _i
-                                    in range(root.optimization.dimensions)]
+                                   in range(root.optimization.dimensions)]
     while len(root.optimization.choice) < root.optimization.dimensions:
         root.optimization.choice.append("betw")
 
@@ -111,11 +112,11 @@ def gray(code_length):
     if code_length == 2:
         return ["00", "01", "11", "10"]
     else:
-        codes = gray(code_length - 1)
+        codes = gray(code_length-1)
         codes_size = len(codes)
         for i in range(codes_size):
-            codes.append("1" + codes[codes_size - i - 1])
-            codes[codes_size - i - 1] = "0" + codes[codes_size - i - 1]
+            codes.append("1"+codes[codes_size-i-1])
+            codes[codes_size-i-1] = "0"+codes[codes_size-i-1]
         return codes
 
 
@@ -132,8 +133,8 @@ def fitness(param):
         dimensions_number = len(param)
         summation = 0
         for i in param:
-            summation += (-i * math.sin(math.sqrt(math.fabs(i))))
-        return 1 / (418.9829 * dimensions_number + summation)
+            summation += (-i*math.sin(math.sqrt(math.fabs(i))))
+        return 1/(418.9829*dimensions_number+summation)
 
 
 def bin_to_num(binaries, dl, codes):
