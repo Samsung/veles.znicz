@@ -266,9 +266,10 @@ class Cifar_Workflow(StandardWorkflow):
         self.create_gd_units_by_config()
 
         # Add learning_rate_adjust unit
+        lr_adjuster = lr_adjust.LearningRateAdjust(self)
         for gd_elm in self.gds:
-            lr_adjuster = lr_adjust.LearningRateAdjust(
-                self,
+            lr_adjuster.add_gd_unit(
+                gd_elm,
                 lr_function=lr_adjust.arbitrary_step_policy(
                     [(gd_elm.learning_rate, 60000),
                      (gd_elm.learning_rate / 10., 5000),
@@ -278,8 +279,6 @@ class Cifar_Workflow(StandardWorkflow):
                      (gd_elm.learning_rate / 10., 5000),
                      (gd_elm.learning_rate / 100., 100000000)])
                 )
-            lr_adjuster.add_one_gd_unit(gd_elm)
-
         lr_adjuster.link_from(self.gds[0])
         self.repeater.link_from(lr_adjuster)
 

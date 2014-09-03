@@ -35,16 +35,10 @@ class LearningRateAdjust(Unit):
 
     def __init__(self, workflow, **kwargs):
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
-        self._lr_function = kwargs.get("lr_function", None)
-        self._bias_lr_function = kwargs.get("bias_lr_function",
-                                            self._lr_function)
-
-        self._gradient_units = []
+        self._gd_units = []
         self._minibatches_count = 0
-        self._prev_lr = 1.0e30
-        self._prev_bias_lr = 1.0e30
 
-    def add_one_gd_unit(self, grad_unit):
+    def add_gd_unit(self, gd_unit, lr_function, bias_lr_function):
         """
         Gradient unit should have learning_rate property.
 
@@ -52,18 +46,8 @@ class LearningRateAdjust(Unit):
             grad_unit(:class:`GradientDescentBase`): gradient unit with
                 ``learning_rate`` parameter to manipulate.
         """
-        assert isinstance(grad_unit, GradientDescentBase)
-        self._gradient_units.append(grad_unit)
-
-    def add_gd_units(self, grad_units):
-        """
-        Args:
-            grad_units(iterable): gradient units to add. Skips all except
-                instances of :class:`GradientDescentBase`
-        """
-        for gd_unit in grad_units:
-            if isinstance(gd_unit, GradientDescentBase):
-                self.add_one_gd_unit(gd_unit)
+        assert isinstance(gd_unit, GradientDescentBase)
+        self._gd_units.append((gd_unit, lr_function, bias_lr_function))
 
     def initialize(self, **kwargs):
         pass
@@ -76,19 +60,25 @@ class LearningRateAdjust(Unit):
         if self.is_slave:
             return
 
-        if self._lr_function is not None:
-            learning_rate = float(self._lr_function(self._minibatches_count))
-            if learning_rate != self._prev_lr:
-                self._prev_lr = learning_rate
-                for gd_elm in self._gradient_units:
-                    gd_elm.learning_rate = learning_rate
+        notified = False
 
-        if self._bias_lr_function is not None:
-            bias_lr = float(self._bias_lr_function(self._minibatches_count))
-            if bias_lr != self._prev_bias_lr:
-                self._prev_bias_lr = learning_rate
-                for gd_elm in self._gradient_units:
-                    gd_elm.learning_rate_bias = bias_lr
+        for gd_unit, lr_func, bias_lr_func in self._gd_units:
+            if lr_func is not None:
+                lr = float(lr_func(self._minibatches_count))
+                if gd_unit.learning_rate != lr:
+                    if not notified:
+                        notified = True
+                        self.info("LR: %.4e => %.4e",
+                                  gd_unit.learning_rate, lr)
+                    gd_unit.learning_rate = lr
+            if bias_lr_func is not None:
+                lr = float(bias_lr_func(self._minibatches_count))
+                if gd_unit.learning_rate_bias != lr:
+                    if not notified:
+                        notified = True
+                        self.info("LRB: %.4e => %.4e",
+                                  gd_unit.learning_rate_bias, lr)
+                    gd_unit.learning_rate_bias = lr
 
         self._minibatches_count += 1
 
@@ -103,7 +93,7 @@ class LearningRateAdjust(Unit):
         pass
 
     def apply_data_from_slave(self, data, slave):
-        if not self.gate_block and not self.gate_skip:
+        if not bool(self.gate_block) and not bool(self.gate_skip):
             self.run()
 
     def drop_slave(self, slave):
