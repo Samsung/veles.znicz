@@ -271,8 +271,73 @@ class MSEHistogram(plotter.Plotter):
         super(MSEHistogram, self).run()
 
 
+class KohonenGridBase(plotter.Plotter):
+    def __init__(self, workflow, **kwargs):
+        super(KohonenGridBase, self).__init__(workflow, **kwargs)
+        self.demand("shape")
+
+    @property
+    def width(self):
+        return self.shape[0]
+
+    @property
+    def height(self):
+        return self.shape[1]
+
+    def draw_grid(self, axes):
+        # Draw the hexbin grid
+        diag = 1.0 / numpy.sqrt(3)
+        vlength = 2 * self.height + 2
+        # Cloned primitive
+        subline = numpy.empty((4, 2))
+        subline[0, 0] = 0.0
+        subline[0, 1] = -diag
+        subline[1, 0] = -0.5
+        subline[1, 1] = -diag / 2
+        subline[2, 0] = -0.5
+        subline[2, 1] = diag / 2
+        subline[3, 0] = 0.0
+        subline[3, 1] = diag
+        # Tile sublines into line
+        line = numpy.empty((vlength, 2))
+        for rep in range(vlength // 4):
+            line[rep * 4:rep * 4 + 4, :] = subline
+            subline[:, 1] += diag * 3
+        if not self.height & 1:
+            line[-2:, :] = subline[:2]
+        # Fill the grid vertices
+        hlength = self.width * 2 + 1
+        vertices = numpy.empty((hlength, vlength, 2))
+        for rep in range(self.width):
+            vertices[rep, :, :] = line
+            # Right side
+            line[1:vlength:4, 0] += 1.0
+            line[2:vlength:4, 0] += 1.0
+            vertices[self.width + 1 + rep, :, :] = line
+            line[0:vlength:4, 0] += 1.0
+            line[3:vlength:4, 0] += 1.0
+        # The last right side
+        vertices[self.width, :vlength - 1, :] = line[1:, :]
+        # Line ending fixes
+        if self.height & 1:
+            vertices[self.width, -2, :] = vertices[self.width, -3, :]
+        else:
+            vertices[0, -1, :] = vertices[0, -2, :]
+        vertices[self.width, -1, :] = vertices[self.width, -2, :]
+        # Add the constructed vertices as PolyCollection
+        col = self.matplotlib.collections.PolyCollection(
+            vertices, closed=False, edgecolors='black', facecolors='none')
+        # Resize together with the axes
+        col.set_transform(axes.transData)
+        axes.add_collection(col)
+        axes.set_xlim(-1.0, self.width + 0.5)
+        axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.) / 2.))
+        axes.set_xticks([])
+        axes.set_yticks([])
+
+
 @implementer(plotter.IPlotter)
-class KohonenHits(plotter.Plotter):
+class KohonenHits(KohonenGridBase):
     """Draws the Kohonen classification win numbers.
 
     Must be assigned before initialize():
@@ -288,15 +353,7 @@ class KohonenHits(plotter.Plotter):
         super(KohonenHits, self).__init__(workflow, **kwargs)
         self._color_bins = kwargs.get("color_bins", "#666699")
         self._color_text = kwargs.get("color_text", "white")
-        self.demand("input", "shape")
-
-    @property
-    def width(self):
-        return self.shape[0]
-
-    @property
-    def height(self):
-        return self.shape[1]
+        self.demand("input")
 
     @property
     def color_bins(self):
@@ -320,57 +377,8 @@ class KohonenHits(plotter.Plotter):
         axes = fig.add_subplot(111)
 
         if not fast_redraw:
-            # Draw the hexbin grid
-            diag = 1.0 / numpy.sqrt(3)
-            vlength = 2 * self.height + 2
-            # Cloned primitive
-            subline = numpy.empty((4, 2))
-            subline[0, 0] = 0.0
-            subline[0, 1] = -diag
-            subline[1, 0] = -0.5
-            subline[1, 1] = -diag / 2
-            subline[2, 0] = -0.5
-            subline[2, 1] = diag / 2
-            subline[3, 0] = 0.0
-            subline[3, 1] = diag
-            # Tile sublines into line
-            line = numpy.empty((vlength, 2))
-            for rep in range(vlength // 4):
-                line[rep * 4:rep * 4 + 4, :] = subline
-                subline[:, 1] += diag * 3
-            if not self.height & 1:
-                line[-2:, :] = subline[:2]
-            # Fill the grid vertices
-            hlength = self.width * 2 + 1
-            vertices = numpy.empty((hlength, vlength, 2))
-            for rep in range(self.width):
-                vertices[rep, :, :] = line
-                # Right side
-                line[1:vlength:4, 0] += 1.0
-                line[2:vlength:4, 0] += 1.0
-                vertices[self.width + 1 + rep, :, :] = line
-                line[0:vlength:4, 0] += 1.0
-                line[3:vlength:4, 0] += 1.0
-            # The last right side
-            vertices[self.width, :vlength - 1, :] = line[1:, :]
-            # Line ending fixes
-            if self.height & 1:
-                vertices[self.width, -2, :] = vertices[self.width, -3, :]
-            else:
-                vertices[0, -1, :] = vertices[0, -2, :]
-            vertices[self.width, -1, :] = vertices[self.width, -2, :]
-            # Add the constructed vertices as PolyCollection
-            col = self.matplotlib.collections.PolyCollection(
-                vertices, closed=False, edgecolors='black', facecolors='none')
-            # Resize together with the axes
-            col.set_transform(axes.transData)
-            axes.add_collection(col)
-            axes.set_xlim(-1.0, self.width + 0.5)
-            axes.set_ylim(-1.0, numpy.round(self.height * numpy.sqrt(3.) / 2.))
-            axes.set_xticks([])
-            axes.set_yticks([])
-
-        if fast_redraw:
+            self.draw_grid(axes)
+        else:
             while len(axes.texts):
                 axes.texts[0].remove()
 
@@ -676,3 +684,137 @@ class KohonenNeighborMap(plotter.Plotter):
             vertices[4, :] = (sx + 0.5, sy - diag * (ratio - 0.5))
             vertices[5, :] = (sx + 0.5 * ratio, sy - (diag / 2) * ratio)
         links.append(self.patches.Polygon(vertices))
+
+
+@implementer(plotter.IPlotter)
+class KohonenValidationResults(KohonenGridBase):
+    """Draws the Kohonen network validation results, that is, the
+    winning neurons mapping to real categories and fitness stats.
+
+    Must be assigned before initialize():
+        shape
+        fitness
+        fitness_by_label
+        fitness_by_neuron
+        result
+    """
+
+    def __init__(self, workflow, **kwargs):
+        name = kwargs.get("name", "Kohonen Validation Results")
+        kwargs["name"] = name
+        super(KohonenValidationResults, self).__init__(workflow, **kwargs)
+        self._color_text = kwargs.get("color_text", "white")
+        self._cmap = kwargs.get("color_map", "Set1")
+        self.demand("input", "result", "fitness", "fitness_by_label",
+                    "fitness_by_neuron")
+
+    @property
+    def color_text(self):
+        return self._color_text
+
+    @color_text.setter
+    def color_text(self, value):
+        self._color_text = value
+
+    @property
+    def cmap(self):
+        return self._cmap
+
+    @cmap.setter
+    def cmap(self, value):
+        self._cmap = value
+
+    def redraw(self):
+        fast_redraw = self.name in self.pp.get_figlabels()
+        fig = self.pp.figure(self.name)
+        axes = fig.add_subplot(111)
+
+        if not fast_redraw:
+            self.draw_grid(axes)
+        else:
+            while len(axes.texts):
+                axes.texts[0].remove()
+
+        # Draw the inner hexagons with text
+        all_patches = [list() for _ in range(len(self.fitness_by_label))]
+        hits_max = numpy.max(self.input)
+        if hits_max == 0:
+            hits_max = 1
+        reversed_result = {}
+        for label, neurons in enumerate(self.result):
+            for neuron in neurons:
+                reversed_result[neuron] = label
+        # Add hexagons one by one
+        for y in range(self.height):
+            for x in range(self.width):
+                neuron = y * self.width + x
+                fitness = self.fitness_by_neuron[neuron]
+                number = self.input[y * self.width + x]
+                if numpy.sqrt(number / hits_max) <= \
+                   KohonenHits.SIZE_TEXT_THRESHOLD:
+                    fitness = 0
+                try:
+                    label = reversed_result[neuron]
+                except KeyError:
+                    continue
+                patches = all_patches[label]
+                self._add_hexagon(axes, patches, x, y, fitness)
+        if fast_redraw:
+            axes.collections = [axes.collections[-1]]
+        else:
+            legend_patches = []
+        cmap = getattr(self.cm, self.cmap)
+        for index, patches in enumerate(all_patches):
+            if len(patches) == 0:
+                continue
+            facecolor = cmap(index * cmap.N // len(all_patches))
+            col = self.matplotlib.collections.PatchCollection(
+                patches, edgecolors='none',
+                facecolors=facecolor)
+            axes.add_collection(col)
+            if not fast_redraw:
+                legend_patches.append(self.matplotlib.patches.Patch(
+                    color=facecolor,
+                    label="%d - %.2f" % (index, self.fitness_by_label[index])))
+        # Make the grid to be drawn last
+        axes.collections = axes.collections[1:] + [axes.collections[0]]
+
+        if not fast_redraw:
+            legend = axes.legend(handles=legend_patches, loc='upper left',
+                                 bbox_to_anchor=(1.05, 1), borderaxespad=0.0,
+                                 title="Fitness: %.2f" % self.fitness)
+            fig.tight_layout()
+            # The legend becomes truncated, but it should not
+            # Measure the legend width to fix buggy matplotlib layout
+            # Without drawing, window extent equals to 1
+            legend.draw(fig.canvas.get_renderer())
+            bbox = legend.get_window_extent()
+            bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
+
+            from mpl_toolkits.axes_grid import Divider
+            from mpl_toolkits.axes_grid.axes_size import Fixed, Scaled
+            divider = Divider(fig, (0.05, 0.05, 0.9, 0.9),
+                              (Scaled(1.0), Fixed(bbox.width), Scaled(0.05)),
+                              (Scaled(1), Fixed(0)))
+            axes.set_axes_locator(divider.new_locator(0, 0))
+        else:
+            # Modify legend title and labels
+            legend = axes.get_legend()
+            legend.set_title("Fitness: %.2f" % self.fitness)
+            for index, text in enumerate(legend.get_texts()):
+                text.set_text("%d - %.2f" %
+                              (index, self.fitness_by_label[index]))
+        self.show_figure(fig)
+        fig.canvas.draw()
+        return fig
+
+    def _add_hexagon(self, axes, patches, x, y, fitness):
+        r = 1.0 / numpy.sqrt(3)
+        cx = x if not (y & 1) else x + 0.5
+        cy = y * (1.5 / numpy.sqrt(3))
+        patches.append(self.patches.RegularPolygon((cx, cy), 6, radius=r))
+        if fitness >= 0.01:
+            axes.annotate("%.2f" % fitness, xy=(cx, cy),
+                          verticalalignment="center",
+                          horizontalalignment="center",
+                          color=self.color_text, size=12)
