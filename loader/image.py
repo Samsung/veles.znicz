@@ -50,13 +50,12 @@ class ImageLoader(FullBatchLoader):
         self.target_by_lbl = {}
 
     def from_image(self, fnme):
-        """Loads data from image and normalizes it.
+        """
+        Loads data from image and normalizes it.
 
         Returns:
-            numpy array: if there was one image in the file.
-            tuple: (a, l) if there were many images in the file
-                a - data
-                l - labels.
+            :class:`numpy.ndarrayarray`: if there was one image in the file.
+            tuple: `(data, labels)` if there were many images in the file
         """
         import scipy.ndimage
         a = scipy.ndimage.imread(fnme, flatten=self.grayscale)

@@ -1,3 +1,4 @@
+#!/usr/bin/python3 -O
 """
 Created on July 17, 2014
 
@@ -18,7 +19,6 @@ import os
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.pyplot as plt
 from veles.config import root
-from multiprocessing import Pool
 
 
 def defaults():

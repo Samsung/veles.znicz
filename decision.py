@@ -67,23 +67,23 @@ class IDecision(Interface):
 
 @implementer(IUnit, IDistributable)
 class DecisionBase(Unit):
-    """Base class for epoch decision units. Keeps track of learning epochs,
+    """
+    Base class for epoch decision units. Keeps track of learning epochs,
     that is, dataset passes.
 
-    Defines:
-        complete (mutable.Bool trigger) - everything's over flag
-        improved (mutable.Bool trigger) - indicates whether the previous
-            epoch's validation results are better
-            than those of the epoch before it.
-        train_improved (mutable.Bool trigger) - like "improved", but for train.
-        snapshot_suffix - the suitable suffix for the snapshot file name.
+    Attributes:
+        complete (mutable.Bool): everything's over flag
+        improved (mutable.Bool): indicates whether the previous
+            epoch's validation results are better than those
+            of the epoch before it.
+        train_improved (mutable.Bool): like "improved", but for train.
+        snapshot_suffix: the suitable suffix for the snapshot file name.
 
-    Must be set before initialize():
-        minibatch_class - from loader
-        last_minibatch - from loader
-        class_lengths - from loader
-        epoch_number - from loader
-        epoch_ended - from loader
+        minibatch_class: from loader (must be set before initialize()!)
+        last_minibatch: from loader (must be set before initialize()!)
+        class_lengths: from loader (must be set before initialize()!)
+        epoch_number: from loader (must be set before initialize()!)
+        epoch_ended: from loader (must be set before initialize()!)
 
     Attributes:
         max_epochs - max number of epochs for training (stop if exceeded)
