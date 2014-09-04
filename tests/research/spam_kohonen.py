@@ -24,6 +24,7 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
 from veles.znicz.loader import IFullBatchLoader
+from veles import plotting_units
 
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
@@ -47,6 +48,8 @@ class Loader(loader.FullBatchLoader):
     def __init__(self, workflow, **kwargs):
         super(Loader, self).__init__(workflow, **kwargs)
         self.lemmas_map = 0
+        self.labels_mapping = []
+        self.samples_by_label = []
 
     def load_data(self):
         """Here we will load spam data.
@@ -72,11 +75,14 @@ class Loader(loader.FullBatchLoader):
         lemmas = set()
         data = []
         spam_count = 0
+        distinct_labels = set()
         avglength = 0
         for line in lines:
             fields = line.split(b' ')
-            data.append((int(fields[0]), []))
-            if data[-1][0] == 1:
+            label = int(fields[0])
+            data.append((label, []))
+            distinct_labels.add(label)
+            if label == 1:
                 spam_count += 1
             for field in fields[1:-1]:
                 lemma, weight = field.split(b':')
@@ -92,13 +98,19 @@ class Loader(loader.FullBatchLoader):
         self.info("Initializing...")
         progress = ProgressBar(maxval=len(data), term_width=17)
         progress.start()
+        self.labels_mapping.extend(sorted(distinct_labels))
+        reverse_label_mapping = {l: i for i, l
+                                 in enumerate(self.labels_mapping)}
         self.lemmas_map = sorted(lemmas)
         lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
         self.original_labels.mem = numpy.zeros([len(lines)], dtype=numpy.int32)
+        self.samples_by_label.extend([set() for _ in distinct_labels])
         self.original_data.mem = numpy.zeros([len(lines), len(lemmas)],
                                              dtype=numpy.float32)
         for index, sample in enumerate(data):
-            self.original_labels.mem[index] = sample[0]
+            label = reverse_label_mapping[sample[0]]
+            self.original_labels.mem[index] = label
+            self.samples_by_label[label].add(index)
             for lemma in sample[1]:
                 self.original_data.mem[index,
                                        lemma_indices[lemma[0]]] = lemma[1]
@@ -107,13 +119,14 @@ class Loader(loader.FullBatchLoader):
 
         self.validation_ratio = root.loader.validation_ratio
         self.class_lengths[loader.TEST] = 0
-        self.class_lengths[loader.VALID] = self.validation_ratio * len(lines)
+        self.class_lengths[loader.VALID] = int(self.validation_ratio *
+                                               len(lines))
         self.class_lengths[loader.TRAIN] = len(lines) - self.class_lengths[1]
         if self.class_lengths[loader.VALID] > 0:
             self.extract_validation_from_train()
-        self.info("Samples: %d (spam: %d), lemmas: %d, "
+        self.info("Samples: %d (spam: %d), labels: %d, lemmas: %d, "
                   "average feature vector length: %d", len(lines), spam_count,
-                  len(lemmas), avglength)
+                  len(distinct_labels), len(lemmas), avglength)
         self.info("Normalizing...")
         self.IMul, self.IAdd = formats.normalize_pointwise(
             self.original_data.mem[self.class_lengths[loader.VALID]:])
@@ -183,10 +196,18 @@ class Workflow(nn_units.NNWorkflow):
                                 ("batch_size", "total_samples"))
         self.forward.link_attrs(self.trainer, "weights", "argmins")
 
+        self.validator = kohonen.KohonenValidator(self)
+        self.validator.link_attrs(self.trainer, "shape")
+        self.validator.link_attrs(self.forward, ("input", "output"))
+        self.validator.link_attrs(self.loader, "minibatch_indices",
+                                               "minibatch_size",
+                                               "samples_by_label")
+        self.validator.link_from(self.forward)
+
         # Loop decision
         self.decision = kohonen.KohonenDecision(
             self, max_epochs=root.decision.epochs)
-        self.decision.link_from(self.forward)
+        self.decision.link_from(self.validator)
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "last_minibatch",
                                               "class_lengths",
@@ -213,15 +234,29 @@ class Workflow(nn_units.NNWorkflow):
 
         # Error plotter
         self.plotters = [nn_plotting_units.KohonenHits(self),
-                         nn_plotting_units.KohonenNeighborMap(self)]
+                         nn_plotting_units.KohonenNeighborMap(self),
+                         plotting_units.AccumulatingPlotter(
+                             self, name="Weights epoch difference",
+                             plot_style="g-", redraw_plot=True),
+                         nn_plotting_units.KohonenValidationResults(self)]
         self.plotters[0].link_attrs(self.trainer, "shape")
-        self.plotters[0].input = self.decision.winners_copy
+        self.plotters[0].link_attrs(self.decision, ("input", "winners_mem"))
         self.plotters[0].link_from(self.decision)
         self.plotters[0].gate_block = ~self.loader.epoch_ended
         self.plotters[1].link_attrs(self.trainer, "shape")
-        self.plotters[1].input = self.decision.weights_copy
+        self.plotters[1].link_attrs(self.decision, ("input", "weights_mem"))
         self.plotters[1].link_from(self.decision)
         self.plotters[1].gate_block = ~self.loader.epoch_ended
+        self.plotters[2].link_attrs(self.trainer, "shape")
+        self.plotters[2].link_attrs(self.decision, ("input", "weights_diff"))
+        self.plotters[2].link_from(self.decision)
+        self.plotters[2].gate_block = ~self.loader.epoch_ended
+        self.plotters[3].link_attrs(self.trainer, "shape")
+        self.plotters[3].link_attrs(self.validator, "result", "fitness",
+                                    "fitness_by_label", "fitness_by_neuron")
+        self.plotters[3].link_attrs(self.decision, ("input", "winners_mem"))
+        self.plotters[3].link_from(self.decision)
+        self.plotters[3].gate_block = ~self.loader.epoch_ended
 
     def initialize(self, device, **kwargs):
         return super(Workflow, self).initialize(device=device)

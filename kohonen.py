@@ -11,6 +11,7 @@ import numpy
 import opencl4py as cl
 from zope.interface import implementer
 
+from veles import Unit, IUnit
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
@@ -512,16 +513,172 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
 
 class KohonenDecision(TrivialDecision, decision.DecisionBase):
+    """
+    Stops Kohonen network training on the incremental weights difference basis.
+
+    Attributes:
+        weights_mem: the neurons' weights, copied from "weights.mem".
+        winners_mem: the winning neurons, copied from "winners.mem".
+        weights_diff: the difference between previous and current weights.
+    """
     def __init__(self, workflow, **kwargs):
         super(KohonenDecision, self).__init__(workflow, **kwargs)
-        self.weights_copy = formats.Vector()
-        self.winners_copy = formats.Vector()
+        self.weights_mem = 0
+        self._prev_weights = 0
+        self.winners_mem = 0
+        self._previous_weights = None
+        self.weights_min_diff = kwargs.get("weights_min_diff", 0)
+        self.demand("weights", "winners")
+
+    @property
+    def weights_diff(self):
+        if self.weights_mem is 0:
+            return numpy.inf
+        return numpy.linalg.norm(self.weights_mem - self._prev_weights)
 
     def on_training_finished(self):
         """This method is supposed to be overriden in inherited classes.
         """
         self.weights.map_read()
-        self.winners.map_write()
-        self.weights_copy.mem = numpy.copy(self.weights.mem)
-        self.winners_copy.mem = numpy.copy(self.winners.mem)
+        self.winners.map_invalidate()
+
+        self._prev_weights = self.weights_mem
+        self.weights_mem = numpy.copy(self.weights.mem)
+        self.winners_mem = numpy.copy(self.winners.mem)
         self.winners.mem[:] = 0
+
+    def train_improve_condition(self):
+        if self.weights_diff < self.weights_min_diff:
+            return True
+        return super(KohonenDecision, self).train_improve_condition()
+
+    def fill_statistics(self, stats):
+        stats.append("weights diff: %f" % self.weights_diff)
+
+
+@implementer(IUnit)
+class KohonenValidator(Unit):
+    """
+    Maps the winning Kohonen neurons with real categories.
+
+    It accumulates winners from "input" attribute which should be connected to
+    KohonenForward's "output" and learns categories from "samples_by_label".
+    samples_by_label must be label indices for each sample (that is, a list).
+
+    Attributes:
+        result: the resulting mapping between Kohonen neurons and real
+                categories.
+        fitness: the ratio of samples classified right to the overall number.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(KohonenValidator, self).__init__(workflow, **kwargs)
+        self.demand("input", "minibatch_indices", "minibatch_size",
+                    "samples_by_label", "shape")
+        self.accumulated_input = []
+        self._fitness = 0
+        self._fitness_by_label = []
+        self._fitness_by_neuron = []
+        self._result = []
+        self._need_validate = False
+
+    def initialize(self, **kwargs):
+        self.accumulated_input.clear()
+        self.accumulated_input.extend([
+            set() for _ in range(self.neurons_count)])
+        self._fitness = 0
+        self._result.clear()
+        self._result.extend([set() for _ in range(len(self.samples_by_label))])
+        self._fitness_by_label.extend([
+            0 for _ in range(len(self.samples_by_label))])
+        self._fitness_by_neuron.extend([0 for _ in range(self.neurons_count)])
+        self._overall = sum([len(m) for m in self.samples_by_label])
+        assert self._overall > 0
+        assert self.neurons_count >= len(self.samples_by_label)
+        self._need_validate = True
+
+    def reset(self):
+        for acc in self.accumulated_input:
+            acc.clear()
+        self._need_validate = True
+
+    def run(self):
+        self.input.map_read()
+        self.minibatch_indices.map_read()
+
+        for i in range(self.minibatch_size):
+            self.accumulated_input[self.input[i]].add(
+                self.minibatch_indices[i])
+        self._need_validate = True
+
+    @property
+    def neurons_count(self):
+        return self.shape[0] * self.shape[1]
+
+    @property
+    def result(self):
+        self._validate()
+        return self._result
+
+    @property
+    def fitness(self):
+        self._validate()
+        return self._fitness
+
+    @property
+    def fitness_by_label(self):
+        self._validate()
+        return self._fitness_by_label
+
+    @property
+    def fitness_by_neuron(self):
+        self._validate()
+        return self._fitness_by_neuron
+
+    def _validate(self):
+        """
+        We have the matrix of intersection sizes, rows represent neurons and
+        columns represent labels. The problem is to take the numbers from our
+        matrix so that the sum is maximal and there are no numbers on the same
+        row.
+        The algorithm is to first take the maximal number from matrix, then
+        the most significant one which stands on a different row, and repeat
+        the previous step until the work is done.
+        The difficulty is N*L log(N*L).
+        """
+        if not self._need_validate:
+            return
+        intersections = []
+        for neuron in range(self.neurons_count):
+            for label, members in enumerate(self.samples_by_label):
+                intersections.append((
+                    len(self.accumulated_input[neuron].intersection(members)),
+                    neuron, label))
+        intersections.sort(reverse=True)
+        self._result.clear()
+        self._result.extend([set() for _ in range(len(self.samples_by_label))])
+        fitted = 0
+        fitted_by_label = [0 for _ in range(len(self.samples_by_label))]
+        fitted_by_neuron = [0 for _ in range(self.neurons_count)]
+        pos = 0
+        banned_neurons = set()
+        while (intersections[pos][0] > 0 and
+               len(banned_neurons) < self.neurons_count):
+            while (intersections[pos][1] in banned_neurons):
+                pos += 1
+            fit, neuron, label = intersections[pos]
+            fitted += fit
+            fitted_by_label[label] += fit
+            fitted_by_neuron[neuron] = fit
+            self._result[label].add(neuron)
+            banned_neurons.add(neuron)
+        self._fitness = fitted / self._overall
+        for label, members in enumerate(self.samples_by_label):
+            self._fitness_by_label[label] = fitted_by_label[label] / \
+                len(members)
+        for neuron, wins in enumerate(self.accumulated_input):
+            self._fitness_by_neuron[neuron] = \
+                fitted_by_neuron[neuron] / len(wins) if len(wins) > 0 else 0
+        self.reset()
+        self._need_validate = False
+        self.info("Fitness: %.2f", self._fitness)
+        self.info("Neurons mapping: %s", dict(enumerate(self._result)))
