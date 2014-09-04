@@ -178,7 +178,7 @@ class DecisionBase(Unit):
             return True
         # stop if max epoch number was reached
         if (self.max_epochs is not None and
-                self.epoch_number >= self.max_epochs - 1):
+                self.epoch_number >= self.max_epochs):
             return True
         return False
 
