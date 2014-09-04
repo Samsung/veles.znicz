@@ -559,6 +559,8 @@ class Loader(OpenCLUnit):
         """
         total_samples = 0
         for i, n in enumerate(self.class_lengths):
+            assert isinstance(n, int), \
+                "class_length must contain integers only"
             total_samples += n
             self.class_offsets[i] = total_samples
         self.total_samples = total_samples
