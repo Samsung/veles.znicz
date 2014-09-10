@@ -17,14 +17,16 @@ from veles.tests import DummyLauncher
 from veles.znicz.tests.research.kernels.imaganet_caffe_forward import\
     Workflow as ImagenetWorkflow
 from veles.znicz.tests.research.kernels.tar_unpacker import extract
-from veles.znicz.tests.test_utils import read_caffe_array,\
+from veles.znicz.tests.test_utils import read_caffe_array, \
     read_lines_by_abspath
 
 
 class TestCaffe(unittest.TestCase):
     def setUp(self):
         self.data_path = os.path.dirname(os.path.realpath(__file__))
-        extract("/data/veles/datasets/imagenet/dumps", self.data_path)
+        extract(
+            "/data/veles/datasets/imagenet/dumps/caffe_imagenet_export.tar",
+            self.data_path)
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.bottom_path = os.path.join(self.data_path, "data/bottom_caffe")
@@ -86,7 +88,6 @@ class TestCaffe(unittest.TestCase):
         self.assertEqual(
             to_fail, False,
             "type_loader %s doesn't equal veles or caffe" % type_loader)
-        wfl.generate_graph("/home/timmy/graph_img.png")
         wfl.initialize(device=self.device)
         #  initialization weights for conv layers from files
         conv_names = ("conv1", "conv2", "conv3", "conv4", "conv5")

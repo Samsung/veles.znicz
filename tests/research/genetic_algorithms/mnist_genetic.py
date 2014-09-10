@@ -1,7 +1,7 @@
 import os
 import sys
 import pickle
-from veles.znicz.tests.research import genetic as gen
+from veles.znicz.tests.research.genetic_algorithms import genetic as gen
 from veles.config import root
 import math
 from multiprocessing import Pool
