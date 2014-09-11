@@ -17,6 +17,7 @@ from zope.interface import implementer
 from veles.tests import DummyWorkflow
 from veles.znicz.nn_units import Forward, ForwardExporter
 from veles.opencl_units import IOpenCLUnit
+from veles import formats
 
 
 @implementer(IOpenCLUnit)
@@ -37,8 +38,10 @@ class Test(unittest.TestCase):
             fwd = TrivialForward(workflow, name="forward")
             fwd.weights.mem = numpy.ones(1000)
             fwd.bias.mem = numpy.ones(10)
+            fwd.input = formats.Vector()
             fe.forwards.append(fwd)
-        fe.initialize()
+            fwd.initialize(None)
+        workflow.initialize()
         fe.run()
         self.assertTrue(fe.file_name)
         self.assertTrue(os.path.exists(fe.file_name))
