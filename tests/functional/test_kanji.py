@@ -32,12 +32,13 @@ class TestKanji(unittest.TestCase):
     @timeout()
     def test_kanji(self):
         logging.info("Will test kanji workflow")
+
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
-                                       dtype=numpy.int32, count=1024))
+                                       dtype=numpy.uint32, count=1024))
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
-                                        dtype=numpy.int32, count=1024))
+                                        dtype=numpy.uint32, count=1024))
         root.decision.fail_iterations = -1
         root.kanji.data_paths.target = os.path.join(
             root.common.veles_dir,

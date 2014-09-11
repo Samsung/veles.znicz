@@ -127,7 +127,7 @@ class Loader(loader.LoaderMSE):
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
         sh = [self.max_minibatch_size]
-        sh.extend(self.class_targets[0].shape)
+        sh.extend((self.class_targets[0].size,))
         self.minibatch_targets.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
 
@@ -150,7 +150,8 @@ class Loader(loader.LoaderMSE):
             fin.close()
             self.minibatch_data[i] = data
             self.minibatch_labels[i] = lbl
-            self.minibatch_targets[i] = self.class_targets[lbl]
+            self.minibatch_targets[i] = self.class_targets[lbl].reshape(
+                self.minibatch_targets[i].shape)
 
 
 class Workflow(nn_units.NNWorkflow):
