@@ -117,10 +117,6 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         gd.err_input.map_read()
         nz = numpy.count_nonzero(numpy.isnan(gd.err_input.mem))
         self.assertEqual(nz, 0, "NaNs encountered in err_input")
-        nz = numpy.count_nonzero(numpy.isnan(
-            gd.err_input.vv[gd.err_input.shape[0]:]))
-        self.assertEqual(nz, gd.err_input.size,
-                         "Written some values outside of the target array")
 
         logging.info("GDDeconv numeric derivative test...")
         gd.weights.map_read()

@@ -135,25 +135,20 @@ class GDDeconv(nn_units.GradientDescentBase):
                 self.err_input.mem is None or
                 self.err_input.size != self.input.size)):
             self.err_input.reset()
-            sh = self.input.shape
-            if root.common.unit_test:
-                sh = list(sh)
-                sh[0] <<= 1
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
-                self.err_input.initialize(device)
-                self.err_input.map_write()
-                self.err_input.vv = self.err_input.mem
-                self.err_input.mem[batch_size:] = numpy.nan
-                self.err_input.mem = self.err_input.mem[:batch_size]
-                formats.assert_addr(self.err_input.mem, self.err_input.vv)
-            else:
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+            self.err_input.mem = numpy.zeros(self.input.shape, dtype=dtype)
 
         if (self.store_gradient and
                 (self.gradient_weights.mem is None or
                  self.gradient_weights.size != self.weights.size)):
             self.gradient_weights.reset()
             self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
+
+        side = self.weights.shape[1 if self.weights_transposed else 0]
+        other = self.weights.size // side
+        if self.factor_ortho:
+            if not self.col_sums or self.col_sums.size < other:
+                self.col_sums.reset()
+                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
 
         self.weights.initialize(device)
         self.input.initialize(device)
@@ -165,8 +160,15 @@ class GDDeconv(nn_units.GradientDescentBase):
         if self.hits:
             self.hits.initialize(device)
 
-        if device is None:
-            return
+        if device is not None:
+            self.ocl_init(device)
+
+    def ocl_init(self, device):
+        batch_size = self.err_output.mem.shape[0]
+        sy = self.err_output.mem.shape[1]
+        sx = self.err_output.mem.shape[2]
+        n_channels = self.err_output.size // (batch_size * sx * sy)
+        dtype = self.err_output.mem.dtype
 
         self.cl_const = numpy.zeros(5, dtype=dtype)
 
@@ -175,11 +177,7 @@ class GDDeconv(nn_units.GradientDescentBase):
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
-
         if self.factor_ortho:
-            if not self.col_sums or self.col_sums.size < other:
-                self.col_sums.reset()
-                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
             self.col_sums.initialize(self.device)
         self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
 
