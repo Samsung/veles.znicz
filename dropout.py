@@ -79,13 +79,15 @@ class DropoutForward(Forward, Dropout):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
-        if self.device is None:
-            return  # if is master
-
         self.input.initialize(device)
         self.output.initialize(device)
         self.states.initialize(device)
         self.mask.initialize(device)
+
+        if device is not None:
+            self.ocl_init(device)
+
+    def ocl_init(self, device):
         self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)
         self._pass_arg_ = numpy.empty(1, dtype=self.input.mem.dtype)
 
