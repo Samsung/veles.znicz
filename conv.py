@@ -1,7 +1,8 @@
 """
-Created on Aug 27, 2013
+Simple convolutional layer (:class:`Conv`) and conv layer with subsequent \
+    activations (:class:`ConvRELU`, :class:`ConvStrictRELU`, :class:`ConvTanh`)
 
-Convolutional layers.
+Created on Aug 27, 2013
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -363,7 +364,7 @@ class Conv(nn_units.Forward):
         import cv2  # TODO(a.kazantsev): implement getGaborKernel manually
                     # and remove this dependency.
 
-        #Gabor  filters
+        # Gabor  filters
         orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
         phase_shifts = [0, pi]  # pi phase shift inverts signal
 
@@ -394,12 +395,13 @@ class Conv(nn_units.Forward):
                         if kernels_count == n_filters:
                             return
 
-        #White noise (if more, than 96 filters are required)
+        # White noise (if more, than 96 filters are required)
         self.rand.fill_normal_real(self.weights.mem[kernels_count:], 0, stddev)
 
 
 class ConvTanh(Conv):
-    """Conv with scaled tanh() activation f(x) = 1.7159 * tanh(0.6666 * x).
+    """Conv with scaled tanh() activation \
+        :math:`f(x) = 1.7159 \\tanh(0.6666 x)`.
     """
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
@@ -417,7 +419,7 @@ class ConvTanh(Conv):
 
 
 class ConvRELU(Conv):
-    """Conv with smooth RELU activation f(x) = log(1.0 + exp(x)).
+    """Conv with smooth RELU activation :math:`f(x) = \\log(1 + \\exp(x))`.
     """
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
@@ -440,7 +442,7 @@ class ConvRELU(Conv):
 
 class ConvStrictRELU(Conv):
     """
-    Conv with strict RELU activation f(x) = (x >= 0) ? x : 0
+    Conv with strict RELU activation :math:`f(x) = \\max(x, 0)`
     (Just like in CAFFE)
     """
     def initialize(self, device, **kwargs):

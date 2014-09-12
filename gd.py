@@ -1,7 +1,16 @@
 """
 Created on Apr 15, 2013
 
-Gradient Descent Units.
+Gradient descent units for **all-to-all** perceptron units with different \
+activations.
+
+* :class:`GradientDescent` couples with :class:`veles.znicz.all2all.All2All`
+* :class:`GDTanh` couples with :class:`veles.znicz.all2all.All2AllTanh`
+* :class:`GDSM` couples with :class:`veles.znicz.all2all.All2AllSoftmax`
+* :class:`GDRELU` couples with :class:`veles.znicz.all2all.All2AllRELU`\
+    (NB: this ReLU is the smooth one from *Krizhevsky, Hinton et al.*,\
+    not the strict one from CAFFE)
+
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -24,24 +33,22 @@ import veles.znicz.nn_units as nn_units
 
 @implementer(IOpenCLUnit)
 class GradientDescent(nn_units.GradientDescentBase):
-    """Gradient Descent.
+    """Gradient Descent unit for :class:`veles.znicz.all2all.All2All`.
 
-    Must be assigned before initialize():
-        output
-        input
-        err_output
-        weights
-        bias
-        batch_size
+    Attributes:
+        output: assign before `initialize`!
+        input: assign before `initialize`!
+        err_output: assign before `initialize`!
+        weights: assign before `initialize`!
+        bias: assign before `initialize`!
+        batch_size: assign before `initialize`!
 
-    Updates after run():
-        err_input
-        err_outpur
-        weights
-        bias
+        err_input: updates after `run`
+        err_outpur: updates after `run`
+        weights: updates after `run`
+        bias: updates after `run`
 
-    Creates within initialize():
-        err_input
+        err_input: **creates** within `initialize`
 
     Attributes:
         krn_err_input_: OpenCL kernel for matrix multiplication.
@@ -382,24 +389,27 @@ class GradientDescent(nn_units.GradientDescentBase):
 
 
 class GDSM(GradientDescent):
-    """Gradient Descent for SoftMax.
+    """Gradient Descent for :class:`veles.znicz.all2all.All2AllSoftmax`.
 
-    We minimize cross-entropy error function for softmax,
-    so gradient descent is the same as in GradientDescent.
+    We minimize cross-entropy error function for softmax, so gradient descent
+    is the same as in :class:`veles.znicz.gd.GradientDescent`.
     """
     pass
 
 
 class GDTanh(GradientDescent):
-    """Gradient Descent for f(x) = 1.7159 * tanh(0.6666 * s), s = (W * x + b),
-       y = a * tanh(b * s).
+    """Gradient Descent for
 
-    f'(s) = (a * tanh(b * s))' = a * tanh'(b * s) * b
-          = a * (1.0 - tanh^2(b * s)) * b
-          = a * b - a * b * tanh^2(b * s)
-          = a * b - y * y * b / a
-          = y * y * (-b / a) + (a * b)
-          = y * y * (-0.388484177) + 1.14381894
+    :math:`f(x) = 1.7159 \\tanh(0.6666  s), s = (W  x + b)`,
+        :math:`y = a \cdot \\tanh(b s)`
+
+    :math:`f'(s) = (a \\cdot \\tanh(b  s))' = a \\cdot \\tanh'(b  s) \\cdot b`
+
+    :math:`= a (1 - \\tanh^2(b s)) * b  =  a b - a * b * \\tanh^2(b s)`
+
+    :math:`= a b - y * y * b / a =  y^2 (-b / a) + (a \\cdot b)`
+
+    :math:`z = y^2 (-0.388484177) + 1.14381894`
     """
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative
@@ -421,10 +431,14 @@ class GDTanh(GradientDescent):
 
 
 class GDRELU(GradientDescent):
-    """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
-       y = log(1.0 + exp(s)).
+    """
+    Gradient Descent for :math:`f(x) = \\log(1 + \\exp(s))`
 
-    f'(s) = 1.0 / (1.0 + exp(-s)) = 1.0 - exp(-y)
+    :math:`s = (W x + b)`
+
+    :math:`y = \\log(1.0 + \\exp(s))`
+
+    :math:`f'(s) = \\frac{1}{1 + \\exp(-s)} = 1 - \\exp(-y)`
     """
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s

@@ -1,7 +1,22 @@
 """
-Created on Dec 3, 2013
+==============
+Pooling layers
+==============
 
-Pooling layer.
+A short description of `pooling` (aka `subsampling`) can be found `here \
+<http://white.stanford.edu/teach/index.php/\
+An_Introduction_to_Convolutional_Neural_Networks#Subsampling>`_.
+
+Pooling types implemented:
+
+- `AvgPooling`: averaging pooling
+- `MaxPooling`: maximum selection pooling
+- `StochasticPooling`: stochastic pooling, described in article `"Stochastic \
+    Pooling for Regularization of Deep Convolutional Neural Networks" \
+    <http://www.matthewzeiler.com/pubs/iclr2013/iclr2013.pdf>`_.
+
+
+Created on Dec 3, 2013.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

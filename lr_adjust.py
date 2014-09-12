@@ -1,9 +1,9 @@
 # encoding: utf-8
-
 """
 Created on May 16, 2014
 
-**Dynamic adjust of learning rates of GD units.**
+Dynamic adjust of learning rates of GD units. Learning rate are changed
+    according to iteration number, each iteration.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

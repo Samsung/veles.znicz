@@ -1,9 +1,10 @@
 """
 Created on May 30, 2014
 
-An activation layers.
-"""
+Activation functions (:class:`ActivationForward`) and their coupled GD units
+(:class:`ActivationBackward`).
 
+"""
 
 import numpy
 from zope.interface import implementer
@@ -120,7 +121,7 @@ class ForwardTanh(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardTanh(ActivationBackward):
-    """Backward pass for y = 1.7159 * tanh(0.6666 * x).
+    """Backward pass for :class:`ForwardTanh`.
     """
     def initialize(self, device, **kwargs):
         super(BackwardTanh, self).initialize(device=device, **kwargs)
@@ -146,7 +147,7 @@ class BackwardTanh(ActivationBackward):
 
 @implementer(IOpenCLUnit)
 class ForwardMul(ActivationForward):
-    """Forward pass for y = k * x.
+    """Forward pass for :math:`y = k x`.
     """
     def __init__(self, workflow, **kwargs):
         super(ForwardMul, self).__init__(workflow, **kwargs)
@@ -220,7 +221,7 @@ class ForwardMul(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardMul(ActivationBackward):
-    """Backward pass for y = k * x.
+    """Backward pass for :class:`ForwardMul`.
     """
     def __init__(self, workflow, **kwargs):
         super(BackwardMul, self).__init__(workflow, **kwargs)
@@ -266,7 +267,13 @@ class BackwardMul(ActivationBackward):
 
 @implementer(IOpenCLUnit)
 class ForwardRELU(ActivationForward):
-    """Forward pass for y = log(1 + exp(x)).
+    """
+    This activation is taken from article
+        *"ImageNet Classification with Deep Convolutional Neural Networks" \
+        (sec 3.1)*.
+
+    Forward pass:
+        :math:`y = \\log(1 + \\exp(x).`
     """
     def initialize(self, device, **kwargs):
         super(ForwardRELU, self).initialize(device=device, **kwargs)
@@ -288,7 +295,7 @@ class ForwardRELU(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardRELU(ActivationBackward):
-    """Backward pass for y = log(1 + exp(x)).
+    """Backward pass for :class:`ForwardRELU`
     """
     def initialize(self, device, **kwargs):
         super(BackwardRELU, self).initialize(device=device, **kwargs)
@@ -312,7 +319,8 @@ class BackwardRELU(ActivationBackward):
 
 @implementer(IOpenCLUnit)
 class ForwardStrictRELU(ActivationForward):
-    """Forward pass for y = max(0, x).
+    """
+    Forward pass for :math:`y = \\max(0, x)`.
     """
     def initialize(self, device, **kwargs):
         super(ForwardStrictRELU, self).initialize(device=device, **kwargs)
@@ -350,7 +358,10 @@ class ForwardStrictRELU(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardStrictRELU(ActivationBackward):
-    """Backward pass for y = max(0, x).
+    """
+    Backward pass for :class:`ForwardStrictRELU`.
+
+    :math:`x = \\max(y, 0)`
     """
     def initialize(self, device, **kwargs):
         super(BackwardStrictRELU, self).initialize(device=device, **kwargs)
@@ -390,7 +401,7 @@ class BackwardStrictRELU(ActivationBackward):
 
 @implementer(IOpenCLUnit)
 class ForwardLog(ActivationForward):
-    """Forward pass for y = log(x + sqrt(x * x + 1)).
+    """Forward pass for :math:`y = \\log(x + \\sqrt{x^2 + 1})`.
     """
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
@@ -416,7 +427,7 @@ class ForwardLog(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardLog(ActivationBackward):
-    """Backward pass for y = log(x + sqrt(x * x + 1)).
+    """Backward pass for :class:`ForwardLog`.
     """
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
@@ -549,7 +560,7 @@ class ForwardSinCos(ActivationForward):
 
 @implementer(IOpenCLUnit)
 class BackwardSinCos(ActivationBackward):
-    """Backward pass for y = sin(x) if idx(x) is odd else cos(x).
+    """Backward pass for :class:`ForwardSinCos`.
     """
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or

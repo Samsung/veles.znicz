@@ -1,7 +1,13 @@
 """
 Created on Dec 3, 2013
 
-Gradient Descent for Pooling units.
+Gradient descent units for **pooling** layers.
+
+* :class:`GDMaxPooling` couples with :class:`veles.znicz.pooling.MaxPooling`
+* :class:`GDAvgPooling` couples with :class:`veles.znicz.pooling.AvgPooling`
+* :class:`GDMaxAbsPooling` couples with \
+    :class:`veles.znicz.pooling.MaxAbsPooling`
+
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

@@ -1,7 +1,13 @@
 """
 Created on Nov 14, 2013
 
-Gradient Descent for Convolutional Units.
+Gradient descent for convolutional units.
+
+* :class:`GradientDescentConv` couples with :class:`veles.znicz.conv.Conv`
+* :class:`GDTanhConv` couples with :class:`veles.znicz.conv.ConvTanh`
+* :class:`GDRELUConv` couples with :class:`veles.znicz.conv.ConvRELU`
+* :class:`GDStrictRELUConv` couples with \
+    :class:`veles.znicz.conv.ConvStrictRELU`
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -26,7 +32,7 @@ import veles.znicz.nn_units as nn_units
 
 @implementer(IOpenCLUnit)
 class GradientDescentConv(nn_units.GradientDescentBase):
-    """Gradient Descent.
+    """Gradient descent for simple convolutional layer (no activation).
 
     Must be assigned before initialize():
         output
@@ -604,11 +610,13 @@ class GDRELUConv(GradientDescentConv):
 
 class GDStrictRELUConv(GradientDescentConv):
     """Gradient Descent for strict ReLU (like in CAFFE)
-    f(x) = (s > 0) ? s : 0
-    f'(s) = (s > 0) ? 1 : 0
+
+    :math:`f(x) = \\max(x, 0)`
+
+    :math:`f'(s) = \\begin{cases}1 & s > 0 \\\\ 0 & else. \\\\ \\end{cases}`
     """
     def cpu_err_output_update(self):
-        """Multiply err_output by activation derivative by s
+        """Multiply `err_output` by activation derivative by s
         in terms of output.
         """
         self.output.map_read()
