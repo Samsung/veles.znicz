@@ -217,8 +217,8 @@ class OffsetPooling(Pooling):
             self.input_offset.initialize(self.device)
 
     def set_args(self, *args):
-        super(OffsetPooling, self).set_args(self.input, self.output,
-                                            self.input_offset, *args)
+        super(OffsetPooling, self)._set_args(self.input, self.output,
+                                             self.input_offset, *args)
 
     def ocl_run(self):
         self.input_offset.unmap()  # we will be updating input_offset
@@ -345,7 +345,7 @@ class StochasticPoolingBase(OffsetPooling):
             self.info("Initialized StochasticPoolingBase.uniform with "
                       "output_bytes=%d", self.uniform.output_bytes)
         if not self._rand_set:
-            self.set_arg(self._rand_arg, self.uniform.output)
+            self._set_arg(self._rand_arg, self.uniform.output)
             self._rand_set = True
         self.uniform.fill_ocl(self._output_size << 1)
         super(StochasticPoolingBase, self).ocl_run()
@@ -412,7 +412,7 @@ class StochasticPoolingDepooling(StochasticPooling):
         self._kernel_name = "do_stochastic_pooling_depooling"
 
     def set_args(self, *args):
-        self.set_arg(0, self.input)
+        self._set_arg(0, self.input)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")
@@ -446,7 +446,7 @@ class AvgPooling(Pooling):
             return
 
         self.assign_kernel("do_avg_pooling")
-        self.set_args(self.input, self.output)
+        self._set_args(self.input, self.output)
 
     def cpu_run_cut(self, cut, coords):
         return numpy.sum(cut) / cut.size

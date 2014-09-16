@@ -125,12 +125,12 @@ class FullBatchLoader(Loader):
         self.assign_kernel("fill_minibatch_data_labels")
 
         if not self.original_labels:
-            self.set_args(self.original_data, self.minibatch_data, cl.skip(2),
-                          self.shuffled_indices, self.minibatch_indices)
+            self._set_args(self.original_data, self.minibatch_data, cl.skip(2),
+                           self.shuffled_indices, self.minibatch_indices)
         else:
-            self.set_args(self.original_data, self.minibatch_data, cl.skip(2),
-                          self.original_labels, self.minibatch_labels,
-                          self.shuffled_indices, self.minibatch_indices)
+            self._set_args(self.original_data, self.minibatch_data, cl.skip(2),
+                           self.original_labels, self.minibatch_labels,
+                           self.shuffled_indices, self.minibatch_indices)
         self._global_size = [self.max_minibatch_size,
                              self.minibatch_data.sample_size]
 

@@ -164,7 +164,7 @@ class GDCutter(nn_units.GradientDescentBase):
         self.cl_sources_["cutter.cl"] = {}
         self.build_program(dtype=self.err_input.dtype)
         self.assign_kernel("clear_err_input")
-        self.set_args(self.err_input)
+        self._set_args(self.err_input)
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.

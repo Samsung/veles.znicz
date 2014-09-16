@@ -143,9 +143,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
                            dtype=dtype)
 
         self.assign_kernel("ev_sm")
-        self.set_args(self.output, self.max_idx, self.labels,
-                      self.err_output, self.n_err, self.confusion_matrix,
-                      self.max_err_output_sum)
+        self._set_args(self.output, self.max_idx, self.labels,
+                       self.err_output, self.n_err, self.confusion_matrix,
+                       self.max_err_output_sum)
 
     def ocl_run(self):
         self.err_output.unmap()
@@ -157,10 +157,10 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self.max_err_output_sum.unmap()
 
         self.krn_constants_i_[0] = self.batch_size
-        self.set_arg(7, self.krn_constants_i_[0:1])
+        self._set_arg(7, self.krn_constants_i_[0:1])
         self.krn_constants_f_[0] = (
             1.0 / self.batch_size if self.error_function_averaged else 1.0)
-        self.set_arg(8, self.krn_constants_f_[0:1])
+        self._set_arg(8, self.krn_constants_f_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
@@ -303,8 +303,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                            dtype=dtype)
 
         self.assign_kernel("ev_mse")
-        self.set_args(self.output, self.target, self.err_output,
-                      self.metrics, self.mse.devmem)
+        self._set_args(self.output, self.target, self.err_output,
+                       self.metrics, self.mse.devmem)
 
         if self.labels is not None and self.class_targets is not None:
             self.krn_find_closest_ = self.get_kernel("mse_find_closest")
@@ -323,10 +323,10 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
         batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
-        self.set_arg(5, self.krn_constants_i_[0:1])
+        self._set_arg(5, self.krn_constants_i_[0:1])
         self.krn_constants_f_[0] = (
             1.0 / self.batch_size if self.error_function_averaged else 1.0)
-        self.set_arg(6, self.krn_constants_f_[0:1])
+        self._set_arg(6, self.krn_constants_f_[0:1])
 
         local_size = [self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]

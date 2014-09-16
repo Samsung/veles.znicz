@@ -182,9 +182,9 @@ class Conv(nn_units.Forward):
 
         self.assign_kernel("feed_layer")
         if self.include_bias:
-            self.set_args(self.input, self.weights, self.bias, self.output)
+            self._set_args(self.input, self.weights, self.bias, self.output)
         else:
-            self.set_args(self.input, self.weights, self.output)
+            self._set_args(self.input, self.weights, self.output)
 
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]

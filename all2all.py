@@ -160,9 +160,9 @@ class All2All(nn_units.Forward):
 
         self.assign_kernel("feed_layer")
         if self.include_bias:
-            self.set_args(self.input, self.weights, self.bias, self.output)
+            self._set_args(self.input, self.weights, self.bias, self.output)
         else:
-            self.set_args(self.input, self.weights, self.output)
+            self._set_args(self.input, self.weights, self.output)
 
         output_size = int(self.output.mem.size // self.output.mem.shape[0])
         block_size = self.device.device_info.BLOCK_SIZE[

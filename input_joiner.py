@@ -102,7 +102,7 @@ class InputJoiner(OpenCLUnit):
             "_".join(str(x) for x in self.output_sample_shape))
 
         self.assign_kernel("join2")
-        self.set_args(self.output)
+        self._set_args(self.output)
 
     def cpu_run(self):
         self.output.map_invalidate()  # we will update output on CPU
@@ -125,7 +125,7 @@ class InputJoiner(OpenCLUnit):
         low = 0
         output_sample_size = self.output.mem.size // self.output.mem.shape[0]
         self.cl_const[3] = output_sample_size
-        self.set_arg(6, self.cl_const[3:4])
+        self._set_arg(6, self.cl_const[3:4])
         a = None
         a_size = 0
         b = None
@@ -144,8 +144,8 @@ class InputJoiner(OpenCLUnit):
             self.cl_const[0] = a_size
             self.cl_const[1] = b_size
             self.cl_const[2] = low
-            self.set_args(cl.skip, a, b, self.cl_const[0:1],
-                          self.cl_const[1:2], self.cl_const[2:3])
+            self._set_args(cl.skip, a, b, self.cl_const[0:1],
+                           self.cl_const[1:2], self.cl_const[2:3])
             global_size = [high - low, minibatch_size]
             self.execute_kernel(global_size, None)
             low = high
@@ -160,9 +160,9 @@ class InputJoiner(OpenCLUnit):
                 self.cl_const[0] = a_size
                 self.cl_const[1] = b_size
                 self.cl_const[2] = low
-                self.set_args(cl.skip, a, b, self.cl_const[0:1],
-                              self.cl_const[1:2], self.cl_const[2:3])
+                self._set_args(cl.skip, a, b, self.cl_const[0:1],
+                               self.cl_const[1:2], self.cl_const[2:3])
                 if b is None:
-                    self.set_arg(2, None)
+                    self._set_arg(2, None)
                 global_size = [high - low, minibatch_size]
                 self.execute_kernel(global_size, None)

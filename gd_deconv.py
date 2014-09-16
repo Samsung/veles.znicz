@@ -161,7 +161,7 @@ class GDDeconv(nn_units.GradientDescentBase):
             self.hits.initialize(device)
 
         if device is not None:
-            self.ocl_init(device)
+            GDDeconv.ocl_init(self, device)
 
     def ocl_init(self, device):
         batch_size = self.err_output.mem.shape[0]

@@ -85,7 +85,7 @@ class DropoutForward(Forward, Dropout):
         self.mask.initialize(device)
 
         if device is not None:
-            self.ocl_init(device)
+            DropoutForward.ocl_init(self, device)
 
     def ocl_init(self, device):
         self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)
@@ -95,8 +95,8 @@ class DropoutForward(Forward, Dropout):
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("dropout_forward")
-        self.set_args(self.input, cl.skip, cl.skip, self.states, self.mask,
-                      self.output)
+        self._set_args(self.input, cl.skip, cl.skip, self.states, self.mask,
+                       self.output)
 
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
@@ -125,8 +125,8 @@ class DropoutForward(Forward, Dropout):
             self.mask.unmap()
             self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
             self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
-            self.set_arg(1, self._threshold_arg_)
-            self.set_arg(2, self._pass_arg_)
+            self._set_arg(1, self._threshold_arg_)
+            self._set_arg(2, self._pass_arg_)
             self.execute_kernel((self.input.mem.size,), None)
         else:
             self.device.queue_.copy_buffer(
@@ -161,7 +161,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
                            dtype=self.err_output.mem.dtype)
 
         self.assign_kernel("dropout_backward")
-        self.set_args(self.mask, self.err_output, self.err_input)
+        self._set_args(self.mask, self.err_output, self.err_input)
 
     def cpu_run(self):
         if formats.eq_addr(self.err_input.mem, self.err_output.mem):
