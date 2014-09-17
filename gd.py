@@ -104,9 +104,10 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.gradient_weights.initialize(self.device)
             self.gradient_bias.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            GradientDescent.ocl_init(self, device)
 
+    def ocl_init(self, device):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(5, dtype=dtype)
 

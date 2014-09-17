@@ -169,8 +169,16 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.output.initialize(device)
         self.hits.initialize(device)
 
-        if device is None:
-            return
+        if device is not None:
+            Deconv.ocl_init(self, device)
+
+    def ocl_init(self, device):
+        dtype = self.input.mem.dtype
+        output_shape = list(self.get_output_shape_from.shape)
+        weights_shape = (list(
+            self.weights.shape[i] for i in range(
+                len(self.weights.shape) - 1, -1, -1))
+            if self.weights_transposed else list(self.weights.shape))
 
         defines = {
             'USE_ATOMICS': 1,

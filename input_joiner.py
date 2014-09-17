@@ -90,9 +90,10 @@ class InputJoiner(OpenCLUnit):
 
         self.output.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            InputJoiner.ocl_init(self, device)
 
+    def ocl_init(self, device):
         defines = {
             'etype':
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)
@@ -100,7 +101,6 @@ class InputJoiner(OpenCLUnit):
         self.build_program(
             defines, "join_%s.cl" %
             "_".join(str(x) for x in self.output_sample_shape))
-
         self.assign_kernel("join2")
         self.set_args(self.output)
 

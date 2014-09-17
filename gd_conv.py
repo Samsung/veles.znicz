@@ -160,8 +160,15 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_weights.initialize(device)
             self.gradient_bias.initialize(device)
 
-        if device is None:
-            return
+        if device is not None:
+            GradientDescentConv.ocl_init(self, device)
+
+    def ocl_init(self, device):
+        batch_size = self.input.mem.shape[0]
+        sy = self.input.mem.shape[1]
+        sx = self.input.mem.shape[2]
+        n_channels = self.input.mem.size // (batch_size * sx * sy)
+        dtype = self.err_output.mem.dtype
 
         self.cl_const = numpy.zeros(5, dtype=dtype)
 

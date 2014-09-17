@@ -127,9 +127,11 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self.labels.initialize(self.device)
         self.max_err_output_sum.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            EvaluatorSoftmax.ocl_init(self, device)
 
+    def ocl_init(self, device):
+        dtype = self.output.mem.dtype
         defines = {
             'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
                 opencl_types.numpy_dtype_to_opencl(dtype)],

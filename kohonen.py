@@ -113,9 +113,11 @@ class KohonenForward(KohonenBase, OpenCLUnit):
             self.total.mem = numpy.zeros(self.batch_size, dtype=numpy.int32)
             self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            KohonenForward.ocl_init(self, device)
 
+    def ocl_init(self, device):
+        batch_size = self.input.mem.shape[0]
         self.output.initialize(self.device)
         if self.argmins is None:
             self.input.initialize(self.device)
@@ -373,8 +375,10 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self._sigma = (self._coords.mem.ravel().max() -
                        self._coords.mem.ravel().min()) * 1.42
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            KohonenTrainer.ocl_init(self, device)
+
+    def ocl_init(self, device):
         self.input.initialize(self.device)
         self.weights.initialize(self.device)
         self.winners.initialize(self.device)
@@ -382,6 +386,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self._distances.initialize(self.device)
         self._coords.initialize(self.device)
 
+        batch_size = self.input.mem.shape[0]
         block_size = self.device.device_info.BLOCK_SIZE[
             opencl_types.numpy_dtype_to_opencl(self.weights.mem.dtype)]
         chunk_size = self._neurons_number // self.device.max_group_size

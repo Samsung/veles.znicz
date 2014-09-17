@@ -121,11 +121,13 @@ class ImagenetForwardLoader(OpenCLUnit, Processor):
 
         self._image_iter = iter(self.images.keys())
         self._set_next_state()
-
-        if device is None:
-            return
-
         self.minibatch_data.initialize(device)
+
+        if device is not None:
+            ImagenetForwardLoader.ocl_init(self, device)
+
+    def ocl_init(self, device):
+        pass
 
     def _calculate_scale_min_max(self, shape):
         maxsize = numpy.max(shape[:2])

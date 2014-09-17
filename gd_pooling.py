@@ -102,9 +102,10 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         self.err_output.initialize(self.device)
         self.err_input.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            GDPooling.ocl_init(self, device)
 
+    def ocl_init(self, device):
         if self.program_ is None:
             defines = {
                 'SX': self._sx,

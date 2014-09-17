@@ -157,9 +157,12 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.err_output.initialize(device)
         self.err_input.initialize(device)
 
+        if device is not None:
+            DropoutBackward.ocl_init(self, device)
+
+    def ocl_init(self, device):
         self.build_program({}, "dropout_backward.cl",
                            dtype=self.err_output.mem.dtype)
-
         self.assign_kernel("dropout_backward")
         self.set_args(self.mask, self.err_output, self.err_input)
 

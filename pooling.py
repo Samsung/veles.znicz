@@ -119,9 +119,10 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
         if not self._no_output:
             self.output.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            Pooling.ocl_init(self, device)
 
+    def ocl_init(self, device):
         defines = {
             'SX': self._sx,
             'SY': self._sy,

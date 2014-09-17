@@ -66,9 +66,10 @@ class Depooling(nn_units.Forward):
         self.output_offset.initialize(self.device)
         self.output.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            Depooling.ocl_init(self, device)
 
+    def ocl_init(self, device):
         if self.program_ is None:
             self.build_program(
                 {}, "depooling_%s.cl" %

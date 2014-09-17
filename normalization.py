@@ -86,9 +86,10 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
         self._num_of_chans = self.input.mem.shape[3]
 
-        if device is None:
-            return
+        if device is not None:
+            LRNormalizerForward.ocl_init(self, device)
 
+    def ocl_init(self, device):
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 

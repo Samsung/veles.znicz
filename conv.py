@@ -153,9 +153,10 @@ class Conv(nn_units.Forward):
         self.weights.initialize(device)
         self.bias.initialize(device)
 
-        if device is None:
-            return
+        if device is not None:
+            Conv.ocl_init(self, device)
 
+    def ocl_init(self, device):
         defines = {
             self.s_activation: 1,
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
@@ -174,6 +175,7 @@ class Conv(nn_units.Forward):
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1]
         }
+
         my_defines = self.build_program(
             defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
                 root.common.cache_dir, self._sx, self._sy, self._n_channels,

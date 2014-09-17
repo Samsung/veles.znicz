@@ -143,8 +143,14 @@ class All2All(nn_units.Forward):
         self.weights.initialize(self.device)
         self.bias.initialize(self.device)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            All2All.ocl_init(self, device)
+
+    def ocl_init(self, device):
+        output_shape = (self.output_shape.mem.shape[1:]
+                        if isinstance(self.output_shape, formats.Vector)
+                        else self.output_shape)
+        output_size = int(numpy.prod(output_shape))
 
         defines = {
             self.s_activation: 1,
@@ -153,6 +159,7 @@ class All2All(nn_units.Forward):
             "H": self.weights.mem.size // output_size,
             "Y": output_size,
             "BATCH": self.output.mem.shape[0]}
+
         self.build_program(defines, "feed_%d_%d.cl" %
                            (self.input.mem.size // self.input.mem.shape[0],
                             output_size),

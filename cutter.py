@@ -158,9 +158,10 @@ class GDCutter(nn_units.GradientDescentBase):
             self.input.shape[2] * self.input.shape[3] * self.input.itemsize)
         self._dst_slice_pitch = self.input.sample_size * self.input.itemsize
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            GDCutter.ocl_init(self, device)
 
+    def ocl_init(self, device):
         self.cl_sources_["cutter.cl"] = {}
         self.build_program(dtype=self.err_input.dtype)
         self.assign_kernel("clear_err_input")
