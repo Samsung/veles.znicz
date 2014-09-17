@@ -43,7 +43,7 @@ class ActivationForward(Forward, Activation):
                            dtype=dtype)
 
     def _set_activation_args(self):
-        self._set_args(self.input, self.output)
+        self.set_args(self.input, self.output)
 
     def ocl_run(self):
         self.input.unmap()
@@ -84,8 +84,8 @@ class ActivationBackward(GradientDescentBase, Activation):
                            dtype=dtype)
 
     def _set_activation_args(self):
-        self._set_args(self.input, self.output, self.err_output,
-                       self.err_input)
+        self.set_args(self.input, self.output, self.err_output,
+                      self.err_input)
 
     def ocl_run(self):
         self.err_output.unmap()
@@ -191,7 +191,7 @@ class ForwardMul(ActivationForward):
         if self._cl_const is None:
             self._cl_const = numpy.ones(1, dtype=self.output.dtype)
         self._cl_const[0] = self._factor
-        self._set_arg(2, self._cl_const)
+        self.set_arg(2, self._cl_const)
 
     def initialize(self, device, **kwargs):
         super(ForwardMul, self).initialize(device=device, **kwargs)
@@ -248,7 +248,7 @@ class BackwardMul(ActivationBackward):
         if self._cl_const is None:
             self._cl_const = numpy.ones(1, dtype=self.output.dtype)
         self._cl_const[0] = self._factor
-        self._set_arg(4, self._cl_const)
+        self.set_arg(4, self._cl_const)
 
     def initialize(self, device, **kwargs):
         super(BackwardMul, self).initialize(device=device, **kwargs)

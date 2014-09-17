@@ -94,7 +94,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
         self.build_program(defines, dtype=self.input.mem.dtype)
         self.assign_kernel("forward")
-        self._set_args(self.input, self.output)
+        self.set_args(self.input, self.output)
 
         self._global_size_ = [self.output.mem.size // self._num_of_chans]
         self._local_size_ = None
@@ -164,7 +164,7 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
 
         self.build_program(defines, dtype=self.input.mem.dtype)
         self.assign_kernel("backward")
-        self._set_args(self.err_output, self.input, self.err_input)
+        self.set_args(self.err_output, self.input, self.err_input)
 
         self._global_size_ = [self.err_input.mem.size // self._num_of_chans]
         self._local_size_ = None

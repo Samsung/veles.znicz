@@ -197,7 +197,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
                 self.kx, self.ky, self.n_kernels), dtype=dtype)
 
         self.assign_kernel("feed_layer")
-        self._set_args(self.input, self.weights, self.output)
+        self.set_args(self.input, self.weights, self.output)
 
         self.krn_clear_output_ = self.get_kernel("clear_output")
         self.krn_clear_output_.set_arg(0, self.output.devmem)
@@ -219,7 +219,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             self.krn_clear_hits_ = self.get_kernel("clear_hits")
             self.krn_clear_hits_.set_arg(0, self.hits.devmem)
 
-            self._set_arg(3, self.hits)
+            self.set_arg(3, self.hits)
 
     def ocl_run(self):
         self.output.unmap()

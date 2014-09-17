@@ -76,7 +76,7 @@ class Depooling(nn_units.Forward):
                 dtype=self.input.dtype)
 
             self.assign_kernel("feed_layer")
-            self._set_args(self.input, self.output_offset, self.output)
+            self.set_args(self.input, self.output_offset, self.output)
 
             if self.krn_output_clear_ is None:
                 self.krn_output_clear_ = self.get_kernel("output_clear")
