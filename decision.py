@@ -333,6 +333,10 @@ class DecisionGD(DecisionBase):
             self.min_validation_n_err = self.epoch_n_err[minibatch_class]
             self.min_train_validation_n_err = self.epoch_n_err[TRAIN]
             self.min_validation_n_err_epoch_number = self.epoch_number
+            self.workflow.fitness = (
+                100.0 - 100.0 * self.epoch_n_err[minibatch_class] /
+                (self.class_lengths[minibatch_class] if not self.is_slave
+                 else self.minibatch_size))
             return True
         return False
 
@@ -473,6 +477,7 @@ class DecisionMSE(DecisionGD):
             self.min_validation_mse = self.epoch_min_mse[minibatch_class]
             self.min_validation_mse_epoch_number = self.epoch_number
             self.min_train_validation_mse = self.epoch_min_mse[TRAIN]
+            self.workflow.fitness = 1.0 - self.epoch_min_mse[minibatch_class]
             return True
         return super(DecisionMSE, self).improve_condition()
 
