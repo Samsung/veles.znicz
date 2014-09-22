@@ -20,6 +20,7 @@ from zope.interface import implementer
 import veles.config as config
 from veles.distributable import IDistributable
 import veles.formats as formats
+from veles.mutable import Bool
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.prng as prng
 from veles.workflow import Repeater
@@ -425,6 +426,10 @@ class ForwardExporter(SnapshotterBase):
 
 
 class NNSnapshotter(Snapshotter):
+    def __init__(self, workflow, **kwargs):
+        super(NNSnapshotter, self).__init__(workflow, **kwargs)
+        self.has_invalid_values = Bool(False)
+
     def _log_attr(self, unit, attr, logged):
         val = getattr(unit, attr, None)
         if val is None:
@@ -433,11 +438,17 @@ class NNSnapshotter(Snapshotter):
         if mem is None:
             return
         if id(mem) not in logged:
-            self.info("%s: %s: min max avg: %.6f %.6f %.6f%s",
-                      unit.__class__.__name__, attr,
-                      mem.min(), mem.max(), numpy.average(mem),
-                      " has NaNs" if numpy.count_nonzero(numpy.isnan(mem))
-                      else "")
+            self.has_invalid_values <<= bool(
+                numpy.count_nonzero(numpy.isnan(mem)) or
+                numpy.count_nonzero(numpy.isinf(mem)))
+            args = ("%s: %s: min max avg: %.6f %.6f %.6f%s",
+                    unit.__class__.__name__, attr,
+                    mem.min(), mem.max(), numpy.average(mem),
+                    " has invalid values" if self.has_invalid_values else "")
+            if self.has_invalid_values:
+                self.error(*args)
+            else:
+                self.info(*args)
             logged.add(id(mem))
 
     def export(self):
