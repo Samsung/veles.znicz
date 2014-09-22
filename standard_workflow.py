@@ -66,7 +66,8 @@ class GradientUnitFactory(object):
         activation.ForwardStrictRELU: activation.BackwardStrictRELU,
         activation.ForwardLog: activation.BackwardLog,
         activation.ForwardTanhLog: activation.BackwardTanhLog,
-        activation.ForwardSinCos: activation.BackwardSinCos
+        activation.ForwardSinCos: activation.BackwardSinCos,
+        activation.ForwardMul: activation.BackwardMul
     }
 
     @staticmethod
@@ -190,6 +191,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
                              gd.GDTanh),
             "softmax": (all2all.All2AllSoftmax,
                         gd.GDSM),
+            "activation_mul": (activation.ForwardMul,
+                               activation.BackwardMul),
             "activation_tanh": (activation.ForwardTanh,
                                 activation.BackwardTanh),
             "activation_tanhlog": (activation.ForwardTanhLog,
