@@ -35,7 +35,7 @@ class LearningRateAdjust(Unit):
 
     def __init__(self, workflow, **kwargs):
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
-        self._gd_units = []
+        self._gd_units_ = []
         self._minibatches_count = 0
 
     def add_gd_unit(self, gd_unit, lr_function, bias_lr_function):
@@ -47,7 +47,7 @@ class LearningRateAdjust(Unit):
                 ``learning_rate`` parameter to manipulate.
         """
         assert isinstance(gd_unit, GradientDescentBase)
-        self._gd_units.append((gd_unit, lr_function, bias_lr_function))
+        self._gd_units_.append((gd_unit, lr_function, bias_lr_function))
 
     def initialize(self, **kwargs):
         pass
@@ -62,7 +62,7 @@ class LearningRateAdjust(Unit):
 
         notified = False
 
-        for gd_unit, lr_func, bias_lr_func in self._gd_units:
+        for gd_unit, lr_func, bias_lr_func in self._gd_units_:
             if lr_func is not None:
                 lr = float(lr_func(self._minibatches_count))
                 if gd_unit.learning_rate != lr:
