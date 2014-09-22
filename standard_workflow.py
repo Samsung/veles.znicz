@@ -303,7 +303,10 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         Args:
             lr_adjuster(:class:`LearningRateAdjust`): learning rate adjust unit
-
+            lr_policy(:class:`veles.znicz.lr_adjust.ILRPolicy`)
+                - should be set if **lr_adjuster is set**
+            bias_lr_policy(:class:`veles.znicz.lr_adjust.ILRPolicy`)
+                - should be set if **lr_adjuster is set**
             learning_rate
             learning_rate_bias
             weights_decay
@@ -321,7 +324,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         if lr_adjuster is not None:
             lr_adjuster.link_from(self.snapshotter)
-            lr_adjuster.add_gd_units(self.gds)
+            for grad_unit in self.gds:
+                lr_adjuster.add_gd_unit(grad_unit, kwargs["lr_policy"],
+                                        kwargs["bias_lr_policy"])
             self.gds[-1].link_from(lr_adjuster)
         else:
             self.gds[-1].link_from(self.snapshotter)

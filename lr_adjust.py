@@ -11,7 +11,7 @@ from __future__ import division
 
 from math import floor
 from scipy.interpolate import interp1d
-from zope.interface import implementer
+from zope.interface import implementer, Interface
 
 from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
@@ -22,39 +22,36 @@ from veles.distributable import IDistributable
 class LearningRateAdjust(Unit):
     """
     This unit should be linked from Decision to run with each minibatch.
-    Does nothing if ``lr_function`` is not set.
-
-    Args:
-        lr_function(:class:`function`): a function that takes `int`
-            iteration number and returns :class:`float` **weight** learning
-            rate
-        bias_lr_function(:class:`function`): a function that takes `int`
-            iteration number and returns :class:`float` **bias** learning rate
-            (if nothing is set - `lr_function` is taken)
     """
 
     def __init__(self, workflow, **kwargs):
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
-        self._gd_units_ = []
+        self._gd_units = []
         self._minibatches_count = 0
 
-    def add_gd_unit(self, gd_unit, lr_function, bias_lr_function):
+    def add_gd_unit(self, gd_unit, lr_policy, bias_lr_policy):
         """
         Gradient unit should have learning_rate property.
 
         Args:
-            grad_unit(:class:`GradientDescentBase`): gradient unit with
-                ``learning_rate`` parameter to manipulate.
+            gd_unit(:class:`GradientDescentBase`): gradient unit with
+                    ``learning_rate`` parameter to manipulate.
+            lr_policy(:class:`ILRPolicy`): callable object that takes `int`
+                iteration number and returns :class:`float` **weight**
+                learning rate
+            bias_lr_function(:class:`ILRPolicy`): callable object that takes
+                `int` iteration number and returns :class:`float` **bias**
+                learning rate. if nothing is set - `lr_policy` is taken)
         """
         assert isinstance(gd_unit, GradientDescentBase)
-        self._gd_units_.append((gd_unit, lr_function, bias_lr_function))
+        self._gd_units.append((gd_unit, lr_policy, bias_lr_policy))
 
     def initialize(self, **kwargs):
         pass
 
     def run(self):
         """
-        Adjusts learning rates of GD units according to ``lr_function``
+        Adjusts learning rates of GD units according to ``lr_policy``
         Should be run every minibatch before GD units.
         """
         if self.is_slave:
@@ -62,18 +59,22 @@ class LearningRateAdjust(Unit):
 
         notified = False
 
-        for gd_unit, lr_func, bias_lr_func in self._gd_units_:
+        for gd_unit, lr_func, bias_lr_func in self._gd_units:
             if lr_func is not None:
                 lr = float(lr_func(self._minibatches_count))
                 if gd_unit.learning_rate != lr:
                     if not notified:
                         notified = True
+                        self.info("LR: %.4e => %.4e",
+                                  gd_unit.learning_rate, lr)
                     gd_unit.learning_rate = lr
             if bias_lr_func is not None:
                 lr = float(bias_lr_func(self._minibatches_count))
                 if gd_unit.learning_rate_bias != lr:
                     if not notified:
                         notified = True
+                        self.info("LRB: %.4e => %.4e",
+                                  gd_unit.learning_rate_bias, lr)
                     gd_unit.learning_rate_bias = lr
 
         self._minibatches_count += 1
@@ -98,84 +99,126 @@ class LearningRateAdjust(Unit):
 
 # LEARNING RATE POLICIES:
 
-
-def exp_adjust_policy(base_lr, gamma, a_ratio):
+class ILRPolicy(Interface):
     """
-    Creates exponentially decreasing learning ratio policy:
+    An ILRPolicy must be a pickleable callable object,
+        taking iteration number and returning actial learning rate.
+
+    """
+    def __call__(self, iter):
+        """
+        Attrs:
+            iter(int): current iteration
+        Returns:
+            float: learning rate
+        """
+
+
+@implementer(ILRPolicy)
+class ExpPolicy(object):
+    """
+    Exponentially decreasing learning rate:
 
     :math:`LR = LR_{base} \\gamma^{a\\,iter}`
-
-    Returns:
-        :class:`function(itr)`
     """
-    return lambda itr: base_lr * (gamma ** (a_ratio * itr))
+    def __init__(self, base_lr, gamma, a_ratio):
+        self.base_lr = base_lr
+        self.gamma = gamma
+        self.a_ratio = a_ratio
+
+    def __call__(self, itr):
+        return self.base_lr * (self.gamma ** (self.a_ratio * itr))
 
 
-def fixed_adjust_policy(base_lr):
+@implementer(ILRPolicy)
+class FixedAjustPolicy(object):
     """
-    Creates fixed learning rate policy
+    Fixed learning rate:
 
     :math:`LR = LR_{base}`
-
-    Returns:
-        :class:`function(iter)`
     """
-    return lambda itr: base_lr
+    def __init__(self, base_lr):
+        self.base_lr = base_lr
+
+    def __call__(self, itr):
+        return self.base_lr
 
 
-def step_exp_adjust_policy(base_lr, gamma, step):
+@implementer(ILRPolicy)
+class StepExpPolicy(object):
     """
-    Creates step exponential decrease of LR policy
+    Step exponential decrease of LR:
+
     :math:`LR = LR_{base} \\gamma^{floor(\\frac{iter}{step})}`
-
-    Returns:
-        :class:`function(itr)`
     """
-    return lambda itr: base_lr * gamma ** floor(float(itr) / float(step))
+    def __init__(self, base_lr, gamma, step):
+        self.base_lr = base_lr
+        self.gamma = gamma
+        self.step = step
+
+    def __call__(self, itr):
+        return self.base_lr * (
+            self.gamma ** floor(float(itr) / float(self.step)))
 
 
-def inv_adjust_policy(base_lr, gamma, pow_ratio):
+@implementer(ILRPolicy)
+class InvAdjustPolicy(object):
     """
     :math:`LR = LR_{base} \\dot (1 + \\gamma \\, iter) ^ {-pow}`
-
-    Returns:
-        :class:`function(itr)`
     """
-    return lambda itr: base_lr * (1.0 + gamma * itr) ** (-pow_ratio)
+    def __init__(self, base_lr, gamma, pow_ratio):
+        self.base_lr = base_lr
+        self.gamma = gamma
+        self.pow_ratio = pow_ratio
+
+    def __call__(self, itr):
+        return self.base_lr * (1.0 + self.gamma * itr) ** (-self.pow_ratio)
 
 
-def arbitrary_step_policy(lrs_with_lengths):
+@implementer(ILRPolicy)
+class ArbitraryStepPolicy(object):
     """
     Creates arbitrary step function: LR1 for N iters, LR2 for next M iters, etc
 
     For example: arbitrary_step_function_policy([(0.5, 5), (0.3, 3), (0.1, 1)]
 
-    Args:
+    """
+    def __init__(self, lrs_with_lengths):
+        """
+        Args:
         lrs_with_weights(list): a list of `(length, lr)` tuples that describes
             which learning rate should be set for each number of iterations,
             one by one.
-    Returns:
-        :class:`function(itr)`: this function returns 0 when last length ends
-    """
-    assert lrs_with_lengths is not None
+        """
+        assert lrs_with_lengths is not None
+        self.x_array = []
+        self.y_array = []
 
-    x_array = []
-    y_array = []
+        self.x_array.append(-1)
+        self.y_array.append(lrs_with_lengths[0][0])
 
-    x_array.append(-1)
-    y_array.append(lrs_with_lengths[0][0])
+        cur_iter = 0
 
-    cur_iter = 0
+        for lr, length in lrs_with_lengths:
+            assert lr >= 0
+            assert length > 0
+            self.x_array.append(cur_iter)
+            self.y_array.append(lr)
+            if length > 1:
+                self.x_array.append(cur_iter + length - 1)
+                self.y_array.append(lr)
+            cur_iter += length
 
-    for lr, length in lrs_with_lengths:
-        assert lr >= 0
-        assert length > 0
-        x_array.append(cur_iter)
-        y_array.append(lr)
-        if length > 1:
-            x_array.append(cur_iter + length - 1)
-            y_array.append(lr)
-        cur_iter += length
+        self.out_function = interp1d(
+            self.x_array, self.y_array, bounds_error=False, fill_value=0)
 
-    out_function = interp1d(x_array, y_array, bounds_error=False, fill_value=0)
-    return out_function
+    def __call__(self, itr):
+        return self.out_function(itr)
+
+    def __getstate__(self):
+        return self.x_array, self.y_array
+
+    def __setstate__(self, state):
+        self.x_array, self.y_array = state
+        self.out_function = interp1d(
+            self.x_array, self.y_array, bounds_error=False, fill_value=0)

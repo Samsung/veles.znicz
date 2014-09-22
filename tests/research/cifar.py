@@ -270,11 +270,11 @@ class Cifar_Workflow(StandardWorkflow):
         for gd_elm in self.gds:
             lr_adjuster.add_gd_unit(
                 gd_elm,
-                lr_function=lr_adjust.arbitrary_step_policy(
+                lr_policy=lr_adjust.ArbitraryStepPolicy(
                     [(gd_elm.learning_rate, 60000),
                      (gd_elm.learning_rate / 10., 5000),
                      (gd_elm.learning_rate / 100., 100000000)]),
-                bias_lr_function=lr_adjust.arbitrary_step_policy(
+                bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
                     [(gd_elm.learning_rate, 60000),
                      (gd_elm.learning_rate / 10., 5000),
                      (gd_elm.learning_rate / 100., 100000000)])
@@ -420,7 +420,6 @@ class Cifar_Workflow(StandardWorkflow):
         self.gds[-1].link_from(prev)
 
     def initialize(self, device, **kwargs):
-        #self.generate_graph("/home/lpodoynitsina/Desktop/1.png")
         super(Cifar_Workflow, self).initialize(device, **kwargs)
 
 

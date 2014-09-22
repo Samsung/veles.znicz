@@ -61,6 +61,16 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.cl_const = None
         self.reduce_size = 64
 
+        ###
+        self.initial_learning_rate = 0.01
+        self.min_learning_rate = 10 ** -6
+        self.max_learning_rate = 1
+        self.increase = 1.05
+        self.decrease = 0.80
+
+        self.weight_lrs = formats.Vector()
+        self.bias_lrs = formats.Vector()
+
     def init_unpickled(self):
         super(GradientDescent, self).init_unpickled()
         self.cl_sources_["gradient_descent.cl"] = {}
@@ -167,34 +177,47 @@ class GradientDescent(nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(9, self.col_sums.devmem)
 
+        ###
+        self.weight_lrs.mem = numpy.zeros(
+            shape=self.weights.mem.shape, dtype=self.weights.mem.dtype)
+        self.bias_lrs.mem = numpy.zeros(
+            shape=self.bias.mem.shape, dtype=self.bias.mem.dtype)
+
+        self.weight_lrs.initialize(self.device)
+        self.bias_lrs.initialize(self.device)
+
     def cpu_weights_update(self):
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
         self.gradient_weights.map_write()
+#        print("Weights", self.weights.mem.shape)
+#        print("err_output", self.err_output.mem.shape)
+#        print("input", self.input.mem.shape)
+#        print(self.input.mem.shape[1:])
+        gradient = numpy.dot(
+            self.err_output.mem.swapaxes(0, 1),
+            self.input.mem.reshape((self.input.mem.shape[0],
+                                    numpy.prod(self.input.mem.shape[1:]))))
 
-        lr = self.learning_rate
-        factor_l12 = self.weights_decay
-        l1_vs_l2 = self.l1_vs_l2
+        grad_sign = numpy.sign(gradient)
+        grad_delta_sign = numpy.sign(self.gradient_weights.mem * gradient)
 
-        err_output = formats.reshape(
-            self.err_output.mem,
-            [self.err_output.mem.shape[0],
-             self.err_output.mem.size // self.err_output.mem.shape[0]])
-        inp = formats.reshape(
-            self.input.mem, [self.input.mem.shape[0],
-                             self.input.mem.size // self.input.mem.shape[0]])
-        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-            self.weights.mem, numpy.dot(err_output.transpose(), inp),
-            lr, factor_l12, l1_vs_l2, self.factor_ortho)
-        if self.store_gradient:
-            gradient += self.gradient_weights.mem * self.gradient_moment
-            self.gradient_weights.mem[:] = gradient[:]
-        if self.apply_gradient:
-            if self.weights_transposed:
-                self.weights.mem += gradient.transpose()
-            else:
-                self.weights.mem += gradient
+        increase_ratios = numpy.where(grad_delta_sign > 0, self.increase, 1)
+        decrease_ratios = numpy.where(grad_delta_sign < 0, self.decrease, 1)
+
+        self.weight_lrs.mem *= increase_ratios
+        self.weight_lrs.mem * decrease_ratios
+
+        self.weight_lrs.mem[:] = self.weight_lrs.mem.clip(
+            self.min_learning_rate, self.max_learning_rate)[:]
+
+        if self.weights_transposed:
+            self.weights.mem -= (grad_sign * self.weight_lrs.mem).transpose()
+        else:
+            self.weights.mem -= grad_sign * self.weight_lrs.mem
+
+        self.gradient_weights.mem[:] = gradient[:]
 
     def cpu_bias_update(self):
         if not self.include_bias:
@@ -204,18 +227,19 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.bias.map_write()
         self.gradient_bias.map_write()
 
-        lr = self.learning_rate_bias
-        factor_l12 = self.weights_decay_bias
-        l1_vs_l2 = self.l1_vs_l2_bias
+        gradient = numpy.sum(self.err_output.mem, axis=0)
+        grad_sign = numpy.sign(gradient)
+        grad_delta_sign = numpy.sign(self.gradient_bias.mem * gradient)
+        increase_ratios = numpy.where(grad_delta_sign > 0, self.increase, 1)
+        decrease_ratios = numpy.where(grad_delta_sign < 0, self.decrease, 1)
+        self.bias_lrs.mem *= increase_ratios
+        self.bias_lrs.mem * decrease_ratios
 
-        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-            self.bias.mem, self.err_output.mem.sum(axis=0),
-            lr, factor_l12, l1_vs_l2)
-        if self.store_gradient:
-            gradient += self.gradient_bias.mem * self.gradient_moment
-            self.gradient_bias.mem[:] = gradient[:]
-        if self.apply_gradient:
-            self.bias.mem += gradient
+        self.bias_lrs.mem[:] = self.bias_lrs.mem.clip(
+            self.min_learning_rate, self.max_learning_rate)[:]
+
+        self.bias.mem -= grad_sign * self.bias_lrs.mem
+        self.gradient_bias.mem[:] = gradient[:]
 
     def gpu_weights_update(self):
         self.input.unmap()
@@ -387,6 +411,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gpu_weights_update()
         self.gpu_bias_update()
         self.print_debug_data(t1)
+
+    def run(self):
+        self.cpu_run()
 
 
 class GDSM(GradientDescent):

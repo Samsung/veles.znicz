@@ -132,8 +132,8 @@ class Workflow(StandardWorkflow):
             for gd_elm in self.gds:
                 lr_adjuster.add_gd_unit(
                     gd_elm,
-                    lr_function=lra.inv_adjust_policy(0.01, 0.0001, 0.75),
-                    bias_lr_function=lra.inv_adjust_policy(0.01, 0.0001, 0.75))
+                    lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75),
+                    bias_lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75))
             lr_adjuster.link_from(self.gds[0])
             self.repeater.link_from(lr_adjuster)
             self.end_point.link_from(lr_adjuster)
