@@ -22,7 +22,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
-from veles.znicz.samples.mnist import Loader
+from veles.znicz.samples.mnist import Loader as MNISTLoader
 
 
 mnist_dir = os.path.join(
@@ -46,6 +46,12 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                                           "test_label": test_label_dir,
                                           "train_images": train_image_dir,
                                           "train_label": train_label_dir}}}
+
+
+class Loader(MNISTLoader):
+    def load_data(self):
+        super(Loader, self).load_data()
+        self.original_data.mem.shape = [70000, 28, 28, 1]
 
 
 class Workflow(nn_units.NNWorkflow):
@@ -89,11 +95,13 @@ class Workflow(nn_units.NNWorkflow):
 
         unit = deconv.Deconv(
             self, n_kernels=N_KERNELS, kx=KX, ky=KY,
-            sliding=self.conv.sliding, padding=self.conv.padding)
+            sliding=self.conv.sliding, padding=self.conv.padding,
+            unsafe_padding=True)
         self.deconv = unit
         unit.link_from(self.depool)
         unit.link_attrs(self.conv, "weights")
         unit.link_attrs(self.depool, ("input", "err_input"))
+        unit.link_attrs(self.conv, ("get_output_shape_from", "input"))
 
         # Add evaluator for single minibatch
         unit = evaluator.EvaluatorMSE(self)
@@ -133,7 +141,7 @@ class Workflow(nn_units.NNWorkflow):
             learning_rate=LR, weights_decay=WD, gradient_moment=GM)
         self.gd_deconv = unit
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.deconv, "weights", "input")
+        unit.link_attrs(self.deconv, "weights", "input", "hits")
         unit.gate_skip = self.decision.gd_skip
 
         self.gd_deconv.need_err_input = False

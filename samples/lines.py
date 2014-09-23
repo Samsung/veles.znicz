@@ -9,13 +9,14 @@ A workflow to test first layer in simple line detection.
 
 from enum import IntEnum
 import os
+from zope.interface import implementer
 
 from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.znicz import conv, all2all, evaluator, decision
 # import veles.znicz.accumulator as accumulator
-from veles.znicz.loader import ImageLoader
+from veles.znicz.loader import ImageLoader, IFullBatchLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -98,13 +99,14 @@ class ImageLabel(IntEnum):
     # sinusoid = 10
 
 
+@implementer(IFullBatchLoader)
 class Loader(ImageLoader):
     def get_label_from_filename(self, filename):
         # takes folder name "vertical", "horizontal", "etc"
         return int(ImageLabel[filename.split("/")[-2]])
 
-    def initialize(self, **kwargs):
-        super(Loader, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(Loader, self).initialize(device, **kwargs)
 
 
 class Workflow(StandardWorkflow):
@@ -124,7 +126,7 @@ class Workflow(StandardWorkflow):
             train_paths=[root.lines.path_for_load_data.train],
             validation_paths=[root.lines.path_for_load_data.validation],
             minibatch_size=root.loader.minibatch_size,
-            grayscale=False)
+            grayscale=False, on_device=True)
 
         self.loader.link_from(self.repeater)
 
@@ -360,7 +362,7 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)

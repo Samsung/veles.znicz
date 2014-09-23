@@ -233,7 +233,7 @@ class Workflow(nn_units.NNWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.gds[-1].gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         self.evaluator.device = device
         for g in self.gds:
             g.device = device

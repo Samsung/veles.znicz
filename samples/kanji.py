@@ -220,14 +220,14 @@ class Workflow(nn_units.NNWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_skip = \
+            (~self.loader.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDTanh(self, device=device)
-        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_from(self.snapshotter)
         self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")

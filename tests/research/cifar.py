@@ -420,7 +420,7 @@ class Cifar_Workflow(StandardWorkflow):
         self.gds[-1].link_from(prev)
 
     def initialize(self, device, **kwargs):
-        self.generate_graph("/home/lpodoynitsina/Desktop/1.png")
+        #self.generate_graph("/home/lpodoynitsina/Desktop/1.png")
         super(Cifar_Workflow, self).initialize(device, **kwargs)
 
 

@@ -133,7 +133,7 @@ class Workflow(nn_units.NNWorkflow):
 
         self.gds[-1].link_from(self.decision)
 
-    def initialize(self, learning_rate, weights_decay, device):
+    def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          device=device)

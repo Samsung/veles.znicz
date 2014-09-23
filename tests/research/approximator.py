@@ -65,8 +65,8 @@ class Loader(loader.ImageLoaderMSE):
             self.class_lengths[1] = n
             self.class_lengths[2] -= n
 
-    def initialize(self, **kwargs):
-        super(Loader, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(Loader, self).initialize(device, **kwargs)
         self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
                      self.original_targets.min(), self.original_targets.max()))
@@ -317,7 +317,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt.gate_block = ~self.decision.epoch_ended
 
     def initialize(self, learning_rate, weights_decay, minibatch_size,
-                   device):
+                   device, **kwargs):
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          minibatch_size=minibatch_size,

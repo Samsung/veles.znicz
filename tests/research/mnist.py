@@ -34,8 +34,8 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.update = {  # root.defaults are in: veles.znicz.samples.mnist
     "learning_rate_adjust": {"do": False},
-    "decision": {"fail_iterations": 50,
-                 "max_epochs": 1000},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist"},
     "loader": {"minibatch_size": Tune(60, 1, 1000)},
     "weights_plotter": {"limit": 64},
@@ -128,15 +128,15 @@ class Workflow(StandardWorkflow):
 
         if root.learning_rate_adjust.do:
             # Add learning_rate_adjust unit
-
-            self.learning_rate_adjust = lra.LearningRateAdjust(
-                self, lr_function=lra.inv_adjust_policy(
-                    0.01, 0.0001, 0.75))
-            self.learning_rate_adjust.link_from(self.gds[0])
-            self.learning_rate_adjust.add_gd_units(self.gds)
-
-            self.repeater.link_from(self.learning_rate_adjust)
-            self.end_point.link_from(self.learning_rate_adjust)
+            lr_adjuster = lra.LearningRateAdjust(self)
+            for gd_elm in self.gds:
+                lr_adjuster.add_gd_unit(
+                    gd_elm,
+                    lr_function=lra.inv_adjust_policy(0.01, 0.0001, 0.75),
+                    bias_lr_function=lra.inv_adjust_policy(0.01, 0.0001, 0.75))
+            lr_adjuster.link_from(self.gds[0])
+            self.repeater.link_from(lr_adjuster)
+            self.end_point.link_from(lr_adjuster)
         else:
             self.repeater.link_from(self.gds[0])
             self.end_point.link_from(self.gds[0])
