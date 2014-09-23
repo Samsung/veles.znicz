@@ -787,20 +787,22 @@ class KohonenValidationResults(KohonenGridBase):
             # The legend becomes truncated, but it should not
             # Measure the legend width to fix buggy matplotlib layout
             # Without drawing, window extent equals to 1
-            legend.draw(fig.canvas.get_renderer())
-            bbox = legend.get_window_extent()
-            bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
+            if legend is not None:
+                legend.draw(fig.canvas.get_renderer())
+                bbox = legend.get_window_extent()
+                bbox = bbox.transformed(fig.dpi_scale_trans.inverted())
 
-            from mpl_toolkits.axes_grid import Divider
-            from mpl_toolkits.axes_grid.axes_size import Fixed, Scaled
-            divider = Divider(fig, (0.05, 0.05, 0.9, 0.9),
-                              (Scaled(1.0), Fixed(bbox.width), Scaled(0.05)),
-                              (Scaled(1), Fixed(0)))
-            axes.set_axes_locator(divider.new_locator(0, 0))
+                from mpl_toolkits.axes_grid import Divider
+                from mpl_toolkits.axes_grid.axes_size import Fixed, Scaled
+                divider = Divider(fig, (0.05, 0.05, 0.9, 0.9),
+                                  (Scaled(1.0), Fixed(bbox.width),
+                                   Scaled(0.05)), (Scaled(1), Fixed(0)))
+                axes.set_axes_locator(divider.new_locator(0, 0))
         else:
             # Modify legend title and labels
             legend = axes.get_legend()
-            legend.set_title("Fitness: %.2f" % self.fitness)
+            if legend is not None:
+                legend.set_title("Fitness: %.2f" % self.fitness)
             for index, text in enumerate(legend.get_texts()):
                 text.set_text("%d - %.2f" %
                               (index, self.fitness_by_label[index]))
