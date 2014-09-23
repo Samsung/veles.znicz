@@ -83,7 +83,7 @@ def draw_vertical_lines(img, thickness, lines_count, clearance, bgr_color):
         y_start = 0
         y_stop = h - 1
         draw_line(img, (x_start, y_start), (x_stop, y_stop),
-                 bgr_color, thickness)
+                  bgr_color, thickness)
 
 
 def draw_horizontal_lines(img, thickness, lines_count, clearance, bgr_color):
@@ -102,7 +102,7 @@ def draw_horizontal_lines(img, thickness, lines_count, clearance, bgr_color):
         y_start = round(uniform(low=clearance, high=(h - clearance)))
         y_stop = y_start
         draw_line(img, (x_start, y_start), (x_stop, y_stop),
-                 bgr_color, thickness)
+                  bgr_color, thickness)
 
 
 def draw_tilted_bottom_top_lines(img, thickness, lines_count,
@@ -122,11 +122,11 @@ def draw_tilted_bottom_top_lines(img, thickness, lines_count,
         y_start = round(uniform(low=clearance, high=(2 * h - 1 - clearance)))
         y_stop = y_start - h
         draw_line(img, (x_start, y_start), (x_stop, y_stop),
-                 bgr_color, thickness)
+                  bgr_color, thickness)
 
 
 def draw_tilted_top_bottom_lines(img, thickness, lines_count,
-                                clearance, bgr_color):
+                                 clearance, bgr_color):
     """
     Draws randomly located -45 deg tilted line on given image
 
@@ -143,7 +143,7 @@ def draw_tilted_top_bottom_lines(img, thickness, lines_count,
         y_start = round(uniform(low=(clearance - h), high=(h - clearance)))
         y_stop = y_start + h
         draw_line(img, (x_start, y_start), (x_stop, y_stop),
-                 bgr_color, thickness)
+                  bgr_color, thickness)
 
 
 def draw_straight_uniform_grid(img, thickness, step, bgr_color):
@@ -349,7 +349,7 @@ class ImageGenerator(object):
 
         fig_size = randint(low=size // 10, high=size // 3 - clearance)
 
-        #Creating initial image
+        # Creating initial image
         if label == ImageLabel.vertical:
             draw_vertical_lines(img, thickness, n_lines, clearance, color)
         elif label == ImageLabel.horizontal:
@@ -375,33 +375,32 @@ class ImageGenerator(object):
         elif label == ImageLabel.sinusoid:
             draw_sinusoid(img, thickness, fig_size, clearance, color)
 
-        #BLUR
+        # BLUR
         img = cv2.GaussianBlur(img, (blur_radius, blur_radius), 0)
 
-        #NOISE
+        # NOISE
         if self._noise_amp > 0:
             noise = np.random.normal(loc=0, scale=self._noise_amp,
                                      size=img.shape)
             img = np.clip(img.astype(dtype=np.float32) + noise, 0,
-                                255).astype(dtype=np.uint8)
+                          255).astype(dtype=np.uint8)
 
-        #INVERT
+        # INVERT
         if self._invert:
             img = 255 - img
         return img
 
-if __name__ == "__main__":
+
+def main():
     logging.basicConfig(level=logging.DEBUG)
 
-    parser = create_commandline_parser()
-    args = parser.parse_args()
+    args = create_commandline_parser().parse_args()
 
     out_dir = args.output
     learn_size = args.filescount
     test_size = args.filescount
 
     generator = ImageGenerator(args.maxblur, args.noise, args.inverted)
-    size = args.size
 
     shutil.rmtree(out_dir, ignore_errors=True)
 
@@ -415,8 +414,10 @@ if __name__ == "__main__":
             label_dir = os.path.join(task_dir, label_name)
             os.makedirs(label_dir)
             for i in range(task_size):
-
-                img = generator.generate(size, label)
+                img = generator.generate(args.size, label)
                 cv2.imwrite(
                     os.path.join(label_dir, "%s_%s_%i.jpg" %
-                                (task_name, label_name, i)), img)
+                                 (task_name, label_name, i)), img)
+
+if __name__ == "__main__":
+    main()

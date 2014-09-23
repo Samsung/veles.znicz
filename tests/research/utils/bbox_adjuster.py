@@ -116,12 +116,11 @@ def create_parser():
 
     return parser
 
-#########################################################################
-if __name__ == "__main__":
 
+def main():
     args = create_parser().parse_args()
     synsets_path = os.path.join(args.caffe, "data/ilsvrc12/synset_words.txt")
-    synsets, synset_names, synset_indexes = load_synsets(synsets_path)
+    _, _, synset_indexes = load_synsets(synsets_path)
 
     coord_cols = ['ymin', 'xmin', 'ymax', 'xmax']
     coord_col_ids = {}
@@ -130,12 +129,12 @@ if __name__ == "__main__":
 
     print("Scanning folders...")
     file_paths = []
-    for root, dirs, files in os.walk(args.input[0]):
+    for root, _, files in os.walk(args.input[0]):
         for file in files:
             file_paths.append(os.path.join(root, file))
         print("Files found: %i,\t current dir: %s" % (len(file_paths), root))
 
-    #Extracting raw data
+    # Extracting raw data
     model_def = os.path.join(args.caffe,
                              "examples/imagenet/imagenet_deploy.prototxt")
     pretrained_model = os.path.join(
@@ -165,7 +164,7 @@ if __name__ == "__main__":
             if not (fname in results_for_files):
                 results_for_files[fname] = []
             this_file_results = results_for_files[fname]
-            synset_id, file_id = fname.split("/")[-1].split(".")[0].split("_")
+            synset_id, _ = fname.split("/")[-1].split(".")[0].split("_")
             window = line["window"]
             det = [int(window[coord_col_ids["xmin"]]),
                    int(window[coord_col_ids["ymin"]]),
@@ -197,3 +196,7 @@ if __name__ == "__main__":
 
     # Save fine BBOXes
     json.dump(final_results, open(args.output, 'wb'), sort_keys=True, indent=4)
+
+#########################################################################
+if __name__ == "__main__":
+    main()
