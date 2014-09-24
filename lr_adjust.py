@@ -44,6 +44,7 @@ class LearningRateAdjust(Unit):
                 learning rate. if nothing is set - `lr_policy` is taken)
         """
         assert isinstance(gd_unit, GradientDescentBase)
+        self.gate_skip = gd_unit.gate_skip
         self._gd_units.append((gd_unit, lr_policy, bias_lr_policy))
 
     def initialize(self, **kwargs):

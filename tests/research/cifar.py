@@ -275,9 +275,9 @@ class Cifar_Workflow(StandardWorkflow):
                      (gd_elm.learning_rate / 10., 5000),
                      (gd_elm.learning_rate / 100., 100000000)]),
                 bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
-                    [(gd_elm.learning_rate, 60000),
-                     (gd_elm.learning_rate / 10., 5000),
-                     (gd_elm.learning_rate / 100., 100000000)])
+                    [(gd_elm.learning_rate_bias, 60000),
+                     (gd_elm.learning_rate_bias / 10., 5000),
+                     (gd_elm.learning_rate_bias / 100., 100000000)])
                 )
         lr_adjuster.link_from(self.gds[0])
         self.repeater.link_from(lr_adjuster)
