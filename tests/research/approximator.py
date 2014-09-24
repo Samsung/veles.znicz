@@ -18,7 +18,7 @@ from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
-import veles.znicz.nn_plotting_units as nn_plotting_units
+# import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -293,11 +293,15 @@ class Workflow(nn_units.NNWorkflow):
                                        else self.plt_max[-1])
             j += 1
         self.plt_min[-1].redraw_plot = True
+
+        """
         # Histogram plotter
         self.plt_hist = nn_plotting_units.MSEHistogram(self, name="Histogram")
         self.plt_hist.link_from(self.decision)
         self.plt_hist.mse = self.decision.epoch_samples_mse[2]
         self.plt_hist.gate_block = ~self.decision.epoch_ended
+        """
+
         # ImmediatePlotter
         self.plt = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])

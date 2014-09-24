@@ -9,8 +9,13 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
+import os
+import struct
+from zope.interface import implementer
 
 from veles.config import root
+import veles.error as error
+import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
@@ -20,9 +25,18 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
+import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-import veles.znicz.samples.mnist as mnist
+from veles.external.progressbar import ProgressBar
+
+mnist_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "samples/MNIST")
+test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
+test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
+train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
+train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.defaults = {"decision": {"fail_iterations": 25},
                  "snapshotter": {"prefix": "mnist7"},
@@ -30,18 +44,100 @@ root.defaults = {"decision": {"fail_iterations": 25},
                  "weights_plotter": {"limit": 25},
                  "mnist7": {"learning_rate": 0.0000016,
                             "weights_decay": 0.00005,
-                            "layers": [100, 100, 7]}}
+                            "layers": [100, 100, 7],
+                            "data_paths": {"test_images": test_image_dir,
+                                           "test_label": test_label_dir,
+                                           "train_images": train_image_dir,
+                                           "train_label": train_label_dir}}}
 
 
-class Loader(mnist.Loader):
+@implementer(loader.IFullBatchLoader)
+class Loader(loader.FullBatchLoaderMSE):
     """Loads MNIST dataset.
     """
+    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
+        """Loads data from original MNIST files.
+        """
+        self.info("Loading from original MNIST files...")
+
+        # Reading labels:
+        with open(labels_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2049:
+                raise error.BadFormatError("Wrong header in train-labels")
+
+            n_labels, = struct.unpack(">i", fin.read(4))
+            if n_labels != labels_count:
+                raise error.BadFormatError("Wrong number of labels in "
+                                           "train-labels")
+
+            arr = numpy.zeros(n_labels, dtype=numpy.byte)
+            n = fin.readinto(arr)
+            if n != n_labels:
+                raise error.BadFormatError("EOF reached while reading labels "
+                                           "from train-labels")
+            self.original_labels.mem[offs:offs + labels_count] = arr[:]
+            if (self.original_labels.mem.min() != 0 or
+                    self.original_labels.mem.max() != 9):
+                raise error.BadFormatError(
+                    "Wrong labels range in train-labels.")
+
+        # Reading images:
+        with open(images_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2051:
+                raise error.BadFormatError("Wrong header in train-images")
+
+            n_images, = struct.unpack(">i", fin.read(4))
+            if n_images != n_labels:
+                raise error.BadFormatError("Wrong number of images in "
+                                           "train-images")
+
+            n_rows, n_cols = struct.unpack(">2i", fin.read(8))
+            if n_rows != 28 or n_cols != 28:
+                raise error.BadFormatError("Wrong images size in train-images,"
+                                           " should be 28*28")
+
+            # 0 - white, 255 - black
+            pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
+            n = fin.readinto(pixels)
+            if n != n_images * n_rows * n_cols:
+                raise error.BadFormatError("EOF reached while reading images "
+                                           "from train-images")
+
+        # Transforming images into float arrays and normalizing to [-1, 1]:
+        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
+        self.info("Original range: [%.1f, %.1f];"
+                  " performing normalization..." % (images.min(),
+                                                    images.max()))
+        progress = ProgressBar(maxval=len(images), term_width=17)
+        progress.start()
+        for image in images:
+            progress.inc()
+            formats.normalize(image)
+        progress.finish()
+        self.original_data.mem[offs:offs + n_images] = images[:]
+        self.info("Range after normalization: [%.1f, %.1f]" %
+                  (images.min(), images.max()))
+
     def load_data(self):
         """Here we will load MNIST data.
         """
-        super(Loader, self).load_data()
+        #super(Loader, self).load_data()
+        self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
+        self.original_data.mem = numpy.zeros([70000, 28, 28],
+                                             dtype=numpy.float32)
+
+        self.load_original(0, 10000, root.mnist7.data_paths.test_label,
+                           root.mnist7.data_paths.test_images)
+        self.load_original(10000, 60000,
+                           root.mnist7.data_paths.train_label,
+                           root.mnist7.data_paths.train_images)
+
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 10000
+        self.class_lengths[2] = 60000
         self.class_targets.reset()
-        self.info("root.common.precision_type", root.common.precision_type)
         self.class_targets.mem = numpy.array(
             [[1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0],  # 0
              [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0],  # 1
@@ -97,30 +193,29 @@ class Workflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
-                                  ("target", "minibatch_target"),
-                                  ("labels", "minibatch_labels"),
                                   ("max_samples_per_epoch", "total_samples"),
+                                  ("target", "minibatch_targets"),
+                                  ("labels", "minibatch_labels"),
                                   "class_targets")
+        self.evaluator.link_attrs(self.fwds[-1], "output")
 
         # Add decision unit
-        self.decision = decision.DecisionGD(
-            self,
-            snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+        self.decision = decision.DecisionMSE(
+            self, fail_iterations=root.decision.fail_iterations,
+            store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class",
-                                 "last_minibatch",
-                                 "class_lengths",
-                                 "epoch_ended",
-                                 "epoch_number")
+                                 "minibatch_class", "minibatch_size",
+                                 "last_minibatch", "class_lengths",
+                                 "epoch_ended", "epoch_number",
+                                 "minibatch_offset", "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
-            ("minibatch_metrics", "metrics"))
+            ("minibatch_metrics", "metrics"),
+            ("minibatch_mse", "mse"))
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -175,7 +270,7 @@ class Workflow(nn_units.NNWorkflow):
         for i in range(0, 3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
-            self.plt[-1].input = self.decision.epoch_metrics
+            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else
                                    self.plt[-2])
@@ -200,7 +295,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt_max[-1].link_attrs(self.decision,
-                                        ("input", "epoch_metrics"))
+                                        ("input", "epoch_n_err_pt"))
             self.plt_max[-1].input_field = i
             self.plt_max[-1].input_offset = 1
             self.plt_max[-1].link_from(self.plt[-1] if not i else
@@ -212,7 +307,7 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_min.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt_min[-1].link_attrs(self.decision,
-                                        ("input", "epoch_metrics"))
+                                        ("input", "epoch_n_err_pt"))
             self.plt_min[-1].input_field = i
             self.plt_min[-1].input_offset = 2
             self.plt_min[-1].link_from(self.plt_max[-1] if not i else

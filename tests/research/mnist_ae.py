@@ -175,7 +175,7 @@ class Workflow(nn_units.NNWorkflow):
         prev = self.plt_mx
 
         # Input plotter
-        """
+
         self.plt_inp = nn_plotting_units.Weights2D(
             self, name="First Layer Input", limit=64)
         self.plt_inp.link_attrs(self.conv, "input")
@@ -184,10 +184,8 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_inp.link_from(prev)
         self.plt_inp.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_inp
-        """
 
         # Output plotter
-        """
         self.plt_out = nn_plotting_units.Weights2D(
             self, name="First Layer Output", limit=64)
         self.plt_out.link_attrs(self.conv, ("input", "output"))
@@ -196,7 +194,6 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_out
-        """
 
         # Deconv result plotter
         self.plt_out = nn_plotting_units.Weights2D(

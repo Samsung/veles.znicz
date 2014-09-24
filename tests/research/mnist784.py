@@ -14,8 +14,11 @@ from veles.external.freetype import (Face,  # pylint: disable=E0611
 import logging
 import numpy
 import os
+import struct
+from zope.interface import implementer
 
 from veles.config import root
+import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -26,21 +29,37 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
+import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-import veles.znicz.samples.mnist as mnist
+from veles.external.progressbar import ProgressBar
+# import veles.znicz.samples.mnist as mnist
 
 
-root.defaults = {"decision": {"fail_iterations": 100},
-                 "snapshotter": {"prefix": "mnist_784"},
-                 "loader": {"minibatch_size": 100},
-                 "weights_plotter": {"limit": 16},
-                 "mnist784": {"learning_rate": 0.00001,
-                              "weights_decay": 0.00005,
-                              "layers": [784, 784],
-                              "data_paths":
-                              os.path.join(root.common.test_dataset_root,
-                                           "arial.ttf")}}
+mnist_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "samples/MNIST")
+test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
+test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
+train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
+train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
+
+
+root.defaults = {
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "mnist_784"},
+    "loader": {"minibatch_size": 100},
+    "weights_plotter": {"limit": 16},
+    "mnist784": {"learning_rate": 0.00001,
+                 "weights_decay": 0.00005,
+                 "layers": [784, 784],
+                 "data_paths": {"test_images": test_image_dir,
+                                "test_label": test_label_dir,
+                                "train_images": train_image_dir,
+                                "train_label": train_label_dir,
+                                "arial":
+                                os.path.join(root.common.test_dataset_root,
+                                             "arial.ttf")}}}
 
 
 def do_plot(fontPath, text, size, angle, sx, sy,
@@ -102,18 +121,97 @@ def do_plot(fontPath, text, size, angle, sx, sy,
     return img
 
 
-class Loader(mnist.Loader):
+@implementer(loader.IFullBatchLoader)
+class Loader(loader.FullBatchLoaderMSE):
     """Loads MNIST dataset.
     """
+    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
+        """Loads data from original MNIST files.
+        """
+        self.info("Loading from original MNIST files...")
+
+        # Reading labels:
+        with open(labels_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2049:
+                raise error.BadFormatError("Wrong header in train-labels")
+
+            n_labels, = struct.unpack(">i", fin.read(4))
+            if n_labels != labels_count:
+                raise error.BadFormatError("Wrong number of labels in "
+                                           "train-labels")
+
+            arr = numpy.zeros(n_labels, dtype=numpy.byte)
+            n = fin.readinto(arr)
+            if n != n_labels:
+                raise error.BadFormatError("EOF reached while reading labels "
+                                           "from train-labels")
+            self.original_labels.mem[offs:offs + labels_count] = arr[:]
+            if (self.original_labels.mem.min() != 0 or
+                    self.original_labels.mem.max() != 9):
+                raise error.BadFormatError(
+                    "Wrong labels range in train-labels.")
+
+        # Reading images:
+        with open(images_fnme, "rb") as fin:
+            header, = struct.unpack(">i", fin.read(4))
+            if header != 2051:
+                raise error.BadFormatError("Wrong header in train-images")
+
+            n_images, = struct.unpack(">i", fin.read(4))
+            if n_images != n_labels:
+                raise error.BadFormatError("Wrong number of images in "
+                                           "train-images")
+
+            n_rows, n_cols = struct.unpack(">2i", fin.read(8))
+            if n_rows != 28 or n_cols != 28:
+                raise error.BadFormatError("Wrong images size in train-images,"
+                                           " should be 28*28")
+
+            # 0 - white, 255 - black
+            pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
+            n = fin.readinto(pixels)
+            if n != n_images * n_rows * n_cols:
+                raise error.BadFormatError("EOF reached while reading images "
+                                           "from train-images")
+
+        # Transforming images into float arrays and normalizing to [-1, 1]:
+        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
+        self.info("Original range: [%.1f, %.1f];"
+                  " performing normalization..." % (images.min(),
+                                                    images.max()))
+        progress = ProgressBar(maxval=len(images), term_width=17)
+        progress.start()
+        for image in images:
+            progress.inc()
+            formats.normalize(image)
+        progress.finish()
+        self.original_data.mem[offs:offs + n_images] = images[:]
+        self.info("Range after normalization: [%.1f, %.1f]" %
+                  (images.min(), images.max()))
+
     def load_data(self):
         """Here we will load MNIST data.
         """
-        super(Loader, self).load_data()
+        #super(Loader, self).load_data()
+        self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
+        self.original_data.mem = numpy.zeros([70000, 28, 28],
+                                             dtype=numpy.float32)
+
+        self.load_original(0, 10000, root.mnist784.data_paths.test_label,
+                           root.mnist784.data_paths.test_images)
+        self.load_original(10000, 60000,
+                           root.mnist784.data_paths.train_label,
+                           root.mnist784.data_paths.train_images)
+
+        self.class_lengths[0] = 0
+        self.class_lengths[1] = 10000
+        self.class_lengths[2] = 60000
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
         for i in range(0, 10):
-            img = do_plot(root.mnist784.data_paths,
+            img = do_plot(root.mnist784.data_paths.arial,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_targets[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.precision_type])
@@ -160,30 +258,29 @@ class Workflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
         self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
-                                  ("target", "minibatch_target"),
-                                  ("labels", "minibatch_labels"),
                                   ("max_samples_per_epoch", "total_samples"),
+                                  ("target", "minibatch_targets"),
+                                  ("labels", "minibatch_labels"),
                                   "class_targets")
+        self.evaluator.link_attrs(self.fwds[-1], "output")
 
         # Add decision unit
-        self.decision = decision.DecisionGD(
-            self,
-            snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+        self.decision = decision.DecisionMSE(
+            self, fail_iterations=root.decision.fail_iterations,
+            store_samples_mse=root.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
-                                 "minibatch_class",
-                                 "last_minibatch",
-                                 "class_lengths",
-                                 "epoch_ended",
-                                 "epoch_number")
+                                 "minibatch_class", "minibatch_size",
+                                 "last_minibatch", "class_lengths",
+                                 "epoch_ended", "epoch_number",
+                                 "minibatch_offset", "minibatch_size")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"),
-            ("minibatch_metrics", "metrics"))
+            ("minibatch_metrics", "metrics"),
+            ("minibatch_mse", "mse"))
 
         self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
                                          directory=root.common.snapshot_dir)
@@ -256,7 +353,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
-        # """
+        """
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
         self.plt_img.inputs.append(self.decision.sample_input)
@@ -267,6 +364,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_block = ~self.decision.epoch_ended
+        """
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]

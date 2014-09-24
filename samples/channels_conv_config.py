@@ -24,14 +24,14 @@ root.update = {
                  "max_epochs": 10000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "snapshotter": {"prefix": "channels %s" % root.model},
+    "snapshotter": {"prefix": "channels_%s" % root.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
-                                  "tmp %s/test" % root.model),
+                                  "tmp_%s/test" % root.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp %s/validation" % root.model),
+                                  "tmp_%s/validation" % root.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp %s/train" % root.model)]},
+                                  "tmp_%s/train" % root.model)]},
     "loader": {"cache_file_name": os.path.join(root.common.cache_dir,
                                                "channels_%s.%d.pickle" %
                                                (root.model,
