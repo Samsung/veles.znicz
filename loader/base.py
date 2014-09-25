@@ -114,6 +114,7 @@ class Loader(OpenCLUnit):
 
         self.failed_minibatches = []
         self._total_failed = 0
+        self._unpickled = False
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -122,14 +123,26 @@ class Loader(OpenCLUnit):
         self.shuffled_indices = formats.Vector()
         self.pending_minibatches_ = defaultdict(list)
         self._minibatch_serve_timestamp_ = time.time()
+        self._unpickled = True
+
+    def __getstate__(self):
+        state = super(Loader, self).__getstate__()
+        # Move all pending minibatches to failed set
+        if not self.epoch_ended:
+            state["failed_minibatches"] = copy(state["failed_minibatches"])
+            for pmb in self.pending_minibatches_.values():
+                state["failed_minibatches"].extend(pmb)
+        else:
+            state["failed_minibatches"] = []
+        return state
 
     @property
     def shuffled_indices(self):
-        return self._shuffled_indices_
+        return self._shuffled_indices
 
     @shuffled_indices.setter
     def shuffled_indices(self, value):
-        self._shuffled_indices_ = value
+        self._shuffled_indices = value
 
     @property
     def total_samples(self):
@@ -304,18 +317,6 @@ class Loader(OpenCLUnit):
     def total_failed(self):
         return self._total_failed
 
-    def __getstate__(self):
-        state = super(Loader, self).__getstate__()
-        # Move all pending minibatches to failed set
-        if not self.epoch_ended:
-            state["failed_minibatches"] = copy(state["failed_minibatches"])
-            for pmb in self.pending_minibatches_.values():
-                state["failed_minibatches"].extend(pmb)
-        else:
-            state["failed_minibatches"] = []
-        state["shuffled_indices"] = None  # to reduce pickle size
-        return state
-
     def initialize(self, device, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
@@ -331,7 +332,11 @@ class Loader(OpenCLUnit):
         if self.minibatch_data is None:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
                                        "create_minibatches()")
-        self.shuffle()
+        if not self._unpickled:
+            self.shuffle()
+        else:
+            self._unpickled = False
+        self.shuffled_indices.initialize(device)
 
     def cpu_run(self):
         """Prepares the minibatch.
