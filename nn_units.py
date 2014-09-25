@@ -13,7 +13,6 @@ import shutil
 import six
 import sys
 import tarfile
-import time
 import yaml
 from zope.interface import implementer
 
@@ -26,6 +25,7 @@ import veles.prng as prng
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
 from veles.error import MasterSlaveCommunicationError
+from veles.timeit import timeit
 
 
 @implementer(IDistributable)
@@ -459,8 +459,6 @@ class NNSnapshotter(Snapshotter):
                          "err_output", "err_input"):
                 self._log_attr(u, attr, logged)
         del logged
-        t0 = time.time()
-        gc.collect()
-        dt = time.time() - t0
+        _, dt = timeit(gc.collect)
         if dt > 1.0:
             self.warning("gc.collect() took %.1f sec", dt)
