@@ -8,6 +8,7 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
 
+import json
 import lzma
 import numpy
 import six
@@ -47,9 +48,12 @@ root.loader.validation_ratio = 0
 class Loader(loader.FullBatchLoader):
     def __init__(self, workflow, **kwargs):
         super(Loader, self).__init__(workflow, **kwargs)
+        self.has_ids = kwargs.get("ids", False)
+        self.has_classes = kwargs.get("classes", True)
         self.lemmas_map = 0
         self.labels_mapping = []
         self.samples_by_label = []
+        self.ids = []
 
     def load_data(self):
         """Here we will load spam data.
@@ -70,52 +74,57 @@ class Loader(loader.FullBatchLoader):
                 lines = fin.readlines()
 
         self.info("Parsing the data...")
-        progress = ProgressBar(maxval=len(lines), term_width=17)
-        progress.start()
         lemmas = set()
         data = []
-        spam_count = 0
-        distinct_labels = set()
+        self.ids.clear()
+        labels = []
         avglength = 0
-        for line in lines:
+        for line in ProgressBar(term_width=17)(lines):
             fields = line.split(b' ')
-            label = int(fields[0])
-            data.append((label, []))
-            distinct_labels.add(label)
-            if label == 1:
-                spam_count += 1
-            for field in fields[1:-1]:
+            offset = 0
+            if self.has_ids:
+                self.ids.append(fields[offset].decode('charmap'))
+                offset += 1
+            if self.has_classes:
+                label = int(fields[offset])
+                labels.append(label)
+                offset += 1
+            data.append([])
+            for field in fields[offset:-1]:
                 lemma, weight = field.split(b':')
                 lemma = int(lemma)
                 weight = float(weight)
                 lemmas.add(lemma)
-                data[-1][1].append((lemma, weight))
-            avglength += len(data[-1][1])
-            progress.inc()
-        progress.finish()
-        avglength //= len(lines)
+                data[-1].append((lemma, weight))
+            avglength += len(data[-1])
 
         self.info("Initializing...")
-        progress = ProgressBar(maxval=len(data), term_width=17)
-        progress.start()
+        avglength //= len(lines)
+        if self.has_classes:
+            distinct_labels = set(labels)
+        else:
+            distinct_labels = {0}
+        self.labels_mapping.clear()
         self.labels_mapping.extend(sorted(distinct_labels))
         reverse_label_mapping = {l: i for i, l
                                  in enumerate(self.labels_mapping)}
         self.lemmas_map = sorted(lemmas)
         lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
         self.original_labels.mem = numpy.zeros([len(lines)], dtype=numpy.int32)
+        self.samples_by_label.clear()
         self.samples_by_label.extend([set() for _ in distinct_labels])
         self.original_data.mem = numpy.zeros([len(lines), len(lemmas)],
                                              dtype=numpy.float32)
-        for index, sample in enumerate(data):
-            label = reverse_label_mapping[sample[0]]
+        for index, sample in enumerate(ProgressBar(term_width=17)(data)):
+            if self.has_classes:
+                label = reverse_label_mapping[labels[index]]
+            else:
+                label = 0
             self.original_labels.mem[index] = label
             self.samples_by_label[label].add(index)
-            for lemma in sample[1]:
+            for lemma in sample:
                 self.original_data.mem[index,
                                        lemma_indices[lemma[0]]] = lemma[1]
-            progress.inc()
-        progress.finish()
 
         self.validation_ratio = root.loader.validation_ratio
         self.class_lengths[loader.TEST] = 0
@@ -124,8 +133,8 @@ class Loader(loader.FullBatchLoader):
         self.class_lengths[loader.TRAIN] = len(lines) - self.class_lengths[1]
         if self.class_lengths[loader.VALID] > 0:
             self.extract_validation_from_train()
-        self.info("Samples: %d (spam: %d), labels: %d, lemmas: %d, "
-                  "average feature vector length: %d", len(lines), spam_count,
+        self.info("Samples: %d, labels: %d, lemmas: %d, "
+                  "average feature vector length: %d", len(lines),
                   len(distinct_labels), len(lemmas), avglength)
         self.info("Normalizing...")
         self.IMul, self.IAdd = formats.normalize_pointwise(
@@ -147,9 +156,8 @@ class ResultsExporter(units.Unit):
     """
     def __init__(self, workflow, file_name, **kwargs):
         super(ResultsExporter, self).__init__(workflow, **kwargs)
-        self.total = None
-        self.shuffled_indices = None
         self.file_name = file_name
+        self.demand("shuffled_indices", "total", "ids")
 
     def initialize(self, **kwargs):
         pass
@@ -157,10 +165,20 @@ class ResultsExporter(units.Unit):
     def run(self):
         self.total.map_read()
 
-        classified = numpy.zeros(len(self.shuffled_indices), dtype=numpy.int32)
-        for i in range(self.total.mem.size):
-            classified[self.shuffled_indices[i]] = self.total[i]
-        numpy.savetxt(self.file_name, classified, fmt='%d')
+        self.info("Working...")
+        if len(self.ids) == 0:
+            classified = numpy.zeros(len(self.shuffled_indices),
+                                     dtype=numpy.int32)
+            for i in range(self.total.mem.size):
+                classified[self.shuffled_indices[i]] = self.total[i]
+            numpy.savetxt(self.file_name, classified, fmt='%d')
+        else:
+            classified = {}
+            for i in range(self.total.mem.size):
+                classified[self.ids[self.shuffled_indices[i]]] = \
+                    int(self.total[i])
+            with open(self.file_name, "w") as fout:
+                json.dump(classified, fout, indent=4)
         self.info("Exported the classified data to %s", self.file_name)
 
 
@@ -175,7 +193,8 @@ class Workflow(nn_units.NNWorkflow):
 
         self.loader = Loader(self, name="Kohonen Spam fullbatch loader",
                              minibatch_size=root.loader.minibatch_size,
-                             on_device=False)
+                             on_device=False, ids=root.loader.ids,
+                             classes=root.loader.classes)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
@@ -196,18 +215,21 @@ class Workflow(nn_units.NNWorkflow):
                                 ("batch_size", "total_samples"))
         self.forward.link_attrs(self.trainer, "weights", "argmins")
 
-        self.validator = kohonen.KohonenValidator(self)
-        self.validator.link_attrs(self.trainer, "shape")
-        self.validator.link_attrs(self.forward, ("input", "output"))
-        self.validator.link_attrs(self.loader, "minibatch_indices",
-                                               "minibatch_size",
-                                               "samples_by_label")
-        self.validator.link_from(self.forward)
+        if root.loader.classes:
+            self.validator = kohonen.KohonenValidator(self)
+            self.validator.link_attrs(self.trainer, "shape")
+            self.validator.link_attrs(self.forward, ("input", "output"))
+            self.validator.link_attrs(self.loader, "minibatch_indices",
+                                                   "minibatch_size",
+                                                   "samples_by_label")
+            self.validator.link_from(self.forward)
 
         # Loop decision
         self.decision = kohonen.KohonenDecision(
             self, max_epochs=root.decision.epochs)
-        self.decision.link_from(self.validator)
+        self.decision.link_from(self.validator if root.loader.classes
+                                else self.forward)
+
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "last_minibatch",
                                               "class_lengths",
@@ -224,11 +246,10 @@ class Workflow(nn_units.NNWorkflow):
         self.exporter = ResultsExporter(self, root.exporter.file)
         self.exporter.link_from(self.decision)
         self.exporter.total = self.forward.total
-        self.exporter.link_attrs(self.loader, "shuffled_indices")
+        self.exporter.link_attrs(self.loader, "shuffled_indices", "ids")
         self.exporter.gate_block = ~self.decision.complete
 
-        self.end_point.link_from(self.decision)
-        self.end_point.gate_block = ~self.decision.complete
+        self.end_point.link_from(self.exporter)
 
         self.loader.gate_block = self.decision.complete
 
@@ -237,8 +258,11 @@ class Workflow(nn_units.NNWorkflow):
                          nn_plotting_units.KohonenNeighborMap(self),
                          plotting_units.AccumulatingPlotter(
                              self, name="Weights epoch difference",
-                             plot_style="g-", redraw_plot=True),
-                         nn_plotting_units.KohonenValidationResults(self)]
+                             plot_style="g-", redraw_plot=True,
+                             clear_plot=True)]
+        if root.loader.classes:
+            self.plotters.append(
+                nn_plotting_units.KohonenValidationResults(self))
         self.plotters[0].link_attrs(self.trainer, "shape")
         self.plotters[0].link_attrs(self.decision, ("input", "winners_mem"))
         self.plotters[0].link_from(self.decision)
@@ -251,12 +275,15 @@ class Workflow(nn_units.NNWorkflow):
         self.plotters[2].link_attrs(self.decision, ("input", "weights_diff"))
         self.plotters[2].link_from(self.decision)
         self.plotters[2].gate_block = ~self.loader.epoch_ended
-        self.plotters[3].link_attrs(self.trainer, "shape")
-        self.plotters[3].link_attrs(self.validator, "result", "fitness",
-                                    "fitness_by_label", "fitness_by_neuron")
-        self.plotters[3].link_attrs(self.decision, ("input", "winners_mem"))
-        self.plotters[3].link_from(self.decision)
-        self.plotters[3].gate_block = ~self.loader.epoch_ended
+        if root.loader.classes:
+            self.plotters[3].link_attrs(self.trainer, "shape")
+            self.plotters[3].link_attrs(self.validator, "result", "fitness",
+                                        "fitness_by_label",
+                                        "fitness_by_neuron")
+            self.plotters[3].link_attrs(self.decision,
+                                        ("input", "winners_mem"))
+            self.plotters[3].link_from(self.decision)
+            self.plotters[3].gate_block = ~self.loader.epoch_ended
 
     def initialize(self, device, **kwargs):
         return super(Workflow, self).initialize(device=device)
