@@ -510,6 +510,7 @@ class Loader(OpenCLUnit):
         self.shuffled_indices.map_write()
         self.prng.shuffle(self.shuffled_indices.mem[self.class_offsets[VALID]:
                                                     self.class_offsets[TRAIN]])
+        self.debug("Shuffled TRAIN")
 
     def serve_next_minibatch(self, slave):
         try:
