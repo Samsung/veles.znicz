@@ -528,16 +528,16 @@ class KohonenDecision(TrivialDecision, decision.DecisionBase):
     """
     def __init__(self, workflow, **kwargs):
         super(KohonenDecision, self).__init__(workflow, **kwargs)
-        self.weights_mem = 0
-        self._prev_weights = 0
-        self.winners_mem = 0
+        self.weights_mem = numpy.empty(shape=(0, 0), dtype=numpy.float32)
+        self._prev_weights = numpy.empty(shape=(0, 0), dtype=numpy.float32)
+        self.winners_mem = numpy.empty(shape=(0, 0))
         self._previous_weights = None
         self.weights_min_diff = kwargs.get("weights_min_diff", 0)
         self.demand("weights", "winners")
 
     @property
     def weights_diff(self):
-        if self.weights_mem is 0:
+        if self.weights_mem.size * self._prev_weights.size == 0:
             return numpy.inf
         return numpy.linalg.norm(self.weights_mem - self._prev_weights)
 
@@ -548,8 +548,12 @@ class KohonenDecision(TrivialDecision, decision.DecisionBase):
         self.winners.map_invalidate()
 
         self._prev_weights = self.weights_mem
-        self.weights_mem = numpy.copy(self.weights.mem)
-        self.winners_mem = numpy.copy(self.winners.mem)
+        if self.weights_mem.shape != self.weights.mem.shape:
+            self.weights_mem.resize(self.weights.mem.shape, refcheck=False)
+        numpy.copyto(self.weights_mem, self.weights.mem)
+        if self.winners_mem.shape != self.winners.mem.shape:
+            self.winners_mem.resize(self.winners.mem.shape, refcheck=False)
+        numpy.copyto(self.winners_mem, self.winners.mem)
         self.winners.mem[:] = 0
 
     def train_improve_condition(self):

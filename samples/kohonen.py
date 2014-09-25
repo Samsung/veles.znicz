@@ -116,15 +116,15 @@ class Workflow(nn_units.NNWorkflow):
                          nn_plotting_units.KohonenInputMaps(self),
                          nn_plotting_units.KohonenNeighborMap(self)]
         self.plotters[0].link_attrs(self.trainer, "shape")
-        self.plotters[0].input = self.decision.winners
+        self.plotters[0].input = self.decision.winners_mem
         self.plotters[0].link_from(self.decision)
         self.plotters[0].gate_block = ~self.decision.epoch_ended
         self.plotters[1].link_attrs(self.trainer, "shape")
-        self.plotters[1].input = self.decision.weights
+        self.plotters[1].input = self.decision.weights_mem
         self.plotters[1].link_from(self.decision)
         self.plotters[1].gate_block = ~self.decision.epoch_ended
         self.plotters[2].link_attrs(self.trainer, "shape")
-        self.plotters[2].input = self.decision.weights
+        self.plotters[2].input = self.decision.weights_mem
         self.plotters[2].link_from(self.decision)
         self.plotters[2].gate_block = ~self.decision.epoch_ended
 
