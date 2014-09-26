@@ -181,7 +181,7 @@ class ArbitraryStepPolicy(object):
     """
     Creates arbitrary step function: LR1 for N iters, LR2 for next M iters, etc
 
-    For example: arbitrary_step_function_policy([(0.5, 5), (0.3, 3), (0.1, 1)]
+    For example: ArbitraryStepPolicy([(0.5, 5), (0.3, 3), (0.1, 1)])
 
     """
     def __init__(self, lrs_with_lengths):
