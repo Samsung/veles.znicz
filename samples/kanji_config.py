@@ -21,13 +21,13 @@ train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 root.update = {
     "decision": {"fail_iterations": 1000,
                  "store_samples_mse": True},
-    "loader": {"minibatch_size": 5103,
+    "loader": {"minibatch_size": 50,
                "validation_ratio": 0.15},
     "snapshotter": {"prefix": "kanji"},
     "weights_plotter": {"limit": 16},
-    "kanji": {"learning_rate": 0.0000001,
+    "kanji": {"learning_rate": 0.00001,
               "weights_decay": 0.00005,
-              "layers": [5103, 2889, 24 * 24],
+              "layers": [250, 250, 24 * 24],
               "data_paths":
               {"target":
                os.path.join(root.common.test_dataset_root,
