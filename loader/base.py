@@ -116,11 +116,12 @@ class Loader(OpenCLUnit):
         self._total_failed = 0
         self._unpickled = False
 
+        self.shuffled_indices = formats.Vector()
+
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
         self._minibatch_offset_ = 0
         self._minibatch_size_ = 0
-        self.shuffled_indices = formats.Vector()
         self.pending_minibatches_ = defaultdict(list)
         self._minibatch_serve_timestamp_ = time.time()
         self._unpickled = True
