@@ -31,27 +31,30 @@ class TestWine(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
+        root.update = {
+            "decision": {"fail_iterations": 200,
+                         "snapshot_prefix": "wine"},
+            "loader": {"minibatch_size": 10},
+            "wine_test": {"learning_rate": 0.3,
+                          "weights_decay": 0.0,
+                          "layers": [8, 3],
+                          "data_paths":
+                          os.path.join(root.common.veles_dir,
+                                       "veles/znicz/samples/wine/wine.data")}}
 
-        root.update = {"decision": {"fail_iterations": 200,
-                                    "snapshot_prefix": "wine"},
-                       "loader": {"minibatch_size": 10},
-                       "wine_test": {"learning_rate": 0.6,
-                                     "weights_decay": 0.0,
-                                     "layers":  [8, 3],
-                                     "data_paths":
-                                     os.path.join(root.common.veles_dir,
-                                                  "veles/znicz/tests/research"
-                                                  + "/wine/wine.data")}}
+        self.w = wine.Workflow(dummy_workflow.DummyWorkflow(),
+                               layers=root.wine_test.layers)
 
-        w = wine.Workflow(dummy_workflow.DummyWorkflow(),
-                          layers=root.wine_test.layers)
-        w.initialize(learning_rate=root.wine_test.learning_rate,
-                     weights_decay=root.wine_test.weights_decay,
-                     device=self.device)
-        w.run()
-        epoch = w.decision.epoch_number
+        self.assertEqual(self.w.evaluator.labels,
+                         self.w.loader.minibatch_labels)
+        self.w.initialize(learning_rate=root.wine_test.learning_rate,
+                          weights_decay=root.wine_test.weights_decay,
+                          device=self.device)
+        self.w.run()
+
+        epoch = self.w.decision.epoch_number
         logging.info("Converged in %d epochs", epoch)
-        self.assertEqual(epoch, 11)
+        self.assertEqual(epoch, 12)
         logging.info("All Ok")
 
 

@@ -8,13 +8,12 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
-import os
 import unittest
 
 from veles.config import root
-from veles.mutable import Bool
 import veles.opencl as opencl
 import veles.prng as rnd
+from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.mnist as mnist_relu
 import veles.tests.dummy_workflow as dummy_workflow
@@ -32,74 +31,69 @@ class TestMnistRelu(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        mnist_dir = os.path.join(os.path.dirname(
-            os.path.dirname(os.path.dirname(__file__))), "samples/MNIST")
-        test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
-        test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
-        train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
-        train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
         root.update = {
             "learning_rate_adjust": {"do": False},
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
-            "snapshotter": {"prefix": "mnist_test_relu"},
+            "snapshotter": {"prefix": "mnist_relu_test"},
             "loader": {"minibatch_size": 60},
-            "weights_plotter": {"limit": 64},
-            "mnist_test": {"learning_rate": 0.03,
-                           "weights_decay": 0.0,
-                           "layers":
-                           [{"type": "all2all_relu", "output_shape": 100},
-                            {"type": "softmax", "output_shape": 10}],
-                           "data_paths": {"test_images": test_image_dir,
-                                          "test_label": test_label_dir,
-                                          "train_images": train_image_dir,
-                                          "train_label": train_label_dir}}}
+            "mnistrelu_test": {"layers": [{"type": "all2all_relu",
+                                           "output_shape": 100,
+                                           "learning_rate": 0.03,
+                                           "weights_decay": 0.0,
+                                           "learning_rate_bias": 0.03,
+                                           "weights_decay_bias": 0.0,
+                                           "gradient_moment": 0.0,
+                                           "gradient_moment_bias": 0.0,
+                                           "factor_ortho": 0.001,
+                                           "weights_filling": "uniform",
+                                           "weights_stddev": 0.05,
+                                           "bias_filling": "uniform",
+                                           "bias_stddev": 0.05},
+                                          {"type": "softmax",
+                                           "output_shape": 10,
+                                           "learning_rate": 0.03,
+                                           "learning_rate_bias": 0.03,
+                                           "weights_decay": 0.0,
+                                           "weights_decay_bias": 0.0,
+                                           "gradient_moment": 0.0,
+                                           "gradient_moment_bias": 0.0,
+                                           "weights_filling": "uniform",
+                                           "weights_stddev": 0.05,
+                                           "bias_filling": "uniform",
+                                           "bias_stddev": 0.05}]}}
         self.w = mnist_relu.Workflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.mnist_test.layers,
+                                     layers=root.mnistrelu_test.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.w.snapshotter.interval = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.mnist_test.learning_rate,
-                          weights_decay=root.mnist_test.weights_decay,
-                          device=self.device)
+        self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
-        import bz2
-        import gzip
-        import lzma
-        import pickle
-
-        CODECS = {
-            ".pickle": lambda name: open(name, "rb"),
-            ".gz": lambda name: gzip.GzipFile(name, "rb"),
-            ".bz2": lambda name: bz2.BZ2File(name, "rb"),
-            ".xz": lambda name: lzma.LZMAFile(name, "rb")
-        }
-
-        codec = CODECS[os.path.splitext(file_name)[1]]
-        with codec(file_name) as fin:
-            self.w = pickle.load(fin)
-        self.assertTrue(self.w.decision.epoch_ended)
-        self.w.decision.max_epochs = None
-        self.w.decision.complete <<= False
-        self.w.snapshotter.gate_skip = Bool(True)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.mnist_test.learning_rate,
-                          weights_decay=root.mnist_test.weights_decay,
-                          device=self.device)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
-
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 359)
-        self.assertEqual(15, self.w.loader.epoch_number)
+        self.assertEqual(err, 566)
+        self.assertEqual(5, self.w.loader.epoch_number)
+
+        logging.info("Will load workflow from %s" % file_name)
+        self.wf = Snapshotter.import_(file_name)
+        self.assertTrue(self.wf.decision.epoch_ended)
+        self.wf.decision.max_epochs = None
+        self.wf.decision.complete <<= False
+        self.assertEqual(self.wf.evaluator.labels,
+                         self.wf.loader.minibatch_labels)
+        self.wf.initialize(device=self.device)
+        self.assertEqual(self.wf.evaluator.labels,
+                         self.wf.loader.minibatch_labels)
+        self.wf.run()
+
+        err = self.wf.decision.epoch_n_err[1]
+        self.assertEqual(err, 414)
+        self.assertEqual(10, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":
