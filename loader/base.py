@@ -336,7 +336,6 @@ class Loader(OpenCLUnit):
             self.shuffle()
         else:
             self._unpickled = False
-        self.shuffled_indices.initialize(device)
 
     def cpu_run(self):
         """Prepares the minibatch.
