@@ -227,7 +227,7 @@ class Workflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        """
+
         # Weights plotter
         self.plt_gd = []
         prev_channels = 3
@@ -252,7 +252,7 @@ class Workflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_gd[-1].link_from(self.decision)
             self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
-        """
+
         # Error plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
@@ -288,7 +288,7 @@ class Workflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
-        """
+
         # MultiHistogram plotter
         self.plt_multi_hist_gd = []
         for i in range(0, len(layers)):
@@ -298,20 +298,19 @@ class Workflow(StandardWorkflow):
             if layers[i].get("n_kernels") is not None:
                 self.plt_multi_hist_gd[i].link_from(self.decision)
                 self.plt_multi_hist_gd[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist_gd[i].link_attrs(self.gds[i],
-                                                ("input", "gradient_weights"))
+                self.plt_multi_hist_gd[i].link_attrs(
+                    self.gds[i], ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
             if layers[i].get("output_shape") is not None:
                 self.plt_multi_hist_gd[i].link_from(self.decision)
                 self.plt_multi_hist_gd[i].hist_number = layers[i][
                     "output_shape"]
-                self.plt_multi_hist_gd[i].link_attrs(self.gds[i],
-                                                ("input", "gradient_weights"))
+                self.plt_multi_hist_gd[i].link_attrs(
+                    self.gds[i], ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
-
-
+        """
         # Histogram plotter
         self.plt_hist = []
         for i in range(0, len(layers)):
@@ -362,13 +361,10 @@ class Workflow(StandardWorkflow):
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         device=device)
+    def initialize(self, device, **kwargs):
+        super(Workflow, self).initialize(device=device)
 
 
 def run(load, main):
     load(Workflow, layers=root.lines.layers)
-    main(learning_rate=root.lines.learning_rate,
-         weights_decay=root.lines.weights_decay)
+    main()

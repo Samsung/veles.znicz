@@ -20,17 +20,12 @@ train = os.path.join(root.common.test_dataset_root,
 valid = os.path.join(root.common.test_dataset_root,
                      "Lines/LINES_10_500_NOISY_min_valid/test")
 
-
-root.model = "lines"
-
 root.update = {"accumulator": {"bars": 30, "squash": True},
                "decision": {"fail_iterations": 100},
                "snapshotter": {"prefix": "lines"},
                "loader": {"minibatch_size": 60},
                "weights_plotter": {"limit": 32},
-               "lines": {"learning_rate": 0.0001,
-                         "weights_decay": 0.0,
-                         "layers":
+               "lines": {"layers":
                          [{"type": "conv_relu", "n_kernels": 32,
                            "kx": 11, "ky": 11,
                            "sliding": (4, 4),

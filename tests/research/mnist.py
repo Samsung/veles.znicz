@@ -11,7 +11,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 
 from veles.config import root
-from veles.genetics import Tune
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
@@ -31,42 +30,43 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-
-root.update = {  # root.defaults are in: veles.znicz.samples.mnist
-    "learning_rate_adjust": {"do": False},
+root.defaults = {
+    "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 100,
-                 "max_epochs": 1000000000},
+                 "store_samples_mse": True,
+                 "max_epochs": 10000},
     "snapshotter": {"prefix": "mnist"},
-    "loader": {"minibatch_size": Tune(60, 1, 1000)},
+    "learning_rate_adjust": {"do": False},
+    "loader": {"minibatch_size": 60},
     "weights_plotter": {"limit": 64},
-    "mnist": {"layers":
-              [{"type": "all2all_tanh", "output_shape": Tune(100, 10, 500),
-                "learning_rate": Tune(0.03, 0.0001, 0.9),
-                "weights_decay": Tune(0.0, 0.0, 0.9),
-                "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
-                "weights_decay_bias": Tune(0.0, 0.0, 0.9),
-                "gradient_moment": Tune(0.0, 0.0, 0.95),
-                "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
-                "factor_ortho": Tune(0.001, 0.0, 0.1),
-                "weights_filling": "uniform",
-                "weights_stddev": Tune(0.05, 0.0001, 0.1),
-                "bias_filling": "uniform",
-                "bias_stddev": Tune(0.05, 0.0001, 0.1)},
-               {"type": "softmax", "output_shape": 10,
-                "learning_rate": Tune(0.03, 0.0001, 0.9),
-                "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
-                "weights_decay": Tune(0.0, 0.0, 0.95),
-                "weights_decay_bias": Tune(0.0, 0.0, 0.95),
-                "gradient_moment": Tune(0.0, 0.0, 0.95),
-                "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
-                "weights_filling": "uniform",
-                "weights_stddev": Tune(0.05, 0.0001, 0.1),
-                "bias_filling": "uniform",
-                "bias_stddev": Tune(0.05, 0.0001, 0.1)}],
-              "data_paths": {"test_images":  test_image_dir,
-                             "test_label": test_label_dir,
-                             "train_images": train_image_dir,
-                             "train_label": train_label_dir}}}
+    "mnist_standard": {"layers":
+                       [{"type": "all2all_tanh", "output_shape": 100,
+                         "learning_rate": 0.03,
+                         "weights_decay": 0.0,
+                         "learning_rate_bias": 0.03,
+                         "weights_decay_bias": 0.0,
+                         "gradient_moment": 0.0,
+                         "gradient_moment_bias": 0.0,
+                         "factor_ortho": 0.001,
+                         "weights_filling": "uniform",
+                         "weights_stddev": 0.05,
+                         "bias_filling": "uniform",
+                         "bias_stddev": 0.05},
+                        {"type": "softmax", "output_shape": 10,
+                         "learning_rate": 0.03,
+                         "learning_rate_bias": 0.03,
+                         "weights_decay": 0.0,
+                         "weights_decay_bias": 0.0,
+                         "gradient_moment": 0.0,
+                         "gradient_moment_bias": 0.0,
+                         "weights_filling": "uniform",
+                         "weights_stddev": 0.05,
+                         "bias_filling": "uniform",
+                         "bias_stddev": 0.05}],
+                       "data_paths": {"test_images": test_image_dir,
+                                      "test_label": test_label_dir,
+                                      "train_images": train_image_dir,
+                                      "train_label": train_label_dir}}}
 
 
 class Workflow(StandardWorkflow):
@@ -156,8 +156,8 @@ class Workflow(StandardWorkflow):
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
+
         # Confusion matrix plotter
-        """
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
@@ -167,7 +167,7 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        """
+
         # err_y plotter
         self.plt_err_y = []
         for i in range(1, 3):
@@ -208,13 +208,10 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
-    def initialize(self, device, learning_rate, weights_decay, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         device=device)
+    def initialize(self, device, **kwargs):
+        super(Workflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist.layers)
-    main(learning_rate=root.mnist.learning_rate,
-         weights_decay=root.mnist.weights_decay)
+    load(Workflow, layers=root.mnist_standard.layers)
+    main()
