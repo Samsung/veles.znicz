@@ -34,8 +34,8 @@ class RPropAll2All(GradientDescent):
         self.bias_lrs.mem = numpy.zeros(
             shape=self.bias.mem.shape, dtype=self.bias.mem.dtype)
 
-        self.weight_lrs.initialize(self.device)
-        self.bias_lrs.initialize(self.device)
+        self.weight_lrs.initialize(self)
+        self.bias_lrs.initialize(self)
 
     def cpu_weights_update(self):
         self.input.map_read()

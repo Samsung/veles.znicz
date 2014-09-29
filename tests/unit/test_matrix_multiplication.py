@@ -84,12 +84,11 @@ class TestMatrixMultiplication(unittest.TestCase):
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
-        self.a.initialize(device)
-        self.b.initialize(device)
-        self.c.initialize(device)
-
         obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
+        self.a.initialize(obj)
+        self.b.initialize(obj)
+        self.c.initialize(obj)
         obj.cl_sources_["forward.cl"] = {}
         defines = {
             "INCLUDE_BIAS": 0,

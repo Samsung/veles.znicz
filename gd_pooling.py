@@ -99,8 +99,8 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.input.mem)
 
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
+        self.err_output.initialize(self)
+        self.err_input.initialize(self)
 
         if self.device is not None:
             GDPooling.ocl_init(self, device)
@@ -194,7 +194,7 @@ class GDMaxPooling(GDPooling):
             raise error.BadFormatError("Shape of err_output differs from "
                                        "that of input_offset")
 
-        self.input_offset.initialize(self.device)
+        self.input_offset.initialize(self)
 
         if self.device is None:
             return

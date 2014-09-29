@@ -12,7 +12,7 @@ import numpy as np
 import logging
 from veles.formats import Vector
 from veles import opencl
-from veles.znicz.tests.test_utils import read_lines_by_abspath,\
+from veles.znicz.tests.test_utils import read_lines_by_abspath, \
     read_caffe_array
 from veles.tests import DummyLauncher
 from veles.znicz.tests.research.kernels.imagenet_deconv import Workflow as \
@@ -83,10 +83,10 @@ for name in conv_names:
         newWeights = np.zeros(shape=newShape)
         for i in range(newShape[0]):
             if (i < round(weights.shape[0] / 2)):
-                newWeights[i, :, :, 0: weights.shape[3]][:] =\
+                newWeights[i, :, :, 0: weights.shape[3]][:] = \
                     weights[i, :, :, :][:]
             else:
-                newWeights[i, :, :, weights.shape[3]:][:] =\
+                newWeights[i, :, :, weights.shape[3]:][:] = \
                     weights[i, :, :, :][:]
         weights = newWeights
     wfl[name].weights.map_invalidate()
@@ -94,9 +94,9 @@ for name in conv_names:
     wfl[name].bias.map_invalidate()
     wfl[name].bias.mem[:] = bias.reshape(wfl[name].bias.mem.shape)[:]
     logging.info("weights were initialized for %s successfully" % name)
-    #it is necessary to add bias in deconv
+    # it is necessary to add bias in deconv
     inp = Vector(wfl[name].bias.mem[:])
-    inp.initialize(device)
+    inp.initialize(wfl["deconv2"])
     wfl[deconv_names[name]].bias = inp
 
 wfl.run()

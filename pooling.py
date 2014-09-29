@@ -115,9 +115,9 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
 
         self.create_output()
 
-        self.input.initialize(self.device)
+        self.input.initialize(self)
         if not self._no_output:
-            self.output.initialize(self.device)
+            self.output.initialize(self)
 
         if self.device is not None:
             Pooling.ocl_init(self, device)
@@ -215,7 +215,7 @@ class OffsetPooling(Pooling):
                                                 dtype=numpy.int32)
 
         if not self._no_output:
-            self.input_offset.initialize(self.device)
+            self.input_offset.initialize(self)
 
     def set_args(self, *args):
         super(OffsetPooling, self).set_args(self.input, self.output,

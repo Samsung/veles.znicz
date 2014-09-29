@@ -20,6 +20,11 @@ from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit import TrivialOpenCLUnit
 
 
+class DummyUnit(object):
+    def __init__(self, device=None):
+        self.device = device
+
+
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
@@ -77,8 +82,9 @@ class TestMatrixReduce(unittest.TestCase):
 
         t = numpy.array([12, 9, 6], dtype=dtype)
 
-        a.initialize(self.device)
-        b.initialize(self.device)
+        unit = DummyUnit(self.device)
+        a.initialize(unit)
+        b.initialize(unit)
 
         for reduce_size in range(1, 11):
             krn = self._build_program(a, b, a.mem.shape[1],
@@ -114,8 +120,9 @@ class TestMatrixReduce(unittest.TestCase):
         b = formats.Vector()
         b.mem = numpy.ones(numpy.max(a.mem.shape) * 2, dtype=dtype)
 
-        a.initialize(self.device)
-        b.initialize(self.device)
+        unit = DummyUnit(self.device)
+        a.initialize(unit)
+        b.initialize(unit)
 
         for reduce_size in range(4, 64, 1):
             logging.info("reduce_size = %d", reduce_size)

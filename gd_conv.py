@@ -127,7 +127,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 sh = list(sh)
                 sh[0] <<= 1
                 self.err_input.mem = numpy.zeros(sh, dtype=dtype)
-                self.err_input.initialize(device)
+                self.err_input.initialize(self)
                 self.err_input.map_write()
                 self.err_input.vv = self.err_input.mem
                 sh[0] >>= 1
@@ -149,16 +149,16 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_bias.reset()
             self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
 
-        self.weights.initialize(device)
+        self.weights.initialize(self)
         if self.include_bias:
-            self.bias.initialize(device)
-        self.output.initialize(device)
-        self.input.initialize(device)
-        self.err_output.initialize(device)
-        self.err_input.initialize(device)
+            self.bias.initialize(self)
+        self.output.initialize(self)
+        self.input.initialize(self)
+        self.err_output.initialize(self)
+        self.err_input.initialize(self)
         if self.store_gradient:
-            self.gradient_weights.initialize(device)
-            self.gradient_bias.initialize(device)
+            self.gradient_weights.initialize(self)
+            self.gradient_bias.initialize(self)
 
         if device is not None:
             GradientDescentConv.ocl_init(self, device)
@@ -179,7 +179,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             if not self.col_sums or self.col_sums.size < other:
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-            self.col_sums.initialize(self.device)
+            self.col_sums.initialize(self)
         self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
 
         defines = {

@@ -150,15 +150,15 @@ class GDDeconv(nn_units.GradientDescentBase):
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
 
-        self.weights.initialize(device)
-        self.input.initialize(device)
-        self.err_output.initialize(device)
+        self.weights.initialize(self)
+        self.input.initialize(self)
+        self.err_output.initialize(self)
         if self.need_err_input:
-            self.err_input.initialize(device)
+            self.err_input.initialize(self)
         if self.store_gradient:
-            self.gradient_weights.initialize(device)
+            self.gradient_weights.initialize(self)
         if self.hits:
-            self.hits.initialize(device)
+            self.hits.initialize(self)
 
         if device is not None:
             GDDeconv.ocl_init(self, device)
@@ -178,7 +178,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
         if self.factor_ortho:
-            self.col_sums.initialize(self.device)
+            self.col_sums.initialize(self)
         self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
 
         defines = {

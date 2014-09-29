@@ -138,10 +138,10 @@ class All2All(nn_units.Forward):
                 [self.input.mem.shape[0]] + output_shape,
                 dtype=self.input.mem.dtype)
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
+        self.input.initialize(self)
+        self.output.initialize(self)
+        self.weights.initialize(self)
+        self.bias.initialize(self)
 
         if self.device is not None:
             All2All.ocl_init(self, device)
@@ -312,7 +312,7 @@ class All2AllSoftmax(All2All):
                                            dtype=numpy.int32)
             self.max_idx.devmem = None
 
-        self.max_idx.initialize(self.device)
+        self.max_idx.initialize(self)
 
         if self.device is None:
             return

@@ -46,8 +46,8 @@ class EvaluatorBase(OpenCLUnit):
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
                                               dtype=dtype)
 
-        self.output.initialize(self.device)
-        self.err_output.initialize(self.device)
+        self.output.initialize(self)
+        self.err_output.initialize(self)
 
 
 @implementer(IOpenCLUnit)
@@ -121,11 +121,11 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             self.max_err_output_sum.reset()
             self.max_err_output_sum.mem = numpy.zeros(1, dtype=dtype)
 
-        self.confusion_matrix.initialize(self.device)
-        self.n_err.initialize(self.device)
-        self.max_idx.initialize(self.device)
-        self.labels.initialize(self.device)
-        self.max_err_output_sum.initialize(self.device)
+        self.confusion_matrix.initialize(self)
+        self.n_err.initialize(self)
+        self.max_idx.initialize(self)
+        self.labels.initialize(self)
+        self.max_err_output_sum.initialize(self)
 
         if self.device is not None:
             EvaluatorSoftmax.ocl_init(self, device)
@@ -281,13 +281,13 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.n_err.reset()
             self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
             self.cl_sources_["mse_find_closest.cl"] = {}
-            self.class_targets.initialize(self.device)
-            self.labels.initialize(self.device)
-            self.n_err.initialize(self.device)
+            self.class_targets.initialize(self)
+            self.labels.initialize(self)
+            self.n_err.initialize(self)
 
-        self.target.initialize(self.device)
-        self.metrics.initialize(self.device)
-        self.mse.initialize(self.device)
+        self.target.initialize(self)
+        self.metrics.initialize(self)
+        self.mse.initialize(self)
 
         if not self.device:
             return

@@ -135,7 +135,7 @@ class Conv(nn_units.Forward):
                 output_shape[0] <<= 1
                 self.output.mem = numpy.zeros(output_shape,
                                               dtype=self.input.mem.dtype)
-                self.output.initialize(device)
+                self.output.initialize(self)
                 self.output.map_write()
                 self.output.vv = self.output.mem
                 output_shape[0] >>= 1
@@ -148,10 +148,10 @@ class Conv(nn_units.Forward):
         del output_size
         del output_shape
 
-        self.input.initialize(device)
-        self.output.initialize(device)
-        self.weights.initialize(device)
-        self.bias.initialize(device)
+        self.input.initialize(self)
+        self.output.initialize(self)
+        self.weights.initialize(self)
+        self.bias.initialize(self)
 
         if device is not None:
             Conv.ocl_init(self, device)
@@ -301,7 +301,7 @@ class Conv(nn_units.Forward):
                 self.info("Unit test mode: allocating 2x memory for weights")
                 self.weights.mem = numpy.zeros(n_weights * 2,
                                                dtype=self.input.mem.dtype)
-                self.weights.initialize(self.device)
+                self.weights.initialize(self)
                 self.weights.map_write()
                 self.weights.vv = self.weights.mem
                 self.weights.mem = self.weights.vv[:n_weights]

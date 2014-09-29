@@ -31,8 +31,8 @@ class ActivationForward(Forward, Activation):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
-        self.input.initialize(device)
-        self.output.initialize(device)
+        self.input.initialize(self)
+        self.output.initialize(self)
 
         if device is not None:
             ActivationForward.ocl_init(self, device)
@@ -70,10 +70,10 @@ class ActivationBackward(GradientDescentBase, Activation):
             self.err_input.mem = numpy.zeros_like(self.err_output.mem)
 
         if self.input is not None:
-            self.input.initialize(device)
-        self.output.initialize(device)
-        self.err_output.initialize(device)
-        self.err_input.initialize(device)
+            self.input.initialize(self)
+        self.output.initialize(self)
+        self.err_output.initialize(self)
+        self.err_input.initialize(self)
 
         if device is not None:
             ActivationBackward.ocl_init(self, device)

@@ -62,9 +62,9 @@ class Depooling(nn_units.Forward):
             self.output.mem = numpy.zeros(self.get_output_shape_from.shape,
                                           dtype=self.input.dtype)
 
-        self.input.initialize(self.device)
-        self.output_offset.initialize(self.device)
-        self.output.initialize(self.device)
+        self.input.initialize(self)
+        self.output_offset.initialize(self)
+        self.output.initialize(self)
 
         if self.device is not None:
             Depooling.ocl_init(self, device)

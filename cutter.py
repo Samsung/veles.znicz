@@ -68,8 +68,8 @@ class Cutter(nn_units.Forward):
             self.output.reset()
             self.output.mem = numpy.zeros(sh, dtype=self.input.dtype)
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
+        self.input.initialize(self)
+        self.output.initialize(self)
 
         self._src_origin = (
             self.padding[0] * self.input.shape[3] * self.input.itemsize,
@@ -145,8 +145,8 @@ class GDCutter(nn_units.GradientDescentBase):
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.input.mem)
 
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
+        self.err_output.initialize(self)
+        self.err_input.initialize(self)
 
         self._dst_origin = (
             self.padding[0] * self.input.shape[3] * self.input.itemsize,

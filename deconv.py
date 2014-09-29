@@ -152,7 +152,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             if root.common.unit_test:
                 output_shape[0] <<= 1
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
-                self.output.initialize(device)
+                self.output.initialize(self)
                 self.output.map_write()
                 self.output.vv = self.output.mem
                 output_shape[0] >>= 1
@@ -164,10 +164,10 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         else:
             self.output.mem.shape = output_shape
 
-        self.input.initialize(device)
-        self.weights.initialize(device)
-        self.output.initialize(device)
-        self.hits.initialize(device)
+        self.input.initialize(self)
+        self.weights.initialize(self)
+        self.output.initialize(self)
+        self.hits.initialize(self)
 
         if device is not None:
             Deconv.ocl_init(self, device)

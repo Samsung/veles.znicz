@@ -81,8 +81,8 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
         self.output.mem = np.zeros(shape=self.input.mem.shape,
                                    dtype=self.input.mem.dtype)
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
+        self.input.initialize(self)
+        self.output.initialize(self)
 
         self._num_of_chans = self.input.mem.shape[3]
 
@@ -151,9 +151,9 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
         self.err_input.mem = np.zeros(self.err_output.mem.shape,
                                       dtype=self.err_output.mem.dtype)
 
-        self.err_output.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_input.initialize(self.device)
+        self.err_output.initialize(self)
+        self.input.initialize(self)
+        self.err_input.initialize(self)
 
         self._num_of_chans = self.input.mem.shape[3]
 

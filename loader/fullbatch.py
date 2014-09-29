@@ -98,17 +98,17 @@ class FullBatchLoader(Loader):
 
         self.info("Will load entire dataset on device")
 
-        self.original_data.initialize(self.device)
-        self.minibatch_data.initialize(self.device)
+        self.original_data.initialize(self)
+        self.minibatch_data.initialize(self)
         if self.original_labels:
-            self.original_labels.initialize(self.device)
-            self.minibatch_labels.initialize(self.device)
+            self.original_labels.initialize(self)
+            self.minibatch_labels.initialize(self)
 
         if not self.shuffled_indices:
             self.shuffled_indices.mem = numpy.arange(
                 self.total_samples, dtype=numpy.int32)
-        self.shuffled_indices.initialize(self.device)
-        self.minibatch_indices.initialize(self.device)
+        self.shuffled_indices.initialize(self)
+        self.minibatch_indices.initialize(self)
 
         defines = {
             "LABELS": int(self.original_labels.mem is not None),
@@ -220,8 +220,8 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
         if not self.on_device or self.device is None:
             return
 
-        self.original_targets.initialize(self.device)
-        self.minibatch_targets.initialize(self.device)
+        self.original_targets.initialize(self)
+        self.minibatch_targets.initialize(self)
 
         self._kernel_target_ = self.get_kernel("fill_minibatch_target")
         self._kernel_target_.set_args(

@@ -118,15 +118,15 @@ class KohonenForward(KohonenBase, OpenCLUnit):
 
     def ocl_init(self, device):
         batch_size = self.input.mem.shape[0]
-        self.output.initialize(self.device)
+        self.output.initialize(self)
         if self.argmins is None:
-            self.input.initialize(self.device)
-            self.weights.initialize(self.device)
-            self._distances.initialize(device)
+            self.input.initialize(self)
+            self.weights.initialize(self)
+            self._distances.initialize(self)
         elif self.total is None:
             return
         if self.total is not None:
-            self.total.initialize(self.device)
+            self.total.initialize(self)
 
         copy_chunk_size = int(numpy.ceil(batch_size /
                                          self.device.max_group_size))
@@ -379,12 +379,12 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
             KohonenTrainer.ocl_init(self, device)
 
     def ocl_init(self, device):
-        self.input.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.winners.initialize(self.device)
-        self.argmins.initialize(self.device)
-        self._distances.initialize(self.device)
-        self._coords.initialize(self.device)
+        self.input.initialize(self)
+        self.weights.initialize(self)
+        self.winners.initialize(self)
+        self.argmins.initialize(self)
+        self._distances.initialize(self)
+        self._coords.initialize(self)
 
         batch_size = self.input.mem.shape[0]
         block_size = self.device.device_info.BLOCK_SIZE[

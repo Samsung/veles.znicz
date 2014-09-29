@@ -88,7 +88,7 @@ class InputJoiner(OpenCLUnit):
         else:
             self.output.mem = formats.reshape(self.output.mem, sh)
 
-        self.output.initialize(self.device)
+        self.output.initialize(self)
 
         if self.device is not None:
             InputJoiner.ocl_init(self, device)

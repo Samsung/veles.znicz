@@ -79,10 +79,10 @@ class DropoutForward(Forward, Dropout):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
-        self.input.initialize(device)
-        self.output.initialize(device)
-        self.states.initialize(device)
-        self.mask.initialize(device)
+        self.input.initialize(self)
+        self.output.initialize(self)
+        self.states.initialize(self)
+        self.mask.initialize(self)
 
         if device is not None:
             DropoutForward.ocl_init(self, device)
@@ -154,8 +154,8 @@ class DropoutBackward(GradientDescentBase, Dropout):
         if self.device is None:
             return  # if is master
 
-        self.err_output.initialize(device)
-        self.err_input.initialize(device)
+        self.err_output.initialize(self)
+        self.err_input.initialize(self)
 
         if device is not None:
             DropoutBackward.ocl_init(self, device)
