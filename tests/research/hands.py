@@ -134,7 +134,7 @@ class Workflow(nn_units.NNWorkflow):
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDSM(self, device=device)
-        self.gds[-1].link_from(self.decision)
+        self.gds[-1].link_from(self.snapshotter)
         self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")
@@ -152,7 +152,7 @@ class Workflow(nn_units.NNWorkflow):
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
 
-        self.end_point.link_from(self.decision)
+        self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete

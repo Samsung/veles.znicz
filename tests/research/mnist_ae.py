@@ -39,13 +39,17 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                               "store_samples_mse": True},
                  "snapshotter": {"prefix": "mnist"},
                  "loader": {"minibatch_size": 100},
-                 "mnist": {"learning_rate": 0.03,
-                           "weights_decay": 0.0,
-                           "layers": [100, 10],
-                           "data_paths": {"test_images": test_image_dir,
-                                          "test_label": test_label_dir,
-                                          "train_images": train_image_dir,
-                                          "train_label": train_label_dir}}}
+                 "mnist_ae": {"learning_rate": 0.000001,
+                              "weights_decay": 0.00005,
+                              "gradient_moment": 0.00001,
+                              "n_kernels": 5,
+                              "kx": 5,
+                              "ky": 5,
+                              "layers": [100, 10],
+                              "data_paths": {"test_images": test_image_dir,
+                                             "test_label": test_label_dir,
+                                             "train_images": train_image_dir,
+                                             "train_label": train_label_dir}}}
 
 
 class Loader(MNISTLoader):
@@ -68,14 +72,8 @@ class Workflow(nn_units.NNWorkflow):
                              on_device=True)
         self.loader.link_from(self.repeater)
 
-        LR = 0.000001
-        WD = 0.00005
-        GM = 0.00001
-        KX = 5
-        KY = 5
-        N_KERNELS = 5
-
-        unit = conv.Conv(self, n_kernels=N_KERNELS, kx=KX, ky=KY,
+        unit = conv.Conv(self, n_kernels=root.mnist_ae.n_kernels,
+                         kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
                          weights_filling="uniform", include_bias=False)
         unit.link_from(self.loader)
         unit.link_attrs(self.loader, ("input", "minibatch_data"))
@@ -94,7 +92,8 @@ class Workflow(nn_units.NNWorkflow):
         self.depool = unit
 
         unit = deconv.Deconv(
-            self, n_kernels=N_KERNELS, kx=KX, ky=KY,
+            self, n_kernels=root.mnist_ae.n_kernels,
+            kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
             sliding=self.conv.sliding, padding=self.conv.padding,
             unsafe_padding=True)
         self.deconv = unit
@@ -136,9 +135,12 @@ class Workflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         unit = gd_deconv.GDDeconv(
-            self, n_kernels=N_KERNELS, kx=KX, ky=KY,
+            self, n_kernels=root.mnist_ae.n_kernels,
+            kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
             sliding=self.conv.sliding, padding=self.conv.padding,
-            learning_rate=LR, weights_decay=WD, gradient_moment=GM)
+            learning_rate=root.mnist_ae.learning_rate,
+            weights_decay=root.mnist_ae.weights_decay,
+            gradient_moment=root.mnist_ae.gradient_moment)
         self.gd_deconv = unit
         unit.link_attrs(self.evaluator, "err_output")
         unit.link_attrs(self.deconv, "weights", "input", "hits")
@@ -168,7 +170,7 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="Weights", limit=64)
         self.plt_mx.link_attrs(self.conv, ("input", "weights"))
-        self.plt_mx.get_shape_from = [KX, KY, 1]
+        self.plt_mx.get_shape_from = [root.mnist_ae.kx, root.mnist_ae.ky, 1]
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(prev)
         self.plt_mx.gate_skip = ~self.decision.epoch_ended
@@ -189,7 +191,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_out = nn_plotting_units.Weights2D(
             self, name="First Layer Output", limit=64)
         self.plt_out.link_attrs(self.conv, ("input", "output"))
-        self.plt_out.get_shape_from = [28 - KX + 1, 28 - KY + 1, N_KERNELS]
+        self.plt_out.get_shape_from = [
+            28 - root.mnist_ae.kx + 1,
+            28 - root.mnist_ae.ky + 1, root.mnist_ae.n_kernels]
         self.plt_out.input_field = "mem"
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
@@ -210,5 +214,5 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist.layers)
+    load(Workflow, layers=root.mnist_ae.layers)
     main()
