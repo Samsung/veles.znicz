@@ -19,7 +19,7 @@ import veles.znicz.tests.research.mnist_ae as mnist_ae
 import veles.tests.dummy_workflow as dummy_workflow
 
 
-class TestMnist(unittest.TestCase):
+class TestMnistAE(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
@@ -58,7 +58,7 @@ class TestMnist(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.96055411251671008)
+        self.assertAlmostEqual(avg_mse, 0.96055411251671008, places=6)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -70,7 +70,7 @@ class TestMnist(unittest.TestCase):
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.9494617286881476)
+        self.assertAlmostEqual(avg_mse, 0.9494617286881476, places=6)
         self.assertEqual(20, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
