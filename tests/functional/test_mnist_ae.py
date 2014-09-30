@@ -35,9 +35,6 @@ class TestMnist(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
-                                        root.common.veles_dir,
-                                        dtype=numpy.uint32, count=1024))
         root.update = {
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 20,
@@ -56,17 +53,12 @@ class TestMnist(unittest.TestCase):
                                    layers=root.mnist_ae_test.layers,
                                    device=self.device)
         self.w.decision.max_epochs = 5
-        #self.w.snapshotter.interval = 0
-        #self.assertEqual(self.w.evaluator.labels,
-        #                 self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)
-        #self.assertEqual(self.w.evaluator.labels,
-        #                 self.w.loader.minibatch_labels)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.959566)
+        self.assertEqual(avg_mse, 0.96055411251671008)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -74,15 +66,11 @@ class TestMnist(unittest.TestCase):
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 20
         self.wf.decision.complete <<= False
-        #self.assertEqual(self.wf.evaluator.labels,
-        #                 self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device)
-        #self.assertEqual(self.wf.evaluator.labels,
-        #                 self.wf.loader.minibatch_labels)
         self.wf.run()
 
-        avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.873293)
+        avg_mse = self.wf.decision.epoch_metrics[1][0]
+        self.assertEqual(avg_mse, 0.9494617286881476)
         self.assertEqual(20, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

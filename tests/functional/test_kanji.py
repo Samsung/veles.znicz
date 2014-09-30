@@ -77,9 +77,9 @@ class TestKanji(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 12902)
+        self.assertEqual(err, 12883)
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.443213)
+        self.assertEqual(avg_mse, 0.44323108157635882)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -91,14 +91,16 @@ class TestKanji(unittest.TestCase):
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
                            learning_rate=root.kanji_test.learning_rate,
-                           weights_decay=root.kanji_test.weights_decay)
+                           weights_decay=root.kanji_test.weights_decay,
+                           minibatch_size=root.loader.minibatch_size,
+                           weights=None, bias=None)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 12415)
-        avg_mse = self.w.decision.epoch_metrics[1][0]
+        avg_mse = self.wf.decision.epoch_metrics[1][0]
         self.assertEqual(avg_mse, 0.437766)
         self.assertEqual(20, self.wf.loader.epoch_number)
         logging.info("All Ok")
