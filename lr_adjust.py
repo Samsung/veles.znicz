@@ -66,16 +66,12 @@ class LearningRateAdjust(Unit):
                 if gd_unit.learning_rate != lr:
                     if not notified:
                         notified = True
-                        self.info("LR: %.4e => %.4e",
-                                  gd_unit.learning_rate, lr)
                     gd_unit.learning_rate = lr
             if bias_lr_func is not None:
                 lr = float(bias_lr_func(self._minibatches_count))
                 if gd_unit.learning_rate_bias != lr:
                     if not notified:
                         notified = True
-                        self.info("LRB: %.4e => %.4e",
-                                  gd_unit.learning_rate_bias, lr)
                     gd_unit.learning_rate_bias = lr
 
         self._minibatches_count += 1
