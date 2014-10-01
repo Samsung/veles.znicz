@@ -46,13 +46,12 @@ class TestKohonen(unittest.TestCase):
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}}
 
         self.w = kohonen.Workflow(dummy_workflow.DummyWorkflow(),
-                                  layers=root.lines_test.layers,
                                   device=self.device)
         self.w.initialize(device=self.device)
         self.w.run()
 
         diff = self.w.decision.weights_diff
-        self.assertEqual(diff, 0.00057525720324055766)
+        self.assertAlmostEqual(diff, 0.00057525720324055766, places=10)
         self.assertEqual(160, self.w.loader.epoch_number)
         logging.info("All Ok")
 

@@ -79,7 +79,7 @@ class TestKanji(unittest.TestCase):
         err = self.w.decision.epoch_n_err[1]
         self.assertEqual(err, 12883)
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.44323108157635882)
+        self.assertAlmostEqual(avg_mse, 0.44323108157635882, places=7)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -101,7 +101,7 @@ class TestKanji(unittest.TestCase):
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 12415)
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertEqual(avg_mse, 0.437766)
+        self.assertAlmostEqual(avg_mse, 0.437766, places=6)
         self.assertEqual(20, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
