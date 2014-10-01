@@ -26,15 +26,15 @@ import veles.znicz.loader as loader
 
 root.common.defaults = {"plotters_disabled": True}
 
-root.defaults = {"decision": {"fail_iterations": 200},
-                 "snapshotter": {"prefix": "wine"},
-                 "loader": {"minibatch_size": 10},
-                 "wine": {"learning_rate": 0.3,
-                          "weights_decay": 0.0,
-                          "layers": [8, 3],
-                          "data_paths":
-                          os.path.join(root.common.veles_dir,
-                                       "veles/znicz/samples/wine/wine.data")}}
+root.wine.update({
+    "decision": {"fail_iterations": 200},
+    "snapshotter": {"prefix": "wine"},
+    "loader": {"minibatch_size": 10},
+    "learning_rate": 0.3,
+    "weights_decay": 0.0,
+    "layers": [8, 3],
+    "data_paths": os.path.join(root.common.veles_dir,
+                               "veles/znicz/samples/wine/wine.data")})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -86,9 +86,9 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = WineLoader(self,
-                                 minibatch_size=root.loader.minibatch_size,
-                                 on_device=True)
+        self.loader = WineLoader(
+            self, minibatch_size=root.wine.loader.minibatch_size,
+            on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -120,7 +120,7 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.wine.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -132,9 +132,9 @@ class WineWorkflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir,
-                                         compress="", time_interval=0)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.wine.snapshotter.prefix,
+            directory=root.common.snapshot_dir, compress="", time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

@@ -38,17 +38,18 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.defaults = {"decision": {"fail_iterations": 25},
-                 "snapshotter": {"prefix": "mnist7"},
-                 "loader": {"minibatch_size": 60},
-                 "weights_plotter": {"limit": 25},
-                 "mnist7": {"learning_rate": 0.0000016,
-                            "weights_decay": 0.00005,
-                            "layers": [100, 100, 7],
-                            "data_paths": {"test_images": test_image_dir,
-                                           "test_label": test_label_dir,
-                                           "train_images": train_image_dir,
-                                           "train_label": train_label_dir}}}
+root.mnist7.update({
+    "decision": {"fail_iterations": 25},
+    "snapshotter": {"prefix": "mnist7"},
+    "loader": {"minibatch_size": 60},
+    "weights_plotter": {"limit": 25},
+    "learning_rate": 0.0000016,
+    "weights_decay": 0.00005,
+    "layers": [100, 100, 7],
+    "data_paths": {"test_images": test_image_dir,
+                   "test_label": test_label_dir,
+                   "train_images": train_image_dir,
+                   "train_label": train_label_dir}})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -123,13 +124,12 @@ class Mnist7Loader(loader.FullBatchLoaderMSE):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        #super(Loader, self).load_data()
         self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
         self.original_data.mem = numpy.zeros([70000, 28, 28],
                                              dtype=numpy.float32)
 
         self.load_original(0, 10000, root.mnist7.data_paths.test_label,
-                           root.mnist7.data_paths.test_images)
+                           root.mnist7.mnist7.data_paths.test_images)
         self.load_original(10000, 60000,
                            root.mnist7.data_paths.train_label,
                            root.mnist7.data_paths.train_images)
@@ -171,7 +171,8 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Mnist7Loader(
-            self, minibatch_size=root.loader.minibatch_size, on_device=True)
+            self, minibatch_size=root.mnist7.loader.minibatch_size,
+            on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -202,8 +203,8 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations,
-            store_samples_mse=root.decision.store_samples_mse)
+            self, fail_iterations=root.mnist7.decision.fail_iterations,
+            store_samples_mse=root.mnist7.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -216,8 +217,9 @@ class Mnist7Workflow(nn_units.NNWorkflow):
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.mnist7.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -280,7 +282,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # """
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
-            limit=root.weights_plotter.limit)
+            limit=root.mnist7.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))

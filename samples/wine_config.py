@@ -18,14 +18,14 @@ import veles.prng as rnd
 
 root.common.update = {"plotters_disabled": True}
 
-root.update = {"decision": {"fail_iterations": 200,
-                            "snapshot_prefix": "wine"},
-               "loader": {"minibatch_size": 10,
-                          "rnd": rnd.get(),
-                          "view_group": "LOADER"},
-               "wine": {"learning_rate": 0.3,
-                        "weights_decay": 0.0,
-                        "layers": [8, 3],
-                        "data_paths":
-                        os.path.join(root.common.veles_dir,
-                                     "veles/znicz/samples/wine/wine.data")}}
+root.wine.update({
+    "decision": {"fail_iterations": 200,
+                 "snapshot_prefix": "wine"},
+    "loader": {"minibatch_size": 10,
+               "rnd": rnd.get(),
+               "view_group": "LOADER"},
+    "learning_rate": 0.3,
+    "weights_decay": 0.0,
+    "layers": [8, 3],
+    "data_paths":
+    os.path.join(root.common.veles_dir, "veles/znicz/samples/wine/wine.data")})

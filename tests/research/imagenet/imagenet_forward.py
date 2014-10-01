@@ -28,16 +28,16 @@ from veles.znicz.tests.research.imagenet.forward_bbox import \
     merge_bboxes_by_dict, postprocess_bboxes_of_the_same_label
 
 
-root.defaults = {
+root.imagenet_forward.update({
     "loader": {"year": "DET_dataset",
                "series": "DET",
                "path": "/data/veles/datasets/imagenet",
                "path_to_bboxes":
                "/data/veles/datasets/imagenet/raw_bboxes/"
                "raw_bboxes_det_test_npics_40152.4.pickle",
-               #"/data/veles/datasets/imagenet/final_jsons
-               #/raw_json/need_final_good/"
-               #"result_final_11762_12622_raw_DET_dataset_DET_test_1.json",
+               # "/data/veles/datasets/imagenet/final_jsons
+               # /raw_json/need_final_good/"
+               # "result_final_11762_12622_raw_DET_dataset_DET_test_1.json",
                "min_index": 0,
                "max_index": 0,
                "angle_step_final": numpy.pi / 12,
@@ -46,9 +46,9 @@ root.defaults = {
                "angle_step_merge": 1,
                "max_angle_merge": 0,
                "min_angle_merge": 0,
-               #"angle_step_merge": numpy.pi / 12,
-               #"max_angle_merge": numpy.pi / 12,
-               #"min_angle_merge": (-numpy.pi / 12),
+               # "angle_step_merge": numpy.pi / 12,
+               # "max_angle_merge": numpy.pi / 12,
+               # "min_angle_merge": (-numpy.pi / 12),
                "minibatch_size": 32,
                "only_this_file": "000000",
                "raw_bboxes_min_area": 256,
@@ -72,11 +72,13 @@ root.defaults = {
                     '/data/veles/datasets/imagenet/temp/216_pool/'
                     'label_compatibility.4.pickle',
                     "use_compatibility": True}
-}
+})
 
-#root.result_path = root.result_path % (
-#    root.loader.min_index, root.loader.max_index,
-#    root.loader.year, root.loader.series)
+# root.imagenet_forward.result_path = root.imagenet_forward.result_path % (
+#     root.imagenet_forward.loader.min_index,
+#     root.imagenet_forward.loader.max_index,
+#     root.imagenet_forward.loader.year,
+#     root.imagenet_forward.loader.series)
 
 
 @implementer(IUnit)
@@ -259,8 +261,8 @@ class ImagenetForward(OpenCLWorkflow):
     def __init__(self, workflow, **kwargs):
         super(ImagenetForward, self).__init__(workflow, **kwargs)
         sys.path.append(os.path.dirname(__file__))
-        self.info("Importing %s...", root.trained_workflow)
-        train_wf = Snapshotter.import_(root.trained_workflow)
+        self.info("Importing %s...", root.imagenet_forward.trained_workflow)
+        train_wf = Snapshotter.import_(root.imagenet_forward.trained_workflow)
         self.info("Loaded workflow %s" % train_wf)
         gc.collect()
         units_to_remove = []
@@ -276,19 +278,24 @@ class ImagenetForward(OpenCLWorkflow):
         self.repeater = Repeater(self)
         self.repeater.link_from(self.start_point)
 
+        min_area = root.imagenet_forward.loader.raw_bboxes_min_area
+        min_size = root.imagenet_forward.loader.raw_bboxes_min_size
+        min_area_ratio = root.imagenet_forward.loader.raw_bboxes_min_area_ratio
+        min_size_ratio = root.imagenet_forward.loader.raw_bboxes_min_size_ratio
+
         self.loader = ImagenetForwardLoaderBbox(
             self,
-            bboxes_file_name=root.loader.path_to_bboxes,
-            min_index=root.loader.min_index,
-            max_index=root.loader.max_index,
-            angle_step=root.loader.angle_step_merge,
-            max_angle=root.loader.max_angle_merge,
-            min_angle=root.loader.min_angle_merge,
-            only_this_file=root.loader.only_this_file,
-            raw_bboxes_min_area=root.loader.raw_bboxes_min_area,
-            raw_bboxes_min_size=root.loader.raw_bboxes_min_size,
-            raw_bboxes_min_area_ratio=root.loader.raw_bboxes_min_area_ratio,
-            raw_bboxes_min_size_ratio=root.loader.raw_bboxes_min_size_ratio)
+            bboxes_file_name=root.imagenet_forward.loader.path_to_bboxes,
+            min_index=root.imagenet_forward.loader.min_index,
+            max_index=root.imagenet_forward.loader.max_index,
+            angle_step=root.imagenet_forward.loader.angle_step_merge,
+            max_angle=root.imagenet_forward.loader.max_angle_merge,
+            min_angle=root.imagenet_forward.loader.min_angle_merge,
+            only_this_file=root.imagenet_forward.loader.only_this_file,
+            raw_bboxes_min_area=min_area,
+            raw_bboxes_min_size=min_size,
+            raw_bboxes_min_area_ratio=min_area_ratio,
+            raw_bboxes_min_size_ratio=min_size_ratio)
         self.loader.link_from(self.repeater)
         self.loader.gate_block = self.loader.ended
 
@@ -298,8 +305,9 @@ class ImagenetForward(OpenCLWorkflow):
             self.fwds.append(fwd)
         del train_wf.fwds[:]
 
+        minibatch_size = root.imagenet_forward.loader.minibatch_size
         self.loader.entry_shape = list(self.fwds[0].input.shape)
-        self.loader.entry_shape[0] = root.loader.minibatch_size
+        self.loader.entry_shape[0] = minibatch_size
         self.meandispnorm = train_wf.meandispnorm
         self.meandispnorm.workflow = self
         self.meandispnorm.link_from(self.loader)
@@ -309,28 +317,37 @@ class ImagenetForward(OpenCLWorkflow):
         self.fwds[0].link_attrs(self.meandispnorm, ("input", "output"))
 
         lc_probability_threshold = \
-            root.mergebboxes.last_chance_probability_threshold
+            root.imagenet_forward.mergebboxes.last_chance_probability_threshold
+
+        pr_threshold = root.imagenet_forward.mergebboxes.probability_threshold
+        labels_comp = root.imagenet_forward.mergebboxes.labels_compatibility
+        use_comp = root.imagenet_forward.mergebboxes.use_compatibility
+
         self.mergebboxes = MergeBboxes(
-            self, save_raw_file_name=root.mergebboxes.raw_path % (
-                root.loader.min_index, root.loader.max_index, root.loader.year,
-                root.loader.series, best_protocol),
-            ignore_negative=root.mergebboxes.ignore_negative,
-            max_per_class=root.mergebboxes.max_per_class,
-            probability_threshold=root.mergebboxes.probability_threshold,
+            self,
+            save_raw_file_name=root.imagenet_forward.mergebboxes.raw_path % (
+                root.imagenet_forward.loader.min_index,
+                root.imagenet_forward.loader.max_index,
+                root.imagenet_forward.loader.year,
+                root.imagenet_forward.loader.series, best_protocol),
+            ignore_negative=root.imagenet_forward.mergebboxes.ignore_negative,
+            max_per_class=root.imagenet_forward.mergebboxes.max_per_class,
+            probability_threshold=pr_threshold,
             last_chance_probability_threshold=lc_probability_threshold,
-            labels_compatibility=root.mergebboxes.labels_compatibility,
-            use_compatibility=root.mergebboxes.use_compatibility)
+            labels_compatibility=labels_comp,
+            use_compatibility=use_comp)
         self.mergebboxes.link_attrs(self.fwds[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",
                                     "minibatch_size", "minibatch_images")
         self.json_writer = ImagenetResultWriter(
-            self, root.loader.labels_int_dir, root.result_path,
-            ignore_negative=root.mergebboxes.ignore_negative)
+            self, root.imagenet_forward.loader.labels_int_dir,
+            root.imagenet_forward.result_path,
+            ignore_negative=root.imagenet_forward.mergebboxes.ignore_negative)
         self.mergebboxes.link_attrs(self.json_writer, "labels_mapping")
-        if root.mergebboxes.mode:
-            self.mergebboxes.mode = root.mergebboxes.mode
-            self.json_writer.mode = root.mergebboxes.mode
+        if root.imagenet_forward.mergebboxes.mode:
+            self.mergebboxes.mode = root.imagenet_forward.mergebboxes.mode
+            self.json_writer.mode = root.imagenet_forward.mergebboxes.mode
         else:
             self.mergebboxes.link_attrs(self.loader, "mode")
             self.json_writer.link_attrs(self.loader, "mode")
@@ -347,11 +364,15 @@ class ImagenetForward(OpenCLWorkflow):
             print('-' * 80)
             print('====  FINAL  ===')
             print('-' * 80)
-            self.loader.angle_step = root.loader.angle_step_final
-            self.loader.min_angle = root.loader.min_angle_final
-            self.loader.max_angle = root.loader.max_angle_final
-            self.loader.bboxes_file_name = root.result_path
-            shutil.copy(root.result_path, root.result_path + ".raw")
+            angle_step_final = root.imagenet_forward.loader.angle_step_final
+            min_angle_final = root.imagenet_forward.loader.min_angle_final
+            max_angle_final = root.imagenet_forward.loader.max_angle_final
+            self.loader.angle_step = angle_step_final
+            self.loader.min_angle = min_angle_final
+            self.loader.max_angle = max_angle_final
+            self.loader.bboxes_file_name = root.imagenet_forward.result_path
+            shutil.copy(root.imagenet_forward.result_path,
+                        root.imagenet_forward.result_path + ".raw")
             self.loader.reset()
             if self.loader.total == 0:
                 print("No bboxes for final stage - return")
@@ -365,19 +386,25 @@ class ImagenetForward(OpenCLWorkflow):
 
 def run(load, main):
     numpy.set_printoptions(precision=3, suppress=True)
-    root.result_path = root.result_path % (
-        root.loader.min_index, root.loader.max_index,
-        root.loader.year, root.loader.series)
-    root.imagenet.from_snapshot_add_layer = False
-    CACHED_DATA_FNME = os.path.join(root.imagenet_base, str(root.loader.year))
-    root.loader.names_labels_filename = os.path.join(
+    root.imagenet_forward.result_path = root.imagenet_forward.result_path % (
+        root.imagenet_forward.loader.min_index,
+        root.imagenet_forward.loader.max_index,
+        root.imagenet_forward.loader.year, root.imagenet_forward.loader.series)
+    root.imagenet_forward.imagenet.from_snapshot_add_layer = False
+    CACHED_DATA_FNME = os.path.join(root.imagenet_forward.imagenet_base,
+                                    str(root.imagenet_forward.loader.year))
+    root.imagenet_forward.loader.names_labels_filename = os.path.join(
         CACHED_DATA_FNME, "original_labels_%s_%s_0_forward.pickle" %
-        (root.loader.year, root.loader.series))
-    root.loader.samples_filename = os.path.join(
+        (root.imagenet_forward.loader.year,
+         root.imagenet_forward.loader.series))
+    root.imagenet_forward.loader.samples_filename = os.path.join(
         CACHED_DATA_FNME, "original_data_%s_%s_0_forward.dat" %
-        (root.loader.year, root.loader.series))
-    root.loader.labels_int_dir = os.path.join(
+        (root.imagenet_forward.loader.year,
+         root.imagenet_forward.loader.series))
+    root.imagenet_forward.loader.labels_int_dir = os.path.join(
         CACHED_DATA_FNME, "labels_int_%s_%s_0.txt" %
-        (root.loader.year, root.loader.series))
+        (root.imagenet_forward.loader.year,
+         root.imagenet_forward.loader.series))
     load(ImagenetForward)
-    main(forward_mode=True, minibatch_size=root.loader.minibatch_size)
+    main(forward_mode=True,
+         minibatch_size=root.imagenet_forward.loader.minibatch_size)

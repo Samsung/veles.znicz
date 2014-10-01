@@ -24,7 +24,7 @@ import veles.znicz.loader as loader
 data_path = os.path.join(os.path.dirname(__file__), "kohonen")
 
 
-root.defaults = {
+root.kohonen.update({
     "forward": {"shape": (8, 8),
                 "weights_stddev": 0.05,
                 "weights_filling": "uniform"},
@@ -33,7 +33,7 @@ root.defaults = {
     "loader": {"minibatch_size": 10,
                "dataset_file": os.path.join(data_path, "kohonen.txt")},
     "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.001),
-              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}}
+              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -44,7 +44,7 @@ class KohonenLoader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        file_name = root.loader.dataset_file
+        file_name = root.kohonen.loader.dataset_file
         try:
             data = numpy.loadtxt(file_name)
         except:
@@ -72,25 +72,25 @@ class KohonenWorkflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = KohonenLoader(self, name="Kohonen fullbatch loader",
-                                    minibatch_size=root.loader.minibatch_size,
-                                    on_device=False)
+        self.loader = KohonenLoader(
+            self, name="Kohonen fullbatch loader",
+            minibatch_size=root.kohonen.loader.minibatch_size, on_device=False)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
         self.trainer = kohonen.KohonenTrainer(
             self,
-            shape=root.forward.shape,
-            weights_filling=root.forward.weights_filling,
-            weights_stddev=root.forward.weights_stddev,
-            gradient_decay=root.train.gradient_decay,
-            radius_decay=root.train.radius_decay)
+            shape=root.kohonen.forward.shape,
+            weights_filling=root.kohonen.forward.weights_filling,
+            weights_stddev=root.kohonen.forward.weights_stddev,
+            gradient_decay=root.kohonen.train.gradient_decay,
+            radius_decay=root.kohonen.train.radius_decay)
         self.trainer.link_from(self.loader)
         self.trainer.link_attrs(self.loader, ("input", "minibatch_data"))
 
         # Loop decision
         self.decision = kohonen.KohonenDecision(
-            self, max_epochs=root.decision.epochs)
+            self, max_epochs=root.kohonen.decision.epochs)
         self.decision.link_from(self.trainer)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",

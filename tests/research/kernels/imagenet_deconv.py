@@ -17,9 +17,9 @@ from veles.znicz.deconv import Deconv
 
 import logging
 
-root.common.update = {"precision_type": "float", }
+root.common.precision_type = "float"
 
-root.defaults = {
+root.imagenet_deconv.update({
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "imagenet_caffe"},
@@ -73,7 +73,7 @@ root.defaults = {
 
                         {"type": "softmax", "output_shape": 1000,
                          "weights_filling": "gaussian",
-                         "weights_stddev": 0.01}]}}
+                         "weights_stddev": 0.01}]}})
 
 
 class Workflow(StandardWorkflow):
@@ -159,7 +159,7 @@ class Workflow(StandardWorkflow):
                                    kx=3, ky=3, sliding=(2, 2))
         self._add_forward_unit(pool5)
 
-        #Layer -5 (DECONV + DEPOOL)
+        # Layer -5 (DECONV + DEPOOL)
         depool5 = Depooling(self, name="depool5", sliding=pool5.sliding)
         depool5.link_from(pool5)
 
@@ -169,7 +169,7 @@ class Workflow(StandardWorkflow):
             unsafe_padding=True)
         deconv5.link_from(depool5)
 
-        #Layer -4 (DECONV)
+        # Layer -4 (DECONV)
 
         deconv4 = Deconv(
             self, name="deconv4", n_kernels=conv4.n_kernels, kx=conv4.kx,
@@ -177,14 +177,14 @@ class Workflow(StandardWorkflow):
             unsafe_padding=True)
         deconv4.link_from(deconv5)
 
-        #Layer -3 (DECONV)
+        # Layer -3 (DECONV)
 
         deconv3 = Deconv(self, name="deconv3", n_kernels=conv3.n_kernels,
                          kx=conv3.kx, ky=conv3.ky, sliding=conv3.sliding,
                          padding=conv3.padding, unsafe_padding=True)
         deconv3.link_from(deconv4)
 
-        #Layer -2 (DECONV + POOL)
+        # Layer -2 (DECONV + POOL)
         depool2 = Depooling(self, name="depool2", sliding=pool2.sliding)
         depool2.link_from(deconv3)
 
@@ -211,6 +211,6 @@ class Workflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.imagenet_caffe.layers)
-    main(learning_rate=root.imagenet_caffe.learning_rate,
-         weights_decay=root.imagenet_caffe.weights_decay)
+    load(Workflow, layers=root.imagenet_deconv.imagenet_caffe.layers)
+    main(learning_rate=root.imagenet_deconv.imagenet_caffe.learning_rate,
+         weights_decay=root.imagenet_deconv.imagenet_caffe.weights_decay)

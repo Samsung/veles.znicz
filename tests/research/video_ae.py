@@ -27,16 +27,15 @@ from veles.znicz.nn_units import NNSnapshotter
 import veles.plotting_units as plotting_units
 
 
-root.defaults = {"decision": {"fail_iterations": 100},
-                 "snapshotter": {"prefix": "video_ae"},
-                 "loader": {"minibatch_size": 50},
-                 "weights_plotter": {"limit": 16},
-                 "video_ae": {"learning_rate": 0.000004,
-                              "weights_decay": 0.00005,
-                              "layers": [9, [90, 160]],
-                              "data_paths":
-                              os.path.join(root.common.test_dataset_root,
-                                           "video_ae/img")}}
+root.video_ae.update({
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "video_ae"},
+    "loader": {"minibatch_size": 50},
+    "weights_plotter": {"limit": 16},
+    "learning_rate": 0.000004,
+    "weights_decay": 0.00005,
+    "layers": [9, [90, 160]],
+    "data_paths": os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
 
 class VideoAELoader(loader.ImageLoader):
@@ -74,7 +73,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
 
         self.loader = VideoAELoader(
             self, train_paths=(root.video_ae.data_paths,),
-            minibatch_size=root.loader.minibatch_size, on_device=True)
+            minibatch_size=root.video_ae.loader.minibatch_size, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -115,8 +114,8 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self,
-            snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+            snapshot_prefix=root.video_ae.decision.snapshot_prefix,
+            fail_iterations=root.video_ae.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -129,9 +128,9 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             self.evaluator,
             ("minibatch_metrics", "metrics"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir,
-                                         compress="")
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.video_ae.snapshotter.prefix,
+            directory=root.common.snapshot_dir, compress="")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -181,7 +180,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
-            limit=root.weights_plotter.limit)
+            limit=root.video_ae.weights_plotter.limit)
         self.plt_mx.link_attrs(self.fwds[0], ("input", "weights"),
                                ("get_shape_from", "input"))
         self.plt_mx.input_field = "mem"

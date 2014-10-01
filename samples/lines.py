@@ -25,63 +25,51 @@ from veles.znicz.standard_workflow import StandardWorkflow
 train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
 valid = os.path.join(root.common.test_dataset_root, "Lines/Grid/test")
 
-root.model = "grid"
+root.lines.model = "grid"
 
-root.defaults = {"accumulator": {"bars": 20, "squash": True},
-                 "decision": {"fail_iterations": 100},
-                 "snapshotter": {"prefix": "lines"},
-                 "loader": {"minibatch_size": 60},
-                 "weights_plotter": {"limit": 32},
-                 "image_saver": {"out_dirs":
-                                 [os.path.join(root.common.cache_dir,
-                                               "tmp %s/test" % root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/validation" %
-                                               root.model),
-                                  os.path.join(root.common.cache_dir,
-                                               "tmp %s/train" % root.model)]},
-                 "lines": {"learning_rate": 0.0001, "weights_decay": 0.0,
-                           "layers":
-                           [{"type": "conv_relu", "n_kernels": 32,
-                             "kx": 13, "ky": 13,
-                             "sliding": (2, 2), "padding": (1, 1, 1, 1),
-                             "learning_rate": 0.0001,
-                             "learning_rate_bias": 0.0002,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "gaussian",
-                             "weights_stddev": 0.0001,
-                             "bias_filling": "constant", "bias_stddev": 0.0001,
-                             "weights_decay": 0.0, "weights_decay_bias": 0.0},
-                            {"type": "max_pooling",
-                             "kx": 5, "ky": 5, "sliding": (2, 2)},
-                            {"type": "avg_pooling",
-                             "kx": 5, "ky": 5, "sliding": (2, 2)},
-                            {"type": "norm",
-                             "alpha": 0.00005, "beta": 0.75, "n": 3},
-                            {"type": "conv_relu", "n_kernels": 32,
-                             "kx": 7, "ky": 7,
-                             "sliding": (1, 1), "padding": (2, 2, 2, 2),
-                             "learning_rate": 0.0001,
-                             "learning_rate_bias": 0.0002,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "gaussian",
-                             "weights_stddev": 0.01,
-                             "bias_filling": "constant", "bias_stddev": 0.01,
-                             "weights_decay": 0.0, "weights_decay_bias": 0.0},
-                            {"type": "avg_pooling",
-                             "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            {"type": "norm",
-                             "alpha": 0.00005, "beta": 0.75, "k": 2, "n": 5},
-                            {"type": "softmax", "output_shape": 6,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "uniform",
-                             "weights_stddev": 0.05,
-                             "bias_filling": "constant", "bias_stddev": 0.05,
-                             "learning_rate": 0.0001,
-                             "learning_rate_bias": 0.0002,
-                             "weights_decay": 1, "weights_decay_bias": 0}],
-                           "path_for_load_data": {"validation": valid,
-                                                  "train": train}}}
+root.lines.update({
+    "accumulator": {"bars": 20, "squash": True},
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "lines"},
+    "loader": {"minibatch_size": 60},
+    "weights_plotter": {"limit": 32},
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.cache_dir,
+                                  "tmp %s/test" % root.lines.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/validation" % root.lines.model),
+                     os.path.join(root.common.cache_dir,
+                                  "tmp %s/train" % root.lines.model)]},
+    "learning_rate": 0.0001,
+    "weights_decay": 0.0,
+    "layers":
+    [{"type": "conv_relu", "n_kernels": 32,
+      "kx": 13, "ky": 13, "sliding": (2, 2), "padding": (1, 1, 1, 1),
+      "learning_rate": 0.0001, "learning_rate_bias": 0.0002,
+      "gradient_moment": 0.9, "weights_filling": "gaussian",
+      "weights_stddev": 0.0001, "bias_filling": "constant",
+      "bias_stddev": 0.0001, "weights_decay": 0.0, "weights_decay_bias": 0.0},
+
+     {"type": "max_pooling", "kx": 5, "ky": 5, "sliding": (2, 2)},
+     {"type": "avg_pooling", "kx": 5, "ky": 5, "sliding": (2, 2)},
+     {"type": "norm", "alpha": 0.00005, "beta": 0.75, "n": 3},
+
+     {"type": "conv_relu", "n_kernels": 32, "kx": 7, "ky": 7,
+      "sliding": (1, 1), "padding": (2, 2, 2, 2), "learning_rate": 0.0001,
+      "learning_rate_bias": 0.0002, "gradient_moment": 0.9,
+      "weights_filling": "gaussian", "weights_stddev": 0.01,
+      "bias_filling": "constant", "bias_stddev": 0.01,
+      "weights_decay": 0.0, "weights_decay_bias": 0.0},
+
+     {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+     {"type": "norm", "alpha": 0.00005, "beta": 0.75, "k": 2, "n": 5},
+
+     {"type": "softmax", "output_shape": 6, "gradient_moment": 0.9,
+      "weights_filling": "uniform", "weights_stddev": 0.05,
+      "bias_filling": "constant", "bias_stddev": 0.05, "learning_rate": 0.0001,
+      "learning_rate_bias": 0.0002, "weights_decay": 1,
+      "weights_decay_bias": 0}],
+    "path_for_load_data": {"validation": valid, "train": train}})
 
 
 class ImageLabel(IntEnum):
@@ -125,7 +113,7 @@ class LinesWorkflow(StandardWorkflow):
             self,
             train_paths=[root.lines.path_for_load_data.train],
             validation_paths=[root.lines.path_for_load_data.validation],
-            minibatch_size=root.loader.minibatch_size,
+            minibatch_size=root.lines.loader.minibatch_size,
             grayscale=False, on_device=True)
 
         self.loader.link_from(self.repeater)
@@ -134,7 +122,7 @@ class LinesWorkflow(StandardWorkflow):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=root.image_saver.out_dirs)
+            self, out_dirs=root.lines.image_saver.out_dirs)
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -155,7 +143,7 @@ class LinesWorkflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.lines.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -167,8 +155,9 @@ class LinesWorkflow(StandardWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.lines.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -191,7 +180,7 @@ class LinesWorkflow(StandardWorkflow):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
-                limit=root.weights_plotter.limit)
+                limit=root.lines.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
             self.plt_mx[-1].input_field = "mem"
@@ -215,7 +204,7 @@ class LinesWorkflow(StandardWorkflow):
                 continue
             plt_gd = nn_plotting_units.Weights2D(
                 self, name="%s gd %s" % (i + 1, layers[i]["type"]),
-                limit=root.weights_plotter.limit)
+                limit=root.lines.weights_plotter.limit)
             self.plt_gd.append(plt_gd)
             self.plt_gd[-1].link_attrs(self.gds[i],
                                        ("input", "gradient_weights"))

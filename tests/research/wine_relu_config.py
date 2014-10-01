@@ -17,13 +17,12 @@ from veles.config import root
 
 root.common.update = {"plotters_disabled": True}
 
-root.update = {"decision": {"fail_iterations": 250},
-               "snapshotter": {"prefix": "wine_relu"},
-               "loader": {"minibatch_size": 10},
-               "wine_relu": {"learning_rate": 0.03,
-                             "weights_decay": 0.0,
-                             "layers": [10, 3],
-                             "data_paths":
-                             os.path.join(root.common.veles_dir,
-                                          "veles/znicz/samples/wine/wine.data")
-                             }}
+root.wine_relu.update({
+    "decision": {"fail_iterations": 250},
+    "snapshotter": {"prefix": "wine_relu"},
+    "loader": {"minibatch_size": 10},
+    "learning_rate": 0.03,
+    "weights_decay": 0.0,
+    "layers": [10, 3],
+    "data_paths":
+    os.path.join(root.common.veles_dir, "veles/znicz/samples/wine/wine.data")})

@@ -34,22 +34,23 @@ train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
-root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 20,
-                              "store_samples_mse": True},
-                 "snapshotter": {"prefix": "mnist"},
-                 "loader": {"minibatch_size": 100},
-                 "mnist_ae": {"learning_rate": 0.000001,
-                              "weights_decay": 0.00005,
-                              "gradient_moment": 0.00001,
-                              "n_kernels": 5,
-                              "kx": 5,
-                              "ky": 5,
-                              "layers": [100, 10],
-                              "data_paths": {"test_images": test_image_dir,
-                                             "test_label": test_label_dir,
-                                             "train_images": train_image_dir,
-                                             "train_label": train_label_dir}}}
+root.mnist_ae.update({
+    "all2all": {"weights_stddev": 0.05},
+    "decision": {"fail_iterations": 20,
+                 "store_samples_mse": True},
+    "snapshotter": {"prefix": "mnist"},
+    "loader": {"minibatch_size": 100},
+    "learning_rate": 0.000001,
+    "weights_decay": 0.00005,
+    "gradient_moment": 0.00001,
+    "n_kernels": 5,
+    "kx": 5,
+    "ky": 5,
+    "layers": [100, 10],
+    "data_paths": {"test_images": test_image_dir,
+                   "test_label": test_label_dir,
+                   "train_images": train_image_dir,
+                   "train_label": train_label_dir}})
 
 
 class MnistAELoader(MNISTLoader):
@@ -67,14 +68,16 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = MnistAELoader(self, name="MNIST loader",
-                                    minibatch_size=root.loader.minibatch_size,
-                                    on_device=True)
+        self.loader = MnistAELoader(
+            self, name="MNIST loader",
+            minibatch_size=root.mnist_ae.loader.minibatch_size,
+            on_device=True)
         self.loader.link_from(self.repeater)
 
-        unit = conv.Conv(self, n_kernels=root.mnist_ae.n_kernels,
-                         kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
-                         weights_filling="uniform", include_bias=False)
+        unit = conv.Conv(
+            self, n_kernels=root.mnist_ae.n_kernels,
+            kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
+            weights_filling="uniform", include_bias=False)
         unit.link_from(self.loader)
         unit.link_attrs(self.loader, ("input", "minibatch_data"))
         self.conv = unit
@@ -113,7 +116,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         unit = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations)
+            self, fail_iterations=root.mnist_ae.decision.fail_iterations)
         self.decision = unit
         unit.link_from(self.evaluator)
         unit.link_attrs(self.loader, "minibatch_class",
@@ -122,7 +125,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
                         "epoch_number")
         unit.link_attrs(self.evaluator, ("minibatch_metrics", "metrics"))
 
-        unit = NNSnapshotter(self, prefix=root.snapshotter.prefix,
+        unit = NNSnapshotter(self, prefix=root.mnist_ae.snapshotter.prefix,
                              directory=root.common.snapshot_dir,
                              compress="", time_interval=0)
         self.snapshotter = unit
@@ -170,7 +173,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="Weights", limit=64)
         self.plt_mx.link_attrs(self.conv, ("input", "weights"))
-        self.plt_mx.get_shape_from = [root.mnist_ae.kx, root.mnist_ae.ky, 1]
+        self.plt_mx.get_shape_from = [root.mnist_ae.kx,
+                                      root.mnist_ae.ky, 1]
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(prev)
         self.plt_mx.gate_skip = ~self.decision.epoch_ended
@@ -193,7 +197,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_out.link_attrs(self.conv, ("input", "output"))
         self.plt_out.get_shape_from = [
             28 - root.mnist_ae.kx + 1,
-            28 - root.mnist_ae.ky + 1, root.mnist_ae.n_kernels]
+            28 - root.mnist_ae.ky + 1,
+            root.mnist_ae.n_kernels]
         self.plt_out.input_field = "mem"
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended

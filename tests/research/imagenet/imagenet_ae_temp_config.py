@@ -30,7 +30,7 @@ STDDEV_AA = 0.005
 
 root.common.precision_type = "float"
 
-root.defaults = {
+root.imagenet.update({
     "decision": {"fail_iterations": 25,
                  "max_epochs": 50,
                  "use_dynamic_alpha": False,
@@ -130,4 +130,4 @@ root.defaults = {
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "constant",
                    "bias_stddev": 0, "weights_stddev": 0.01,
-                   "l1_vs_l2": L1_VS_L2}]}}
+                   "l1_vs_l2": L1_VS_L2}]}})

@@ -22,11 +22,11 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
                   os.path.join(root.common.test_dataset_root,
                                "hands/Negative/Testing")]
 
-root.update = {"decision": {"fail_iterations": 100},
-               "snapshotter": {"prefix": "hands"},
-               "loader": {"minibatch_size": 60},
-               "hands": {"learning_rate": 0.0008,
-                         "weights_decay": 0.0,
-                         "layers": [30, 2],
-                         "data_paths": {"train": train_dir,
-                                        "validation": validation_dir}}}
+root.hands.update({
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "hands"},
+    "loader": {"minibatch_size": 60},
+    "learning_rate": 0.0008,
+    "weights_decay": 0.0,
+    "layers": [30, 2],
+    "data_paths": {"train": train_dir, "validation": validation_dir}})

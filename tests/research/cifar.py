@@ -34,7 +34,7 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
-root.defaults = {
+root.cifar.update({
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 100, "do_export_weights": False},
     "learning_rate_adjust": {"do": False},
@@ -49,15 +49,11 @@ root.defaults = {
     "weights_plotter": {"limit": 64},
     "similar_weights_plotter": {'form': 1.1, 'peak': 0.5, 'magnitude': 0.65,
                                 'layers': {1}},
-    "cifar": {"layers": [{"type": "all2all_tanh",
-                          "learning_rate": 0.0005,
-                          "weights_decay": 0.00005,
-                          "output_shape": 100},
-                         {"type": "softmax", "output_shape": 10,
-                          "learning_rate": 0.0005,
-                          "weights_decay": 0.00005}],
-              "data_paths": {"train": train_dir,
-                             "validation": validation_dir}}}
+    "layers": [{"type": "all2all_tanh", "learning_rate": 0.0005,
+                "weights_decay": 0.00005, "output_shape": 100},
+               {"type": "softmax", "output_shape": 10, "learning_rate": 0.0005,
+                "weights_decay": 0.00005}],
+    "data_paths": {"train": train_dir, "validation": validation_dir}})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -93,11 +89,11 @@ class CifarLoader(loader.FullBatchLoader):
             sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
             formats.normalize(sobel_gray)
 
-            if root.loader.norm == "mean":
+            if root.cifar.loader.norm == "mean":
                 sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
-            elif root.loader.norm == "-128, 128":
+            elif root.cifar.loader.norm == "-128, 128":
                 sobel_data[i, :, :] = sobel_gray * 128
-            elif root.loader.norm == "-1, 1":
+            elif root.cifar.loader.norm == "-1, 1":
                 sobel_data[i, :, :] = sobel_gray
 
         sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
@@ -143,11 +139,11 @@ class CifarLoader(loader.FullBatchLoader):
 
         self.total_samples = self.original_data.shape[0]
 
-        use_sobel = root.loader.sobel
+        use_sobel = root.cifar.loader.sobel
         if use_sobel:
             self._add_sobel_chan()
 
-        if root.loader.norm == "mean":
+        if root.cifar.loader.norm == "mean":
             mean = numpy.mean(self.original_data[10000:], axis=0)
             self.original_data.mem -= mean
             self.info("Validation range: %.6f %.6f %.6f",
@@ -158,16 +154,16 @@ class CifarLoader(loader.FullBatchLoader):
                       self.original_data.mem[10000:].min(),
                       self.original_data.mem[10000:].max(),
                       numpy.average(self.original_data.mem[10000:]))
-        elif root.loader.norm == "-1, 1":
+        elif root.cifar.loader.norm == "-1, 1":
             for sample in self.original_data.mem:
                 formats.normalize(sample)
-        elif root.loader.norm == "-128, 128":
+        elif root.cifar.loader.norm == "-128, 128":
             for sample in self.original_data.mem:
                 formats.normalize(sample)
                 sample *= 128
         else:
             raise ValueError("Unsupported normalization type "
-                             + str(root.loader.norm))
+                             + str(root.cifar.loader.norm))
 
 
 class CifarWorkflow(StandardWorkflow):
@@ -183,7 +179,8 @@ class CifarWorkflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = CifarLoader(
-            self, shuffle_limit=root.loader.shuffle_limit, on_device=True)
+            self, shuffle_limit=root.cifar.loader.shuffle_limit,
+            on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -191,7 +188,7 @@ class CifarWorkflow(StandardWorkflow):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=root.image_saver.out_dirs)
+            self, out_dirs=root.cifar.image_saver.out_dirs)
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
@@ -212,8 +209,8 @@ class CifarWorkflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations,
-            do_export_weights=root.decision.do_export_weights)
+            self, fail_iterations=root.cifar.decision.fail_iterations,
+            do_export_weights=root.cifar.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -228,9 +225,9 @@ class CifarWorkflow(StandardWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir,
-                                         compress="")
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.cifar.snapshotter.prefix,
+            directory=root.common.snapshot_dir, compress="")
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -316,7 +313,7 @@ class CifarWorkflow(StandardWorkflow):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
-                limit=root.weights_plotter.limit)
+                limit=root.cifar.weights_plotter.limit)
             self.plt_wd.append(plt_mx)
             self.plt_wd[-1].link_attrs(self.fwds[i], ("input", "weights"))
             self.plt_wd[-1].input_field = "mem"
@@ -330,14 +327,15 @@ class CifarWorkflow(StandardWorkflow):
                                            ("get_shape_from", "input"))
             self.plt_wd[-1].link_from(self.decision)
             self.plt_wd[-1].gate_block = ~self.decision.epoch_ended
+            magnitude = root.cifar.similar_weights_plotter.magnitude
             if isinstance(self.fwds[i], conv.Conv) and \
-               (i + 1) in root.similar_weights_plotter.layers:
+               (i + 1) in root.cifar.similar_weights_plotter.layers:
                 plt_mx = diversity.SimilarWeights2D(
                     self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
-                    limit=root.weights_plotter.limit,
-                    form_threshold=root.similar_weights_plotter.form,
-                    peak_threshold=root.similar_weights_plotter.peak,
-                    magnitude_threshold=root.similar_weights_plotter.magnitude)
+                    limit=root.cifar.weights_plotter.limit,
+                    form_threshold=root.cifar.similar_weights_plotter.form,
+                    peak_threshold=root.cifar.similar_weights_plotter.peak,
+                    magnitude_threshold=magnitude)
                 self.plt_wd.append(plt_mx)
                 self.plt_wd[-1].link_attrs(self.fwds[i], ("input", "weights"))
                 self.plt_wd[-1].input_field = "mem"
@@ -383,4 +381,4 @@ class CifarWorkflow(StandardWorkflow):
 
 def run(load, main):
     load(CifarWorkflow, layers=root.cifar.layers)
-    main(minibatch_size=root.loader.minibatch_size)
+    main(minibatch_size=root.cifar.loader.minibatch_size)

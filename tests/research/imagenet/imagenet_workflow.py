@@ -35,8 +35,8 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")
-root.model = "imagenet"
-root.defaults = {
+root.imagenet.model = "imagenet"
+root.imagenet.update("", {
     "decision": {"fail_iterations": 100000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
@@ -46,94 +46,93 @@ root.defaults = {
                "minibatch_size": 100},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
-                                  "tmp %s/test" % root.model),
+                                  "tmp %s/test" % root.imagenet.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp %s/validation" % root.model),
+                                  "tmp %s/validation" % root.imagenet.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp %s/train" % root.model)]},
+                                  "tmp %s/train" % root.imagenet.model)]},
     "weights_plotter": {"limit": 64},
-    "imagenet": {"layers":
-                 [{"type": "conv_relu", "n_kernels": 96,
-                   "kx": 11, "ky": 11, "padding": (0, 0, 0, 0),
-                   "sliding": (4, 4), "weights_filling": "gaussian",
-                   "bias_filling": "constant", "bias_stddev": 0,
-                   "weights_stddev": 0.01, "learning_rate": 0.001,
-                   "learning_rate_bias": 0.002, "weights_decay": 0.004,
-                   "weights_decay_bias": 0.004, "gradient_moment": 0.9,
-                   "gradient_moment_bias": 0.9},
-                  {"type": "max_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "norm", "alpha": 0.00005, "beta": 0.75, "n": 3},
+    "layers": [{"type": "conv_relu", "n_kernels": 96,
+                "kx": 11, "ky": 11, "padding": (0, 0, 0, 0),
+                "sliding": (4, 4), "weights_filling": "gaussian",
+                "bias_filling": "constant", "bias_stddev": 0,
+                "weights_stddev": 0.01, "learning_rate": 0.001,
+                "learning_rate_bias": 0.002, "weights_decay": 0.004,
+                "weights_decay_bias": 0.004, "gradient_moment": 0.9,
+                "gradient_moment_bias": 0.9},
+               {"type": "max_pooling",
+                "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "norm", "alpha": 0.00005, "beta": 0.75, "n": 3},
 
-                  {"type": "conv_relu", "n_kernels": 256,
-                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                   "sliding": (1, 1),
-                   "weights_filling": "gaussian", "bias_filling": "constant",
-                   "bias_stddev": 0, "weights_stddev": 0.01,
-                   "learning_rate": 0.001, "learning_rate_bias": 0.002,
-                   "weights_decay": 0.004, "weights_decay_bias": 0.004,
-                   "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
-                  {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "conv_relu", "n_kernels": 256,
+                "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                "sliding": (1, 1),
+                "weights_filling": "gaussian", "bias_filling": "constant",
+                "bias_stddev": 0, "weights_stddev": 0.01,
+                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "weights_decay": 0.004, "weights_decay_bias": 0.004,
+                "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
+               {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                  {"type": "conv", "n_kernels": 384,
-                   "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
-                   "sliding": (1, 1), "weights_filling": "gaussian",
-                   "weights_stddev": 0.01, "bias_filling": "constant",
-                   "bias_stddev": 0,
-                   "learning_rate": 0.001, "learning_rate_bias": 0.002,
-                   "weights_decay": 0.004, "weights_decay_bias": 0.004,
-                   "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
+               {"type": "conv", "n_kernels": 384,
+                "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
+                "sliding": (1, 1), "weights_filling": "gaussian",
+                "weights_stddev": 0.01, "bias_filling": "constant",
+                "bias_stddev": 0,
+                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "weights_decay": 0.004, "weights_decay_bias": 0.004,
+                "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
 
-                  {"type": "conv", "n_kernels": 384,
-                   "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
-                   "sliding": (1, 1), "weights_filling": "gaussian",
-                   "weights_stddev": 0.01, "bias_filling": "constant",
-                   "bias_stddev": 0,
-                   "learning_rate": 0.001, "learning_rate_bias": 0.002,
-                   "weights_decay": 0.004, "weights_decay_bias": 0.004,
-                   "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
+               {"type": "conv", "n_kernels": 384,
+                "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
+                "sliding": (1, 1), "weights_filling": "gaussian",
+                "weights_stddev": 0.01, "bias_filling": "constant",
+                "bias_stddev": 0,
+                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "weights_decay": 0.004, "weights_decay_bias": 0.004,
+                "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
 
-                  {"type": "conv_relu", "n_kernels": 256,
-                   "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
-                   "sliding": (1, 1), "weights_filling": "gaussian",
-                   "weights_stddev": 0.01, "bias_filling": "constant",
-                   "bias_stddev": 0,
-                   "learning_rate": 0.001, "learning_rate_bias": 0.002,
-                   "weights_decay": 0.004, "weights_decay_bias": 0.004,
-                   "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
-                  {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "conv_relu", "n_kernels": 256,
+                "kx": 3, "ky": 3, "padding": (1, 1, 1, 1),
+                "sliding": (1, 1), "weights_filling": "gaussian",
+                "weights_stddev": 0.01, "bias_filling": "constant",
+                "bias_stddev": 0,
+                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "weights_decay": 0.004, "weights_decay_bias": 0.004,
+                "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
+               {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                  {"type": "all2all_relu", "output_shape": 4096,
-                   "weights_filling": "gaussian", "weights_stddev": 0.005,
-                   "bias_filling": "constant", "bias_stddev": 0,
-                   "learning_rate": 0.001,
-                   "learning_rate_bias": 0.002, "weights_decay": 0.004,
-                   "weights_decay_bias": 0.004, "gradient_moment": 0.9,
-                   "gradient_moment_bias": 0.9},
+               {"type": "all2all_relu", "output_shape": 4096,
+                "weights_filling": "gaussian", "weights_stddev": 0.005,
+                "bias_filling": "constant", "bias_stddev": 0,
+                "learning_rate": 0.001,
+                "learning_rate_bias": 0.002, "weights_decay": 0.004,
+                "weights_decay_bias": 0.004, "gradient_moment": 0.9,
+                "gradient_moment_bias": 0.9},
 
-                  {"type": "dropout", "dropout_ratio": 0.5},
+               {"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "softmax", "output_shape": 1000,
-                   "weights_filling": "gaussian",
-                   "weights_stddev": 0.01, "bias_filling": "constant",
-                   "bias_stddev": 0,
-                   "learning_rate": 0.001, "learning_rate_bias": 0.002,
-                   "weights_decay": 0.004, "weights_decay_bias": 0.004,
-                   "gradient_moment": 0.9, "gradient_moment_bias": 0.9}]}}
+               {"type": "softmax", "output_shape": 1000,
+                "weights_filling": "gaussian",
+                "weights_stddev": 0.01, "bias_filling": "constant",
+                "bias_stddev": 0,
+                "learning_rate": 0.001, "learning_rate_bias": 0.002,
+                "weights_decay": 0.004, "weights_decay_bias": 0.004,
+                "gradient_moment": 0.9, "gradient_moment_bias": 0.9}]})
 
-CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.loader.year)
-root.loader.original_labels_dir = os.path.join(
+CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, root.imagenet.loader.year)
+root.imagenet.loader.original_labels_dir = os.path.join(
     CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
-root.loader.count_samples_dir = os.path.join(
+    (root.imagenet.loader.year, root.imagenet.loader.series))
+root.imagenet.loader.count_samples_dir = os.path.join(
     CACHED_DATA_FNME, "count_samples_%s_%s_0.json" %
-    (root.loader.year, root.loader.series))
-root.loader.file_samples_dir = os.path.join(
+    (root.imagenet.loader.year, root.imagenet.loader.series))
+root.imagenet.loader.file_samples_dir = os.path.join(
     CACHED_DATA_FNME, "original_data_%s_%s_0.dat" %
-    (root.loader.year, root.loader.series))
-root.loader.matrixes_dir = os.path.join(
+    (root.imagenet.loader.year, root.imagenet.loader.series))
+root.imagenet.loader.matrixes_dir = os.path.join(
     CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
-    (root.loader.year, root.loader.series))
+    (root.imagenet.loader.year, root.imagenet.loader.series))
 
 
 @implementer(loader.ILoader)
@@ -155,10 +154,10 @@ class Loader(loader.Loader):
         return stt
 
     def load_data(self):
-        original_labels_dir = root.loader.original_labels_dir
-        count_samples_dir = root.loader.count_samples_dir
-        matrixes_dir = root.loader.matrixes_dir
-        file_samples_dir = root.loader.file_samples_dir
+        original_labels_dir = root.imagenet.loader.original_labels_dir
+        count_samples_dir = root.imagenet.loader.count_samples_dir
+        matrixes_dir = root.imagenet.loader.matrixes_dir
+        file_samples_dir = root.imagenet.loader.file_samples_dir
         file_original_labels = open(original_labels_dir, "rb")
         labels = pickle.load(file_original_labels)
         for f in labels:
@@ -212,7 +211,8 @@ class Workflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, minibatch_size=root.loader.minibatch_size)
+        self.loader = Loader(
+            self, minibatch_size=root.imagenet.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         self.meandispnorm = MeanDispNormalizer(self)
@@ -226,7 +226,7 @@ class Workflow(StandardWorkflow):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=root.image_saver.out_dirs)
+            self, out_dirs=root.imagenet.image_saver.out_dirs)
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -247,9 +247,9 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations,
-            use_dynamic_alpha=root.decision.use_dynamic_alpha,
-            do_export_weights=root.decision.do_export_weights)
+            self, fail_iterations=root.imagenet.decision.fail_iterations,
+            use_dynamic_alpha=root.imagenet.decision.use_dynamic_alpha,
+            do_export_weights=root.imagenet.decision.do_export_weights)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -260,8 +260,9 @@ class Workflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.imagenet.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -311,7 +312,7 @@ class Workflow(StandardWorkflow):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
-                limit=root.weights_plotter.limit)
+                limit=root.imagenet.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
             if isinstance(self.fwds[i], conv.Conv):

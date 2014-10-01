@@ -16,25 +16,25 @@ from veles.config import root
 
 # optional parameters
 
-root.model = "tanh"
+root.channels.model = "tanh"
 
-root.update = {
+root.channels.update({
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "snapshotter": {"prefix": "channels_%s" % root.model},
+    "snapshotter": {"prefix": "channels_%s" % root.channels.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
-                                  "tmp_%s/test" % root.model),
+                                  "tmp_%s/test" % root.channels.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp_%s/validation" % root.model),
+                                  "tmp_%s/validation" % root.channels.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp_%s/train" % root.model)]},
+                                  "tmp_%s/train" % root.channels.model)]},
     "loader": {"cache_file_name": os.path.join(root.common.cache_dir,
                                                "channels_%s.%d.pickle" %
-                                               (root.model,
+                                               (root.channels.model,
                                                 sys.version_info[0])),
                "grayscale": False,
                "minibatch_size": 81,
@@ -44,12 +44,10 @@ root.update = {
                "rect": (264, 129),
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 16},
-    "channels": {"export": False,
-                 "find_negative": 0,
-                 "learning_rate": 0.001,
-                 "weights_decay": 0.00005,
-                 "layers": [{"type": "all2all_tanh",
-                             "output_shape": 54},
-                            {"type": "softmax",
-                             "output_shape": 11}],
-                 "snapshot": ""}}
+    "export": False,
+    "find_negative": 0,
+    "learning_rate": 0.001,
+    "weights_decay": 0.00005,
+    "layers": [{"type": "all2all_tanh", "output_shape": 54},
+               {"type": "softmax", "output_shape": 11}],
+    "snapshot": ""})

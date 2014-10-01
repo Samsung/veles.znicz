@@ -30,7 +30,7 @@ STDDEV_AA = 0.005
 
 root.common.precision_type = "float"
 
-root.defaults = {
+root.imagenet.update({
     "decision": {"fail_iterations": 100,
                  "max_epochs": 50,
                  "use_dynamic_alpha": False,
@@ -112,7 +112,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  #{"type": "dropout", "dropout_ratio": 0.5},
+                  # {"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "all2all_tanh", "output_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
@@ -122,7 +122,7 @@ root.defaults = {
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "weights_stddev": STDDEV_AA, "bias_stddev": STDDEV_AA,
                    "l1_vs_l2": L1_VS_L2},
-                  #{"type": "dropout", "dropout_ratio": 0.5},
+                  # {"type": "dropout", "dropout_ratio": 0.5},
 
                   {"type": "softmax", "output_shape": 1001,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
@@ -131,4 +131,4 @@ root.defaults = {
                    "gradient_moment": GMAA, "gradient_moment_bias": GMBAA,
                    "weights_filling": "gaussian", "bias_filling": "gaussian",
                    "bias_stddev": 0.01, "weights_stddev": 0.01,
-                   "l1_vs_l2": L1_VS_L2}]}}
+                   "l1_vs_l2": L1_VS_L2}]}})

@@ -35,20 +35,21 @@ train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
-root.defaults = {"all2all": {"weights_stddev": 0.05},
-                 "decision": {"fail_iterations": 100,
-                              "store_samples_mse": True,
-                              "max_epochs": 1000000000},
-                 "snapshotter": {"prefix": "mnist"},
-                 "loader": {"minibatch_size": 60},
-                 "mnist": {"learning_rate": 0.03,
-                           "weights_decay": 0.0005,  # 1.6%
-                           "factor_ortho": 0.0,
-                           "layers": [100, 10],
-                           "data_paths": {"test_images": test_image_dir,
-                                          "test_label": test_label_dir,
-                                          "train_images": train_image_dir,
-                                          "train_label": train_label_dir}}}
+root.mnist.update({
+    "all2all": {"weights_stddev": 0.05},
+    "decision": {"fail_iterations": 100,
+                 "store_samples_mse": True,
+                 "max_epochs": 1000000000},
+    "snapshotter": {"prefix": "mnist"},
+    "loader": {"minibatch_size": 60},
+    "learning_rate": 0.03,
+    "weights_decay": 0.0005,  # 1.6%
+    "factor_ortho": 0.0,
+    "layers": [100, 10],
+    "data_paths": {"test_images": test_image_dir,
+                   "test_label": test_label_dir,
+                   "train_images": train_image_dir,
+                   "train_label": train_label_dir}})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -147,9 +148,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = MnistLoader(self, name="Mnist fullbatch loader",
-                                  minibatch_size=root.loader.minibatch_size,
-                                  on_device=True)
+        self.loader = MnistLoader(
+            self, name="Mnist fullbatch loader",
+            minibatch_size=root.mnist.loader.minibatch_size, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -158,11 +159,11 @@ class MnistWorkflow(nn_units.NNWorkflow):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(
                     self, output_shape=[layers[i]],
-                    weights_stddev=root.all2all.weights_stddev)
+                    weights_stddev=root.mnist.all2all.weights_stddev)
             else:
                 aa = all2all.All2AllSoftmax(
                     self, output_shape=[layers[i]],
-                    weights_stddev=root.all2all.weights_stddev)
+                    weights_stddev=root.mnist.all2all.weights_stddev)
             self.fwds.append(aa)
             if i:
                 self.fwds[i].link_from(self.fwds[i - 1])
@@ -184,8 +185,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations,
-            max_epochs=root.decision.max_epochs)
+            self, fail_iterations=root.mnist.decision.fail_iterations,
+            max_epochs=root.mnist.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -197,9 +198,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir,
-                                         time_interval=0)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.mnist.snapshotter.prefix,
+            directory=root.common.snapshot_dir, time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -213,7 +214,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.fwds))))
-        self.gds[-1] = gd.GDSM(self, learning_rate=root.mnist.learning_rate)
+        self.gds[-1] = gd.GDSM(self,
+                               learning_rate=root.mnist.learning_rate)
         self.gds[-1].link_from(self.ipython)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.fwds[-1],
@@ -223,9 +225,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.gds[-1].gate_skip = self.decision.gd_skip
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         for i in range(len(self.fwds) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self,
-                                    learning_rate=root.mnist.learning_rate,
-                                    factor_ortho=root.mnist.factor_ortho)
+            self.gds[i] = gd.GDTanh(
+                self, learning_rate=root.mnist.learning_rate,
+                factor_ortho=root.mnist.factor_ortho)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))

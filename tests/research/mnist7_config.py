@@ -12,10 +12,11 @@ from veles.config import root
 
 
 # optional parameters
-root.update = {"decision": {"fail_iterations": 25,
-                            "snapshot_prefix": "mnist7"},
-               "loader": {"minibatch_size": 60},
-               "weights_plotter": {"limit": 25},
-               "mnist7": {"learning_rate": 0.0000016,
-                          "weights_decay": 0.00005,
-                          "layers": [100, 100, 7]}}
+root.mnist7.update({
+    "decision": {"fail_iterations": 25,
+                 "snapshot_prefix": "mnist7"},
+    "loader": {"minibatch_size": 60},
+    "weights_plotter": {"limit": 25},
+    "learning_rate": 0.0000016,
+    "weights_decay": 0.00005,
+    "layers": [100, 100, 7]})

@@ -30,7 +30,7 @@ from veles import plotting_units
 
 spam_dir = os.path.join(os.path.dirname(__file__), "spam")
 
-root.defaults = {
+root.spam_kohonen.update({
     "forward": {"shape": (8, 8),
                 "weights_stddev": 0.05,
                 "weights_filling": "uniform"},
@@ -40,8 +40,8 @@ root.defaults = {
                "file": os.path.join(spam_dir, "data.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
-    "exporter": {"file": "weights.txt"}}
-root.loader.validation_ratio = 0
+    "exporter": {"file": "weights.txt"}})
+root.spam_kohonen.loader.validation_ratio = 0
 
 
 @implementer(IFullBatchLoader)
@@ -58,19 +58,19 @@ class SpamKohonenLoader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load spam data.
         """
-        file_name = root.loader.file
+        file_name = root.spam_kohonen.loader.file
         if os.path.splitext(file_name)[1] == '.xz':
-            self.info("Unpacking %s...", root.loader.file)
+            self.info("Unpacking %s...", root.spam_kohonen.loader.file)
             if six.PY3:
-                with lzma.open(root.loader.file, "r") as fin:
+                with lzma.open(root.spam_kohonen.loader.file, "r") as fin:
                     lines = fin.readlines()
             else:
-                fin = lzma.LZMAFile(root.loader.file, "r")
+                fin = lzma.LZMAFile(root.spam_kohonen.loader.file, "r")
                 lines = fin.readlines()
                 fin.close()
         else:
-            self.info("Reading %s...", root.loader.file)
-            with open(root.loader.file, "rb") as fin:
+            self.info("Reading %s...", root.spam_kohonen.loader.file)
+            with open(root.spam_kohonen.loader.file, "rb") as fin:
                 lines = fin.readlines()
 
         self.info("Parsing the data...")
@@ -126,7 +126,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
                 self.original_data.mem[index,
                                        lemma_indices[lemma[0]]] = lemma[1]
 
-        self.validation_ratio = root.loader.validation_ratio
+        self.validation_ratio = root.spam_kohonen.loader.validation_ratio
         self.class_lengths[loader.TEST] = 0
         self.class_lengths[loader.VALID] = int(self.validation_ratio *
                                                len(lines))
@@ -193,18 +193,19 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
 
         self.loader = SpamKohonenLoader(
             self, name="Kohonen Spam fullbatch loader",
-            minibatch_size=root.loader.minibatch_size, on_device=False,
-            ids=root.loader.ids, classes=root.loader.classes)
+            minibatch_size=root.spam_kohonen.loader.minibatch_size,
+            on_device=False, ids=root.spam_kohonen.loader.ids,
+            classes=root.spam_kohonen.loader.classes)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
         self.trainer = kohonen.KohonenTrainer(
             self,
-            shape=root.forward.shape,
-            weights_filling=root.forward.weights_filling,
-            weights_stddev=root.forward.weights_stddev,
-            gradient_decay=root.train.gradient_decay,
-            radius_decay=root.train.radius_decay)
+            shape=root.spam_kohonen.forward.shape,
+            weights_filling=root.spam_kohonen.forward.weights_filling,
+            weights_stddev=root.spam_kohonen.forward.weights_stddev,
+            gradient_decay=root.spam_kohonen.train.gradient_decay,
+            radius_decay=root.spam_kohonen.train.radius_decay)
         self.trainer.link_from(self.loader)
         self.trainer.link_attrs(self.loader, ("input", "minibatch_data"))
 
@@ -215,7 +216,7 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
                                 ("batch_size", "total_samples"))
         self.forward.link_attrs(self.trainer, "weights", "argmins")
 
-        if root.loader.classes:
+        if root.spam_kohonen.loader.classes:
             self.validator = kohonen.KohonenValidator(self)
             self.validator.link_attrs(self.trainer, "shape")
             self.validator.link_attrs(self.forward, ("input", "output"))
@@ -226,9 +227,10 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
 
         # Loop decision
         self.decision = kohonen.KohonenDecision(
-            self, max_epochs=root.decision.epochs)
-        self.decision.link_from(self.validator if root.loader.classes
-                                else self.forward)
+            self, max_epochs=root.spam_kohonen.decision.epochs)
+        self.decision.link_from(
+            self.validator if root.spam_kohonen.loader.classes
+            else self.forward)
 
         self.decision.link_attrs(self.loader, "minibatch_class",
                                               "last_minibatch",
@@ -243,7 +245,7 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
 
         self.repeater.link_from(self.ipython)
 
-        self.exporter = ResultsExporter(self, root.exporter.file)
+        self.exporter = ResultsExporter(self, root.spam_kohonen.exporter.file)
         self.exporter.link_from(self.decision)
         self.exporter.total = self.forward.total
         self.exporter.link_attrs(self.loader, "shuffled_indices", "ids")
@@ -260,7 +262,7 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
                              self, name="Weights epoch difference",
                              plot_style="g-", redraw_plot=True,
                              clear_plot=True)]
-        if root.loader.classes:
+        if root.spam_kohonen.loader.classes:
             self.plotters.append(
                 nn_plotting_units.KohonenValidationResults(self))
         self.plotters[0].link_attrs(self.trainer, "shape")
@@ -275,7 +277,7 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
         self.plotters[2].link_attrs(self.decision, ("input", "weights_diff"))
         self.plotters[2].link_from(self.decision)
         self.plotters[2].gate_block = ~self.loader.epoch_ended
-        if root.loader.classes:
+        if root.spam_kohonen.loader.classes:
             self.plotters[3].link_attrs(self.trainer, "shape")
             self.plotters[3].link_attrs(self.validator, "result", "fitness",
                                         "fitness_by_label",

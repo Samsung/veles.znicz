@@ -30,15 +30,14 @@ target_dir = [os.path.join(root.common.test_dataset_root,
 train_dir = [os.path.join(root.common.test_dataset_root,
                           "approximator/all_dec_appertures.mat")]
 
-root.defaults = {"decision": {"fail_iterations": 1000,
-                              "store_samples_mse": True},
-                 "snapshotter": {"prefix": "approximator"},
-                 "loader": {"minibatch_size": 100},
-                 "approximator": {"learning_rate": 0.0001,
-                                  "weights_decay": 0.00005,
-                                  "layers": [810, 9],
-                                  "data_paths": {"target": target_dir,
-                                                 "train": train_dir}}}
+root.approximator.update({
+    "decision": {"fail_iterations": 1000, "store_samples_mse": True},
+    "snapshotter": {"prefix": "approximator"},
+    "loader": {"minibatch_size": 100},
+    "learning_rate": 0.0001,
+    "weights_decay": 0.00005,
+    "layers": [810, 9],
+    "data_paths": {"target": target_dir, "train": train_dir}})
 
 
 class ApproximatorLoader(loader.ImageLoaderMSE):
@@ -131,8 +130,8 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations,
-            store_samples_mse=root.decision.store_samples_mse)
+            self, fail_iterations=root.approximator.decision.fail_iterations,
+            store_samples_mse=root.approximator.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -147,8 +146,9 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
             ("minibatch_mse", "mse"),
             ("minibatch_metrics", "metrics"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.approximator.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -264,4 +264,4 @@ def run(load, main):
     load(ApproximatorWorkflow, layers=root.approximator.layers)
     main(learning_rate=root.approximator.learning_rate,
          weights_decay=root.approximator.weights_decay,
-         minibatch_size=root.loader.minibatch_size)
+         minibatch_size=root.approximator.loader.minibatch_size)

@@ -34,23 +34,22 @@ from veles.znicz.nn_units import NNSnapshotter
 
 train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
-root.defaults = {
+root.kanji.update({
     "decision": {"fail_iterations": 1000,
                  "store_samples_mse": True},
     "snapshotter": {"prefix": "kanji"},
     "loader": {"minibatch_size": 5103,
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 16},
-    "kanji": {"learning_rate": 0.0000001,
-              "weights_decay": 0.00005,
-              "layers": [5103, 2889, 24 * 24],
-              "data_paths":
-              {"target": os.path.join(root.common.test_dataset_root,
-                                      "kanji/target/targets.%d.pickle" %
-                                      (sys.version_info[0])),
-               "train": train_path},
-              "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                                        (sys.version_info[0]))}}
+    "learning_rate": 0.0000001,
+    "weights_decay": 0.00005,
+    "layers": [5103, 2889, 24 * 24],
+    "data_paths": {"target": os.path.join(root.common.test_dataset_root,
+                                          "kanji/target/targets.%d.pickle" %
+                                          (sys.version_info[0])),
+                   "train": train_path},
+    "index_map": os.path.join(train_path, "index_map.%d.pickle" %
+                              (sys.version_info[0]))})
 
 
 @implementer(loader.ILoader)
@@ -168,7 +167,7 @@ class KanjiWorkflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = KanjiLoader(
-            self, validation_ratio=root.loader.validation_ratio,
+            self, validation_ratio=root.kanji.loader.validation_ratio,
             train_path=root.kanji.data_paths.train,
             target_path=root.kanji.data_paths.target)
         self.loader.link_from(self.repeater)
@@ -201,8 +200,8 @@ class KanjiWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations,
-            store_samples_mse=root.decision.store_samples_mse)
+            self, fail_iterations=root.kanji.decision.fail_iterations,
+            store_samples_mse=root.kanji.decision.store_samples_mse)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -215,8 +214,9 @@ class KanjiWorkflow(nn_units.NNWorkflow):
             ("minibatch_metrics", "metrics"),
             ("minibatch_mse", "mse"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.kanji.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -268,7 +268,7 @@ class KanjiWorkflow(nn_units.NNWorkflow):
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
-            limit=root.weights_plotter.limit)
+            limit=root.kanji.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.input_field = "mem"
@@ -366,5 +366,5 @@ def run(load, main):
             w.decision.improved <<= True
     main(learning_rate=root.kanji.learning_rate,
          weights_decay=root.kanji.weights_decay,
-         minibatch_size=root.loader.minibatch_size,
+         minibatch_size=root.kanji.loader.minibatch_size,
          weights=weights, bias=bias)

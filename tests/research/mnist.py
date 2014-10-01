@@ -30,7 +30,7 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.defaults = {
+root.mnistr.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True,
@@ -39,34 +39,24 @@ root.defaults = {
     "learning_rate_adjust": {"do": False},
     "loader": {"minibatch_size": 60},
     "weights_plotter": {"limit": 64},
-    "mnist_standard": {"layers":
-                       [{"type": "all2all_tanh", "output_shape": 100,
-                         "learning_rate": 0.03,
-                         "weights_decay": 0.0,
-                         "learning_rate_bias": 0.03,
-                         "weights_decay_bias": 0.0,
-                         "gradient_moment": 0.0,
-                         "gradient_moment_bias": 0.0,
-                         "factor_ortho": 0.001,
-                         "weights_filling": "uniform",
-                         "weights_stddev": 0.05,
-                         "bias_filling": "uniform",
-                         "bias_stddev": 0.05},
-                        {"type": "softmax", "output_shape": 10,
-                         "learning_rate": 0.03,
-                         "learning_rate_bias": 0.03,
-                         "weights_decay": 0.0,
-                         "weights_decay_bias": 0.0,
-                         "gradient_moment": 0.0,
-                         "gradient_moment_bias": 0.0,
-                         "weights_filling": "uniform",
-                         "weights_stddev": 0.05,
-                         "bias_filling": "uniform",
-                         "bias_stddev": 0.05}],
-                       "data_paths": {"test_images": test_image_dir,
-                                      "test_label": test_label_dir,
-                                      "train_images": train_image_dir,
-                                      "train_label": train_label_dir}}}
+    "layers": [{"type": "all2all_tanh", "output_shape": 100,
+                "learning_rate": 0.03, "weights_decay": 0.0,
+                "learning_rate_bias": 0.03, "weights_decay_bias": 0.0,
+                "gradient_moment": 0.0, "gradient_moment_bias": 0.0,
+                "factor_ortho": 0.001, "weights_filling": "uniform",
+                "weights_stddev": 0.05, "bias_filling": "uniform",
+                "bias_stddev": 0.05},
+
+               {"type": "softmax", "output_shape": 10, "learning_rate": 0.03,
+                "learning_rate_bias": 0.03, "weights_decay": 0.0,
+                "weights_decay_bias": 0.0, "gradient_moment": 0.0,
+                "gradient_moment_bias": 0.0, "weights_filling": "uniform",
+                "weights_stddev": 0.05, "bias_filling": "uniform",
+                "bias_stddev": 0.05}],
+    "data_paths": {"test_images": test_image_dir,
+                   "test_label": test_label_dir,
+                   "train_images": train_image_dir,
+                   "train_label": train_label_dir}})
 
 
 class MnistWorkflow(StandardWorkflow):
@@ -82,9 +72,9 @@ class MnistWorkflow(StandardWorkflow):
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = MnistLoader(self, name="Mnist fullbatch loader",
-                                  minibatch_size=root.loader.minibatch_size,
-                                  on_device=True)
+        self.loader = MnistLoader(
+            self, name="Mnist fullbatch loader",
+            minibatch_size=root.mnistr.loader.minibatch_size, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -101,8 +91,8 @@ class MnistWorkflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations,
-            max_epochs=root.decision.max_epochs)
+            self, fail_iterations=root.mnistr.decision.fail_iterations,
+            max_epochs=root.mnistr.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -114,9 +104,9 @@ class MnistWorkflow(StandardWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir,
-                                         compress="", time_interval=0)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.mnistr.snapshotter.prefix,
+            directory=root.common.snapshot_dir, compress="", time_interval=0)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -126,7 +116,7 @@ class MnistWorkflow(StandardWorkflow):
         # Add gradient descent units
         self.create_gd_units_by_config()
 
-        if root.learning_rate_adjust.do:
+        if root.mnistr.learning_rate_adjust.do:
             # Add learning_rate_adjust unit
             lr_adjuster = lra.LearningRateAdjust(self)
             for gd_elm in self.gds:
@@ -192,7 +182,7 @@ class MnistWorkflow(StandardWorkflow):
             nme = "%s %s" % (i + 1, layers[i]["type"])
             self.info("Added: %s", nme)
             plt_mx = nn_plotting_units.Weights2D(
-                self, name=nme, limit=root.weights_plotter.limit)
+                self, name=nme, limit=root.mnistr.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.gds[i], ("input",
                                                      "gradient_weights"))
@@ -213,5 +203,5 @@ class MnistWorkflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(MnistWorkflow, layers=root.mnist_standard.layers)
+    load(MnistWorkflow, layers=root.mnistr.layers)
     main()

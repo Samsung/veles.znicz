@@ -33,15 +33,14 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
                   os.path.join(root.common.test_dataset_root,
                                "hands/Negative/Testing")]
 
-root.defaults = {"decision": {"fail_iterations": 100},
-                 "snapshotter": {"prefix": "hands"},
-                 "loader": {"minibatch_size": 60},
-                 "hands": {"learning_rate": 0.0008,
-                           "weights_decay": 0.0,
-                           "layers": [30, 2],
-                           "data_paths": {"train": train_dir,
-                                          "validation":
-                                          validation_dir}}}
+root.hands.update({
+    "decision": {"fail_iterations": 100},
+    "snapshotter": {"prefix": "hands"},
+    "loader": {"minibatch_size": 60},
+    "learning_rate": 0.0008,
+    "weights_decay": 0.0,
+    "layers": [30, 2],
+    "data_paths": {"train": train_dir, "validation": validation_dir}})
 
 
 class HandsLoader(loader.ImageLoader):
@@ -77,7 +76,7 @@ class HandsWorkflow(nn_units.NNWorkflow):
         self.loader = HandsLoader(
             self, validation_paths=root.hands.data_paths.validation,
             train_paths=root.hands.data_paths.train,
-            minibatch_size=root.loader.minibatch_size)
+            minibatch_size=root.hands.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -110,8 +109,8 @@ class HandsWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+            self, snapshot_prefix=root.hands.decision.snapshot_prefix,
+            fail_iterations=root.hands.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -122,8 +121,9 @@ class HandsWorkflow(nn_units.NNWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.hands.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

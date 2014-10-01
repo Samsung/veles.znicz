@@ -28,7 +28,7 @@ GMB = GM
 WDSM = WD * 2
 WDSMB = 0.0
 
-root.update = {
+root.cifar.update({
     "decision": {"fail_iterations": 250},
     "snapshotter": {"prefix": "cifar"},
     "image_saver": {"out_dirs":
@@ -39,8 +39,7 @@ root.update = {
                "shuffle_limit": 2000000000},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
-    "cifar": {"layers":
-              [{"type": "conv", "n_kernels": 32,
+    "layers": [{"type": "conv", "n_kernels": 32,
                 "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
                 "sliding": (1, 1),
                 "weights_filling": "uniform",
@@ -86,5 +85,4 @@ root.update = {
                 "learning_rate": LR, "learning_rate_bias": LRB,
                 "weights_decay": WDSM, "weights_decay_bias": WDSMB,
                 "gradient_moment": GM, "gradient_moment_bias": GMB}],
-              "data_paths": {"train": train_dir,
-                             "validation": validation_dir}}}
+    "data_paths": {"train": train_dir, "validation": validation_dir}})

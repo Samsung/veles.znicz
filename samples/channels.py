@@ -52,25 +52,25 @@ from veles.external.progressbar import ProgressBar
 if (sys.version_info[0] + (sys.version_info[1] / 10.0)) < 3.3:
     FileNotFoundError = IOError  # pylint: disable=W0622
 
-root.model = "conv"
+root.channels.model = "conv"
 
-root.defaults = {
+root.channels.update({
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
-    "snapshotter": {"prefix": "channels_%s" % root.model},
+    "snapshotter": {"prefix": "channels_%s" % root.channels.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
-                                  "tmp_%s/test" % root.model),
+                                  "tmp_%s/test" % root.channels.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp_%s/validation" % root.model),
+                                  "tmp_%s/validation" % root.channels.model),
                      os.path.join(root.common.cache_dir,
-                                  "tmp_%s/train" % root.model)]},
+                                  "tmp_%s/train" % root.channels.model)]},
     "loader": {"cache_file_name": os.path.join(root.common.cache_dir,
                                                "channels_%s.%d.pickle" %
-                                               (root.model,
+                                               (root.channels.model,
                                                 sys.version_info[0])),
                "grayscale": False,
                "minibatch_size": 81,
@@ -80,24 +80,21 @@ root.defaults = {
                "rect": (264, 129),
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 64},
-    "channels": {"export": False,
-                 "find_negative": 0,
-                 "learning_rate": 0.00001,
-                 "weights_decay": 0.004,
-                 "layers":
-                 [{"type": "conv", "n_kernels": 32,
-                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                  {"type": "max_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "conv", "n_kernels": 32,
-                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                  {"type": "avg_pooling",
-                   "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "conv", "n_kernels": 64,
-                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
-                  {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
-                  {"type": "softmax", "output_shape": 11}],
-                 "snapshot": ""}}
+    "export": False,
+    "find_negative": 0,
+    "learning_rate": 0.00001,
+    "weights_decay": 0.004,
+    "layers": [{"type": "conv", "n_kernels": 32,
+                "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+               {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "conv", "n_kernels": 32,
+                "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+               {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "conv", "n_kernels": 64,
+                "kx": 5, "ky": 5, "padding": (2, 2, 2, 2)},
+               {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+               {"type": "softmax", "output_shape": 11}],
+    "snapshot": ""})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -594,7 +591,7 @@ class ChannelsLoader(loader.FullBatchLoader):
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))
         for i in self.shuffled_indices.mem:
             l = self.original_labels[i]
-            dirnme = "%s/%s" % (root.common.cache_dir, root.model)
+            dirnme = "%s/%s" % (root.common.cache_dir, root.channels.model)
             try:
                 os.mkdir(dirnme)
             except OSError:
@@ -667,11 +664,13 @@ class ChannelsWorkflow(StandardWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = ChannelsLoader(
-            self, cache_file_name=root.loader.cache_file_name,
+            self, cache_file_name=root.channels.loader.cache_file_name,
             find_negative=root.channels.find_negative,
-            grayscale=root.loader.grayscale, n_threads=root.loader.n_threads,
-            channels_dir=root.loader.channels_dir, rect=root.loader.rect,
-            validation_ratio=root.loader.validation_ratio,
+            grayscale=root.channels.loader.grayscale,
+            n_threads=root.channels.loader.n_threads,
+            channels_dir=root.channels.loader.channels_dir,
+            rect=root.channels.loader.rect,
+            validation_ratio=root.channels.loader.validation_ratio,
             layers=root.channels.layers)
         self.loader.link_from(self.repeater)
 
@@ -680,7 +679,7 @@ class ChannelsWorkflow(StandardWorkflow):
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=root.image_saver.out_dirs)
+            self, out_dirs=root.channels.image_saver.out_dirs)
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
         self.image_saver.link_attrs(
@@ -701,10 +700,10 @@ class ChannelsWorkflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.decision.fail_iterations,
-            use_dynamic_alpha=root.decision.use_dynamic_alpha,
-            do_export_weights=root.decision.do_export_weights,
-            max_epochs=root.decision.max_epochs)
+            self, fail_iterations=root.channels.decision.fail_iterations,
+            use_dynamic_alpha=root.channels.decision.use_dynamic_alpha,
+            do_export_weights=root.channels.decision.do_export_weights,
+            max_epochs=root.channels.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -715,8 +714,9 @@ class ChannelsWorkflow(StandardWorkflow):
             ("minibatch_n_err", "n_err"),
             ("minibatch_confusion_matrix", "confusion_matrix"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.channels.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -764,7 +764,7 @@ class ChannelsWorkflow(StandardWorkflow):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
-                limit=root.weights_plotter.limit)
+                limit=root.channels.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
             if isinstance(self.fwds[i], conv.Conv):
@@ -853,8 +853,8 @@ def run(load, main):
             logging.error("Valid snapshot should be provided if "
                           "find_negative supplied. Will now exit.")
             return
-    fnme = (os.path.join(root.common.cache_dir, root.snapshotter.prefix)
-            + ".txt")
+    fnme = (os.path.join(root.common.cache_dir,
+                         root.channels.snapshotter.prefix) + ".txt")
     logging.info("Dumping file map to %s" % (fnme))
     fout = open(fnme, "w")
     file_map = w.loader.file_map
@@ -865,5 +865,5 @@ def run(load, main):
     logging.info("Will execute workflow now")
     main(learning_rate=root.channels.learning_rate,
          weights_decay=root.channels.weights_decay,
-         minibatch_size=root.loader.minibatch_size,
+         minibatch_size=root.channels.loader.minibatch_size,
          w_neg=w_neg)

@@ -22,16 +22,15 @@ from veles.znicz.nn_units import NNSnapshotter
 
 root.common.defaults = {"plotters_disabled": True}
 
-root.defaults = {"decision": {"fail_iterations": 250},
-                 "snapshotter": {"prefix": "wine_relu"},
-                 "loader": {"minibatch_size": 10},
-                 "wine_relu": {"learning_rate": 0.03,
-                               "weights_decay": 0.0,
-                               "layers": [10, 3],
-                               "data_paths":
-                               os.path.join(root.common.veles_dir,
-                                            "veles/znicz/samples/wine/" +
-                                            "wine.data")}}
+root.wine_relu.update({
+    "decision": {"fail_iterations": 250},
+    "snapshotter": {"prefix": "wine_relu"},
+    "loader": {"minibatch_size": 10},
+    "learning_rate": 0.03,
+    "weights_decay": 0.0,
+    "layers": [10, 3],
+    "data_paths":
+    os.path.join(root.common.veles_dir, "veles/znicz/samples/wine/wine.data")})
 
 
 class WineReluWorkflow(nn_units.NNWorkflow):
@@ -47,7 +46,8 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = WineLoader(
-            self, minibatch_size=root.loader.minibatch_size, on_device=True)
+            self, minibatch_size=root.wine_relu.loader.minibatch_size,
+            on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -81,8 +81,8 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self,
-            snapshot_prefix=root.decision.snapshot_prefix,
-            fail_iterations=root.decision.fail_iterations)
+            snapshot_prefix=root.wine_relu.decision.snapshot_prefix,
+            fail_iterations=root.wine_relu.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
@@ -94,8 +94,9 @@ class WineReluWorkflow(nn_units.NNWorkflow):
             ("minibatch_confusion_matrix", "confusion_matrix"),
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
-        self.snapshotter = NNSnapshotter(self, prefix=root.snapshotter.prefix,
-                                         directory=root.common.snapshot_dir)
+        self.snapshotter = NNSnapshotter(
+            self, prefix=root.wine_relu.snapshotter.prefix,
+            directory=root.common.snapshot_dir)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
