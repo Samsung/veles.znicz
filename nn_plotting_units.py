@@ -58,10 +58,25 @@ class Weights2D(plotter.Plotter):
         get_shape_from = (self.input if self.get_shape_from is None
                           else self.get_shape_from)
         if isinstance(get_shape_from, formats.Vector):
-            sx = get_shape_from.shape[2]
-            sy = get_shape_from.shape[1]
-            if len(get_shape_from.shape) == 4:
-                n_channels = get_shape_from.shape[3]
+            if len(get_shape_from.shape) < 2:
+                self.warning(
+                    "Shape of the get_shape_from should be 2, 3 or 4, "
+                    "will not draw")
+                return None, None, None
+            if len(get_shape_from.shape) == 2:
+                n = get_shape_from.shape[1]
+                sx = numpy.round(numpy.sqrt(n))
+                sy = n // sx
+                if sx * sy != n:
+                    self.warning("Auto-search of an image shape has failed, "
+                                 "will not draw")
+                    return None, None, None
+                self.warning("Auto-set image shape to [%d, %d]", sy, sx)
+            else:
+                sx = get_shape_from.shape[2]
+                sy = get_shape_from.shape[1]
+                if len(get_shape_from.shape) == 4:
+                    n_channels = get_shape_from.shape[3]
         else:
             if len(get_shape_from) == 2:
                 sx = get_shape_from[0]
@@ -86,6 +101,8 @@ class Weights2D(plotter.Plotter):
             inp = inp.transpose()
 
         n_channels, sx, sy = self.get_number_of_channels(inp)
+        if n_channels is None:
+            return None
         sz = sx * sy * n_channels
 
         for i in range(inp.shape[0]):
@@ -111,14 +128,17 @@ class Weights2D(plotter.Plotter):
         return pics
 
     def redraw(self):
+        pics = self._pics_to_draw
+        if pics is None or not len(pics):
+            self.warning("No pics to draw")
+            return None
+
         figure = self.pp.figure(self.name)
         figure.clf()
 
-        pics = self._pics_to_draw
-        if len(pics) > 0:
-            n_cols = formats.roundup(int(numpy.round(numpy.sqrt(len(pics)))),
-                                     self.column_align)
-            n_rows = int(numpy.ceil(len(pics) / n_cols))
+        n_cols = formats.roundup(int(numpy.round(numpy.sqrt(len(pics)))),
+                                 self.column_align)
+        n_rows = int(numpy.ceil(len(pics) / n_cols))
 
         i = 0
         for _row in range(n_rows):
