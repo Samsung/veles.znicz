@@ -213,7 +213,7 @@ class Workflow(nn_units.NNWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_block = \
+        self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
@@ -322,6 +322,7 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, learning_rate, weights_decay, minibatch_size,
                    device, **kwargs):
+        self.generate_graph("/home/lpodoynitsina/Desktop/approximator.png")
         super(Workflow, self).initialize(learning_rate=learning_rate,
                                          weights_decay=weights_decay,
                                          minibatch_size=minibatch_size,

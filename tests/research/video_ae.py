@@ -36,7 +36,7 @@ root.defaults = {"decision": {"fail_iterations": 100},
                               "layers": [9, [90, 160]],
                               "data_paths":
                               os.path.join(root.common.test_dataset_root,
-                                           "video/video_ae/img")}}
+                                           "video_ae/img")}}
 
 
 class Loader(loader.ImageLoader):
