@@ -43,9 +43,9 @@ class TestVideoAE(unittest.TestCase):
                               "weights_decay": 0.00005,
                               "layers": [9, [90, 160]]}}
 
-        self.w = video_ae.Workflow(dummy_workflow.DummyWorkflow(),
-                                   layers=root.video_ae_test.layers,
-                                   device=self.device)
+        self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyWorkflow(),
+                                          layers=root.video_ae_test.layers,
+                                          device=self.device)
         self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device,
                           learning_rate=root.video_ae_test.learning_rate,

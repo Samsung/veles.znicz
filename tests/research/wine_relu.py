@@ -16,7 +16,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-from veles.znicz.samples.wine import Loader
+from veles.znicz.samples.wine import WineLoader
 from veles.znicz.nn_units import NNSnapshotter
 
 
@@ -34,7 +34,7 @@ root.defaults = {"decision": {"fail_iterations": 250},
                                             "wine.data")}}
 
 
-class Workflow(nn_units.NNWorkflow):
+class WineReluWorkflow(nn_units.NNWorkflow):
     """Sample workflow for Wine dataset.
     """
     def __init__(self, workflow, **kwargs):
@@ -42,13 +42,12 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(WineReluWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self,
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = WineLoader(
+            self, minibatch_size=root.loader.minibatch_size, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -134,12 +133,12 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_from(self.decision)
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         device=device)
+        super(WineReluWorkflow, self).initialize(
+            learning_rate=learning_rate, weights_decay=weights_decay,
+            device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.wine_relu.layers)
+    load(WineReluWorkflow, layers=root.wine_relu.layers)
     main(learning_rate=root.wine_relu.learning_rate,
          weights_decay=root.wine_relu.weights_decay)

@@ -55,9 +55,9 @@ class TestCifarAll2All(unittest.TestCase):
                                       {"type": "softmax", "output_shape": 10,
                                        "learning_rate": 0.0005,
                                        "weights_decay": 0.0}]}}
-        self.w = cifar.Cifar_Workflow(dummy_workflow.DummyWorkflow(),
-                                      layers=root.cifar_test.layers,
-                                      device=self.device)
+        self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.cifar_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

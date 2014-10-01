@@ -100,16 +100,16 @@ class ImageLabel(IntEnum):
 
 
 @implementer(IFullBatchLoader)
-class Loader(ImageLoader):
+class LinesLoader(ImageLoader):
     def get_label_from_filename(self, filename):
         # takes folder name "vertical", "horizontal", "etc"
         return int(ImageLabel[filename.split("/")[-2]])
 
     def initialize(self, device, **kwargs):
-        super(Loader, self).initialize(device, **kwargs)
+        super(LinesLoader, self).initialize(device, **kwargs)
 
 
-class Workflow(StandardWorkflow):
+class LinesWorkflow(StandardWorkflow):
     """Workflow for Lines dataset.
     """
     def __init__(self, workflow, **kwargs):
@@ -118,10 +118,10 @@ class Workflow(StandardWorkflow):
         kwargs["layers"] = layers
         kwargs["device"] = device
         kwargs["name"] = kwargs.get("name", "Lines")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(LinesWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
-        self.loader = Loader(
+        self.loader = LinesLoader(
             self,
             train_paths=[root.lines.path_for_load_data.train],
             validation_paths=[root.lines.path_for_load_data.validation],
@@ -362,9 +362,9 @@ class Workflow(StandardWorkflow):
         self.loader.gate_block = self.decision.complete
 
     def initialize(self, device, **kwargs):
-        super(Workflow, self).initialize(device=device)
+        super(LinesWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.lines.layers)
+    load(LinesWorkflow, layers=root.lines.layers)
     main()

@@ -70,9 +70,9 @@ class TestMnistAll2All(unittest.TestCase):
                                      "bias_filling": "uniform",
                                      "bias_stddev": Tune(0.05, 0.0001, 0.1)}]}}
         fix_config(root)
-        self.w = mnist_all2all.Workflow(dummy_workflow.DummyWorkflow(),
-                                        layers=root.mnist_all2all_test.layers,
-                                        device=self.device)
+        self.w = mnist_all2all.MnistWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            layers=root.mnist_all2all_test.layers, device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)

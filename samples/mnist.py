@@ -52,7 +52,7 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
 
 
 @implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class MnistLoader(loader.FullBatchLoader):
     """Loads MNIST dataset.
     """
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
@@ -138,18 +138,18 @@ class Loader(loader.FullBatchLoader):
         self.class_lengths[2] = 60000
 
 
-class Workflow(nn_units.NNWorkflow):
+class MnistWorkflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, layers, **kwargs):
         kwargs["name"] = kwargs.get("name", "MNIST")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(MnistWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, name="Mnist fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = MnistLoader(self, name="Mnist fullbatch loader",
+                                  minibatch_size=root.loader.minibatch_size,
+                                  on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -282,12 +282,12 @@ class Workflow(nn_units.NNWorkflow):
         self.plt_err_y[-1].redraw_plot = True
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
-        return super(Workflow, self).initialize(learning_rate=learning_rate,
-                                                weights_decay=weights_decay,
-                                                device=device)
+        return super(MnistWorkflow, self).initialize(
+            learning_rate=learning_rate, weights_decay=weights_decay,
+            device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist.layers)
+    load(MnistWorkflow, layers=root.mnist.layers)
     main(learning_rate=root.mnist.learning_rate,
          weights_decay=root.mnist.weights_decay)

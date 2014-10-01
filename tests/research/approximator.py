@@ -42,7 +42,7 @@ root.defaults = {"decision": {"fail_iterations": 1000,
                                                  "train": train_dir}}}
 
 
-class Loader(loader.ImageLoaderMSE):
+class ApproximatorLoader(loader.ImageLoaderMSE):
     def load_original(self, fnme):
         a = scipy.io.loadmat(fnme)
         for key in a.keys():
@@ -58,7 +58,7 @@ class Loader(loader.ImageLoaderMSE):
         return (aa, [])
 
     def load_data(self):
-        super(Loader, self).load_data()
+        super(ApproximatorLoader, self).load_data()
         return
         if self.class_lengths[1] == 0:
             n = self.class_lengths[2] * 10 // 70
@@ -66,7 +66,7 @@ class Loader(loader.ImageLoaderMSE):
             self.class_lengths[2] -= n
 
     def initialize(self, device, **kwargs):
-        super(Loader, self).initialize(device, **kwargs)
+        super(ApproximatorLoader, self).initialize(device, **kwargs)
         self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
                      self.original_targets.min(), self.original_targets.max()))
@@ -150,7 +150,7 @@ class Loader(loader.ImageLoaderMSE):
         """
 
 
-class Workflow(nn_units.NNWorkflow):
+class ApproximatorWorkflow(nn_units.NNWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -158,10 +158,10 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(ApproximatorWorkflow, self).__init__(workflow, **kwargs)
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(
+        self.loader = ApproximatorLoader(
             self, train_paths=root.approximator.data_paths.train,
             target_paths=root.approximator.data_paths.target)
         self.loader.link_from(self.repeater)
@@ -322,15 +322,13 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, learning_rate, weights_decay, minibatch_size,
                    device, **kwargs):
-        self.generate_graph("/home/lpodoynitsina/Desktop/approximator.png")
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         minibatch_size=minibatch_size,
-                                         device=device)
+        super(ApproximatorWorkflow, self).initialize(
+            learning_rate=learning_rate, weights_decay=weights_decay,
+            minibatch_size=minibatch_size, device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.approximator.layers)
+    load(ApproximatorWorkflow, layers=root.approximator.layers)
     main(learning_rate=root.approximator.learning_rate,
          weights_decay=root.approximator.weights_decay,
          minibatch_size=root.loader.minibatch_size)

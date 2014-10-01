@@ -39,14 +39,14 @@ root.defaults = {"decision": {"fail_iterations": 100},
                                            "video_ae/img")}}
 
 
-class Loader(loader.ImageLoader):
+class VideoAELoader(loader.ImageLoader):
     """Loads dataset.
 
     Attributes:
         lbl_re_: regular expression for extracting label from filename.
     """
     def init_unpickled(self):
-        super(Loader, self).init_unpickled()
+        super(VideoAELoader, self).init_unpickled()
         self.lbl_re_ = re.compile("(\d+)\.\w+$")
 
     def is_valid_filename(self, filename):
@@ -60,7 +60,7 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-class Workflow(nn_units.NNWorkflow):
+class VideoAEWorkflow(nn_units.NNWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -68,14 +68,13 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(VideoAEWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self,
-                             train_paths=(root.video_ae.data_paths,),
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = VideoAELoader(
+            self, train_paths=(root.video_ae.data_paths,),
+            minibatch_size=root.loader.minibatch_size, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -241,13 +240,13 @@ class Workflow(nn_units.NNWorkflow):
             g.weights_decay = weights_decay
         for forward in self.fwds:
             forward.device = device
-        return super(Workflow, self).initialize(
+        return super(VideoAEWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
             device=device)
 
 
 def run(load, main):
-    w, snapshot = load(Workflow, layers=root.video_ae.layers)
+    w, snapshot = load(VideoAEWorkflow, layers=root.video_ae.layers)
     if snapshot:
         for fwds in w.fwds:
             logging.info(fwds.weights.mem.min(), fwds.weights.mem.max(),

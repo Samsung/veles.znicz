@@ -38,7 +38,7 @@ root.defaults = {"decision": {"fail_iterations": 200},
 
 
 @implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class WineLoader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
@@ -74,7 +74,7 @@ class Loader(loader.FullBatchLoader):
         self.class_lengths[2] = self.original_data.shape[0]
 
 
-class Workflow(nn_units.NNWorkflow):
+class WineWorkflow(nn_units.NNWorkflow):
     """Sample workflow for Wine dataset.
     """
     def __init__(self, workflow, **kwargs):
@@ -82,13 +82,13 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(WineWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self,
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = WineLoader(self,
+                                 minibatch_size=root.loader.minibatch_size,
+                                 on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -171,14 +171,12 @@ class Workflow(nn_units.NNWorkflow):
         self.gds[-1].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         learning_rate_bias=learning_rate,
-                                         weights_decay_bias=weights_decay,
-                                         device=device, **kwargs)
+        super(WineWorkflow, self).initialize(learning_rate=learning_rate,
+                                             weights_decay=weights_decay,
+                                             device=device, **kwargs)
 
 
 def run(load, main):
-    load(Workflow, layers=root.wine.layers)
+    load(WineWorkflow, layers=root.wine.layers)
     main(learning_rate=root.wine.learning_rate,
          weights_decay=root.wine.weights_decay)

@@ -49,9 +49,9 @@ class TestMnistAE(unittest.TestCase):
                          "ky": 5},
             "mnist_ae_test": {"layers": [100, 10]}}
 
-        self.w = mnist_ae.Workflow(dummy_workflow.DummyWorkflow(),
-                                   layers=root.mnist_ae_test.layers,
-                                   device=self.device)
+        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyWorkflow(),
+                                          layers=root.mnist_ae_test.layers,
+                                          device=self.device)
         self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device)
         self.w.run()

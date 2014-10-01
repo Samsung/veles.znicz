@@ -115,9 +115,9 @@ class TestCifarConv(unittest.TestCase):
                                   "gradient_moment": GM,
                                   "gradient_moment_bias": GMB}]}}
 
-        self.w = cifar.Cifar_Workflow(dummy_workflow.DummyWorkflow(),
-                                      layers=root.cifar_conv_test.layers,
-                                      device=self.device)
+        self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.cifar_conv_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

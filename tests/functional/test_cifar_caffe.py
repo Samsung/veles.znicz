@@ -135,9 +135,9 @@ class TestCifarCaffe(unittest.TestCase):
                                    "weights_decay_bias": 0,
                                    "gradient_moment": 0.9,
                                    "gradient_moment_bias": 0.9}]}}
-        self.w = cifar.Cifar_Workflow(dummy_workflow.DummyWorkflow(),
-                                      layers=root.cifar_caffe_test.layers,
-                                      device=self.device)
+        self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.cifar_caffe_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

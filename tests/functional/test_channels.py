@@ -69,9 +69,9 @@ class TestChannels(unittest.TestCase):
                                           "output_shape": 11}],
                               "snapshot": ""}}
 
-        self.w = channels.Workflow(dummy_workflow.DummyWorkflow(),
-                                   layers=root.channels_test.layers,
-                                   device=self.device)
+        self.w = channels.ChannelsWorkflow(dummy_workflow.DummyWorkflow(),
+                                           layers=root.channels_test.layers,
+                                           device=self.device)
         w_neg = None
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

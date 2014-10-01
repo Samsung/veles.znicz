@@ -45,8 +45,8 @@ class TestKohonen(unittest.TestCase):
             "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.01),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}}
 
-        self.w = kohonen.Workflow(dummy_workflow.DummyWorkflow(),
-                                  device=self.device)
+        self.w = kohonen.KohonenWorkflow(dummy_workflow.DummyWorkflow(),
+                                         device=self.device)
         self.w.initialize(device=self.device)
         self.w.run()
 

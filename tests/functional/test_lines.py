@@ -74,9 +74,9 @@ class TestLines(unittest.TestCase):
             "lines": {"path_for_load_data": {"validation": valid,
                                              "train": train}}}
 
-        self.w = lines.Workflow(dummy_workflow.DummyWorkflow(),
-                                layers=root.lines_test.layers,
-                                device=self.device)
+        self.w = lines.LinesWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.lines_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 9
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

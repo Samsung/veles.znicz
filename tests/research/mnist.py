@@ -18,7 +18,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.lr_adjust as lra
-from veles.znicz.samples.mnist import Loader
+from veles.znicz.samples.mnist import MnistLoader
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -69,7 +69,7 @@ root.defaults = {
                                       "train_label": train_label_dir}}}
 
 
-class Workflow(StandardWorkflow):
+class MnistWorkflow(StandardWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, **kwargs):
@@ -78,13 +78,13 @@ class Workflow(StandardWorkflow):
         kwargs["layers"] = layers
         kwargs["device"] = device
         kwargs["name"] = kwargs.get("name", "MNIST")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(MnistWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, name="Mnist fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = MnistLoader(self, name="Mnist fullbatch loader",
+                                  minibatch_size=root.loader.minibatch_size,
+                                  on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -209,9 +209,9 @@ class Workflow(StandardWorkflow):
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, device, **kwargs):
-        super(Workflow, self).initialize(device=device)
+        super(MnistWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist_standard.layers)
+    load(MnistWorkflow, layers=root.mnist_standard.layers)
     main()

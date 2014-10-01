@@ -88,9 +88,9 @@ class TestMnistCaffe(unittest.TestCase):
                                    "bias_filling": "constant",
                                    "weights_decay": 0.0005,
                                    "weights_decay_bias": 0.0}]}}
-        self.w = mnist_caffe.Workflow(dummy_workflow.DummyWorkflow(),
-                                      layers=root.mnist_caffe_test.layers,
-                                      device=self.device)
+        self.w = mnist_caffe.MnistWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            layers=root.mnist_caffe_test.layers, device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

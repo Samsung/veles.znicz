@@ -44,7 +44,7 @@ root.defaults = {"decision": {"fail_iterations": 100},
                                           validation_dir}}}
 
 
-class Loader(loader.ImageLoader):
+class HandsLoader(loader.ImageLoader):
     """Loads Hands dataset.
     """
     def from_image(self, fnme):
@@ -62,7 +62,7 @@ class Loader(loader.ImageLoader):
         return lbl
 
 
-class Workflow(nn_units.NNWorkflow):
+class HandsWorkflow(nn_units.NNWorkflow):
     """Sample workflow for Hands dataset.
     """
     def __init__(self, workflow, **kwargs):
@@ -70,11 +70,11 @@ class Workflow(nn_units.NNWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(HandsWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(
+        self.loader = HandsLoader(
             self, validation_paths=root.hands.data_paths.validation,
             train_paths=root.hands.data_paths.train,
             minibatch_size=root.loader.minibatch_size)
@@ -182,12 +182,12 @@ class Workflow(nn_units.NNWorkflow):
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         device=device)
+        super(HandsWorkflow, self).initialize(
+            learning_rate=learning_rate, weights_decay=weights_decay,
+            device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.hands.layers)
+    load(HandsWorkflow, layers=root.hands.layers)
     main(learning_rate=root.hands.learning_rate,
          weights_decay=root.hands.weights_decay)

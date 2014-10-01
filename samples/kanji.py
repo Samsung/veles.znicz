@@ -54,17 +54,17 @@ root.defaults = {
 
 
 @implementer(loader.ILoader)
-class Loader(loader.LoaderMSE):
+class KanjiLoader(loader.LoaderMSE):
     """Loads dataset.
     """
     def __init__(self, workflow, **kwargs):
         self.train_path = kwargs["train_path"]
         self.target_path = kwargs["target_path"]
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(KanjiLoader, self).__init__(workflow, **kwargs)
         self.class_targets = formats.Vector()
 
     def __getstate__(self):
-        state = super(Loader, self).__getstate__()
+        state = super(KanjiLoader, self).__getstate__()
         state["index_map"] = None
         return state
 
@@ -154,7 +154,7 @@ class Loader(loader.LoaderMSE):
                 self.minibatch_targets[i].shape)
 
 
-class Workflow(nn_units.NNWorkflow):
+class KanjiWorkflow(nn_units.NNWorkflow):
     """Workflow for training network which will be able to recognize
     drawn kanji characters; training done using only TrueType fonts;
     1023 classes to recognize, 3.6 million 32x32 images dataset size.
@@ -163,11 +163,11 @@ class Workflow(nn_units.NNWorkflow):
         layers = kwargs.get("layers")
         device = kwargs.get("device")
         kwargs["name"] = kwargs.get("name", "Kanji")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(KanjiWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(
+        self.loader = KanjiLoader(
             self, validation_ratio=root.loader.validation_ratio,
             train_path=root.kanji.data_paths.train,
             target_path=root.kanji.data_paths.target)
@@ -337,10 +337,10 @@ class Workflow(nn_units.NNWorkflow):
 
     def initialize(self, device, learning_rate, weights_decay, minibatch_size,
                    weights, bias, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         minibatch_size=minibatch_size,
-                                         device=device)
+        super(KanjiWorkflow, self).initialize(learning_rate=learning_rate,
+                                              weights_decay=weights_decay,
+                                              minibatch_size=minibatch_size,
+                                              device=device)
         if weights is not None:
             for i, fwds in enumerate(self.fwds):
                 fwds.weights.map_invalidate()
@@ -354,7 +354,7 @@ class Workflow(nn_units.NNWorkflow):
 def run(load, main):
     weights = None
     bias = None
-    w, snapshot = load(Workflow, layers=root.kanji.layers)
+    w, snapshot = load(KanjiWorkflow, layers=root.kanji.layers)
     if snapshot:
         if type(w) == tuple:
             logging.info("Will load weights")

@@ -60,9 +60,9 @@ class TestKanji(unittest.TestCase):
                       os.path.join(train_path, "index_map.%d.pickle"
                                    % (sys.version_info[0]))}}
 
-        self.w = kanji.Workflow(dummy_workflow.DummyWorkflow(),
-                                layers=root.kanji_test.layers,
-                                device=self.device)
+        self.w = kanji.KanjiWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.kanji_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 5
         self.w.snapshotter.interval = 0
         self.assertEqual(self.w.evaluator.labels,

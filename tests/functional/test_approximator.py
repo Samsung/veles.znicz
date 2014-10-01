@@ -44,9 +44,9 @@ class TestApproximator(unittest.TestCase):
                                   "weights_decay": 0.00005,
                                   "layers": [810, 9]}}
 
-        self.w = approximator.Workflow(dummy_workflow.DummyWorkflow(),
-                                       layers=root.approximator_test.layers,
-                                       device=self.device)
+        self.w = approximator.ApproximatorWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            layers=root.approximator_test.layers, device=self.device)
         self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device,
                           learning_rate=root.approximator_test.learning_rate,

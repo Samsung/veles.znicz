@@ -45,9 +45,9 @@ root.loader.validation_ratio = 0
 
 
 @implementer(IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class SpamKohonenLoader(loader.FullBatchLoader):
     def __init__(self, workflow, **kwargs):
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(SpamKohonenLoader, self).__init__(workflow, **kwargs)
         self.has_ids = kwargs.get("ids", False)
         self.has_classes = kwargs.get("classes", True)
         self.lemmas_map = 0
@@ -182,19 +182,19 @@ class ResultsExporter(units.Unit):
         self.info("Exported the classified data to %s", self.file_name)
 
 
-class Workflow(nn_units.NNWorkflow):
+class SpamKohonenWorkflow(nn_units.NNWorkflow):
     """Workflow for Kohonen Spam Detection.
     """
     def __init__(self, workflow, **kwargs):
         kwargs["name"] = kwargs.get("name", "Kohonen Spam")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(SpamKohonenWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, name="Kohonen Spam fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=False, ids=root.loader.ids,
-                             classes=root.loader.classes)
+        self.loader = SpamKohonenLoader(
+            self, name="Kohonen Spam fullbatch loader",
+            minibatch_size=root.loader.minibatch_size, on_device=False,
+            ids=root.loader.ids, classes=root.loader.classes)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
@@ -286,9 +286,9 @@ class Workflow(nn_units.NNWorkflow):
             self.plotters[3].gate_block = ~self.loader.epoch_ended
 
     def initialize(self, device, **kwargs):
-        return super(Workflow, self).initialize(device=device)
+        return super(SpamKohonenWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow)
+    load(SpamKohonenWorkflow)
     main()

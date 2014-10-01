@@ -42,8 +42,8 @@ class TestWine(unittest.TestCase):
                           os.path.join(root.common.veles_dir,
                                        "veles/znicz/samples/wine/wine.data")}}
 
-        self.w = wine.Workflow(dummy_workflow.DummyWorkflow(),
-                               layers=root.wine_test.layers)
+        self.w = wine.WineWorkflow(dummy_workflow.DummyWorkflow(),
+                                   layers=root.wine_test.layers)
 
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

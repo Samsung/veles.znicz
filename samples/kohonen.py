@@ -37,7 +37,7 @@ root.defaults = {
 
 
 @implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class KohonenLoader(loader.FullBatchLoader):
     """Loads the sample dataset.
     """
 
@@ -63,18 +63,18 @@ class Loader(loader.FullBatchLoader):
         self.class_lengths[2] = 1000
 
 
-class Workflow(nn_units.NNWorkflow):
+class KohonenWorkflow(nn_units.NNWorkflow):
     """Workflow for Kohonen sample dataset.
     """
     def __init__(self, workflow, **kwargs):
         kwargs["name"] = kwargs.get("name", "Kohonen")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(KohonenWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, name="Kohonen fullbatch loader",
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=False)
+        self.loader = KohonenLoader(self, name="Kohonen fullbatch loader",
+                                    minibatch_size=root.loader.minibatch_size,
+                                    on_device=False)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer
@@ -129,9 +129,9 @@ class Workflow(nn_units.NNWorkflow):
         self.plotters[2].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, device, **kwargs):
-        return super(Workflow, self).initialize(device=device)
+        return super(KohonenWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow)
+    load(KohonenWorkflow)
     main()

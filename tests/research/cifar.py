@@ -61,11 +61,11 @@ root.defaults = {
 
 
 @implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class CifarLoader(loader.FullBatchLoader):
     """Loads Cifar dataset.
     """
     def __init__(self, workflow, **kwargs):
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(CifarLoader, self).__init__(workflow, **kwargs)
         self.shuffle_limit = kwargs.get("shuffle_limit", 2000000000)
 
     def shuffle(self):
@@ -73,7 +73,7 @@ class Loader(loader.FullBatchLoader):
             return
         self.shuffle_limit -= 1
         self.info("Shuffling, remaining limit is %d", self.shuffle_limit)
-        super(Loader, self).shuffle()
+        super(CifarLoader, self).shuffle()
 
     def _add_sobel_chan(self):
         """
@@ -170,7 +170,7 @@ class Loader(loader.FullBatchLoader):
                              + str(root.loader.norm))
 
 
-class Cifar_Workflow(StandardWorkflow):
+class CifarWorkflow(StandardWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -178,12 +178,12 @@ class Cifar_Workflow(StandardWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Cifar_Workflow, self).__init__(workflow, **kwargs)
+        super(CifarWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, shuffle_limit=root.loader.shuffle_limit,
-                             on_device=True)
+        self.loader = CifarLoader(
+            self, shuffle_limit=root.loader.shuffle_limit, on_device=True)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -420,9 +420,9 @@ class Cifar_Workflow(StandardWorkflow):
         self.gds[-1].link_from(prev)
 
     def initialize(self, device, **kwargs):
-        super(Cifar_Workflow, self).initialize(device, **kwargs)
+        super(CifarWorkflow, self).initialize(device, **kwargs)
 
 
 def run(load, main):
-    load(Cifar_Workflow, layers=root.cifar.layers)
+    load(CifarWorkflow, layers=root.cifar.layers)
     main(minibatch_size=root.loader.minibatch_size)

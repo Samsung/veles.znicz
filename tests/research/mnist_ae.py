@@ -22,7 +22,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
-from veles.znicz.samples.mnist import Loader as MNISTLoader
+from veles.znicz.samples.mnist import MnistLoader as MNISTLoader
 
 
 mnist_dir = os.path.join(
@@ -52,24 +52,24 @@ root.defaults = {"all2all": {"weights_stddev": 0.05},
                                              "train_label": train_label_dir}}}
 
 
-class Loader(MNISTLoader):
+class MnistAELoader(MNISTLoader):
     def load_data(self):
-        super(Loader, self).load_data()
+        super(MnistAELoader, self).load_data()
         self.original_data.mem.shape = [70000, 28, 28, 1]
 
 
-class Workflow(nn_units.NNWorkflow):
+class MnistAEWorkflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, layers, **kwargs):
         kwargs["name"] = kwargs.get("name", "MNIST")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(MnistAEWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, name="MNIST loader",
-                             minibatch_size=root.loader.minibatch_size,
-                             on_device=True)
+        self.loader = MnistAELoader(self, name="MNIST loader",
+                                    minibatch_size=root.loader.minibatch_size,
+                                    on_device=True)
         self.loader.link_from(self.repeater)
 
         unit = conv.Conv(self, n_kernels=root.mnist_ae.n_kernels,
@@ -214,5 +214,5 @@ class Workflow(nn_units.NNWorkflow):
 
 
 def run(load, main):
-    load(Workflow, layers=root.mnist_ae.layers)
+    load(MnistAEWorkflow, layers=root.mnist_ae.layers)
     main()

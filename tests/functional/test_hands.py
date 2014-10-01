@@ -39,9 +39,9 @@ class TestHands(unittest.TestCase):
                            "weights_decay": 0.0,
                            "layers": [30, 2]}}
 
-        self.w = hands.Workflow(dummy_workflow.DummyWorkflow(),
-                                layers=root.hands_test.layers,
-                                device=self.device)
+        self.w = hands.HandsWorkflow(dummy_workflow.DummyWorkflow(),
+                                     layers=root.hands_test.layers,
+                                     device=self.device)
         self.w.decision.max_epochs = 4
         self.w.snapshotter.interval = 0
         self.w.snapshotter.time_interval = 0

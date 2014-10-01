@@ -101,11 +101,11 @@ root.defaults = {
 
 
 @implementer(loader.IFullBatchLoader)
-class Loader(loader.FullBatchLoader):
+class ChannelsLoader(loader.FullBatchLoader):
     """Loads channels.
     """
     def __init__(self, workflow, **kwargs):
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(ChannelsLoader, self).__init__(workflow, **kwargs)
         self.channels_dir = kwargs.get("channels_dir", "")
         self.layers = kwargs.get("layers", [54, 10])
         self.rect = kwargs.get("rect", (264, 129))
@@ -651,7 +651,7 @@ class Loader(loader.FullBatchLoader):
         return formats.norm_image(x, True)
 
 
-class Workflow(StandardWorkflow):
+class ChannelsWorkflow(StandardWorkflow):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -660,20 +660,19 @@ class Workflow(StandardWorkflow):
         kwargs["layers"] = layers
         kwargs["device"] = device
         kwargs["name"] = kwargs.get("name", "channels")
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(ChannelsWorkflow, self).__init__(workflow, **kwargs)
 
         # self.saver = None
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, cache_file_name=root.loader.cache_file_name,
-                             find_negative=root.channels.find_negative,
-                             grayscale=root.loader.grayscale,
-                             n_threads=root.loader.n_threads,
-                             channels_dir=root.loader.channels_dir,
-                             rect=root.loader.rect,
-                             validation_ratio=root.loader.validation_ratio,
-                             layers=root.channels.layers)
+        self.loader = ChannelsLoader(
+            self, cache_file_name=root.loader.cache_file_name,
+            find_negative=root.channels.find_negative,
+            grayscale=root.loader.grayscale, n_threads=root.loader.n_threads,
+            channels_dir=root.loader.channels_dir, rect=root.loader.rect,
+            validation_ratio=root.loader.validation_ratio,
+            layers=root.channels.layers)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -841,17 +840,15 @@ class Workflow(StandardWorkflow):
 
     def initialize(self, learning_rate, weights_decay, minibatch_size, w_neg,
                    device, **kwargs):
-        super(Workflow, self).initialize(learning_rate=learning_rate,
-                                         weights_decay=weights_decay,
-                                         minibatch_size=minibatch_size,
-                                         w_neg=w_neg,
-                                         device=device)
+        super(ChannelsWorkflow, self).initialize(
+            learning_rate=learning_rate, weights_decay=weights_decay,
+            minibatch_size=minibatch_size, w_neg=w_neg, device=device)
 
 
 def run(load, main):
     w_neg = None
     try:
-        w, _ = load(Workflow, layers=root.channels.layers)
+        w, _ = load(ChannelsWorkflow, layers=root.channels.layers)
         if root.channels.export:
             tm = time.localtime()
             s = "%d.%02d.%02d_%02d.%02d.%02d" % (

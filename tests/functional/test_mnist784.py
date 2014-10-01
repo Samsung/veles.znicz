@@ -44,9 +44,9 @@ class TestMnist784(unittest.TestCase):
                               "weights_decay": 0.00005,
                               "layers": [784, 784]}}
 
-        self.w = mnist784.Workflow(dummy_workflow.DummyWorkflow(),
-                                   layers=root.mnist784_test.layers,
-                                   device=self.device)
+        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyWorkflow(),
+                                           layers=root.mnist784_test.layers,
+                                           device=self.device)
         self.w.decision.max_epochs = 5
         #self.w.snapshotter.interval = 0
         self.assertEqual(self.w.evaluator.labels,
