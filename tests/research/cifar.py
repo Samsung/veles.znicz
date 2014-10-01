@@ -16,13 +16,12 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.formats as formats
-# from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
-# import veles.znicz.image_saver as image_saver
+import veles.znicz.image_saver as image_saver
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.loader as loader
 import veles.znicz.diversity as diversity
@@ -38,6 +37,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 root.defaults = {
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 100, "do_export_weights": False},
+    "learning_rate_adjust": {"do": False},
     "snapshotter": {"prefix": "cifar"},
     "softmax": {"error_function_avr": False},
     "image_saver": {"out_dirs":
@@ -189,26 +189,9 @@ class CifarWorkflow(StandardWorkflow):
         # Add fwds units
         self.parse_forwards_from_config()
 
-        # Add Accumulator units
-        """
-        self.accumulator = []
-        for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(self,
-                                                 bars=root.accumulator.bars)
-            self.accumulator.append(accum)
-            if i:
-                self.accumulator[i].link_from(self.accumulator[i - 1])
-            else:
-                self.accumulator[i].link_from(self.fwds[-1])
-
-            self.accumulator[i].link_attrs(self.fwds[i],
-                                           ("input", "output"))
-        """
-        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
-        # self.image_saver.link_from(self.accumulator[-1])
         self.image_saver.link_from(self.fwds[-1])
         self.image_saver.link_attrs(self.fwds[-1],
                                     "output", "max_idx")
@@ -217,12 +200,10 @@ class CifarWorkflow(StandardWorkflow):
                                     ("indexes", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
-        """
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        # self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -256,38 +237,37 @@ class CifarWorkflow(StandardWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        # self.image_saver.gate_skip = ~self.decision.improved
-        # self.image_saver.link_attrs(self.snapshotter,
-        #                            ("this_save_time", "time"))
-        # for i in range(0, len(layers)):
-        #    self.accumulator[i].reset_flag = ~self.decision.epoch_ended
+        self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
         # Add gradient descent units
         self.create_gd_units_by_config()
 
-        # Add learning_rate_adjust unit
-        lr_adjuster = lr_adjust.LearningRateAdjust(self)
-        for gd_elm in self.gds:
-            lr_adjuster.add_gd_unit(
-                gd_elm,
-                lr_policy=lr_adjust.ArbitraryStepPolicy(
-                    [(gd_elm.learning_rate, 60000),
-                     (gd_elm.learning_rate / 10., 5000),
-                     (gd_elm.learning_rate / 100., 100000000)]),
-                bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
-                    [(gd_elm.learning_rate_bias, 60000),
-                     (gd_elm.learning_rate_bias / 10., 5000),
-                     (gd_elm.learning_rate_bias / 100., 100000000)])
-                )
-        lr_adjuster.link_from(self.gds[0])
-        self.repeater.link_from(lr_adjuster)
-
-        self.end_point.link_from(self.gds[0])
+        if root.learning_rate_adjust.do:
+            # Add learning_rate_adjust unit
+            lr_adjuster = lr_adjust.LearningRateAdjust(self)
+            for gd_elm in self.gds:
+                lr_adjuster.add_gd_unit(
+                    gd_elm,
+                    lr_policy=lr_adjust.ArbitraryStepPolicy(
+                        [(gd_elm.learning_rate, 60000),
+                         (gd_elm.learning_rate / 10., 5000),
+                         (gd_elm.learning_rate / 100., 100000000)]),
+                    bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
+                        [(gd_elm.learning_rate_bias, 60000),
+                         (gd_elm.learning_rate_bias / 10., 5000),
+                         (gd_elm.learning_rate_bias / 100., 100000000)])
+                    )
+            lr_adjuster.link_from(self.gds[0])
+            self.repeater.link_from(lr_adjuster)
+            self.end_point.link_from(lr_adjuster)
+        else:
+            self.repeater.link_from(self.gds[0])
+            self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete
-
-        prev = self.snapshotter
 
         # Error plotter
         self.plt = []
@@ -297,39 +277,38 @@ class CifarWorkflow(StandardWorkflow):
                 self, name="num errors", plot_style=styles[i]))
             self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
             self.plt[-1].input_field = i
-            self.plt[-1].link_from(prev)
-            self.plt[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.plt[-1]
+            self.plt[-1].link_from(self.decision)
+            self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
 
-        """
-        #  Confusion matrix plotter
+        # Confusion matrix plotter
         self.plt_mx = []
-        for i in range(0, len(self.decision.confusion_matrixes)):
+        for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
             self.plt_mx[-1].link_attrs(self.decision,
                                        ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.plt[-1])
+            self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
-        # Histogram plotter
-        self.plt_hist = []
-        for i in range(0, len(layers)):
-            hist = plotting_units.Histogram(self, name="Histogram output %s" %
-                                            (i + 1))
-            self.plt_hist.append(hist)
-            self.plt_hist[i].link_from(self.decision)
-            self.plt_hist[i].link_attrs(self.accumulator[i],
-                                        ("input", "output"),
-                                        ("x", "input"), "n_bars")
-            self.plt_hist[i].gate_block = ~self.decision.epoch_ended
-        """
+        # Err y plotter
+        self.plt_err_y = []
+        for i in range(1, 3):
+            self.plt_err_y.append(plotting_units.AccumulatingPlotter(
+                self, name="Last layer max gradient sum",
+                plot_style=styles[i]))
+            self.plt_err_y[-1].link_attrs(self.decision,
+                                          ("input", "max_err_y_sums"))
+            self.plt_err_y[-1].input_field = i
+            self.plt_err_y[-1].link_from(self.decision)
+            self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
+        self.plt_err_y[0].clear_plot = True
+        self.plt_err_y[-1].redraw_plot = True
 
         # Weights plotter
-        self.plt_mx = []
+        self.plt_wd = []
         prev_channels = 3
         for i in range(len(layers)):
             if (not isinstance(self.fwds[i], conv.Conv) and
@@ -338,20 +317,19 @@ class CifarWorkflow(StandardWorkflow):
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.weights_plotter.limit)
-            self.plt_mx.append(plt_mx)
-            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            self.plt_mx[-1].input_field = "mem"
+            self.plt_wd.append(plt_mx)
+            self.plt_wd[-1].link_attrs(self.fwds[i], ("input", "weights"))
+            self.plt_wd[-1].input_field = "mem"
             if isinstance(self.fwds[i], conv.Conv):
-                self.plt_mx[-1].get_shape_from = (
+                self.plt_wd[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
             if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.fwds[i],
+                self.plt_wd[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
-            self.plt_mx[-1].link_from(prev)
-            self.plt_mx[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.plt_mx[-1]
+            self.plt_wd[-1].link_from(self.decision)
+            self.plt_wd[-1].gate_block = ~self.decision.epoch_ended
             if isinstance(self.fwds[i], conv.Conv) and \
                (i + 1) in root.similar_weights_plotter.layers:
                 plt_mx = diversity.SimilarWeights2D(
@@ -360,38 +338,18 @@ class CifarWorkflow(StandardWorkflow):
                     form_threshold=root.similar_weights_plotter.form,
                     peak_threshold=root.similar_weights_plotter.peak,
                     magnitude_threshold=root.similar_weights_plotter.magnitude)
-                self.plt_mx.append(plt_mx)
-                self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-                self.plt_mx[-1].input_field = "mem"
-                self.plt_mx[-1].get_shape_from = self.plt_mx[-2].get_shape_from
+                self.plt_wd.append(plt_mx)
+                self.plt_wd[-1].link_attrs(self.fwds[i], ("input", "weights"))
+                self.plt_wd[-1].input_field = "mem"
+                self.plt_wd[-1].get_shape_from = self.plt_wd[-2].get_shape_from
                 if (layers[i].get("output_shape") is not None and
                         layers[i]["type"] != "softmax"):
-                    self.plt_mx[-1].link_attrs(self.fwds[i],
+                    self.plt_wd[-1].link_attrs(self.fwds[i],
                                                ("get_shape_from", "input"))
-                self.plt_mx[-1].link_from(prev)
-                self.plt_mx[-1].gate_skip = ~self.decision.epoch_ended
-                prev = self.plt_mx[-1]
-
-        """
-        # MultiHistogram plotter
-        self.plt_multi_hist = []
-        for i in range(0, len(layers)):
-            multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
-            self.plt_multi_hist.append(multi_hist)
-            if layers[i].get("n_kernels") is not None:
-                self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist[i].link_attrs(self.fwds[i],
-                                                  ("input", "weights"))
-                end_epoch = ~self.decision.epoch_ended
-                self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("output_shape") is not None:
-                self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
-                self.plt_multi_hist[i].link_attrs(self.fwds[i],
-                                                  ("input", "weights"))
-                self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
+                self.plt_wd[-1].link_from(self.decision)
+                self.plt_wd[-1].gate_block = ~self.decision.epoch_ended
+        self.plt_wd[0].clear_plot = True
+        self.plt_wd[-1].redraw_plot = True
 
         # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
@@ -415,9 +373,9 @@ class CifarWorkflow(StandardWorkflow):
             self.plt_tab.col_labels.append(name)
         self.plt_tab.link_from(self.decision)
         self.plt_tab.gate_block = ~self.decision.epoch_ended
-        """
+
         self.gds[-1].unlink_before()
-        self.gds[-1].link_from(prev)
+        self.gds[-1].link_from(self.snapshotter)
 
     def initialize(self, device, **kwargs):
         super(CifarWorkflow, self).initialize(device, **kwargs)

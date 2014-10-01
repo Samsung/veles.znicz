@@ -289,6 +289,7 @@ class KanjiWorkflow(nn_units.NNWorkflow):
             self.plt_max[-1].input_offset = 1
             self.plt_max[-1].link_from(self.decision)
             self.plt_max[-1].gate_block = ~self.decision.epoch_ended
+
         # Min plotter
         self.plt_min = []
         styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
@@ -304,6 +305,7 @@ class KanjiWorkflow(nn_units.NNWorkflow):
             self.plt_min[-1].link_from(self.decision)
             self.plt_min[-1].gate_block = ~self.decision.epoch_ended
         self.plt_min[-1].redraw_plot = True
+
         # Error plotter
         self.plt_n_err = []
         styles = ["", "", "k-"]  # ["r-", "b-", "k-"]

@@ -18,7 +18,6 @@ from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
-# import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
@@ -88,66 +87,6 @@ class ApproximatorLoader(loader.ImageLoaderMSE):
                   "norm target range: (%.6f, %.6f)"
                   % (self.original_data.min(), self.original_data.max(),
                      self.original_targets.min(), self.original_targets.max()))
-        """
-        train_data = self.original_data[self.nextclass_offs[1]:
-                                        self.nextclass_offs[2]]
-        train_target = self.original_targets[self.nextclass_offs[1]:
-                                            self.nextclass_offs[2]]
-
-        self.data_IMul, self.data_IAdd = formats.normalize_pointwise(
-                                                            train_data)
-        self.target_IMul, self.target_IAdd = formats.normalize_pointwise(
-                                                            train_target)
-
-        train_data *= self.data_IMul
-        train_data += self.data_IAdd
-        train_target *= self.target_IMul
-        train_target += self.target_IAdd
-
-        train_data = self.original_data[self.nextclass_offs[1]:
-                                        self.nextclass_offs[2]]
-        train_target = self.original_targets[self.nextclass_offs[1]:
-                                            self.nextclass_offs[2]]
-
-        self.info("train data normed range: (%.6f, %.6f)" % (
-            train_data.min(), train_data.max()))
-        self.info("train target normed range: (%.6f, %.6f)" % (
-            train_target.min(), train_target.max()))
-
-        if self.class_lengths[0]:
-            test_data = self.original_data[:self.nextclass_offs[0]]
-            formats.assert_addr(test_data, self.original_data)
-            test_target = self.original_targets[:self.nextclass_offs[0]]
-            formats.assert_addr(test_target, self.original_targets)
-
-            test_data *= self.data_IMul
-            test_data += self.data_IAdd
-            test_target *= self.target_IMul
-            test_target += self.target_IAdd
-
-            self.info("test data normed range: (%.6f, %.6f)" % (
-                test_data.min(), test_data.max()))
-            self.info("test target normed range: (%.6f, %.6f)" % (
-                test_target.min(), test_target.max()))
-
-        if self.class_lengths[1]:
-            validation_data = self.original_data[self.nextclass_offs[0]:
-                                                 self.nextclass_offs[1]]
-            formats.assert_addr(validation_data, self.original_data)
-            validation_target = self.original_targets[self.nextclass_offs[0]:
-                                                     self.nextclass_offs[1]]
-            formats.assert_addr(validation_target, self.original_targets)
-
-            validation_data *= self.data_IMul
-            validation_data += self.data_IAdd
-            validation_target *= self.target_IMul
-            validation_target += self.target_IAdd
-
-            self.info("validation data normed range: (%.6f, %.6f)" % (
-                validation_data.min(), validation_data.max()))
-            self.info("validation target normed range: (%.6f, %.6f)" % (
-                validation_target.min(), validation_target.max()))
-        """
 
 
 class ApproximatorWorkflow(nn_units.NNWorkflow):
@@ -260,6 +199,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
                                            else ~self.decision.epoch_ended)
             j += 1
         self.plt_avg[0].clear_plot = True
+
         # Max plotter
         self.plt_max = []
         styles = ["", "b--", "k--"]  # ["r--", "b--", "k--"]
@@ -276,6 +216,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
             self.plt_max[-1].link_from(self.plt_max[-2] if j
                                        else self.plt_avg[-1])
             j += 1
+
         # Min plotter
         self.plt_min = []
         styles = ["", "b:", "k:"]  # ["r:", "b:", "k:"]
@@ -293,14 +234,6 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
                                        else self.plt_max[-1])
             j += 1
         self.plt_min[-1].redraw_plot = True
-
-        """
-        # Histogram plotter
-        self.plt_hist = nn_plotting_units.MSEHistogram(self, name="Histogram")
-        self.plt_hist.link_from(self.decision)
-        self.plt_hist.mse = self.decision.epoch_samples_mse[2]
-        self.plt_hist.gate_block = ~self.decision.epoch_ended
-        """
 
         # ImmediatePlotter
         self.plt = plotting_units.ImmediatePlotter(

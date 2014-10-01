@@ -33,7 +33,6 @@ import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.external.progressbar import ProgressBar
-# import veles.znicz.samples.mnist as mnist
 
 
 mnist_dir = os.path.join(
@@ -100,8 +99,6 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
-            # logging.info("Set pixel size for font %s to %d" % (
-            #    fontPath, size - j))
             continue
         break
 
@@ -193,7 +190,6 @@ class Mnist784Loader(loader.FullBatchLoaderMSE):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        #super(Loader, self).load_data()
         self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
         self.original_data.mem = numpy.zeros([70000, 28, 28],
                                              dtype=numpy.float32)
@@ -342,8 +338,8 @@ class Mnist784Workflow(nn_units.NNWorkflow):
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
                                        else Bool(False))
         self.plt[0].clear_plot = True
+
         # Weights plotter
-        # """
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
@@ -352,18 +348,16 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
-        """
+
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
-        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img.inputs.append(self.fwds[-1].output)
         self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.decision.sample_output)
-        self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.decision.sample_target)
+        self.plt_img.inputs.append(self.fwds[0].input)
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
-        self.plt_img.gate_block = ~self.decision.epoch_ended
-        """
+        self.plt_img.gate_skip = ~self.decision.epoch_ended
+
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]

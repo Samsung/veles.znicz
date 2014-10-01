@@ -20,6 +20,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
 root.update = {"decision": {"fail_iterations": 1000},
+               "learning_rate_adjust": {"do": False},
                "snapshotter": {"prefix": "cifar"},
                "image_saver": {"out_dirs":
                                [os.path.join(root.common.cache_dir,

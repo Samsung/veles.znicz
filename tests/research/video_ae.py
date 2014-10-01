@@ -189,13 +189,12 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.plt_mx.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_mx
 
-        """
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
         for i in range(0, 3):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
+                self, name="max min mse", plot_style=styles[i]))
             self.plt_max[-1].link_attrs(self.decision,
                                         ("input", "epoch_metrics"))
             self.plt_max[-1].input_field = i
@@ -203,12 +202,15 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             self.plt_max[-1].link_from(prev)
             self.plt_max[-1].gate_skip = ~self.decision.epoch_ended
             prev = self.plt_max[-1]
+        self.plt_max[0].clear_plot = True
+        self.plt_max[-1].redraw_plot = True
+
         # Min plotter
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
         for i in range(0, 3):
             self.plt_min.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
+                self, name="max min mse", plot_style=styles[i]))
             self.plt_min[-1].link_attrs(self.decision,
                                         ("input", "epoch_metrics"))
             self.plt_min[-1].input_field = i
@@ -216,7 +218,9 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             self.plt_min[-1].link_from(prev)
             self.plt_min[-1].gate_skip = ~self.decision.epoch_ended
             prev = self.plt_min[-1]
-        """
+        self.plt_min[0].clear_plot = True
+        self.plt_min[-1].redraw_plot = True
+
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
         self.plt_img.inputs.append(self.fwds[-1].output)
