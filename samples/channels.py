@@ -37,13 +37,13 @@ from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 import veles.prng as rnd
 import veles.thread_pool as thread_pool
-# import veles.znicz.all2all as all2all
-# import veles.znicz.conv as conv
+import veles.znicz.all2all as all2all
+import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-# import veles.znicz.image_saver as image_saver
+import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
-# import veles.znicz.nn_plotting_units as nn_plotting_units
+import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.external.progressbar import ProgressBar
@@ -677,19 +677,7 @@ class ChannelsWorkflow(StandardWorkflow):
 
         # Add fwds units
         self.parse_forwards_from_config()
-        """
-        # Add Accumulator units
-        self.accumulator = []
-        for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(
-                self, bars=root.accumulator.bars,
-                squash=root.accumulator.squash)
-            self.accumulator.append(accum)
-            self.accumulator[-1].link_from(self.fwds[-1]
-                if len(self.accumulator) == 1 else self.accumulator[-2])
-            self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
-        """
-        """
+
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
@@ -701,10 +689,10 @@ class ChannelsWorkflow(StandardWorkflow):
             ("indexes", "minibatch_indices"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
-        """
+
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -735,11 +723,9 @@ class ChannelsWorkflow(StandardWorkflow):
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        # self.image_saver.gate_skip = ~self.decision.improved
-        # self.image_saver.link_attrs(self.snapshotter,
-        #                            ("this_save_time", "time"))
-        # for i in range(0, len(layers)):
-        #    self.accumulator[i].reset_flag = ~self.loader.epoch_ended
+        self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
         self.create_gd_units_by_config()
 
@@ -757,9 +743,8 @@ class ChannelsWorkflow(StandardWorkflow):
                                        if len(self.plt) == 1 else Bool(False))
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
-        """
-        # Confusion matrix plotter
 
+        # Confusion matrix plotter
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
             self.plt_mx.append(plotting_units.MatrixPlotter(
@@ -769,8 +754,7 @@ class ChannelsWorkflow(StandardWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.plt[-1])
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        """
-        """
+
         # Weights plotter
         self.plt_mx = []
         prev_channels = 3
@@ -791,25 +775,12 @@ class ChannelsWorkflow(StandardWorkflow):
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.fwds[i],
                                            ("get_shape_from", "input"))
-            # elif isinstance(self.fwds[i], all2all.All2All):
-            #    self.plt_mx[-1].get_shape_from = self.fwds[i].input
+            # TO_DO(lyubov.p):
+            # Fix fwds input shape from (minibatch, channels, y, x) to
+            # (minibatch, y, x, channels). Now fwds input shape incorrect
+            # for weights plotter
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-        """
-        """
-        # Histogram plotter
-        self.plt_hist = []
-        for i in range(0, len(layers)):
-            hist = plotting_units.Histogram(
-                self,
-                name="Y %s %s" % (i + 1, layers[i]["type"]))
-            self.plt_hist.append(hist)
-            self.plt_hist[-1].link_from(self.decision
-                if len(self.plt_hist) == 1 else self.plt_hist[-2])
-            self.plt_hist[-1].link_attrs(
-                self.accumulator[i], "gl_min", "gl_max",
-                ("y", "y_out"), ("x", "x_out"))
-            self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
 
         # MultiHistogram plotter
         self.plt_multi_hist = []
@@ -830,7 +801,7 @@ class ChannelsWorkflow(StandardWorkflow):
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
-        """
+
         # repeater and gate block
         self.repeater.link_from(self.gds[0])
         self.end_point.link_from(self.snapshotter)

@@ -15,11 +15,11 @@ from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.znicz import conv, all2all, evaluator, decision
-# import veles.znicz.accumulator as accumulator
 from veles.znicz.loader import ImageLoader, IFullBatchLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
+import veles.znicz.pooling as pooling
 from veles.znicz.standard_workflow import StandardWorkflow
 
 train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
@@ -131,23 +131,7 @@ class LinesWorkflow(StandardWorkflow):
         self.loader.link_from(self.repeater)
 
         self.parse_forwards_from_config()
-        """
-        # Add Accumulator units
-        self.accumulator = []
-        for i in range(0, len(layers)):
-            accum = accumulator.RangeAccumulator(
-                self, bars=root.accumulator.bars,
-                squash=root.accumulator.squash)
-            self.accumulator.append(accum)
-            self.accumulator[-1].link_from(self.fwds[-1]
-                if len(self.accumulator) == 1 else self.accumulator[-2])
-            self.accumulator[-1].link_attrs(self.fwds[i], ("input", "output"))
 
-        self.accumulat = accumulator.RangeAccumulator(
-            self, bars=root.accumulator.bars)
-        self.accumulat.link_from(self.accumulator[-1])
-        self.accumulat.link_attrs(self.loader, ("input", "minibatch_data"))
-        """
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.image_saver.out_dirs)
@@ -194,13 +178,7 @@ class LinesWorkflow(StandardWorkflow):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
-        """
-        for i in range(0, len(layers)):
-            self.accumulator[i].link_attrs(self.loader,
-                                           ("reset_flag", "epoch_ended"))
-        self.accumulat.link_attrs(self.loader,
-                                  ("reset_flag", "epoch_ended"))
-        """
+
         # BACKWARD LAYERS (GRADIENT DESCENT)
         self.create_gd_units_by_config()
 
@@ -275,7 +253,8 @@ class LinesWorkflow(StandardWorkflow):
                 self, name="Histogram %s %s" % (i + 1, layers[i]["type"]),
                 limit=4)
             self.plt_multi_hist.append(multi_hist)
-            if layers[i].get("n_kernels") is not None:
+            if (layers[i].get("n_kernels") is not None and
+                    not isinstance(self.fwds[i], pooling.Pooling)):
                 self.plt_multi_hist[i].link_from(self.decision)
                 self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
                 self.plt_multi_hist[i].link_attrs(self.fwds[i],
@@ -310,28 +289,7 @@ class LinesWorkflow(StandardWorkflow):
                     self.gds[i], ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
-        """
-        # Histogram plotter
-        self.plt_hist = []
-        for i in range(0, len(layers)):
-            hist = plotting_units.Histogram(
-                self,
-                name="Y %s %s" % (i + 1, layers[i]["type"]))
-            self.plt_hist.append(hist)
-            self.plt_hist[-1].link_from(self.decision
-                if len(self.plt_hist) == 1 else self.plt_hist[-2])
-            self.plt_hist[-1].link_attrs(
-                self.accumulator[i], "gl_min", "gl_max",
-                ("y", "y_out"), ("x", "x_out"))
-            self.plt_hist[-1].gate_block = ~self.decision.epoch_ended
 
-        self.plt_hist_load = plotting_units.Histogram(
-                self, name="Y Loader")
-        self.plt_hist_load.link_from(self.decision)
-        self.plt_hist_load.link_attrs(
-            self.accumulat, "gl_min", "gl_max", ("y", "y_out"), ("x", "x_out"))
-        self.plt_hist_load.gate_block = ~self.decision.epoch_ended
-        """
         # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
         self.plt_tab.y.clear()

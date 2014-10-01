@@ -264,14 +264,17 @@ class KanjiWorkflow(nn_units.NNWorkflow):
             self.plt[-1].link_from(self.decision)
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
+
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
+        self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
+
         # Max plotter
         self.plt_max = []
         styles = ["", "", "k--"]  # ["r--", "b--", "k--"]
@@ -316,24 +319,15 @@ class KanjiWorkflow(nn_units.NNWorkflow):
             self.plt_n_err[-1].gate_block = ~self.decision.epoch_ended
         self.plt_n_err[0].clear_plot = True
         self.plt_n_err[-1].redraw_plot = True
-        """
+
         # Image plotter
-        self.plt_img = plotters.Image(self, name="output sample")
-        self.plt_img.inputs.append(self.decision.sample_input)
+        self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
+        self.plt_img.inputs.append(self.fwds[-1].output)
         self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.decision.sample_output)
-        self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.decision.sample_target)
+        self.plt_img.inputs.append(self.fwds[0].input)
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
-        self.plt_img.gate_block = ~self.decision.epoch_ended
-
-        # Histogram plotter
-        self.plt_hist = nn_plotting_units.MSEHistogram(self, name="Histogram")
-        self.plt_hist.link_from(self.decision)
-        self.plt_hist.mse = self.decision.epoch_samples_mse[2]
-        self.plt_hist.gate_block = self.decision.epoch_ended
-        """
+        self.plt_img.gate_skip = ~self.decision.epoch_ended
 
     def initialize(self, device, learning_rate, weights_decay, minibatch_size,
                    weights, bias, **kwargs):

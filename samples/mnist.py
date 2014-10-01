@@ -257,6 +257,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
+
         # Confusion matrix plotter
         self.plt_mx = []
         for i in range(1, len(self.decision.confusion_matrixes)):
@@ -267,6 +268,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+
         # err_y plotter
         self.plt_err_y = []
         for i in range(1, 3):
