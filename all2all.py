@@ -140,8 +140,8 @@ class All2All(nn_units.Forward):
 
         self.input.initialize(self)
         self.output.initialize(self)
-        self.weights.initialize(self)
-        self.bias.initialize(self)
+        self.weights.initialize(self, False)
+        self.bias.initialize(self, False)
 
         if self.device is not None:
             All2All.ocl_init(self, device)

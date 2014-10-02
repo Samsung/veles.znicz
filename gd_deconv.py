@@ -150,13 +150,13 @@ class GDDeconv(nn_units.GradientDescentBase):
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
 
-        self.weights.initialize(self)
+        self.weights.initialize(self, False)
         self.input.initialize(self)
         self.err_output.initialize(self)
         if self.need_err_input:
             self.err_input.initialize(self)
         if self.store_gradient:
-            self.gradient_weights.initialize(self)
+            self.gradient_weights.initialize(self, False)
         if self.hits:
             self.hits.initialize(self)
 

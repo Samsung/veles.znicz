@@ -149,16 +149,16 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.gradient_bias.reset()
             self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
 
-        self.weights.initialize(self)
+        self.weights.initialize(self, False)
         if self.include_bias:
-            self.bias.initialize(self)
+            self.bias.initialize(self, False)
         self.output.initialize(self)
         self.input.initialize(self)
         self.err_output.initialize(self)
         self.err_input.initialize(self)
         if self.store_gradient:
-            self.gradient_weights.initialize(self)
-            self.gradient_bias.initialize(self)
+            self.gradient_weights.initialize(self, False)
+            self.gradient_bias.initialize(self, False)
 
         if device is not None:
             GradientDescentConv.ocl_init(self, device)

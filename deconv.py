@@ -165,7 +165,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             self.output.mem.shape = output_shape
 
         self.input.initialize(self)
-        self.weights.initialize(self)
+        self.weights.initialize(self, False)
         self.output.initialize(self)
         self.hits.initialize(self)
 

@@ -150,8 +150,8 @@ class Conv(nn_units.Forward):
 
         self.input.initialize(self)
         self.output.initialize(self)
-        self.weights.initialize(self)
-        self.bias.initialize(self)
+        self.weights.initialize(self, False)
+        self.bias.initialize(self, False)
 
         if device is not None:
             Conv.ocl_init(self, device)
@@ -301,7 +301,7 @@ class Conv(nn_units.Forward):
                 self.info("Unit test mode: allocating 2x memory for weights")
                 self.weights.mem = numpy.zeros(n_weights * 2,
                                                dtype=self.input.mem.dtype)
-                self.weights.initialize(self)
+                self.weights.initialize(self, False)
                 self.weights.map_write()
                 self.weights.vv = self.weights.mem
                 self.weights.mem = self.weights.vv[:n_weights]

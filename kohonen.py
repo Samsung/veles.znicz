@@ -121,7 +121,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self.output.initialize(self)
         if self.argmins is None:
             self.input.initialize(self)
-            self.weights.initialize(self)
+            self.weights.initialize(self, False)
             self._distances.initialize(self)
         elif self.total is None:
             return
@@ -380,7 +380,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
     def ocl_init(self, device):
         self.input.initialize(self)
-        self.weights.initialize(self)
+        self.weights.initialize(self, False)
         self.winners.initialize(self)
         self.argmins.initialize(self)
         self._distances.initialize(self)
