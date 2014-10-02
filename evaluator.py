@@ -276,8 +276,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.mse.mem = numpy.zeros(self.err_output.mem.shape[0],
                                        dtype=dtype)
 
-        if (self.labels is not None and self.class_targets is not None and
-                (self.n_err.mem is None or self.n_err.mem.size < 2)):
+        if self.labels is not None and self.class_targets is not None:
             self.n_err.reset()
             self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
             self.cl_sources_["mse_find_closest.cl"] = {}
