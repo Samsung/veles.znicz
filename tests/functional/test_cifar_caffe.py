@@ -33,7 +33,7 @@ class TestCifarCaffe(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.cifar.update({
             "decision": {"fail_iterations": 250},
             "snapshotter": {"prefix": "cifar_caffe_test"},
             "image_saver": {"out_dirs":
@@ -45,104 +45,70 @@ class TestCifarCaffe(unittest.TestCase):
             "loader": {"minibatch_size": 100, "norm": "mean", "sobel": False,
                        "shuffle_limit": 2000000000},
             "softmax": {"error_function_avr": True},
-            "cifar_caffe_test": {"layers":
-                                 [{"name": "conv1",
-                                   "type": "conv", "n_kernels": 32,
-                                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                   "sliding": (1, 1),
-                                   "weights_filling": "gaussian",
-                                   "weights_stddev": 0.0001,
-                                   "bias_filling": "constant",
-                                   "bias_stddev": 0,
-                                   "learning_rate": 0.001,
-                                   "learning_rate_bias": 0.002,
-                                   "weights_decay": 0.0005,
-                                   "weights_decay_bias": 0.0005,
-                                   "factor_ortho": 0.001,
-                                   "gradient_moment": 0.9,
-                                   "gradient_moment_bias": 0.9},
+            "layers": [{"name": "conv1", "type": "conv", "n_kernels": 32,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "gaussian",
+                        "weights_stddev": 0.0001, "bias_filling": "constant",
+                        "bias_stddev": 0, "learning_rate": 0.001,
+                        "learning_rate_bias": 0.002, "weights_decay": 0.0005,
+                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
+                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
 
-                                  {"name": "pool1",
-                                   "type": "max_pooling",
-                                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                       {"name": "pool1", "type": "max_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                                  {"name": "relu1",
-                                   "type": "activation_str"},
+                       {"name": "relu1", "type": "activation_str"},
 
-                                  {"name": "norm1",
-                                   "type": "norm", "alpha": 0.00005,
-                                   "beta": 0.75, "n": 3, "k": 1},
+                       {"name": "norm1", "type": "norm", "alpha": 0.00005,
+                        "beta": 0.75, "n": 3, "k": 1},
 
-                                  {"name": "conv2",
-                                   "type": "conv", "n_kernels": 32,
-                                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                   "sliding": (1, 1),
-                                   "weights_filling": "gaussian",
-                                   "weights_stddev": 0.01,
-                                   "bias_filling": "constant",
-                                   "bias_stddev": 0,
-                                   "learning_rate": 0.001,
-                                   "learning_rate_bias": 0.002,
-                                   "weights_decay": 0.0005,
-                                   "weights_decay_bias": 0.0005,
-                                   "factor_ortho": 0.001,
-                                   "gradient_moment": 0.9,
-                                   "gradient_moment_bias": 0.9},
+                       {"name": "conv2", "type": "conv", "n_kernels": 32,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "gaussian",
+                        "weights_stddev": 0.01, "bias_filling": "constant",
+                        "bias_stddev": 0, "learning_rate": 0.001,
+                        "learning_rate_bias": 0.002, "weights_decay": 0.0005,
+                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
+                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
 
-                                  {"name": "relu2",
-                                   "type": "activation_str"},
+                       {"name": "relu2", "type": "activation_str"},
 
-                                  {"name": "pool2",
-                                   "type": "avg_pooling",
-                                      "kx": 3, "ky": 3, "sliding": (2, 2)},
+                       {"name": "pool2", "type": "avg_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                                  {"name": "norm2",
-                                   "type": "norm", "alpha": 0.00005,
-                                   "beta": 0.75, "n": 3, "k": 1},
+                       {"name": "norm2", "type": "norm", "alpha": 0.00005,
+                        "beta": 0.75, "n": 3, "k": 1},
 
-                                  {"name": "conv3",
-                                   "type": "conv", "n_kernels": 64,
-                                   "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                   "sliding": (1, 1),
-                                   "weights_filling": "gaussian",
-                                   "weights_stddev": 0.01,
-                                   "bias_filling": "constant",
-                                   "bias_stddev": 0,
-                                   "learning_rate": 0.001,
-                                   "learning_rate_bias": 0.001,
-                                   "weights_decay": 0.0005,
-                                   "weights_decay_bias": 0.0005,
-                                   "factor_ortho": 0.001,
-                                   "gradient_moment": 0.9,
-                                   "gradient_moment_bias": 0.9},
+                       {"name": "conv3", "type": "conv", "n_kernels": 64,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "gaussian",
+                        "weights_stddev": 0.01, "bias_filling": "constant",
+                        "bias_stddev": 0, "learning_rate": 0.001,
+                        "learning_rate_bias": 0.001, "weights_decay": 0.0005,
+                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
+                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
 
-                                  {"name": "relu3",
-                                   "type": "activation_str"},
+                       {"name": "relu3", "type": "activation_str"},
 
-                                  {"name": "pool3",
-                                   "type": "avg_pooling",
-                                   "kx": 3, "ky": 3, "sliding": (2, 2)},
+                       {"name": "pool3", "type": "avg_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                                  {"name": "a2asm4",
-                                   "type": "softmax", "output_shape": 10,
-                                   "weights_filling": "gaussian",
-                                   "weights_stddev": 0.01,
-                                   "bias_filling": "constant",
-                                   "bias_stddev": 0,
-                                   "learning_rate": 0.001,
-                                   "learning_rate_bias": 0.002,
-                                   "weights_decay": 1.0,
-                                   "weights_decay_bias": 0,
-                                   "gradient_moment": 0.9,
-                                   "gradient_moment_bias": 0.9}]}}
+                       {"name": "a2asm4", "type": "softmax",
+                        "output_shape": 10, "weights_filling": "gaussian",
+                        "weights_stddev": 0.01, "bias_filling": "constant",
+                        "bias_stddev": 0, "learning_rate": 0.001,
+                        "learning_rate_bias": 0.002, "weights_decay": 1.0,
+                        "weights_decay_bias": 0, "gradient_moment": 0.9,
+                        "gradient_moment_bias": 0.9}]})
+
         self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.cifar_caffe_test.layers,
+                                     layers=root.cifar.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          minibatch_size=root.loader.minibatch_size)
+                          minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -160,7 +126,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           minibatch_size=root.loader.minibatch_size)
+                           minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

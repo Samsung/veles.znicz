@@ -35,22 +35,22 @@ class TestMnistAE(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        root.update = {
+        root.mnist_ae.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 20,
                          "store_samples_mse": True},
             "snapshotter": {"prefix": "mnist_ae_test"},
             "loader": {"minibatch_size": 100},
-            "mnist_ae": {"learning_rate": 0.000001,
-                         "weights_decay": 0.00005,
-                         "gradient_moment": 0.00001,
-                         "n_kernels": 5,
-                         "kx": 5,
-                         "ky": 5},
-            "mnist_ae_test": {"layers": [100, 10]}}
+            "learning_rate": 0.000001,
+            "weights_decay": 0.00005,
+            "gradient_moment": 0.00001,
+            "n_kernels": 5,
+            "kx": 5,
+            "ky": 5,
+            "layers": [100, 10]})
 
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyWorkflow(),
-                                          layers=root.mnist_ae_test.layers,
+                                          layers=root.mnist_ae.layers,
                                           device=self.device)
         self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device)

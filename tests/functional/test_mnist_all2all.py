@@ -33,46 +33,41 @@ class TestMnistAll2All(unittest.TestCase):
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
 
-        root.update = {
+        root.mnistr.update({
             "learning_rate_adjust": {"do": False},
             "decision": {"fail_iterations": 100,
                          "max_epochs": 5},
             "snapshotter": {"prefix": "mnist_all2all_test"},
             "loader": {"minibatch_size": Tune(60, 1, 1000)},
-            "mnist_all2all_test": {"layers":
-                                   [{"type": "all2all_tanh",
-                                     "output_shape": Tune(100, 10, 500),
-                                     "learning_rate": Tune(0.03, 0.0001, 0.9),
-                                     "weights_decay": Tune(0.0, 0.0, 0.9),
-                                     "learning_rate_bias": Tune(0.03, 0.0001,
-                                                                0.9),
-                                     "weights_decay_bias": Tune(0.0, 0.0, 0.9),
-                                     "gradient_moment": Tune(0.0, 0.0, 0.95),
-                                     "gradient_moment_bias": Tune(0.0, 0.0,
-                                                                  0.95),
-                                     "factor_ortho": Tune(0.001, 0.0, 0.1),
-                                     "weights_filling": "uniform",
-                                     "weights_stddev": Tune(0.05, 0.0001, 0.1),
-                                     "bias_filling": "uniform",
-                                     "bias_stddev": Tune(0.05, 0.0001, 0.1)},
-                                    {"type": "softmax", "output_shape": 10,
-                                     "learning_rate": Tune(0.03, 0.0001, 0.9),
-                                     "learning_rate_bias": Tune(0.03, 0.0001,
-                                                                0.9),
-                                     "weights_decay": Tune(0.0, 0.0, 0.95),
-                                     "weights_decay_bias": Tune(0.0, 0.0,
-                                                                0.95),
-                                     "gradient_moment": Tune(0.0, 0.0, 0.95),
-                                     "gradient_moment_bias": Tune(0.0, 0.0,
-                                                                  0.95),
-                                     "weights_filling": "uniform",
-                                     "weights_stddev": Tune(0.05, 0.0001, 0.1),
-                                     "bias_filling": "uniform",
-                                     "bias_stddev": Tune(0.05, 0.0001, 0.1)}]}}
+            "layers": [{"type": "all2all_tanh",
+                        "output_shape": Tune(100, 10, 500),
+                        "learning_rate": Tune(0.03, 0.0001, 0.9),
+                        "weights_decay": Tune(0.0, 0.0, 0.9),
+                        "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
+                        "weights_decay_bias": Tune(0.0, 0.0, 0.9),
+                        "gradient_moment": Tune(0.0, 0.0, 0.95),
+                        "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
+                        "factor_ortho": Tune(0.001, 0.0, 0.1),
+                        "weights_filling": "uniform",
+                        "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                        "bias_filling": "uniform",
+                        "bias_stddev": Tune(0.05, 0.0001, 0.1)},
+                       {"type": "softmax", "output_shape": 10,
+                        "learning_rate": Tune(0.03, 0.0001, 0.9),
+                        "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
+                        "weights_decay": Tune(0.0, 0.0, 0.95),
+                        "weights_decay_bias": Tune(0.0, 0.0, 0.95),
+                        "gradient_moment": Tune(0.0, 0.0, 0.95),
+                        "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
+                        "weights_filling": "uniform",
+                        "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                        "bias_filling": "uniform",
+                        "bias_stddev": Tune(0.05, 0.0001, 0.1)}]})
+
         fix_config(root)
         self.w = mnist_all2all.MnistWorkflow(
             dummy_workflow.DummyWorkflow(),
-            layers=root.mnist_all2all_test.layers, device=self.device)
+            layers=root.mnistr.layers, device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)

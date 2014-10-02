@@ -30,21 +30,21 @@ class TestWineRelu(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.wine_relu.update({
             "decision": {"fail_iterations": 250},
             "snapshotter": {"prefix": "wine_relu"},
             "loader": {"minibatch_size": 10},
-            "wine_relu_test": {"learning_rate": 0.03,
-                               "weights_decay": 0.0,
-                               "layers": [10, 3]}}
+            "learning_rate": 0.03,
+            "weights_decay": 0.0,
+            "layers": [10, 3]})
 
         self.w = wine_relu.WineReluWorkflow(dummy_workflow.DummyWorkflow(),
-                                            layers=root.wine_relu_test.layers)
+                                            layers=root.wine_relu.layers)
 
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.wine_relu_test.learning_rate,
-                          weights_decay=root.wine_relu_test.weights_decay,
+        self.w.initialize(learning_rate=root.wine_relu.learning_rate,
+                          weights_decay=root.wine_relu.weights_decay,
                           device=self.device)
         self.w.run()
 

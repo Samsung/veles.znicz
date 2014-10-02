@@ -33,25 +33,30 @@ class TestChannels(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.model = "tanh"
+        root.channels.model = "test"
 
-        root.update = {
+        root.channels.update({
             "accumulator": {"bars": 30},
             "decision": {"fail_iterations": 100,
                          "max_epochs": 10,
                          "do_export_weights": True},
-            "snapshotter": {"prefix": "test_channels_%s" % root.model},
+            "snapshotter": {"prefix":
+                            "test_channels_%s" % root.channels.model},
             "image_saver": {"out_dirs":
                             [os.path.join(root.common.cache_dir,
-                                          "tmp_%s/test" % root.model),
+                                          "tmp_%s/test" %
+                                          root.channels.model),
                              os.path.join(root.common.cache_dir,
-                                          "tmp_%s/validation" % root.model),
+                                          "tmp_%s/validation" %
+                                          root.channels.model),
                              os.path.join(root.common.cache_dir,
-                                          "tmp_%s/train" % root.model)]},
+                                          "tmp_%s/train" %
+                                          root.channels.model)]},
             "loader": {"cache_file_name":
                        os.path.join(root.common.cache_dir,
                                     "channels_%s.%d.pickle" %
-                                    (root.model, sys.version_info[0])),
+                                    (root.channels.model,
+                                     sys.version_info[0])),
                        "grayscale": False,
                        "minibatch_size": 81,
                        "n_threads": 32,
@@ -59,26 +64,24 @@ class TestChannels(unittest.TestCase):
                        "/data/veles/VD/channels/russian_small/train",
                        "rect": (264, 129),
                        "validation_ratio": 0.15},
-            "channels_test": {"export": False,
-                              "find_negative": 0,
-                              "learning_rate": 0.001,
-                              "weights_decay": 0.00005,
-                              "layers": [{"type": "all2all_tanh",
-                                          "output_shape": 54},
-                                         {"type": "softmax",
-                                          "output_shape": 11}],
-                              "snapshot": ""}}
+            "export": False,
+            "find_negative": 0,
+            "learning_rate": 0.001,
+            "weights_decay": 0.00005,
+            "layers": [{"type": "all2all_tanh", "output_shape": 54},
+                       {"type": "softmax", "output_shape": 11}],
+            "snapshot": ""})
 
         self.w = channels.ChannelsWorkflow(dummy_workflow.DummyWorkflow(),
-                                           layers=root.channels_test.layers,
+                                           layers=root.channels.layers,
                                            device=self.device)
         w_neg = None
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          learning_rate=root.channels_test.learning_rate,
-                          weights_decay=root.channels_test.weights_decay,
-                          minibatch_size=root.loader.minibatch_size,
+                          learning_rate=root.channels.learning_rate,
+                          weights_decay=root.channels.weights_decay,
+                          minibatch_size=root.channels.loader.minibatch_size,
                           w_neg=w_neg)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -97,9 +100,9 @@ class TestChannels(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           learning_rate=root.channels_test.learning_rate,
-                           weights_decay=root.channels_test.weights_decay,
-                           minibatch_size=root.loader.minibatch_size,
+                           learning_rate=root.channels.learning_rate,
+                           weights_decay=root.channels.weights_decay,
+                           minibatch_size=root.channels.loader.minibatch_size,
                            w_neg=w_neg)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)

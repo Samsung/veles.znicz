@@ -31,26 +31,26 @@ class TestSamplesMnist(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.mnist.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0),
                          "snapshot_prefix": "samples_mnist_test"},
             "loader": {"minibatch_size": 88},
-            "samples_mnist_test": {"learning_rate": 0.028557478339518444,
-                                   "weights_decay": 0.00012315096341168246,
-                                   "layers": [364, 10]},
-            "mnist": {"factor_ortho": 0.001}}
+            "learning_rate": 0.028557478339518444,
+            "weights_decay": 0.00012315096341168246,
+            "layers": [364, 10],
+            "factor_ortho": 0.001})
 
         self.w = mnist.MnistWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.samples_mnist_test.layers,
+                                     layers=root.mnist.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.w.snapshotter.interval = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          learning_rate=root.samples_mnist_test.learning_rate,
-                          weights_decay=root.samples_mnist_test.weights_decay)
+                          learning_rate=root.mnist.learning_rate,
+                          weights_decay=root.mnist.weights_decay)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -68,8 +68,8 @@ class TestSamplesMnist(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           learning_rate=root.samples_mnist_test.learning_rate,
-                           weights_decay=root.samples_mnist_test.weights_decay)
+                           learning_rate=root.mnist.learning_rate,
+                           weights_decay=root.mnist.weights_decay)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

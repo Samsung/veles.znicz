@@ -31,16 +31,16 @@ class TestHands(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.hands.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "hands_test"},
             "loader": {"minibatch_size": 60},
-            "hands_test": {"learning_rate": 0.0008,
-                           "weights_decay": 0.0,
-                           "layers": [30, 2]}}
+            "learning_rate": 0.0008,
+            "weights_decay": 0.0,
+            "layers": [30, 2]})
 
         self.w = hands.HandsWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.hands_test.layers,
+                                     layers=root.hands.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 4
         self.w.snapshotter.interval = 0
@@ -48,8 +48,8 @@ class TestHands(unittest.TestCase):
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          learning_rate=root.hands_test.learning_rate,
-                          weights_decay=root.hands_test.weights_decay)
+                          learning_rate=root.hands.learning_rate,
+                          weights_decay=root.hands.weights_decay)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -67,8 +67,8 @@ class TestHands(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           learning_rate=root.hands_test.learning_rate,
-                           weights_decay=root.hands_test.weights_decay)
+                           learning_rate=root.hands.learning_rate,
+                           weights_decay=root.hands.weights_decay)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

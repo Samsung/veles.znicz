@@ -32,7 +32,7 @@ class TestCifarAll2All(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.cifar.update({
             "snapshotter": {"prefix": "cifar_test"},
             "image_saver": {"out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
@@ -42,27 +42,22 @@ class TestCifarAll2All(unittest.TestCase):
                                           "tmp/train")]},
             "loader": {"minibatch_size": 81},
             "accumulator": {"n_bars": 30},
-            "cifar_test": {"layers": [{"type": "all2all",
-                                       "output_shape": 486,
-                                       "learning_rate": 0.0005,
-                                       "weights_decay": 0.0},
-                                      {"type": "activation_sincos"},
-                                      {"type": "all2all",
-                                       "output_shape": 486,
-                                       "learning_rate": 0.0005,
-                                       "weights_decay": 0.0},
-                                      {"type": "activation_sincos"},
-                                      {"type": "softmax", "output_shape": 10,
-                                       "learning_rate": 0.0005,
-                                       "weights_decay": 0.0}]}}
+            "layers": [{"type": "all2all", "output_shape": 486,
+                        "learning_rate": 0.0005, "weights_decay": 0.0},
+                       {"type": "activation_sincos"},
+                       {"type": "all2all", "output_shape": 486,
+                        "learning_rate": 0.0005, "weights_decay": 0.0},
+                       {"type": "activation_sincos"},
+                       {"type": "softmax", "output_shape": 10,
+                        "learning_rate": 0.0005, "weights_decay": 0.0}]})
         self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.cifar_test.layers,
+                                     layers=root.cifar.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          minibatch_size=root.loader.minibatch_size)
+                          minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -80,7 +75,7 @@ class TestCifarAll2All(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           minibatch_size=root.loader.minibatch_size)
+                           minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

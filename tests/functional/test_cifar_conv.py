@@ -43,7 +43,7 @@ class TestCifarConv(unittest.TestCase):
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
 
-        root.update = {
+        root.cifar.update({
             "decision": {"fail_iterations": 250},
             "snapshotter": {"prefix": "cifar_conv_test"},
             "image_saver": {"out_dirs":
@@ -55,74 +55,61 @@ class TestCifarConv(unittest.TestCase):
             "loader": {"minibatch_size": 100, "shuffle_limit": 2000000000},
             "softmax": {"error_function_avr": True},
             "weights_plotter": {"limit": 64},
-            "cifar_conv_test": {"layers":
-                                [{"type": "conv", "n_kernels": 32,
-                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                  "sliding": (1, 1),
-                                  "weights_filling": "uniform",
-                                  "bias_filling": "uniform",
-                                  "learning_rate": LR,
-                                  "learning_rate_bias": LRB,
-                                  "weights_decay": WD,
-                                  "weights_decay_bias": WDB,
-                                  "gradient_moment": GM,
-                                  "gradient_moment_bias": GMB},
-                                 {"type": "norm", "alpha": 0.00005,
-                                  "beta": 0.75, "n": 3, "k": 1},
-                                 {"type": "activation_tanhlog"},
-                                 {"type": "maxabs_pooling",
-                                  "kx": 3, "ky": 3, "sliding": (2, 2)},
+            "layers": [{"type": "conv", "n_kernels": 32,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "uniform",
+                        "bias_filling": "uniform", "learning_rate": LR,
+                        "learning_rate_bias": LRB, "weights_decay": WD,
+                        "weights_decay_bias": WDB, "gradient_moment": GM,
+                        "gradient_moment_bias": GMB},
 
-                                 {"type": "conv", "n_kernels": 32,
-                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                  "sliding": (1, 1),
-                                  "weights_filling": "uniform",
-                                  "bias_filling": "uniform",
-                                  "learning_rate": LR,
-                                  "learning_rate_bias": LRB,
-                                  "weights_decay": WD,
-                                  "weights_decay_bias": WDB,
-                                  "gradient_moment": GM,
-                                  "gradient_moment_bias": GMB},
-                                 {"type": "norm", "alpha": 0.00005,
-                                  "beta": 0.75, "n": 3, "k": 1},
-                                 {"type": "activation_tanhlog"},
-                                 {"type": "avg_pooling",
-                                  "kx": 3, "ky": 3, "sliding": (2, 2)},
+                       {"type": "norm", "alpha": 0.00005,
+                        "beta": 0.75, "n": 3, "k": 1},
+                       {"type": "activation_tanhlog"},
+                       {"type": "maxabs_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                                 {"type": "conv", "n_kernels": 64,
-                                  "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                                  "sliding": (1, 1),
-                                  "weights_filling": "uniform",
-                                  "bias_filling": "uniform",
-                                  "learning_rate": LR,
-                                  "learning_rate_bias": LRB,
-                                  "weights_decay": WD,
-                                  "weights_decay_bias": WDB,
-                                  "gradient_moment": GM,
-                                  "gradient_moment_bias": GMB},
-                                 {"type": "activation_tanhlog"},
-                                 {"type": "avg_pooling",
-                                  "kx": 3, "ky": 3, "sliding": (2, 2)},
+                       {"type": "conv", "n_kernels": 32,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "uniform",
+                        "bias_filling": "uniform", "learning_rate": LR,
+                        "learning_rate_bias": LRB, "weights_decay": WD,
+                        "weights_decay_bias": WDB, "gradient_moment": GM,
+                        "gradient_moment_bias": GMB},
 
-                                 {"type": "softmax", "output_shape": 10,
-                                  "weights_filling": "uniform",
-                                  "bias_filling": "uniform",
-                                  "learning_rate": LR,
-                                  "learning_rate_bias": LRB,
-                                  "weights_decay": WDSM,
-                                  "weights_decay_bias": WDSMB,
-                                  "gradient_moment": GM,
-                                  "gradient_moment_bias": GMB}]}}
+                       {"type": "norm", "alpha": 0.00005,
+                        "beta": 0.75, "n": 3, "k": 1},
+                       {"type": "activation_tanhlog"},
+                       {"type": "avg_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                       {"type": "conv", "n_kernels": 64,
+                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
+                        "sliding": (1, 1), "weights_filling": "uniform",
+                        "bias_filling": "uniform", "learning_rate": LR,
+                        "learning_rate_bias": LRB, "weights_decay": WD,
+                        "weights_decay_bias": WDB, "gradient_moment": GM,
+                        "gradient_moment_bias": GMB},
+
+                       {"type": "activation_tanhlog"},
+                       {"type": "avg_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                       {"type": "softmax", "output_shape": 10,
+                        "weights_filling": "uniform",
+                        "bias_filling": "uniform", "learning_rate": LR,
+                        "learning_rate_bias": LRB, "weights_decay": WDSM,
+                        "weights_decay_bias": WDSMB, "gradient_moment": GM,
+                        "gradient_moment_bias": GMB}]})
 
         self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.cifar_conv_test.layers,
+                                     layers=root.cifar.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          minibatch_size=root.loader.minibatch_size)
+                          minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -140,7 +127,7 @@ class TestCifarConv(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           minibatch_size=root.loader.minibatch_size)
+                           minibatch_size=root.cifar.loader.minibatch_size)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

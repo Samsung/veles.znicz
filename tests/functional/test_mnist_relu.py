@@ -31,40 +31,28 @@ class TestMnistRelu(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.update = {
+        root.mnistr.update({
             "learning_rate_adjust": {"do": True},
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
             "snapshotter": {"prefix": "mnist_relu_test"},
             "loader": {"minibatch_size": 60},
-            "mnistrelu_test": {"layers": [{"type": "all2all_relu",
-                                           "output_shape": 100,
-                                           "learning_rate": 0.03,
-                                           "weights_decay": 0.0,
-                                           "learning_rate_bias": 0.03,
-                                           "weights_decay_bias": 0.0,
-                                           "gradient_moment": 0.0,
-                                           "gradient_moment_bias": 0.0,
-                                           "factor_ortho": 0.001,
-                                           "weights_filling": "uniform",
-                                           "weights_stddev": 0.05,
-                                           "bias_filling": "uniform",
-                                           "bias_stddev": 0.05},
-                                          {"type": "softmax",
-                                           "output_shape": 10,
-                                           "learning_rate": 0.03,
-                                           "learning_rate_bias": 0.03,
-                                           "weights_decay": 0.0,
-                                           "weights_decay_bias": 0.0,
-                                           "gradient_moment": 0.0,
-                                           "gradient_moment_bias": 0.0,
-                                           "weights_filling": "uniform",
-                                           "weights_stddev": 0.05,
-                                           "bias_filling": "uniform",
-                                           "bias_stddev": 0.05}]}}
-        self.w = mnist_relu.Workflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.mnistrelu_test.layers,
-                                     device=self.device)
+            "layers": [{"type": "all2all_relu", "output_shape": 100,
+                        "learning_rate": 0.03, "weights_decay": 0.0,
+                        "learning_rate_bias": 0.03,
+                        "weights_decay_bias": 0.0, "gradient_moment": 0.0,
+                        "gradient_moment_bias": 0.0, "factor_ortho": 0.001,
+                        "weights_filling": "uniform", "weights_stddev": 0.05,
+                        "bias_filling": "uniform", "bias_stddev": 0.05},
+                       {"type": "softmax", "output_shape": 10,
+                        "learning_rate": 0.03, "learning_rate_bias": 0.03,
+                        "weights_decay": 0.0, "weights_decay_bias": 0.0,
+                        "gradient_moment": 0.0, "gradient_moment_bias": 0.0,
+                        "weights_filling": "uniform", "weights_stddev": 0.05,
+                        "bias_filling": "uniform", "bias_stddev": 0.05}]})
+        self.w = mnist_relu.MnistWorkflow(dummy_workflow.DummyWorkflow(),
+                                          layers=root.mnistr.layers,
+                                          device=self.device)
         self.w.decision.max_epochs = 5
         self.w.snapshotter.interval = 5
         self.assertEqual(self.w.evaluator.labels,

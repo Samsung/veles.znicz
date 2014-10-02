@@ -35,21 +35,21 @@ class TestVideoAE(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        root.update = {
+        root.video_ae.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "video_ae_test"},
             "loader": {"minibatch_size": 50},
-            "video_ae_test": {"learning_rate": 0.01,
-                              "weights_decay": 0.00005,
-                              "layers": [9, [90, 160]]}}
+            "learning_rate": 0.01,
+            "weights_decay": 0.00005,
+            "layers": [9, [90, 160]]})
 
         self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyWorkflow(),
-                                          layers=root.video_ae_test.layers,
+                                          layers=root.video_ae.layers,
                                           device=self.device)
         self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device,
-                          learning_rate=root.video_ae_test.learning_rate,
-                          weights_decay=root.video_ae_test.weights_decay)
+                          learning_rate=root.video_ae.learning_rate,
+                          weights_decay=root.video_ae.weights_decay)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
@@ -63,8 +63,8 @@ class TestVideoAE(unittest.TestCase):
         self.wf.decision.max_epochs = 25
         self.wf.decision.complete <<= False
         self.wf.initialize(device=self.device,
-                           learning_rate=root.mnist784_test.learning_rate,
-                           weights_decay=root.mnist784_test.weights_decay)
+                           learning_rate=root.video_ae.learning_rate,
+                           weights_decay=root.video_ae.weights_decay)
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]

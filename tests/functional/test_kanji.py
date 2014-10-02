@@ -42,7 +42,7 @@ class TestKanji(unittest.TestCase):
                                         dtype=numpy.uint32, count=1024))
         train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
-        root.update = {
+        root.kanji.update({
             "decision": {"fail_iterations": 1000,
                          "store_samples_mse": True},
             "loader": {"minibatch_size": 50,
@@ -51,25 +51,24 @@ class TestKanji(unittest.TestCase):
             "kanji_test": {"learning_rate": 0.00001,
                            "weights_decay": 0.00005,
                            "layers": [250, 250, 24 * 24]},
-            "kanji": {"data_paths":
-                      {"target": os.path.join(root.common.test_dataset_root,
-                                              ("kanji/target/targets.%d.pickle"
-                                               % (sys.version_info[0]))),
-                       "train": train_path},
-                      "index_map":
-                      os.path.join(train_path, "index_map.%d.pickle"
-                                   % (sys.version_info[0]))}}
+            "data_paths":
+            {"target": os.path.join(root.common.test_dataset_root,
+                                    ("kanji/target/targets.%d.pickle"
+                                     % (sys.version_info[0]))),
+             "train": train_path},
+            "index_map": os.path.join(train_path, "index_map.%d.pickle"
+                                      % (sys.version_info[0]))})
 
         self.w = kanji.KanjiWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.kanji_test.layers,
+                                     layers=root.kanji.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 5
         self.w.snapshotter.interval = 0
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.kanji_test.learning_rate,
-                          weights_decay=root.kanji_test.weights_decay,
-                          minibatch_size=root.loader.minibatch_size,
+        self.w.initialize(learning_rate=root.kanji.learning_rate,
+                          weights_decay=root.kanji.weights_decay,
+                          minibatch_size=root.kanji.loader.minibatch_size,
                           device=self.device, weights=None, bias=None)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -90,9 +89,9 @@ class TestKanji(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           learning_rate=root.kanji_test.learning_rate,
-                           weights_decay=root.kanji_test.weights_decay,
-                           minibatch_size=root.loader.minibatch_size,
+                           learning_rate=root.kanji.learning_rate,
+                           weights_decay=root.kanji.weights_decay,
+                           minibatch_size=root.kanji.loader.minibatch_size,
                            weights=None, bias=None)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)

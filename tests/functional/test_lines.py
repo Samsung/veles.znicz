@@ -37,45 +37,36 @@ class TestLines(unittest.TestCase):
                              "Lines/lines_min/learn")
         valid = os.path.join(root.common.test_dataset_root,
                              "Lines/lines_min/test")
-        root.update = {
+        root.lines.update({
             "accumulator": {"bars": 30, "squash": True},
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "lines_test"},
             "loader": {"minibatch_size": 60},
-            "lines_test": {"layers":
-                           [{"type": "conv_relu", "n_kernels": 32,
-                             "kx": 11, "ky": 11,
-                             "sliding": (4, 4),
-                             "learning_rate": 0.0003, "weights_decay": 0.0,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "gaussian",
-                             "weights_stddev": 0.001,
-                             "bias_filling": "gaussian",
-                             "bias_stddev": 0.001
-                             },
-                            {"type": "max_pooling",
-                             "kx": 3, "ky": 3, "sliding": (2, 2)},
-                            {"type": "all2all_relu", "output_shape": 32,
-                             "learning_rate": 0.0001, "weights_decay": 0.0,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "uniform",
-                             "weights_stddev": 0.05,
-                             "bias_filling": "uniform",
-                             "bias_stddev": 0.05
-                             },
-                            {"type": "softmax", "output_shape": 4,
-                             "learning_rate": 0.0001, "weights_decay": 0.0,
-                             "gradient_moment": 0.9,
-                             "weights_filling": "uniform",
-                             "weights_stddev": 0.05,
-                             "bias_filling": "uniform",
-                             "bias_stddev": 0.05
-                             }]},
-            "lines": {"path_for_load_data": {"validation": valid,
-                                             "train": train}}}
+            "layers": [{"type": "conv_relu", "n_kernels": 32,
+                        "kx": 11, "ky": 11, "sliding": (4, 4),
+                        "learning_rate": 0.0003, "weights_decay": 0.0,
+                        "gradient_moment": 0.9, "weights_filling": "gaussian",
+                        "weights_stddev": 0.001, "bias_filling": "gaussian",
+                        "bias_stddev": 0.001},
+
+                       {"type": "max_pooling",
+                        "kx": 3, "ky": 3, "sliding": (2, 2)},
+
+                       {"type": "all2all_relu", "output_shape": 32,
+                        "learning_rate": 0.0001, "weights_decay": 0.0,
+                        "gradient_moment": 0.9, "weights_filling": "uniform",
+                        "weights_stddev": 0.05, "bias_filling": "uniform",
+                        "bias_stddev": 0.05},
+
+                       {"type": "softmax", "output_shape": 4,
+                        "learning_rate": 0.0001, "weights_decay": 0.0,
+                        "gradient_moment": 0.9, "weights_filling": "uniform",
+                        "weights_stddev": 0.05, "bias_filling": "uniform",
+                        "bias_stddev": 0.05}],
+            "path_for_load_data": {"validation": valid, "train": train}})
 
         self.w = lines.LinesWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.lines_test.layers,
+                                     layers=root.lines.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 9
         self.assertEqual(self.w.evaluator.labels,

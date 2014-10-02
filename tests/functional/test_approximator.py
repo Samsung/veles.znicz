@@ -35,28 +35,29 @@ class TestApproximator(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        root.update = {
+        root.approximator.update({
             "decision": {"fail_iterations": 1000,
                          "store_samples_mse": True},
             "snapshotter": {"prefix": "approximator_test"},
             "loader": {"minibatch_size": 100},
-            "approximator_test": {"learning_rate": 0.0001,
-                                  "weights_decay": 0.00005,
-                                  "layers": [810, 9]}}
+            "learning_rate": 0.0001,
+            "weights_decay": 0.00005,
+            "layers": [810, 9]})
 
         self.w = approximator.ApproximatorWorkflow(
             dummy_workflow.DummyWorkflow(),
-            layers=root.approximator_test.layers, device=self.device)
+            layers=root.approximator.layers, device=self.device)
         self.w.decision.max_epochs = 5
-        self.w.initialize(device=self.device,
-                          learning_rate=root.approximator_test.learning_rate,
-                          weights_decay=root.approximator_test.weights_decay,
-                          minibatch_size=root.loader.minibatch_size)
+        self.w.initialize(
+            device=self.device,
+            learning_rate=root.approximator.learning_rate,
+            weights_decay=root.approximator.weights_decay,
+            minibatch_size=root.approximator.loader.minibatch_size)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.067241, places=7)
+        self.assertAlmostEqual(avg_mse, 0.067241, places=5)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -64,14 +65,15 @@ class TestApproximator(unittest.TestCase):
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 11
         self.wf.decision.complete <<= False
-        self.wf.initialize(device=self.device,
-                           learning_rate=root.approximator_test.learning_rate,
-                           weights_decay=root.approximator_test.weights_decay,
-                           minibatch_size=root.loader.minibatch_size)
+        self.wf.initialize(
+            device=self.device,
+            learning_rate=root.approximator.learning_rate,
+            weights_decay=root.approximator.weights_decay,
+            minibatch_size=root.approximator.loader.minibatch_size)
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.066634521, places=7)
+        self.assertAlmostEqual(avg_mse, 0.066634521, places=5)
         self.assertEqual(11, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
