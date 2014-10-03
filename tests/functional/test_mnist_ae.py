@@ -38,12 +38,17 @@ class TestMnistAE(unittest.TestCase):
         root.mnist_ae.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 20,
-                         "store_samples_mse": True},
-            "snapshotter": {"prefix": "mnist_ae_test"},
-            "loader": {"minibatch_size": 100},
+                         "max_epochs": 5},
+            "snapshotter": {"prefix": "mnist", "time_interval": 0,
+                            "compress": ""},
+            "loader": {"minibatch_size": 100, "on_device": True},
             "learning_rate": 0.000001,
             "weights_decay": 0.00005,
             "gradient_moment": 0.00001,
+            "weights_plotter": {"limit": 16},
+            "pooling": {"kx": 3, "ky": 3, "sliding": (2, 2)},
+            "include_bias": False,
+            "unsafe_padding": True,
             "n_kernels": 5,
             "kx": 5,
             "ky": 5,
@@ -52,7 +57,6 @@ class TestMnistAE(unittest.TestCase):
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyWorkflow(),
                                           layers=root.mnist_ae.layers,
                                           device=self.device)
-        self.w.decision.max_epochs = 5
         self.w.initialize(device=self.device)
         self.w.run()
         file_name = self.w.snapshotter.file_name

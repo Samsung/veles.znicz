@@ -22,9 +22,9 @@ valid = os.path.join(root.common.test_dataset_root,
 
 root.lines.update({
     "accumulator": {"bars": 30, "squash": True},
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "lines"},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 60, "on_device": True, "grayscale": False},
     "weights_plotter": {"limit": 32},
     "layers": [{"type": "conv_relu", "n_kernels": 32, "kx": 11, "ky": 11,
                 "sliding": (4, 4), "learning_rate": 0.0003,

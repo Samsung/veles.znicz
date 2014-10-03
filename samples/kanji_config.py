@@ -20,7 +20,7 @@ train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
 root.kanji.update({
     "decision": {"fail_iterations": 1000,
-                 "store_samples_mse": True},
+                 "max_epochs": 1000000000},
     "loader": {"minibatch_size": 50,
                "validation_ratio": 0.15},
     "snapshotter": {"prefix": "kanji"},

@@ -34,7 +34,8 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
                                "hands/Negative/Testing")]
 
 root.hands.update({
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 1000000000},
     "snapshotter": {"prefix": "hands"},
     "loader": {"minibatch_size": 60},
     "learning_rate": 0.0008,
@@ -109,8 +110,9 @@ class HandsWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, snapshot_prefix=root.hands.decision.snapshot_prefix,
-            fail_iterations=root.hands.decision.fail_iterations)
+            self,
+            fail_iterations=root.hands.decision.fail_iterations,
+            max_epochs=root.hands.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

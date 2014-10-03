@@ -31,9 +31,7 @@ STDDEV_AA = 0.005
 
 root.imagenet_ae.update({
     "decision": {"fail_iterations": 50,
-                 "max_epochs": 50,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
+                 "max_epochs": 50},
     "loader": {"year": "1",
                "series": "img",
                "minibatch_size": 72},

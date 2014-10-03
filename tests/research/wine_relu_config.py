@@ -18,9 +18,9 @@ from veles.config import root
 root.common.update = {"plotters_disabled": True}
 
 root.wine_relu.update({
-    "decision": {"fail_iterations": 250},
+    "decision": {"fail_iterations": 250, "max_epochs": 100000},
     "snapshotter": {"prefix": "wine_relu"},
-    "loader": {"minibatch_size": 10},
+    "loader": {"minibatch_size": 10, "on_device": True},
     "learning_rate": 0.03,
     "weights_decay": 0.0,
     "layers": [10, 3],

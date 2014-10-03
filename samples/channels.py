@@ -57,9 +57,7 @@ root.channels.model = "conv"
 root.channels.update({
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
-                 "max_epochs": 10000,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
+                 "max_epochs": 10000},
     "snapshotter": {"prefix": "channels_%s" % root.channels.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
@@ -701,8 +699,6 @@ class ChannelsWorkflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.channels.decision.fail_iterations,
-            use_dynamic_alpha=root.channels.decision.use_dynamic_alpha,
-            do_export_weights=root.channels.decision.do_export_weights,
             max_epochs=root.channels.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,

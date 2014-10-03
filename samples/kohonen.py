@@ -31,7 +31,8 @@ root.kohonen.update({
     "decision": {"snapshot_prefix": "kohonen",
                  "epochs": 160},
     "loader": {"minibatch_size": 10,
-               "dataset_file": os.path.join(data_path, "kohonen.txt")},
+               "dataset_file": os.path.join(data_path, "kohonen.txt"),
+               "on_device": False},
     "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}})
 
@@ -74,7 +75,8 @@ class KohonenWorkflow(nn_units.NNWorkflow):
 
         self.loader = KohonenLoader(
             self, name="Kohonen fullbatch loader",
-            minibatch_size=root.kohonen.loader.minibatch_size, on_device=False)
+            minibatch_size=root.kohonen.loader.minibatch_size,
+            on_device=root.kohonen.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer

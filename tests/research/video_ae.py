@@ -28,9 +28,9 @@ import veles.plotting_units as plotting_units
 
 
 root.video_ae.update({
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "video_ae"},
-    "loader": {"minibatch_size": 50},
+    "loader": {"minibatch_size": 50, "on_device": True},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.000004,
     "weights_decay": 0.00005,
@@ -73,7 +73,8 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
 
         self.loader = VideoAELoader(
             self, train_paths=(root.video_ae.data_paths,),
-            minibatch_size=root.video_ae.loader.minibatch_size, on_device=True)
+            minibatch_size=root.video_ae.loader.minibatch_size,
+            on_device=root.video_ae.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -114,8 +115,8 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self,
-            snapshot_prefix=root.video_ae.decision.snapshot_prefix,
-            fail_iterations=root.video_ae.decision.fail_iterations)
+            fail_iterations=root.video_ae.decision.fail_iterations,
+            max_epochs=root.video_ae.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",

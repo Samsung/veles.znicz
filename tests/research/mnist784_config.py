@@ -23,9 +23,9 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 root.mnist784.update({
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "mnist_784"},
-    "loader": {"minibatch_size": 100},
+    "loader": {"minibatch_size": 100, "on_device": True},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.00001,
     "weights_decay": 0.00005,

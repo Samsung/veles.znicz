@@ -29,14 +29,14 @@ WDSM = WD * 2
 WDSMB = 0.0
 
 root.cifar.update({
-    "decision": {"fail_iterations": 250},
+    "decision": {"fail_iterations": 250, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "cifar"},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 100,
-               "shuffle_limit": 2000000000},
+               "shuffle_limit": 2000000000, "on_device": True},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv", "n_kernels": 32,

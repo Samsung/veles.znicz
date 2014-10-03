@@ -37,12 +37,16 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 root.mnist_ae.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 20,
-                 "store_samples_mse": True},
-    "snapshotter": {"prefix": "mnist"},
-    "loader": {"minibatch_size": 100},
+                 "max_epochs": 1000000000},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
+    "loader": {"minibatch_size": 100, "on_device": True},
     "learning_rate": 0.000001,
     "weights_decay": 0.00005,
     "gradient_moment": 0.00001,
+    "weights_plotter": {"limit": 16},
+    "pooling": {"kx": 3, "ky": 3, "sliding": (2, 2)},
+    "include_bias": False,
+    "unsafe_padding": True,
     "n_kernels": 5,
     "kx": 5,
     "ky": 5,
@@ -71,24 +75,27 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.loader = MnistAELoader(
             self, name="MNIST loader",
             minibatch_size=root.mnist_ae.loader.minibatch_size,
-            on_device=True)
+            on_device=root.mnist_ae.loader.on_device)
         self.loader.link_from(self.repeater)
 
         unit = conv.Conv(
             self, n_kernels=root.mnist_ae.n_kernels,
             kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
-            weights_filling="uniform", include_bias=False)
+            weights_filling="uniform", include_bias=root.mnist_ae.include_bias)
         unit.link_from(self.loader)
         unit.link_attrs(self.loader, ("input", "minibatch_data"))
         self.conv = unit
 
-        unit = pooling.StochasticAbsPooling(self, kx=3, ky=3, sliding=(2, 2))
+        unit = pooling.StochasticAbsPooling(
+            self, kx=root.mnist_ae.pooling.kx, ky=root.mnist_ae.pooling.ky,
+            sliding=root.mnist_ae.pooling.sliding)
         unit.link_from(self.conv)
         unit.link_attrs(self.conv, ("input", "output"))
         self.pool = unit
 
         unit = gd_pooling.GDMaxAbsPooling(
-            self, kx=self.pool.kx, ky=self.pool.ky, sliding=(2, 2))
+            self, kx=self.pool.kx, ky=self.pool.ky,
+            sliding=root.mnist_ae.pooling.sliding)
         unit.link_from(self.pool)
         unit.link_attrs(self.pool, "input", "input_offset",
                         ("err_output", "output"))
@@ -98,7 +105,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
             self, n_kernels=root.mnist_ae.n_kernels,
             kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
             sliding=self.conv.sliding, padding=self.conv.padding,
-            unsafe_padding=True)
+            unsafe_padding=root.mnist_ae.unsafe_padding)
         self.deconv = unit
         unit.link_from(self.depool)
         unit.link_attrs(self.conv, "weights")
@@ -125,9 +132,11 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
                         "epoch_number")
         unit.link_attrs(self.evaluator, ("minibatch_metrics", "metrics"))
 
-        unit = NNSnapshotter(self, prefix=root.mnist_ae.snapshotter.prefix,
-                             directory=root.common.snapshot_dir,
-                             compress="", time_interval=0)
+        unit = NNSnapshotter(
+            self, prefix=root.mnist_ae.snapshotter.prefix,
+            directory=root.common.snapshot_dir,
+            compress=root.mnist_ae.snapshotter.compress,
+            time_interval=root.mnist_ae.snapshotter.time_interval)
         self.snapshotter = unit
         unit.link_from(self.decision)
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
@@ -171,7 +180,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
-            self, name="Weights", limit=64)
+            self, name="Weights", limit=root.mnist_ae.weights_plotter.limit)
         self.plt_mx.link_attrs(self.conv, ("input", "weights"))
         self.plt_mx.get_shape_from = [root.mnist_ae.kx,
                                       root.mnist_ae.ky, 1]
@@ -183,7 +192,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         # Input plotter
 
         self.plt_inp = nn_plotting_units.Weights2D(
-            self, name="First Layer Input", limit=64)
+            self, name="First Layer Input",
+            limit=root.mnist_ae.weights_plotter.limit)
         self.plt_inp.link_attrs(self.conv, "input")
         self.plt_inp.get_shape_from = [28, 28, 1]
         self.plt_inp.input_field = "mem"
@@ -193,7 +203,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Output plotter
         self.plt_out = nn_plotting_units.Weights2D(
-            self, name="First Layer Output", limit=64)
+            self, name="First Layer Output",
+            limit=root.mnist_ae.weights_plotter.limit)
         self.plt_out.link_attrs(self.conv, ("input", "output"))
         self.plt_out.get_shape_from = [
             28 - root.mnist_ae.kx + 1,
@@ -206,7 +217,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Deconv result plotter
         self.plt_out = nn_plotting_units.Weights2D(
-            self, name="Deconv result", limit=64)
+            self, name="Deconv result",
+            limit=root.mnist_ae.weights_plotter.limit)
         self.plt_out.link_attrs(self.deconv, ("input", "output"))
         self.plt_out.get_shape_from = [28, 28, 1]
         self.plt_out.input_field = "mem"

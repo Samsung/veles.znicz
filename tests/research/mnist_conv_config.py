@@ -17,8 +17,9 @@ root.mnistr.update({
     "learning_rate_adjust": {"do": True},  # True False
     "decision": {"max_epochs": 10000000,
                  "fail_iterations": 100},
-    "snapshotter": {"prefix": "mnist_conv"},
-    "loader": {"minibatch_size": 6},
+    "snapshotter": {"prefix": "mnist_conv", "time_interval": 0,
+                    "compress": ""},
+    "loader": {"minibatch_size": 6, "on_device": True},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv",  # conv conv_relu conv_str
                 "n_kernels": 64, "kx": 5, "ky": 5,

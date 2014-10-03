@@ -22,7 +22,7 @@ train = [os.path.join(root.common.test_dataset_root,
 
 root.approximator.update({
     "decision": {"fail_iterations": 1000,
-                 "store_samples_mse": True},
+                 "max_epochs": 1000000000},
     "snapshotter": {"prefix": "approximator"},
     "loader": {"minibatch_size": 100},
     "learning_rate": 0.0001,

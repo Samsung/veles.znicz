@@ -27,9 +27,9 @@ import veles.znicz.loader as loader
 root.common.defaults = {"plotters_disabled": True}
 
 root.wine.update({
-    "decision": {"fail_iterations": 200},
+    "decision": {"fail_iterations": 200, "max_epochs": 100},
     "snapshotter": {"prefix": "wine"},
-    "loader": {"minibatch_size": 10},
+    "loader": {"minibatch_size": 10, "on_device": True},
     "learning_rate": 0.3,
     "weights_decay": 0.0,
     "layers": [8, 3],
@@ -88,7 +88,7 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine.loader.minibatch_size,
-            on_device=True)
+            on_device=root.wine.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -120,7 +120,8 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.wine.decision.fail_iterations)
+            self, fail_iterations=root.wine.decision.fail_iterations,
+            max_epochs=root.wine.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

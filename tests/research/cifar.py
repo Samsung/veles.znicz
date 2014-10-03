@@ -36,7 +36,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 
 root.cifar.update({
     "accumulator": {"bars": 30},
-    "decision": {"fail_iterations": 100, "do_export_weights": False},
+    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
     "learning_rate_adjust": {"do": False},
     "snapshotter": {"prefix": "cifar"},
     "softmax": {"error_function_avr": False},
@@ -45,7 +45,7 @@ root.cifar.update({
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 180, "norm": "-1, 1",
-               "shuffle_limit": 1, "sobel": False},
+               "shuffle_limit": 1, "sobel": False, "on_device": True},
     "weights_plotter": {"limit": 64},
     "similar_weights_plotter": {'form': 1.1, 'peak': 0.5, 'magnitude': 0.65,
                                 'layers': {1}},
@@ -180,7 +180,7 @@ class CifarWorkflow(StandardWorkflow):
 
         self.loader = CifarLoader(
             self, shuffle_limit=root.cifar.loader.shuffle_limit,
-            on_device=True)
+            on_device=root.cifar.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -210,7 +210,7 @@ class CifarWorkflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.cifar.decision.fail_iterations,
-            do_export_weights=root.cifar.decision.do_export_weights)
+            max_epochs=root.cifar.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",

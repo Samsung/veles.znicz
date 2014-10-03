@@ -23,7 +23,8 @@ validation_dir = [os.path.join(root.common.test_dataset_root,
                                "hands/Negative/Testing")]
 
 root.hands.update({
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 1000000000},
     "snapshotter": {"prefix": "hands"},
     "loader": {"minibatch_size": 60},
     "learning_rate": 0.0008,

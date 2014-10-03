@@ -15,9 +15,10 @@ from veles.config import root
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": True},
-    "decision": {"fail_iterations": 100},
-    "snapshotter": {"prefix": "mnist_caffe"},
-    "loader": {"minibatch_size": 5},
+    "decision": {"fail_iterations": 100, "max_epochs": 10000},
+    "snapshotter": {"prefix": "mnist_caffe",
+                    "time_interval": 0, "compress": ""},
+    "loader": {"minibatch_size": 5, "on_device": True},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv", "n_kernels": 20, "kx": 5, "ky": 5,
                 "sliding": (1, 1), "learning_rate": 0.01,

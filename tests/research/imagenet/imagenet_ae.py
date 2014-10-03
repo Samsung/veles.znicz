@@ -713,10 +713,6 @@ class ImagenetAEWorkflow(StandardWorkflow):
         else:
             self.decision.max_epochs += root.imagenet_ae.decision.max_epochs
         self.decision.complete <<= False
-        for gds in self.gds:
-            gds.learning_rate = 0.00001
-        #self.loader.max_minibatch_size = 14
-        #self.decision.max_epochs = 100000
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
         super(ImagenetAEWorkflow, self).initialize(device, **kwargs)

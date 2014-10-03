@@ -39,9 +39,9 @@ train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.mnist7.update({
-    "decision": {"fail_iterations": 25},
+    "decision": {"fail_iterations": 25, "max_epochs": 1000000},
     "snapshotter": {"prefix": "mnist7"},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 60, "on_device": True},
     "weights_plotter": {"limit": 25},
     "learning_rate": 0.0000016,
     "weights_decay": 0.00005,
@@ -172,7 +172,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         self.loader = Mnist7Loader(
             self, minibatch_size=root.mnist7.loader.minibatch_size,
-            on_device=True)
+            on_device=root.mnist7.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -204,7 +204,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self, fail_iterations=root.mnist7.decision.fail_iterations,
-            store_samples_mse=root.mnist7.decision.store_samples_mse)
+            max_epochs=root.mnist7.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

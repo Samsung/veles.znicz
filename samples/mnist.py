@@ -38,10 +38,9 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 root.mnist.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 100,
-                 "store_samples_mse": True,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist"},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 60, "on_device": True},
     "learning_rate": 0.03,
     "weights_decay": 0.0005,  # 1.6%
     "factor_ortho": 0.0,
@@ -150,7 +149,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         self.loader = MnistLoader(
             self, name="Mnist fullbatch loader",
-            minibatch_size=root.mnist.loader.minibatch_size, on_device=True)
+            minibatch_size=root.mnist.loader.minibatch_size,
+            on_device=root.mnist.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

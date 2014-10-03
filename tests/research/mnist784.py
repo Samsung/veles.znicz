@@ -45,9 +45,9 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 
 root.mnist784.update({
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "mnist_784"},
-    "loader": {"minibatch_size": 100},
+    "loader": {"minibatch_size": 100, "on_device": True},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.00001,
     "weights_decay": 0.00005,
@@ -233,7 +233,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
 
         self.loader = Mnist784Loader(
             self, minibatch_size=root.mnist784.loader.minibatch_size,
-            on_device=True)
+            on_device=root.mnist784.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -264,7 +264,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self, fail_iterations=root.mnist784.decision.fail_iterations,
-            store_samples_mse=root.mnist784.decision.store_samples_mse)
+            max_epochs=root.mnist784.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

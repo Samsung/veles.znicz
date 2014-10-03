@@ -38,8 +38,7 @@ IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
 root.imagenet.model = "imagenet"
 root.imagenet.update("", {
     "decision": {"fail_iterations": 100000,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
+                 "max_epochs": 100000},
     "snapshotter": {"prefix": "imagenet"},
     "loader": {"year": "temp",
                "series": "img",
@@ -248,8 +247,7 @@ class ImagenetWorkflow(StandardWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self, fail_iterations=root.imagenet.decision.fail_iterations,
-            use_dynamic_alpha=root.imagenet.decision.use_dynamic_alpha,
-            do_export_weights=root.imagenet.decision.do_export_weights)
+            max_epochs=root.imagenet.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

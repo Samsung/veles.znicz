@@ -23,9 +23,9 @@ from veles.znicz.nn_units import NNSnapshotter
 root.common.defaults = {"plotters_disabled": True}
 
 root.wine_relu.update({
-    "decision": {"fail_iterations": 250},
+    "decision": {"fail_iterations": 250, "max_epochs": 100000},
     "snapshotter": {"prefix": "wine_relu"},
-    "loader": {"minibatch_size": 10},
+    "loader": {"minibatch_size": 10, "on_device": True},
     "learning_rate": 0.03,
     "weights_decay": 0.0,
     "layers": [10, 3],
@@ -47,7 +47,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine_relu.loader.minibatch_size,
-            on_device=True)
+            on_device=root.wine_relu.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -81,7 +81,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionGD(
             self,
-            snapshot_prefix=root.wine_relu.decision.snapshot_prefix,
+            max_epochs=root.wine_relu.decision.max_epochs,
             fail_iterations=root.wine_relu.decision.fail_iterations)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
@@ -107,7 +107,6 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.fwds)))
         self.gds[-1] = gd.GDSM(self, device=device)
-        # self.gds[-1].link_from(self.decision)
         self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")

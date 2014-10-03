@@ -29,9 +29,9 @@ root.lines.model = "grid"
 
 root.lines.update({
     "accumulator": {"bars": 20, "squash": True},
-    "decision": {"fail_iterations": 100},
+    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "lines"},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 60, "on_device": True, "grayscale": False},
     "weights_plotter": {"limit": 32},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,
@@ -114,7 +114,8 @@ class LinesWorkflow(StandardWorkflow):
             train_paths=[root.lines.path_for_load_data.train],
             validation_paths=[root.lines.path_for_load_data.validation],
             minibatch_size=root.lines.loader.minibatch_size,
-            grayscale=False, on_device=True)
+            grayscale=root.lines.loader.grayscale,
+            on_device=root.lines.loader.on_device)
 
         self.loader.link_from(self.repeater)
 
@@ -143,7 +144,8 @@ class LinesWorkflow(StandardWorkflow):
 
         # Add decision unit
         self.decision = decision.DecisionGD(
-            self, fail_iterations=root.lines.decision.fail_iterations)
+            self, fail_iterations=root.lines.decision.fail_iterations,
+            max_epochs=root.lines.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",

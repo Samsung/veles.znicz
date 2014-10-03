@@ -35,9 +35,9 @@ root.mnistr.update({
     "decision": {"fail_iterations": 100,
                  "store_samples_mse": True,
                  "max_epochs": 10000},
-    "snapshotter": {"prefix": "mnist"},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
     "learning_rate_adjust": {"do": False},
-    "loader": {"minibatch_size": 60},
+    "loader": {"minibatch_size": 60, "on_device": True},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "all2all_tanh", "output_shape": 100,
                 "learning_rate": 0.03, "weights_decay": 0.0,
@@ -74,7 +74,8 @@ class MnistWorkflow(StandardWorkflow):
 
         self.loader = MnistLoader(
             self, name="Mnist fullbatch loader",
-            minibatch_size=root.mnistr.loader.minibatch_size, on_device=True)
+            minibatch_size=root.mnistr.loader.minibatch_size,
+            on_device=root.mnistr.loader.on_device)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -106,7 +107,9 @@ class MnistWorkflow(StandardWorkflow):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=root.mnistr.snapshotter.prefix,
-            directory=root.common.snapshot_dir, compress="", time_interval=0)
+            directory=root.common.snapshot_dir,
+            compress=root.mnistr.snapshotter.compress,
+            time_interval=root.mnistr.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

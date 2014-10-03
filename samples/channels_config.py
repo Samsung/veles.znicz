@@ -21,9 +21,7 @@ root.channels.model = "tanh"
 root.channels.update({
     "accumulator": {"bars": 30},
     "decision": {"fail_iterations": 1000,
-                 "max_epochs": 10000,
-                 "use_dynamic_alpha": False,
-                 "do_export_weights": True},
+                 "max_epochs": 10000},
     "snapshotter": {"prefix": "channels_%s" % root.channels.model},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir,

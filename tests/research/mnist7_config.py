@@ -13,9 +13,9 @@ from veles.config import root
 
 # optional parameters
 root.mnist7.update({
-    "decision": {"fail_iterations": 25,
-                 "snapshot_prefix": "mnist7"},
-    "loader": {"minibatch_size": 60},
+    "decision": {"fail_iterations": 25, "max_epochs": 1000000},
+    "snapshotter": {"prefix": "mnist7"},
+    "loader": {"minibatch_size": 60, "on_device": True},
     "weights_plotter": {"limit": 25},
     "learning_rate": 0.0000016,
     "weights_decay": 0.00005,

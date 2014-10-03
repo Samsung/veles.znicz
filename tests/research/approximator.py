@@ -31,7 +31,7 @@ train_dir = [os.path.join(root.common.test_dataset_root,
                           "approximator/all_dec_appertures.mat")]
 
 root.approximator.update({
-    "decision": {"fail_iterations": 1000, "store_samples_mse": True},
+    "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "approximator"},
     "loader": {"minibatch_size": 100},
     "learning_rate": 0.0001,
@@ -131,7 +131,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self, fail_iterations=root.approximator.decision.fail_iterations,
-            store_samples_mse=root.approximator.decision.store_samples_mse)
+            max_epochs=root.approximator.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",

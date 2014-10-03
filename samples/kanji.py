@@ -36,7 +36,7 @@ train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
 root.kanji.update({
     "decision": {"fail_iterations": 1000,
-                 "store_samples_mse": True},
+                 "max_epochs": 100},
     "snapshotter": {"prefix": "kanji"},
     "loader": {"minibatch_size": 5103,
                "validation_ratio": 0.15},
@@ -201,7 +201,7 @@ class KanjiWorkflow(nn_units.NNWorkflow):
         # Add decision unit
         self.decision = decision.DecisionMSE(
             self, fail_iterations=root.kanji.decision.fail_iterations,
-            store_samples_mse=root.kanji.decision.store_samples_mse)
+            max_epochs=root.kanji.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class", "minibatch_size",
