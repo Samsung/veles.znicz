@@ -274,6 +274,9 @@ class StandardWorkflow(nn_units.NNWorkflow):
                     "Forward layer %s at position %d "
                     "is not an instance of %s" %
                     (repr(self.fwds[i]), i, repr(self.layer_map[tpe][0])))
+
+            if "name" in kwargs:
+                kwargs["name"] = "gd_" + kwargs["name"]
             unit = self.layer_map[tpe][1](self, **kwargs)
             self.gds[i] = unit
 
