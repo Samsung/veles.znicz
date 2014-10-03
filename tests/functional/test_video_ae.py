@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
+import os
 import unittest
 
 from veles.config import root
@@ -35,13 +36,19 @@ class TestVideoAE(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.uint32, count=1024))
         root.video_ae.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "video_ae_test"},
             "loader": {"minibatch_size": 50},
+            "weights_plotter": {"limit": 16},
             "learning_rate": 0.01,
             "weights_decay": 0.00005,
-            "layers": [9, [90, 160]]})
+            "layers": [9, [90, 160]],
+            "data_paths":
+            os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
         self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyWorkflow(),
                                           layers=root.video_ae.layers,
@@ -54,13 +61,13 @@ class TestVideoAE(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.36052546, places=7)
+        self.assertAlmostEqual(avg_mse, 0.3785322, places=5)
         self.assertEqual(5, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 25
+        self.wf.decision.max_epochs = 19
         self.wf.decision.complete <<= False
         self.wf.initialize(device=self.device,
                            learning_rate=root.video_ae.learning_rate,
@@ -68,8 +75,8 @@ class TestVideoAE(unittest.TestCase):
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.294548, places=6)
-        self.assertEqual(25, self.wf.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.29749764, places=5)
+        self.assertEqual(19, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 

@@ -53,10 +53,9 @@ class TestChannels(unittest.TestCase):
                                           "tmp_%s/train" %
                                           root.channels.model)]},
             "loader": {"cache_file_name":
-                       os.path.join(root.common.cache_dir,
-                                    "channels_%s.%d.pickle" %
-                                    (root.channels.model,
-                                     sys.version_info[0])),
+                       os.path.join(root.common.test_dataset_root,
+                                    "channels_test.%d.pickle" %
+                                    sys.version_info[0]),
                        "grayscale": False,
                        "minibatch_size": 81,
                        "n_threads": 32,
@@ -89,13 +88,13 @@ class TestChannels(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 57)
+        self.assertEqual(err, 36)
         self.assertEqual(10, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 41
+        self.wf.decision.max_epochs = 21
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -109,8 +108,8 @@ class TestChannels(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 10)
-        self.assertEqual(41, self.wf.loader.epoch_number)
+        self.assertEqual(err, 22)
+        self.assertEqual(21, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":
