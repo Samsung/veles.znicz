@@ -234,22 +234,22 @@ class NNRollback(Unit):
 
 
 @implementer(loader.ILoader)
-class Loader(loader.Loader):
+class ImagenetAELoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
     def __init__(self, workflow, **kwargs):
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(ImagenetAELoader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = root.loader.sx
-        self.sy = root.loader.sy
+        self.sx = root.imagenet_ae.loader.sx
+        self.sy = root.imagenet_ae.loader.sy
 
     def init_unpickled(self):
-        super(Loader, self).init_unpickled()
+        super(ImagenetAELoader, self).init_unpickled()
         self.original_labels = None
 
     def __getstate__(self):
-        stt = super(Loader, self).__getstate__()
+        stt = super(ImagenetAELoader, self).__getstate__()
         stt["original_labels"] = None
         stt["file_samples"] = None
         return stt
@@ -257,7 +257,7 @@ class Loader(loader.Loader):
     def load_data(self):
         self.original_labels = []
 
-        with open(root.loader.names_labels_filename, "rb") as fin:
+        with open(root.imagenet_ae.loader.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
         self.info("Labels (min max count): %d %d %d",
@@ -265,7 +265,7 @@ class Loader(loader.Loader):
                   numpy.max(self.original_labels),
                   len(self.original_labels))
 
-        with open(root.loader.count_samples_filename, "r") as fin:
+        with open(root.imagenet_ae.loader.count_samples_filename, "r") as fin:
             for i, n in enumerate(json.load(fin)):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
@@ -274,7 +274,7 @@ class Loader(loader.Loader):
             raise error.Bug(
                 "Number of labels missmatches sum of class lengths")
 
-        with open(root.loader.matrixes_filename, "rb") as fin:
+        with open(root.imagenet_ae.loader.matrixes_filename, "rb") as fin:
             matrixes = pickle.load(fin)
 
         self.mean.mem = matrixes[0]
@@ -289,7 +289,8 @@ class Loader(loader.Loader):
         if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
             raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
-        self.file_samples = open(root.loader.samples_filename, "rb")
+        self.file_samples = open(root.imagenet_ae.loader.samples_filename,
+                                 "rb")
         if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 4) !=
                 len(self.original_labels)):
             raise error.Bug("Wrong data file size")
@@ -360,7 +361,7 @@ class Destroyer(Unit):
         pass
 
 
-class Workflow(StandardWorkflow):
+class ImagenetAEWorkflow(StandardWorkflow):
     """Workflow.
     """
     def fix(self, unit, *attrs):
@@ -377,7 +378,7 @@ class Workflow(StandardWorkflow):
                                      (unit.__class__.__name__, attr))
 
     def init_unpickled(self):
-        super(Workflow, self).init_unpickled()
+        super(ImagenetAEWorkflow, self).init_unpickled()
         self.forward_map = {
             "conv": conv.Conv,
             "stochastic_abs_pooling": pooling.StochasticAbsPooling,
@@ -424,14 +425,15 @@ class Workflow(StandardWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(ImagenetAEWorkflow, self).__init__(workflow, **kwargs)
 
         self.slave_stats = plotting_units.SlaveStats(self)
         self.slave_stats.link_from(self.start_point)
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(self, minibatch_size=root.loader.minibatch_size)
+        self.loader = ImagenetAELoader(
+            self, minibatch_size=root.imagenet_ae.loader.minibatch_size)
         self.loader.link_from(self.repeater)
         self.fix(self.loader, "minibatch_data", "mean", "rdisp",
                  "class_lengths")
@@ -543,8 +545,8 @@ class Workflow(StandardWorkflow):
 
         # Add decision unit
         unit = decision.DecisionMSE(
-            self, fail_iterations=root.decision.fail_iterations,
-            max_epochs=root.decision.max_epochs)
+            self, fail_iterations=root.imagenet_ae.decision.fail_iterations,
+            max_epochs=root.imagenet_ae.decision.max_epochs)
         self.decision = unit
         unit.link_from(self.evaluator)
         unit.link_attrs(self.loader, "minibatch_class",
@@ -555,8 +557,9 @@ class Workflow(StandardWorkflow):
         self.fix(self.decision, "minibatch_metrics", "class_lengths")
 
         unit = NNSnapshotter(
-            self, prefix=root.snapshotter.prefix,
-            directory=("%s/%s" % (root.common.snapshot_dir, root.loader.year)),
+            self, prefix=root.imagenet_ae.snapshotter.prefix,
+            directory=("%s/%s" % (root.common.snapshot_dir,
+                                  root.imagenet_ae.loader.year)),
             compress="", time_interval=0)
         self.snapshotter = unit
         unit.link_from(self.decision)
@@ -702,13 +705,13 @@ class Workflow(StandardWorkflow):
 
     def initialize(self, device, **kwargs):
         if (self.fwds[0].weights.mem is not None and
-                root.imagenet.from_snapshot_add_layer):
+                root.imagenet_ae.from_snapshot_add_layer):
             self.info("Restoring from snapshot detected, "
                       "will adjust the workflow")
             self.adjust_workflow()
             self.info("Workflow adjusted, will initialize now")
         else:
-            self.decision.max_epochs += root.decision.max_epochs
+            self.decision.max_epochs += root.imagenet_ae.decision.max_epochs
         self.decision.complete <<= False
         for gds in self.gds:
             gds.learning_rate = 0.00001
@@ -716,7 +719,7 @@ class Workflow(StandardWorkflow):
         #self.decision.max_epochs = 100000
         self.info("Set decision.max_epochs to %d and complete=False",
                   self.decision.max_epochs)
-        super(Workflow, self).initialize(device, **kwargs)
+        super(ImagenetAEWorkflow, self).initialize(device, **kwargs)
         self.check_fixed()
         self.dump_shapes()
 
@@ -774,7 +777,7 @@ class Workflow(StandardWorkflow):
         self.repeater.link_from(self.gds[0])
 
         self.rollback.reset()
-        noise = float(root.imagenet.fine_tuning_noise)
+        noise = float(root.imagenet_ae.fine_tuning_noise)
         for unit in self.gds:
             if not isinstance(unit, activation.Activation):
                 self.rollback.add_gd(unit)
@@ -792,7 +795,7 @@ class Workflow(StandardWorkflow):
         self.decision.min_train_validation_n_err = 1.0e30
         self.decision.min_train_n_err = 1.0e30
 
-        self.decision.max_epochs += root.decision.max_epochs * 10
+        self.decision.max_epochs += root.imagenet_ae.decision.max_epochs * 10
 
         self.add_end_point()
 
@@ -818,7 +821,7 @@ class Workflow(StandardWorkflow):
     def adjust_workflow(self):
         self.info("Will extend %d autoencoder layers", self.n_ae)
 
-        layers = root.imagenet.layers
+        layers = root.imagenet_ae.layers
         n_ae = 0
         i_layer = 0
         i_fwd = 0
@@ -987,7 +990,7 @@ class Workflow(StandardWorkflow):
             self.decision.min_train_validation_n_err = 1.0e30
             self.decision.min_train_n_err = 1.0e30
 
-            self.decision.max_epochs += root.decision.max_epochs
+            self.decision.max_epochs += root.imagenet_ae.decision.max_epochs
 
         else:
             self.info("No more autoencoder levels, "
@@ -995,7 +998,7 @@ class Workflow(StandardWorkflow):
             self.n_ae += 1
             # Add Image Saver unit
             self.image_saver = image_saver.ImageSaver(
-                self, out_dirs=root.image_saver.out_dirs)
+                self, out_dirs=root.imagenet_ae.image_saver.out_dirs)
             self.image_saver.link_from(self.fwds[-1])
             self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
             self.image_saver.link_attrs(
@@ -1023,7 +1026,8 @@ class Workflow(StandardWorkflow):
             self.del_ref(self.decision)
             self.decision = None
             unit = decision.DecisionGD(
-                self, fail_iterations=root.decision.fail_iterations,
+                self,
+                fail_iterations=root.imagenet_ae.decision.fail_iterations,
                 max_epochs=max_epochs)
             self.decision = unit
             unit.link_from(self.evaluator)
@@ -1141,20 +1145,22 @@ class Workflow(StandardWorkflow):
 
 
 def run(load, main):
-    IMAGENET_BASE_PATH = root.loader.path
-    root.snapshotter.prefix = "imagenet_ae_%s" % root.loader.year
-    CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH, str(root.loader.year))
-    root.loader.names_labels_filename = os.path.join(
+    IMAGENET_BASE_PATH = root.imagenet_ae.loader.path
+    root.imagenet_ae.snapshotter.prefix = (
+        "imagenet_ae_%s" % root.imagenet_ae.loader.year)
+    CACHED_DATA_FNME = os.path.join(IMAGENET_BASE_PATH,
+                                    str(root.imagenet_ae.loader.year))
+    root.imagenet_ae.loader.names_labels_filename = os.path.join(
         CACHED_DATA_FNME, "original_labels_%s_%s_0.pickle" %
-        (root.loader.year, root.loader.series))
-    root.loader.count_samples_filename = os.path.join(
+        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+    root.imagenet_ae.loader.count_samples_filename = os.path.join(
         CACHED_DATA_FNME, "count_samples_%s_%s_0.json" %
-        (root.loader.year, root.loader.series))
-    root.loader.samples_filename = os.path.join(
+        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+    root.imagenet_ae.loader.samples_filename = os.path.join(
         CACHED_DATA_FNME, "original_data_%s_%s_0.dat" %
-        (root.loader.year, root.loader.series))
-    root.loader.matrixes_filename = os.path.join(
+        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+    root.imagenet_ae.loader.matrixes_filename = os.path.join(
         CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
-        (root.loader.year, root.loader.series))
-    load(Workflow, layers=root.imagenet.layers)
+        (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
+    load(ImagenetAEWorkflow, layers=root.imagenet_ae.layers)
     main()

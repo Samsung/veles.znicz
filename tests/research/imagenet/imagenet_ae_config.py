@@ -29,7 +29,7 @@ FILLING = "gaussian"
 STDDEV_CONV = 0.01
 STDDEV_AA = 0.005
 
-root.imagenet.update({
+root.imagenet_ae.update({
     "decision": {"fail_iterations": 50,
                  "max_epochs": 50,
                  "use_dynamic_alpha": False,

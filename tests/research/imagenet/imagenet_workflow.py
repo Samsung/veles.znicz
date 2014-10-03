@@ -136,19 +136,19 @@ root.imagenet.loader.matrixes_dir = os.path.join(
 
 
 @implementer(loader.ILoader)
-class Loader(loader.Loader):
+class ImagenetLoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
     def __init__(self, workflow, **kwargs):
-        super(Loader, self).__init__(workflow, **kwargs)
+        super(ImagenetLoader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
         self.rdisp = Vector()
 
     def init_unpickled(self):
-        super(Loader, self).init_unpickled()
+        super(ImagenetLoader, self).init_unpickled()
         self.original_labels = []
 
     def __getstate__(self):
-        stt = super(Loader, self).__getstate__()
+        stt = super(ImagenetLoader, self).__getstate__()
         stt["original_labels"] = None
         stt["file_samples"] = None
         return stt
@@ -197,7 +197,7 @@ class Loader(loader.Loader):
                 self.minibatch_labels[i] = self.original_labels[int(ii)]
 
 
-class Workflow(StandardWorkflow):
+class ImagenetWorkflow(StandardWorkflow):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):
@@ -205,13 +205,13 @@ class Workflow(StandardWorkflow):
         device = kwargs.get("device")
         kwargs["layers"] = layers
         kwargs["device"] = device
-        super(Workflow, self).__init__(workflow, **kwargs)
+        super(ImagenetWorkflow, self).__init__(workflow, **kwargs)
 
         self.saver = None
 
         self.repeater.link_from(self.start_point)
 
-        self.loader = Loader(
+        self.loader = ImagenetLoader(
             self, minibatch_size=root.imagenet.loader.minibatch_size)
         self.loader.link_from(self.repeater)
 
@@ -319,10 +319,6 @@ class Workflow(StandardWorkflow):
                 self.plt_mx[-1].get_shape_from = (
                     [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
                 prev_channels = self.fwds[i].n_kernels
-            # if (layers[i].get("output_shape") is not None and
-            #        layers[i]["type"] != "softmax"):
-            #    self.plt_mx[-1].link_attrs(self.fwds[i],
-            #                               ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
@@ -354,9 +350,9 @@ class Workflow(StandardWorkflow):
         self.fwds.append(new_unit)
 
     def initialize(self, device):
-        super(Workflow, self).initialize(device=device)
+        super(ImagenetWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
-    load(Workflow, layers=root.imagenet.layers)
+    load(ImagenetWorkflow, layers=root.imagenet.layers)
     main()
