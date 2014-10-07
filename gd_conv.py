@@ -24,8 +24,7 @@ from zope.interface import implementer
 from veles.config import root
 import veles.error as error
 from veles.external.prettytable import PrettyTable
-import veles.formats as formats
-import veles.opencl_types as opencl_types
+from veles.formats import assert_addr, roundup
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
@@ -81,12 +80,8 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.ky = ky
         self.padding = tuple(padding)
         self.sliding = tuple(sliding)
-        self.cl_const = None
         self.reduce_size = 64
-
-    def init_unpickled(self):
-        super(GradientDescentConv, self).init_unpickled()
-        self.cl_sources_["gradient_descent_conv.cl"] = {}
+        self.cl_const = None
         self.krn_err_input_clear_ = None
         self.krn_err_input_ = None
         self.krn_weights_ = None
@@ -132,7 +127,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.vv = self.err_input.mem
                 sh[0] >>= 1
                 self.err_input.mem = self.err_input.vv[:sh[0]]
-                formats.assert_addr(self.err_input.mem, self.err_input.vv)
+                assert_addr(self.err_input.mem, self.err_input.vv)
                 self.err_input.vv[sh[0]:] = numpy.nan
             else:
                 self.err_input.mem = numpy.zeros(sh, dtype=dtype)
@@ -168,6 +163,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (batch_size * sx * sy)
+        kernel_size = self.kx * self.ky * n_channels
         dtype = self.err_output.mem.dtype
 
         self.cl_const = numpy.zeros(5, dtype=dtype)
@@ -180,16 +176,14 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
             self.col_sums.initialize(self)
-        self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
+        self.reduce_size = roundup(min(self.reduce_size, other), 32)
 
         defines = {
-            'USE_ORTHO': int(bool(self.factor_ortho)),
             'H': other,
             'Y': side,
             'APPLY_GRADIENT': int(self.apply_gradient),
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
             'STORE_GRADIENT': int(self.store_gradient),
-            'INCLUDE_BIAS': int(self.include_bias),
             'USE_ATOMICS': 1,
             'BATCH': batch_size,
             'SX': sx,
@@ -206,6 +200,57 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             'SLIDE_Y': self.sliding[1],
             'REDUCE_SIZE': self.reduce_size
         }
+
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="deconv",
+                sx=sx, sy=sy, n_channels=n_channels,
+                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
+                padding=self.padding, sliding=self.sliding,
+                a_col=False, b_col=(not self.weights_transposed)))
+        self.cl_sources_["conv/gradient_descent/err_input_update.cl"] = {
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size
+        }
+        self._global_size_err_input = [
+            roundup(kernel_size, b_block_size),
+            roundup(
+                batch_size *
+                ((sx + self.padding[0] + self.padding[2] - self.kx) //
+                 self.sliding[0] + 1) *
+                ((sy + self.padding[1] + self.padding[3] - self.ky) //
+                 self.sliding[1] + 1), a_block_size)]
+        self._local_size_err_input = [b_block_size, a_block_size]
+
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="conv",
+                sx=sx, sy=sy, n_channels=n_channels,
+                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
+                padding=self.padding, sliding=self.sliding,
+                a_col=True, b_col=True))
+        self.cl_sources_["conv/gradient_descent/weights_update.cl"] = {
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size,
+            "USE_ORTHO": int(bool(self.factor_ortho))
+        }
+        if self.weights_transposed:
+            self._global_size_weights = [
+                roundup(self.n_kernels, b_block_size),
+                roundup(kernel_size, a_block_size)]
+        else:
+            self._global_size_weights = [
+                roundup(kernel_size, b_block_size),
+                roundup(self.n_kernels, a_block_size)]
+        self._local_size_weights = [b_block_size, a_block_size]
+
+        self.cl_sources_["conv/gradient_descent/bias_update.cl"] = {
+        }
+        self._global_size_bias = [self.n_kernels * self.reduce_size]
+        self._local_size_bias = [self.reduce_size]
+
         self.build_program(defines, "%s/gd_conv_%d_%d.cl" % (
             root.common.cache_dir,
             self.input.mem.size // self.input.mem.shape[0],
@@ -216,7 +261,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
 
-            self.krn_err_input_ = self.get_kernel("err_h_update")
+            self.krn_err_input_ = self.get_kernel("err_input_update")
             self.krn_err_input_.set_args(self.err_output.devmem,
                                          self.weights.devmem,
                                          self.err_input.devmem)
@@ -245,13 +290,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.weights.unmap()
         self.gradient_weights.unmap()
 
-        sy = self.input.mem.shape[1]
-        sx = self.input.mem.shape[2]
-        n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
-
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
-
         if self.factor_ortho:
             self.col_sums.unmap()
             side = self.weights.shape[1 if self.weights_transposed else 0]
@@ -270,18 +308,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.krn_weights_.set_args(
             cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
             self.cl_const[2:3], self.cl_const[3:4])
-        if self.weights_transposed:
-            global_size = [
-                formats.roundup(self.n_kernels, block_size),
-                formats.roundup(self.kx * self.ky * n_channels,
-                                block_size)]
-        else:
-            global_size = [
-                formats.roundup(self.kx * self.ky * n_channels,
-                                block_size),
-                formats.roundup(self.n_kernels, block_size)]
-        local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size, self.krn_weights_)
+        self.execute_kernel(
+            self._global_size_weights, self._local_size_weights,
+            self.krn_weights_)
 
     def gpu_bias_update(self):
         if not self.include_bias:
@@ -298,9 +327,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.krn_bias_.set_args(
             cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
             self.cl_const[2:3], self.cl_const[3:4])
-        global_size = [self.n_kernels * self.reduce_size]
-        local_size = [self.reduce_size]
-        self.execute_kernel(global_size, local_size, self.krn_bias_)
+        self.execute_kernel(
+            self._global_size_bias, self._local_size_bias,
+            self.krn_bias_)
 
     def cpu_weights_update(self):
         # TODO(a.kazantsev): implement in case of transposed weights
@@ -330,8 +359,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         if len(sh) == 3:
             sh[1] *= sh[2]
             sh[2] = 1
-        #  err_output = formats.reshape(self.err_output.mem,
-        #                               (sh[0], sh[1] * sh[2], sh[3]))
 
         # calculate gradient for weights
         gd_weights = numpy.zeros_like(self.weights.mem)
@@ -423,24 +450,9 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         self.execute_kernel([self.err_input.mem.size], None,
                             self.krn_err_input_clear_)
 
-        batch_size = self.input.mem.shape[0]
-        sy = self.input.mem.shape[1]
-        sx = self.input.mem.shape[2]
-        n_channels = self.input.mem.size // (batch_size * sx * sy)
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
-        kernel_size = self.kx * self.ky * n_channels
-        global_size = [
-            formats.roundup(kernel_size, block_size),
-            formats.roundup(
-                batch_size *
-                ((sx + self.padding[0] + self.padding[2] - self.kx) //
-                 self.sliding[0] + 1) *
-                ((sy + self.padding[1] + self.padding[3] - self.ky) //
-                 self.sliding[1] + 1),
-                block_size)]
-        local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size, self.krn_err_input_)
+        self.execute_kernel(
+            self._global_size_err_input, self._local_size_err_input,
+            self.krn_err_input_)
 
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).

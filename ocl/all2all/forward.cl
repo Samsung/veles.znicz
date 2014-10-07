@@ -23,7 +23,7 @@
 ///          BATCH - minibatch size,
 ///          H - input size,
 ///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
 void feed_layer(__global const dtype    /* IN */    *h,
                 __global const dtype    /* IN */    *weights,
                 #if INCLUDE_BIAS > 0
@@ -52,7 +52,7 @@ void feed_layer(__global const dtype    /* IN */    *h,
 
   #if INCLUDE_BIAS > 0
   if ((valid) && (!ty)) {  // read from memory only for the first row
-    AS[tx] = bias[bx * BLOCK_SIZE + tx];
+    AS[tx] = bias[bx * B_BLOCK_SIZE + tx];
   }
   barrier(CLK_LOCAL_MEM_FENCE);
   sum += AS[tx];

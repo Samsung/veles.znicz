@@ -15,7 +15,7 @@
 ///          BATCH - minibatch size,
 ///          SAMPLE_LENGTH - the length of each sample,
 ///          NEURONS_NUMBER - the number of neurons.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
 void calculate_distances(__global const dtype    /* IN */    *input,
                          __global const dtype    /* IN */    *weights,
                          __global dtype         /* OUT */    *output) {

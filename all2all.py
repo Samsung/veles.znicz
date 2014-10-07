@@ -19,8 +19,7 @@ from zope.interface import implementer
 from veles.opencl_units import IOpenCLUnit
 
 import veles.error as error
-import veles.formats as formats
-import veles.opencl_types as opencl_types
+from veles.formats import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
@@ -64,10 +63,12 @@ class All2All(nn_units.Forward):
         self.output_shape = output_shape
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.append("s_activation")
+        self._global_size = None
+        self._local_size = None
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.cl_sources_["forward.cl"] = {}
+        self.cl_sources_["all2all/forward.cl"] = {}
 
     def get_weights_magnitude(self):
         """
@@ -90,7 +91,7 @@ class All2All(nn_units.Forward):
             self.bias_stddev = self.weights_stddev
 
         output_shape = (self.output_shape.mem.shape[1:]
-                        if isinstance(self.output_shape, formats.Vector)
+                        if isinstance(self.output_shape, Vector)
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
         n_weights = (self.input.mem.size //
@@ -148,17 +149,29 @@ class All2All(nn_units.Forward):
 
     def ocl_init(self, device):
         output_shape = (self.output_shape.mem.shape[1:]
-                        if isinstance(self.output_shape, formats.Vector)
+                        if isinstance(self.output_shape, Vector)
                         else self.output_shape)
         output_size = int(numpy.prod(output_shape))
+        a_width = self.output.mem.shape[0]
+        b_width = output_size
+        ab_common = self.weights.mem.size // output_size
+
+        a_block_size, b_block_size, common_block_size = (
+            device.device_info.get_block_sizes(
+                kernel="matrix_multiplication",
+                a_width=a_width, b_width=b_width, ab_common=ab_common,
+                a_col=False, b_col=self.weights_transposed))
 
         defines = {
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size,
             self.s_activation: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
-            "H": self.weights.mem.size // output_size,
-            "Y": output_size,
-            "BATCH": self.output.mem.shape[0]}
+            "H": ab_common,
+            "Y": b_width,
+            "BATCH": a_width}
 
         self.build_program(defines, "feed_%d_%d.cl" %
                            (self.input.mem.size // self.input.mem.shape[0],
@@ -171,13 +184,9 @@ class All2All(nn_units.Forward):
         else:
             self.set_args(self.input, self.weights, self.output)
 
-        output_size = int(self.output.mem.size // self.output.mem.shape[0])
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
-        self._global_size_ = [formats.roundup(output_size, block_size),
-                              formats.roundup(self.output.mem.shape[0],
-                                              block_size)]
-        self._local_size_ = [block_size, block_size]
+        self._global_size = [roundup(b_width, b_block_size),
+                             roundup(a_width, a_block_size)]
+        self._local_size = [b_block_size, a_block_size]
 
     def print_debug_data(self, t_start):
         """Show some statistics.
@@ -210,7 +219,7 @@ class All2All(nn_units.Forward):
         self.input.unmap()
         self.weights.unmap()
         self.bias.unmap()
-        self.execute_kernel(self._global_size_, self._local_size_)
+        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -219,16 +228,12 @@ class All2All(nn_units.Forward):
         self.input.map_read()
         self.weights.map_read()
         self.bias.map_read()
-        a = formats.reshape(
-            self.input.mem, [self.input.mem.shape[0],
-                             self.input.mem.size // self.input.mem.shape[0]])
-        b = self.weights.mem
-        if not self.weights_transposed:
-            b = b.transpose()
-        mem = numpy.dot(a, b)
+        mem = numpy.dot(self.input.matrix,
+                        self.weights.mem if self.weights_transposed
+                        else self.weights.mem.transpose())
         if self.include_bias:
             mem += self.bias.mem
-        formats.reshape(self.output.mem, mem.shape)[:] = mem[:]
+        reshape(self.output.mem, mem.shape)[:] = mem[:]
 
 
 class All2AllTanh(All2All):
@@ -290,7 +295,7 @@ class All2AllSoftmax(All2All):
     """
     def __init__(self, workflow, **kwargs):
         super(All2AllSoftmax, self).__init__(workflow, **kwargs)
-        self.max_idx = formats.Vector()
+        self.max_idx = Vector()
         self.reduce_size = 64
 
     def init_unpickled(self):
@@ -300,7 +305,8 @@ class All2AllSoftmax(All2All):
     def initialize(self, device, **kwargs):
         self.reduce_size = min(self.reduce_size,
                                int(numpy.prod(self.output_shape)))
-        self.cl_sources_["softmax.cl"] = {"REDUCE_SIZE": self.reduce_size}
+        self.cl_sources_["all2all/softmax.cl"] = {
+            "REDUCE_SIZE": self.reduce_size}
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
         if self.output.mem.size // self.output.mem.shape[0] <= 1:
             raise error.BadFormatError(
@@ -324,7 +330,7 @@ class All2AllSoftmax(All2All):
         self.output.map_write()
         self.max_idx.map_invalidate()
         out = self.output.mem
-        out = formats.reshape(out, (out.shape[0], out.size // out.shape[0]))
+        out = reshape(out, (out.shape[0], out.size // out.shape[0]))
         for i, sample in enumerate(out):
             im = sample.argmax()
             self.max_idx[i] = im

@@ -10,6 +10,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
+import time
 import unittest
 
 from veles.config import root
@@ -27,7 +28,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.device = opencl.Device()
 
     def _do_cpu_tst(self):
-        """Pure single core CPU test
+        """Pure CPU test.
         """
         dtype = numpy.float64
         a = numpy.empty(self.a.mem.shape, dtype=dtype)
@@ -43,7 +44,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         numpy.dot(a, b, c)
         return c
 
-    def _prepare_tsts(self, BLOCK_SIZE,
+    def _prepare_tsts(self, A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE,
                       AB_WIDTH, B_HEIGHT, A_HEIGHT, a_col, b_col):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
@@ -81,21 +82,25 @@ class TestMatrixMultiplication(unittest.TestCase):
         del self.B_HEIGHT
         del self.AB_WIDTH
 
-    def _do_tst(self, device, BLOCK_SIZE):
+    def _do_tst(self, device, A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE):
         """Do test for specific context
         """
         obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
+
         self.a.initialize(obj)
         self.b.initialize(obj)
         self.c.initialize(obj)
-        obj.cl_sources_["forward.cl"] = {}
+
+        obj.cl_sources_["all2all/forward.cl"] = {}
         defines = {
             "INCLUDE_BIAS": 0,
             "WEIGHTS_TRANSPOSED": 0,
             "PRECISION_LEVEL": 0,
             "ACTIVATION_LINEAR": 1,
-            "BLOCK_SIZE": BLOCK_SIZE,
+            "A_BLOCK_SIZE": A_BLOCK_SIZE,
+            "B_BLOCK_SIZE": B_BLOCK_SIZE,
+            "COMMON_BLOCK_SIZE": COMMON_BLOCK_SIZE,
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
             "BATCH": self.A_HEIGHT}
@@ -112,63 +117,93 @@ class TestMatrixMultiplication(unittest.TestCase):
         krn.set_arg(1, self.b.devmem)
         krn.set_arg(2, self.c.devmem)
 
-        global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
-                       formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
-        local_size = [BLOCK_SIZE, BLOCK_SIZE]
+        global_size = [formats.roundup(self.B_HEIGHT, B_BLOCK_SIZE),
+                       formats.roundup(self.A_HEIGHT, A_BLOCK_SIZE)]
+        local_size = [B_BLOCK_SIZE, A_BLOCK_SIZE]
 
+        t0 = time.time()
         self.device.queue_.execute_kernel(krn, global_size, local_size,
                                           need_event=False)
         self.c.map_read()
+        dt = time.time() - t0
+        logging.info("%.3f sec", dt)
 
-    def _tst_matrix_multiplication(self, block_size):
-        N = 500
-        logging.info("Will test %d matrix multiplications "
-                     "with BLOCK_SIZE = %d, dtype=%s" %
-                     (N // 22, block_size, str(self.dtype)))
-        j = 0
-        for i in range(0, N, 22):
-            AB_WIDTH = prng.get().randint(1, ((i // 10) + 1) * 100)
-            B_HEIGHT = prng.get().randint(1, ((i // 10) + 1) * 10)
-            A_HEIGHT = prng.get().randint(1, ((i // 10) + 1) * 10)
-            if j % 2 == 0:
-                AB_WIDTH = formats.roundup(AB_WIDTH, block_size)
-                B_HEIGHT = formats.roundup(B_HEIGHT, block_size)
-                A_HEIGHT = formats.roundup(A_HEIGHT, block_size)
-            if j % 4 == 0:
-                a_col = False
-                b_col = False
-            elif j % 4 == 1:
-                a_col = True
-                b_col = False
-            elif j % 4 == 2:
-                a_col = False
-                b_col = True
+    def _tst_matrix_multiplication(self, a_block_size, b_block_size,
+                                   common_block_size):
+        # Cap block sizes to the device workgroup limits
+        n = self.device.queue_.device.max_work_group_size
+        while a_block_size * b_block_size > n:
+            if a_block_size > b_block_size:
+                a_block_size -= 1
             else:
-                a_col = True
-                b_col = True
-            j += 1
-            logging.info("%d: [%d, %d] * [%d, %d] = [%d, %d]" %
-                         (i, AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
-                          A_HEIGHT, B_HEIGHT))
-            self._prepare_tsts(BLOCK_SIZE=block_size, AB_WIDTH=AB_WIDTH,
-                               B_HEIGHT=B_HEIGHT, A_HEIGHT=A_HEIGHT,
-                               a_col=a_col, b_col=b_col)
-            c = self._do_cpu_tst()
-            self._do_tst(self.device, block_size)
-            max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
-            self.assertLess(max_diff, 0.0001,
-                            "Result differs by %.6f" % (max_diff))
-            num_nz = numpy.count_nonzero(self.c[1].ravel() - 1)
-            self.assertEqual(
-                num_nz, 0,
-                "Written some values outside of the target array bounds")
-            self._cleanup_after_tsts()
+                b_block_size -= 1
+        # Cap block sizes to the device local memory limits
+        itemsize = numpy.zeros(1, dtype=self.dtype).itemsize
+        n = self.device.queue_.device.local_memsize - 1024  # reserve 1k
+        while (a_block_size + b_block_size) * common_block_size * itemsize > n:
+            if a_block_size > b_block_size:
+                if a_block_size > common_block_size:
+                    a_block_size -= 1
+                else:
+                    common_block_size -= 1
+            else:
+                if b_block_size > common_block_size:
+                    b_block_size -= 1
+                else:
+                    common_block_size -= 1
+        # Iterate over the different matrix configurations
+        logging.info("%d %d %d", a_block_size, b_block_size, common_block_size)
+        for (a_col, b_col) in ((False, False),
+                               (False, True),
+                               (True, False),
+                               (True, True)
+                               ):
+            for A_HEIGHT, B_HEIGHT, AB_WIDTH in (
+                    (1024, 1024, 4096),  # aligned
+                    (1024, 64, 4096),  # one side differs
+                    (1023, 511, 4095),  # unaligned
+                    (13, 11, 3),  # small
+                    (2, 11, 65),  # large common
+                    (1, 25, 1),  # very small
+                    ):
+                logging.info("[%d, %d] * [%d, %d] = [%d, %d] %s %s",
+                             AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
+                             A_HEIGHT, B_HEIGHT, str(a_col), str(b_col))
+                self._prepare_tsts(A_BLOCK_SIZE=a_block_size,
+                                   B_BLOCK_SIZE=b_block_size,
+                                   COMMON_BLOCK_SIZE=common_block_size,
+                                   AB_WIDTH=AB_WIDTH,
+                                   B_HEIGHT=B_HEIGHT,
+                                   A_HEIGHT=A_HEIGHT,
+                                   a_col=a_col, b_col=b_col)
+                c = self._do_cpu_tst()
+                self._do_tst(self.device, a_block_size, b_block_size,
+                             common_block_size)
+                max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
+                self.assertLess(max_diff, 0.001,
+                                "Result differs by %.6f" % (max_diff))
+                num_nz = numpy.count_nonzero(self.c[1].ravel() - 1)
+                self.assertEqual(
+                    num_nz, 0,
+                    "Written some values outside of the target array bounds")
+                self._cleanup_after_tsts()
 
     def test(self):
         for dtype in (numpy.float32, numpy.float64):
+            logging.info("~" * 80)
+            logging.info(str(dtype))
             self.dtype = dtype
-            for block_size in range(8, self.device.max_block_size + 1):
-                self._tst_matrix_multiplication(block_size)
+            for a_block_size, b_block_size in (
+                    (16, 64),  # aligned
+                    (64, 16),  # aligned reverse
+                    (15, 60),  # unaligned
+                    (60, 15),  # unaligned reverse
+                    (32, 32),  # square aligned
+                    (17, 17),  # square unaligned
+                    ):
+                for common_block_size in (64, 30, 27, 16, 15, 8):
+                    self._tst_matrix_multiplication(
+                        a_block_size, b_block_size, common_block_size)
 
 
 if __name__ == "__main__":

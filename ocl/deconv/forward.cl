@@ -17,7 +17,7 @@
 /// @param output deconvolution of input.
 /// @param hits number of the summations to this point of output.
 /// @details output = input * weights.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
 void feed_layer(__global const dtype      /* IN */    *input,
                 __global const dtype      /* IN */    *weights,
                 __global dtype           /* OUT */    *output

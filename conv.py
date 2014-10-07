@@ -20,8 +20,7 @@ from veles.config import root
 from veles.opencl_units import IOpenCLUnit
 
 import veles.error as error
-import veles.formats as formats
-import veles.opencl_types as opencl_types
+from veles.formats import assert_addr, norm_image, roundup
 import veles.znicz.nn_units as nn_units
 
 
@@ -82,12 +81,12 @@ class Conv(nn_units.Forward):
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
                              "padding", "sliding"))
-        self.global_size = None
-        self.local_size = None
+        self._global_size = None
+        self._local_size = None
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
-        self.cl_sources_["conv.cl"] = {}
+        self.cl_sources_["conv/forward.cl"] = {}
 
     def get_weights_magnitude(self):
         """
@@ -140,7 +139,7 @@ class Conv(nn_units.Forward):
                 self.output.vv = self.output.mem
                 output_shape[0] >>= 1
                 self.output.mem = self.output.vv[:output_shape[0]]
-                formats.assert_addr(self.output.mem, self.output.vv)
+                assert_addr(self.output.mem, self.output.vv)
                 self.output.vv[output_shape[0]:] = numpy.nan
             else:
                 self.output.mem = numpy.zeros(output_shape,
@@ -157,26 +156,37 @@ class Conv(nn_units.Forward):
             Conv.ocl_init(self, device)
 
     def ocl_init(self, device):
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="conv",
+                sx=self._sx, sy=self._sy, n_channels=self._n_channels,
+                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
+                padding=self.padding, sliding=self.sliding,
+                a_col=False, b_col=self.weights_transposed))
+
         defines = {
             self.s_activation: 1,
-            'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-            'INCLUDE_BIAS': int(self.include_bias),
-            'BATCH': self._batch_size,
-            'SX': self._sx,
-            'SY': self._sy,
-            'N_CHANNELS': self._n_channels,
-            'KX': self.kx,
-            'KY': self.ky,
-            'N_KERNELS': self.n_kernels,
-            'PAD_LEFT': self.padding[0],
-            'PAD_TOP': self.padding[1],
-            'PAD_RIGHT': self.padding[2],
-            'PAD_BOTTOM': self.padding[3],
-            'SLIDE_X': self.sliding[0],
-            'SLIDE_Y': self.sliding[1]
+            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
+            "INCLUDE_BIAS": int(self.include_bias),
+            "BATCH": self._batch_size,
+            "SX": self._sx,
+            "SY": self._sy,
+            "N_CHANNELS": self._n_channels,
+            "KX": self.kx,
+            "KY": self.ky,
+            "N_KERNELS": self.n_kernels,
+            "PAD_LEFT": self.padding[0],
+            "PAD_TOP": self.padding[1],
+            "PAD_RIGHT": self.padding[2],
+            "PAD_BOTTOM": self.padding[3],
+            "SLIDE_X": self.sliding[0],
+            "SLIDE_Y": self.sliding[1],
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size
         }
 
-        my_defines = self.build_program(
+        self.build_program(
             defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
                 root.common.cache_dir, self._sx, self._sy, self._n_channels,
                 self.kx, self.ky, self.n_kernels),
@@ -188,15 +198,10 @@ class Conv(nn_units.Forward):
         else:
             self.set_args(self.input, self.weights, self.output)
 
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.input.mem.dtype)]
-        if block_size != my_defines["BLOCK_SIZE"]:
-            raise error.Bug("Inconsistent BLOCK_SIZE encountered")
-        self.global_size = [
-            formats.roundup(self.n_kernels, block_size),
-            formats.roundup(self.output.mem.size // self.n_kernels,
-                            block_size)]
-        self.local_size = [block_size, block_size]
+        self._global_size = [
+            roundup(self.n_kernels, b_block_size),
+            roundup(self.output.mem.size // self.n_kernels, a_block_size)]
+        self._local_size = [b_block_size, a_block_size]
 
     def print_debug_data(self, t_start):
         """Show some statistics.
@@ -229,7 +234,7 @@ class Conv(nn_units.Forward):
         self.input.unmap()
         self.weights.unmap()
         self.bias.unmap()
-        self.execute_kernel(self.global_size, self.local_size)
+        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -305,7 +310,7 @@ class Conv(nn_units.Forward):
                 self.weights.map_write()
                 self.weights.vv = self.weights.mem
                 self.weights.mem = self.weights.vv[:n_weights]
-                formats.assert_addr(self.weights.mem, self.weights.vv)
+                assert_addr(self.weights.mem, self.weights.vv)
                 self.weights.vv[n_weights:] = numpy.nan
             else:
                 self.weights.mem = numpy.zeros(n_weights,
@@ -383,7 +388,7 @@ class Conv(nn_units.Forward):
                             theta=ori, lambd=size / wavelen_ratio,
                             gamma=1, psi=phase)
 
-                        kernel_chan = formats.norm_image(kernel_chan) * stddev
+                        kernel_chan = norm_image(kernel_chan) * stddev
                         kernel = numpy.zeros(shape=[n_chans, self.kx, self.ky],
                                              dtype=numpy.float64)
                         for chan in range(n_chans):

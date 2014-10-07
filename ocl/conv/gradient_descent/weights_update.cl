@@ -1,25 +1,15 @@
 #include "gradient_descent_common.cl"
-
 #if USE_ORTHO > 0
 #include "weights_ortho.cl"
 #endif
+#include "conv_common.cl"
 
-#if INCLUDE_BIAS != 0
-#error "INCLUDE_BIAS should be 0"
-#endif
 
-#if (!(USE_HITS > 0)) && ((KX % SLIDE_X != 0) || (KY % SLIDE_Y != 0))
-#error "Incorrect SLIDE"
-#endif
-
-#include "conv.cl"
-
-#if (STORE_GRADIENT > 0) || (APPLY_GRADIENT > 0)
 /// @brief Calculate gradient for weights update.
 /// @details See gradient_descent.cl.
-__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
-void weights_update(__global const dtype    /* IN */    *err_y,
-                    __global const dtype    /* IN */    *h,
+__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
+void weights_update(__global const dtype    /* IN */    *err_output,
+                    __global const dtype    /* IN */    *input,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
                     const dtype             /* IN */    lr,
@@ -35,8 +25,8 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   #define A_WIDTH ELEMENTS_PER_KERNEL
   #define B_WIDTH N_KERNELS
-  #define A err_y
-  #define B h
+  #define A input
+  #define B err_output
 
   #define in_offs a_offs
   #define A_REAL_OFFS IN_REAL_OFFS
@@ -46,8 +36,8 @@ void weights_update(__global const dtype    /* IN */    *err_y,
 
   #define A_WIDTH N_KERNELS
   #define B_WIDTH ELEMENTS_PER_KERNEL
-  #define A h
-  #define B err_y
+  #define A err_output
+  #define B input
 
   #define in_offs b_offs
   #define B_REAL_OFFS IN_REAL_OFFS
@@ -93,19 +83,3 @@ void weights_update(__global const dtype    /* IN */    *err_y,
     #endif
   }
 }
-#endif
-
-#if USE_HITS > 0
-__kernel
-void err_output_update(__global dtype    /* IN, OUT */    *err_output,
-                       __global const int     /* IN */    *hits) {
-  int idx = get_global_id(0);
-  int n = hits[idx];
-  err_output[idx] /= n ? n : 1;
-}
-#else
-__kernel
-void err_output_update(__global dtype /* IN, OUT */ *err_output) {
-  err_output[get_global_id(0)] /= (KX / SLIDE_X) * (KY / SLIDE_Y);
-}
-#endif

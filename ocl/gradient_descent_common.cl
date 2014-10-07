@@ -4,11 +4,6 @@
 #include "defines.cl"
 #include "highlight.cl"
 
-
-#ifndef INCLUDE_BIAS
-#error "INCLUDE_BIAS should be defined"
-#endif
-
 #ifndef WEIGHTS_TRANSPOSED
 #error "WEIGHTS_TRANSPOSED should be defined"
 #endif

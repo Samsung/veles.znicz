@@ -25,8 +25,7 @@ from zope.interface import implementer
 
 import veles.error as error
 from veles.external.prettytable import PrettyTable
-import veles.formats as formats
-import veles.opencl_types as opencl_types
+from veles.formats import reshape, roundup
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
@@ -58,12 +57,8 @@ class GradientDescent(nn_units.GradientDescentBase):
     """
     def __init__(self, workflow, **kwargs):
         super(GradientDescent, self).__init__(workflow, **kwargs)
-        self.cl_const = None
         self.reduce_size = 64
-
-    def init_unpickled(self):
-        super(GradientDescent, self).init_unpickled()
-        self.cl_sources_["gradient_descent.cl"] = {}
+        self.cl_const = None
         self.krn_err_input_ = None
         self.krn_weights_ = None
         self.krn_err_output_ = None
@@ -111,9 +106,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(5, dtype=dtype)
 
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(dtype)]
-
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
         assert other == self.input.sample_size
@@ -123,20 +115,52 @@ class GradientDescent(nn_units.GradientDescentBase):
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
             self.col_sums.initialize(self)
-        self.reduce_size = formats.roundup(min(self.reduce_size, other), 32)
+        self.reduce_size = roundup(min(self.reduce_size, other), 32)
 
+        batch = self.input.mem.shape[0]
         defines = {
-            "USE_ORTHO": int(bool(self.factor_ortho)),
             "H": other,
             "Y": side,
+            "BATCH": batch,
             "APPLY_GRADIENT": int(self.apply_gradient),
-            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "STORE_GRADIENT": int(self.store_gradient),
-            "INCLUDE_BIAS": int(self.include_bias),
-            "BLOCK_SIZE": block_size,
-            "BATCH": self.input.mem.shape[0],
+            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "REDUCE_SIZE": self.reduce_size
         }
+
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="matrix_multiplication",
+                a_width=batch, b_width=other, ab_common=side,
+                a_col=False, b_col=(not self.weights_transposed)))
+        self.cl_sources_["all2all/gradient_descent/err_input_update.cl"] = {
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size
+        }
+        self._global_size_err_input = [
+            roundup(other, b_block_size), roundup(batch, a_block_size)]
+        self._local_size_err_input = [b_block_size, a_block_size]
+
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="matrix_multiplication",
+                a_width=side, b_width=other, ab_common=batch,
+                a_col=True, b_col=True))
+        self.cl_sources_["all2all/gradient_descent/weights_update.cl"] = {
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size,
+            "USE_ORTHO": int(bool(self.factor_ortho))
+        }
+        self._global_size_weights = [
+            roundup(other, b_block_size), roundup(side, a_block_size)]
+        self._local_size_weights = [b_block_size, a_block_size]
+
+        self.cl_sources_["all2all/gradient_descent/bias_update.cl"] = {
+        }
+        self._global_size_bias = [side * self.reduce_size]
+        self._local_size_bias = [self.reduce_size]
 
         self.build_program(defines, "gd_%d_%d.cl" % (
             self.input.mem.size // self.input.mem.shape[0],
@@ -144,7 +168,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             dtype=dtype)
 
         if self.need_err_input:
-            self.krn_err_input_ = self.get_kernel("err_h_update")
+            self.krn_err_input_ = self.get_kernel("err_input_update")
             self.krn_err_input_.set_args(
                 self.err_output.devmem, self.weights.devmem,
                 self.err_input.devmem)
@@ -177,11 +201,11 @@ class GradientDescent(nn_units.GradientDescentBase):
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
 
-        err_output = formats.reshape(
+        err_output = reshape(
             self.err_output.mem,
             [self.err_output.mem.shape[0],
              self.err_output.mem.size // self.err_output.mem.shape[0]])
-        inp = formats.reshape(
+        inp = reshape(
             self.input.mem, [self.input.mem.shape[0],
                              self.input.mem.size // self.input.mem.shape[0]])
         gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
@@ -223,9 +247,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.weights.unmap()
         self.gradient_weights.unmap()
 
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
-
         if self.factor_ortho:
             self.col_sums.unmap()
             side = self.weights.shape[1 if self.weights_transposed else 0]
@@ -244,16 +265,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_weights_.set_args(
             cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
             self.cl_const[2:3], self.cl_const[3:4])
-        if self.weights_transposed:
-            global_size = [
-                formats.roundup(self.err_output.sample_size, block_size),
-                formats.roundup(self.input.sample_size, block_size)]
-        else:
-            global_size = [
-                formats.roundup(self.input.sample_size, block_size),
-                formats.roundup(self.err_output.sample_size, block_size)]
-        local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size, self.krn_weights_)
+        self.execute_kernel(
+            self._global_size_weights, self._local_size_weights,
+            self.krn_weights_)
 
     def gpu_bias_update(self):
         if not self.include_bias:
@@ -270,11 +284,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_bias_.set_args(
             cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
             self.cl_const[2:3], self.cl_const[3:4])
-        global_size = [(self.err_output.mem.size //
-                        self.err_output.mem.shape[0]) *
-                       self.reduce_size]
-        local_size = [self.reduce_size]
-        self.execute_kernel(global_size, local_size, self.krn_bias_)
+        self.execute_kernel(
+            self._global_size_bias, self._local_size_bias,
+            self.krn_bias_)
 
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
@@ -284,11 +296,11 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.weights.map_read()
-        err_output = formats.reshape(
+        err_output = reshape(
             self.err_output.mem,
             [self.err_output.mem.shape[0],
              self.err_output.mem.size // self.err_output.mem.shape[0]])
-        err_input = formats.reshape(
+        err_input = reshape(
             self.err_input.mem,
             [self.err_input.mem.shape[0],
              self.err_input.mem.size // self.err_input.mem.shape[0]])
@@ -306,14 +318,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.err_input.unmap()
         self.err_output.unmap()
         self.weights.unmap()
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.err_output.mem.dtype)]
-        global_size = [formats.roundup(self.err_input.mem.size //
-                       self.err_input.mem.shape[0], block_size),
-                       formats.roundup(self.err_input.mem.shape[0],
-                                       block_size)]
-        local_size = [block_size, block_size]
-        self.execute_kernel(global_size, local_size, self.krn_err_input_)
+        self.execute_kernel(
+            self._global_size_err_input, self._local_size_err_input,
+            self.krn_err_input_)
 
     def print_debug_data(self, t_start):
         """

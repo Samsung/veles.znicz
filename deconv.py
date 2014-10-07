@@ -13,8 +13,7 @@ from zope.interface import implementer
 
 from veles.config import root
 from veles.opencl_units import IOpenCLUnit
-import veles.formats as formats
-import veles.opencl_types as opencl_types
+from veles.formats import assert_addr, roundup, Vector
 import veles.znicz.nn_units as nn_units
 import veles.error as error
 from veles.distributable import TriviallyDistributable
@@ -86,15 +85,15 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.get_output_shape_from = None
         self.exports.extend(("kx", "ky", "n_kernels", "padding", "sliding"))
         self.demand("input", "weights", "get_output_shape_from")
-        self.global_size = None
-        self.local_size = None
         self.unsafe_padding = kwargs.get("unsafe_padding", False)
-        self.hits = formats.Vector()
+        self.hits = Vector()
+        self.krn_clear_output_ = None
+        self._global_size = None
+        self._local_size = None
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
-        self.cl_sources_["deconv.cl"] = {}
-        self.krn_clear_output_ = None
+        self.cl_sources_["deconv/forward.cl"] = {}
 
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
@@ -158,7 +157,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
                 output_shape[0] >>= 1
                 self.output.mem[output_shape[0]:] = numpy.nan
                 self.output.mem = self.output.mem[:output_shape[0]]
-                formats.assert_addr(self.output.mem, self.output.vv)
+                assert_addr(self.output.mem, self.output.vv)
             else:
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
         else:
@@ -180,25 +179,41 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
                 len(self.weights.shape) - 1, -1, -1))
             if self.weights_transposed else list(self.weights.shape))
 
+        sx = output_shape[2]
+        sy = output_shape[1]
+        n_channels = output_shape[3]
+
+        a_block_size, b_block_size, common_block_size = (
+            self.device.device_info.get_block_sizes(
+                kernel="deconv",
+                sx=sx, sy=sy, n_channels=n_channels,
+                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
+                padding=self.padding, sliding=self.sliding,
+                a_col=False, b_col=self.weights_transposed))
+
         defines = {
-            'USE_ATOMICS': 1,
-            'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-            'BATCH': output_shape[0],
-            'SX': output_shape[2],
-            'SY': output_shape[1],
-            'N_CHANNELS': output_shape[3],
-            'KX': self.kx,
-            'KY': self.ky,
-            'N_KERNELS': self.n_kernels,
-            'PAD_LEFT': self.padding[0],
-            'PAD_TOP': self.padding[1],
-            'PAD_RIGHT': self.padding[2],
-            'PAD_BOTTOM': self.padding[3],
-            'SLIDE_X': self.sliding[0],
-            'SLIDE_Y': self.sliding[1],
-            'USE_HITS': int(bool(self.hits))
+            "USE_ATOMICS": 1,
+            "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
+            "BATCH": output_shape[0],
+            "SX": sx,
+            "SY": sy,
+            "N_CHANNELS": n_channels,
+            "KX": self.kx,
+            "KY": self.ky,
+            "N_KERNELS": self.n_kernels,
+            "PAD_LEFT": self.padding[0],
+            "PAD_TOP": self.padding[1],
+            "PAD_RIGHT": self.padding[2],
+            "PAD_BOTTOM": self.padding[3],
+            "SLIDE_X": self.sliding[0],
+            "SLIDE_Y": self.sliding[1],
+            "USE_HITS": int(bool(self.hits)),
+            "A_BLOCK_SIZE": a_block_size,
+            "B_BLOCK_SIZE": b_block_size,
+            "COMMON_BLOCK_SIZE": common_block_size
         }
-        my_defines = self.build_program(
+
+        self.build_program(
             defines, "%s/deconv_%dx%dx%d_%dx%d_%d.cl" % (
                 root.common.cache_dir,
                 output_shape[2], output_shape[1], output_shape[3],
@@ -210,15 +225,11 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.krn_clear_output_ = self.get_kernel("clear_output")
         self.krn_clear_output_.set_arg(0, self.output.devmem)
 
-        block_size = self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(dtype)]
-        if my_defines["BLOCK_SIZE"] != block_size:  # sanity check
-            raise error.Bug("Returned BLOCK_SIZE differs from expected")
         kernel_applies_count = self.input.size // self.n_kernels
-        self.global_size = [
-            formats.roundup(weights_shape[1], block_size),
-            formats.roundup(kernel_applies_count, block_size)]
-        self.local_size = [block_size, block_size]
+        self._global_size = [
+            roundup(weights_shape[1], b_block_size),
+            roundup(kernel_applies_count, a_block_size)]
+        self._local_size = [b_block_size, a_block_size]
 
         if self.hits:
             self.krn_apply_hits_ = self.get_kernel("apply_hits")
@@ -237,10 +248,10 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         if self.hits:
             self.hits.unmap()
             self.execute_kernel([self.hits.size], None, self.krn_clear_hits_)
-            self.execute_kernel(self.global_size, self.local_size)
+            self.execute_kernel(self._global_size, self._local_size)
             self.execute_kernel([self.hits.size], None, self.krn_apply_hits_)
         else:
-            self.execute_kernel(self.global_size, self.local_size)
+            self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")
