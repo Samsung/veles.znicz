@@ -17,6 +17,6 @@ root.mnist7.update({
     "snapshotter": {"prefix": "mnist7"},
     "loader": {"minibatch_size": 60, "on_device": True},
     "weights_plotter": {"limit": 25},
-    "learning_rate": 0.0000016,
+    "learning_rate": 0.0001,
     "weights_decay": 0.00005,
     "layers": [100, 100, 7]})

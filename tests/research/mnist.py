@@ -31,9 +31,7 @@ train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.mnistr.update({
-    "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 100,
-                 "store_samples_mse": True,
                  "max_epochs": 10000},
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
     "learning_rate_adjust": {"do": False},

@@ -129,7 +129,7 @@ class Mnist7Loader(loader.FullBatchLoaderMSE):
                                              dtype=numpy.float32)
 
         self.load_original(0, 10000, root.mnist7.data_paths.test_label,
-                           root.mnist7.mnist7.data_paths.test_images)
+                           root.mnist7.data_paths.test_images)
         self.load_original(10000, 60000,
                            root.mnist7.data_paths.train_label,
                            root.mnist7.data_paths.train_images)
