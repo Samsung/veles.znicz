@@ -560,7 +560,7 @@ class KohonenDecision(TrivialDecision, decision.DecisionBase):
         self.weights.map_read()
         self.winners.map_invalidate()
 
-        self._prev_weights = self.weights_mem
+        self._prev_weights = self.weights_mem.copy()
         if self.weights_mem.shape != self.weights.mem.shape:
             self.weights_mem.resize(self.weights.mem.shape, refcheck=False)
         numpy.copyto(self.weights_mem, self.weights.mem)
