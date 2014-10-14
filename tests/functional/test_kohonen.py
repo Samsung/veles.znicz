@@ -51,7 +51,7 @@ class TestKohonen(unittest.TestCase):
         self.w.run()
 
         diff = self.w.decision.weights_diff
-        self.assertAlmostEqual(diff, 0.00057525720324055766, places=10)
+        self.assertAlmostEqual(diff, 0.00057525720324055766, places=7)
         self.assertEqual(160, self.w.loader.epoch_number)
         logging.info("All Ok")
 
