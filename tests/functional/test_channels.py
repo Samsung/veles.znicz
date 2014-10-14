@@ -35,6 +35,9 @@ class TestChannels(unittest.TestCase):
                                       dtype=numpy.int32, count=1024))
         root.channels.model = "test"
 
+        root.common.cache_dir = os.path.join(root.common.test_dataset_root,
+                                             "cache")
+
         root.channels.update({
             "accumulator": {"bars": 30},
             "decision": {"fail_iterations": 100,
