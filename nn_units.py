@@ -9,14 +9,11 @@ from __future__ import division
 import gc
 import numpy
 import os
-import shutil
 import six
 import sys
 import tarfile
-import yaml
 from zope.interface import implementer
 
-import veles.config as config
 from veles.distributable import IDistributable
 import veles.formats as formats
 from veles.mutable import Bool
@@ -287,84 +284,59 @@ class NNWorkflow(OpenCLWorkflow):
                     "Apply-generate balance becomes 2 at index %d" % index)
         self.info("History validation's been completed. Everything is OK.")
 
-    def export(self, filename):
+    def export(self, file_name):
         """Exports workflow for use on DTV.
         """
-        # create temporary folder
-        tmppath = os.path.join(config.root.common.cache_dir, "saver_tmp")
-        if not os.path.exists(tmppath):
-            os.makedirs(tmppath)
-        files_to_save = []
-        dict_temp = {}
-        variables_to_save = []
-        # Go through units & save numpy array to binary file
-        units_to_export = [self.loader]
-        units_to_export.extend(self.fwds)
-        for i in range(len(units_to_export)):
-            u = units_to_export[i]
-            if u.exports is None:
-                self.debug("%s continue" % u.__class__.__name__)
-                continue
-            variables = u.__getstate__()
-            for key in variables:
-                if key in u.exports:
-                    self.debug("%s in attributes to export" % (key))
-                    # Save numpy array to binary file
-                    if type(getattr(u, key)) == formats.Vector and i >= 1:
-                        for j in range(len(getattr(u, key).mem.shape)):
-                            name = key + "_shape_" + str(j)
-                            self.info(name)
-                            dict_temp[name] = getattr(u, key).mem.shape[j]
+        exported = [u for u in self if hasattr(u, "export")]
+        if len(exported) == 0:
+            raise ValueError("No units support export. Implement export() "
+                             "method in at least one.")
+        obj = {"workflow": self.name,
+               "checksum": self.checksum(),
+               "units": [{"class": {"name": unit.__class__.__name__,
+                                    "uuid": unit.__class__.__id__},
+                          "data": unit.export()}
+                         for unit in exported]}
+        for index, unit in enumerate(exported):
+            obj["units"][index]["links"] = [
+                exported.index(u) for u in sorted(unit.links_to.keys())
+                if u in exported]
+        # TODO(v.markovtsev): check the resulting graph's connectivity
+        # TODO(v.markovtsev): check for single entry and exit points
 
-                        link_to_numpy = "unit" + str(i - 1) + key + ".bin"
+        import json
 
-                        dict_temp['link_to_' + key] = link_to_numpy
+        arrays = []
 
-                        files_to_save.append(
-                            self._save_numpy_to_file(
-                                getattr(u, key).mem, link_to_numpy, tmppath))
-                    else:
-                        dict_temp[key] = getattr(u, key)
-            temp__ = {}
-            temp__[u.__class__.__name__] = dict_temp
-            variables_to_save.append(temp__)
-            dict_temp = {}
+        def array_file_name(arr, index):
+            return "%04d_%s" % (index, "x".join(arr.shape))
 
-        # Save forward elements to yaml.
-        yaml_name = 'default.yaml'
-        self._save_to_yaml("%s/%s" % (tmppath, yaml_name), variables_to_save)
-        # Compress archive
-        tar = tarfile.open("%s.tar.gz" % (filename), "w:gz")
-        tar.add("%s/%s" % (tmppath, yaml_name),
-                arcname=yaml_name, recursive=False)
-        for i in range(len(files_to_save)):
-            tar.add("%s/%s" % (tmppath, files_to_save[i]),
-                    arcname=files_to_save[i], recursive=False)
-        tar.close()
-        # delete temporary folder
-        shutil.rmtree(tmppath)
-
-    def _save_to_yaml(self, yaml_name, to_yaml):
-        """Print workflow to yaml-file.
-        Parameters:
-            yaml_name: filename to save.
-        """
-        stream = open(yaml_name, "w")
-        for i in range(len(to_yaml)):
-            yaml.dump(to_yaml[i], stream)
-        stream.close()
-
-    def _save_numpy_to_file(self, numpy_vector, numpy_vector_name, path):
-        """Save numpy array to binary file.
-        Parameters:
-            numpy_vector: contains numpy array.
-            numpy_vector_name: name of the binary file to save numpy array.
-        """
-        array_to_save = numpy.float32(numpy_vector.ravel())
-
-        with open("%s/%s" % (path, numpy_vector_name), "wb") as f:
-            f.write(array_to_save)
-        return numpy_vector_name
+        def export_numpy_array(arr):
+            if isinstance(arr, numpy.ndarray):
+                arrays.append(arr)
+                return array_file_name(arr, len(arrays) - 1)
+            raise TypeError("Objects of class other than numpy.ndarray are "
+                            "not supported")
+        try:
+            with tarfile.open(file_name, "w:gz") as tar:
+                io = six.BytesIO()
+                json.dump(obj, io, indent=4, sort_keys=True,
+                          default=export_numpy_array)
+                ti = tarfile.TarInfo("contents.json")
+                ti.size = io.tell()
+                ti.mode = int("666", 8)
+                io.seek(0)
+                tar.addfile(ti, fileobj=io)
+                for index, arr in enumerate(arrays):
+                    io = six.BytesIO()
+                    numpy.save(io, arr)
+                    ti = tarfile.TarInfo(array_file_name(arr, index) + ".npy")
+                    ti.size = io.tell()
+                    ti.mode = int("666", 8)
+                    io.seek(0)
+                    tar.addfile(ti, fileobj=io)
+        except:
+            self.exception("Failed to export to %s", file_name)
 
 
 class ForwardExporter(SnapshotterBase):
