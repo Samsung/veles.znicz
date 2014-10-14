@@ -58,6 +58,30 @@ class MnistLoader(loader.FullBatchLoader):
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """
+        if not os.path.exists(mnist_dir):
+            url = "http://yann.lecun.com/exdb/mnist"
+            self.warning("%s does not exist, downloading from %s...",
+                         mnist_dir, url)
+
+            import gzip
+            import wget
+
+            files = {"train-images-idx3-ubyte.gz": "train-images.idx3-ubyte",
+                     "train-labels-idx1-ubyte.gz": "train-labels.idx1-ubyte",
+                     "t10k-images-idx3-ubyte.gz": "t10k-images.idx3-ubyte",
+                     "t10k-labels-idx1-ubyte.gz": "t10k-labels.idx1-ubyte"}
+
+            os.mkdir(mnist_dir)
+            for index, (k, v) in enumerate(sorted(files.items())):
+                self.info("%d/%d", index + 1, len(files))
+                wget.download("%s/%s" % (url, k), mnist_dir)
+                print("")
+                with open(os.path.join(mnist_dir, v), "wb") as fout:
+                    gz_file = os.path.join(mnist_dir, k)
+                    with gzip.GzipFile(gz_file) as fin:
+                        fout.write(fin.read())
+                    os.remove(gz_file)
+
         self.info("Loading from original MNIST files...")
 
         # Reading labels:
