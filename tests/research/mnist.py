@@ -11,6 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 
 from veles.config import root
+from veles.genetics import Tune
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
@@ -30,28 +31,38 @@ test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
 train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
-root.mnistr.update({
-    "decision": {"fail_iterations": 100,
-                 "max_epochs": 10000},
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
-    "learning_rate_adjust": {"do": False},
-    "loader": {"minibatch_size": 60, "on_device": True},
-    "weights_plotter": {"limit": 64},
-    "layers": [{"type": "all2all_tanh", "output_shape": 100,
-                "learning_rate": 0.03, "weights_decay": 0.0,
-                "learning_rate_bias": 0.03, "weights_decay_bias": 0.0,
-                "gradient_moment": 0.0, "gradient_moment_bias": 0.0,
-                "factor_ortho": 0.001, "weights_filling": "uniform",
-                "weights_stddev": 0.05, "bias_filling": "uniform",
-                "bias_stddev": 0.05},
 
-               {"type": "softmax", "output_shape": 10, "learning_rate": 0.03,
-                "learning_rate_bias": 0.03, "weights_decay": 0.0,
-                "weights_decay_bias": 0.0, "gradient_moment": 0.0,
-                "gradient_moment_bias": 0.0, "weights_filling": "uniform",
-                "weights_stddev": 0.05, "bias_filling": "uniform",
-                "bias_stddev": 0.05}],
-    "data_paths": {"test_images": test_image_dir,
+root.mnistr.update({
+    "learning_rate_adjust": {"do": False},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 1000000000},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
+    "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True},
+    "weights_plotter": {"limit": 64},
+    "layers": [{"type": "all2all_tanh", "output_shape": Tune(100, 10, 500),
+                "learning_rate": Tune(0.03, 0.0001, 0.9),
+                "weights_decay": Tune(0.0, 0.0, 0.9),
+                "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
+                "weights_decay_bias": Tune(0.0, 0.0, 0.9),
+                "gradient_moment": Tune(0.0, 0.0, 0.95),
+                "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
+                "factor_ortho": Tune(0.001, 0.0, 0.1),
+                "weights_filling": "uniform",
+                "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                "bias_filling": "uniform",
+                "bias_stddev": Tune(0.05, 0.0001, 0.1)},
+               {"type": "softmax", "output_shape": 10,
+                "learning_rate": Tune(0.03, 0.0001, 0.9),
+                "learning_rate_bias": Tune(0.03, 0.0001, 0.9),
+                "weights_decay": Tune(0.0, 0.0, 0.95),
+                "weights_decay_bias": Tune(0.0, 0.0, 0.95),
+                "gradient_moment": Tune(0.0, 0.0, 0.95),
+                "gradient_moment_bias": Tune(0.0, 0.0, 0.95),
+                "weights_filling": "uniform",
+                "weights_stddev": Tune(0.05, 0.0001, 0.1),
+                "bias_filling": "uniform",
+                "bias_stddev": Tune(0.05, 0.0001, 0.1)}],
+    "data_paths": {"test_images":  test_image_dir,
                    "test_label": test_label_dir,
                    "train_images": train_image_dir,
                    "train_label": train_label_dir}})
