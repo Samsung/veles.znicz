@@ -28,7 +28,6 @@ class LocalResponseNormalizer(OpenCLUnit):
         self.k = kwargs.get("k", 2)
         self.n = kwargs.get("n", 5)
         self._num_of_chans = None
-        self.device = kwargs.get("device")
 
         super(LocalResponseNormalizer, self).__init__(workflow, **kwargs)
 

@@ -171,9 +171,7 @@ class CifarWorkflow(StandardWorkflow):
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
-        device = kwargs.get("device")
         kwargs["layers"] = layers
-        kwargs["device"] = device
         super(CifarWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
@@ -199,7 +197,7 @@ class CifarWorkflow(StandardWorkflow):
                                     "minibatch_class", "minibatch_size")
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator = evaluator.EvaluatorSoftmax(self)
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
