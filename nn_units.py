@@ -116,6 +116,10 @@ class GradientDescentBase(OpenCLUnit):
         weights_transposed: assume weights matrix as a transposed one.
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
+        gradients_changed: when True, slave will send gradients to master
+                           (assigned to True just before the run call,
+                            so it can be set to False inside ocl_run, cpu_run
+                            if necessary)
     """
     hide = True
 
@@ -153,6 +157,7 @@ class GradientDescentBase(OpenCLUnit):
             self.store_gradient)
         self.gradient_weights = formats.Vector()
         self.gradient_bias = formats.Vector()
+        self.gradients_changed = False
 
     @property
     def current_batch_size(self):
@@ -193,10 +198,9 @@ class GradientDescentBase(OpenCLUnit):
             self.gradient_bias.mem[:] = 0
 
     def generate_data_for_master(self):
-        if (not self.run_was_called or
-                (not self.gradient_weights and not self.gradient_bias)):
+        if not self.gradients_changed:
             return None
-        self.run_was_called = False
+        self.gradients_changed = False
         self.gradient_weights.map_read()
         self.gradient_bias.map_read()
         return (self.gradient_weights.mem, self.gradient_bias.mem)
@@ -236,6 +240,11 @@ class GradientDescentBase(OpenCLUnit):
                 row += (col_sums - weight[i]) * factor_ortho / weight.shape[0]
         g *= lr
         return g
+
+    def run(self):
+        if self.store_gradient:
+            self.gradients_changed = True
+        super(GradientDescentBase, self).run()
 
 
 class NNWorkflow(OpenCLWorkflow):
