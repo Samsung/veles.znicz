@@ -123,7 +123,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Add decision unit
         unit = decision.DecisionMSE(
-            self, fail_iterations=root.mnist_ae.decision.fail_iterations)
+            self, fail_iterations=root.mnist_ae.decision.fail_iterations,
+            max_epochs=root.mnist_ae.decision.max_epochs)
         self.decision = unit
         unit.link_from(self.evaluator)
         unit.link_attrs(self.loader, "minibatch_class",
