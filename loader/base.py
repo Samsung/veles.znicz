@@ -176,11 +176,11 @@ class Loader(OpenCLUnit):
                           self.samples_served, num,
                           100. * den / self.total_samples,
                           len(self.failed_minibatches),
-                          self.pending_minibatches_size)
+                          self.pending_minibatches_count)
 
     @property
-    def pending_minibatches_size(self):
-        return sum((len(v) for v in self.pending_minibatches_.values()))
+    def pending_minibatches_count(self):
+        return sum(len(v) for v in self.pending_minibatches_.values())
 
     @property
     def minibatch_class(self):
@@ -313,6 +313,8 @@ class Loader(OpenCLUnit):
                 return True
             if self.global_offset < offset:
                 return False
+        raise error.Bug("global_offset %d is out of bounds %s",
+                        self.global_offset, str(self.class_offsets))
 
     @property
     def total_failed(self):
@@ -405,7 +407,7 @@ class Loader(OpenCLUnit):
             self.has_data_for_slave = True
             self.info("Jobs failed: %d/pending: %d",
                       len(self.failed_minibatches),
-                      self.pending_minibatches_size)
+                      self.pending_minibatches_count)
 
     def extract_validation_from_train(self, rand=None, ratio=None):
         """Extracts validation dataset from train dataset randomly.
@@ -517,13 +519,13 @@ class Loader(OpenCLUnit):
                                                     self.class_offsets[TRAIN]])
         self.debug("Shuffled TRAIN")
 
-    def serve_next_minibatch(self, slave):
+    def serve_next_minibatch(self, slave_id):
         try:
             minibatch_offset, minibatch_size = self.failed_minibatches.pop()
         except IndexError:
             minibatch_offset, minibatch_size = self._advance_global_offset()
         if self.is_master:
-            self.pending_minibatches_[slave].append(
+            self.pending_minibatches_[slave_id].append(
                 (minibatch_offset, minibatch_size))
         self.minibatch_offset, self.minibatch_size = \
             minibatch_offset, minibatch_size
@@ -581,10 +583,11 @@ class Loader(OpenCLUnit):
         if self.is_slave:
             # The flags will be explicitly set in apply_data_from_master()
             return
-        self.last_minibatch <<= (self.class_ended and
-                                 self.pending_minibatches_size == 0 and
-                                 len(self.failed_minibatches) == 0)
-        self.epoch_ended <<= self.last_minibatch and (
+        last_mb = (self.class_ended and
+                   not self.pending_minibatches_count and
+                   not len(self.failed_minibatches))
+        self.last_minibatch <<= last_mb
+        self.epoch_ended <<= last_mb and (
             self.minibatch_class == VALID or
             (self.minibatch_class == TRAIN and self.class_lengths[VALID] == 0))
 
