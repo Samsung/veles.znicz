@@ -32,7 +32,7 @@ class TestMnistRelu(unittest.TestCase):
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
         root.mnistr.update({
-            "learning_rate_adjust": {"do": True},
+            "learning_rate_adjust": {"do": False},
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
             "snapshotter": {"prefix": "mnist_relu_test"},
