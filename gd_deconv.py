@@ -212,10 +212,12 @@ class GDDeconv(nn_units.GradientDescentBase):
             "B_BLOCK_SIZE": b_block_size,
             "COMMON_BLOCK_SIZE": common_block_size
         }
-        self._global_size_err_input = [
-            roundup(self.n_kernels, b_block_size),
-            roundup(self.err_input.mem.size // self.n_kernels, a_block_size)]
-        self._local_size_err_input = [b_block_size, a_block_size]
+        if self.need_err_input:
+            self._global_size_err_input = [
+                roundup(self.n_kernels, b_block_size),
+                roundup(self.err_input.mem.size // self.n_kernels,
+                        a_block_size)]
+            self._local_size_err_input = [b_block_size, a_block_size]
 
         a_block_size, b_block_size, common_block_size = (
             self.device.device_info.get_block_sizes(
