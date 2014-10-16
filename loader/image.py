@@ -24,11 +24,11 @@ class ImageLoader(FullBatchLoader):
 
     Attributes:
         test_paths: list of paths with mask for test set,
-                    for example: ["/tmp/*.png"].
+                    for example: ["/tmp/\*.png"].
         validation_paths: list of paths with mask for validation set,
-                          for example: ["/tmp/*.png"].
+                          for example: ["/tmp/\*.png"].
         train_paths: list of paths with mask for train set,
-                     for example: ["/tmp/*.png"].
+                     for example: ["/tmp/\*.png"].
         target_paths: list of paths for target in case of MSE.
         target_by_lbl: dictionary of targets by lbl
                        in case of classification and MSE.

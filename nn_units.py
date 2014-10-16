@@ -117,9 +117,8 @@ class GradientDescentBase(OpenCLUnit):
         store_gradient: will save gradient as separate Vector().
         apply_gradient: will apply gradient.
         gradients_changed: when True, slave will send gradients to master
-                           (assigned to True just before the run call,
-                            so it can be set to False inside ocl_run, cpu_run
-                            if necessary)
+            (assigned to True just before the run call, so it can be set to
+            False inside ocl_run, cpu_run if necessary)
     """
     hide = True
 
