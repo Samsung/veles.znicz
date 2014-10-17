@@ -33,7 +33,6 @@ import veles.formats as formats
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
-from veles.tests import DummyWorkflow
 import veles.prng as prng
 
 
@@ -317,7 +316,7 @@ class StochasticPoolingBase(OffsetPooling):
         super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
 
         if self.uniform is None:
-            self.uniform = prng.Uniform(DummyWorkflow())
+            self.uniform = prng.Uniform(self)
 
         if self.uniform.output_bytes < (self._output_size << 1):
             if self.uniform.is_initialized:
@@ -326,25 +325,20 @@ class StochasticPoolingBase(OffsetPooling):
                     "has not enough output size")
             self.uniform.output_bytes = self._output_size << 1
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            self.assign_kernel(self._kernel_name)
+            self.set_args()
 
-        self.assign_kernel(self._kernel_name)
-        self.set_args()
+        self.uniform.initialize(self.device)
+
+    def add_ref(self, unit):
+        pass
 
     def cpu_run(self):
-        if not self.uniform.is_initialized:
-            self.uniform.initialize(self.device)
-            self.info("Initialized StochasticPoolingBase.uniform with "
-                      "output_bytes=%d", self.uniform.output_bytes)
         self.uniform.fill_cpu(self._output_size << 1)
         super(StochasticPoolingBase, self).cpu_run()
 
     def ocl_run(self):
-        if not self.uniform.is_initialized:
-            self.uniform.initialize(self.device)
-            self.info("Initialized StochasticPoolingBase.uniform with "
-                      "output_bytes=%d", self.uniform.output_bytes)
         if not self._rand_set:
             self.set_arg(self._rand_arg, self.uniform.output)
             self._rand_set = True
