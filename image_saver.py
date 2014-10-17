@@ -16,10 +16,11 @@ from zope.interface import implementer
 
 import veles.config as config
 import veles.formats as formats
+from veles.distributable import IDistributable
 from veles.units import Unit, IUnit
 
 
-@implementer(IUnit)
+@implementer(IUnit, IDistributable)
 class ImageSaver(Unit):
     """Saves input to pngs in the supplied directory.
 
@@ -51,6 +52,7 @@ class ImageSaver(Unit):
                                             "tmpimg/validation"),
                                os.path.join(config.root.common.cache_dir,
                                             "tmpimg/train")])
+
         kwargs["out_dirs"] = out_dirs
         self.out_dirs = out_dirs
         self.limit = config.get(config.root.image_saver.limit, 100)
@@ -63,9 +65,9 @@ class ImageSaver(Unit):
         self.max_idx = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
-        self.this_save_time = 0
         self.yuv = 1 if yuv else 0
         self._last_save_time = 0
+        self.save_time = 0
         self._n_saved = [0, 0, 0]
 
     def as_image(self, x):
@@ -104,8 +106,8 @@ class ImageSaver(Unit):
         self.labels.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
-        if self._last_save_time < self.this_save_time:
-            self._last_save_time = self.this_save_time
+        if self._last_save_time < self.save_time:
+            self._last_save_time = self.save_time
 
             for i in range(len(self._n_saved)):
                 self._n_saved[i] = 0
@@ -188,3 +190,19 @@ class ImageSaver(Unit):
             self._n_saved[self.minibatch_class] += 1
             if self._n_saved[self.minibatch_class] >= self.limit:
                 return
+
+    # IDistributable implementation
+    def generate_data_for_slave(self, slave):
+        return None
+
+    def generate_data_for_master(self):
+        return True
+
+    def apply_data_from_master(self, data):
+        pass
+
+    def apply_data_from_slave(self, data, slave):
+        pass
+
+    def drop_slave(self, slave):
+        pass
