@@ -47,7 +47,8 @@ class TestApproximator(unittest.TestCase):
         self.w = approximator.ApproximatorWorkflow(
             dummy_workflow.DummyWorkflow(),
             layers=root.approximator.layers, device=self.device)
-        self.w.decision.max_epochs = 5
+        self.w.decision.max_epochs = 3
+        self.w.snapshotter.interval = 3
         self.w.initialize(
             device=self.device,
             learning_rate=root.approximator.learning_rate,
@@ -57,13 +58,13 @@ class TestApproximator(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.067241, places=5)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.067443, places=5)
+        self.assertEqual(3, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 11
+        self.wf.decision.max_epochs = 5
         self.wf.decision.complete <<= False
         self.wf.initialize(
             device=self.device,
@@ -73,8 +74,8 @@ class TestApproximator(unittest.TestCase):
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, 0.066634521, places=5)
-        self.assertEqual(11, self.wf.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.067241, places=5)
+        self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 

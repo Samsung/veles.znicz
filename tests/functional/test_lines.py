@@ -69,6 +69,7 @@ class TestLines(unittest.TestCase):
                                      layers=root.lines.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 9
+        self.w.snapshotter.interval = 9
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)
@@ -84,7 +85,7 @@ class TestLines(unittest.TestCase):
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 23
+        self.wf.decision.max_epochs = 14
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -94,8 +95,8 @@ class TestLines(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 33)
-        self.assertEqual(23, self.wf.loader.epoch_number)
+        self.assertEqual(err, 40)
+        self.assertEqual(14, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

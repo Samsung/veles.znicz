@@ -44,8 +44,8 @@ class TestSamplesMnist(unittest.TestCase):
         self.w = mnist.MnistWorkflow(dummy_workflow.DummyWorkflow(),
                                      layers=root.mnist.layers,
                                      device=self.device)
-        self.w.decision.max_epochs = 5
-        self.w.snapshotter.interval = 5
+        self.w.decision.max_epochs = 2
+        self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
@@ -57,8 +57,8 @@ class TestSamplesMnist(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 650)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertEqual(err, 817)
+        self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
@@ -75,8 +75,8 @@ class TestSamplesMnist(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 364)
-        self.assertEqual(15, self.wf.loader.epoch_number)
+        self.assertEqual(err, 650)
+        self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

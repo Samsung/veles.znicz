@@ -62,8 +62,8 @@ class TestKanji(unittest.TestCase):
         self.w = kanji.KanjiWorkflow(dummy_workflow.DummyWorkflow(),
                                      layers=root.kanji.layers,
                                      device=self.device)
-        self.w.decision.max_epochs = 5
-        self.w.snapshotter.interval = 0
+        self.w.decision.max_epochs = 2
+        self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(learning_rate=root.kanji.learning_rate,
@@ -76,15 +76,15 @@ class TestKanji(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 12883)
+        self.assertEqual(err, 12913)
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.44323108157635882, places=7)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.444085, places=5)
+        self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 20
+        self.wf.decision.max_epochs = 7
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -98,10 +98,10 @@ class TestKanji(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 12443)
+        self.assertEqual(err, 12806)
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.437732, places=4)
-        self.assertEqual(20, self.wf.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.442661, places=5)
+        self.assertEqual(7, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 

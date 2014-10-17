@@ -100,6 +100,7 @@ class TestMnistConv(unittest.TestCase):
                                           device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
+        self.w.snapshotter.interval = 2
         self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -113,7 +114,7 @@ class TestMnistConv(unittest.TestCase):
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 4
+        self.wf.decision.max_epochs = 3
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -123,8 +124,8 @@ class TestMnistConv(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 75)
-        self.assertEqual(4, self.wf.loader.epoch_number)
+        self.assertEqual(err, 104)
+        self.assertEqual(3, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

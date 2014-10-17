@@ -104,7 +104,8 @@ class TestCifarCaffe(unittest.TestCase):
         self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
                                      layers=root.cifar.layers,
                                      device=self.device)
-        self.w.decision.max_epochs = 5
+        self.w.decision.max_epochs = 1
+        self.w.snapshotter.interval = 1
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
@@ -115,13 +116,13 @@ class TestCifarCaffe(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 3754)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertEqual(err, 5661)
+        self.assertEqual(1, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 10
+        self.wf.decision.max_epochs = 3
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -132,8 +133,8 @@ class TestCifarCaffe(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 3077)
-        self.assertEqual(10, self.wf.loader.epoch_number)
+        self.assertEqual(err, 4692)
+        self.assertEqual(3, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

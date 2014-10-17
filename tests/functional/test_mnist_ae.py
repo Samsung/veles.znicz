@@ -38,7 +38,7 @@ class TestMnistAE(unittest.TestCase):
         root.mnist_ae.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 20,
-                         "max_epochs": 5},
+                         "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
                             "compress": ""},
             "loader": {"minibatch_size": 100, "on_device": True},
@@ -57,25 +57,26 @@ class TestMnistAE(unittest.TestCase):
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyWorkflow(),
                                           layers=root.mnist_ae.layers,
                                           device=self.device)
+        self.w.snapshotter.interval = 3
         self.w.initialize(device=self.device)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.96055411251671008, places=6)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.960932, places=5)
+        self.assertEqual(3, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 20
+        self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
         self.wf.initialize(device=self.device)
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.9494617286881476, places=6)
-        self.assertEqual(20, self.wf.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.960581, places=5)
+        self.assertEqual(6, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 

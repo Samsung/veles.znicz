@@ -36,7 +36,7 @@ class TestMnistAll2All(unittest.TestCase):
         root.mnistr.update({
             "learning_rate_adjust": {"do": False},
             "decision": {"fail_iterations": 100,
-                         "max_epochs": 5},
+                         "max_epochs": 3},
             "snapshotter": {"prefix": "mnist_all2all_test"},
             "loader": {"minibatch_size": Tune(60, 1, 1000)},
             "layers": [{"type": "all2all_tanh",
@@ -70,6 +70,7 @@ class TestMnistAll2All(unittest.TestCase):
             layers=root.mnistr.layers, device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
+        self.w.snapshotter.interval = 3
         self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -77,13 +78,13 @@ class TestMnistAll2All(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 485)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertEqual(err, 634)
+        self.assertEqual(3, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 20
+        self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -93,8 +94,8 @@ class TestMnistAll2All(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 250)
-        self.assertEqual(20, self.wf.loader.epoch_number)
+        self.assertEqual(err, 474)
+        self.assertEqual(6, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":
