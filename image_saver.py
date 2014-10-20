@@ -12,6 +12,7 @@ import logging
 import glob
 import numpy
 import os
+import scipy.misc
 from zope.interface import implementer
 
 import veles.config as config
@@ -98,7 +99,6 @@ class ImageSaver(Unit):
 
     def run(self):
         logging.basicConfig(level=logging.INFO)
-        import scipy.misc
         self.input.map_read()
         if self.output is not None:
             self.output.map_read()
@@ -106,16 +106,17 @@ class ImageSaver(Unit):
         self.labels.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
+        for dirnme in self.out_dirs:
+            try:
+                os.makedirs(dirnme, mode=0o775)
+            except OSError:
+                pass
         if self._last_save_time < self.save_time:
             self._last_save_time = self.save_time
 
             for i in range(len(self._n_saved)):
                 self._n_saved[i] = 0
             for dirnme in self.out_dirs:
-                try:
-                    os.makedirs(dirnme, mode=0o775)
-                except OSError:
-                    pass
                 files = glob.glob("%s/*.png" % (dirnme))
                 for file in files:
                     try:
@@ -185,7 +186,7 @@ class ImageSaver(Unit):
             try:
                 scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv))
             except OSError:
-                self.error("Could not save image to %s" % (fnme))
+                self.warning("Could not save image to %s" % (fnme))
 
             self._n_saved[self.minibatch_class] += 1
             if self._n_saved[self.minibatch_class] >= self.limit:
