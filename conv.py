@@ -156,9 +156,13 @@ class Conv(nn_units.Forward):
             Conv.ocl_init(self, device)
 
     def ocl_init(self, device):
+        a_width = self.output.mem.size // self.n_kernels
+        b_width = self.n_kernels
+        ab_common = self.kx * self.ky * self._n_channels
         a_block_size, b_block_size, common_block_size = (
             self.device.device_info.get_block_sizes(
                 kernel="conv",
+                a_width=a_width, b_width=b_width, ab_common=ab_common,
                 sx=self._sx, sy=self._sy, n_channels=self._n_channels,
                 kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
                 padding=self.padding, sliding=self.sliding,
@@ -199,8 +203,8 @@ class Conv(nn_units.Forward):
             self.set_args(self.input, self.weights, self.output)
 
         self._global_size = [
-            roundup(self.n_kernels, b_block_size),
-            roundup(self.output.mem.size // self.n_kernels, a_block_size)]
+            roundup(b_width, b_block_size),
+            roundup(a_width, a_block_size)]
         self._local_size = [b_block_size, a_block_size]
 
     def print_debug_data(self, t_start):

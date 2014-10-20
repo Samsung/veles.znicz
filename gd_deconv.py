@@ -164,6 +164,8 @@ class GDDeconv(nn_units.GradientDescentBase):
         sy = self.err_output.mem.shape[1]
         sx = self.err_output.mem.shape[2]
         n_channels = self.err_output.size // (batch_size * sx * sy)
+        kernel_applies_count = self.input.size // self.n_kernels
+        kernel_size = self.kx * self.ky * n_channels
         dtype = self.err_output.mem.dtype
 
         self.cl_const = numpy.zeros(5, dtype=dtype)
@@ -200,9 +202,13 @@ class GDDeconv(nn_units.GradientDescentBase):
             'USE_ORTHO': int(bool(self.factor_ortho))
         }
 
+        a_width = kernel_applies_count
+        b_width = self.n_kernels
+        ab_common = kernel_size
         a_block_size, b_block_size, common_block_size = (
             self.device.device_info.get_block_sizes(
                 kernel="conv",
+                a_width=a_width, b_width=b_width, ab_common=ab_common,
                 sx=sx, sy=sy, n_channels=n_channels,
                 kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
                 padding=self.padding, sliding=self.sliding,
@@ -212,16 +218,18 @@ class GDDeconv(nn_units.GradientDescentBase):
             "B_BLOCK_SIZE": b_block_size,
             "COMMON_BLOCK_SIZE": common_block_size
         }
-        if self.need_err_input:
-            self._global_size_err_input = [
-                roundup(self.n_kernels, b_block_size),
-                roundup(self.err_input.mem.size // self.n_kernels,
-                        a_block_size)]
-            self._local_size_err_input = [b_block_size, a_block_size]
+        self._global_size_err_input = [
+            roundup(b_width, b_block_size),
+            roundup(a_width, a_block_size)]
+        self._local_size_err_input = [b_block_size, a_block_size]
 
+        a_width = kernel_size if self.weights_transposed else self.n_kernels
+        b_width = self.n_kernels if self.weights_transposed else kernel_size
+        ab_common = kernel_applies_count
         a_block_size, b_block_size, common_block_size = (
             self.device.device_info.get_block_sizes(
                 kernel="conv",
+                a_width=a_width, b_width=b_width, ab_common=ab_common,
                 sx=sx, sy=sy, n_channels=n_channels,
                 kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
                 padding=self.padding, sliding=self.sliding,
@@ -232,14 +240,9 @@ class GDDeconv(nn_units.GradientDescentBase):
             "COMMON_BLOCK_SIZE": common_block_size,
             "USE_ORTHO": int(bool(self.factor_ortho))
         }
-        if self.weights_transposed:
-            self._global_size_weights = [
-                roundup(self.n_kernels, b_block_size),
-                roundup(self.kx * self.ky * n_channels, a_block_size)]
-        else:
-            self._global_size_weights = [
-                roundup(self.kx * self.ky * n_channels, b_block_size),
-                roundup(self.n_kernels, a_block_size)]
+        self._global_size_weights = [
+            roundup(b_width, b_block_size),
+            roundup(a_width, a_block_size)]
         self._local_size_weights = [b_block_size, a_block_size]
 
         self.build_program(
