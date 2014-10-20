@@ -283,8 +283,8 @@ class LinesWorkflow(StandardWorkflow):
 
         # Table plotter
         self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
-        self.plt_tab.y.clear()
-        self.plt_tab.col_labels.clear()
+        del self.plt_tab.y[:]
+        del self.plt_tab.col_labels[:]
         for i in range(0, len(layers)):
             if (not isinstance(self.fwds[i], conv.Conv) and
                     not isinstance(self.fwds[i], all2all.All2All)):
