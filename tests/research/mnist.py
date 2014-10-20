@@ -148,14 +148,17 @@ class MnistWorkflow(StandardWorkflow):
 
         # Error plotter
         self.plt = []
-        styles = ["r-", "b-", "k-"]
-        for i in range(1, 3):
+        styles = ["g-", "r-", "k-"]
+        for i, style in enumerate(styles):
             self.plt.append(plotting_units.AccumulatingPlotter(
-                self, name="num errors", plot_style=styles[i]))
+                self, name="Errors", plot_style=style))
             self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
-            self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision)
-            self.plt[-1].gate_block = ~self.decision.epoch_ended
+            self.plt[-1].input_field = i + 1
+            if i == 0:
+                self.plt[-1].link_from(self.decision)
+                self.plt[-1].gate_block = ~self.decision.epoch_ended
+            else:
+                self.plt[-1].link_from(self.plt[-2])
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
 
@@ -172,15 +175,18 @@ class MnistWorkflow(StandardWorkflow):
 
         # err_y plotter
         self.plt_err_y = []
-        for i in range(1, 3):
+        for i, style in enumerate(styles):
             self.plt_err_y.append(plotting_units.AccumulatingPlotter(
                 self, name="Last layer max gradient sum",
-                plot_style=styles[i]))
+                fit_poly_power=3, plot_style=style))
             self.plt_err_y[-1].link_attrs(self.decision,
                                           ("input", "max_err_y_sums"))
-            self.plt_err_y[-1].input_field = i
-            self.plt_err_y[-1].link_from(self.decision)
-            self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
+            self.plt_err_y[-1].input_field = i + 1
+            if i == 0:
+                self.plt_err_y[-1].link_from(self.decision)
+                self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
+            else:
+                self.plt_err_y[-1].link_from(self.plt_err_y[-2])
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
@@ -192,7 +198,7 @@ class MnistWorkflow(StandardWorkflow):
                     not isinstance(self.fwds[i], all2all.All2All)):
                 continue
             nme = "%s %s" % (i + 1, layers[i]["type"])
-            self.info("Added: %s", nme)
+            self.debug("Added: %s", nme)
             plt_mx = nn_plotting_units.Weights2D(
                 self, name=nme, limit=root.mnistr.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
