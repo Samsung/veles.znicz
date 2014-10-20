@@ -12,7 +12,6 @@ from zope.interface import implementer
 from veles.distributable import TriviallyDistributable
 import veles.error as error
 import veles.formats as formats
-import veles.opencl_types as opencl_types
 from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 
 
@@ -132,16 +131,16 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def ocl_init(self, device):
         dtype = self.output.mem.dtype
+        block_size = min(self.err_output.shape[0], 128)
         defines = {
-            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(dtype)],
-            'BATCH': self.err_output.mem.shape[0],
-            'Y': self.err_output.mem.size // self.err_output.mem.shape[0],
+            "BLOCK_SIZE": block_size,
+            "BATCH": self.err_output.shape[0],
+            "Y": self.err_output.sample_size
         }
+        self._local_size = [block_size]
+        self._global_size = self._local_size
 
-        self.build_program(defines, "ev_%d.cl" %
-                           (self.output.mem.size //
-                            self.output.mem.shape[0]),
+        self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
                            dtype=dtype)
 
         self.assign_kernel("ev_sm")
@@ -164,10 +163,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             1.0 / self.batch_size if self.error_function_averaged else 1.0)
         self.set_arg(8, self.krn_constants_f_[0:1])
 
-        local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
-        global_size = [local_size[0]]
-        self.execute_kernel(global_size, local_size)
+        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         self.err_output.map_invalidate()
@@ -288,17 +284,21 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.metrics.initialize(self)
         self.mse.initialize(self)
 
-        if not self.device:
-            return
+        if self.device is not None:
+            EvaluatorMSE.ocl_init(self, device)
 
+    def ocl_init(self, device):
+        dtype = self.output.mem.dtype
+        block_size = min(self.err_output.shape[0], 128)
         defines = {
-            'BLOCK_SIZE': self.device.device_info.BLOCK_SIZE[
-                opencl_types.numpy_dtype_to_opencl(dtype)],
+            'BLOCK_SIZE': block_size,
             'BATCH': self.err_output.shape[0],
             'Y': self.err_output.sample_size,
             'SAMPLE_SIZE': 'Y',
             'N_TARGETS': (self.class_targets.shape[0]
                           if self.class_targets is not None else 0)}
+        self._local_size = [block_size]
+        self._global_size = self._local_size
 
         self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
                            dtype=dtype)
@@ -329,10 +329,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             1.0 / self.batch_size if self.error_function_averaged else 1.0)
         self.set_arg(6, self.krn_constants_f_[0:1])
 
-        local_size = [self.device.device_info.BLOCK_SIZE[
-            opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)]]
-        global_size = [local_size[0]]
-        self.execute_kernel(global_size, local_size)
+        self.execute_kernel(self._global_size, self._local_size)
 
         if self.labels is not None and self.class_targets is not None:
             self.class_targets.unmap()
