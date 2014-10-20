@@ -317,7 +317,7 @@ class DeviceInfosFiller(InProcessRun, DeviceInfo, Logger):
         fnme = os.path.join(root.common.device_dir, "device_infos.json")
         try:
             with open(fnme, "w") as fout:
-                json.dump(self.device_infos, fout)
+                json.dump(self.device_infos, fout, indent=2)
         except IOError:
             self.error("Couldn't save device info to %s", fnme)
 
