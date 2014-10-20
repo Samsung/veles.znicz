@@ -26,6 +26,9 @@ class TestLines(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
+    def tearDown(self):
+        del self.device
+
     @timeout(12000)
     def test_lines(self):
         logging.info("Will test lines workflow with one convolutional relu"
@@ -69,7 +72,7 @@ class TestLines(unittest.TestCase):
                                      layers=root.lines.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 9
-        self.w.snapshotter.interval = 9
+        self.w.snapshotter.interval = 1
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)
@@ -83,6 +86,7 @@ class TestLines(unittest.TestCase):
         self.assertEqual(9, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
+
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 14
