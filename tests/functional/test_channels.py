@@ -97,6 +97,12 @@ class TestChannels(unittest.TestCase):
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
+        self.wf.loader.cache_file_name = os.path.join(
+            root.common.test_dataset_root,
+            "channels_test.%d.pickle" % sys.version_info[0])
+
+        self.wf.snapshotter.directory = os.path.join(
+            root.common.test_dataset_root, "snapshots")
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 5
         self.wf.decision.complete <<= False
@@ -112,7 +118,7 @@ class TestChannels(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 53)
+        self.assertEqual(err, 50)
         self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
