@@ -14,16 +14,13 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import logging
 import numpy
-import opencl4py as cl
 import scipy.signal
 import time
 from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.external.prettytable import PrettyTable
 from veles.formats import assert_addr, roundup
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
@@ -288,53 +285,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(9, self.col_sums.devmem)
 
-    def gpu_weights_update(self):
-        self.input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
-        self.gradient_weights.unmap()
-
-        if self.factor_ortho:
-            self.col_sums.unmap()
-            side = self.weights.shape[1 if self.weights_transposed else 0]
-            other = self.weights.size // side
-            self.execute_kernel(
-                [other * self.reduce_size], [self.reduce_size],
-                self.krn_compute_col_sums_)
-
-            self.cl_const[4] = self.factor_ortho
-            self.krn_weights_.set_arg(8, self.cl_const[4:5])
-
-        self.cl_const[0] = self.learning_rate
-        self.cl_const[1] = self.weights_decay
-        self.cl_const[2] = self.l1_vs_l2
-        self.cl_const[3] = self.gradient_moment
-        self.krn_weights_.set_args(
-            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
-            self.cl_const[2:3], self.cl_const[3:4])
-        self.execute_kernel(
-            self._global_size_weights, self._local_size_weights,
-            self.krn_weights_)
-
-    def gpu_bias_update(self):
-        if not self.include_bias:
-            return
-
-        self.err_output.unmap()
-        self.bias.unmap()
-        self.gradient_bias.unmap()
-
-        self.cl_const[0] = self.learning_rate_bias
-        self.cl_const[1] = self.weights_decay_bias
-        self.cl_const[2] = self.l1_vs_l2_bias
-        self.cl_const[3] = self.gradient_moment_bias
-        self.krn_bias_.set_args(
-            cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
-            self.cl_const[2:3], self.cl_const[3:4])
-        self.execute_kernel(
-            self._global_size_bias, self._local_size_bias,
-            self.krn_bias_)
-
     def cpu_weights_update(self):
         # TODO(a.kazantsev): implement in case of transposed weights
         #                    (see OpenCL kernel and just swap the matricies).
@@ -500,47 +450,6 @@ class GradientDescentConv(nn_units.GradientDescentBase):
                 self.err_input.mem[batch, :, :, ch] += \
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]
-
-    def print_debug_data(self, t_start):
-        """
-        Show weights statistics
-        """
-        if not self.logger.isEnabledFor(logging.DEBUG):
-            return
-
-        self.weights.map_read()
-        self.bias.map_read()
-        self.gradient_bias.map_read()
-        self.gradient_weights.map_read()
-
-        weights = self.weights.mem
-        bias = self.bias.mem
-        grad_weight = self.gradient_weights.mem
-        grad_bias = self.gradient_bias.mem
-
-        n_input = self.input.mem.size // self.input.mem.shape[0]
-        n_output = self.output.mem.size // self.output.mem.shape[0]
-        delta_time = time.time() - t_start
-
-        stats_table = PrettyTable("n_input", "n_output", "time")
-        stats_table.float_format = ".3"
-        stats_table.add_row(n_input, n_output, delta_time)
-        self.debug("\n" + stats_table.get_string())
-
-        weight_table = PrettyTable("TYPE", "Mean", "StdDev", "Min", "Max")
-        weight_table.float_format = ".10"
-
-        actions = [("Weight", weights), ("Bias", bias)]
-        if self.store_gradient:
-            actions += [("Grad Weight", grad_weight), ("Grad Bias", grad_bias)]
-
-        for (w_name, w_array) in actions:
-            w_mean = numpy.mean(w_array)
-            w_stddev = numpy.std(w_array)
-            w_min = numpy.min(w_array)
-            w_max = numpy.max(w_array)
-            weight_table.add_row(w_name, w_mean, w_stddev, w_min, w_max)
-        self.debug("\n" + weight_table.get_string())
 
     def gpu_err_output_update(self):
         """Multiply err_output by activation derivative by output.
