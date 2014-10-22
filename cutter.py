@@ -18,8 +18,39 @@ import veles.formats as formats
 import veles.znicz.nn_units as nn_units
 
 
+class CutterBase(object):
+    def __init__(self, padding, *args, **kwargs):
+        super(CutterBase, self).__init__(*args, **kwargs)
+        self.padding = padding
+
+    @property
+    def padding(self):
+        return self._padding
+
+    @padding.setter
+    def padding(self, value):
+        if value is None:
+            raise ValueError("padding may not be None")
+        if type(value) not in (tuple, list):
+            raise TypeError("padding must either of type tuple or list")
+        if len(value) != 4:
+            raise ValueError(
+                "padding must be of length 4: (left, top, right, bottom)")
+
+    def create_stuff(self):
+        self._src_origin = (
+            self.padding[0] * self.input.shape[3] * self.input.itemsize,
+            self.padding[1], 0)
+        self._region = (
+            self.output_shape[2] * self.output_shape[3] * self.input.itemsize,
+            self.output_shape[1], self.input.shape[0])
+        self._src_row_pitch = (
+            self.input.shape[2] * self.input.shape[3] * self.input.itemsize)
+        self._src_slice_pitch = self.input.sample_size * self.input.itemsize
+
+
 @implementer(IOpenCLUnit)
-class Cutter(nn_units.Forward):
+class Cutter(nn_units.Forward, CutterBase):
     """Cuts rectangular area from an input.
 
     Must be assigned before initialize():
@@ -36,14 +67,8 @@ class Cutter(nn_units.Forward):
         output: output as batch of samples.
     """
     def __init__(self, workflow, **kwargs):
-        padding = kwargs.get("padding")
-        if (padding is None or type(padding) not in (tuple, list) or
-                len(padding) != 4):
-            raise KeyError(
-                "padding is a required parameter: tuple or list:"
-                "(left, top, right, bottom)")
         super(Cutter, self).__init__(workflow, **kwargs)
-        self.padding = tuple(padding)
+        self.demand("input")
         self.exports.append("padding")
 
     def initialize(self, device, **kwargs):
@@ -71,15 +96,7 @@ class Cutter(nn_units.Forward):
         self.input.initialize(self)
         self.output.initialize(self)
 
-        self._src_origin = (
-            self.padding[0] * self.input.shape[3] * self.input.itemsize,
-            self.padding[1], 0)
-        self._region = (
-            self.output_shape[2] * self.output_shape[3] * self.input.itemsize,
-            self.output_shape[1], self.input.shape[0])
-        self._src_row_pitch = (
-            self.input.shape[2] * self.input.shape[3] * self.input.itemsize)
-        self._src_slice_pitch = self.input.sample_size * self.input.itemsize
+        self.create_stuff()
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
@@ -105,18 +122,12 @@ class Cutter(nn_units.Forward):
 
 
 @implementer(IOpenCLUnit)
-class GDCutter(nn_units.GradientDescentBase):
+class GDCutter(nn_units.GradientDescentBase, CutterBase):
     """Gradient descent for Cutter.
     """
     def __init__(self, workflow, **kwargs):
-        padding = kwargs.get("padding")
-        if (padding is None or type(padding) not in (tuple, list) or
-                len(padding) != 4):
-            raise KeyError(
-                "padding is a required parameter: tuple or list:"
-                "(left, top, right, bottom)")
         super(GDCutter, self).__init__(workflow, **kwargs)
-        self.padding = tuple(padding)
+        self.demand("input")
 
     def initialize(self, device, **kwargs):
         if not self.input or len(self.input.shape) != 4:
@@ -148,15 +159,7 @@ class GDCutter(nn_units.GradientDescentBase):
         self.err_output.initialize(self)
         self.err_input.initialize(self)
 
-        self._dst_origin = (
-            self.padding[0] * self.input.shape[3] * self.input.itemsize,
-            self.padding[1], 0)
-        self._region = (
-            self.output_shape[2] * self.output_shape[3] * self.input.itemsize,
-            self.output_shape[1], self.input.shape[0])
-        self._dst_row_pitch = (
-            self.input.shape[2] * self.input.shape[3] * self.input.itemsize)
-        self._dst_slice_pitch = self.input.sample_size * self.input.itemsize
+        self.create_stuff()
 
         if self.device is not None:
             GDCutter.ocl_init(self, device)

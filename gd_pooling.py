@@ -23,10 +23,12 @@ import veles.error as error
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
+from veles.znicz.pooling import PoolingBase
 
 
 @implementer(IOpenCLUnit)
-class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
+class GDPooling(nn_units.GradientDescentBase, PoolingBase,
+                TriviallyDistributable):
     """Gradient Descent for pooling unit.
 
     Must be assigned before initialize():
@@ -49,17 +51,7 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
         krn_err_input_: OpenCL kernel for computing err_input.
     """
     def __init__(self, workflow, **kwargs):
-        try:
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-            sliding = kwargs["sliding"]
-        except KeyError:
-            raise KeyError(
-                "kx, ky and sliding are required constructor parameters")
         super(GDPooling, self).__init__(workflow, **kwargs)
-        self.kx = kx
-        self.ky = ky
-        self.sliding = sliding
         self.demand("input", "err_output")
 
     def init_unpickled(self):
@@ -70,27 +62,9 @@ class GDPooling(TriviallyDistributable, nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         super(GDPooling, self).initialize(device=device, **kwargs)
-        self._batch_size = self.input.mem.shape[0]
-        self._sy = self.input.mem.shape[1]
-        self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size // (self._batch_size *
-                                                   self._sx * self._sy)
+        self.create_output()
 
-        last_x = self._sx - self.kx
-        last_y = self._sy - self.ky
-        if last_x % self.sliding[0] == 0:
-            self._out_sx = last_x // self.sliding[0] + 1
-        else:
-            self._out_sx = last_x // self.sliding[0] + 2
-        if last_y % self.sliding[1] == 0:
-            self._out_sy = last_y // self.sliding[1] + 1
-        else:
-            self._out_sy = last_y // self.sliding[1] + 2
-
-        output_size = self._n_channels * self._out_sx * self._out_sy * \
-            self._batch_size
-
-        if self.err_output.size != output_size:
+        if self.err_output.size != self._output_size:
             raise error.BadFormatError(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")

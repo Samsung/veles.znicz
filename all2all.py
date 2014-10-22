@@ -11,20 +11,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import logging
 import numpy
-import time
 from zope.interface import implementer
-
 from veles.opencl_units import IOpenCLUnit
-
 import veles.error as error
 from veles.formats import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
 @implementer(IOpenCLUnit)
-class All2All(nn_units.Forward):
+class All2All(nn_units.NNLayerBase):
     """All2All with linear activation f(x) = x.
 
     Must be assigned before initialize():
@@ -187,39 +183,6 @@ class All2All(nn_units.Forward):
         self._global_size = [roundup(b_width, b_block_size),
                              roundup(a_width, a_block_size)]
         self._local_size = [b_block_size, a_block_size]
-
-    def print_debug_data(self, t_start):
-        """Show some statistics.
-        """
-        if not self.logger.isEnabledFor(logging.DEBUG):
-            return
-        self.output.map_read()
-        y = self.output.mem
-        if y.dtype in (numpy.complex64, numpy.complex128):
-            self.debug(
-                "%s: %d samples with %d weights in %.2f sec: "
-                "y: min avg max: %.6f %.6f %.6f" %
-                (self.__class__.__name__, y.shape[0],
-                 self.weights.mem.size, time.time() - t_start,
-                 min(y.real.min(), y.imag.min()),
-                 (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
-                 max(y.real.max(), y.imag.max())))
-        else:
-            self.debug(
-                "%s: %d samples with %d weights in %.2f sec: "
-                "y: min avg max: %.6f %.6f %.6f" %
-                (self.__class__.__name__, y.shape[0],
-                 self.weights.mem.size, time.time() - t_start,
-                 y.min(), numpy.average(y), y.max()))
-
-    def ocl_run(self):
-        """Forward propagation from batch on GPU.
-        """
-        self.output.unmap()
-        self.input.unmap()
-        self.weights.unmap()
-        self.bias.unmap()
-        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

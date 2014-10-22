@@ -442,18 +442,6 @@ class DecisionMSE(DecisionGD):
         super(DecisionMSE, self).initialize(**kwargs)
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
 
-        # Allocate arrays for epoch metrics.
-        if (self.minibatch_metrics is not None and
-                self.minibatch_metrics.mem is not None):
-            for i in range(len(self.epoch_metrics)):
-                if (self.epoch_metrics[i] is None or
-                        self.epoch_metrics[i].size !=
-                        self.minibatch_metrics.mem.size):
-                    self.epoch_metrics[i] = (
-                        numpy.zeros_like(self.minibatch_metrics.mem))
-                else:
-                    self.epoch_metrics[i][:] = 0
-
     def on_last_minibatch(self):
         super(DecisionMSE, self).on_last_minibatch()
 

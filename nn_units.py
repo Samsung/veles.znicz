@@ -97,6 +97,41 @@ class Forward(OpenCLUnit):
         pass
 
 
+class NNLayerBase(Forward):
+    def print_debug_data(self, t_start):
+        """Show some statistics.
+        """
+        if not self.logger.isEnabledFor(logging.DEBUG):
+            return
+        self.output.map_read()
+        y = self.output.mem
+        if y.dtype in (numpy.complex64, numpy.complex128):
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
+                "y: min avg max: %.6f %.6f %.6f" %
+                (self.__class__.__name__, y.shape[0],
+                 self.weights.mem.size, time.time() - t_start,
+                 min(y.real.min(), y.imag.min()),
+                 (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
+                 max(y.real.max(), y.imag.max())))
+        else:
+            self.debug(
+                "%s: %d samples with %d weights in %.2f sec: "
+                "y: min avg max: %.6f %.6f %.6f" %
+                (self.__class__.__name__, y.shape[0],
+                 self.weights.mem.size, time.time() - t_start,
+                 y.min(), numpy.average(y), y.max()))
+
+    def ocl_run(self):
+        """Forward propagation from batch on GPU.
+        """
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
+        self.execute_kernel(self._global_size, self._local_size)
+
+
 @implementer(IDistributable)
 class GradientDescentBase(OpenCLUnit):
     """Base class for gradient descent units.

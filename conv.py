@@ -9,7 +9,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import logging
 import math
 from math import pi
 import numpy
@@ -18,14 +17,13 @@ from zope.interface import implementer
 
 from veles.config import root
 from veles.opencl_units import IOpenCLUnit
-
 import veles.error as error
 from veles.formats import assert_addr, norm_image, roundup
 import veles.znicz.nn_units as nn_units
 
 
 @implementer(IOpenCLUnit)
-class Conv(nn_units.Forward):
+class Conv(nn_units.NNLayerBase):
     """Convolutional forward propagation with linear activation f(x) = x.
 
     Must be assigned before initialize():
@@ -206,39 +204,6 @@ class Conv(nn_units.Forward):
             roundup(b_width, b_block_size),
             roundup(a_width, a_block_size)]
         self._local_size = [b_block_size, a_block_size]
-
-    def print_debug_data(self, t_start):
-        """Show some statistics.
-        """
-        if not self.logger.isEnabledFor(logging.DEBUG):
-            return
-        self.output.map_read()
-        y = self.output.mem
-        if y.dtype in (numpy.complex64, numpy.complex128):
-            self.debug(
-                "%s: %d samples with %d weights in %.2f sec: "
-                "y: min avg max: %.6f %.6f %.6f" %
-                (self.__class__.__name__, y.shape[0],
-                 self.weights.mem.size, time.time() - t_start,
-                 min(y.real.min(), y.imag.min()),
-                 (numpy.average(y.real) + numpy.average(y.imag)) * 0.5,
-                 max(y.real.max(), y.imag.max())))
-        else:
-            self.debug(
-                "%s: %d samples with %d weights in %.2f sec: "
-                "y: min avg max: %.6f %.6f %.6f" %
-                (self.__class__.__name__, y.shape[0],
-                 self.weights.mem.size, time.time() - t_start,
-                 y.min(), numpy.average(y), y.max()))
-
-    def ocl_run(self):
-        """Forward propagation from batch on GPU.
-        """
-        self.output.unmap()
-        self.input.unmap()
-        self.weights.unmap()
-        self.bias.unmap()
-        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

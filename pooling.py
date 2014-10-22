@@ -36,50 +36,12 @@ from veles.distributable import IDistributable, TriviallyDistributable
 import veles.prng as prng
 
 
-@implementer(IOpenCLUnit, IDistributable)
-class Pooling(TriviallyDistributable, nn_units.Forward):
-    """Pooling forward propagation.
-
-    Must be assigned before initialize():
-        input
-
-    Updates after run():
-        output
-
-    Creates within initialize():
-        output
-
-    Attributes:
-        input: input as batch of multichannel interleaved images.
-        output: output as batch of multichannel interleaved images.
-        kx: pooling kernel width.
-        ky: pooling kernel height.
-        sliding: tuple of kernel sliding (by x-axis, by y-axis).
-    """
-    def __init__(self, workflow, **kwargs):
-        try:
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-        except KeyError:
-            raise KeyError("kx and ky are required constructor parameters")
-        sliding = kwargs.get("sliding", (kx, ky))
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["sliding"] = sliding
-        super(Pooling, self).__init__(workflow, **kwargs)
+class PoolingBase(object):
+    def __init__(self, kx, ky, sliding=None, *args, **kwargs):
+        super(PoolingBase, self).__init__(*args, **kwargs)
         self.kx = kx
         self.ky = ky
-        self.sliding = sliding
-        self.exports.extend(("kx", "ky", "sliding"))
-        self._no_output = False
-
-    def init_unpickled(self):
-        super(Pooling, self).init_unpickled()
-        self.cl_sources_["pooling.cl"] = {}
-        if not hasattr(self, "_no_output"):
-            self._no_output = False
-        if not hasattr(self, "uniform"):
-            self.uniform = None
+        self.sliding = sliding or (kx, ky)
 
     def create_output(self):
         self._batch_size = self.input.mem.shape[0]
@@ -103,16 +65,50 @@ class Pooling(TriviallyDistributable, nn_units.Forward):
             self._batch_size
         self._output_shape = [self._batch_size, self._out_sy, self._out_sx,
                               self._n_channels]
-        if (not self._no_output and (not self.output or
-                                     self.output.size != self._output_size)):
-            self.output.reset()
-            self.output.mem = numpy.zeros(self._output_shape,
-                                          dtype=self.input.mem.dtype)
+
+
+@implementer(IOpenCLUnit, IDistributable)
+class Pooling(nn_units.Forward, PoolingBase, TriviallyDistributable):
+    """Pooling forward propagation.
+
+    Must be assigned before initialize():
+        input
+
+    Updates after run():
+        output
+
+    Creates within initialize():
+        output
+
+    Attributes:
+        input: input as batch of multichannel interleaved images.
+        output: output as batch of multichannel interleaved images.
+        kx: pooling kernel width.
+        ky: pooling kernel height.
+        sliding: tuple of kernel sliding (by x-axis, by y-axis).
+    """
+    def __init__(self, workflow, **kwargs):
+        super(Pooling, self).__init__(workflow, **kwargs)
+        self.exports.extend(("kx", "ky", "sliding"))
+        self._no_output = False
+
+    def init_unpickled(self):
+        super(Pooling, self).init_unpickled()
+        self.cl_sources_["pooling.cl"] = {}
+        if not hasattr(self, "_no_output"):
+            self._no_output = False
+        if not hasattr(self, "uniform"):
+            self.uniform = None
 
     def initialize(self, device, **kwargs):
         super(Pooling, self).initialize(device=device, **kwargs)
 
         self.create_output()
+        if (not self._no_output and (not self.output or
+                                     self.output.size != self._output_size)):
+            self.output.reset()
+            self.output.mem = numpy.zeros(self._output_shape,
+                                          dtype=self.input.mem.dtype)
 
         self.input.initialize(self)
         if not self._no_output:

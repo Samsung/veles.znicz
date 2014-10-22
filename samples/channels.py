@@ -13,6 +13,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 # FIXME(a.kazantsev): numpy.dot works 5 times faster with this option
 # in multithreaded mode.
+from veles.znicz.image_saver import ImageSaver
+
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from copy import copy
@@ -275,7 +277,7 @@ class ChannelsLoader(loader.FullBatchLoader):
                 except OSError:
                     pass
                 fnme = "%s/0_as_%d.%d.png" % (dirnme, l, ii)
-                scipy.misc.imsave(fnme, self.as_image(s))
+                scipy.misc.imsave(fnme, ImageSaver.as_image(s))
 
         with stat_lock:
             n_files[0] += 1
@@ -600,7 +602,7 @@ class ChannelsLoader(loader.FullBatchLoader):
             except OSError:
                 pass
             fnme = "%s/%d.png" % (dirnme, i)
-            scipy.misc.imsave(fnme, self.as_image(self.original_data[i]))
+            scipy.misc.imsave(fnme, ImageSaver.as_image(self.original_data[i]))
         self.info("Done")
 
         self.info("class_lengths=[%s]" % (
@@ -608,7 +610,7 @@ class ChannelsLoader(loader.FullBatchLoader):
         if not save_to_cache:
             return
         self.info("Saving loaded data for later faster load to "
-                  "%s" % (cached_data_fnme))
+                  "%s" % cached_data_fnme)
         with open(cached_data_fnme, "wb") as fout:
             obj = {}
             for name in self.attributes_for_cached_data:
@@ -622,28 +624,6 @@ class ChannelsLoader(loader.FullBatchLoader):
             # Save random state
             pickle.dump(self.prng.state, fout)
         self.info("Done")
-
-    def as_image(self, x):
-        if len(x.shape) == 2:
-            x = x.copy()
-        elif len(x.shape) == 3:
-            if x.shape[2] == 3:
-                x = x.copy()
-            elif x.shape[0] == 3:
-                xx = numpy.empty([x.shape[1], x.shape[2], 3],
-                                 dtype=x.dtype)
-                xx[:, :, 0:1] = x[0:1, :, :].reshape(
-                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
-                xx[:, :, 1:2] = x[1:2, :, :].reshape(
-                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
-                xx[:, :, 2:3] = x[2:3, :, :].reshape(
-                    x.shape[1], x.shape[2], 1)[:, :, 0:1]
-                x = xx
-            else:
-                raise error.BadFormatError()
-        else:
-            raise error.BadFormatError()
-        return formats.norm_image(x, True)
 
 
 class ChannelsWorkflow(StandardWorkflow):

@@ -16,6 +16,7 @@ import scipy.misc
 from zope.interface import implementer
 
 import veles.config as config
+from veles.error import BadFormatError
 import veles.formats as formats
 from veles.distributable import IDistributable
 from veles.units import Unit, IUnit
@@ -71,10 +72,13 @@ class ImageSaver(Unit):
         self.save_time = 0
         self._n_saved = [0, 0, 0]
 
-    def as_image(self, x):
-        if len(x.shape) == 2:
+    @staticmethod
+    def as_image(x):
+        if len(x.shape) == 1:
+            return x.copy()
+        elif len(x.shape) == 2:
             return x.reshape(x.shape[0], x.shape[1], 1)
-        if len(x.shape) == 3:
+        elif len(x.shape) == 3:
             if x.shape[2] == 3:
                 return x
             if x.shape[0] == 3:
@@ -92,7 +96,8 @@ class ImageSaver(Unit):
                                  dtype=x.dtype)
                 xx[:, :, 0:3] = x[:, :, 0:3]
                 return xx
-        return x.ravel()
+        else:
+            raise BadFormatError()
 
     def initialize(self, **kwargs):
         pass
@@ -131,7 +136,7 @@ class ImageSaver(Unit):
         t = None
         im = 0
         for i in range(0, self.minibatch_size):
-            x = self.as_image(self.input[i])
+            x = ImageSaver.as_image(self.input[i])
             idx = self.indexes[i]
             lbl = self.labels[i]
             if self.max_idx is not None:
@@ -141,8 +146,8 @@ class ImageSaver(Unit):
                 y = self.output[i]
             if (self.max_idx is None and
                     self.output is not None and self.target is not None):
-                y = self.as_image(self.output[i])
-                t = self.as_image(self.target[i])
+                y = ImageSaver.as_image(self.output[i])
+                t = ImageSaver.as_image(self.target[i])
                 y = y.reshape(t.shape)
             if self.max_idx is None and y is not None:
                 mse = numpy.linalg.norm(t - y) / x.size
