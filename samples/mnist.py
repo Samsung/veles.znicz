@@ -281,9 +281,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
             self.plt[-1].input_field = i + 1
             if i == 0:
                 self.plt[-1].link_from(self.decision)
-                self.plt[-1].gate_block = ~self.decision.epoch_ended
             else:
                 self.plt[-1].link_from(self.plt[-2])
+            self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
 
@@ -309,9 +309,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
             self.plt_err_y[-1].input_field = i + 1
             if i == 0:
                 self.plt_err_y[-1].link_from(self.decision)
-                self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
             else:
                 self.plt_err_y[-1].link_from(self.plt_err_y[-2])
+            self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
         self.plt_err_y[0].clear_plot = True
         self.plt_err_y[-1].redraw_plot = True
 
