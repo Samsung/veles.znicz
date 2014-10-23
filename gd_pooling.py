@@ -27,7 +27,7 @@ from veles.znicz.pooling import PoolingBase
 
 
 @implementer(IOpenCLUnit)
-class GDPooling(nn_units.GradientDescentBase, PoolingBase,
+class GDPooling(PoolingBase, nn_units.GradientDescentBase,
                 TriviallyDistributable):
     """Gradient Descent for pooling unit.
 

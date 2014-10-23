@@ -34,14 +34,15 @@ from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
 import veles.prng as prng
+from veles.units import Unit
 
 
-class PoolingBase(object):
-    def __init__(self, kx, ky, sliding=None, *args, **kwargs):
-        super(PoolingBase, self).__init__(*args, **kwargs)
+class PoolingBase(Unit):
+    def __init__(self, workflow, kx, ky, sliding=None, *args, **kwargs):
+        super(PoolingBase, self).__init__(workflow, *args, **kwargs)
         self.kx = kx
         self.ky = ky
-        self.sliding = sliding or (kx, ky)
+        self.sliding = sliding or (self.kx, self.ky)
 
     def create_output(self):
         self._batch_size = self.input.mem.shape[0]
@@ -68,7 +69,7 @@ class PoolingBase(object):
 
 
 @implementer(IOpenCLUnit, IDistributable)
-class Pooling(nn_units.Forward, PoolingBase, TriviallyDistributable):
+class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     """Pooling forward propagation.
 
     Must be assigned before initialize():
