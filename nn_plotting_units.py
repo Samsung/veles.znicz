@@ -495,7 +495,7 @@ class KohonenInputMaps(plotter.Plotter):
         else:
             grid_shape = (4, int(numpy.ceil(length / 4)))
         for index in range(length):
-            axes = fig.add_subplot(grid_shape[1], grid_shape[0], index)
+            axes = fig.add_subplot(grid_shape[1], grid_shape[0], index + 1)
             if not fast_redraw:
                 patches = []
                 # Add hexagons to patches one by one
