@@ -154,6 +154,16 @@ class DecisionBase(Unit):
     def drop_slave(self, slave):
         pass
 
+    def initialize_arrays(self, minibatch_array, arrays):
+        if minibatch_array is not None and minibatch_array:
+            for index, item in enumerate(arrays):
+                if item is None or item.size != len(minibatch_array):
+                    arrays[index] = numpy.zeros_like(minibatch_array.mem)
+                else:
+                    arrays[index][:] = 0
+        else:
+            self.warning("Could not initialize the arrays")
+
     def _on_last_minibatch(self):
         self.on_last_minibatch()
 
@@ -281,18 +291,8 @@ class DecisionGD(DecisionBase):
         self.epoch_n_err[:] = [1.0e30, 1.0e30, 1.0e30]
         self.epoch_n_err_pt[:] = [100.0, 100.0, 100.0]
         map(self.reset_statistics, range(3))
-
-        # Allocate arrays for confusion matrixes.
-        if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.mem is not None):
-            for i in range(len(self.confusion_matrixes)):
-                if (self.confusion_matrixes[i] is None or
-                        self.confusion_matrixes[i].size !=
-                        self.minibatch_confusion_matrix.mem.size):
-                    self.confusion_matrixes[i] = (
-                        numpy.zeros_like(self.minibatch_confusion_matrix.mem))
-                else:
-                    self.confusion_matrixes[i][:] = 0
+        self.initialize_arrays(self.minibatch_confusion_matrix,
+                               self.confusion_matrixes)
 
     def on_run(self):
         # Check skip gradient descent or not
@@ -441,6 +441,7 @@ class DecisionMSE(DecisionGD):
     def initialize(self, **kwargs):
         super(DecisionMSE, self).initialize(**kwargs)
         self.epoch_min_mse[:] = [1.0e30, 1.0e30, 1.0e30]
+        self.initialize_arrays(self.minibatch_metrics, self.epoch_metrics)
 
     def on_last_minibatch(self):
         super(DecisionMSE, self).on_last_minibatch()

@@ -37,16 +37,17 @@ class CutterBase(object):
             raise ValueError(
                 "padding must be of length 4: (left, top, right, bottom)")
 
-    def create_stuff(self):
-        self._src_origin = (
+    def create_stuff(self, prefix):
+        setattr(self, "_%s_origin" % prefix, (
             self.padding[0] * self.input.shape[3] * self.input.itemsize,
-            self.padding[1], 0)
+            self.padding[1], 0))
         self._region = (
             self.output_shape[2] * self.output_shape[3] * self.input.itemsize,
             self.output_shape[1], self.input.shape[0])
-        self._src_row_pitch = (
-            self.input.shape[2] * self.input.shape[3] * self.input.itemsize)
-        self._src_slice_pitch = self.input.sample_size * self.input.itemsize
+        setattr(self, "_%s_row_pitch" % prefix, (
+            self.input.shape[2] * self.input.shape[3] * self.input.itemsize))
+        setattr(self, "_%s_slice_pitch" % prefix,
+                self.input.sample_size * self.input.itemsize)
 
 
 @implementer(IOpenCLUnit)
@@ -96,7 +97,7 @@ class Cutter(nn_units.Forward, CutterBase):
         self.input.initialize(self)
         self.output.initialize(self)
 
-        self.create_stuff()
+        self.create_stuff("src")
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
@@ -159,7 +160,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
         self.err_output.initialize(self)
         self.err_input.initialize(self)
 
-        self.create_stuff()
+        self.create_stuff("dst")
 
         if self.device is not None:
             GDCutter.ocl_init(self, device)
