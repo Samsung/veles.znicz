@@ -29,7 +29,7 @@ class TestLines(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(12000)
+    @timeout(300)
     def test_lines(self):
         logging.info("Will test lines workflow with one convolutional relu"
                      " layer and one fully connected relu layer")

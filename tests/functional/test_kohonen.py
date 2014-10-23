@@ -25,7 +25,7 @@ class TestKohonen(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(300)
     def test_kohonen(self):
         logging.info("Will test kohonen workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %

@@ -28,7 +28,7 @@ class TestMnist784(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(12000)
+    @timeout(300)
     def test_mnist784(self):
         logging.info("Will test mnist784 workflow")
 

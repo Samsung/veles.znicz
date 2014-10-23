@@ -25,7 +25,7 @@ class TestHands(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(300)
     def test_hands(self):
         logging.info("Will test hands workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %

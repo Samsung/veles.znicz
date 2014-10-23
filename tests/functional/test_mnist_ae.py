@@ -28,7 +28,7 @@ class TestMnistAE(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(12000)
+    @timeout(300)
     def test_mnist_ae(self):
         logging.info("Will test mnist ae workflow")
 

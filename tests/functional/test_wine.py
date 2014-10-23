@@ -25,7 +25,7 @@ class TestWine(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout()
+    @timeout(300)
     def test_wine(self):
         logging.info("Will test wine workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %

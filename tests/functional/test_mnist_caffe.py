@@ -25,7 +25,7 @@ class TestMnistCaffe(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(300)
     def test_mnist_caffe(self):
         logging.info("Will test mnist workflow with caffe config")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %

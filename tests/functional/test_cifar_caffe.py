@@ -26,7 +26,7 @@ class TestCifarCaffe(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(300)
     def test_cifar_caffe(self):
         logging.info("Will test cifar convolutional"
                      "workflow with caffe config")

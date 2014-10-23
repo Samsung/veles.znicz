@@ -25,7 +25,7 @@ class TestSamplesMnist(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(300)
     def test_samples_mnist(self):
         logging.info("Will test mnist fully connected workflow from samples")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
