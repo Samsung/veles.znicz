@@ -13,6 +13,7 @@ from veles.external.freetype import (Face,  # pylint: disable=E0611
                                      FT_Set_Transform, byref)
 import logging
 import numpy
+import six
 import os
 import struct
 from zope.interface import implementer
@@ -62,7 +63,10 @@ root.mnist784.update({
 
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
-    face = Face(bytes(fontPath, 'UTF-8'))
+    if six.PY2:
+        face = Face(six.binary_type(fontPath))
+    else:
+        face = Face(six.binary_type(fontPath, 'UTF-8'))
     # face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
