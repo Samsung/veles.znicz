@@ -28,7 +28,7 @@ class TestApproximator(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(12000)
+    @timeout(120)
     def test_approximator(self):
         logging.info("Will test approximator workflow")
 
