@@ -24,7 +24,6 @@ import numpy
 import re
 import scipy.misc
 import six
-from six.moves import cPickle as pickle
 import sys
 import threading
 import time
@@ -36,6 +35,7 @@ import veles.error as error
 import veles.formats as formats
 import veles.image as image
 from veles.mutable import Bool
+from veles.pickle2 import pickle, best_protocol
 import veles.plotting_units as plotting_units
 import veles.prng as rnd
 import veles.thread_pool as thread_pool
@@ -335,7 +335,7 @@ class ChannelsLoader(loader.FullBatchLoader):
                 root.common.cache_dir,
                 "%s_%s.%d.pickle" %
                 (os.path.basename(__file__), self.__class__.__name__,
-                 sys.version_info[0])))
+                 best_protocol)))
         self.info("Will try to load previously cached data from " +
                   cached_data_fnme)
         save_to_cache = True
@@ -344,8 +344,11 @@ class ChannelsLoader(loader.FullBatchLoader):
             if self.layers[i].get("n_kernels") is not None:
                 self.do_swap_axis = True
         try:
-            fin = open(cached_data_fnme, "rb")
-            obj = pickle.load(fin)
+            with open(cached_data_fnme, "rb") as fin:
+                cache = pickle.load(fin)
+                self._original_data = [pickle.load(fin) for _
+                                       in range(len(cache["original_labels"]))]
+            obj = cache["obj"]
             if obj["channels_dir"] != self.channels_dir:
                 save_to_cache = False
                 self.info("different dir found in cached data: %s" % (
@@ -375,29 +378,13 @@ class ChannelsLoader(loader.FullBatchLoader):
                     self.sz[k][0], self.sz[k][1]))
             self.info("rect: (%d, %d)" % (self.rect[0], self.rect[1]))
 
-            self.shuffled_indices.mem = pickle.load(fin)
-            self._original_labels = list(pickle.load(fin))
+            self.shuffled_indices.mem = cache["shuffled_indices"]
+            self._original_labels = list(cache["original_labels"])
             # Get raw array from file
-            self._original_data = []
             store_negative = self.w_neg is not None and self.find_negative > 0
-            old_file_map = []
-            n_not_exists_anymore = 0
-            for i in range(len(self._original_labels)):
-                a = pickle.load(fin)
-                if store_negative:
-                    if self._original_labels[i]:
-                        del a
-                        continue
-                    if not os.path.isfile(self.file_map[i]):
-                        n_not_exists_anymore += 1
-                        del a
-                        continue
-                    old_file_map.append(self.file_map[i])
-                self._original_data.append(a)
-            self.prng.state = pickle.load(fin)
-            fin.close()
-            self.info("Succeeded")
-            self.info("class_lengths=[%s]" % (
+            self.file_map = cache["file_map"]
+            self.prng.state = cache["prng"]
+            self.info("Succeeded, class_lengths=[%s]" % (
                 ", ".join(str(x) for x in self.class_lengths)))
             if not store_negative:
                 self._data_labels_to_vector()
@@ -406,15 +393,10 @@ class ChannelsLoader(loader.FullBatchLoader):
                       "samples per image" % (self.find_negative))
             # Saving the old negative set
             self.info("Extracting the old negative set")
-            self.file_map.clear()
-            for i, fnme in enumerate(old_file_map):
-                self.file_map[i] = fnme
-            del old_file_map
             n = len(self._original_data)
-            self._original_labels = list(0 for i in range(n))
+            self._original_labels = [0] * n
             self.shuffled_indices.reset()
-            self.info("Done (%d extracted, %d not exists anymore)" % (
-                n, n_not_exists_anymore))
+            self.info("Done (%d extracted)" % n)
         except FileNotFoundError:
             self.info("Failed")
             self._original_labels = []
@@ -615,14 +597,14 @@ class ChannelsLoader(loader.FullBatchLoader):
             obj = {}
             for name in self.attributes_for_cached_data:
                 obj[name] = self.__dict__[name]
-            pickle.dump(obj, fout)
-            pickle.dump(self.shuffled_indices.mem, fout)
-            pickle.dump(self.original_labels.mem, fout)
-            # Because pickle doesn't support greater than 4Gb arrays
-            for i in range(len(self.original_data.mem)):
-                pickle.dump(self.original_data.mem[i], fout)
-            # Save random state
-            pickle.dump(self.prng.state, fout)
+            cache = {"obj": obj, "shuffled_indices": self.shuffled_indices.mem,
+                     "original_labels": self.original_labels.mem,
+                     "prng": self.prng.state,
+                     "file_map": self.file_map}
+            pickle.dump(cache, fout, protocol=best_protocol)
+            for item in self.original_data.mem:
+                pickle.dump(item, fout)
+        #fout.close()
         self.info("Done")
 
 
