@@ -75,8 +75,7 @@ root.channels.update({
                "grayscale": False,
                "minibatch_size": 81,
                "n_threads": 32,
-               "channels_dir":
-               "/data/veles/VD/channels/russian_small/train",
+               "channels_dir": "",
                "rect": (264, 129),
                "validation_ratio": 0.15},
     "weights_plotter": {"limit": 64},
