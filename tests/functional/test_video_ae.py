@@ -29,7 +29,7 @@ class TestVideoAE(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(12000)
+    @timeout(1800)
     def test_video_ae(self):
         logging.info("Will test video_ae workflow")
 
@@ -62,7 +62,7 @@ class TestVideoAE(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertLess(avg_mse, 0.3803)
+        self.assertLess(avg_mse, 0.383)
         self.assertEqual(4, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -76,7 +76,7 @@ class TestVideoAE(unittest.TestCase):
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]
-        self.assertLess(avg_mse, 0.342876)
+        self.assertLess(avg_mse, 0.354)
         self.assertEqual(7, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
