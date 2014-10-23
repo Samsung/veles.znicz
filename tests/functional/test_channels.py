@@ -10,6 +10,7 @@ import logging
 import numpy
 import os
 import sys
+import six
 import unittest
 
 from veles.config import root
@@ -27,7 +28,7 @@ class TestChannels(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(12000)
+    @timeout(600)
     def test_channels(self):
         logging.info("Will test channels fully connected workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -92,7 +93,7 @@ class TestChannels(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 82)
+        self.assertEqual(err, 111 if six.PY3 else 323)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -118,7 +119,7 @@ class TestChannels(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 50)
+        self.assertEqual(err, 75 if six.PY3 else 312)
         self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
