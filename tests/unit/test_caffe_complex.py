@@ -6,13 +6,13 @@ A complex test: comparison with CAFFE on full CIFAR model
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-from enum import IntEnum
 import logging
 import numpy as np
 import os
 import unittest
 import tarfile
 
+from veles.compat import IntEnum
 from veles.znicz.tests.unit import standard_test
 from veles.formats import Vector
 from veles import Logger
@@ -26,6 +26,7 @@ class PropType(IntEnum):
     """
     Propagation: forward of backward
     """
+
     forward = 0
     backward = 1
 
@@ -34,6 +35,7 @@ class WhenTaken(IntEnum):
     """
     When snapshot was taken: before of after propagation
     """
+
     before = 0
     after = 1
 
@@ -222,8 +224,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
         ip_sm = all2all.All2AllSoftmax(
             self.workflow, name="ip1", output_shape=10,
             weights_filling="uniform", weights_stddev=10 ** -2,
-            bias_filling="constant", bias_stddev=0,
-            )
+            bias_filling="constant", bias_stddev=0)
         ip_sm.link_from(pool3)
         ip_sm.link_attrs(pool3, ("input", "output"))
         ########
@@ -371,7 +372,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
         """
         max_delta = 1.
 
-        logging.info(">>> iter %i" % _iter)
+        self.info(">>> iter %i" % _iter)
         names = ["conv1", "pool1", "relu1", "norm1", "conv2", "relu2", "pool2",
                  "norm2", "conv3"]
         for name in names:
@@ -379,8 +380,8 @@ class ComplexTest(standard_test.StandardTest, Logger):
             conv_top = self._load_blob(name, PropType.forward,
                                        WhenTaken.after, "top_0", _iter)
             elm.output.map_read()
-            logging.info(">> %s top delta: %.12f%%" %
-                         (name, self._diff(elm.output.mem, conv_top)))
+            self.info(">> %s top delta: %.12f%%" %
+                      (name, self._diff(elm.output.mem, conv_top)))
 
         ip_sm = self.workflow["ip1"]
         ip_sm.output.map_read()
@@ -389,15 +390,15 @@ class ComplexTest(standard_test.StandardTest, Logger):
             "loss", PropType.forward, WhenTaken.after, "top_0", _iter).reshape(
             self.n_pics, self.n_classes)
 
-        logging.info(">> ip1 top delta: %.12f%%" %
-                     self._diff(ip_sm.output.mem, ip_sm_top))
+        self.info(">> ip1 top delta: %.12f%%" %
+                  self._diff(ip_sm.output.mem, ip_sm_top))
 
         gd_ip_sm = self.workflow["gd_ip1"]
         gd_ip_sm.err_input.map_read()
         gd_ip_sm_bot_err = self._load_blob(
             "ip1", WhenTaken.after, PropType.backward, "bottom_err_0", _iter)
-        logging.info(">> gd_ip1 bot_err delta: %.12f%%" %
-                     self._diff(gd_ip_sm.err_input.mem, gd_ip_sm_bot_err))
+        self.info(">> gd_ip1 bot_err delta: %.12f%%" %
+                  self._diff(gd_ip_sm.err_input.mem, gd_ip_sm_bot_err))
 
         for name in reversed(names):
             gd_name = "gd_" + name
@@ -406,9 +407,8 @@ class ComplexTest(standard_test.StandardTest, Logger):
                 name, PropType.backward, WhenTaken.after,
                 "bottom_err_0", _iter)
             gd_elm.err_input.map_read()
-            logging.info(">> %s bot_err delta: %.12f%%" %
-                         (gd_name,
-                          self._diff(gd_elm.err_input.mem, gd_bot_err)))
+            self.info(">> %s bot_err delta: %.12f%%" %
+                      (gd_name, self._diff(gd_elm.err_input.mem, gd_bot_err)))
 
         # Items with weights:
         conv_names = ["conv1", "conv2", "conv3"]
@@ -429,15 +429,13 @@ class ComplexTest(standard_test.StandardTest, Logger):
             self.assertLess(weight_delta, max_delta,
                             "Result differs by %.6f" % (weight_delta))
 
-            logging.info(">>> %s weights delta: %.12f%%" % (name,
-                                                            weight_delta))
+            self.info(">>> %s weights delta: %.12f%%" % (name, weight_delta))
 
             bias_delta = self._diff(conv_elm.bias.mem, conv_biases)
             self.assertLess(bias_delta, max_delta,
                             "Result differs by %.6f" % (bias_delta))
 
-            logging.info(">>> %s biases delta: %.12f%%" %
-                         (name, bias_delta))
+            self.info(">>> %s biases delta: %.12f%%" % (name, bias_delta))
 
         ip_sm = self.workflow["ip1"]
         ip_sm_weights = self._load_blob("ip1", PropType.forward,
@@ -450,7 +448,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
         weight_delta = self._diff(ip_sm.weights.mem, ip_sm_weights)
         self.assertLess(weight_delta, max_delta,
                         "Result differs by %.6f" % (weight_delta))
-        logging.info(">>> ip1 weights delta %.12f%%" % weight_delta)
+        self.info(">>> ip1 weights delta %.12f%%" % weight_delta)
 
         ip_sm.bias.map_read()
         ip_sm_biases = self._load_blob(
@@ -459,7 +457,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
         bias_delta = self._diff(ip_sm.bias.mem, ip_sm_biases)
         self.assertLess(bias_delta, max_delta,
                         "Result differs by %.6f" % (bias_delta))
-        logging.info(">>> ip1 biases delta %.12f%%" % bias_delta)
+        self.info(">>> ip1 biases delta %.12f%%" % bias_delta)
 
     def test_all(self):
         """
@@ -473,14 +471,12 @@ class ComplexTest(standard_test.StandardTest, Logger):
 
         self._create_fwd_units(cur_iter)
         self._create_gd_units(cur_iter)
+        self.workflow.end_point.link_from(self.workflow["gd_conv1"])
 
         self.workflow.initialize(device=self.device)
         self._load_labels_and_data(cur_iter)
 
         self._fill_weights(cur_iter)
-
-        self.workflow.end_point.link_from(self.workflow["gd_conv1"])
-
         self._load_labels_and_data(cur_iter)
         self.workflow.run()
         self._print_deltas(cur_iter)
