@@ -25,7 +25,7 @@ class TestMnistConv(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(300)
+    @timeout(600)
     def test_mnist_conv(self):
         logging.info("Will test mnist workflow with convolutional"
                      " (genetic generate) config")

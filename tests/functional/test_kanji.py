@@ -30,7 +30,7 @@ class TestKanji(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(300)
+    @timeout(600)
     def test_kanji(self):
         logging.info("Will test kanji workflow")
 
