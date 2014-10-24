@@ -38,6 +38,7 @@ class CutterBase(Unit):
         if len(value) != 4:
             raise ValueError(
                 "padding must be of length 4: (left, top, right, bottom)")
+        self._padding = value
 
     def create_stuff(self, prefix):
         setattr(self, "_%s_origin" % prefix, (
