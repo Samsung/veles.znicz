@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
+import six
 import sys
 import unittest
 
@@ -76,9 +77,10 @@ class TestKanji(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 12913)
+        self.assertEqual(err, 12913 if six.PY3 else 7560)
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.444085, places=5)
+        self.assertAlmostEqual(avg_mse, 0.444085 if six.PY3 else 0.438381707,
+                               places=5)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -98,9 +100,10 @@ class TestKanji(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 12806)
+        self.assertEqual(err, 12806 if six.PY3 else 7560)
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.442661, places=5)
+        self.assertAlmostEqual(avg_mse, 0.442661 if six.PY3 else 0.437215,
+                               places=5)
         self.assertEqual(7, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
