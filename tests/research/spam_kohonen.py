@@ -76,7 +76,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
         self.info("Parsing the data...")
         lemmas = set()
         data = []
-        self.ids.clear()
+        del self.ids[:]
         labels = []
         avglength = 0
         for line in ProgressBar(term_width=17)(lines):
@@ -104,14 +104,14 @@ class SpamKohonenLoader(loader.FullBatchLoader):
             distinct_labels = set(labels)
         else:
             distinct_labels = {0}
-        self.labels_mapping.clear()
+        del self.labels_mapping[:]
         self.labels_mapping.extend(sorted(distinct_labels))
         reverse_label_mapping = {l: i for i, l
                                  in enumerate(self.labels_mapping)}
         self.lemmas_map = sorted(lemmas)
         lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
         self.original_labels.mem = numpy.zeros([len(lines)], dtype=numpy.int32)
-        self.samples_by_label.clear()
+        del self.samples_by_label[:]
         self.samples_by_label.extend([set() for _ in distinct_labels])
         self.original_data.mem = numpy.zeros([len(lines), len(lemmas)],
                                              dtype=numpy.float32)
