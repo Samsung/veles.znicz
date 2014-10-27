@@ -189,7 +189,8 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
-    numpy.random.seed(numpy.fromfile("seed", dtype=numpy.int32, count=1024))
+    numpy.random.seed(numpy.fromfile("veles/znicz/tests/research/seed",
+                                     dtype=numpy.int32, count=1024))
 
     db = sqlite3.connect(os.path.join(root.common.test_dataset_root,
                                       "kanji/kanji.db"))
