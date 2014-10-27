@@ -10,12 +10,12 @@ import unittest
 
 from veles.tests import DummyWorkflow
 from veles.znicz.tests.research.imagenet.forward_loader import \
-    ImagenetForwardLoader
+    ImagenetForwardLoaderBbox
 
 
 class TestForward1(unittest.TestCase):
     def setUp(self):
-        self.loader = ImagenetForwardLoader(DummyWorkflow(), "", "", "")
+        self.loader = ImagenetForwardLoaderBbox(DummyWorkflow(), "", "", "")
         self.loader.aperture = 256
 
     def test_intersects(self):
@@ -31,20 +31,6 @@ class TestForward1(unittest.TestCase):
         self.assertFalse(self.loader._intersects(
             (33, 66), numpy.array([[50, -200], [150, -50],
                                    [0, 50], [-100, -100]])))
-
-    def test_inside(self):
-        self.assertTrue(ImagenetForwardLoader.inside(
-            (0, 0), numpy.array([[-100, -100], [100, -100],
-                                 [100, 100], [-100, 100]])))
-        self.assertFalse(ImagenetForwardLoader.inside(
-            (150, 150), numpy.array([[-100, -100], [100, -100],
-                                     [100, 100], [-100, 100]])))
-        self.assertFalse(ImagenetForwardLoader.inside(
-            (60, 10), numpy.array([[0, 50], [100, 50],
-                                   [100, 150], [0, 150]])))
-        self.assertTrue(ImagenetForwardLoader.inside(
-            (60, 60), numpy.array([[0, 50], [100, 50],
-                                   [100, 150], [0, 150]])))
 
     def test_intersection_area(self):
         self.loader.aperture = 100
@@ -85,7 +71,7 @@ if __name__ == "__main__":
     import os
     import veles.formats as formats
     base = "/data/veles/datasets/imagenet/2014_img_split_0/1"
-    loader = ImagenetForwardLoader(
+    loader = ImagenetForwardLoaderBbox(
         DummyWorkflow(),
         os.path.join(base, "images_imagenet_1_img_%s_0.json"),
         os.path.join(base, "labels_int_1_img_0.txt"),
