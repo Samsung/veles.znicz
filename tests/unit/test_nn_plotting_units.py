@@ -23,8 +23,6 @@ STORE_IMAGES = True
 
 
 class Test(unittest.TestCase):
-    def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
 
     def init_plotter(self, name):
         plotter = getattr(nnpu, name)(DummyWorkflow())
@@ -67,4 +65,5 @@ class Test(unittest.TestCase):
         self.plot(knm)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

@@ -392,8 +392,6 @@ class ImageGenerator(object):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
-
     args = create_commandline_parser().parse_args()
 
     out_dir = args.output
@@ -420,4 +418,5 @@ def main():
                                  (task_name, label_name, i)), img)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     main()
