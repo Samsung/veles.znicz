@@ -11,7 +11,7 @@ import numpy
 import opencl4py as cl
 from zope.interface import implementer
 
-from veles import Unit, IUnit
+from veles.units import Unit, IUnit
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit

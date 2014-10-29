@@ -9,8 +9,8 @@ Activation functions (:class:`ActivationForward`) and their coupled GD units
 import numpy
 from zope.interface import implementer
 
-from veles import formats, OpenCLUnit
-from veles.opencl_units import IOpenCLUnit
+from veles import formats
+from veles.opencl_units import OpenCLUnit, IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 from veles import error
 

@@ -10,7 +10,7 @@ import jpeg4py
 import numpy
 from PIL import Image
 
-from veles import Logger
+from veles.logger import Logger
 
 
 class Processor(Logger):
