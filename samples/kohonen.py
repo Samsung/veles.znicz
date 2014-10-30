@@ -8,11 +8,12 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
 
+import gzip
 import numpy
 import os
 from zope.interface import implementer
 
-from veles.config import root
+from veles.config import root, get
 import veles.error as error
 from veles.interaction import Shell
 import veles.znicz.nn_plotting_units as nn_plotting_units
@@ -21,7 +22,9 @@ import veles.znicz.kohonen as kohonen
 import veles.znicz.loader as loader
 
 
-data_path = os.path.join(os.path.dirname(__file__), "kohonen")
+data_path = os.path.abspath(get(
+    root.kohonen.loader.base,
+    os.path.join(os.path.dirname(__file__), "kohonen")))
 
 
 root.kohonen.update({
@@ -29,12 +32,12 @@ root.kohonen.update({
                 "weights_stddev": 0.05,
                 "weights_filling": "uniform"},
     "decision": {"snapshot_prefix": "kohonen",
-                 "epochs": 160},
+                 "epochs": 200},
     "loader": {"minibatch_size": 10,
-               "dataset_file": os.path.join(data_path, "kohonen.txt"),
+               "dataset_file": os.path.join(data_path, "kohonen.txt.gz"),
                "on_device": False},
-    "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.001),
-              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.001)}})
+    "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.005),
+              "radius_decay": lambda t: 1.0 / (1.0 + t * 0.005)}})
 
 
 @implementer(loader.IFullBatchLoader)

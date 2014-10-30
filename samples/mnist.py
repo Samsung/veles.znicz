@@ -13,7 +13,7 @@ import os
 import struct
 from zope.interface import implementer
 
-from veles.config import root
+from veles.config import root, get
 import veles.error as error
 import veles.formats as formats
 import veles.plotting_units as plotting_units
@@ -28,7 +28,11 @@ from veles.interaction import Shell
 from veles.external.progressbar import ProgressBar
 
 
-mnist_dir = os.path.join(os.path.dirname(__file__), "MNIST")
+mnist_dir = os.path.abspath(get(
+    root.mnist.loader.base, os.path.join(os.path.dirname(__file__), "MNIST")))
+if not os.access(mnist_dir, os.W_OK):
+    # Fall back to ~/.veles/MNIST
+    mnist_dir = os.path.join(root.common.veles_user_dir, "MNIST")
 test_image_dir = os.path.join(mnist_dir, "t10k-images.idx3-ubyte")
 test_label_dir = os.path.join(mnist_dir, "t10k-labels.idx1-ubyte")
 train_image_dir = os.path.join(mnist_dir, "train-images.idx3-ubyte")
@@ -44,11 +48,7 @@ root.mnist.update({
     "learning_rate": 0.03,
     "weights_decay": 0.0005,  # 1.6%
     "factor_ortho": 0.0,
-    "layers": [100, 10],
-    "data_paths": {"test_images": test_image_dir,
-                   "test_label": test_label_dir,
-                   "train_images": train_image_dir,
-                   "train_label": train_label_dir}})
+    "layers": [100, 10]})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -151,11 +151,8 @@ class MnistLoader(loader.FullBatchLoader):
         self.original_data.mem = numpy.zeros([70000, 28, 28],
                                              dtype=numpy.float32)
 
-        self.load_original(0, 10000, root.mnist.data_paths.test_label,
-                           root.mnist.data_paths.test_images)
-        self.load_original(10000, 60000,
-                           root.mnist.data_paths.train_label,
-                           root.mnist.data_paths.train_images)
+        self.load_original(0, 10000, test_label_dir, test_image_dir)
+        self.load_original(10000, 60000, train_label_dir, train_image_dir)
 
         self.class_lengths[0] = 0
         self.class_lengths[1] = 10000

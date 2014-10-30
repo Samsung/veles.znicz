@@ -12,7 +12,7 @@ import numpy
 import os
 from zope.interface import implementer
 
-from veles.config import root
+from veles.config import root, get
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.znicz.nn_units import NNSnapshotter
@@ -24,17 +24,19 @@ import veles.znicz.gd as gd
 import veles.znicz.loader as loader
 
 
-root.common.defaults = {"plotters_disabled": True}
+root.common.plotters_disabled = True
+data_path = os.path.abspath(get(
+    root.wine.loader.base,
+    os.path.join(os.path.dirname(__file__), "wine")))
 
 root.wine.update({
     "decision": {"fail_iterations": 200, "max_epochs": 100},
     "snapshotter": {"prefix": "wine"},
-    "loader": {"minibatch_size": 10, "on_device": True},
+    "loader": {"minibatch_size": 10, "on_device": True,
+               "dataset_file": os.path.join(data_path, "wine.txt.gz")},
     "learning_rate": 0.3,
     "weights_decay": 0.0,
-    "layers": [8, 3],
-    "data_paths": os.path.join(root.common.veles_dir,
-                               "veles/znicz/samples/wine/wine.data")})
+    "layers": [8, 3]})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -42,28 +44,9 @@ class WineLoader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
-        fin = open(root.wine.data_paths, "r")
-        lines = []
-        max_lbl = 0
-        while True:
-            s = fin.readline()
-            if not len(s):
-                break
-            lines.append(numpy.fromstring(
-                s, sep=",",
-                dtype=opencl_types.dtypes[root.common.precision_type]))
-            max_lbl = max(max_lbl, int(lines[-1][0]))
-        fin.close()
-
-        self.original_data.mem = numpy.zeros(
-            [len(lines), lines[0].shape[0] - 1], dtype=numpy.float32)
-        self.original_labels.mem = numpy.zeros(
-            self.original_data.shape[0], dtype=numpy.int32)
-
-        for i, a in enumerate(lines):
-            self.original_data[i] = a[1:]
-            self.original_labels[i] = int(a[0]) - 1
-            # formats.normalize(self.original_data[i])
+        arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',')
+        self.original_data.mem = arr[:, 1:]
+        self.original_labels.mem = arr[:, 0].ravel().astype(numpy.int32) - 1
 
         IMul, IAdd = formats.normalize_pointwise(self.original_data.mem)
         self.original_data.mem[:] *= IMul
