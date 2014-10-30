@@ -1510,73 +1510,7 @@ class Main(Processor):
             self.remove_background(path_to_patch_folder)
 
     def test_segmentation(self):
-        src = "/home/lpodoynitsina/Desktop/image7.JPEG"
-        """
-        img = cv2.imread(src)
-        do_gray = False
-        if do_gray:
-            img = cv2.imread(src, 0)
-            img = cv2.medianBlur(img, 5)
-
-            _ret, th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-            th2 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                        cv2.THRESH_BINARY, 11, 2)
-            th3 = cv2.adaptiveThreshold(
-                img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                cv2.THRESH_BINARY, 11, 2)
-
-            plt.subplot(2, 2, 1), plt.imshow(img, 'gray')
-            plt.title('input image')
-            plt.subplot(2, 2, 2), plt.imshow(th1, 'gray')
-            plt.title('Global Thresholding')
-            plt.subplot(2, 2, 3), plt.imshow(th2, 'gray')
-            plt.title('Adaptive Mean Thresholding')
-            plt.subplot(2, 2, 4), plt.imshow(th3, 'gray')
-            plt.title('Adaptive Gaussian Thresholding')
-        else:
-            _ret, _thresh1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-            _ret, _thresh2 = cv2.threshold(img, 127, 255,
-                                           cv2.THRESH_BINARY_INV)
-            _ret, _thresh3 = cv2.threshold(img, 127, 255, cv2.THRESH_TRUNC)
-            _ret, _thresh4 = cv2.threshold(img, 127, 255, cv2.THRESH_TOZERO)
-            _ret, _thresh5 = cv2.threshold(img, 127, 255,
-                                           cv2.THRESH_TOZERO_INV)
-
-            thresh = ['img', '_thresh1', '_thresh2', '_thresh3', '_thresh4',
-                      '_thresh5']
-
-            for i in range(0, 6):
-                plt.subplot(2, 3, i + 1), plt.imshow(eval(thresh[i]), 'gray')
-                plt.title(thresh[i])
-        """
-        img = cv2.imread(src, 0)
-        _ret1, _th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-
-        _ret2, _th2 = cv2.threshold(img, 0, 255,
-                                    cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        blur = cv2.GaussianBlur(img, (5, 5), 0)
-        _ret3, _th3 = cv2.threshold(blur, 0, 255,
-                                    cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        titles = ['img', 'histogram1', '_th1',
-                  'img', 'histogram2', '_th2',
-                  'blur', 'histogram3', '_th3']
-        blur_path = "/data/veles/tmp/bad_image.pickle"
-        with open(blur_path, "wb") as fout:
-            self.info("Saving labels of images to %s" %
-                      blur_path)
-            pickle.dump(blur.ravel(), fout)
-        for i in range(0, 3):
-            plt.subplot(3, 3, i * 3 + 1)
-            plt.imshow(eval(titles[i * 3]), 'gray')
-            plt.title(titles[i * 3])
-            plt.subplot(3, 3, i * 3 + 2)
-            plt.hist(eval(titles[i * 3]).ravel(), 256)
-            plt.title(titles[i * 3 + 1])
-            plt.subplot(3, 3, i * 3 + 3)
-            plt.imshow(eval(titles[i * 3 + 2]), 'gray')
-            plt.title(titles[i * 3 + 2])
-        plt.show()
+        raise NotImplementedError()
 
     def generate_negative_images(self, path):
         self.imagenet_dir_path = path

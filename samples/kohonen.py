@@ -8,7 +8,6 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
 
-import gzip
 import numpy
 import os
 from zope.interface import implementer

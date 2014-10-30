@@ -14,8 +14,8 @@ from zope.interface import implementer
 
 import veles.error as error
 import veles.formats as formats
-from veles.znicz.loader import (IFullBatchLoader, FullBatchLoader,
-                                FullBatchLoaderMSE)
+from veles.znicz.loader.fullbatch import (IFullBatchLoader, FullBatchLoader,
+                                          FullBatchLoaderMSE)
 
 
 @implementer(IFullBatchLoader)

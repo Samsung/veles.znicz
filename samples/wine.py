@@ -14,7 +14,6 @@ from zope.interface import implementer
 
 from veles.config import root, get
 import veles.formats as formats
-import veles.opencl_types as opencl_types
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all
