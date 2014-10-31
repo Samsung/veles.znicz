@@ -166,7 +166,8 @@ class TestMatrixMultiplication(unittest.TestCase):
             logging.info("~" * 80)
             logging.info(str(dtype))
             self.dtype = dtype
-            for block_size in range(8, self.device.device_info.max_block_size):
+            for block_size in range(
+                    8, self.device.device_info.max_block_size + 1):
                 self._tst_matrix_multiplication(block_size)
 
 
