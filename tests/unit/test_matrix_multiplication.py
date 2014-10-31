@@ -44,8 +44,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         numpy.dot(a, b, c)
         return c
 
-    def _prepare_tsts(self, A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE,
-                      AB_WIDTH, B_HEIGHT, A_HEIGHT, a_col, b_col):
+    def _prepare_tsts(self, AB_WIDTH, B_HEIGHT, A_HEIGHT, a_col, b_col):
         self.AB_WIDTH = AB_WIDTH
         self.B_HEIGHT = B_HEIGHT
         self.A_HEIGHT = A_HEIGHT
@@ -82,7 +81,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         del self.B_HEIGHT
         del self.AB_WIDTH
 
-    def _do_tst(self, device, A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE):
+    def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
         obj = TrivialOpenCLUnit(DummyWorkflow())
@@ -98,12 +97,11 @@ class TestMatrixMultiplication(unittest.TestCase):
             "WEIGHTS_TRANSPOSED": 0,
             "PRECISION_LEVEL": 0,
             "ACTIVATION_LINEAR": 1,
-            "A_BLOCK_SIZE": A_BLOCK_SIZE,
-            "B_BLOCK_SIZE": B_BLOCK_SIZE,
-            "COMMON_BLOCK_SIZE": COMMON_BLOCK_SIZE,
+            "BLOCK_SIZE": BLOCK_SIZE,
             "H": self.AB_WIDTH,
             "Y": self.B_HEIGHT,
-            "BATCH": self.A_HEIGHT}
+            "BATCH": self.A_HEIGHT,
+            "VECTOR_OPT": self.device.device_info.vector_opt}
         if self.a_col:
             defines["A_COL"] = 1
         if self.b_col:
@@ -117,42 +115,21 @@ class TestMatrixMultiplication(unittest.TestCase):
         krn.set_arg(1, self.b.devmem)
         krn.set_arg(2, self.c.devmem)
 
-        global_size = [formats.roundup(self.B_HEIGHT, B_BLOCK_SIZE),
-                       formats.roundup(self.A_HEIGHT, A_BLOCK_SIZE)]
-        local_size = [B_BLOCK_SIZE, A_BLOCK_SIZE]
+        global_size = [formats.roundup(self.B_HEIGHT, BLOCK_SIZE),
+                       formats.roundup(self.A_HEIGHT, BLOCK_SIZE)]
+        local_size = [BLOCK_SIZE, BLOCK_SIZE]
 
         t0 = time.time()
         self.device.queue_.execute_kernel(krn, global_size, local_size,
                                           need_event=False)
         self.c.map_read()
         dt = time.time() - t0
-        logging.info("%.3f sec", dt)
+        logging.info("%.6f sec", dt)
 
-    def _tst_matrix_multiplication(self, a_block_size, b_block_size,
-                                   common_block_size):
-        # Cap block sizes to the device workgroup limits
-        n = self.device.queue_.device.max_work_group_size
-        while a_block_size * b_block_size > n:
-            if a_block_size > b_block_size:
-                a_block_size -= 1
-            else:
-                b_block_size -= 1
-        # Cap block sizes to the device local memory limits
-        itemsize = numpy.zeros(1, dtype=self.dtype).itemsize
-        n = self.device.queue_.device.local_memsize - 1024  # reserve 1k
-        while (a_block_size + b_block_size) * common_block_size * itemsize > n:
-            if a_block_size > b_block_size:
-                if a_block_size > common_block_size:
-                    a_block_size -= 1
-                else:
-                    common_block_size -= 1
-            else:
-                if b_block_size > common_block_size:
-                    b_block_size -= 1
-                else:
-                    common_block_size -= 1
+    def _tst_matrix_multiplication(self, block_size):
         # Iterate over the different matrix configurations
-        logging.info("%d %d %d", a_block_size, b_block_size, common_block_size)
+        logging.info("#" * 80)
+        logging.info("BLOCK_SIZE = %d", block_size)
         for (a_col, b_col) in ((False, False),
                                (False, True),
                                (True, False),
@@ -169,16 +146,12 @@ class TestMatrixMultiplication(unittest.TestCase):
                 logging.info("[%d, %d] * [%d, %d] = [%d, %d] %s %s",
                              AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
                              A_HEIGHT, B_HEIGHT, str(a_col), str(b_col))
-                self._prepare_tsts(A_BLOCK_SIZE=a_block_size,
-                                   B_BLOCK_SIZE=b_block_size,
-                                   COMMON_BLOCK_SIZE=common_block_size,
-                                   AB_WIDTH=AB_WIDTH,
+                self._prepare_tsts(AB_WIDTH=AB_WIDTH,
                                    B_HEIGHT=B_HEIGHT,
                                    A_HEIGHT=A_HEIGHT,
                                    a_col=a_col, b_col=b_col)
                 c = self._do_cpu_tst()
-                self._do_tst(self.device, a_block_size, b_block_size,
-                             common_block_size)
+                self._do_tst(self.device, block_size)
                 max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
                 self.assertLess(max_diff, 0.001,
                                 "Result differs by %.6f" % (max_diff))
@@ -193,17 +166,8 @@ class TestMatrixMultiplication(unittest.TestCase):
             logging.info("~" * 80)
             logging.info(str(dtype))
             self.dtype = dtype
-            for a_block_size, b_block_size in (
-                    (16, 64),  # aligned
-                    (64, 16),  # aligned reverse
-                    (15, 60),  # unaligned
-                    (60, 15),  # unaligned reverse
-                    (32, 32),  # square aligned
-                    (17, 17),  # square unaligned
-                    ):
-                for common_block_size in (64, 30, 27, 16, 15, 8):
-                    self._tst_matrix_multiplication(
-                        a_block_size, b_block_size, common_block_size)
+            for block_size in range(8, self.device.device_info.max_block_size):
+                self._tst_matrix_multiplication(block_size)
 
 
 if __name__ == "__main__":

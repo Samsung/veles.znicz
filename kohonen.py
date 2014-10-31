@@ -136,17 +136,11 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self.argmin_group_size = \
             int(numpy.ceil(self.neurons_number / chunk_size))
 
-        a_block_size, b_block_size, common_block_size = (
-            device.device_info.get_block_sizes(
-                kernel="matrix_multiplication",
-                a_width=batch_size, b_width=self.neurons_number,
-                ab_common=self.sample_length,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = device.device_info.get_block_size(
+            kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
-            'A_BLOCK_SIZE': a_block_size,
-            'B_BLOCK_SIZE': b_block_size,
-            'COMMON_BLOCK_SIZE': common_block_size,
+            'BLOCK_SIZE': block_size,
             'BATCH': batch_size,
             'SAMPLE_LENGTH': self.sample_length,
             'NEURONS_NUMBER': self.neurons_number,
@@ -178,9 +172,9 @@ class KohonenForward(KohonenBase, OpenCLUnit):
                                    None)
 
         self._gs_distance = [
-            formats.roundup(self.neurons_number, b_block_size),
-            formats.roundup(batch_size, a_block_size)]
-        self._ls_distance = [b_block_size, a_block_size]
+            formats.roundup(self.neurons_number, block_size),
+            formats.roundup(batch_size, block_size)]
+        self._ls_distance = [block_size, block_size]
 
     def ocl_run(self):
         self.output.unmap()
@@ -401,17 +395,11 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self.argmin_group_size = int(numpy.ceil(float(self._neurons_number) /
                                                 chunk_size))
 
-        a_block_size, b_block_size, common_block_size = (
-            device.device_info.get_block_sizes(
-                kernel="matrix_multiplication",
-                a_width=batch_size, b_width=self._neurons_number,
-                ab_common=self._sample_length,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = device.device_info.get_block_size(
+            kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
-            'A_BLOCK_SIZE': a_block_size,
-            'B_BLOCK_SIZE': b_block_size,
-            'COMMON_BLOCK_SIZE': common_block_size,
+            'BLOCK_SIZE': block_size,
             'BATCH': batch_size,
             'SAMPLE_LENGTH': self._sample_length,
             'NEURONS_NUMBER': self._neurons_number,
@@ -448,9 +436,9 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self._krn_apply_gradient_.set_arg(3, self.weights.devmem)
 
         self._gs_distance = [
-            formats.roundup(self._neurons_number, b_block_size),
-            formats.roundup(batch_size, a_block_size)]
-        self._ls_distance = [b_block_size, a_block_size]
+            formats.roundup(self._neurons_number, block_size),
+            formats.roundup(batch_size, block_size)]
+        self._ls_distance = [block_size, block_size]
 
     def iteration(fn):
         def wrapped(self, *args, **kwargs):

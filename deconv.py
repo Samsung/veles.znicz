@@ -186,15 +186,8 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         kernel_applies_count = self.input.size // self.n_kernels
         a_width = kernel_applies_count
         b_width = weights_shape[1]
-        ab_common = weights_shape[0]
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="deconv",
-                a_width=a_width, b_width=b_width, ab_common=ab_common,
-                sx=sx, sy=sy, n_channels=n_channels,
-                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
-                padding=self.padding, sliding=self.sliding,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = self.device.device_info.get_block_size(
+            kernel="deconv", dtype=self.input.dtype)
 
         defines = {
             "USE_ATOMICS": 1,
@@ -213,9 +206,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             "SLIDE_X": self.sliding[0],
             "SLIDE_Y": self.sliding[1],
             "USE_HITS": int(bool(self.hits)),
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size
+            "BLOCK_SIZE": block_size
         }
 
         self.build_program(
@@ -231,9 +222,9 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         self.krn_clear_output_.set_arg(0, self.output.devmem)
 
         self._global_size = [
-            roundup(b_width, b_block_size),
-            roundup(a_width, a_block_size)]
-        self._local_size = [b_block_size, a_block_size]
+            roundup(b_width, block_size),
+            roundup(a_width, block_size)]
+        self._local_size = [block_size, block_size]
 
         if self.hits:
             self.krn_apply_hits_ = self.get_kernel("apply_hits")

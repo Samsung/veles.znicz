@@ -152,16 +152,11 @@ class All2All(nn_units.NNLayerBase):
         b_width = output_size
         ab_common = self.weights.mem.size // output_size
 
-        a_block_size, b_block_size, common_block_size = (
-            device.device_info.get_block_sizes(
-                kernel="matrix_multiplication",
-                a_width=a_width, b_width=b_width, ab_common=ab_common,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = device.device_info.get_block_size(
+            kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size,
+            "BLOCK_SIZE": block_size,
             self.s_activation: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
@@ -180,9 +175,9 @@ class All2All(nn_units.NNLayerBase):
         else:
             self.set_args(self.input, self.weights, self.output)
 
-        self._global_size = [roundup(b_width, b_block_size),
-                             roundup(a_width, a_block_size)]
-        self._local_size = [b_block_size, a_block_size]
+        self._global_size = [roundup(b_width, block_size),
+                             roundup(a_width, block_size)]
+        self._local_size = [block_size, block_size]
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -283,9 +278,10 @@ class All2AllSoftmax(All2All):
 
         self.max_idx.initialize(self)
 
-        if self.device is None:
-            return
+        if self.device is not None:
+            All2AllSoftmax.ocl_init(self, device)
 
+    def ocl_init(self, device):
         self.krn_sm_ = self.get_kernel("apply_exp")
         self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
 

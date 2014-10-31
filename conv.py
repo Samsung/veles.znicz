@@ -156,15 +156,8 @@ class Conv(nn_units.NNLayerBase):
     def ocl_init(self, device):
         a_width = self.output.mem.size // self.n_kernels
         b_width = self.n_kernels
-        ab_common = self.kx * self.ky * self._n_channels
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="conv",
-                a_width=a_width, b_width=b_width, ab_common=ab_common,
-                sx=self._sx, sy=self._sy, n_channels=self._n_channels,
-                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
-                padding=self.padding, sliding=self.sliding,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = self.device.device_info.get_block_size(
+            kernel="conv", dtype=self.input.dtype)
 
         defines = {
             self.s_activation: 1,
@@ -183,9 +176,7 @@ class Conv(nn_units.NNLayerBase):
             "PAD_BOTTOM": self.padding[3],
             "SLIDE_X": self.sliding[0],
             "SLIDE_Y": self.sliding[1],
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size
+            "BLOCK_SIZE": block_size
         }
 
         self.build_program(
@@ -201,9 +192,9 @@ class Conv(nn_units.NNLayerBase):
             self.set_args(self.input, self.weights, self.output)
 
         self._global_size = [
-            roundup(b_width, b_block_size),
-            roundup(a_width, a_block_size)]
-        self._local_size = [b_block_size, a_block_size]
+            roundup(b_width, block_size),
+            roundup(a_width, block_size)]
+        self._local_size = [block_size, block_size]
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

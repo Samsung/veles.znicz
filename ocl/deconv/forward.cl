@@ -9,7 +9,9 @@
 #error "Incorrect SLIDE"
 #endif
 
+
 #include "conv_common.cl"
+
 
 /// @brief Does deconvolution.
 /// @param input output of the corresponding convolutional layer.
@@ -17,7 +19,7 @@
 /// @param output deconvolution of input.
 /// @param hits number of the summations to this point of output.
 /// @details output = input * weights.
-__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void feed_layer(__global const dtype      /* IN */    *input,
                 __global const dtype      /* IN */    *weights,
                 __global dtype           /* OUT */    *output
@@ -37,6 +39,7 @@ void feed_layer(__global const dtype      /* IN */    *input,
   #define B_COL
   #endif
 
+  #define STORE_OUTPUT "deconv/forward.store_output.cl"
   #include "matrix_multiplication.cl"
 
   #if WEIGHTS_TRANSPOSED <= 0
@@ -49,20 +52,8 @@ void feed_layer(__global const dtype      /* IN */    *input,
 
   #undef A
   #undef B
-
-  #define in_offs idx
-  if ((valid) && (IN_REAL_OFFS_VALID)) {
-#if USE_HITS > 0
-    int i = IN_REAL_OFFS;
-    ATOM_ADD(&output[i], sum);
-    atomic_inc(&hits[i]);
-#else
-    sum /= (KX / SLIDE_X) * (KY / SLIDE_Y);
-    ATOM_ADD(&output[IN_REAL_OFFS], sum);
-#endif
-  }
-  #undef in_offs
 }
+
 
 #if USE_HITS > 0
 __kernel
@@ -75,5 +66,6 @@ void apply_hits(__global dtype    /* IN, OUT */    *output,
 
 KERNEL_CLEAR(clear_hits, int)
 #endif
+
 
 KERNEL_CLEAR(clear_output, dtype)

@@ -19,11 +19,11 @@
 ///                     lr * (err_output * h +
 ///                     factor_l12 * ((1 - l1_vs_l2) * weights + 0.5 * l1_vs_l2 * sign(weights)).
 ///          Should be defined externally:
-///          A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE - for matrix multiplication,
+///          BLOCK_SIZE - for matrix multiplication,
 ///          BATCH - minibatch size,
 ///          H - input size,
 ///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void weights_update(__global const dtype    /* IN */    *err_output,
                     __global const dtype    /* IN */    *input,
                     __global dtype     /* IN, OUT */    *weights,
@@ -54,6 +54,7 @@ void weights_update(__global const dtype    /* IN */    *err_output,
   #define A_COL
   #define B_COL
 
+  #define STORE_OUTPUT "all2all/gradient_descent/weights_update.store_output.cl"
   #include "matrix_multiplication.cl"
 
   #undef A_COL
@@ -65,24 +66,4 @@ void weights_update(__global const dtype    /* IN */    *err_output,
 
   #undef A
   #undef B
-
-  if (valid) {
-    dtype weight = weights[idx];
-    dtype gd = -lr * (sum + gradient_step_l12(weight, factor_l12, l1_vs_l2)
-#if USE_ORTHO > 0
-    #if WEIGHTS_TRANSPOSED > 0
-               + gradient_step_ortho(weight, factor_ortho, get_global_id(1), Y, col_sums)
-    #else
-               + gradient_step_ortho(weight, factor_ortho, get_global_id(0), Y, col_sums)
-    #endif
-#endif
-               );
-    #if STORE_GRADIENT > 0
-    gd += gradient[idx] * gradient_moment;
-    gradient[idx] = gd;
-    #endif
-    #if APPLY_GRADIENT > 0
-    weights[idx] = weight + gd;
-    #endif
-  }
 }

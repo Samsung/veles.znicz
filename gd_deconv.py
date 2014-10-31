@@ -204,46 +204,28 @@ class GDDeconv(nn_units.GradientDescentBase):
 
         a_width = kernel_applies_count
         b_width = self.n_kernels
-        ab_common = kernel_size
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="conv",
-                a_width=a_width, b_width=b_width, ab_common=ab_common,
-                sx=sx, sy=sy, n_channels=n_channels,
-                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
-                padding=self.padding, sliding=self.sliding,
-                a_col=False, b_col=self.weights_transposed))
+        block_size = self.device.device_info.get_block_size(
+            kernel="conv", dtype=self.err_output.dtype)
         self.cl_sources_["conv/forward.cl"] = {
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size
+            "BLOCK_SIZE": block_size,
         }
         self._global_size_err_input = [
-            roundup(b_width, b_block_size),
-            roundup(a_width, a_block_size)]
-        self._local_size_err_input = [b_block_size, a_block_size]
+            roundup(b_width, block_size),
+            roundup(a_width, block_size)]
+        self._local_size_err_input = [block_size, block_size]
 
         a_width = kernel_size if self.weights_transposed else self.n_kernels
         b_width = self.n_kernels if self.weights_transposed else kernel_size
-        ab_common = kernel_applies_count
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="conv",
-                a_width=a_width, b_width=b_width, ab_common=ab_common,
-                sx=sx, sy=sy, n_channels=n_channels,
-                kx=self.kx, ky=self.ky, n_kernels=self.n_kernels,
-                padding=self.padding, sliding=self.sliding,
-                a_col=True, b_col=True))
+        block_size = self.device.device_info.get_block_size(
+            kernel="conv", dtype=self.err_output.dtype)
         self.cl_sources_["deconv/gradient_descent/weights_update.cl"] = {
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size,
+            "BLOCK_SIZE": block_size,
             "USE_ORTHO": int(bool(self.factor_ortho))
         }
         self._global_size_weights = [
-            roundup(b_width, b_block_size),
-            roundup(a_width, a_block_size)]
-        self._local_size_weights = [b_block_size, a_block_size]
+            roundup(b_width, block_size),
+            roundup(a_width, block_size)]
+        self._local_size_weights = [block_size, block_size]
 
         self.build_program(
             defines, "%s/gd_deconv_%d_%d.cl" % (

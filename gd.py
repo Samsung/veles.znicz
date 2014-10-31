@@ -115,6 +115,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.reduce_size = roundup(min(self.reduce_size, other), 32)
 
         batch = self.input.mem.shape[0]
+        block_size = self.device.device_info.get_block_size(
+            kernel="matrix_multiplication", dtype=self.err_output.dtype)
         defines = {
             "H": other,
             "Y": side,
@@ -122,40 +124,22 @@ class GradientDescent(nn_units.GradientDescentBase):
             "APPLY_GRADIENT": int(self.apply_gradient),
             "STORE_GRADIENT": int(self.store_gradient),
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
-            "REDUCE_SIZE": self.reduce_size
-        }
-
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="matrix_multiplication",
-                a_width=batch, b_width=other, ab_common=side,
-                a_col=False, b_col=(not self.weights_transposed)))
-        self.cl_sources_["all2all/gradient_descent/err_input_update.cl"] = {
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size
-        }
-        self._global_size_err_input = [
-            roundup(other, b_block_size), roundup(batch, a_block_size)]
-        self._local_size_err_input = [b_block_size, a_block_size]
-
-        a_block_size, b_block_size, common_block_size = (
-            self.device.device_info.get_block_sizes(
-                kernel="matrix_multiplication",
-                a_width=side, b_width=other, ab_common=batch,
-                a_col=True, b_col=True))
-        self.cl_sources_["all2all/gradient_descent/weights_update.cl"] = {
-            "A_BLOCK_SIZE": a_block_size,
-            "B_BLOCK_SIZE": b_block_size,
-            "COMMON_BLOCK_SIZE": common_block_size,
+            "REDUCE_SIZE": self.reduce_size,
+            "BLOCK_SIZE": block_size,
             "USE_ORTHO": int(bool(self.factor_ortho))
         }
-        self._global_size_weights = [
-            roundup(other, b_block_size), roundup(side, a_block_size)]
-        self._local_size_weights = [b_block_size, a_block_size]
 
-        self.cl_sources_["all2all/gradient_descent/bias_update.cl"] = {
-        }
+        self.cl_sources_["all2all/gradient_descent/err_input_update.cl"] = {}
+        self._global_size_err_input = [
+            roundup(other, block_size), roundup(batch, block_size)]
+        self._local_size_err_input = [block_size, block_size]
+
+        self.cl_sources_["all2all/gradient_descent/weights_update.cl"] = {}
+        self._global_size_weights = [
+            roundup(other, block_size), roundup(side, block_size)]
+        self._local_size_weights = [block_size, block_size]
+
+        self.cl_sources_["all2all/gradient_descent/bias_update.cl"] = {}
         self._global_size_bias = [side * self.reduce_size]
         self._local_size_bias = [self.reduce_size]
 

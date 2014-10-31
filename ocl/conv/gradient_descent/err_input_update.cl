@@ -14,7 +14,7 @@
 /// @param weights weights.
 /// @param err_h resulted backpropagated error for previous layer.
 /// @details err_h = err_y * weights.
-__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_input_update(__global const dtype    /* IN */    *err_output,
                       __global const dtype    /* IN */    *weights,
                       __global dtype         /* OUT */    *err_input) {
@@ -30,24 +30,19 @@ void err_input_update(__global const dtype    /* IN */    *err_output,
   #define B_COL
   #endif
 
+  #define STORE_OUTPUT "conv/gradient_descent/err_input_update.store_output.cl"
   #include "matrix_multiplication.cl"
-
+  
   #if WEIGHTS_TRANSPOSED <= 0
   #undef B_COL
   #endif
-
+  
   #undef A_WIDTH
   #undef B_WIDTH
   #undef AB_COMMON
 
   #undef A
   #undef B
-
-  #define in_offs idx
-  if ((valid) && (IN_REAL_OFFS_VALID)) {
-    ATOM_ADD(&err_input[IN_REAL_OFFS], sum);
-  }
-  #undef in_offs
 }
 #endif
 

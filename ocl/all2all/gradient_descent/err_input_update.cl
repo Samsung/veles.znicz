@@ -4,11 +4,11 @@
 /// @brief Computes backprogated error for previous layer:
 ///        err_input = err_output * weights.
 /// @details Should be defined externally:
-///          A_BLOCK_SIZE, B_BLOCK_SIZE, COMMON_BLOCK_SIZE - for matrix multiplication,
+///          BLOCK_SIZE - for matrix multiplication,
 ///          BATCH - minibatch size,
 ///          H - input size,
 ///          Y - output size.
-__kernel __attribute__((reqd_work_group_size(B_BLOCK_SIZE, A_BLOCK_SIZE, 1)))
+__kernel __attribute__((reqd_work_group_size(BLOCK_SIZE, BLOCK_SIZE, 1)))
 void err_input_update(__global const dtype    /* IN */    *err_output,
                       __global const dtype    /* IN */    *weights,
                       __global dtype         /* OUT */    *err_input) {
@@ -23,6 +23,7 @@ void err_input_update(__global const dtype    /* IN */    *err_output,
   #define B_COL
   #endif
 
+  #define STORE_OUTPUT "all2all/gradient_descent/err_input_update.store_output.cl"
   #include "matrix_multiplication.cl"
 
   #if WEIGHTS_TRANSPOSED <= 0
@@ -35,8 +36,4 @@ void err_input_update(__global const dtype    /* IN */    *err_output,
 
   #undef A
   #undef B
-
-  if (valid) {
-    err_input[idx] = sum;
-  }
 }
