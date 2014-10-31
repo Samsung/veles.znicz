@@ -41,7 +41,8 @@ class TestKohonen(unittest.TestCase):
             "decision": {"snapshot_prefix": "kohonen",
                          "epochs": 160},
             "loader": {"minibatch_size": 10,
-                       "dataset_file": os.path.join(data_path, "kohonen.txt")},
+                       "dataset_file":
+                       os.path.join(data_path, "kohonen.txt.gz")},
             "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.01),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 

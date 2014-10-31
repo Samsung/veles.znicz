@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
+import os
 import unittest
 
 from veles.config import root
@@ -16,6 +17,9 @@ import veles.prng as rnd
 from veles.tests import timeout
 import veles.znicz.tests.research.spam_kohonen as spam_kohonen
 import veles.tests.dummy_workflow as dummy_workflow
+
+spam_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                        "research/spam")
 
 
 class TestSpamKohonen(unittest.TestCase):
@@ -36,8 +40,7 @@ class TestSpamKohonen(unittest.TestCase):
             "loader": {"minibatch_size": 80,
                        "ids": True,
                        "classes": False,
-                       "file":
-                       "/data/veles/VDLogs/histogramConverter/data/hist"},
+                       "file": os.path.join(spam_dir, "data.txt.xz")},
             "train": {"gradient_decay": lambda t: 0.002 / (1.0 + t * 0.00002),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00002)},
             "exporter": {"file": "classified_fast4.txt"}})
