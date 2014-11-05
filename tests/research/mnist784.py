@@ -15,11 +15,9 @@ import logging
 import numpy
 import six
 import os
-import struct
 from zope.interface import implementer
 
 from veles.config import root
-import veles.error as error
 import veles.formats as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
@@ -33,7 +31,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from veles.external.progressbar import ProgressBar
+import veles.znicz.samples.mnist as mnist
 
 
 mnist_dir = os.path.join(
@@ -122,90 +120,13 @@ def do_plot(fontPath, text, size, angle, sx, sy,
 
 
 @implementer(loader.IFullBatchLoader)
-class Mnist784Loader(loader.FullBatchLoaderMSE):
+class Mnist784Loader(mnist.MnistLoader, loader.FullBatchLoaderMSE):
     """Loads MNIST dataset.
     """
-    def load_original(self, offs, labels_count, labels_fnme, images_fnme):
-        """Loads data from original MNIST files.
-        """
-        self.info("Loading from original MNIST files...")
-
-        # Reading labels:
-        with open(labels_fnme, "rb") as fin:
-            header, = struct.unpack(">i", fin.read(4))
-            if header != 2049:
-                raise error.BadFormatError("Wrong header in train-labels")
-
-            n_labels, = struct.unpack(">i", fin.read(4))
-            if n_labels != labels_count:
-                raise error.BadFormatError("Wrong number of labels in "
-                                           "train-labels")
-
-            arr = numpy.zeros(n_labels, dtype=numpy.byte)
-            n = fin.readinto(arr)
-            if n != n_labels:
-                raise error.BadFormatError("EOF reached while reading labels "
-                                           "from train-labels")
-            self.original_labels.mem[offs:offs + labels_count] = arr[:]
-            if (self.original_labels.mem.min() != 0 or
-                    self.original_labels.mem.max() != 9):
-                raise error.BadFormatError(
-                    "Wrong labels range in train-labels.")
-
-        # Reading images:
-        with open(images_fnme, "rb") as fin:
-            header, = struct.unpack(">i", fin.read(4))
-            if header != 2051:
-                raise error.BadFormatError("Wrong header in train-images")
-
-            n_images, = struct.unpack(">i", fin.read(4))
-            if n_images != n_labels:
-                raise error.BadFormatError("Wrong number of images in "
-                                           "train-images")
-
-            n_rows, n_cols = struct.unpack(">2i", fin.read(8))
-            if n_rows != 28 or n_cols != 28:
-                raise error.BadFormatError("Wrong images size in train-images,"
-                                           " should be 28*28")
-
-            # 0 - white, 255 - black
-            pixels = numpy.zeros(n_images * n_rows * n_cols, dtype=numpy.ubyte)
-            n = fin.readinto(pixels)
-            if n != n_images * n_rows * n_cols:
-                raise error.BadFormatError("EOF reached while reading images "
-                                           "from train-images")
-
-        # Transforming images into float arrays and normalizing to [-1, 1]:
-        images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.info("Original range: [%.1f, %.1f];"
-                  " performing normalization..." % (images.min(),
-                                                    images.max()))
-        progress = ProgressBar(maxval=len(images), term_width=17)
-        progress.start()
-        for image in images:
-            progress.inc()
-            formats.normalize(image)
-        progress.finish()
-        self.original_data.mem[offs:offs + n_images] = images[:]
-        self.info("Range after normalization: [%.1f, %.1f]" %
-                  (images.min(), images.max()))
-
     def load_data(self):
         """Here we will load MNIST data.
         """
-        self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
-        self.original_data.mem = numpy.zeros([70000, 28, 28],
-                                             dtype=numpy.float32)
-
-        self.load_original(0, 10000, root.mnist784.data_paths.test_label,
-                           root.mnist784.data_paths.test_images)
-        self.load_original(10000, 60000,
-                           root.mnist784.data_paths.train_label,
-                           root.mnist784.data_paths.train_images)
-
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 10000
-        self.class_lengths[2] = 60000
+        super(Mnist784Loader, self).load_data()
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
