@@ -7,8 +7,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import gc
 import logging
 import numpy
+import opencl4py
 import os
 import time
 import unittest
@@ -19,6 +21,7 @@ import veles.opencl as opencl
 import veles.prng as prng
 from veles.tests.dummy_workflow import DummyWorkflow
 from veles.znicz.tests.unit import TrivialOpenCLUnit
+from veles import opencl_types
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -80,6 +83,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         del self.A_HEIGHT
         del self.B_HEIGHT
         del self.AB_WIDTH
+        gc.collect()
 
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
@@ -151,15 +155,17 @@ class TestMatrixMultiplication(unittest.TestCase):
                                    A_HEIGHT=A_HEIGHT,
                                    a_col=a_col, b_col=b_col)
                 c = self._do_cpu_tst()
-                self._do_tst(self.device, block_size)
-                max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
-                self.assertLess(max_diff, 0.001,
-                                "Result differs by %.6f" % (max_diff))
-                num_nz = numpy.count_nonzero(self.c[1].ravel() - 1)
-                self.assertEqual(
-                    num_nz, 0,
-                    "Written some values outside of the target array bounds")
-                self._cleanup_after_tsts()
+                try:
+                    self._do_tst(self.device, block_size)
+                    max_diff = numpy.fabs(c.ravel() - self.c[0].ravel()).max()
+                    self.assertLess(max_diff, 0.001,
+                                    "Result differs by %.6f" % (max_diff))
+                    num_nz = numpy.count_nonzero(self.c[1].ravel() - 1)
+                    self.assertEqual(
+                        num_nz, 0, "Written some values outside of the "
+                        "target array bounds")
+                finally:
+                    self._cleanup_after_tsts()
 
     def test(self):
         for dtype in (numpy.float32, numpy.float64):
@@ -167,8 +173,15 @@ class TestMatrixMultiplication(unittest.TestCase):
             logging.info(str(dtype))
             self.dtype = dtype
             for block_size in range(
-                    8, self.device.device_info.max_block_size + 1):
-                self._tst_matrix_multiplication(block_size)
+                    8, self.device.device_info.get_max_block_size(
+                        opencl_types.numpy_dtype_to_opencl(dtype)) + 1,
+                    4 if self.device.device_info.vector_opt else 1):
+                try:
+                    self._tst_matrix_multiplication(block_size)
+                except opencl4py.CLRuntimeError as e:
+                    logging.warning("OpenCL error: %s", str(e))
+                    if e.code == -5:
+                        break
 
 
 if __name__ == "__main__":
