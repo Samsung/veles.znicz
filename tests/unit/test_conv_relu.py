@@ -16,7 +16,7 @@ import veles.formats as formats
 import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 class TestConvRelu(unittest.TestCase):

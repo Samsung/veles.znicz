@@ -13,7 +13,7 @@ import numpy as np
 from veles.formats import Vector
 from veles.opencl import Device
 from veles.znicz.dropout import DropoutForward, DropoutBackward
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 class TestType(object):

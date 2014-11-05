@@ -15,7 +15,7 @@ from veles import opencl
 
 from veles.formats import Vector
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 class TestNormalization(unittest.TestCase):

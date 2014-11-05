@@ -16,7 +16,7 @@ import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.mnist as mnist_caffe
-import veles.tests.dummy_workflow as dummy_workflow
+import veles.dummy as dummy_workflow
 
 
 class TestMnistCaffe(unittest.TestCase):

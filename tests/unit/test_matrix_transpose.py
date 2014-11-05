@@ -14,8 +14,8 @@ from veles.config import root
 from veles.formats import roundup, Vector
 from veles.opencl import Device
 import veles.prng as prng
-from veles.tests.dummy_workflow import DummyWorkflow
-from veles.znicz.tests.unit import TrivialOpenCLUnit
+from veles.dummy import DummyWorkflow
+from veles.opencl_units import TrivialOpenCLUnit
 
 
 class TestMatrixTranspose(unittest.TestCase):

@@ -16,7 +16,7 @@ from veles.config import root
 import veles.opencl as opencl
 import veles.prng as rnd
 from veles.znicz.loader import IFullBatchLoader, FullBatchLoaderMSE
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 @implementer(IFullBatchLoader)

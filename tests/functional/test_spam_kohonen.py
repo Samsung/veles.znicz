@@ -15,7 +15,7 @@ import veles.opencl as opencl
 import veles.prng as rnd
 from veles.tests import timeout
 import veles.znicz.tests.research.spam_kohonen as spam_kohonen
-import veles.tests.dummy_workflow as dummy_workflow
+import veles.dummy as dummy_workflow
 
 
 class TestSpamKohonen(unittest.TestCase):

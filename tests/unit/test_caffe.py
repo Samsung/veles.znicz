@@ -22,7 +22,7 @@ import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 from veles.znicz.tests.unit import standard_test
 

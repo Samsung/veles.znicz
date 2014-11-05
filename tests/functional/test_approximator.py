@@ -16,7 +16,7 @@ import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.approximator as approximator
-import veles.tests.dummy_workflow as dummy_workflow
+import veles.dummy as dummy_workflow
 
 
 class TestApproximator(unittest.TestCase):

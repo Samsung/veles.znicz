@@ -19,7 +19,7 @@ import veles.prng as prng
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 

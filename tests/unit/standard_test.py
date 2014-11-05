@@ -13,7 +13,7 @@ import os
 import unittest
 
 from veles import opencl
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 class StandardTest(unittest.TestCase):

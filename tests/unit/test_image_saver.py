@@ -19,7 +19,7 @@ from veles.config import root
 import veles.formats as formats
 import veles.prng as prng
 import veles.znicz.image_saver as image_saver
-import veles.tests.dummy_workflow as dummy_workflow
+import veles.dummy as dummy_workflow
 
 
 class TestImageSaver(unittest.TestCase):

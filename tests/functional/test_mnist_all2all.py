@@ -17,7 +17,7 @@ import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.mnist as mnist_all2all
-import veles.tests.dummy_workflow as dummy_workflow
+import veles.dummy as dummy_workflow
 
 
 class TestMnistAll2All(unittest.TestCase):

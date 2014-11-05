@@ -16,7 +16,7 @@ import veles.opencl as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 import veles.znicz.all2all as all2all
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 
 
 class TestAll2All(unittest.TestCase):

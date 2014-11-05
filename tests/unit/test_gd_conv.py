@@ -16,7 +16,7 @@ import veles.formats as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.conv as conv
-from veles.tests.dummy_workflow import DummyWorkflow
+from veles.dummy import DummyWorkflow
 import veles.prng as prng
 import veles.opencl as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
