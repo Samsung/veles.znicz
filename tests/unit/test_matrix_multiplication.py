@@ -112,7 +112,7 @@ class TestMatrixMultiplication(unittest.TestCase):
             defines["B_COL"] = 1
         obj.build_program(
             defines, os.path.join(root.common.cache_dir, "test.cl"),
-            dtype=self.dtype, show_ocl_logs=False)
+            dtype=self.dtype)
 
         krn = obj.get_kernel("feed_layer")
         krn.set_arg(0, self.a.devmem)

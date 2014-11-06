@@ -58,7 +58,7 @@ class TestMatrixReduce(unittest.TestCase):
         tmp = TrivialOpenCLUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
         tmp.cl_sources_[fnme] = {}
-        tmp.build_program(defines, fnme, show_ocl_logs=False)
+        tmp.build_program(defines, fnme)
 
         krn = tmp.get_kernel("test")
         krn.set_arg(0, a.devmem)

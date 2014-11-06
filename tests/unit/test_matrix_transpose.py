@@ -42,8 +42,7 @@ class TestMatrixTranspose(unittest.TestCase):
             "BLOCK_SIZE": bs
         }
         obj.build_program(
-            {}, os.path.join(root.common.cache_dir, "test.cl"),
-            dtype=dtype, show_ocl_logs=True)
+            {}, os.path.join(root.common.cache_dir, "test.cl"), dtype=dtype)
 
         krn = obj.get_kernel("transpose")
         krn.set_arg(0, a.devmem)
