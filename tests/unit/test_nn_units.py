@@ -14,8 +14,9 @@ import time
 import unittest
 from zope.interface import implementer
 
-from veles.tests import DummyWorkflow
+from veles.dummy import DummyWorkflow
 from veles.znicz.nn_units import Forward, ForwardExporter
+from veles.znicz.gd import GradientDescent
 from veles.opencl_units import IOpenCLUnit
 from veles import formats
 
@@ -30,6 +31,19 @@ class TrivialForward(Forward):
 
 
 class Test(unittest.TestCase):
+    def test_ocl_set_const_args(self):
+        u = GradientDescent(DummyWorkflow())
+        self.assertTrue(u.ocl_set_const_args)
+        for attr in ("learning_rate", "weights_decay",
+                     "l1_vs_l2", "gradient_moment",
+                     "learning_rate_bias", "weights_decay_bias",
+                     "l1_vs_l2_bias", "gradient_moment_bias"):
+            vle = numpy.random.rand()
+            u.ocl_set_const_args = False
+            setattr(u, attr, vle)
+            self.assertTrue(u.ocl_set_const_args)
+            self.assertEqual(getattr(u, attr), vle)
+
     def testForwardExporter(self):
         workflow = DummyWorkflow()
         fe = ForwardExporter(workflow, prefix="testp", time_interval=0)

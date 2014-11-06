@@ -158,6 +158,8 @@ class GradientDescentBase(OpenCLUnit):
         gradients_changed: when True, slave will send gradients to master
             (assigned to True just before the run call, so it can be set to
             False inside ocl_run, cpu_run if necessary)
+        ocl_set_const_args: True when constant arguments for the kernel
+                            had been changed and need to be set again.
     """
     hide = True
 
@@ -171,6 +173,7 @@ class GradientDescentBase(OpenCLUnit):
         self.weights = None
         self.bias = None
         self.batch_size = None
+        self.ocl_set_const_args = True
         self.learning_rate = kwargs.get("learning_rate", 0.01)
         self.learning_rate_bias = kwargs.get("learning_rate_bias",
                                              self.learning_rate)
@@ -216,6 +219,78 @@ class GradientDescentBase(OpenCLUnit):
         self.gradient_moment = kwargs.get("gradient_moment_bias",
                                           self.gradient_moment_bias)
 
+    @property
+    def learning_rate(self):
+        return self._learning_rate
+
+    @learning_rate.setter
+    def learning_rate(self, value):
+        self._learning_rate = value
+        self.ocl_set_const_args = True
+
+    @property
+    def weights_decay(self):
+        return self._weights_decay
+
+    @weights_decay.setter
+    def weights_decay(self, value):
+        self._weights_decay = value
+        self.ocl_set_const_args = True
+
+    @property
+    def l1_vs_l2(self):
+        return self._l1_vs_l2
+
+    @l1_vs_l2.setter
+    def l1_vs_l2(self, value):
+        self._l1_vs_l2 = value
+        self.ocl_set_const_args = True
+
+    @property
+    def gradient_moment(self):
+        return self._gradient_moment
+
+    @gradient_moment.setter
+    def gradient_moment(self, value):
+        self._gradient_moment = value
+        self.ocl_set_const_args = True
+
+    @property
+    def learning_rate_bias(self):
+        return self._learning_rate_bias
+
+    @learning_rate_bias.setter
+    def learning_rate_bias(self, value):
+        self._learning_rate_bias = value
+        self.ocl_set_const_args = True
+
+    @property
+    def weights_decay_bias(self):
+        return self._weights_decay_bias
+
+    @weights_decay_bias.setter
+    def weights_decay_bias(self, value):
+        self._weights_decay_bias = value
+        self.ocl_set_const_args = True
+
+    @property
+    def l1_vs_l2_bias(self):
+        return self._l1_vs_l2_bias
+
+    @l1_vs_l2_bias.setter
+    def l1_vs_l2_bias(self, value):
+        self._l1_vs_l2_bias = value
+        self.ocl_set_const_args = True
+
+    @property
+    def gradient_moment_bias(self):
+        return self._gradient_moment_bias
+
+    @gradient_moment_bias.setter
+    def gradient_moment_bias(self, value):
+        self._gradient_moment_bias = value
+        self.ocl_set_const_args = True
+
     def gpu_weights_update(self):
         self.input.unmap()
         self.err_output.unmap()
@@ -230,16 +305,18 @@ class GradientDescentBase(OpenCLUnit):
                 [other * self.reduce_size], [self.reduce_size],
                 self.krn_compute_col_sums_)
 
-            self.cl_const[4] = self.factor_ortho
-            self.krn_weights_.set_arg(8, self.cl_const[4:5])
+            if self.ocl_set_const_args:
+                self.cl_const[4] = self.factor_ortho
+                self.krn_weights_.set_arg(8, self.cl_const[4:5])
 
-        self.cl_const[0] = self.learning_rate
-        self.cl_const[1] = self.weights_decay
-        self.cl_const[2] = self.l1_vs_l2
-        self.cl_const[3] = self.gradient_moment
-        self.krn_weights_.set_args(
-            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
-            self.cl_const[2:3], self.cl_const[3:4])
+        if self.ocl_set_const_args:
+            self.cl_const[0] = self.learning_rate
+            self.cl_const[1] = self.weights_decay
+            self.cl_const[2] = self.l1_vs_l2
+            self.cl_const[3] = self.gradient_moment
+            self.krn_weights_.set_args(
+                cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
+                self.cl_const[2:3], self.cl_const[3:4])
         self.execute_kernel(
             self._global_size_weights, self._local_size_weights,
             self.krn_weights_)
@@ -252,13 +329,14 @@ class GradientDescentBase(OpenCLUnit):
         self.bias.unmap()
         self.gradient_bias.unmap()
 
-        self.cl_const[0] = self.learning_rate_bias
-        self.cl_const[1] = self.weights_decay_bias
-        self.cl_const[2] = self.l1_vs_l2_bias
-        self.cl_const[3] = self.gradient_moment_bias
-        self.krn_bias_.set_args(
-            cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
-            self.cl_const[2:3], self.cl_const[3:4])
+        if self.ocl_set_const_args:
+            self.cl_const[0] = self.learning_rate_bias
+            self.cl_const[1] = self.weights_decay_bias
+            self.cl_const[2] = self.l1_vs_l2_bias
+            self.cl_const[3] = self.gradient_moment_bias
+            self.krn_bias_.set_args(
+                cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
+                self.cl_const[2:3], self.cl_const[3:4])
         self.execute_kernel(
             self._global_size_bias, self._local_size_bias,
             self.krn_bias_)
@@ -368,6 +446,7 @@ class GradientDescentBase(OpenCLUnit):
         if self.store_gradient:
             self.gradients_changed = True
         super(GradientDescentBase, self).run()
+        self.ocl_set_const_args = False
 
 
 class NNWorkflow(OpenCLWorkflow):
