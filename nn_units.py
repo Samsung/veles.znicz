@@ -432,15 +432,14 @@ class GradientDescentBase(OpenCLUnit):
     @staticmethod
     def cpu_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
                           factor_ortho=0):
-        g = gradient.copy()
-        g += factor_l12 * ((1.0 - l1_vs_l2) * weight +
-                           0.5 * l1_vs_l2 * numpy.sign(weight))
+        gradient += factor_l12 * ((1.0 - l1_vs_l2) * weight +
+                                  0.5 * l1_vs_l2 * numpy.sign(weight))
         if factor_ortho:
             col_sums = weight.sum(axis=0)
-            for i, row in enumerate(g):
+            for i, row in enumerate(gradient):
                 row += (col_sums - weight[i]) * factor_ortho / weight.shape[0]
-        g *= lr
-        return g
+        gradient *= lr
+        return gradient
 
     def run(self):
         if self.store_gradient:

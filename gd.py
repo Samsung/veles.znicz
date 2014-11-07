@@ -239,10 +239,9 @@ class GradientDescent(nn_units.GradientDescentBase):
             [self.err_input.mem.shape[0],
              self.err_input.mem.size // self.err_input.mem.shape[0]])
         if self.weights_transposed:
-            err_input[:] = numpy.dot(err_output,
-                                     self.weights.mem.transpose())[:]
+            numpy.dot(err_output, self.weights.mem.transpose(), err_input)
         else:
-            err_input[:] = numpy.dot(err_output, self.weights.mem)[:]
+            numpy.dot(err_output, self.weights.mem, err_input)
 
     def gpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
@@ -286,7 +285,10 @@ class GradientDescent(nn_units.GradientDescentBase):
         """
         t1 = time.time()
         self.gpu_err_output_update()
-        self.gpu_err_input_update()
+        if self.prefer_numpy:
+            self.cpu_err_input_update()
+        else:
+            self.gpu_err_input_update()
         self.gpu_weights_update()
         self.gpu_bias_update()
         self.print_debug_data(t1)
