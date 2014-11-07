@@ -7,15 +7,20 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from email.utils import parsedate_tz, mktime_tz
-import os
 from warnings import warn
 
 from veles.config import root
 
-root.common.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))
+root.common.ocl_dirs.append("/usr/share/veles/ocl/znicz")
+try:
+    from .siteconfig import update
+    update(root)
+    del update
+except ImportError:
+    pass
 
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 __license__ = "Samsung Proprietary License"
 __copyright__ = "© 2013 Samsung Electronics Co., Ltd."
 
