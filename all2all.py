@@ -179,6 +179,11 @@ class All2All(nn_units.NNLayerBase):
                              roundup(a_width, block_size)]
         self._local_size = [block_size, block_size]
 
+    def ocl_run(self):
+        if self.prefer_numpy:
+            return self.cpu_run()
+        return super(All2All, self).ocl_run()
+
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
@@ -211,11 +216,10 @@ class All2AllTanh(All2All):
         """
         super(All2AllTanh, self).cpu_run()
         self.output.map_write()
-        mem = self.output.mem.copy()
+        mem = self.output.mem
         mem *= All2AllTanh.B
         numpy.tanh(mem, mem)
         mem *= All2AllTanh.A
-        self.output.mem[:] = mem[:]
 
 
 class All2AllRELU(All2All):
@@ -231,9 +235,8 @@ class All2AllRELU(All2All):
         """
         super(All2AllRELU, self).cpu_run()
         self.output.map_write()
-        mem = self.output.mem.copy()
-        self.output.mem[:] = numpy.where(mem > 15, mem,
-                                         numpy.log(numpy.exp(mem) + 1.0))
+        mem = self.output.mem
+        mem[:] = numpy.where(mem > 15, mem, numpy.log(numpy.exp(mem) + 1.0))
 
 
 class All2AllSoftmax(All2All):
@@ -259,6 +262,7 @@ class All2AllSoftmax(All2All):
     def init_unpickled(self):
         super(All2AllSoftmax, self).init_unpickled()
         self.krn_sm_ = None
+        self._force_gpu_apply_exp = False
 
     def initialize(self, device, **kwargs):
         self.reduce_size = min(self.reduce_size,
@@ -310,10 +314,12 @@ class All2AllSoftmax(All2All):
         """Forward propagation from batch on CPU only.
         """
         super(All2AllSoftmax, self).cpu_run()
-        self.cpu_apply_exp()
+        if not self._force_gpu_apply_exp:
+            self.cpu_apply_exp()
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
+        self._force_gpu_apply_exp = True
         super(All2AllSoftmax, self).ocl_run()
         self.gpu_apply_exp()
