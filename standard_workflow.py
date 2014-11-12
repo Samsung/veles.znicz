@@ -14,8 +14,8 @@ else:
     from UserDict import UserDict
 
 from veles.znicz import nn_units
-from veles.znicz import conv, pooling, all2all
-from veles.znicz import gd, gd_conv, gd_pooling
+from veles.znicz import conv, pooling, all2all, deconv
+from veles.znicz import gd, gd_conv, gd_pooling, gd_deconv
 from veles.znicz import normalization, dropout
 from veles.znicz import activation
 import veles.error as error
@@ -173,6 +173,8 @@ class StandardWorkflow(nn_units.NNWorkflow):
                          gd_conv.GDStrictRELUConv),
             "conv": (conv.Conv,
                      gd_conv.GradientDescentConv),
+            "deconv": (deconv.Deconv,
+                       gd_deconv.GDDeconv),
             "norm": (normalization.LRNormalizerForward,
                      normalization.LRNormalizerBackward),
             "dropout": (dropout.DropoutForward,
@@ -187,6 +189,11 @@ class StandardWorkflow(nn_units.NNWorkflow):
                                        gd_pooling.GDMaxAbsPooling),
             "stochastic_pooling": (pooling.StochasticPooling,
                                    gd_pooling.GDMaxPooling),
+            "stochastic_pool_depool": (pooling .StochasticPoolingDepooling,
+                                       gd_pooling.GDMaxPooling),
+            "stochastic_abs_pool_depool":
+            (pooling.StochasticAbsPoolingDepooling,
+             gd_pooling.GDMaxPooling),
             "all2all": (all2all.All2All,
                         gd.GradientDescent),
             "all2all_relu": (all2all.All2AllRELU,
