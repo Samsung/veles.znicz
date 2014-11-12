@@ -6,9 +6,9 @@ Standard workflow class definition.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import sys
+import six
 
-if sys.version_info > (3, 0):
+if six.PY3:
     from collections import UserDict
 else:
     from UserDict import UserDict

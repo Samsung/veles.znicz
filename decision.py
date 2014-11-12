@@ -204,7 +204,7 @@ class DecisionBase(Unit):
 
 
 @implementer(IDecision)
-class TrivialDecision(object):
+class TrivialDecision(DecisionBase):
     def on_run(self):
         pass
 

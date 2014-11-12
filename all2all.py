@@ -61,6 +61,7 @@ class All2All(nn_units.NNLayerBase):
         self.exports.append("s_activation")
         self._global_size = None
         self._local_size = None
+        self.demand("input")
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()

@@ -15,7 +15,6 @@ from veles.units import Unit, IUnit
 import veles.formats as formats
 import veles.opencl_types as opencl_types
 from veles.opencl_units import IOpenCLUnit, OpenCLUnit
-import veles.znicz.decision as decision
 import veles.prng as prng
 from veles.znicz.decision import TrivialDecision
 
@@ -518,7 +517,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         return 9.0 / d
 
 
-class KohonenDecision(TrivialDecision, decision.DecisionBase):
+class KohonenDecision(TrivialDecision):
     """
     Stops Kohonen network training on the incremental weights difference basis.
 
