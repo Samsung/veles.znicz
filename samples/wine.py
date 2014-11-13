@@ -2,7 +2,8 @@
 """
 Created on August 4, 2013
 
-File for Wine dataset.
+Model created for class of wine recognition. Database – Wine.
+Model – fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

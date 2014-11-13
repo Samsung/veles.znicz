@@ -2,7 +2,8 @@
 """
 Created on Mart 21, 2014
 
-Example of Channels config.
+Configuration file for channels. (Self-constructing Model)
+Model – fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

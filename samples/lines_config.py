@@ -4,6 +4,9 @@
 """
 Created on May 6, 2014
 
+Configuration file for lines.
+Model – convolutional neural network.
+
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 

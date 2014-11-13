@@ -1,6 +1,8 @@
 """
 Created on Jul 17, 2014
 
+Model created for testing trained Imagenet  Model. (Forward propagation)
+
 Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 

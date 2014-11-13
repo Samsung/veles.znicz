@@ -2,7 +2,8 @@
 """
 Created on Mart 21, 2014
 
-Example of Kanji config.
+Configuration file for kanji.
+Model – fully-connected Neural Network with MSE loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

@@ -1,6 +1,9 @@
 """
 Created on Jule 18, 2014
 
+Configuration file for imagenet_ae with stochastic pooling.
+Number of classes – 200. (DET)
+
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 

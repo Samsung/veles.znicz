@@ -2,7 +2,9 @@
 """
 Created on Jul 3, 2013
 
-Cifar all2all.
+Model created for object recognition. Dataset – CIFAR10. Self-constructing
+Model. It means that Model can change for any Model (Convolutional, Fully
+connected, different parameters) in configuration file.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

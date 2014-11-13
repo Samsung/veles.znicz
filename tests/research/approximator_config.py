@@ -2,7 +2,7 @@
 """
 Created on Mart 21, 2014
 
-Example of Approximator config.
+Configuration file for approximator.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

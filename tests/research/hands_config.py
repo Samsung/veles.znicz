@@ -2,7 +2,8 @@
 """
 Created on Mart 26, 2014
 
-Example of Mnist config.
+Configuration file for hands.
+Model – fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

@@ -2,7 +2,9 @@
 """
 Created on Mar 20, 2013
 
-File for MNIST dataset (NN with RELU activation).
+Model created for digits recognition. Database – MNIST. Self-constructing
+Model. It means that Model can change for any Model (Convolutional, Fully
+connected, different parameters) in configuration file.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

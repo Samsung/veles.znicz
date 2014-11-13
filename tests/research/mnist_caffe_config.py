@@ -2,7 +2,8 @@
 """
 Created on Mart 21, 2014
 
-Example of Mnist config.
+Configuration file for Mnist. Configuration parameters just like
+in CAFFE. Model – convolutional neural network.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

@@ -2,9 +2,7 @@
 """
 Created on Mar 20, 2013
 
-File for autoencoding video.
-
-AutoEncoder version.
+Model created for compress video. Model – autoencoder.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

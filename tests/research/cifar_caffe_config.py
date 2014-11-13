@@ -2,7 +2,9 @@
 """
 Created on Mart 21, 2014
 
-Cifar Cafe config.
+Configuration file for cifar (Self-constructing Model).
+Model – convolutional neural network. Configuration parameters just like
+in CAFFE.
 
 Converged to 17.26% errors with some seed,
 and below 18% in most cases.
