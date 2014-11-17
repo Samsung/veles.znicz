@@ -1,8 +1,8 @@
 """
 Created on July 4, 2014
 
-Model created for object recognition. Dataset – Imagenet.
-Model – convolutional neural network, dynamically
+Model created for object recognition. Dataset - Imagenet.
+Model - convolutional neural network, dynamically
 constructed, with pretraining of all layers one by one with autoencoder.
 
 Copyright (c) 2014 Samsung Electronics Co., Ltd.

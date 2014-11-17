@@ -2,7 +2,7 @@
 """
 Created on Mart 21, 2014
 
-Configuration file for Mnist. Model – fully-connected Neural Network with MSE
+Configuration file for Mnist. Model - fully-connected Neural Network with MSE
 loss function with target encoded as 7 points.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.

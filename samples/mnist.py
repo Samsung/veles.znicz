@@ -2,8 +2,8 @@
 """
 Created on Mar 20, 2013
 
-Model created for digits recognition. Database – MNIST.
-Model – fully-connected Neural Network with SoftMax loss function.
+Model created for digits recognition. Database - MNIST.
+Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

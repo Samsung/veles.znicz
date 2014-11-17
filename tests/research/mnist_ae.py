@@ -2,7 +2,7 @@
 """
 Created on Mar 20, 2013
 
-Model created for digits recognition. Database – MNIST. Model – autoencoder.
+Model created for digits recognition. Database - MNIST. Model - autoencoder.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

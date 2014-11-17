@@ -2,7 +2,7 @@
 Created on Jule 18, 2014
 
 Configuration file for imagenet_ae without pooling.
-Number of classes – 1000. (IMG)
+Number of classes - 1000. (IMG)
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

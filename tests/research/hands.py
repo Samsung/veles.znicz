@@ -2,9 +2,9 @@
 """
 Created on Jun 14, 2013
 
-Model created for human hands recognition. Dataset – Samsung Database with
+Model created for human hands recognition. Dataset - Samsung Database with
 images of human hands.
-Model – fully-connected Neural Network with SoftMax loss function.
+Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

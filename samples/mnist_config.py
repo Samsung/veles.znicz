@@ -2,7 +2,7 @@
 """
 Created on Mart 21, 2014
 
-Configuration file for Mnist. Model – fully-connected Neural Network with
+Configuration file for Mnist. Model - fully-connected Neural Network with
 SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.

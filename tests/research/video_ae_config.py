@@ -2,7 +2,7 @@
 """
 Created on Mart 21, 2014
 
-Configuration file for video_ae. Model – autoencoder.
+Configuration file for video_ae. Model - autoencoder.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

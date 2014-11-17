@@ -2,7 +2,7 @@
 """
 Created on Jul 3, 2013
 
-Model created for object recognition. Dataset – CIFAR10. Self-constructing
+Model created for object recognition. Dataset - CIFAR10. Self-constructing
 Model. It means that Model can change for any Model (Convolutional, Fully
 connected, different parameters) in configuration file.
 
@@ -172,9 +172,8 @@ class CifarWorkflow(StandardWorkflow):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        kwargs["layers"] = layers
         super(CifarWorkflow, self).__init__(workflow, **kwargs)
+        layers = kwargs["layers"]
 
         self.repeater.link_from(self.start_point)
 
@@ -374,9 +373,6 @@ class CifarWorkflow(StandardWorkflow):
 
         self.gds[-1].unlink_before()
         self.gds[-1].link_from(self.snapshotter)
-
-    def initialize(self, device, **kwargs):
-        super(CifarWorkflow, self).initialize(device, **kwargs)
 
 
 def run(load, main):

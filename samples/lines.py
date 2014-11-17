@@ -1,5 +1,4 @@
 #!/usr/bin/python3 -O
-# encoding: utf-8
 """
 Created on May 6, 2014
 

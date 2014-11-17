@@ -2,7 +2,7 @@
 """
 Created on Mart 21, 2014
 
-Configuration file for Mnist. Model – fully-connected
+Configuration file for Mnist. Model - fully-connected
 Neural Network with MSE loss function with target encoded as ideal image
 (784 points).
 

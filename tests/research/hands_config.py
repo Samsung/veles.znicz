@@ -3,7 +3,7 @@
 Created on Mart 26, 2014
 
 Configuration file for hands.
-Model – fully-connected Neural Network with SoftMax loss function.
+Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

@@ -2,8 +2,8 @@
 """
 Created on August 4, 2013
 
-Model created for class of wine recognition. Database – Wine.
-Model – fully-connected Neural Network with SoftMax loss function with RELU
+Model created for class of wine recognition. Database - Wine.
+Model - fully-connected Neural Network with SoftMax loss function with RELU
 activation.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.

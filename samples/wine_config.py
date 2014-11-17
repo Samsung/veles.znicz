@@ -3,7 +3,7 @@
 Created on Mart 21, 2014
 
 Configuration file for Wine.
-Model – fully-connected Neural Network with SoftMax loss function.
+Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """

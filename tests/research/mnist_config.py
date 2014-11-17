@@ -3,7 +3,7 @@
 Created on Mart 21, 2014
 
 Configuration file for Mnist with variation of parameters for genetic.
-Model – fully-connected Neural Network with SoftMax loss function.
+Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -24,7 +24,7 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},
-    "decision": {"fail_iterations": 100,
+    "decision": {"fail_iterations": 5,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
     "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True},

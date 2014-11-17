@@ -2,7 +2,7 @@
 """
 Created on August 12, 2013
 
-Model created for digits recognition. Database – MNIST. Model – fully-connected
+Model created for digits recognition. Database - MNIST. Model - fully-connected
 Neural Network with MSE loss function with target encoded as ideal image
 (784 points).
 

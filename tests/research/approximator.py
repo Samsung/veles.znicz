@@ -3,8 +3,8 @@
 Created on June 29, 2013
 
 Model created for functions approximation.
-Dataset – matlab files with x and y points.
-Model – fully-connected Neural Network with MSE loss function.
+Dataset - matlab files with x and y points.
+Model - fully-connected Neural Network with MSE loss function.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
