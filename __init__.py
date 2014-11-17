@@ -7,9 +7,14 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from email.utils import parsedate_tz, mktime_tz
+from sys import modules
 from warnings import warn
 
+from veles import __plugins__
 from veles.config import root
+
+
+__plugins__.add(modules[__name__])
 
 root.common.ocl_dirs.append("/usr/share/veles/ocl/znicz")
 try:
