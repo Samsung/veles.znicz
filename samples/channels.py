@@ -48,7 +48,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.standard_workflow import StandardWorkflowBase
 from veles.external.progressbar import ProgressBar
 
 
@@ -608,7 +608,7 @@ class ChannelsLoader(loader.FullBatchLoader):
         self.info("Done")
 
 
-class ChannelsWorkflow(StandardWorkflow):
+class ChannelsWorkflow(StandardWorkflowBase):
     """Workflow.
     """
     def __init__(self, workflow, **kwargs):

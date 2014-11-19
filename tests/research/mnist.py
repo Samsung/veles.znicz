@@ -23,7 +23,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.lr_adjust as lra
 from veles.znicz.samples.mnist import MnistLoader
 from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.standard_workflow import StandardWorkflowBase
 
 mnist_dir = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -70,7 +70,7 @@ root.mnistr.update({
                    "train_label": train_label_dir}})
 
 
-class MnistWorkflow(StandardWorkflow):
+class MnistWorkflow(StandardWorkflowBase):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, **kwargs):

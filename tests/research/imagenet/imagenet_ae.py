@@ -1,3 +1,4 @@
+#!/usr/bin/python3 -O
 """
 Created on July 4, 2014
 
@@ -38,7 +39,7 @@ import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.gd_conv as gd_conv
 from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.standard_workflow import StandardWorkflowBase
 from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
@@ -363,7 +364,7 @@ class Destroyer(Unit):
         pass
 
 
-class ImagenetAEWorkflow(StandardWorkflow):
+class ImagenetAEWorkflow(StandardWorkflowBase):
     """Workflow.
     """
     def fix(self, unit, *attrs):

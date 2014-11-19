@@ -13,6 +13,9 @@ if six.PY3:
 else:
     from UserDict import UserDict
 
+from veles.znicz.decision import DecisionGD, DecisionMSE
+from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
+from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, deconv
 from veles.znicz import gd, gd_conv, gd_pooling, gd_deconv
@@ -153,7 +156,7 @@ class GradientUnitFactory(object):
     })
 
 
-class StandardWorkflow(nn_units.NNWorkflow):
+class StandardWorkflowBase(nn_units.NNWorkflow):
     """
     A base class for standard workflows with forward and backward propagation.
     Is able to automatically create backward units by pre-created forward units
@@ -163,7 +166,7 @@ class StandardWorkflow(nn_units.NNWorkflow):
         self.device = kwargs.get("device")
         kwargs["layers"] = self.layers
         kwargs["device"] = self.device
-        super(StandardWorkflow, self).__init__(workflow, **kwargs)
+        super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = {
             "conv_tanh": (conv.ConvTanh,
                           gd_conv.GDTanhConv),
@@ -352,3 +355,98 @@ class StandardWorkflow(nn_units.NNWorkflow):
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
+
+
+class StandardWorkflow(StandardWorkflowBase):
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs.get("layers", [{}])
+        kwargs["layers"] = layers
+        super(StandardWorkflow, self).__init__(
+            workflow, **kwargs)
+        fail_iterations = kwargs.get("fail_iterations", 20)
+        max_epochs = kwargs.get("max_epochs", 1000)
+        prefix = kwargs.get("prefix", "")
+        snapshot_dir = kwargs.get("snapshot_dir", "")
+        compress = kwargs.get("compress", "")
+        time_interval = kwargs.get("time_interval", 0)
+        loss_function = kwargs.get("loss_function", "softmax")
+        self.repeater.link_from(self.start_point)
+
+        self.link_loader()
+
+        # Add fwds units
+        self.parse_forwards_from_config()
+
+        if loss_function != "softmax" and loss_function != "mse":
+            raise error.NotExistsError("Unknown loss function type %s"
+                                       % loss_function)
+
+        # Add evaluator for single minibatch
+        self.evaluator = (EvaluatorSoftmax(self) if loss_function == "softmax"
+                          else EvaluatorMSE(self))
+        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_attrs(self.fwds[-1], "output")
+        if loss_function == "softmax":
+            self.evaluator.link_attrs(self.fwds[-1], "max_idx")
+        self.evaluator.link_attrs(self.loader,
+                                  ("batch_size", "minibatch_size"),
+                                  ("labels", "minibatch_labels"),
+                                  ("max_samples_per_epoch", "total_samples"))
+        if loss_function == "mse":
+            self.evaluator.link_attrs(self.loader,
+                                      ("target", "minibatch_targets"),
+                                      "class_targets")
+
+        # Add decision unit
+        self.decision = (DecisionGD(self, fail_iterations=fail_iterations,
+                                    max_epochs=max_epochs)
+                         if loss_function == "softmax" else DecisionMSE(
+                             self, fail_iterations=fail_iterations,
+                             max_epochs=max_epochs))
+        self.decision.link_from(self.evaluator)
+        self.decision.link_attrs(self.loader,
+                                 "minibatch_class",
+                                 "last_minibatch",
+                                 "minibatch_size",
+                                 "class_lengths",
+                                 "epoch_ended",
+                                 "epoch_number")
+        if loss_function == "mse":
+            self.decision.link_attrs(self.loader, "minibatch_offset")
+        self.decision.link_attrs(
+            self.evaluator,
+            ("minibatch_n_err", "n_err"))
+        if loss_function == "softmax":
+            self.decision.link_attrs(
+                self.evaluator,
+                ("minibatch_confusion_matrix", "confusion_matrix"),
+                ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        if loss_function == "mse":
+            self.decision.link_attrs(
+                self.evaluator,
+                ("minibatch_metrics", "metrics"),
+                ("minibatch_mse", "mse"))
+
+        self.snapshotter = NNSnapshotter(
+            self, prefix=prefix, directory=snapshot_dir,
+            compress=compress, time_interval=time_interval)
+        self.snapshotter.link_from(self.decision)
+        self.snapshotter.link_attrs(self.decision,
+                                    ("suffix", "snapshot_suffix"))
+        self.snapshotter.gate_skip = \
+            (~self.decision.epoch_ended | ~self.decision.improved)
+
+        # Add gradient descent units
+        self.create_gd_units_by_config()
+        self.repeater.link_from(self.gds[0])
+        self.end_point.link_from(self.gds[0])
+        self.end_point.gate_block = ~self.decision.complete
+
+        self.loader.gate_block = self.decision.complete
+
+        self.gds[-1].unlink_before()
+        self.gds[-1].link_from(self.snapshotter)
+
+    def link_loader(self):
+        # There must be standard Loader
+        pass

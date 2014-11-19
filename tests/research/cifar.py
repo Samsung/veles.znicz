@@ -29,7 +29,7 @@ import veles.znicz.loader as loader
 import veles.znicz.diversity as diversity
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.standard_workflow import StandardWorkflowBase
 
 
 train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
@@ -168,7 +168,7 @@ class CifarLoader(loader.FullBatchLoader):
                              + str(root.cifar.loader.norm))
 
 
-class CifarWorkflow(StandardWorkflow):
+class CifarWorkflow(StandardWorkflowBase):
     """Sample workflow.
     """
     def __init__(self, workflow, **kwargs):

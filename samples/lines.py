@@ -24,7 +24,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.pooling as pooling
-from veles.znicz.standard_workflow import StandardWorkflow
+from veles.znicz.standard_workflow import StandardWorkflowBase
 
 train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
 valid = os.path.join(root.common.test_dataset_root, "Lines/Grid/test")
@@ -101,7 +101,7 @@ class LinesLoader(ImageLoader):
         super(LinesLoader, self).initialize(device, **kwargs)
 
 
-class LinesWorkflow(StandardWorkflow):
+class LinesWorkflow(StandardWorkflowBase):
     """Workflow for Lines dataset.
     """
     def __init__(self, workflow, **kwargs):
