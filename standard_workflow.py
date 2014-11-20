@@ -369,6 +369,7 @@ class StandardWorkflow(StandardWorkflowBase):
         snapshot_dir = kwargs.get("snapshot_dir", "")
         compress = kwargs.get("compress", "")
         time_interval = kwargs.get("time_interval", 0)
+        snapshot_interval = kwargs.get("snapshot_interval", 1)
         loss_function = kwargs.get("loss_function", "softmax")
         self.repeater.link_from(self.start_point)
 
@@ -429,7 +430,8 @@ class StandardWorkflow(StandardWorkflowBase):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=prefix, directory=snapshot_dir,
-            compress=compress, time_interval=time_interval)
+            compress=compress, time_interval=time_interval,
+            interval=snapshot_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
