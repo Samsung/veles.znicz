@@ -233,7 +233,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         del kwargs["type"]
         return tpe, kwargs
 
-    def parse_forwards_from_config(self):
+    def parse_forwards_from_config(self, init_unit, init_attrs):
         """
         Parsing forward units from config.
         Adds a new fowrard unit to self.fwds, links it with previous fwd unit
@@ -247,9 +247,9 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             layer = self.layers[i]
             tpe, kwargs = self._get_layer_type_kwargs(layer)
             unit = self.layer_map[tpe][0](self, **kwargs)
-            self._add_forward_unit(unit)
+            self._add_forward_unit(unit, init_unit, init_attrs)
 
-    def _add_forward_unit(self, new_unit):
+    def _add_forward_unit(self, new_unit, init_unit, init_attrs):
         """
         Adds a new fowrard unit to self.fwds, links it with previous fwd unit
         by link_from and link_attrs. If self.fwds is empty, links unit with
@@ -260,8 +260,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
             assert self.loader is not None
-            prev_forward_unit = self.loader
-            new_unit.link_attrs(self.loader, ("input", "minibatch_data"))
+            prev_forward_unit = init_unit
+            new_unit.link_attrs(init_unit, init_attrs)
 
         new_unit.link_from(prev_forward_unit)
         self.fwds.append(new_unit)
@@ -376,7 +376,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.link_loader()
 
         # Add fwds units
-        self.parse_forwards_from_config()
+        self.link_forwards()
 
         if loss_function != "softmax" and loss_function != "mse":
             raise error.NotExistsError("Unknown loss function type %s"
@@ -452,3 +452,7 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_loader(self):
         # There must be standard Loader
         pass
+
+    def link_forwards(self):
+        self.parse_forwards_from_config(self.loader,
+                                        ("input", "minibatch_data"))

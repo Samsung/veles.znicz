@@ -635,7 +635,8 @@ class ChannelsWorkflow(StandardWorkflowBase):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self.parse_forwards_from_config()
+        self.parse_forwards_from_config(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(

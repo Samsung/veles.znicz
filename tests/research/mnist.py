@@ -90,7 +90,8 @@ class MnistWorkflow(StandardWorkflowBase):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self.parse_forwards_from_config()
+        self.parse_forwards_from_config(self.loader,
+                                        ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
