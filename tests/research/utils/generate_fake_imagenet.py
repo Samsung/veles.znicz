@@ -5,9 +5,9 @@ import scipy.misc
 
 imagenet_path = "/data/veles/datasets/FakeImagenet/Caffe"
 
-n_rows = 256
-n_cols = 256
-n_images = 1000
+n_rows = 227
+n_cols = 227
+n_images = 10
 n_classes = 1000
 
 
@@ -33,13 +33,13 @@ def main():
                 0, 256,
                 n_rows * n_cols).astype(numpy.ubyte).astype(numpy.ubyte)
             image = pixels.astype(numpy.float32).reshape(n_rows, n_cols)
-            scipy.misc.imsave(os.path.join(train_path, "image_%s.png" % j),
+            scipy.misc.imsave(os.path.join(train_path, "image_%s.JPEG" % j),
                               image)
             pixels = numpy.random.randint(
                 0, 256,
                 n_rows * n_cols).astype(numpy.ubyte).astype(numpy.ubyte)
             image = pixels.astype(numpy.float32).reshape(n_rows, n_cols)
-            scipy.misc.imsave(os.path.join(valid_path, "image_%s.png" % j),
+            scipy.misc.imsave(os.path.join(valid_path, "image_%s.JPEG" % j),
                               image)
 
 if __name__ == "__main__":
