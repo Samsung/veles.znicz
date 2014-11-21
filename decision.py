@@ -307,8 +307,7 @@ class DecisionGD(DecisionBase):
             self.confusion_matrixes[minibatch_class][:] = (
                 self.minibatch_confusion_matrix.mem[:])
 
-        if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.mem is not None):
+        if self.minibatch_n_err:
             self.minibatch_n_err.map_read()
             self.epoch_n_err[minibatch_class] = self.minibatch_n_err[0]
             # Calculate error in percent
@@ -367,8 +366,7 @@ class DecisionGD(DecisionBase):
         self.min_train_n_err = 0
 
     def on_apply_data_from_slave(self, data, slave):
-        if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.mem is not None):
+        if self.minibatch_n_err:
             self.minibatch_n_err.map_write()
             self.minibatch_n_err.mem += data["minibatch_n_err"]
         if self.minibatch_max_err_y_sum is not None:
@@ -408,19 +406,12 @@ class DecisionGD(DecisionBase):
 
     def reset_statistics(self, minibatch_class):
         # Reset statistics per class
-        if (self.minibatch_n_err is not None and
-                self.minibatch_n_err.mem is not None):
-            self.minibatch_n_err.map_invalidate()
-            self.minibatch_n_err.mem[:] = 0
-        if (self.minibatch_max_err_y_sum is not None and
-                self.minibatch_max_err_y_sum.mem is not None):
-            self.minibatch_max_err_y_sum.map_invalidate()
-            self.minibatch_max_err_y_sum.mem[:] = 0
-        # Reset confusion matrix
-        if (self.minibatch_confusion_matrix is not None and
-                self.minibatch_confusion_matrix.mem is not None):
-            self.minibatch_confusion_matrix.map_invalidate()
-            self.minibatch_confusion_matrix.mem[:] = 0
+        for vec in (self.minibatch_n_err, self.minibatch_max_err_y_sum,
+                    self.minibatch_confusion_matrix):
+            if not vec:
+                continue
+            vec.map_invalidate()
+            vec.mem[:] = 0
 
 
 class DecisionMSE(DecisionGD):
