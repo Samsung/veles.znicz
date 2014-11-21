@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -O
 """
-Created on Mart 21, 2014
+Created on Nov 20, 2014
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -14,8 +14,11 @@ root.common.precision_level = 0
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10},
-    "snapshotter": {"prefix": "imagenet"},
-    "loader": {"minibatch_size": 32, "on_device": False},
+    "loss_function": "softmax",
+    "snapshotter": {"prefix": "cnna", "interval": 10},
+    "loader": {"minibatch_size": 32, "on_device": False,
+               "validation_ratio": 0.5, "shuffle_limit": 1,
+               "sx": 227, "sy": 227},
     "layers": [{"type": "conv_str", "n_kernels": 64, "kx": 3, "ky": 3,
                 "padding": (1, 1, 1, 1), "sliding": (1, 1),
                 "weights_filling": "gaussian", "weights_stddev": 0.01,

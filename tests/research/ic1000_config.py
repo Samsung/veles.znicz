@@ -1,8 +1,6 @@
 #!/usr/bin/python3 -O
 """
-Created on Mart 21, 2014
-
-Example of Mnist config.
+Created on Nov 20, 2014
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -18,11 +16,12 @@ wd = 0.0005
 
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
-                 "max_epochs": 10},
+                 "max_epochs": 2},
     "snapshotter": {"prefix": "imagenet", "interval": 10},
     "loss_function": "softmax",
     "loader": {"minibatch_size": 256, "on_device": False,
-               "validation_ratio": 0.5},
+               "validation_ratio": 0.5, "shuffle_limit": 1, "sx": 227,
+               "sy": 227},
     "layers": [{"type": "conv_str", "n_kernels": 96, "kx": 11, "ky": 11,
                 "padding": (0, 0, 0, 0), "sliding": (4, 4),
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
