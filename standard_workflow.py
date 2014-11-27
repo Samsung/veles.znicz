@@ -14,8 +14,15 @@ else:
     from UserDict import UserDict
 
 import veles.error as error
+from veles.interaction import Shell
+from veles.mean_disp_normalizer import MeanDispNormalizer
+import veles.plotting_units as plotting_units
 from veles.znicz.decision import DecisionGD, DecisionMSE
+import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
+import veles.znicz.image_saver as image_saver
+import veles.znicz.lr_adjust as lr_adjust
+import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, deconv
 from veles.znicz import gd, gd_conv, gd_pooling, gd_deconv
@@ -508,6 +515,390 @@ class StandardWorkflow(StandardWorkflowBase):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
+
+    def link_image_saver(self, init_unit):
+        # not work without create forwards, loader and decision first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        if self.loader is None:
+            raise error.NotExistsError(
+                "Please create loader in workflow first."
+                "For that you can use link_loader() function")
+        self.image_saver = image_saver.ImageSaver(
+            self, out_dirs=self.out_dirs)
+        self.image_saver.link_from(init_unit)
+        self.image_saver.link_attrs(self.forwards[-1],
+                                    "output", "max_idx")
+        self.image_saver.link_attrs(self.loader,
+                                    ("input", "minibatch_data"),
+                                    ("indexes", "minibatch_indices"),
+                                    ("labels", "minibatch_labels"),
+                                    "minibatch_class", "minibatch_size")
+
+    def link_lr_adjuster(self, init_unit):
+        # not work without create gds first
+        if self.gds is None:
+            raise error.NotExistsError(
+                "Please create gds in workflow first."
+                "For that you can use link_gds() function")
+        self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
+        for gd_elm in self.gds:
+            self.lr_adjuster.add_gd_unit(
+                gd_elm,
+                lr_policy=lr_adjust.ArbitraryStepPolicy(
+                    [(gd_elm.learning_rate, 60000),
+                     (gd_elm.learning_rate / 10., 5000),
+                     (gd_elm.learning_rate / 100., 100000000)]),
+                bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
+                    [(gd_elm.learning_rate_bias, 60000),
+                     (gd_elm.learning_rate_bias / 10., 5000),
+                     (gd_elm.learning_rate_bias / 100., 100000000)])
+                )
+        self.lr_adjuster.link_from(init_unit)
+
+    def link_meandispnorm(self, init_unit):
+        # not work without create loader first
+        if self.loader is None:
+            raise error.NotExistsError(
+                "Please create loader in workflow first."
+                "For that you can use link_loader() function")
+        self.meandispnorm = MeanDispNormalizer(self)
+        self.meandispnorm.link_attrs(self.loader,
+                                     ("input", "minibatch_data"),
+                                     "mean", "rdisp")
+        self.meandispnorm.link_from(init_unit)
+
+    def link_ipython(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.ipython = Shell(self)
+        self.ipython.link_from(init_unit)
+        self.ipython.gate_skip = ~self.decision.epoch_ended
+
+    def link_error_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.error_plotter = []
+        prev = init_unit
+        styles = ["r-", "b-", "k-"]
+        for i in range(1, 3):
+            self.error_plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="num errors", plot_style=styles[i]))
+            self.error_plotter[-1].link_attrs(self.decision,
+                                              ("input", "epoch_n_err_pt"))
+            self.error_plotter[-1].input_field = i
+            self.error_plotter[-1].link_from(prev)
+            self.error_plotter[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.error_plotter[-1]
+        self.error_plotter[0].clear_plot = True
+        self.error_plotter[-1].redraw_plot = True
+
+    def link_conf_matrix_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.conf_matrix_plotter = []
+        prev = init_unit
+        for i in range(1, len(self.decision.confusion_matrixes)):
+            self.conf_matrix_plotter.append(plotting_units.MatrixPlotter(
+                self, name=(("Test", "Validation", "Train")[i] + " matrix")))
+            self.conf_matrix_plotter[-1].link_attrs(
+                self.decision, ("input", "confusion_matrixes"))
+            self.conf_matrix_plotter[-1].input_field = i
+            self.conf_matrix_plotter[-1].link_from(prev)
+            self.conf_matrix_plotter[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.conf_matrix_plotter[-1]
+
+    def link_err_y_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        styles = ["r-", "b-", "k-"]
+        self.err_y_plotter = []
+        prev = init_unit
+        for i in range(1, 3):
+            self.err_y_plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="Last layer max gradient sum",
+                plot_style=styles[i]))
+            self.err_y_plotter[-1].link_attrs(
+                self.decision, ("input", "max_err_y_sums"))
+            self.err_y_plotter[-1].input_field = i
+            self.err_y_plotter[-1].link_from(prev)
+            self.err_y_plotter[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.err_y_plotter[-1]
+        self.err_y_plotter[0].clear_plot = True
+        self.err_y_plotter[-1].redraw_plot = True
+
+    def link_multi_hist_plotter(self, init_unit, layers):
+        # not work without create decision, forwards first and set layers
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.multi_hist_plotter = []
+        prev = init_unit
+        for i in range(0, len(layers)):
+            multi_hist = plotting_units.MultiHistogram(
+                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
+            self.multi_hist_plotter.append(multi_hist)
+            if layers[i].get("n_kernels") is not None:
+                self.multi_hist_plotter[-1].link_from(prev)
+                prev = self.multi_hist_plotter[-1]
+                self.multi_hist_plotter[
+                    - 1].hist_number = layers[i]["n_kernels"]
+                self.multi_hist_plotter[-1].link_attrs(
+                    self.forwards[i], ("input", "weights"))
+                end_epoch = ~self.decision.epoch_ended
+                self.multi_hist_plotter[-1].gate_skip = end_epoch
+            if layers[i].get("output_shape") is not None:
+                self.multi_hist_plotter[-1].link_from(prev)
+                prev = self.multi_hist_plotter[-1]
+                self.multi_hist_plotter[
+                    - 1].hist_number = layers[i]["output_shape"]
+                self.multi_hist_plotter[-1].link_attrs(
+                    self.forwards[i], ("input", "weights"))
+                self.multi_hist_plotter[
+                    - 1].gate_skip = ~self.decision.epoch_ended
+
+    def link_weights_plotter(self, init_unit, layers, limit, weights_input):
+        # not work without create decision, forwards first and set layers,
+        # limit and weights_input - "weights" or "gradient_weights" for example
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        prev = init_unit
+        self.weights_plotter = []
+        prev_channels = 3
+        for i in range(0, len(layers)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
+                continue
+            plt_wd = nn_plotting_units.Weights2D(
+                self, name="%s %s" % (i + 1, layers[i]["type"]),
+                limit=limit)
+            self.weights_plotter.append(plt_wd)
+            self.weights_plotter[-1].link_attrs(self.forwards[i],
+                                                ("input", weights_input))
+            self.weights_plotter[-1].input_field = "mem"
+            if isinstance(self.forwards[i], conv.Conv):
+                self.weights_plotter[-1].get_shape_from = (
+                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
+                prev_channels = self.forwards[i].n_kernels
+            if (layers[i].get("output_shape") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.weights_plotter[-1].link_attrs(
+                    self.forwards[i], ("get_shape_from", "input"))
+            self.weights_plotter[-1].link_from(prev)
+            prev = self.weights_plotter[-1]
+            self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
+
+    def link_similar_weights_plotter(self, init_unit, layers, limit,
+                                     magnitude, form, peak):
+        # not work without create weights_plotter, decision and forwards first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.similar_weights_plotter = []
+        prev = init_unit
+        k = 0
+        n = 0
+        for i in range(len(layers)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
+                k += 1
+                n = i - k
+                continue
+            plt_mx = diversity.SimilarWeights2D(
+                self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
+                limit=limit,
+                form_threshold=form,
+                peak_threshold=peak,
+                magnitude_threshold=magnitude)
+            self.similar_weights_plotter.append(plt_mx)
+            self.similar_weights_plotter[-1].link_attrs(self.forwards[i],
+                                                        ("input", "weights"))
+            self.similar_weights_plotter[-1].input_field = "mem"
+            wd_plt = self.weights_plotter
+            if n != 0:
+                self.similar_weights_plotter[
+                    - 1].get_shape_from = wd_plt[n].get_shape_from
+            if (layers[i].get("output_shape") is not None and
+                    layers[i]["type"] != "softmax"):
+                self.similar_weights_plotter[-1].link_attrs(
+                    self.forwards[i], ("get_shape_from", "input"))
+            self.similar_weights_plotter[-1].link_from(prev)
+            prev = self.similar_weights_plotter[-1]
+            self.similar_weights_plotter[
+                - 1].gate_skip = ~self.decision.epoch_ended
+        self.similar_weights_plotter[0].clear_plot = True
+        self.similar_weights_plotter[-1].redraw_plot = True
+
+    def link_table_plotter(self, layers, init_unit):
+        # not work without create decision and forwards first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
+        del self.table_plotter.y[:]
+        del self.table_plotter.col_labels[:]
+        for i in range(0, len(layers)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
+                continue
+            obj = self.forwards[i].weights
+            name = "weights %s %s" % (i + 1, layers[i]["type"])
+            self.table_plotter.y.append(obj)
+            self.table_plotter.col_labels.append(name)
+            obj = self.gds[i].gradient_weights
+            name = "gd %s %s" % (i + 1, layers[i]["type"])
+            self.table_plotter.y.append(obj)
+            self.table_plotter.col_labels.append(name)
+            obj = self.forwards[i].output
+            name = "Y %s %s" % (i + 1, layers[i]["type"])
+            self.table_plotter.y.append(obj)
+            self.table_plotter.col_labels.append(name)
+        self.table_plotter.link_from(init_unit)
+        self.table_plotter.gate_skip = ~self.decision.epoch_ended
+
+    def link_mse_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        prev = init_unit
+        self.mse_plotter = []
+        styles = ["", "", "k-"]
+        for i in range(len(styles)):
+            if not len(styles[i]):
+                continue
+            self.mse_plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="mse", plot_style=styles[i]))
+            self.mse_plotter[-1].link_attrs(
+                self.decision, ("input", "epoch_metrics"))
+            self.mse_plotter[-1].input_field = i
+            self.mse_plotter[-1].link_from(prev)
+            prev = self.mse_plotter[-1]
+            self.mse_plotter[-1].gate_skip = ~self.decision.epoch_ended
+        self.mse_plotter[0].clear_plot = True
+
+    def link_max_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        prev = init_unit
+        self.max_plotter = []
+        styles = ["", "", "k--"]
+        for i in range(len(styles)):
+            if not len(styles[i]):
+                continue
+            self.max_plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="mse", plot_style=styles[i]))
+            self.max_plotter[-1].link_attrs(
+                self.decision, ("input", "epoch_metrics"))
+            self.max_plotter[-1].input_field = i
+            self.max_plotter[-1].input_offset = 1
+            self.max_plotter[-1].link_from(prev)
+            prev = self.max_plotter[-1]
+            self.max_plotter[-1].gate_skip = ~self.decision.epoch_ended
+
+    def link_min_plotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        prev = init_unit
+        self.min_plotter = []
+        styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
+        for i in range(len(styles)):
+            if not len(styles[i]):
+                continue
+            self.min_plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="mse", plot_style=styles[i]))
+            self.min_plotter[-1].link_attrs(
+                self.decision, ("input", "epoch_metrics"))
+            self.min_plotter[-1].input_field = i
+            self.min_plotter[-1].input_offset = 2
+            self.min_plotter[-1].link_from(prev)
+            prev = self.min_plotter[-1]
+            self.min_plotter[-1].gate_skip = ~self.decision.epoch_ended
+        self.min_plotter[-1].redraw_plot = True
+
+    def link_image_plotter(self, init_unit):
+        # not work without create decision and forwards first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.image_plotter = plotting_units.ImagePlotter(self,
+                                                         name="output sample")
+        self.image_plotter.inputs.append(self.forwards[-1].output)
+        self.image_plotter.input_fields.append(0)
+        self.image_plotter.inputs.append(self.forwards[0].input)
+        self.image_plotter.input_fields.append(0)
+        self.image_plotter.link_from(init_unit)
+        self.image_plotter.gate_skip = ~self.decision.epoch_ended
+
+    def link_immediate_plotter(self, init_unit):
+        # not work without create decision, loader and forwards first
+        self.immediate_plotter = plotting_units.ImmediatePlotter(
+            self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
+        del self.immediate_plotter.inputs[:]
+        self.immediate_plotter.inputs.append(self.loader.minibatch_data)
+        self.immediate_plotter.inputs.append(self.loader.minibatch_targets)
+        self.immediate_plotter.inputs.append(self.forwards[-1].output)
+        del self.immediate_plotter.input_fields[:]
+        self.immediate_plotter.input_fields.append(0)
+        self.immediate_plotter.input_fields.append(0)
+        self.immediate_plotter.input_fields.append(0)
+        del self.immediate_plotter.input_styles[:]
+        self.immediate_plotter.input_styles.append("k-")
+        self.immediate_plotter.input_styles.append("g-")
+        self.immediate_plotter.input_styles.append("b-")
+        self.immediate_plotter.link_from(init_unit)
+        self.immediate_plotter.gate_skip = ~self.decision.epoch_ended
 
     def link_end_point(self, init_unit):
         # not work without create decision first
