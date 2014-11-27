@@ -13,132 +13,55 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import logging
-import numpy
-import os
-import pickle
-import re
-from zope.interface import implementer
 
 from veles.config import root
-import veles.error as error
-import veles.formats as formats
-import veles.opencl_types as opencl_types
-import veles.prng as rnd
-import veles.znicz.loader as loader
+from veles.znicz.samples.kanji import KanjiLoader
 from veles.znicz.standard_workflow import StandardWorkflow
-
-
-@implementer(loader.ILoader)
-class KanjiLoader(loader.LoaderMSE):
-    """Loads dataset.
-    """
-    def __init__(self, workflow, **kwargs):
-        self.train_path = kwargs["train_path"]
-        self.target_path = kwargs["target_path"]
-        super(KanjiLoader, self).__init__(workflow, **kwargs)
-        self.class_targets = formats.Vector()
-
-    def __getstate__(self):
-        state = super(KanjiLoader, self).__getstate__()
-        state["index_map"] = None
-        return state
-
-    def load_data(self):
-        """Load the data here.
-
-        Should be filled here:
-            class_lengths[].
-        """
-        fin = open(root.kanji_standard.index_map, "rb")
-        self.index_map = pickle.load(fin)
-        fin.close()
-
-        fin = open(os.path.join(self.train_path, self.index_map[0]), "rb")
-        self.first_sample = pickle.load(fin)["data"]
-        fin.close()
-
-        fin = open(self.target_path, "rb")
-        targets = pickle.load(fin)
-        fin.close()
-        self.class_targets.reset()
-        sh = [len(targets)]
-        sh.extend(targets[0].shape)
-        self.class_targets.mem = numpy.empty(
-            sh, dtype=opencl_types.dtypes[root.common.precision_type])
-        for i, target in enumerate(targets):
-            self.class_targets[i] = target
-
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 0
-        self.class_lengths[2] = len(self.index_map)
-
-        self.original_labels = numpy.empty(len(self.index_map),
-                                           dtype=numpy.int32)
-        lbl_re = re.compile("^(\d+)_\d+/(\d+)\.\d\.pickle$")
-        for i, fnme in enumerate(self.index_map):
-            res = lbl_re.search(fnme)
-            if res is None:
-                raise error.BadFormatError("Incorrectly formatted filename "
-                                           "found: %s" % (fnme))
-            lbl = int(res.group(1))
-            self.original_labels[i] = lbl
-            idx = int(res.group(2))
-            if idx != i:
-                raise error.BadFormatError("Incorrect sample index extracted "
-                                           "from filename: %s " % (fnme))
-
-        self.info("Found %d samples. Extracting 15%% for validation..." % (
-            len(self.index_map)))
-        self.extract_validation_from_train(rnd.get(2))
-        self.info("Extracted, resulting datasets are: [%s]" % (
-            ", ".join(str(x) for x in self.class_lengths)))
-
-    def create_minibatches(self):
-        """Allocate arrays for minibatch_data etc. here.
-        """
-        sh = [self.max_minibatch_size]
-        sh.extend(self.first_sample.shape)
-        self.minibatch_data.mem = numpy.zeros(
-            sh, dtype=opencl_types.dtypes[root.common.precision_type])
-
-        sh = [self.max_minibatch_size]
-        sh.extend((self.class_targets[0].size,))
-        self.minibatch_targets.mem = numpy.zeros(
-            sh, dtype=opencl_types.dtypes[root.common.precision_type])
-
-        sh = [self.max_minibatch_size]
-        self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
-
-        self.minibatch_indices.mem = numpy.zeros(len(self.index_map),
-                                                 dtype=numpy.int32)
-
-    def fill_minibatch(self):
-        """Fill minibatch data labels and indexes according to current shuffle.
-        """
-        idxs = self.minibatch_indices.mem
-        for i, ii in enumerate(idxs[:self.minibatch_size]):
-            fnme = "%s/%s" % (self.train_path, self.index_map[ii])
-            fin = open(fnme, "rb")
-            sample = pickle.load(fin)
-            data = sample["data"]
-            lbl = sample["lbl"]
-            fin.close()
-            self.minibatch_data[i] = data
-            self.minibatch_labels[i] = lbl
-            self.minibatch_targets[i] = self.class_targets[lbl].reshape(
-                self.minibatch_targets[i].shape)
 
 
 class KanjiWorkflow(StandardWorkflow):
     def __init__(self, workflow, **kwargs):
         super(KanjiWorkflow, self).__init__(
-            workflow,
-            fail_iterations=root.kanji_standard.decision.fail_iterations,
-            max_epochs=root.kanji_standard.decision.max_epochs,
-            prefix=root.kanji_standard.snapshotter.prefix,
-            snapshot_dir=root.common.snapshot_dir,
-            layers=root.kanji_standard.layers,
-            loss_function=root.kanji_standard.loss_function, **kwargs)
+            workflow, **kwargs)
+
+    def create_workflow(self):
+        # Add repeater unit
+        self.link_repeater(self.start_point)
+
+        # Add loader unit
+        self.link_loader(self.repeater)
+
+        # Add fwds units
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
+
+        # Add evaluator for single minibatch
+        self.link_evaluator(self.forwards[-1])
+
+        # Add decision unit
+        self.link_decision(self.evaluator)
+
+        # Add snapshotter unit
+        self.link_snapshotter(self.decision)
+
+        # Add gradient descent units
+        self.link_gds(self.snapshotter)
+
+        if root.kanji_standard.add_plotters:
+            # Add plotters units
+            self.link_error_plotter(self.gds[0])
+            self.link_weights_plotter(
+                self.error_plotter[-1], layers=root.kanji_standard.layers,
+                limit=root.kanji_standard.weights_plotter.limit,
+                weights_input="weights")
+            self.link_max_plotter(self.weights_plotter[-1])
+            self.link_min_plotter(self.max_plotter[-1])
+            self.link_mse_plotter(self.min_plotter[-1])
+            last = self.mse_plotter[-1]
+        else:
+            last = self.gds[0]
+
+        # Add end point unit
+        self.link_end_point(last)
 
     def initialize(self, device, weights, bias, **kwargs):
         super(KanjiWorkflow, self).initialize(device=device)
@@ -151,20 +74,26 @@ class KanjiWorkflow(StandardWorkflow):
                 fwds.bias.map_invalidate()
                 fwds.bias.mem[:] = bias[i][:]
 
-    def link_loader(self):
-        super(KanjiWorkflow, self).link_loader()
+    def link_loader(self, init_unit):
         self.loader = KanjiLoader(
             self, validation_ratio=root.kanji_standard.loader.validation_ratio,
             train_path=root.kanji_standard.data_paths.train,
             target_path=root.kanji_standard.data_paths.target,
             minibatch_size=root.kanji_standard.loader.minibatch_size)
-        self.loader.link_from(self.repeater)
+        self.loader.link_from(init_unit)
 
 
 def run(load, main):
     weights = None
     bias = None
-    w, snapshot = load(KanjiWorkflow)
+    w, snapshot = load(
+        KanjiWorkflow,
+        fail_iterations=root.kanji_standard.decision.fail_iterations,
+        max_epochs=root.kanji_standard.decision.max_epochs,
+        prefix=root.kanji_standard.snapshotter.prefix,
+        snapshot_dir=root.common.snapshot_dir,
+        layers=root.kanji_standard.layers,
+        loss_function=root.kanji_standard.loss_function)
     if snapshot:
         if type(w) == tuple:
             logging.info("Will load weights")
