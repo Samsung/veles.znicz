@@ -236,13 +236,13 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     def parse_forwards_from_config(self, init_unit, init_attrs):
         """
         Parsing forward units from config.
-        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
-        by link_from and link_attrs. If self.fwds is empty, links unit with
-        self.loader
+        Adds a new fowrard unit to self.forwards, links it with previous
+        fwd unit by link_from and link_attrs. If self.forwards is empty, links
+        unit with self.loader
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
-        del self.fwds[:]
+        del self.forwards[:]
         for i in range(len(self.layers)):
             layer = self.layers[i]
             tpe, kwargs = self._get_layer_type_kwargs(layer)
@@ -251,12 +251,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def _add_forward_unit(self, new_unit, init_unit, init_attrs):
         """
-        Adds a new fowrard unit to self.fwds, links it with previous fwd unit
-        by link_from and link_attrs. If self.fwds is empty, links unit with
-        self.loader
+        Adds a new fowrard unit to self.forwards, links it with previous fwd
+        unit by link_from and link_attrs. If self.forwards is empty, links unit
+        with self.loader
         """
-        if len(self.fwds) > 0:
-            prev_forward_unit = self.fwds[-1]
+        if len(self.forwards) > 0:
+            prev_forward_unit = self.forwards[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
             assert self.loader is not None
@@ -264,7 +264,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             new_unit.link_attrs(init_unit, init_attrs)
 
         new_unit.link_from(prev_forward_unit)
-        self.fwds.append(new_unit)
+        self.forwards.append(new_unit)
 
     def create_gd_units_by_config(self):
         """
@@ -279,11 +279,11 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             tpe, kwargs = self._get_layer_type_kwargs(layer)
 
             # Check corresponding forward unit type
-            if not isinstance(self.fwds[i], self.layer_map[tpe][0]):
+            if not isinstance(self.forwards[i], self.layer_map[tpe][0]):
                 raise error.BadFormatError(
                     "Forward layer %s at position %d "
                     "is not an instance of %s" %
-                    (repr(self.fwds[i]), i, repr(self.layer_map[tpe][0])))
+                    (repr(self.forwards[i]), i, repr(self.layer_map[tpe][0])))
 
             if "name" in kwargs:
                 kwargs["name"] = "gd_" + kwargs["name"]
@@ -291,20 +291,20 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             self.gds[i] = unit
 
             # Link attributes
-            if i < len(self.fwds) - 1:
+            if i < len(self.forwards) - 1:
                 self.gds[i].link_from(self.gds[i + 1])
                 self.gds[i].link_attrs(self.gds[i + 1],
                                        ("err_output", "err_input"))
             else:
-                self.gds[-1].link_from(self.snapshotter)
+                self.gds[-1].link_from(init_unit)
                 self.gds[-1].link_attrs(self.evaluator, "err_output")
 
             attrs = []
             for attr in ("input", "output", "weights", "bias",
                          "input_offset", "mask"):
-                if hasattr(self.fwds[i], attr):
+                if hasattr(self.forwards[i], attr):
                     attrs.append(attr)
-            self.gds[i].link_attrs(self.fwds[i], *attrs)
+            self.gds[i].link_attrs(self.forwards[i], *attrs)
 
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,
@@ -315,7 +315,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def create_gd_units(self, lr_adjuster, **kwargs):
         """
-        Creates gradient descent units for previously made self.fwds.
+        Creates gradient descent units for previously made self.forwards.
         Feeds their inputs with respect of their order.
 
         Args:
@@ -332,7 +332,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             gradient_moment_bias
         """
         del self.gds[:]
-        for fwd in self.fwds:
+        for fwd in self.forwards:
             self.gds.append(GradientUnitFactory.create(fwd, "gd_" + fwd.name,
                                                        **kwargs))
         for i, gd_elm in enumerate(self.gds[:-1]):

@@ -76,25 +76,25 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self.fwds = []
+        self.forwards = []
         for i in range(len(layers)):
             aa = all2all.All2AllTanh(self, output_shape=layers[i],
                                      device=device)
-            self.fwds.append(aa)
+            self.forwards.append(aa)
             if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1],
-                                        ("input", "output"))
+                self.forwards[i].link_from(self.forwards[i - 1])
+                self.forwards[i].link_attrs(
+                    self.forwards[i - 1], ("input", "output"))
             else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+                self.forwards[i].link_from(self.loader)
+                self.forwards[i].link_attrs(
+                    self.loader, ("input", "minibatch_data"))
 
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
-        self.image_saver.link_from(self.fwds[-1])
+        self.image_saver.link_from(self.forwards[-1])
 
-        self.image_saver.link_attrs(self.fwds[-1], "output")
+        self.image_saver.link_attrs(self.forwards[-1], "output")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
                                     ("indexes", "minibatch_indices"),
@@ -105,7 +105,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
         self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.fwds[-1], "output")
+        self.evaluator.link_attrs(self.forwards[-1], "output")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("target", "minibatch_data"))
@@ -141,17 +141,17 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
                                     ("this_save_time", "time"))
 
         # Add gradient descent units
-        self.gds = list(None for i in range(0, len(self.fwds)))
+        self.gds = list(None for i in range(0, len(self.forwards)))
         self.gds[-1] = gd.GDTanh(self, device=device)
-        self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
+        self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
+        for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.fwds[i], "output", "input",
+            self.gds[i].link_attrs(self.forwards[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
                                                  "minibatch_size"))
@@ -180,7 +180,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.plt_mx = nn_plotting_units.Weights2D(
             self, name="First Layer Weights",
             limit=root.video_ae.weights_plotter.limit)
-        self.plt_mx.link_attrs(self.fwds[0], ("input", "weights"),
+        self.plt_mx.link_attrs(self.forwards[0], ("input", "weights"),
                                ("get_shape_from", "input"))
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(prev)
@@ -221,9 +221,9 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
 
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
-        self.plt_img.inputs.append(self.fwds[-1].output)
+        self.plt_img.inputs.append(self.forwards[-1].output)
         self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.fwds[0].input)
+        self.plt_img.inputs.append(self.forwards[0].input)
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(prev)
         self.plt_img.gate_skip = ~self.decision.epoch_ended
@@ -240,7 +240,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             g.device = device
             g.learning_rate = learning_rate
             g.weights_decay = weights_decay
-        for forward in self.fwds:
+        for forward in self.forwards:
             forward.device = device
         return super(VideoAEWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,

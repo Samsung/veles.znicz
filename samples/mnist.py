@@ -176,7 +176,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
+        del self.forwards[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(
@@ -186,20 +186,20 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 aa = all2all.All2AllSoftmax(
                     self, output_shape=[layers[i]],
                     weights_stddev=root.mnist.all2all.weights_stddev)
-            self.fwds.append(aa)
+            self.forwards.append(aa)
             if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1],
-                                        ("input", "output"))
+                self.forwards[i].link_from(self.forwards[i - 1])
+                self.forwards[i].link_attrs(
+                    self.forwards[i - 1], ("input", "output"))
             else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+                self.forwards[i].link_from(self.loader)
+                self.forwards[i].link_attrs(
+                    self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self)
-        self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.evaluator.link_from(self.forwards[-1])
+        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("labels", "minibatch_labels"),
                                   ("batch_size", "minibatch_size"),
@@ -235,25 +235,25 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(list(None for i in range(0, len(self.fwds))))
+        self.gds.extend(list(None for i in range(0, len(self.forwards))))
         self.gds[-1] = gd.GDSM(self,
                                learning_rate=root.mnist.learning_rate)
         self.gds[-1].link_from(self.ipython)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.fwds[-1],
+        self.gds[-1].link_attrs(self.forwards[-1],
                                 ("output", "output"),
                                 ("input", "input"),
                                 "weights", "bias")
         self.gds[-1].gate_skip = self.decision.gd_skip
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        for i in range(len(self.fwds) - 2, -1, -1):
+        for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(
                 self, learning_rate=root.mnist.learning_rate,
                 factor_ortho=root.mnist.factor_ortho)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
-            self.gds[i].link_attrs(self.fwds[i], "output", "input",
+            self.gds[i].link_attrs(self.forwards[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].gate_skip = self.decision.gd_skip
             self.gds[i].link_attrs(self.loader,

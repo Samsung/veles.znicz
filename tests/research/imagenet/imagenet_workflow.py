@@ -226,8 +226,8 @@ class ImagenetWorkflow(StandardWorkflow):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.imagenet.image_saver.out_dirs)
-        self.image_saver.link_from(self.fwds[-1])
-        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.image_saver.link_from(self.forwards[-1])
+        self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
             ("indexes", "minibatch_indices"),
@@ -238,7 +238,7 @@ class ImagenetWorkflow(StandardWorkflow):
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("labels", "minibatch_labels"),
@@ -305,18 +305,18 @@ class ImagenetWorkflow(StandardWorkflow):
         self.plt_mx = []
         prev_channels = 3
         for i in range(0, len(layers)):
-            if (not isinstance(self.fwds[i], conv.Conv) and
-                    not isinstance(self.fwds[i], all2all.All2All)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.imagenet.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
-            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
-            if isinstance(self.fwds[i], conv.Conv):
+            self.plt_mx[-1].link_attrs(self.forwards[i], ("input", "weights"))
+            if isinstance(self.forwards[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
-                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
-                prev_channels = self.fwds[i].n_kernels
+                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
+                prev_channels = self.forwards[i].n_kernels
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
@@ -329,7 +329,7 @@ class ImagenetWorkflow(StandardWorkflow):
     def parse_fwds_from_config(self):
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
-        del self.fwds[:]
+        del self.forwards[:]
         for i in range(len(self.layers)):
             layer = self.layers[i]
             tpe, kwargs = self._get_layer_type_kwargs(layer)
@@ -337,15 +337,15 @@ class ImagenetWorkflow(StandardWorkflow):
             self.add_frwd_unit(unit)
 
     def add_frwd_unit(self, new_unit):
-        if len(self.fwds) > 0:
-            prev_forward_unit = self.fwds[-1]
+        if len(self.forwards) > 0:
+            prev_forward_unit = self.forwards[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
             assert self.loader is not None
             prev_forward_unit = self.meandispnorm
             new_unit.link_attrs(self.meandispnorm, ("input", "output"))
         new_unit.link_from(prev_forward_unit)
-        self.fwds.append(new_unit)
+        self.forwards.append(new_unit)
 
     def initialize(self, device):
         super(ImagenetWorkflow, self).initialize(device=device)

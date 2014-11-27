@@ -454,7 +454,7 @@ class NNWorkflow(OpenCLWorkflow):
     Attributes:
         repeater: Repeater unit.
         loader: loader.Loader unit.
-        fwds: list of the forward propagation (Forward) units.
+        forwards: list of the forward propagation (Forward) units.
         evaluator: evaluator.* unit.
         decision: decision.Decision unit.
         gds: list of the gradient descent units.
@@ -463,7 +463,7 @@ class NNWorkflow(OpenCLWorkflow):
         super(NNWorkflow, self).__init__(workflow, **kwargs)
         self.repeater = Repeater(self)
         self.loader = None
-        self.fwds = []
+        self.forwards = []
         self.evaluator = None
         self.decision = None
         self.gds = []

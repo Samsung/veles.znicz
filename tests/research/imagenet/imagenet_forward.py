@@ -301,22 +301,22 @@ class ImagenetForward(OpenCLWorkflow):
         self.loader.link_from(self.repeater)
         self.loader.gate_block = self.loader.ended
 
-        self.fwds = []
+        self.forwards = []
         for fwd in train_wf.fwds:
             fwd.workflow = self
-            self.fwds.append(fwd)
+            self.forwards.append(fwd)
         del train_wf.fwds[:]
 
         minibatch_size = root.imagenet_forward.loader.minibatch_size
-        self.loader.entry_shape = list(self.fwds[0].input.shape)
+        self.loader.entry_shape = list(self.forwards[0].input.shape)
         self.loader.entry_shape[0] = minibatch_size
         self.meandispnorm = train_wf.meandispnorm
         self.meandispnorm.workflow = self
         self.meandispnorm.link_from(self.loader)
         self.meandispnorm.link_attrs(self.loader, ("input", "minibatch_data"))
         self.loader.link_attrs(self.meandispnorm, "mean")
-        self.fwds[0].link_from(self.meandispnorm)
-        self.fwds[0].link_attrs(self.meandispnorm, ("input", "output"))
+        self.forwards[0].link_from(self.meandispnorm)
+        self.forwards[0].link_attrs(self.meandispnorm, ("input", "output"))
 
         lc_probability_threshold = \
             root.imagenet_forward.mergebboxes.last_chance_probability_threshold
@@ -338,7 +338,7 @@ class ImagenetForward(OpenCLWorkflow):
             last_chance_probability_threshold=lc_probability_threshold,
             labels_compatibility=labels_comp,
             use_compatibility=use_comp)
-        self.mergebboxes.link_attrs(self.fwds[-1],
+        self.mergebboxes.link_attrs(self.forwards[-1],
                                     ("probabilities", "output"))
         self.mergebboxes.link_attrs(self.loader, "ended", "minibatch_bboxes",
                                     "minibatch_size", "minibatch_images")
@@ -353,7 +353,7 @@ class ImagenetForward(OpenCLWorkflow):
         else:
             self.mergebboxes.link_attrs(self.loader, "mode")
             self.json_writer.link_attrs(self.loader, "mode")
-        self.mergebboxes.link_from(self.fwds[-1])
+        self.mergebboxes.link_from(self.forwards[-1])
         self.repeater.link_from(self.mergebboxes)
 
         self.json_writer.link_attrs(self.mergebboxes, "winners")

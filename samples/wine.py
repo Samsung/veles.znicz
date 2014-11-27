@@ -75,7 +75,7 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
+        del self.forwards[:]
         for i in range(len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
@@ -83,19 +83,20 @@ class WineWorkflow(nn_units.NNWorkflow):
             else:
                 aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
                                             device=device)
-            self.fwds.append(aa)
+            self.forwards.append(aa)
             if i:
-                self.fwds[-1].link_from(self.fwds[-2])
-                self.fwds[-1].link_attrs(self.fwds[-2], ("input", "output"))
+                self.forwards[-1].link_from(self.forwards[-2])
+                self.forwards[-1].link_attrs(
+                    self.forwards[-2], ("input", "output"))
             else:
-                self.fwds[-1].link_from(self.loader)
-                self.fwds[-1].link_attrs(self.loader,
-                                         ("input", "minibatch_data"))
+                self.forwards[-1].link_from(self.loader)
+                self.forwards[-1].link_attrs(
+                    self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.evaluator.link_from(self.forwards[-1])
+        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
@@ -130,20 +131,20 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.fwds)))
+        self.gds.extend(None for i in range(0, len(self.forwards)))
         self.gds[-1] = gd.GDSM(self, device=device)
         self.gds[-1].link_from(self.snapshotter)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
+        self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
+        for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
-            self.gds[i].link_attrs(self.fwds[i], "output", "input",
+            self.gds[i].link_attrs(self.forwards[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].link_attrs(self.loader,
                                    ("batch_size", "minibatch_size"))

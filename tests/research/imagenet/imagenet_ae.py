@@ -482,7 +482,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                     self.uniform = prng.Uniform(DummyWorkflow(),
                                                 num_states=512)
                 unit.uniform = self.uniform
-            self.fwds.append(unit)
+            self.forwards.append(unit)
             unit.link_from(prev)
             unit.link_attrs(prev, ("input", "output"))
             if isinstance(unit, activation.ForwardMul):
@@ -499,20 +499,20 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         de = []
         for i in range(len(ae) - 1, -1, -1):
-            if (i == len(ae) - 1 and id(ae[-1]) == id(self.fwds[-1]) and
+            if (i == len(ae) - 1 and id(ae[-1]) == id(self.forwards[-1]) and
                     ae[-1].__class__ in self.last_de_map):
                 self.info("Replacing pooling with pooling-depooling")
                 De = self.last_de_map[ae[-1].__class__]
                 unit = De(self, **ae_layers[i])
                 unit.uniform = ae[-1].uniform
                 unit.layer = ae[-1].layer
-                unit.link_attrs(self.fwds[-2], ("input", "output"))
-                del self.fwds[-1]
+                unit.link_attrs(self.forwards[-2], ("input", "output"))
+                del self.forwards[-1]
                 ae[-1].unlink_all()
                 self.del_ref(ae[-1])
                 ae[-1] = unit
-                self.fwds.append(unit)
-                unit.link_from(self.fwds[-2])
+                self.forwards.append(unit)
+                unit.link_from(self.forwards[-2])
                 prev = unit
                 self.fix(unit, "input", "uniform")
                 de.append(unit)  # for the later assert to work
@@ -520,7 +520,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             De = self.de_map[ae[i].__class__]
             unit = De(self, **ae_layers[i])
             de.append(unit)
-            self.fwds.append(unit)
+            self.forwards.append(unit)
             unit.link_from(prev)
             for dst_src in (("weights", "weights"),
                             ("get_output_shape_from", "input"),
@@ -540,8 +540,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         # Add evaluator unit
         unit = evaluator.EvaluatorMSE(self)
         self.evaluator = unit
-        unit.link_from(self.fwds[-1])
-        unit.link_attrs(self.fwds[-1], "output")
+        unit.link_from(self.forwards[-1])
+        unit.link_attrs(self.forwards[-1], "output")
         unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
         unit.link_attrs(self.meandispnorm, ("target", "output"))
         self.fix(self.evaluator, "output", "target", "err_output", "metrics")
@@ -576,11 +576,11 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         unit.gate_skip = ~self.loader.epoch_ended | self.decision.complete
 
         # Add gradient descent unit
-        GD = self.gd_map[self.fwds[-1].__class__]
+        GD = self.gd_map[self.forwards[-1].__class__]
         unit = GD(self, **ae_layers[0])
         self.gds.append(unit)
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.fwds[-1], "weights", "input")
+        unit.link_attrs(self.forwards[-1], "weights", "input")
         unit.gate_skip = self.decision.gd_skip
         self.fix(unit, "err_output", "weights", "input", "err_input")
         self.rollback.add_gd(unit)
@@ -699,7 +699,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         # Deconv result plotter
         self.plt_deconv = nn_plotting_units.Weights2D(
             self, name="Deconv result", limit=20)
-        self.plt_deconv.link_attrs(self.fwds[-1], ("input", "output"))
+        self.plt_deconv.link_attrs(self.forwards[-1], ("input", "output"))
         self.plt_deconv.link_from(prev)
         self.plt_deconv.gate_skip = ~self.decision.epoch_ended
         prev = self.plt_deconv
@@ -707,7 +707,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         return prev
 
     def initialize(self, device, **kwargs):
-        if (self.fwds[0].weights.mem is not None and
+        if (self.forwards[0].weights.mem is not None and
                 root.imagenet_ae.from_snapshot_add_layer):
             self.info("Restoring from snapshot detected, "
                       "will adjust the workflow")
@@ -724,13 +724,13 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
     def dump_shapes(self):
         self.info("Input-Output Shapes:")
-        for i, fwd in enumerate(self.fwds):
+        for i, fwd in enumerate(self.forwards):
             self.info("%d: %s: %s => %s", i, repr(fwd),
                       str(fwd.input.shape) if fwd.input else "None",
                       str(fwd.output.shape) if fwd.output else "None")
 
     def switch_to_fine_tuning(self):
-        if len(self.gds) == len(self.fwds):
+        if len(self.gds) == len(self.forwards):
             self.info("Already at fine-tune stage, will exit with code 1 now")
             os._exit(1)
         # Add gradient descent units for the remaining forward units
@@ -738,18 +738,18 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         self.gds[0].need_err_input = True
         prev = self.gds[0]
 
-        for i in range(len(self.fwds) - len(self.gds) - 1, -1, -1):
-            GD = self.gd_map[self.fwds[i].__class__]
-            if hasattr(self.fwds[i], "layer"):
-                kwargs = dict(self.fwds[i].layer)
-            elif isinstance(self.fwds[i], pooling.StochasticPoolingBase):
-                kwargs = {"kx": self.fwds[i].kx, "ky": self.fwds[i].ky,
-                          "sliding": self.fwds[i].sliding}
+        for i in range(len(self.forwards) - len(self.gds) - 1, -1, -1):
+            GD = self.gd_map[self.forwards[i].__class__]
+            if hasattr(self.forwards[i], "layer"):
+                kwargs = dict(self.forwards[i].layer)
+            elif isinstance(self.forwards[i], pooling.StochasticPoolingBase):
+                kwargs = {"kx": self.forwards[i].kx, "ky": self.forwards[i].ky,
+                          "sliding": self.forwards[i].sliding}
             else:
                 raise error.Bug("Control should not go there")
             for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                          "factor", "include_bias"):
-                vle = getattr(self.fwds[i], attr, None)
+                vle = getattr(self.forwards[i], attr, None)
                 if vle is not None:
                     kwargs[attr] = vle
             if "learning_rate_ft" in kwargs:
@@ -760,13 +760,13 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.gds.insert(0, unit)
             unit.link_from(prev)
             unit.link_attrs(prev, ("err_output", "err_input"))
-            unit.link_attrs(self.fwds[i], "weights", "input", "output")
-            if hasattr(self.fwds[i], "input_offset"):
-                unit.link_attrs(self.fwds[i], "input_offset")
-            if hasattr(self.fwds[i], "mask"):
-                unit.link_attrs(self.fwds[i], "mask")
-            if self.fwds[i].bias is not None:
-                unit.link_attrs(self.fwds[i], "bias")
+            unit.link_attrs(self.forwards[i], "weights", "input", "output")
+            if hasattr(self.forwards[i], "input_offset"):
+                unit.link_attrs(self.forwards[i], "input_offset")
+            if hasattr(self.forwards[i], "mask"):
+                unit.link_attrs(self.forwards[i], "mask")
+            if self.forwards[i].bias is not None:
+                unit.link_attrs(self.forwards[i], "bias")
             unit.gate_skip = self.decision.gd_skip
             prev = unit
             self.fix(unit, "weights", "input", "output",
@@ -841,11 +841,11 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             return self.switch_to_fine_tuning()
 
         i_fwd = i_fwd_last
-        for i in range(i_fwd, len(self.fwds)):
-            self.fwds[i].unlink_all()
-            self.del_ref(self.fwds[i])
-        del self.fwds[i_fwd:]
-        last_fwd = self.fwds[-1]
+        for i in range(i_fwd, len(self.forwards)):
+            self.forwards[i].unlink_all()
+            self.del_ref(self.forwards[i])
+        del self.forwards[i_fwd:]
+        last_fwd = self.forwards[-1]
         prev = last_fwd
 
         if prev.__class__ in self.last_de_unmap:
@@ -857,10 +857,10 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.del_ref(prev)
             unit = Forward(self, **layer)
             unit.layer = layer
-            self.fwds[-1] = unit
+            self.forwards[-1] = unit
             unit.uniform = uniform
-            unit.link_from(self.fwds[-2])
-            unit.link_attrs(self.fwds[-2], ("input", "output"))
+            unit.link_from(self.forwards[-2])
+            unit.link_attrs(self.forwards[-2], ("input", "output"))
             unit.create_output()
             self.fix(unit, "input", "output", "input_offset", "uniform")
             prev = unit
@@ -895,7 +895,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             if in_ae:
                 ae.append(unit)
                 ae_layers.append(layer)
-            self.fwds.append(unit)
+            self.forwards.append(unit)
             unit.link_from(prev)
             unit.link_attrs(prev, ("input", "output"))
             if isinstance(unit, activation.ForwardMul):
@@ -913,27 +913,27 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         if in_ae:
             de = []
             for i in range(len(ae) - 1, -1, -1):
-                if (i == len(ae) - 1 and id(ae[-1]) == id(self.fwds[-1]) and
-                        ae[-1].__class__ in self.last_de_map):
+                if (i == len(ae) - 1 and id(ae[-1]) == id(self.forwards[-1])
+                        and ae[-1].__class__ in self.last_de_map):
                     self.info("Replacing pooling with pooling-depooling")
                     De = self.last_de_map[ae[-1].__class__]
                     unit = De(self, **ae_layers[i])
                     unit.uniform = ae[-1].uniform
                     unit.layer = ae[-1].layer
-                    unit.link_attrs(self.fwds[-2], ("input", "output"))
-                    del self.fwds[-1]
+                    unit.link_attrs(self.forwards[-2], ("input", "output"))
+                    del self.forwards[-1]
                     ae[-1].unlink_all()
                     self.del_ref(ae[-1])
                     ae[-1] = unit
-                    self.fwds.append(unit)
-                    unit.link_from(self.fwds[-2])
+                    self.forwards.append(unit)
+                    unit.link_from(self.forwards[-2])
                     prev = unit
                     self.fix(unit, "input", "uniform")
                     continue
                 De = self.de_map[ae[i].__class__]
                 unit = De(self, **ae_layers[i])
                 de.append(unit)
-                self.fwds.append(unit)
+                self.forwards.append(unit)
                 unit.link_from(prev)
                 for dst_src in (("weights", "weights"),
                                 ("get_output_shape_from", "input"),
@@ -949,8 +949,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 prev = unit
 
             unit = self.evaluator
-            unit.link_from(self.fwds[-1])
-            unit.link_attrs(self.fwds[-1], "output")
+            unit.link_from(self.forwards[-1])
+            unit.link_attrs(self.forwards[-1], "output")
             unit.link_attrs(last_conv, ("target", "input"))
             self.fix(self.evaluator, "output", "target", "err_output",
                      "metrics")
@@ -962,11 +962,11 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             del self.gds[:]
 
             # Add gradient descent unit
-            GD = self.gd_map[self.fwds[-1].__class__]
+            GD = self.gd_map[self.forwards[-1].__class__]
             unit = GD(self, **ae_layers[0])
             self.gds.append(unit)
             unit.link_attrs(self.evaluator, "err_output")
-            unit.link_attrs(self.fwds[-1], "weights", "input")
+            unit.link_attrs(self.forwards[-1], "weights", "input")
             unit.gate_skip = self.decision.gd_skip
             self.fix(unit, "err_output", "weights", "input", "err_input")
             self.rollback.reset()
@@ -998,8 +998,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             # Add Image Saver unit
             self.image_saver = image_saver.ImageSaver(
                 self, out_dirs=root.imagenet_ae.image_saver.out_dirs)
-            self.image_saver.link_from(self.fwds[-1])
-            self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+            self.image_saver.link_from(self.forwards[-1])
+            self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
             self.image_saver.link_attrs(
                 self.loader,
                 ("indexes", "minibatch_indices"),
@@ -1013,7 +1013,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             unit = evaluator.EvaluatorSoftmax(self)
             self.evaluator = unit
             unit.link_from(self.image_saver)
-            unit.link_attrs(self.fwds[-1], "output", "max_idx")
+            unit.link_attrs(self.forwards[-1], "output", "max_idx")
             unit.link_attrs(self.loader, ("labels", "minibatch_labels"),
                             ("batch_size", "minibatch_size"))
             self.fix(self.evaluator, "output", "max_idx",
@@ -1062,12 +1062,12 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             prev_gd = self.evaluator
             prev = None
             gds = []
-            for i in range(len(self.fwds) - 1, i_fwd - 1, -1):
-                GD = self.gd_map[self.fwds[i].__class__]
-                kwargs = dict(self.fwds[i].layer)
+            for i in range(len(self.forwards) - 1, i_fwd - 1, -1):
+                GD = self.gd_map[self.forwards[i].__class__]
+                kwargs = dict(self.forwards[i].layer)
                 for attr in ("n_kernels", "kx", "ky", "sliding", "padding",
                              "factor", "include_bias"):
-                    vle = getattr(self.fwds[i], attr, None)
+                    vle = getattr(self.forwards[i], attr, None)
                     if vle is not None:
                         kwargs[attr] = vle
                 unit = GD(self, **kwargs)
@@ -1078,13 +1078,13 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                     unit.link_attrs(prev_gd, "err_output")
                 else:
                     unit.link_attrs(prev_gd, ("err_output", "err_input"))
-                unit.link_attrs(self.fwds[i], "weights", "input", "output")
-                if hasattr(self.fwds[i], "input_offset"):
-                    unit.link_attrs(self.fwds[i], "input_offset")
-                if hasattr(self.fwds[i], "mask"):
-                    unit.link_attrs(self.fwds[i], "mask")
-                if self.fwds[i].bias is not None:
-                    unit.link_attrs(self.fwds[i], "bias")
+                unit.link_attrs(self.forwards[i], "weights", "input", "output")
+                if hasattr(self.forwards[i], "input_offset"):
+                    unit.link_attrs(self.forwards[i], "input_offset")
+                if hasattr(self.forwards[i], "mask"):
+                    unit.link_attrs(self.forwards[i], "mask")
+                if self.forwards[i].bias is not None:
+                    unit.link_attrs(self.forwards[i], "bias")
                 unit.gate_skip = self.decision.gd_skip
                 prev_gd = unit
                 prev = unit
@@ -1131,7 +1131,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 # Output plotter
                 self.plt_out = nn_plotting_units.Weights2D(
                     self, name="Output", limit=96)
-                self.plt_out.link_attrs(self.fwds[i_fwd_last], "input")
+                self.plt_out.link_attrs(self.forwards[i_fwd_last], "input")
                 self.plt_out.link_from(prev)
                 self.plt_out.gate_skip = ~self.decision.epoch_ended
                 prev = self.plt_out

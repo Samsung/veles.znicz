@@ -143,11 +143,11 @@ class KanjiWorkflow(StandardWorkflow):
     def initialize(self, device, weights, bias, **kwargs):
         super(KanjiWorkflow, self).initialize(device=device)
         if weights is not None:
-            for i, fwds in enumerate(self.fwds):
+            for i, fwds in enumerate(self.forwards):
                 fwds.weights.map_invalidate()
                 fwds.weights.mem[:] = weights[i][:]
         if bias is not None:
-            for i, fwds in enumerate(self.fwds):
+            for i, fwds in enumerate(self.forwards):
                 fwds.bias.map_invalidate()
                 fwds.bias.mem[:] = bias[i][:]
 

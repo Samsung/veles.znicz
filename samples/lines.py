@@ -129,8 +129,8 @@ class LinesWorkflow(StandardWorkflowBase):
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=root.lines.image_saver.out_dirs)
-        self.image_saver.link_from(self.fwds[-1])
-        self.image_saver.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.image_saver.link_from(self.forwards[-1])
+        self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
             ("input", "minibatch_data"),
@@ -141,7 +141,7 @@ class LinesWorkflow(StandardWorkflowBase):
         # EVALUATOR
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
         self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
@@ -182,22 +182,22 @@ class LinesWorkflow(StandardWorkflowBase):
         self.plt_mx = []
         prev_channels = 3
         for i in range(0, len(layers)):
-            if (not isinstance(self.fwds[i], conv.Conv) and
-                    not isinstance(self.fwds[i], all2all.All2All)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_mx = nn_plotting_units.Weights2D(
                 self, name="%s %s" % (i + 1, layers[i]["type"]),
                 limit=root.lines.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
-            self.plt_mx[-1].link_attrs(self.fwds[i], ("input", "weights"))
+            self.plt_mx[-1].link_attrs(self.forwards[i], ("input", "weights"))
             self.plt_mx[-1].input_field = "mem"
-            if isinstance(self.fwds[i], conv.Conv):
+            if isinstance(self.forwards[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
-                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
-                prev_channels = self.fwds[i].n_kernels
+                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
+                prev_channels = self.forwards[i].n_kernels
             if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.fwds[i],
+                self.plt_mx[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
@@ -206,8 +206,8 @@ class LinesWorkflow(StandardWorkflowBase):
         self.plt_gd = []
         prev_channels = 3
         for i in range(0, len(layers)):
-            if (not isinstance(self.fwds[i], conv.Conv) and
-                    not isinstance(self.fwds[i], all2all.All2All)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_gd = nn_plotting_units.Weights2D(
                 self, name="%s gd %s" % (i + 1, layers[i]["type"]),
@@ -216,13 +216,13 @@ class LinesWorkflow(StandardWorkflowBase):
             self.plt_gd[-1].link_attrs(self.gds[i],
                                        ("input", "gradient_weights"))
             self.plt_gd[-1].input_field = "mem"
-            if isinstance(self.fwds[i], conv.Conv):
+            if isinstance(self.forwards[i], conv.Conv):
                 self.plt_gd[-1].get_shape_from = (
-                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
-                prev_channels = self.fwds[i].n_kernels
+                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
+                prev_channels = self.forwards[i].n_kernels
             if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_gd[-1].link_attrs(self.fwds[i],
+                self.plt_gd[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
             self.plt_gd[-1].link_from(self.decision)
             self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
@@ -250,17 +250,17 @@ class LinesWorkflow(StandardWorkflowBase):
                 limit=4)
             self.plt_multi_hist.append(multi_hist)
             if (layers[i].get("n_kernels") is not None and
-                    not isinstance(self.fwds[i], pooling.Pooling)):
+                    not isinstance(self.forwards[i], pooling.Pooling)):
                 self.plt_multi_hist[i].link_from(self.decision)
                 self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                self.plt_multi_hist[i].link_attrs(self.forwards[i],
                                                   ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
             if layers[i].get("output_shape") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
                 self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
-                self.plt_multi_hist[i].link_attrs(self.fwds[i],
+                self.plt_multi_hist[i].link_attrs(self.forwards[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
 
@@ -291,10 +291,10 @@ class LinesWorkflow(StandardWorkflowBase):
         del self.plt_tab.y[:]
         del self.plt_tab.col_labels[:]
         for i in range(0, len(layers)):
-            if (not isinstance(self.fwds[i], conv.Conv) and
-                    not isinstance(self.fwds[i], all2all.All2All)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
                 continue
-            obj = self.fwds[i].weights
+            obj = self.forwards[i].weights
             name = "weights %s %s" % (i + 1, layers[i]["type"])
             self.plt_tab.y.append(obj)
             self.plt_tab.col_labels.append(name)
@@ -302,7 +302,7 @@ class LinesWorkflow(StandardWorkflowBase):
             name = "gd %s %s" % (i + 1, layers[i]["type"])
             self.plt_tab.y.append(obj)
             self.plt_tab.col_labels.append(name)
-            obj = self.fwds[i].output
+            obj = self.forwards[i].output
             name = "Y %s %s" % (i + 1, layers[i]["type"])
             self.plt_tab.y.append(obj)
             self.plt_tab.col_labels.append(name)

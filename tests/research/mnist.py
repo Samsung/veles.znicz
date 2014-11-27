@@ -95,8 +95,8 @@ class MnistWorkflow(StandardWorkflowBase):
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output", "max_idx")
+        self.evaluator.link_from(self.forwards[-1])
+        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("labels", "minibatch_labels"),
@@ -197,8 +197,8 @@ class MnistWorkflow(StandardWorkflowBase):
         self.plt_mx = []
         prev_channels = 1
         for i in range(len(layers)):
-            if (not isinstance(self.fwds[i], conv.Conv) and
-                    not isinstance(self.fwds[i], all2all.All2All)):
+            if (not isinstance(self.forwards[i], conv.Conv) and
+                    not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             nme = "%s %s" % (i + 1, layers[i]["type"])
             self.debug("Added: %s", nme)
@@ -208,13 +208,13 @@ class MnistWorkflow(StandardWorkflowBase):
             self.plt_mx[-1].link_attrs(self.gds[i], ("input",
                                                      "gradient_weights"))
             self.plt_mx[-1].input_field = "mem"
-            if isinstance(self.fwds[i], conv.Conv):
+            if isinstance(self.forwards[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
-                    [self.fwds[i].kx, self.fwds[i].ky, prev_channels])
-                prev_channels = self.fwds[i].n_kernels
+                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
+                prev_channels = self.forwards[i].n_kernels
             if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.fwds[i],
+                self.plt_mx[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended

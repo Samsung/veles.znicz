@@ -164,29 +164,30 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        del self.fwds[:]
+        del self.forwards[:]
         for i in range(0, len(layers)):
             aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
                                      device=device)
-            self.fwds.append(aa)
+            self.forwards.append(aa)
             if i:
-                self.fwds[i].link_from(self.fwds[i - 1])
-                self.fwds[i].link_attrs(self.fwds[i - 1], ("input", "output"))
+                self.forwards[i].link_from(self.forwards[i - 1])
+                self.forwards[i].link_attrs(
+                    self.forwards[i - 1], ("input", "output"))
             else:
-                self.fwds[i].link_from(self.loader)
-                self.fwds[i].link_attrs(self.loader,
-                                        ("input", "minibatch_data"))
+                self.forwards[i].link_from(self.loader)
+                self.forwards[i].link_attrs(
+                    self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
         self.evaluator = evaluator.EvaluatorMSE(self, device=device)
-        self.evaluator.link_from(self.fwds[-1])
+        self.evaluator.link_from(self.forwards[-1])
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("max_samples_per_epoch", "total_samples"),
                                   ("target", "minibatch_targets"),
                                   ("labels", "minibatch_labels"),
                                   "class_targets")
-        self.evaluator.link_attrs(self.fwds[-1], "output")
+        self.evaluator.link_attrs(self.forwards[-1], "output")
 
         # Add decision unit
         self.decision = decision.DecisionMSE(
@@ -228,18 +229,18 @@ class Mnist784Workflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.fwds)))
+        self.gds.extend(None for i in range(0, len(self.forwards)))
         self.gds[-1] = gd.GDTanh(self, device=device)
         self.gds[-1].link_from(self.image_saver)
-        self.gds[-1].link_attrs(self.fwds[-1], "output", "input",
+        self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
-        for i in range(len(self.fwds) - 2, -1, -1):
+        for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(self, device=device)
             self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.fwds[i], "output", "input",
+            self.gds[i].link_attrs(self.forwards[i], "output", "input",
                                    "weights", "bias")
             self.gds[i].link_attrs(self.loader, ("batch_size",
                                                  "minibatch_size"))
@@ -273,15 +274,15 @@ class Mnist784Workflow(nn_units.NNWorkflow):
             limit=root.mnist784.weights_plotter.limit)
         self.plt_mx.link_attrs(self.gds[0], ("input", "weights"))
         self.plt_mx.input_field = "mem"
-        self.plt_mx.link_attrs(self.fwds[0], ("get_shape_from", "input"))
+        self.plt_mx.link_attrs(self.forwards[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
         self.plt_mx.gate_block = ~self.decision.epoch_ended
 
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
-        self.plt_img.inputs.append(self.fwds[-1].output)
+        self.plt_img.inputs.append(self.forwards[-1].output)
         self.plt_img.input_fields.append(0)
-        self.plt_img.inputs.append(self.fwds[0].input)
+        self.plt_img.inputs.append(self.forwards[0].input)
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_skip = ~self.decision.epoch_ended
