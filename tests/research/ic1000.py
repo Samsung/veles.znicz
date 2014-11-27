@@ -16,7 +16,6 @@ from zope.interface import implementer
 from veles.config import root
 import veles.error as error
 from veles.formats import Vector
-from veles.mean_disp_normalizer import MeanDispNormalizer
 import veles.opencl_types as opencl_types
 import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
@@ -145,21 +144,60 @@ class ImagenetWorkflow(StandardWorkflow):
             layers=root.imagenet.layers,
             loss_function=root.imagenet.loss_function, ** kwargs)
 
-    def link_loader(self):
-        super(ImagenetWorkflow, self).link_loader()
+    def create_workflow(self):
+        # Add repeater unit
+        self.link_repeater(self.start_point)
+
+        # Add loader unit
+        self.link_loader(self.repeater)
+
+        # Add meandispnormalizer unit
+        self.link_meandispnorm(self.loader)
+
+        # Add fwds units
+        self.link_forwards(self.meandispnorm, ("input", "output"))
+
+        # Add evaluator for single minibatch
+        self.link_evaluator(self.forwards[-1])
+
+        # Add decision unit
+        self.link_decision(self.evaluator)
+
+        # Add snapshotter unit
+        self.link_snapshotter(self.decision)
+
+        # Add gradient descent units
+        self.link_gds(self.snapshotter)
+
+        if root.imagenet.add_plotters:
+            # Add error plotter unit
+            self.link_error_plotter(self.gds[0])
+
+            # Add Confusion matrix plotter unit
+            self.link_conf_matrix_plotter(self.error_plotter[-1])
+
+            # Add Err y plotter unit
+            self.link_err_y_plotter(self.conf_matrix_plotter[-1])
+
+            # Add Weights plotter unit
+            self.link_weights_plotter(
+                self.err_y_plotter[-1], layers=root.imagenet.layers,
+                limit=root.imagenet.weights_plotter.limit,
+                weights_input="weights")
+
+            last = self.weights_plotter[-1]
+        else:
+            last = self.gds[0]
+
+        # Add end_point unit
+        self.link_end_point(last)
+
+    def link_loader(self, init_unit):
         self.loader = ImagenetLoader(
             self, on_device=root.imagenet.loader.on_device,
             minibatch_size=root.imagenet.loader.minibatch_size,
             shuffle_limit=root.imagenet.loader.shuffle_limit)
-        self.loader.link_from(self.repeater)
-        self.meandispnorm = MeanDispNormalizer(self)
-        self.meandispnorm.link_attrs(self.loader,
-                                     ("input", "minibatch_data"),
-                                     "mean", "rdisp")
-        self.meandispnorm.link_from(self.loader)
-
-    def link_forwards(self):
-        self.parse_forwards_from_config(self.meandispnorm, ("input", "output"))
+        self.loader.link_from(init_unit)
 
 
 def run(load, main):
