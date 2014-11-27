@@ -176,7 +176,7 @@ class LinesWorkflow(StandardWorkflowBase):
                                     ("this_save_time", "time"))
 
         # BACKWARD LAYERS (GRADIENT DESCENT)
-        self.create_gd_units_by_config()
+        self.create_gd_units_by_config(self.snapshotter)
 
         # Weights plotter
         self.plt_mx = []

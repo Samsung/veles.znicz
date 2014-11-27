@@ -13,15 +13,14 @@ if six.PY3:
 else:
     from UserDict import UserDict
 
+import veles.error as error
 from veles.znicz.decision import DecisionGD, DecisionMSE
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
-from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, deconv
 from veles.znicz import gd, gd_conv, gd_pooling, gd_deconv
 from veles.znicz import normalization, dropout
 from veles.znicz import activation
-import veles.error as error
 
 
 class TypeDict(UserDict):
@@ -266,7 +265,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         new_unit.link_from(prev_forward_unit)
         self.forwards.append(new_unit)
 
-    def create_gd_units_by_config(self):
+    def create_gd_units_by_config(self, init_unit):
         """
         Creates GD units by config (`self.layers`)
         """
@@ -363,48 +362,114 @@ class StandardWorkflow(StandardWorkflowBase):
         kwargs["layers"] = layers
         super(StandardWorkflow, self).__init__(
             workflow, **kwargs)
-        fail_iterations = kwargs.get("fail_iterations", 20)
-        max_epochs = kwargs.get("max_epochs", 1000)
-        prefix = kwargs.get("prefix", "")
-        snapshot_dir = kwargs.get("snapshot_dir", "")
-        compress = kwargs.get("compress", "")
-        time_interval = kwargs.get("time_interval", 0)
-        snapshot_interval = kwargs.get("snapshot_interval", 1)
-        loss_function = kwargs.get("loss_function", "softmax")
-        self.repeater.link_from(self.start_point)
-
-        self.link_loader()
-
-        # Add fwds units
-        self.link_forwards()
-
-        if loss_function != "softmax" and loss_function != "mse":
+        self.fail_iterations = kwargs.get("fail_iterations", 20)
+        self.max_epochs = kwargs.get("max_epochs", 1000)
+        self.prefix = kwargs.get("prefix", "")
+        self.snapshot_dir = kwargs.get("snapshot_dir", "")
+        self.compress = kwargs.get("compress", "")
+        self.time_interval = kwargs.get("time_interval", 0)
+        self.snapshot_interval = kwargs.get("snapshot_interval", 1)
+        self.loss_function = kwargs.get("loss_function", "softmax")
+        self.out_dirs = kwargs.get("out_dirs", "")
+        if self.loss_function != "softmax" and self.loss_function != "mse":
             raise error.NotExistsError("Unknown loss function type %s"
-                                       % loss_function)
+                                       % self.loss_function)
+
+        self.create_workflow()
+
+    def create_workflow(self):
+        self.link_repeater(self.start_point)
+
+        self.link_loader(self.repeater)
+
+        # Add forwards units
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
-        self.evaluator = (EvaluatorSoftmax(self) if loss_function == "softmax"
-                          else EvaluatorMSE(self))
-        self.evaluator.link_from(self.fwds[-1])
-        self.evaluator.link_attrs(self.fwds[-1], "output")
-        if loss_function == "softmax":
-            self.evaluator.link_attrs(self.fwds[-1], "max_idx")
+        self.link_evaluator(self.forwards[-1])
+
+        # Add decision unit
+        self.link_decision(self.evaluator)
+
+        # Add snapshotter unit
+        self.link_snapshotter(self.decision)
+
+        # Add gradient descent units
+        self.link_gds(self.snapshotter)
+
+        self.link_end_point(self.gds[0])
+
+    def link_repeater(self, init_unit):
+        self.repeater.link_from(init_unit)
+
+    def link_loader(self, init_unit):
+        # There must be standard Loader
+        #self.loader.link_from(init_unit)
+        pass
+
+    def link_forwards(self, init_unit, init_attrs):
+        self.parse_forwards_from_config(init_unit, init_attrs)
+
+    def link_gds(self, init_unit):
+        # not work without create forwards, evaluator and decision first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "You can use link_forwards() function")
+        if self.evaluator is None:
+            raise error.NotExistsError(
+                "Please create evaluator in workflow first."
+                "For that you can use link_evaluator() function")
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.create_gd_units_by_config(init_unit)
+        self.gds[-1].unlink_before()
+        self.gds[-1].link_from(init_unit)
+
+    def link_evaluator(self, init_unit):
+        # not work without create forwards and loader first
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "For that you can use link_forwards() function")
+        if self.loader is None:
+            raise error.NotExistsError(
+                "Please create loader in workflow first."
+                "For that you can use link_loader() function")
+        self.evaluator = (
+            EvaluatorSoftmax(self) if self.loss_function == "softmax"
+            else EvaluatorMSE(self))
+        self.evaluator.link_from(init_unit)
+        self.evaluator.link_attrs(self.forwards[-1], "output")
+        if self.loss_function == "softmax":
+            self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("labels", "minibatch_labels"),
                                   ("max_samples_per_epoch", "total_samples"))
-        if loss_function == "mse":
+        if self.loss_function == "mse":
             self.evaluator.link_attrs(self.loader,
                                       ("target", "minibatch_targets"),
                                       "class_targets")
 
-        # Add decision unit
-        self.decision = (DecisionGD(self, fail_iterations=fail_iterations,
-                                    max_epochs=max_epochs)
-                         if loss_function == "softmax" else DecisionMSE(
-                             self, fail_iterations=fail_iterations,
-                             max_epochs=max_epochs))
-        self.decision.link_from(self.evaluator)
+    def link_decision(self, init_unit):
+        # not work without create loader and evaluator first
+        if self.loader is None:
+            raise error.NotExistsError(
+                "Please create loader in workflow first."
+                "For that you can use link_loader() function")
+        if self.evaluator is None:
+            raise error.NotExistsError(
+                "Please create evaluator in workflow first."
+                "For that you can use link_evaluator() function")
+        self.decision = (DecisionGD(self, fail_iterations=self.fail_iterations,
+                                    max_epochs=self.max_epochs)
+                         if self.loss_function == "softmax" else DecisionMSE(
+                             self, fail_iterations=self.fail_iterations,
+                             max_epochs=self.max_epochs))
+        self.decision.link_from(init_unit)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
@@ -412,47 +477,45 @@ class StandardWorkflow(StandardWorkflowBase):
                                  "class_lengths",
                                  "epoch_ended",
                                  "epoch_number")
-        if loss_function == "mse":
+        if self.loss_function == "mse":
             self.decision.link_attrs(self.loader, "minibatch_offset")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"))
-        if loss_function == "softmax":
+        if self.loss_function == "softmax":
             self.decision.link_attrs(
                 self.evaluator,
                 ("minibatch_confusion_matrix", "confusion_matrix"),
                 ("minibatch_max_err_y_sum", "max_err_output_sum"))
-        if loss_function == "mse":
+        if self.loss_function == "mse":
             self.decision.link_attrs(
                 self.evaluator,
                 ("minibatch_metrics", "metrics"),
                 ("minibatch_mse", "mse"))
 
-        self.snapshotter = NNSnapshotter(
-            self, prefix=prefix, directory=snapshot_dir,
-            compress=compress, time_interval=time_interval,
-            interval=snapshot_interval)
-        self.snapshotter.link_from(self.decision)
+    def link_snapshotter(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.snapshotter = nn_units.NNSnapshotter(
+            self, prefix=self.prefix, directory=self.snapshot_dir,
+            compress=self.compress, time_interval=self.time_interval,
+            interval=self.snapshot_interval)
+        self.snapshotter.link_from(init_unit)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
 
-        # Add gradient descent units
-        self.create_gd_units_by_config()
-        self.repeater.link_from(self.gds[0])
-        self.end_point.link_from(self.gds[0])
+    def link_end_point(self, init_unit):
+        # not work without create decision first
+        if self.decision is None:
+            raise error.NotExistsError(
+                "Please create decision in workflow first."
+                "For that you can use link_decision() function")
+        self.repeater.link_from(init_unit)
+        self.end_point.link_from(init_unit)
         self.end_point.gate_block = ~self.decision.complete
-
         self.loader.gate_block = self.decision.complete
-
-        self.gds[-1].unlink_before()
-        self.gds[-1].link_from(self.snapshotter)
-
-    def link_loader(self):
-        # There must be standard Loader
-        pass
-
-    def link_forwards(self):
-        self.parse_forwards_from_config(self.loader,
-                                        ("input", "minibatch_data"))

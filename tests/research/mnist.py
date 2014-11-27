@@ -129,7 +129,7 @@ class MnistWorkflow(StandardWorkflowBase):
             (~self.decision.epoch_ended | ~self.decision.improved)
 
         # Add gradient descent units
-        self.create_gd_units_by_config()
+        self.create_gd_units_by_config(self.snapshotter)
 
         if root.mnistr.learning_rate_adjust.do:
             # Add learning_rate_adjust unit
