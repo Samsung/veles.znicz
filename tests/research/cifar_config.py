@@ -23,8 +23,11 @@ validation_dir = os.path.join(root.common.test_dataset_root,
 root.cifar.update({
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "learning_rate_adjust": {"do": False},
-    "snapshotter": {"prefix": "cifar"},
-    "image_saver": {"out_dirs":
+    "snapshotter": {"prefix": "cifar", "interval": 1},
+    "loss_function": "softmax",
+    "add_plotters": True,
+    "image_saver": {"do": False,
+                    "out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
