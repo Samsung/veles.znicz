@@ -20,10 +20,6 @@ from veles.znicz.standard_workflow import StandardWorkflow
 
 
 class KanjiWorkflow(StandardWorkflow):
-    def __init__(self, workflow, **kwargs):
-        super(KanjiWorkflow, self).__init__(
-            workflow, **kwargs)
-
     def create_workflow(self):
         # Add repeater unit
         self.link_repeater(self.start_point)

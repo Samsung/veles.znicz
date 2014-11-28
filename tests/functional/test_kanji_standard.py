@@ -15,7 +15,7 @@ import unittest
 
 from veles.config import root
 import veles.opencl as opencl
-import veles.prng as rnd
+import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.kanji as kanji_standard
@@ -28,35 +28,45 @@ class TestKanjiStandard(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
-    @timeout(300)
+    @timeout(1000)
     def test_kanji_standard(self):
-        logging.info("Will test fully connectected mnist workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
+        logging.info("Will test kanji workflow")
 
+        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
+                                       root.common.veles_dir,
+                                       dtype=numpy.uint32, count=1024))
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.uint32, count=1024))
         train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
+        root.kanji.update({
+            "index_map": os.path.join(train_path, "index_map.%d.pickle" %
+                                      (sys.version_info[0]))})
+
         root.kanji_standard.update({
-            "decision": {"fail_iterations": 1000, "max_epochs": 2},
+            "decision": {"fail_iterations": 1000,
+                         "max_epochs": 2},
             "loss_function": "mse",
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
                        "validation_ratio": 0.15},
-            "snapshotter": {"prefix": "standard_kanji_test"},
+            "snapshotter": {"prefix": "kanji_standard_test"},
             "layers": [{"type": "all2all_tanh", "learning_rate": 0.00001,
+                        "learning_rate_bias": 0.01,
                         "weights_decay": 0.00005, "output_shape": 250},
                        {"type": "all2all_tanh", "learning_rate": 0.00001,
+                        "learning_rate_bias": 0.01,
                         "weights_decay": 0.00005, "output_shape": 250},
                        {"type": "all2all_tanh", "output_shape": 24 * 24,
-                        "learning_rate": 0.00001, "weights_decay": 0.00005}],
-            "data_paths":
-            {"target": os.path.join(root.common.test_dataset_root,
-                                    ("kanji/target/targets.%d.pickle" %
-                                     (sys.version_info[0]))),
-             "train": train_path},
-            "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                                      (sys.version_info[0]))})
+                        "learning_rate_bias": 0.01,
+                        "learning_rate": 0.00001,
+                        "weights_decay": 0.00005}],
+            "data_paths": {"target":
+                           os.path.join(root.common.test_dataset_root,
+                                        ("kanji/target/targets.%d.pickle" %
+                                         (sys.version_info[0]))),
+                           "train": train_path}})
 
         self.w = kanji_standard.KanjiWorkflow(
             dummy_workflow.DummyWorkflow(),
@@ -67,9 +77,10 @@ class TestKanjiStandard(unittest.TestCase):
             layers=root.kanji_standard.layers,
             loss_function=root.kanji_standard.loss_function,
             device=self.device)
+        self.w.decision.max_epochs = 2
+        self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.snapshotter.interval = 2
         self.w.initialize(device=self.device, weights=None, bias=None)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

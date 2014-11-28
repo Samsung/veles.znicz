@@ -19,6 +19,11 @@ from veles.config import root
 
 train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
+
+root.kanji.update({"index_map":
+                   os.path.join(train_path, "index_map.%d.pickle" %
+                                (sys.version_info[0]))})
+
 root.kanji_standard.update({
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000},
@@ -38,6 +43,4 @@ root.kanji_standard.update({
     "data_paths": {"target": os.path.join(root.common.test_dataset_root,
                                           ("kanji/target/targets.%d.pickle" %
                                            (sys.version_info[0]))),
-                   "train": train_path},
-    "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                              (sys.version_info[0]))})
+                   "train": train_path}})

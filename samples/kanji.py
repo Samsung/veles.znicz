@@ -16,7 +16,6 @@ import numpy
 import os
 import pickle
 import re
-import sys
 from zope.interface import implementer
 
 from veles.config import root
@@ -36,23 +35,6 @@ from veles.znicz.nn_units import NNSnapshotter
 
 
 train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
-
-root.kanji.update({
-    "decision": {"fail_iterations": 1000,
-                 "max_epochs": 100},
-    "snapshotter": {"prefix": "kanji"},
-    "loader": {"minibatch_size": 5103,
-               "validation_ratio": 0.15},
-    "weights_plotter": {"limit": 16},
-    "learning_rate": 0.0000001,
-    "weights_decay": 0.00005,
-    "layers": [5103, 2889, 24 * 24],
-    "data_paths": {"target": os.path.join(root.common.test_dataset_root,
-                                          "kanji/target/targets.%d.pickle" %
-                                          (sys.version_info[0])),
-                   "train": train_path},
-    "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                              (sys.version_info[0]))})
 
 
 @implementer(loader.ILoader)
