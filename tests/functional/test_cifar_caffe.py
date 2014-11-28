@@ -101,9 +101,17 @@ class TestCifarCaffe(unittest.TestCase):
                         "weights_decay_bias": 0, "gradient_moment": 0.9,
                         "gradient_moment_bias": 0.9}]})
 
-        self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.cifar.layers,
-                                     device=self.device)
+        self.w = cifar.CifarWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            fail_iterations=root.cifar.decision.fail_iterations,
+            max_epochs=root.cifar.decision.max_epochs,
+            prefix=root.cifar.snapshotter.prefix,
+            snapshot_interval=root.cifar.snapshotter.interval,
+            snapshot_dir=root.common.snapshot_dir,
+            layers=root.cifar.layers,
+            out_dirs=root.cifar.image_saver.out_dirs,
+            loss_function=root.cifar.loss_function,
+            device=self.device)
         self.w.decision.max_epochs = 1
         self.w.snapshotter.interval = 1
         self.assertEqual(self.w.evaluator.labels,

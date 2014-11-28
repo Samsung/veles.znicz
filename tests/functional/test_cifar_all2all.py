@@ -50,9 +50,17 @@ class TestCifarAll2All(unittest.TestCase):
                        {"type": "activation_sincos"},
                        {"type": "softmax", "output_shape": 10,
                         "learning_rate": 0.0005, "weights_decay": 0.0}]})
-        self.w = cifar.CifarWorkflow(dummy_workflow.DummyWorkflow(),
-                                     layers=root.cifar.layers,
-                                     device=self.device)
+        self.w = cifar.CifarWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            fail_iterations=root.cifar.decision.fail_iterations,
+            max_epochs=root.cifar.decision.max_epochs,
+            prefix=root.cifar.snapshotter.prefix,
+            snapshot_interval=root.cifar.snapshotter.interval,
+            snapshot_dir=root.common.snapshot_dir,
+            layers=root.cifar.layers,
+            out_dirs=root.cifar.image_saver.out_dirs,
+            loss_function=root.cifar.loss_function,
+            device=self.device)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,

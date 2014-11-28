@@ -159,20 +159,6 @@ class CifarLoader(loader.FullBatchLoader):
 
 
 class CifarWorkflow(StandardWorkflow):
-    """Sample workflow.
-    """
-    def __init__(self, workflow, **kwargs):
-        super(CifarWorkflow, self).__init__(
-            workflow,
-            fail_iterations=root.cifar.decision.fail_iterations,
-            max_epochs=root.cifar.decision.max_epochs,
-            prefix=root.cifar.snapshotter.prefix,
-            snapshot_interval=root.cifar.snapshotter.interval,
-            snapshot_dir=root.common.snapshot_dir,
-            layers=root.cifar.layers,
-            out_dirs=root.cifar.image_saver.out_dirs,
-            loss_function=root.cifar.loss_function, ** kwargs)
-
     def link_loader(self, init_unit):
         self.loader = CifarLoader(
             self, shuffle_limit=root.cifar.loader.shuffle_limit,
@@ -260,5 +246,13 @@ class CifarWorkflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(CifarWorkflow)
+    load(CifarWorkflow,
+         fail_iterations=root.cifar.decision.fail_iterations,
+         max_epochs=root.cifar.decision.max_epochs,
+         prefix=root.cifar.snapshotter.prefix,
+         snapshot_interval=root.cifar.snapshotter.interval,
+         snapshot_dir=root.common.snapshot_dir,
+         layers=root.cifar.layers,
+         out_dirs=root.cifar.image_saver.out_dirs,
+         loss_function=root.cifar.loss_function)
     main()
