@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
+import six
 import sys
 import unittest
 
