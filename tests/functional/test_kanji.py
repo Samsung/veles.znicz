@@ -45,13 +45,14 @@ class TestKanji(unittest.TestCase):
 
         root.kanji.update({
             "decision": {"fail_iterations": 1000,
-                         "store_samples_mse": True},
+                         "max_epochs": 2},
             "loader": {"minibatch_size": 50,
                        "validation_ratio": 0.15},
             "snapshotter": {"prefix": "kanji_test"},
             "learning_rate": 0.00001,
             "weights_decay": 0.00005,
             "layers": [250, 250, 24 * 24],
+            "weights_plotter": {"limit": 16},
             "data_paths":
             {"target": os.path.join(root.common.test_dataset_root,
                                     ("kanji/target/targets.%d.pickle"
@@ -63,7 +64,6 @@ class TestKanji(unittest.TestCase):
         self.w = kanji.KanjiWorkflow(dummy_workflow.DummyWorkflow(),
                                      layers=root.kanji.layers,
                                      device=self.device)
-        self.w.decision.max_epochs = 2
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
