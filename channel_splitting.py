@@ -64,11 +64,11 @@ class ChannelMerger(Forward):
         super(ChannelMerger, self).__init__(workflow, **kwargs)
 
     def init_unpickled(self):
-        super(ChannelSplitter, self).init_unpickled()
+        super(ChannelMerger, self).init_unpickled()
         self.cl_sources_["channel_splitting.cl"] = {}
 
     def initialize(self, device, **kwargs):
-        super(ChannelSplitter, self).initialize(device=device, **kwargs)
+        super(ChannelMerger, self).initialize(device=device, **kwargs)
         if (self.output.mem is None or
                 self.output.mem.size != self.input.mem.size):
             self.output.reset()
