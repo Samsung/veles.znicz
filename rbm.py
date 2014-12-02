@@ -100,7 +100,7 @@ class GradientDescentRBM(gd.GradientDescent):
     http://deeplearning.net/tutorial/rbm.html (25.11.14).
     """
     def __init__(self, workflow, **kwargs):
-        super().__init__(workflow, **kwargs)
+        super(GradientDescentRBM, self).__init__(workflow, **kwargs)
         self.cd_k = kwargs.get("cd_k", 1)
         self.cl_sources_["gradient_descent_relu.cl"] = {}
 

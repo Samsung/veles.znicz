@@ -13,7 +13,7 @@ import scipy.io
 import unittest
 
 from veles.dummy import DummyLauncher
-from veles.znicz.samples.rbm import MnistRBMWorkflow
+from veles.znicz.samples.mnist_rbm import MnistRBMWorkflow
 
 
 class TestRBMworkflow(unittest.TestCase):
