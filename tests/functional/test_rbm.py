@@ -5,7 +5,6 @@ Created on November 6, 2014
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
 import logging
 import numpy
 import os

@@ -2,6 +2,7 @@
 Created on Oct 29, 2014
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
+from __future__ import division
 import math
 import numpy
 from zope.interface import implementer
@@ -125,6 +126,7 @@ class GradientDescentRBM(gd.GradientDescent):
         W0 /= self.batch_size
         h1 = self.output.mem.copy()
         h1 = h1[0:self.batch_size, :]
+
         for _ in range(self.cd_k):
             h1 = matlab_binornd(1, h1)
             v1 = numpy.dot(h1, self.weights.mem)

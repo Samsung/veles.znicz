@@ -9,16 +9,30 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import numpy
+import os
 import scipy.io
 from zope.interface import implementer
 
 from veles.config import root
 from veles.interaction import Shell
 from veles.znicz.decision import TrivialDecision
-
 import veles.znicz.loader as loader
 import veles.znicz.nn_units as nn_units
 import veles.znicz.rbm as RBM_units
+
+
+root.mnist_rbm.update({
+    "all2all": {"weights_stddev": 0.05, "output_shape": 1000},
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": 100},
+    "snapshotter": {"prefix": "mnist_rbm"},
+    "loader": {"minibatch_size": 128, "on_device": True,
+               "data_path":
+               os.path.join(os.path.dirname(__file__), "..", "..",
+                            "tests/unit/data/rbm/test_rbm.mat")},
+    "learning_rate": 0.03,
+    "weights_decay": 0.0005,
+    "factor_ortho": 0.0})
 
 
 @implementer(loader.IFullBatchLoader)
@@ -69,7 +83,6 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
     def __init__(self, workflow, layers, **kwargs):
         super(MnistRBMWorkflow, self).__init__(workflow, **kwargs)
         self.repeater.link_from(self.start_point)
-
         # LOADER
         self.loader = MnistRBMLoader(
             self, name="Mnist RBM fullbatch loader",

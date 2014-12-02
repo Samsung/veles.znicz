@@ -79,13 +79,13 @@ class TestRBMUnits(unittest.TestCase):
                       numpy.transpose(self.test_data["W1"])))
 
         self.assertLess(diff_vbias, 1e-14,
-                        " total error  is %0.17f" % diff_vbias)
+                        " total error vbias is %0.17f" % diff_vbias)
 
         self.assertLess(diff_bias, 1e-14,
-                        " total error  is %0.17f" % diff_bias)
+                        " total error bias is %0.17f" % diff_bias)
 
         self.assertLess(diff_weights, 1e-12,
-                        " total error  is %0.17f" % diff_weights)
+                        " total error weights is %0.17f" % diff_weights)
 
     def test_EvaluatorRBM(self):
         """This function creates EvaluatorRBM unit for MNIST task
