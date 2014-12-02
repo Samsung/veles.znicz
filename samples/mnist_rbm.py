@@ -65,7 +65,6 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
     def __init__(self, workflow, layers, **kwargs):
         super(MnistRBMWorkflow, self).__init__(workflow, **kwargs)
         self.repeater.link_from(self.start_point)
-
         # LOADER
         self.loader = MnistRBMLoader(
             self, name="Mnist RBM fullbatch loader",

@@ -5,22 +5,23 @@ Created on November 6, 2014
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
 import logging
 import numpy
 import os
 import scipy.io
 import unittest
 
+from veles.config import root
 from veles.dummy import DummyLauncher
 from veles.znicz.samples.mnist_rbm import MnistRBMWorkflow
+import veles.znicz.samples.mnist_rbm_config
 
 
 class TestRBMworkflow(unittest.TestCase):
     """Test RBM workflow for MNIST.
     """
     def setUp(self):
-        pass
+        root.mnist_rbm.decision.max_epochs = 2
 
     def test_rbm(self):
         """This function creates RBM workflow for MNIST task
@@ -39,12 +40,14 @@ class TestRBMworkflow(unittest.TestCase):
             os.path.dirname(__file__), '..', 'unit',
             'data', 'rbm', 'test_rbm.mat'))
         test_data = scipy.io.loadmat(test_data_path)
-        workflow.fwds[0].weights.map_write()
-        workflow.fwds[0].bias.map_write()
-        workflow.fwds[0].vbias.map_write()
-        workflow.fwds[0].weights.mem[:] = numpy.transpose(test_data["W"])[:]
-        workflow.fwds[0].vbias.mem[:] = numpy.transpose(test_data["vbias"])[:]
-        workflow.fwds[0].bias.mem = numpy.transpose(test_data["hbias"])[:]
+        workflow.forwards[0].weights.map_write()
+        workflow.forwards[0].bias.map_write()
+        workflow.forwards[0].vbias.map_write()
+        workflow.forwards[0].weights.mem[:] = \
+            numpy.transpose(test_data["W"])[:]
+        workflow.forwards[0].vbias.mem[:] = \
+            numpy.transpose(test_data["vbias"])[:]
+        workflow.forwards[0].bias.mem = numpy.transpose(test_data["hbias"])[:]
         workflow.run()
         diff = numpy.sum(numpy.abs(test_data["errors"] -
                          workflow.evaluator.reconstruction_error))
