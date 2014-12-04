@@ -14,7 +14,7 @@ from veles.config import root
 import veles.opencl as opencl
 import veles.prng as rnd
 from veles.tests import timeout
-import veles.znicz.tests.research.spam_kohonen as spam_kohonen
+import veles.znicz.tests.research.SpamKohonen.spam_kohonen as spam_kohonen
 import veles.dummy as dummy_workflow
 
 

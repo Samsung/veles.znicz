@@ -15,7 +15,7 @@ import veles.opencl as opencl
 import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.tests.research.mnist7 as mnist7
+import veles.znicz.tests.research.Mnist7.mnist7 as mnist7
 import veles.dummy as dummy_workflow
 
 

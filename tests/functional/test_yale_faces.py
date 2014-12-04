@@ -16,7 +16,7 @@ import veles.opencl as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.samples.yale_faces as yale_faces
+import veles.znicz.samples.YaleFaces.yale_faces as yale_faces
 import veles.dummy as dummy_workflow
 
 

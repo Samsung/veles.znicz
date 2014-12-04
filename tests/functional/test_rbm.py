@@ -5,6 +5,7 @@ Created on November 6, 2014
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
+
 import logging
 import numpy
 import os
@@ -13,8 +14,7 @@ import unittest
 
 from veles.config import root
 from veles.dummy import DummyLauncher
-from veles.znicz.samples.mnist_rbm import MnistRBMWorkflow
-import veles.znicz.samples.mnist_rbm_config
+from veles.znicz.samples.MnistRBM.mnist_rbm import MnistRBMWorkflow
 
 
 class TestRBMworkflow(unittest.TestCase):

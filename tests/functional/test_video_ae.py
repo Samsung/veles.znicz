@@ -16,7 +16,7 @@ import veles.opencl as opencl
 import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.tests.research.video_ae as video_ae
+import veles.znicz.tests.research.VideoAE.video_ae as video_ae
 import veles.dummy as dummy_workflow
 
 

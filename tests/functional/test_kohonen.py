@@ -15,7 +15,7 @@ from veles.config import root
 import veles.opencl as opencl
 import veles.prng as rnd
 from veles.tests import timeout
-import veles.znicz.samples.kohonen as kohonen
+import veles.znicz.samples.DemoKohonen.kohonen as kohonen
 import veles.dummy as dummy_workflow
 
 

@@ -18,7 +18,7 @@ import veles.opencl as opencl
 import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.tests.research.kanji as kanji_standard
+import veles.znicz.tests.samples.Kanji.kanji as kanji_standard
 import veles.dummy as dummy_workflow
 
 

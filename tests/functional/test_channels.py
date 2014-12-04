@@ -18,7 +18,7 @@ import veles.opencl as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.samples.channels as channels
+import veles.znicz.samples.Channels.channels as channels
 import veles.dummy as dummy_workflow
 
 

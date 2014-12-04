@@ -16,7 +16,7 @@ import veles.opencl as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.tests.research.cifar as cifar
+import veles.znicz.tests.research.CIFAR10.cifar as cifar
 import veles.dummy as dummy_workflow
 
 

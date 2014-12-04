@@ -15,7 +15,7 @@ import veles.opencl as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-import veles.znicz.tests.research.hands as hands
+import veles.znicz.tests.research.Hands.hands as hands
 import veles.dummy as dummy_workflow
 
 
