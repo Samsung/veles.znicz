@@ -22,6 +22,8 @@ import veles.prng as prng
 from veles import opencl_types
 from veles.dummy import DummyWorkflow
 from veles.opencl_units import TrivialOpenCLUnit
+import veles.znicz as znicz
+znicz.nothing()
 
 
 class TestMatrixMultiplication(unittest.TestCase):
@@ -91,11 +93,11 @@ class TestMatrixMultiplication(unittest.TestCase):
         obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
 
-        self.a.initialize(obj)
-        self.b.initialize(obj)
-        self.c.initialize(obj)
+        self.a.initialize(device)
+        self.b.initialize(device)
+        self.c.initialize(device)
 
-        obj.cl_sources_["all2all/forward.cl"] = {}
+        obj.cl_sources_["all2all/forward"] = {}
         defines = {
             "INCLUDE_BIAS": 0,
             "WEIGHTS_TRANSPOSED": 0,
@@ -111,7 +113,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         if self.b_col:
             defines["B_COL"] = 1
         obj.build_program(
-            defines, os.path.join(root.common.cache_dir, "test.cl"),
+            defines, os.path.join(root.common.cache_dir, "test"),
             dtype=self.dtype)
 
         krn = obj.get_kernel("feed_layer")
@@ -168,6 +170,8 @@ class TestMatrixMultiplication(unittest.TestCase):
                     self._cleanup_after_tsts()
 
     def test(self):
+        if not isinstance(self.device, opencl.OCLDevice):
+            return
         for dtype in (numpy.float32, numpy.float64):
             logging.info("~" * 80)
             logging.info(str(dtype))

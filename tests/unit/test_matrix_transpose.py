@@ -32,17 +32,17 @@ class TestMatrixTranspose(unittest.TestCase):
         obj = TrivialOpenCLUnit(DummyWorkflow())
         obj.initialize(device=device)
 
-        a.initialize(obj)
-        b.initialize(obj)
+        a.initialize(device)
+        b.initialize(device)
 
         gold = a.mem.transpose().copy()
 
         bs = 16
-        obj.cl_sources_["matrix_transpose.cl"] = {
+        obj.cl_sources_["matrix_transpose"] = {
             "BLOCK_SIZE": bs
         }
         obj.build_program(
-            {}, os.path.join(root.common.cache_dir, "test.cl"), dtype=dtype)
+            {}, os.path.join(root.common.cache_dir, "test"), dtype=dtype)
 
         krn = obj.get_kernel("transpose")
         krn.set_arg(0, a.devmem)

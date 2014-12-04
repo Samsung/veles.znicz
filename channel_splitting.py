@@ -13,7 +13,7 @@ class ChannelSplitter(Forward):
 
     def init_unpickled(self):
         super(ChannelSplitter, self).init_unpickled()
-        self.cl_sources_["channel_splitting.cl"] = {}
+        self.cl_sources_["channel_splitting"] = {}
 
     def initialize(self, device, **kwargs):
         super(ChannelSplitter, self).initialize(device=device, **kwargs)
@@ -25,15 +25,16 @@ class ChannelSplitter(Forward):
                 shape=(self.input.mem.shape[0], self.input.mem.shape[3],
                        self.input.mem.shape[1], self.input.mem.shape[2]))
 
-        self.input.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
 
-        if device is not None:
-            self.ocl_init(device)
+        self.backend_init()
 
-    def ocl_init(self, device):
-        self.build_program({}, "channel_splitting.cl",
-                           dtype=self.input.mem.dtype)
+    def ocl_init(self):
+        self.build_program({}, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.input.shape)),
+                           dtype=self.input.dtype)
 
         self.assign_kernel("split_channels")
         self.set_args(
@@ -65,7 +66,7 @@ class ChannelMerger(Forward):
 
     def init_unpickled(self):
         super(ChannelMerger, self).init_unpickled()
-        self.cl_sources_["channel_splitting.cl"] = {}
+        self.cl_sources_["channel_splitting"] = {}
 
     def initialize(self, device, **kwargs):
         super(ChannelMerger, self).initialize(device=device, **kwargs)
@@ -77,15 +78,16 @@ class ChannelMerger(Forward):
                 shape=(self.input.mem.shape[0], self.input.mem.shape[2],
                        self.input.mem.shape[3], self.input.mem.shape[1]))
 
-        self.input.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
 
-        if device is not None:
-            self.ocl_init(device)
+        self.backend_init()
 
-    def ocl_init(self, device):
-        self.build_program({}, "channel_splitting.cl",
-                           dtype=self.input.mem.dtype)
+    def ocl_init(self):
+        self.build_program({}, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.input.shape)),
+                           dtype=self.input.dtype)
 
         self.assign_kernel("merge_channels")
         self.set_args(

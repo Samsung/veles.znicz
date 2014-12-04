@@ -76,26 +76,28 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
     def init_unpickled(self):
         super(LRNormalizerForward, self).init_unpickled()
-        self.cl_sources_["normalization.cl"] = {}
+        self.cl_sources_["normalization"] = {}
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
         self.output.mem = np.zeros(shape=self.input.mem.shape,
                                    dtype=self.input.mem.dtype)
 
-        self.input.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
 
         self._num_of_chans = self.input.mem.shape[3]
 
-        if device is not None:
-            LRNormalizerForward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
-        self.build_program(defines, dtype=self.input.mem.dtype)
+        self.build_program(defines, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.input.shape)),
+                           dtype=self.input.mem.dtype)
         self.assign_kernel("forward")
         self.set_args(self.input, self.output)
 
@@ -149,26 +151,29 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
 
     def init_unpickled(self):
         super(LRNormalizerBackward, self).init_unpickled()
-        self.cl_sources_["normalization.cl"] = {}
+        self.cl_sources_["normalization"] = {}
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerBackward, self).initialize(device, **kwargs)
         self.err_input.mem = np.zeros(self.err_output.mem.shape,
                                       dtype=self.err_output.mem.dtype)
 
-        self.err_output.initialize(self)
-        self.input.initialize(self)
-        self.err_input.initialize(self)
+        self.err_output.initialize(self.device)
+        self.input.initialize(self.device)
+        self.err_input.initialize(self.device)
 
         self._num_of_chans = self.input.mem.shape[3]
 
-        if device is None:
-            return
+        self.backend_init()
 
+    def ocl_init(self):
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
                    "N": self.n, "NUM_OF_CHANS": self._num_of_chans}
 
-        self.build_program(defines, dtype=self.input.mem.dtype)
+        self.build_program(defines, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.err_output.shape)),
+                           dtype=self.input.mem.dtype)
         self.assign_kernel("backward")
         self.set_args(self.err_output, self.input, self.err_input)
 

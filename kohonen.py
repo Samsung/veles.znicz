@@ -79,7 +79,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
 
     def init_unpickled(self):
         super(KohonenForward, self).init_unpickled()
-        self.cl_sources_["kohonen.cl"] = {"FORWARD": 1}
+        self.cl_sources_["kohonen"] = {"FORWARD": 1}
 
     @property
     def neurons_number(self):
@@ -112,20 +112,19 @@ class KohonenForward(KohonenBase, OpenCLUnit):
             self.total.mem = numpy.zeros(self.batch_size, dtype=numpy.int32)
             self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
 
-        if self.device is not None:
-            KohonenForward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         batch_size = self.input.mem.shape[0]
-        self.output.initialize(self)
+        self.output.initialize(self.device)
         if self.argmins is None:
-            self.input.initialize(self)
-            self.weights.initialize(self, False)
-            self._distances.initialize(self)
+            self.input.initialize(self.device)
+            self.weights.initialize(self.device)
+            self._distances.initialize(self.device)
         elif self.total is None:
             return
         if self.total is not None:
-            self.total.initialize(self)
+            self.total.initialize(self.device)
 
         copy_chunk_size = int(numpy.ceil(batch_size /
                                          self.device.max_group_size))
@@ -135,7 +134,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         self.argmin_group_size = \
             int(numpy.ceil(self.neurons_number / chunk_size))
 
-        block_size = device.device_info.get_block_size(
+        block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
@@ -148,8 +147,9 @@ class KohonenForward(KohonenBase, OpenCLUnit):
         }
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
-        self.build_program(defines, "kohonen_forward_%d_%d_%d.cl" %
-                           (batch_size, self.sample_length,
+        self.build_program(defines, "%s_%d_%d_%d" %
+                           (self.__class__.__name__,
+                            batch_size, self.sample_length,
                             self.neurons_number),
                            dtype=self.weights.mem.dtype)
 
@@ -277,7 +277,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
 
     def init_unpickled(self):
         super(KohonenTrainer, self).init_unpickled()
-        self.cl_sources_["kohonen.cl"] = {"TRAIN": 1}
+        self.cl_sources_["kohonen"] = {"TRAIN": 1}
         self._krn_distances_ = None
         self._krn_argmin_ = None
         self._krn_gravity_ = None
@@ -376,16 +376,15 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self._sigma = (self._coords.mem.ravel().max() -
                        self._coords.mem.ravel().min()) * 1.42
 
-        if self.device is not None:
-            KohonenTrainer.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
-        self.input.initialize(self)
-        self.weights.initialize(self, False)
-        self.winners.initialize(self)
-        self.argmins.initialize(self)
-        self._distances.initialize(self)
-        self._coords.initialize(self)
+    def ocl_init(self):
+        self.input.initialize(self.device)
+        self.weights.initialize(self.device)
+        self.winners.initialize(self.device)
+        self.argmins.initialize(self.device)
+        self._distances.initialize(self.device)
+        self._coords.initialize(self.device)
 
         batch_size = self.input.mem.shape[0]
         chunk_size = self._neurons_number // self.device.max_group_size
@@ -394,7 +393,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         self.argmin_group_size = int(numpy.ceil(float(self._neurons_number) /
                                                 chunk_size))
 
-        block_size = device.device_info.get_block_size(
+        block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
@@ -410,8 +409,9 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         }
         if self.weights_transposed:
             defines['WEIGHTS_TRANSPOSED'] = 1
-        self.build_program(defines, "kohonen_train_%d_%d_%d.cl" %
-                           (batch_size, self._sample_length,
+        self.build_program(defines, "%s_%d_%d_%d" %
+                           (self.__class__.__name__,
+                            batch_size, self._sample_length,
                             self._neurons_number),
                            dtype=self.weights.mem.dtype)
 

@@ -349,6 +349,15 @@ class Loader(OpenCLUnit):
     def ocl_run(self):
         self.cpu_run()
 
+    def cuda_run(self):
+        self.cpu_run()
+
+    def ocl_init(self):
+        pass
+
+    def cuda_init(self):
+        pass
+
     def generate_data_for_master(self):
         return True
 

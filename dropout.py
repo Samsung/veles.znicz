@@ -31,7 +31,7 @@ class Dropout(OpenCLUnit, TriviallyDistributable):
 
     def init_unpickled(self):
         super(Dropout, self).init_unpickled()
-        self.cl_sources_["dropout.cl"] = {}
+        self.cl_sources_["dropout"] = {}
 
     @property
     def dropout_ratio(self):
@@ -80,19 +80,20 @@ class DropoutForward(Forward, Dropout):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
-        self.input.initialize(self)
-        self.output.initialize(self)
-        self.states.initialize(self)
-        self.mask.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
+        self.states.initialize(self.device)
+        self.mask.initialize(self.device)
 
-        if device is not None:
-            DropoutForward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)
         self._pass_arg_ = numpy.empty(1, dtype=self.input.mem.dtype)
 
-        self.build_program({}, "dropout_forward.cl",
+        self.build_program({}, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.input.shape)),
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("dropout_forward")
@@ -158,14 +159,15 @@ class DropoutBackward(GradientDescentBase, Dropout):
         if self.device is None:
             return  # if is master
 
-        self.err_output.initialize(self)
-        self.err_input.initialize(self)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
 
-        if device is not None:
-            DropoutBackward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
-        self.build_program({}, "dropout_backward.cl",
+    def ocl_init(self):
+        self.build_program({}, "%s_%s" %
+                           (self.__class__.__name__,
+                            "x".join(str(x) for x in self.err_input)),
                            dtype=self.err_output.mem.dtype)
         self.assign_kernel("dropout_backward")
         self.set_args(self.mask, self.err_output, self.err_input)

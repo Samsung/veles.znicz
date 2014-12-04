@@ -9,4 +9,4 @@ import os
 
 
 def update(root):
-    root.common.ocl_dirs.append(os.path.join(os.path.dirname(__file__), "ocl"))
+    root.common.compute.dirs.append(os.path.dirname(__file__))

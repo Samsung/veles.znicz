@@ -18,7 +18,7 @@ from veles import error
 class Activation(OpenCLUnit):
     def init_unpickled(self):
         super(Activation, self).init_unpickled()
-        self.cl_sources_["activation.cl"] = {}
+        self.cl_sources_["activation"] = {}
 
 
 @implementer(IOpenCLUnit)
@@ -33,15 +33,14 @@ class ActivationForward(Forward, Activation):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
-        self.input.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
 
-        if device is not None:
-            ActivationForward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.input.mem.dtype
-        self.build_program({}, "%s.cl" % self.__class__.__name__,
+        self.build_program({}, "%s" % self.__class__.__name__,
                            dtype=dtype)
         self.assign_kernel(self.kernel_name)
         self._set_activation_args()
@@ -92,17 +91,16 @@ class ActivationBackward(GradientDescentBase, Activation):
             self.err_input.mem = numpy.zeros_like(self.err_output.mem)
 
         if self.input is not None:
-            self.input.initialize(self)
-        self.output.initialize(self)
-        self.err_output.initialize(self)
-        self.err_input.initialize(self)
+            self.input.initialize(self.device)
+        self.output.initialize(self.device)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
 
-        if device is not None:
-            ActivationBackward.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.err_output.mem.dtype
-        self.build_program({}, "%s.cl" % self.__class__.__name__,
+        self.build_program({}, "%s" % self.__class__.__name__,
                            dtype=dtype)
         self.assign_kernel(self.kernel_name)
         self._set_activation_args()
@@ -224,8 +222,8 @@ class ForwardMul(ActivationForward):
         self._cl_const[0] = self._factor
         self.set_arg(2, self._cl_const)
 
-    def ocl_init(self, device):
-        super(ForwardMul, self).ocl_init(device)
+    def ocl_init(self):
+        super(ForwardMul, self).ocl_init()
         self.factor = self._factor
 
     def run(self):
@@ -272,8 +270,8 @@ class BackwardMul(ActivationBackward):
         self._cl_const[0] = self._factor
         self.set_arg(4, self._cl_const)
 
-    def ocl_init(self, device):
-        super(BackwardMul, self).ocl_init(device)
+    def ocl_init(self):
+        super(BackwardMul, self).ocl_init()
         self.factor = self._factor
 
     def cpu_run(self):
@@ -391,10 +389,9 @@ class ForwardLog(ActivationForward):
              formats.eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
-        if device is not None:
-            ForwardLog.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         self.assign_kernel("forward_log")
         self._set_activation_args()
 
@@ -417,10 +414,9 @@ class BackwardLog(ActivationBackward):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
-        if device is not None:
-            BackwardLog.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         self.assign_kernel("backward_log")
         self._set_activation_args()
 

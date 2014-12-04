@@ -183,12 +183,11 @@ class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
         self._last_info_time = time.time()
 
         self.minibatch_images.extend([""] * self.max_minibatch_size)
-        self.minibatch_data.initialize(self)
+        self.minibatch_data.initialize(self.device)
 
-        if device is not None:
-            ImagenetForwardLoaderBbox.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         pass
 
     def reset(self):

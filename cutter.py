@@ -96,10 +96,13 @@ class Cutter(nn_units.Forward, CutterBase):
             self.output.reset()
             self.output.mem = numpy.zeros(sh, dtype=self.input.dtype)
 
-        self.input.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
 
         self.create_stuff("src")
+
+    def ocl_init(self):
+        pass
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.
@@ -156,17 +159,21 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.input.mem)
 
-        self.err_output.initialize(self)
-        self.err_input.initialize(self)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
 
         self.create_stuff("dst")
 
-        if self.device is not None:
-            GDCutter.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
-        self.cl_sources_["cutter.cl"] = {}
-        self.build_program(dtype=self.err_input.dtype)
+    def ocl_init(self):
+        self.cl_sources_["cutter"] = {}
+        self.build_program(
+            {}, "%s_%s_%s" %
+            (self.__class__.__name__,
+             "x".join(str(x) for x in self.err_input.shape),
+             "x".join(str(x) for x in self.padding)),
+            dtype=self.err_input.dtype)
         self.assign_kernel("clear_err_input")
         self.set_args(self.err_input)
 

@@ -58,7 +58,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
-        self.cl_sources_["gradient_descent_pooling.cl"] = {}
+        self.cl_sources_["gradient_descent_pooling"] = {}
         self.krn_err_input_ = None
         self.krn_err_input_clear_ = None
 
@@ -75,13 +75,12 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.input.mem)
 
-        self.err_output.initialize(self)
-        self.err_input.initialize(self)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
 
-        if self.device is not None:
-            GDPooling.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         if self.program_ is None:
             defines = {
                 'SX': self._sx,
@@ -93,8 +92,9 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
                 'SLIDE_Y': self.sliding[1]
             }
             self.build_program(
-                defines, "gd_pooling_%dx%dx%d_%dx%d.cl" %
-                (self._sx, self._sy, self._n_channels,
+                defines, "%s_%d_%dx%dx%d_%dx%d" %
+                (self.__class__.__name__, self.err_output.shape[0],
+                 self._sx, self._sy, self._n_channels,
                  self.kx, self.ky),
                 dtype=self.err_output.mem.dtype)
 
@@ -174,7 +174,7 @@ class GDMaxPooling(GDPooling):
             raise error.BadFormatError("Shape of err_output differs from "
                                        "that of input_offset")
 
-        self.input_offset.initialize(self)
+        self.input_offset.initialize(self.device)
 
         if self.device is None:
             return

@@ -89,20 +89,19 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.gradient_bias.reset()
             self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
 
-        self.weights.initialize(self, False)
-        self.bias.initialize(self, False)
-        self.output.initialize(self)
-        self.input.initialize(self)
-        self.err_output.initialize(self)
-        self.err_input.initialize(self)
+        self.weights.initialize(self.device)
+        self.bias.initialize(self.device)
+        self.output.initialize(self.device)
+        self.input.initialize(self.device)
+        self.err_output.initialize(self.device)
+        self.err_input.initialize(self.device)
         if self.store_gradient:
-            self.gradient_weights.initialize(self, False)
-            self.gradient_bias.initialize(self, False)
+            self.gradient_weights.initialize(self.device)
+            self.gradient_bias.initialize(self.device)
 
-        if self.device is not None:
-            GradientDescent.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(5, dtype=dtype)
 
@@ -114,7 +113,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             if not self.col_sums or self.col_sums.size < other:
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-            self.col_sums.initialize(self)
+            self.col_sums.initialize(self.device)
         self.reduce_size = roundup(min(self.reduce_size, other), 32)
 
         batch = self.input.mem.shape[0]
@@ -132,23 +131,23 @@ class GradientDescent(nn_units.GradientDescentBase):
             "USE_ORTHO": int(bool(self.factor_ortho))
         }
 
-        self.cl_sources_["all2all/gradient_descent/err_input_update.cl"] = {}
+        self.cl_sources_["all2all/gradient_descent/err_input_update"] = {}
         self._global_size_err_input = [
             roundup(other, block_size), roundup(batch, block_size)]
         self._local_size_err_input = [block_size, block_size]
 
-        self.cl_sources_["all2all/gradient_descent/weights_update.cl"] = {}
+        self.cl_sources_["all2all/gradient_descent/weights_update"] = {}
         self._global_size_weights = [
             roundup(other, block_size), roundup(side, block_size)]
         self._local_size_weights = [block_size, block_size]
 
-        self.cl_sources_["all2all/gradient_descent/bias_update.cl"] = {}
+        self.cl_sources_["all2all/gradient_descent/bias_update"] = {}
         self._global_size_bias = [side * self.reduce_size]
         self._local_size_bias = [self.reduce_size]
 
-        self.build_program(defines, "gd_%d_%d.cl" % (
-            self.input.mem.size // self.input.mem.shape[0],
-            self.output.mem.size // self.output.mem.shape[0]),
+        self.build_program(defines, "%s_%d_%d_%d" % (
+            self.__class__.__name__, self.input.shape[0],
+            self.input.sample_size, self.output.sample_size),
             dtype=dtype)
 
         if self.need_err_input:
@@ -333,7 +332,7 @@ class GDTanh(GradientDescent):
         self.err_output.mem *= output * output * (-0.388484177) + 1.14381894
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_tanh.cl"] = {}
+        self.cl_sources_["gradient_descent_tanh"] = {}
         super(GDTanh, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
@@ -365,7 +364,7 @@ class GDRELU(GradientDescent):
         self.err_output.mem *= 1.0 - numpy.exp(-output)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_relu.cl"] = {}
+        self.cl_sources_["gradient_descent_relu"] = {}
         super(GDRELU, self).initialize(device=device, **kwargs)
         if self.device is None:
             return

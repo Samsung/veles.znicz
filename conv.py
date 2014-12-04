@@ -85,7 +85,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
-        self.cl_sources_["conv/forward.cl"] = {}
+        self.cl_sources_["conv/forward"] = {}
 
     def get_weights_magnitude(self):
         """
@@ -133,7 +133,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                 output_shape[0] <<= 1
                 self.output.mem = numpy.zeros(output_shape,
                                               dtype=self.input.mem.dtype)
-                self.output.initialize(self)
+                self.output.initialize(self.device)
                 self.output.map_write()
                 self.output.vv = self.output.mem
                 output_shape[0] >>= 1
@@ -146,15 +146,14 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         del output_size
         del output_shape
 
-        self.input.initialize(self)
-        self.output.initialize(self)
-        self.weights.initialize(self, False)
-        self.bias.initialize(self, False)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
+        self.weights.initialize(self.device)
+        self.bias.initialize(self.device)
 
-        if device is not None:
-            Conv.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         a_width = self.output.mem.size // self.n_kernels
         b_width = self.n_kernels
         block_size = self.device.device_info.get_block_size(
@@ -181,8 +180,9 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         }
 
         self.build_program(
-            defines, "%s/conv_%dx%dx%d_%dx%d_%d.cl" % (
-                root.common.cache_dir, self._sx, self._sy, self._n_channels,
+            defines, "%s_%d_%dx%dx%d_%dx%d_%d" % (
+                self.__class__.__name__, self._batch_size,
+                self._sx, self._sy, self._n_channels,
                 self.kx, self.ky, self.n_kernels),
             dtype=self.input.mem.dtype)
 
@@ -267,7 +267,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                 self.info("Unit test mode: allocating 2x memory for weights")
                 self.weights.mem = numpy.zeros(n_weights * 2,
                                                dtype=self.input.mem.dtype)
-                self.weights.initialize(self, False)
+                self.weights.initialize(self.device)
                 self.weights.map_write()
                 self.weights.vv = self.weights.mem
                 self.weights.mem = self.weights.vv[:n_weights]

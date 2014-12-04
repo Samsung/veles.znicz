@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
+import os
 import unittest
 
 from veles.config import root
@@ -20,16 +21,16 @@ from veles.dummy import DummyWorkflow
 from veles.opencl_units import TrivialOpenCLUnit
 
 
-class DummyUnit(object):
-    def __init__(self, device=None):
-        self.device = device
-
-
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
+        thisdir = os.path.dirname(__file__)
+        if not len(thisdir):
+            thisdir = "."
+        if thisdir not in root.common.compute.dirs:
+            root.common.compute.dirs.append(thisdir)
 
     def tearDown(self):
         del self.device
@@ -41,24 +42,11 @@ class TestMatrixReduce(unittest.TestCase):
         if A_COL:
             defines["A_COL"] = 1
 
-        src = ("#include \"defines.cl\"\n"
-               "__kernel __attribute__("
-               "(reqd_work_group_size(REDUCE_SIZE, 1, 1)))\n"
-               "void test(__global dtype *A, __global dtype *b) {\n"
-               "#include \"matrix_reduce.cl\"\n"
-               "if (!tx) {\n"
-               "  sum += AS[0];\n"
-               "  b[bx] = sum;\n"
-               "}}")
-        fnme = "%s/test.cl" % (root.common.cache_dir)
-        fout = open(fnme, "w")
-        fout.write(src)
-        fout.close()
-
         tmp = TrivialOpenCLUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
-        tmp.cl_sources_[fnme] = {}
-        tmp.build_program(defines, fnme)
+        tmp.cl_sources_["test_matrix_reduce"] = {}
+
+        tmp.build_program(defines, "test_matrix_reduce")
 
         krn = tmp.get_kernel("test")
         krn.set_arg(0, a.devmem)
@@ -82,9 +70,8 @@ class TestMatrixReduce(unittest.TestCase):
 
         t = numpy.array([12, 9, 6], dtype=dtype)
 
-        unit = DummyUnit(self.device)
-        a.initialize(unit)
-        b.initialize(unit)
+        a.initialize(self.device)
+        b.initialize(self.device)
 
         for reduce_size in range(1, 11):
             krn = self._build_program(a, b, a.mem.shape[1],
@@ -120,9 +107,8 @@ class TestMatrixReduce(unittest.TestCase):
         b = formats.Vector()
         b.mem = numpy.ones(numpy.max(a.mem.shape) * 2, dtype=dtype)
 
-        unit = DummyUnit(self.device)
-        a.initialize(unit)
-        b.initialize(unit)
+        a.initialize(self.device)
+        b.initialize(self.device)
 
         for reduce_size in range(4, 64, 1):
             logging.info("reduce_size = %d", reduce_size)

@@ -72,7 +72,7 @@ class All2AllRBM(All2All):
         self.vbias.mem = numpy.zeros((1, self.input.shape[1]),
                                      dtype=self.input.mem.dtype)
         self.bias.mem.shape = (1, self.bias.mem.shape[0])
-        self.vbias.initialize(self, False)
+        self.vbias.initialize(self.device)
         # TODO(d.podoprikhin) specify type of the numpy.arrays like
         #     vbias vbias weights
         # TODO(d.podoprikhin) make sd = 1 as usert define constant
@@ -103,7 +103,7 @@ class GradientDescentRBM(gd.GradientDescent):
     def __init__(self, workflow, **kwargs):
         super(GradientDescentRBM, self).__init__(workflow, **kwargs)
         self.cd_k = kwargs.get("cd_k", 1)
-        self.cl_sources_["gradient_descent_relu.cl"] = {}
+        self.cl_sources_["gradient_descent_relu"] = {}
 
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s

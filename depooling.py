@@ -44,7 +44,7 @@ class Depooling(nn_units.Forward):
 
     def init_unpickled(self):
         super(Depooling, self).init_unpickled()
-        self.cl_sources_["depooling.cl"] = {}
+        self.cl_sources_["depooling"] = {}
         self.krn_output_clear_ = None
 
     def initialize(self, device, **kwargs):
@@ -62,18 +62,18 @@ class Depooling(nn_units.Forward):
             self.output.mem = numpy.zeros(self.get_output_shape_from.shape,
                                           dtype=self.input.dtype)
 
-        self.input.initialize(self)
-        self.output_offset.initialize(self)
-        self.output.initialize(self)
+        self.input.initialize(self.device)
+        self.output_offset.initialize(self.device)
+        self.output.initialize(self.device)
 
-        if self.device is not None:
-            Depooling.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         if self.program_ is None:
             self.build_program(
-                {}, "depooling_%s.cl" %
-                "_".join(str(i) for i in self.input.shape),
+                {}, "%s_%s" %
+                (self.__class__.__name__,
+                 "_".join(str(i) for i in self.input.shape)),
                 dtype=self.input.dtype)
 
             self.assign_kernel("feed_layer")

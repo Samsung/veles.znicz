@@ -139,20 +139,19 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.col_sums.reset()
                 self.col_sums.mem = numpy.zeros(other, dtype=dtype)
 
-        self.weights.initialize(self, False)
-        self.input.initialize(self)
-        self.err_output.initialize(self)
+        self.weights.initialize(self.device)
+        self.input.initialize(self.device)
+        self.err_output.initialize(self.device)
         if self.need_err_input:
-            self.err_input.initialize(self)
+            self.err_input.initialize(self.device)
         if self.store_gradient:
-            self.gradient_weights.initialize(self, False)
+            self.gradient_weights.initialize(self.device)
         if self.hits:
-            self.hits.initialize(self)
+            self.hits.initialize(self.device)
 
-        if device is not None:
-            GDDeconv.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         batch_size = self.err_output.mem.shape[0]
         sy = self.err_output.mem.shape[1]
         sx = self.err_output.mem.shape[2]
@@ -166,7 +165,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
         if self.factor_ortho:
-            self.col_sums.initialize(self)
+            self.col_sums.initialize(self.device)
         self.reduce_size = roundup(min(self.reduce_size, other), 32)
 
         defines = {
@@ -199,7 +198,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         b_width = self.n_kernels
         block_size = self.device.device_info.get_block_size(
             kernel="conv", dtype=self.err_output.dtype)
-        self.cl_sources_["conv/forward.cl"] = {
+        self.cl_sources_["conv/forward"] = {
             "BLOCK_SIZE": block_size,
         }
         self._global_size_err_input = [
@@ -211,7 +210,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         b_width = self.n_kernels if self.weights_transposed else kernel_size
         block_size = self.device.device_info.get_block_size(
             kernel="conv", dtype=self.err_output.dtype)
-        self.cl_sources_["deconv/gradient_descent/weights_update.cl"] = {
+        self.cl_sources_["deconv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size,
             "USE_ORTHO": int(bool(self.factor_ortho))
         }
@@ -221,10 +220,11 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._local_size_weights = [block_size, block_size]
 
         self.build_program(
-            defines, "%s/gd_deconv_%d_%d.cl" % (
-                root.common.cache_dir,
-                self.input.mem.size // self.input.mem.shape[0],
-                self.err_output.mem.size // self.err_output.mem.shape[0]),
+            defines, "%s_%d_%d_%d" % (
+                self.__class__.__name__,
+                self.input.shape[0],
+                self.input.sample_size,
+                self.err_output.sample_size),
             dtype=dtype)
 
         self.krn_err_output_ = self.get_kernel("err_output_update")

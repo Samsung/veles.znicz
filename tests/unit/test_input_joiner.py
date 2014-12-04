@@ -34,9 +34,9 @@ class TestInputJoiner(unittest.TestCase):
         c.mem = numpy.arange(350, dtype=numpy.float32).reshape(10, 35)
         obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c])
         obj.initialize(device=device)
-        a.initialize(obj)
-        b.initialize(obj)
-        c.initialize(obj)
+        a.initialize(device)
+        b.initialize(device)
+        c.initialize(device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
@@ -62,9 +62,9 @@ class TestInputJoiner(unittest.TestCase):
         obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c],
                                        output_sample_shape=[80])
         obj.initialize(device=device)
-        a.initialize(obj)
-        b.initialize(obj)
-        c.initialize(obj)
+        a.initialize(device)
+        b.initialize(device)
+        c.initialize(device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(
@@ -98,9 +98,9 @@ class TestInputJoiner(unittest.TestCase):
         obj = input_joiner.InputJoiner(DummyWorkflow(), inputs=[a, b, c],
                                        output_sample_shape=[50])
         obj.initialize(device=device)
-        a.initialize(obj)
-        b.initialize(obj)
-        c.initialize(obj)
+        a.initialize(device)
+        b.initialize(device)
+        c.initialize(device)
         obj.run()
         obj.output.map_read()
         nz = numpy.count_nonzero(

@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from __future__ import division
+import cuda4py as cu
 import numpy
 import opencl4py as cl
 from zope.interface import implementer, Interface
@@ -47,7 +48,7 @@ class FullBatchLoader(Loader):
         super(FullBatchLoader, self).init_unpickled()
         self.original_data = formats.Vector()
         self.original_labels = formats.Vector()
-        self.cl_sources_["fullbatch_loader.cl"] = {}
+        self.cl_sources_["fullbatch_loader"] = {}
         self._global_size = None
         self._krn_const = numpy.zeros(2, dtype=numpy.int32)
 
@@ -98,18 +99,21 @@ class FullBatchLoader(Loader):
 
         self.info("Will load entire dataset on device")
 
-        self.original_data.initialize(self)
-        self.minibatch_data.initialize(self)
+        self.original_data.initialize(self.device)
+        self.minibatch_data.initialize(self.device)
         if self.original_labels:
-            self.original_labels.initialize(self)
-            self.minibatch_labels.initialize(self)
+            self.original_labels.initialize(self.device)
+            self.minibatch_labels.initialize(self.device)
 
         if not self.shuffled_indices:
             self.shuffled_indices.mem = numpy.arange(
                 self.total_samples, dtype=numpy.int32)
-        self.shuffled_indices.initialize(self)
-        self.minibatch_indices.initialize(self)
+        self.shuffled_indices.initialize(self.device)
+        self.minibatch_indices.initialize(self.device)
 
+        self.backend_init()
+
+    def _gpu_init(self, skip):
         defines = {
             "LABELS": int(self.original_labels.mem is not None),
             "SAMPLE_SIZE": self.original_data.sample_size,
@@ -120,19 +124,27 @@ class FullBatchLoader(Loader):
         }
         defines.update(self.get_ocl_defines())
 
-        self.build_program(defines, "fullbatch_loader.cl",
+        self.build_program(defines, "fullbatch_loader",
                            dtype=self.minibatch_data.dtype)
         self.assign_kernel("fill_minibatch_data_labels")
 
         if not self.original_labels:
-            self.set_args(self.original_data, self.minibatch_data, cl.skip(2),
+            self.set_args(self.original_data, self.minibatch_data, skip(2),
                           self.shuffled_indices, self.minibatch_indices)
         else:
-            self.set_args(self.original_data, self.minibatch_data, cl.skip(2),
+            self.set_args(self.original_data, self.minibatch_data, skip(2),
                           self.original_labels, self.minibatch_labels,
                           self.shuffled_indices, self.minibatch_indices)
-        self._global_size = [self.max_minibatch_size,
-                             self.minibatch_data.sample_size]
+
+    def ocl_init(self):
+        self._gpu_init(cl.skip)
+        self._global_size = (self.max_minibatch_size,
+                             self.minibatch_data.sample_size)
+
+    def cuda_init(self):
+        self._gpu_init(cu.skip)
+        self._global_size = (self.max_minibatch_size,
+                             self.minibatch_data.sample_size, 1)
 
     def fill_indices(self, start_offset, count):
         if not self.on_device or self.device is None:
@@ -215,20 +227,26 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
                 self.minibatch_targets.dtype)
         }
 
-    def initialize(self, device, **kwargs):
-        super(FullBatchLoaderMSE, self).initialize(device, **kwargs)
-        if not self.on_device or self.device is None:
-            return
+    def _gpu_init(self, skip):
+        super(FullBatchLoaderMSE, self)._gpu_init(skip)
 
-        self.original_targets.initialize(self)
-        self.minibatch_targets.initialize(self)
+        self.original_targets.initialize(self.device)
+        self.minibatch_targets.initialize(self.device)
 
         self._kernel_target_ = self.get_kernel("fill_minibatch_target")
         self._kernel_target_.set_args(
             self.original_targets.devmem, self.minibatch_targets.devmem,
-            cl.skip(2), self.shuffled_indices.devmem)
+            skip(2), self.shuffled_indices.devmem)
+
+    def ocl_init(self):
+        super(FullBatchLoaderMSE, self).ocl_init()
         self._global_size_target = [self.max_minibatch_size,
                                     self.minibatch_targets.sample_size]
+
+    def cuda_init(self):
+        super(FullBatchLoaderMSE, self).cuda_init()
+        self._global_size_target = (self.max_minibatch_size,
+                                    self.minibatch_targets.sample_size, 1)
 
     def on_fill_indices(self, krn_consts):
         self.original_targets.unmap()

@@ -144,7 +144,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                                 include_bias=False)
             inp = formats.Vector(numpy.zeros([batch_size * 2, 18, 18, 4],
                                              dtype=dtype))
-            inp.initialize(forward)
+            inp.initialize(device)
             inp.map_write()
             inp.vv = inp.mem
             inp.mem = inp.vv[:batch_size]
@@ -159,7 +159,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         sh = list(forward.output.mem.shape)
         sh[0] <<= 1
         out = formats.Vector(numpy.zeros(sh, dtype=dtype))
-        out.initialize(forward)
+        out.initialize(forward.device)
         out.map_write()
         out.vv = out.mem
         sh[0] >>= 1

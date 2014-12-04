@@ -53,7 +53,7 @@ class InputJoiner(OpenCLUnit):
 
     def init_unpickled(self):
         super(InputJoiner, self).init_unpickled()
-        self.cl_sources_["join.cl"] = {}
+        self.cl_sources_["join"] = {}
 
     def initialize(self, device, **kwargs):
         if not len(self.inputs):
@@ -89,20 +89,20 @@ class InputJoiner(OpenCLUnit):
             self.output.mem = formats.reshape(self.output.mem, sh)
 
         for inp in self.inputs:
-            inp.initialize(self)
-        self.output.initialize(self)
+            inp.initialize(self.device)
+        self.output.initialize(self.device)
 
-        if self.device is not None:
-            InputJoiner.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         defines = {
             'etype':
             opencl_types.numpy_dtype_to_opencl(self.output.mem.dtype)
         }
         self.build_program(
-            defines, "join_%s.cl" %
-            "_".join(str(x) for x in self.output_sample_shape))
+            defines, "%s_%s" %
+            (self.__class__.__name__,
+             "_".join(str(x) for x in self.output_sample_shape)))
         self.assign_kernel("join2")
         self.set_args(self.output)
 

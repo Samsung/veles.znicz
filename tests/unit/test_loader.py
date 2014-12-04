@@ -6,7 +6,7 @@ Will test correctness of Loader.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -50,6 +50,10 @@ class TestFullBatchLoader(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_random(self):
         results = []

@@ -5,7 +5,7 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -21,11 +21,13 @@ from veles.dummy import DummyWorkflow
 
 class TestAll2All(unittest.TestCase):
     def setUp(self):
+        prng.get().seed(1234)
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
+        gc.collect()
         del self.device
 
     def test_with_fixed_input(self):

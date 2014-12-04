@@ -45,8 +45,8 @@ class EvaluatorBase(OpenCLUnit):
             self.err_output.mem = numpy.zeros(self.output.mem.shape,
                                               dtype=dtype)
 
-        self.output.initialize(self)
-        self.err_output.initialize(self)
+        self.output.initialize(self.device)
+        self.err_output.initialize(self.device)
 
 
 @implementer(IOpenCLUnit)
@@ -95,7 +95,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
-        self.cl_sources_["evaluator.cl"] = {}
+        self.cl_sources_["evaluator"] = {}
 
         dtype = self.output.mem.dtype
 
@@ -120,16 +120,15 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             self.max_err_output_sum.reset()
             self.max_err_output_sum.mem = numpy.zeros(1, dtype=dtype)
 
-        self.confusion_matrix.initialize(self)
-        self.n_err.initialize(self)
-        self.max_idx.initialize(self)
-        self.labels.initialize(self)
-        self.max_err_output_sum.initialize(self)
+        self.confusion_matrix.initialize(self.device)
+        self.n_err.initialize(self.device)
+        self.max_idx.initialize(self.device)
+        self.labels.initialize(self.device)
+        self.max_err_output_sum.initialize(self.device)
 
-        if self.device is not None:
-            EvaluatorSoftmax.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.output.mem.dtype
         block_size = min(self.err_output.shape[0], 128)
         defines = {
@@ -140,7 +139,10 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self._local_size = [block_size]
         self._global_size = self._local_size
 
-        self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
+        self.build_program(defines, "%s_%d_%d" %
+                           (self.__class__.__name__,
+                            self.output.shape[0],
+                            self.output.sample_size),
                            dtype=dtype)
 
         self.assign_kernel("ev_sm")
@@ -257,7 +259,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         if self.target.shape != self.output.shape:
             raise error.BadFormatError("target.shape != output.shape")
 
-        self.cl_sources_["evaluator.cl"] = {}
+        self.cl_sources_["evaluator"] = {}
 
         dtype = self.output.mem.dtype
 
@@ -275,19 +277,18 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         if self.labels is not None and self.class_targets is not None:
             self.n_err.reset()
             self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
-            self.cl_sources_["mse_find_closest.cl"] = {}
-            self.class_targets.initialize(self)
-            self.labels.initialize(self)
-            self.n_err.initialize(self)
+            self.cl_sources_["mse_find_closest"] = {}
+            self.class_targets.initialize(self.device)
+            self.labels.initialize(self.device)
+            self.n_err.initialize(self.device)
 
-        self.target.initialize(self)
-        self.metrics.initialize(self)
-        self.mse.initialize(self)
+        self.target.initialize(self.device)
+        self.metrics.initialize(self.device)
+        self.mse.initialize(self.device)
 
-        if self.device is not None:
-            EvaluatorMSE.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.output.mem.dtype
         block_size = min(self.err_output.shape[0], 128)
         defines = {
@@ -300,7 +301,10 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self._local_size = [block_size]
         self._global_size = self._local_size
 
-        self.build_program(defines, "ev_%d.cl" % self.output.sample_size,
+        self.build_program(defines, "%s_%d_%d" %
+                           (self.__class__.__name__,
+                            self.output.shape[0],
+                            self.output.sample_size),
                            dtype=dtype)
 
         self.assign_kernel("ev_mse")

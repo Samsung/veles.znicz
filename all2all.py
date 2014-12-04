@@ -10,9 +10,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
-
+import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
+
 from veles.opencl_units import IOpenCLUnit
 import veles.error as error
 from veles.formats import reshape, roundup, Vector
@@ -65,7 +66,7 @@ class All2All(nn_units.NNLayerBase):
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.cl_sources_["all2all/forward.cl"] = {}
+        self.cl_sources_["all2all/forward"] = {}
 
     def get_weights_magnitude(self):
         """
@@ -136,15 +137,44 @@ class All2All(nn_units.NNLayerBase):
                 [self.input.mem.shape[0]] + output_shape,
                 dtype=self.input.mem.dtype)
 
-        self.input.initialize(self)
-        self.output.initialize(self)
-        self.weights.initialize(self, False)
-        self.bias.initialize(self, False)
+        self.input.initialize(self.device)
+        self.output.initialize(self.device)
+        self.weights.initialize(self.device)
+        self.bias.initialize(self.device)
 
-        if self.device is not None:
-            All2All.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def cuda_init(self):
+        dtype = self.input.dtype
+        self.gemm = (cublas.CUBLAS.sgemm if dtype == numpy.float32
+                     else cublas.CUBLAS.dgemm)
+        self.np_one = numpy.ones(1, dtype=dtype)
+        self.np_zero = numpy.zeros(1, dtype=dtype)
+        if self.weights_transposed:
+            raise NotImplementedError("TODO(a.kazantsev): implement")
+        else:
+            self.A = self.weights.devmem
+            self.B = self.input.devmem
+            self.transA = cublas.CUBLAS_OP_T
+            self.transB = cublas.CUBLAS_OP_N
+            self.rowsCountA = self.weights.shape[0]
+            self.columnCountB = self.input.shape[0]
+        self.commonSideLength = self.input.sample_size
+        self.build_program({"OUTPUT_SAMPLE_SIZE": self.output.sample_size,
+                            self.s_activation: 1,
+                            "INCLUDE_BIAS": int(self.include_bias),
+                            "Y": self.output.sample_size},
+                           "%s_%d_%d_%d" %
+                           (self.__class__.__name__, self.input.shape[0],
+                            self.input.sample_size, self.output.sample_size),
+                           dtype=dtype)
+        if self.include_bias:
+            self.assign_kernel("apply_bias_with_activation")
+            self.set_args(self.output, self.bias)
+            self._global_size_bias = (self.output.sample_size,
+                                      self.output.shape[0], 1)
+
+    def ocl_init(self):
         output_shape = (self.output_shape.mem.shape[1:]
                         if isinstance(self.output_shape, Vector)
                         else self.output_shape)
@@ -153,7 +183,7 @@ class All2All(nn_units.NNLayerBase):
         b_width = output_size
         ab_common = self.weights.mem.size // output_size
 
-        block_size = device.device_info.get_block_size(
+        block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.input.dtype)
 
         defines = {
@@ -165,8 +195,10 @@ class All2All(nn_units.NNLayerBase):
             "Y": b_width,
             "BATCH": a_width}
 
-        self.build_program(defines, "feed_%d_%d.cl" %
-                           (self.input.mem.size // self.input.mem.shape[0],
+        self.build_program(defines, "%s_%d_%d_%d" %
+                           (self.__class__.__name__,
+                            self.input.shape[0],
+                            self.input.sample_size,
                             output_size),
                            dtype=self.input.mem.dtype)
 
@@ -184,6 +216,20 @@ class All2All(nn_units.NNLayerBase):
         if self.prefer_numpy:
             return self.cpu_run()
         return super(All2All, self).ocl_run()
+
+    def cuda_run(self):
+        self.output.unmap()
+        self.input.unmap()
+        self.weights.unmap()
+        self.bias.unmap()
+
+        self.gemm(self.device.blas, self.transA, self.transB,
+                  self.rowsCountA, self.columnCountB, self.commonSideLength,
+                  self.np_one, self.A, self.B,
+                  self.np_zero, self.output.devmem)
+
+        if self.include_bias:
+            self.execute_kernel(self._global_size_bias, (1, 1, 1))
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -244,6 +290,26 @@ class All2AllRELU(All2All):
         mem[:] = numpy.where(mem > 15, mem, numpy.log(numpy.exp(mem) + 1.0))
 
 
+class All2AllStrictRELU(All2All):
+    """All2All with RELU activation f(x) = max(x, 0).
+    """
+
+    MAPPING = {"all2all_str"}
+
+    def initialize(self, device, **kwargs):
+        self.s_activation = "ACTIVATION_STRICT_RELU"
+        super(All2AllStrictRELU, self).initialize(device=device, **kwargs)
+        self.output.supposed_maxvle = 10
+
+    def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
+        super(All2AllRELU, self).cpu_run()
+        self.output.map_write()
+        mem = self.output.mem
+        numpy.clip(mem, 0.0, 1.0e30, mem)
+
+
 class All2AllSoftmax(All2All):
     """All2All with linear activation and softmax normalization.
 
@@ -275,8 +341,9 @@ class All2AllSoftmax(All2All):
     def initialize(self, device, **kwargs):
         self.reduce_size = min(self.reduce_size,
                                int(numpy.prod(self.output_shape)))
-        self.cl_sources_["all2all/softmax.cl"] = {
-            "REDUCE_SIZE": self.reduce_size}
+        self.cl_sources_["all2all/softmax"] = {
+            "REDUCE_SIZE": self.reduce_size
+        }
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)
         if self.output.mem.size // self.output.mem.shape[0] <= 1:
             raise error.BadFormatError(
@@ -288,14 +355,11 @@ class All2AllSoftmax(All2All):
                                            dtype=numpy.int32)
             self.max_idx.devmem = None
 
-        self.max_idx.initialize(self)
+        self.max_idx.initialize(self.device)
 
         if self.device is not None:
-            All2AllSoftmax.ocl_init(self, device)
-
-    def ocl_init(self, device):
-        self.krn_sm_ = self.get_kernel("apply_exp")
-        self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
+            self.krn_sm_ = self.get_kernel("apply_exp")
+            self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
 
     def cpu_apply_exp(self):
         self.output.map_write()
@@ -311,11 +375,18 @@ class All2AllSoftmax(All2All):
             smm = sample.sum()
             sample /= smm
 
-    def gpu_apply_exp(self):
+    def ocl_apply_exp(self):
         self.output.unmap()
         self.max_idx.unmap()
-        global_size = [self.output.mem.shape[0] * self.reduce_size]
+        global_size = [self.output.shape[0] * self.reduce_size]
         local_size = [self.reduce_size]
+        self.execute_kernel(global_size, local_size, self.krn_sm_)
+
+    def cuda_apply_exp(self):
+        self.output.unmap()
+        self.max_idx.unmap()
+        global_size = (self.output.shape[0], 1, 1)
+        local_size = (self.reduce_size, 1, 1)
         self.execute_kernel(global_size, local_size, self.krn_sm_)
 
     def cpu_run(self):
@@ -330,4 +401,11 @@ class All2AllSoftmax(All2All):
         """
         self._force_gpu_apply_exp = True
         super(All2AllSoftmax, self).ocl_run()
-        self.gpu_apply_exp()
+        self.ocl_apply_exp()
+
+    def cuda_run(self):
+        """Forward propagation from batch on GPU.
+        """
+        self._force_gpu_apply_exp = True
+        super(All2AllSoftmax, self).cuda_run()
+        self.cuda_apply_exp()

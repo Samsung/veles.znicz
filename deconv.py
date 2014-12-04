@@ -96,7 +96,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
-        self.cl_sources_["deconv/forward.cl"] = {}
+        self.cl_sources_["deconv/forward"] = {}
 
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
@@ -154,7 +154,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             if root.common.unit_test:
                 output_shape[0] <<= 1
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
-                self.output.initialize(self)
+                self.output.initialize(self.device)
                 self.output.map_write()
                 self.output.vv = self.output.mem
                 output_shape[0] >>= 1
@@ -166,15 +166,14 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         else:
             self.output.mem.shape = output_shape
 
-        self.input.initialize(self)
-        self.weights.initialize(self, False)
-        self.output.initialize(self)
-        self.hits.initialize(self)
+        self.input.initialize(self.device)
+        self.weights.initialize(self.device)
+        self.output.initialize(self.device)
+        self.hits.initialize(self.device)
 
-        if device is not None:
-            Deconv.ocl_init(self, device)
+        self.backend_init()
 
-    def ocl_init(self, device):
+    def ocl_init(self):
         dtype = self.input.mem.dtype
         output_shape = list(self.get_output_shape_from.shape)
         weights_shape = (list(
@@ -213,8 +212,9 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         }
 
         self.build_program(
-            defines, "%s/deconv_%dx%dx%d_%dx%d_%d.cl" % (
-                root.common.cache_dir,
+            defines, "%s/%s_%d_%dx%dx%d_%dx%d_%d" % (
+                root.common.cache_dir, self.__class__.__name__,
+                self.input.shape[0],
                 output_shape[2], output_shape[1], output_shape[3],
                 self.kx, self.ky, self.n_kernels), dtype=dtype)
 

@@ -114,7 +114,7 @@ class TestKohonen(unittest.TestCase):
         c.argmins = formats.Vector()
         c.argmins.mem = self.output[:]
         c.initialize(device=self.device)
-        c.argmins.initialize(c)
+        c.argmins.initialize(self.device)
 
         c.cpu_run()
         max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
@@ -139,7 +139,7 @@ class TestKohonen(unittest.TestCase):
         c.minibatch_offset = 5
         c.batch_size = 10
         c.initialize(device=self.device)
-        c.argmins.initialize(c)
+        c.argmins.initialize(self.device)
 
         c.cpu_run()
         c.minibatch_offset = 10

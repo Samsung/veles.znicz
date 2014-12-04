@@ -310,7 +310,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         sh = list(inp.shape)
         sh[0] <<= 1
         forward.input = formats.Vector(numpy.zeros(sh, dtype=dtype))
-        forward.input.initialize(forward)
+        forward.input.initialize(self.device)
         forward.input.map_write()
         forward.input.vv = forward.input.mem
         sh[0] >>= 1
@@ -341,7 +341,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         sh = list(err_output.shape)
         sh[0] <<= 1
         c.err_output = formats.Vector(numpy.zeros(sh, dtype=dtype))
-        c.err_output.initialize(c)
+        c.err_output.initialize(device)
         c.err_output.map_write()
         c.err_output.vv = c.err_output.mem
         sh[0] >>= 1
@@ -353,7 +353,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.weights = forward.weights
         c.bias = forward.bias
         c.output = forward.output
-        c.initialize(device=device)
+        c.initialize(device)
         c.run()
         c.err_input.map_read()
         c.weights.map_read()
