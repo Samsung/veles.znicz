@@ -23,11 +23,12 @@ from veles.config import root
 import veles.error as error
 from veles.formats import assert_addr, roundup
 from veles.opencl_units import IOpenCLUnit
+from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 
 
 @implementer(IOpenCLUnit)
-class GradientDescentConv(nn_units.GradientDescentBase):
+class GradientDescentConv(nn_units.GradientDescentBase, ConvolutionalBase):
     """Gradient descent for simple convolutional layer (no activation).
 
     Must be assigned before initialize():
@@ -58,25 +59,7 @@ class GradientDescentConv(nn_units.GradientDescentBase):
         ky: kernel height.
     """
     def __init__(self, workflow, **kwargs):
-        try:
-            n_kernels = kwargs["n_kernels"]
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-        except KeyError:
-            raise KeyError("n_kernels, kx and ky are required parameters")
-        padding = kwargs.get("padding", (0, 0, 0, 0))  # Left Top Right Bottom
-        sliding = kwargs.get("sliding", (1, 1))  # X Y
-        kwargs["n_kernels"] = n_kernels
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["padding"] = padding
-        kwargs["sliding"] = sliding
         super(GradientDescentConv, self).__init__(workflow, **kwargs)
-        self.n_kernels = n_kernels
-        self.kx = kx
-        self.ky = ky
-        self.padding = tuple(padding)
-        self.sliding = tuple(sliding)
         self.reduce_size = 64
         self.cl_const = None
         self.krn_err_input_clear_ = None

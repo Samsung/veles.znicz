@@ -49,14 +49,11 @@ class All2All(nn_units.NNLayerBase):
         weights_stddev: StdDev of normal weight distributtion
     """
     def __init__(self, workflow, **kwargs):
-        output_shape = kwargs.get("output_shape")
-        if output_shape is None:
-            raise KeyError("output_shape is a required parameter")
-        output_shape = ([output_shape] if type(output_shape) == int
-                        else list(output_shape))
-        kwargs["output_shape"] = output_shape
         super(All2All, self).__init__(workflow, **kwargs)
-        self.output_shape = output_shape
+        self.output_shape = kwargs["output_shape"]
+        self.output_shape = (
+            [self.output_shape] if isinstance(self.output_shape, int)
+            else list(self.output_shape))
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.append("s_activation")
         self._global_size = None

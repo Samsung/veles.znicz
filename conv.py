@@ -15,6 +15,7 @@ import numpy
 import time
 from zope.interface import implementer
 
+from veles.compat import from_none
 from veles.config import root
 from veles.opencl_units import IOpenCLUnit
 import veles.error as error
@@ -22,8 +23,23 @@ from veles.formats import assert_addr, norm_image, roundup
 import veles.znicz.nn_units as nn_units
 
 
+class ConvolutionalBase(object):
+    def __init__(self, workflow, **kwargs):
+        super(ConvolutionalBase, self).__init__(workflow, **kwargs)
+        try:
+            self.n_kernels = kwargs["n_kernels"]
+            self.kx = kwargs["kx"]
+            self.ky = kwargs["ky"]
+        except KeyError:
+            raise from_none(KeyError(
+                "n_kernels, kx and ky are required parameters"))
+        self.padding = tuple(
+            kwargs.get("padding", (0, 0, 0, 0)))  # Left Top Right Bottom
+        self.sliding = tuple(kwargs.get("sliding", (1, 1)))  # X Y
+
+
 @implementer(IOpenCLUnit)
-class Conv(nn_units.NNLayerBase):
+class Conv(nn_units.NNLayerBase, ConvolutionalBase):
     """Convolutional forward propagation with linear activation f(x) = x.
 
     Must be assigned before initialize():
@@ -57,25 +73,7 @@ class Conv(nn_units.NNLayerBase):
         weights_transposed: assume weights matrix as a transposed one.
     """
     def __init__(self, workflow, **kwargs):
-        try:
-            n_kernels = kwargs["n_kernels"]
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-        except KeyError:
-            raise KeyError("n_kernels, kx and ky are required parameters")
-        padding = kwargs.get("padding", (0, 0, 0, 0))
-        sliding = kwargs.get("sliding", (1, 1))
-        kwargs["n_kernels"] = n_kernels
-        kwargs["kx"] = kx
-        kwargs["ky"] = ky
-        kwargs["padding"] = padding
-        kwargs["sliding"] = sliding
         super(Conv, self).__init__(workflow, **kwargs)
-        self.n_kernels = n_kernels
-        self.kx = kx
-        self.ky = ky
-        self.padding = tuple(padding)
-        self.sliding = tuple(sliding)
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
                              "padding", "sliding"))

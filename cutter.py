@@ -128,8 +128,6 @@ class Cutter(nn_units.Forward, CutterBase):
 class GDCutter(nn_units.GradientDescentBase, CutterBase):
     """Gradient descent for Cutter.
     """
-    def __init__(self, workflow, **kwargs):
-        super(GDCutter, self).__init__(workflow, **kwargs)
 
     def initialize(self, device, **kwargs):
         if not self.input or len(self.input.shape) != 4:

@@ -47,16 +47,13 @@ class ImageSaver(Unit):
     """
     def __init__(self, workflow, **kwargs):
         super(ImageSaver, self).__init__(workflow, **kwargs)
-        out_dirs = kwargs.get("out_dirs",
-                              [os.path.join(config.root.common.cache_dir,
-                                            "tmpimg/test"),
-                               os.path.join(config.root.common.cache_dir,
-                                            "tmpimg/validation"),
-                               os.path.join(config.root.common.cache_dir,
-                                            "tmpimg/train")])
-
-        kwargs["out_dirs"] = out_dirs
-        self.out_dirs = out_dirs
+        self.out_dirs = kwargs.get(
+            "out_dirs",  [os.path.join(config.root.common.cache_dir,
+                                       "tmpimg/test"),
+                          os.path.join(config.root.common.cache_dir,
+                                       "tmpimg/validation"),
+                          os.path.join(config.root.common.cache_dir,
+                                       "tmpimg/train")])
         self.limit = config.get(config.root.image_saver.limit, 100)
         yuv = config.get(config.root.image_saver.yuv, False)
         self.input = None  # formats.Vector()

@@ -17,11 +17,12 @@ import veles.error as error
 from veles.formats import roundup
 from veles.opencl_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
+from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.deconv import Deconv
 
 
 @implementer(IOpenCLUnit)
-class GDDeconv(nn_units.GradientDescentBase):
+class GDDeconv(nn_units.GradientDescentBase, ConvolutionalBase):
     """Gradient Descent.
 
     Must be assigned before initialize():
@@ -47,18 +48,7 @@ class GDDeconv(nn_units.GradientDescentBase):
         sliding: sliding.
     """
     def __init__(self, workflow, **kwargs):
-        try:
-            n_kernels = kwargs["n_kernels"]
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-        except KeyError:
-            raise KeyError("n_kernels, kx and ky are required parameters")
         super(GDDeconv, self).__init__(workflow, **kwargs)
-        self.n_kernels = n_kernels
-        self.kx = kx
-        self.ky = ky
-        self.padding = kwargs.get("padding")
-        self.sliding = tuple(kwargs.get("sliding", (1, 1)))
         self.cl_const = None
         self.bias = None
         self._global_size_err_input = None
