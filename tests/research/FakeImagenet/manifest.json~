@@ -1,0 +1,15 @@
+{
+    "author": "VELES team",
+    "configuration": "ic1000_config.py",
+    "long_description": "Model created for testing of speed on large models like AlexNet. Database - Fake Imagenet (1000 classes with random pictures 227*227). Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. Package contains two configuration files: ic1000_config for AlexNet Model and cnna_config for VGG (A) ConvNet Configuration.",
+    "name": "FakeImagenet",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for object recognition. Database - 1000 classes with random pictures 227*227",
+    "workflow": "ic1000.py",
+    "image": "fake_imagenet.png",
+    "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "random", "alexnet", "caffe", "vgg", "convnet"],
+    "extra": ["cnna_config.py"]
+}

@@ -1,0 +1,15 @@
+{
+    "author": "VELES team",
+    "configuration": "mnist7_config.py",
+    "long_description": "Model created for digits recognition. Database - MNIST. Model - fully-connected Neural Network with MSE loss function with target encoded as 7 points.",
+    "name": "Mnist7",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for digits recognition with MNIST Database with target encoded as 7 points.",
+    "workflow": "mnist7.py",
+    "image": "mnist.png",
+    "tags": ["mnist", "mse"],
+    "files": ["loader_mnist.py"]
+}

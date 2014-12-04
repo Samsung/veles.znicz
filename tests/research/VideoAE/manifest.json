@@ -1,0 +1,14 @@
+{
+    "author": "VELES team",
+    "configuration": "video_ae_config.py",
+    "long_description": "Model created for compress video. Model - autoencoder.",
+    "name": "VideoAE",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for compress video with autoencoder",
+    "workflow": "video_ae.py",
+    "image": "videoae.png",
+    "tags": ["autoencoder", "video"]
+}

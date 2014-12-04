@@ -1,0 +1,15 @@
+{
+    "author": "Veles team",
+    "configuration": "wine_config.py",
+    "long_description": "Model created for class of wine recognition. Database - Wine. Model - fully-connected Neural Network with SoftMax loss function. Package contains dataset.",
+    "name": "Wine",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for class of wine recognition",
+    "workflow": "wine.py",
+    "image": "wine.jpg",
+    "tags": ["wine", "fully-connected", "softmax"],
+    "extra": ["wine.txt.gz", "loader_wine.py"]
+}

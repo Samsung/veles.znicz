@@ -1,0 +1,12 @@
+{
+    "author": "VELES team",
+    "configuration": "video_ae_config.py",
+    "long_description": "Sample workflow.",
+    "name": "VideoAE",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "g",
+    "workflow": "video_ae.py"
+}

@@ -1,0 +1,15 @@
+{
+    "author": "VELES team",
+    "configuration": "mnist_conv_config.py",
+    "long_description": "Model created for digits recognition. Database - MNIST. Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file. Package contains three configuration files: mnist_config for fully-connected Neural Network with parameters, which can be modified by Genetic algorithm, mnist_conv_config for convolutional Neural Network with parameters, which were modified by Genetic Algorithm, mnist_caffe_config for convolutional Neural Network with parameters just like in Caffe.",
+    "name": "MNIST",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for digits recognition with MNIST database.",
+    "workflow": "mnist.py",
+    "image": "mnist.png",
+    "tags": ["mnist", "convolutional", "fully-connected", "softmax", "self-constructing", "caffe"],
+    "files": ["mnist_config.py", "mnist_caffe_config.py"]
+}

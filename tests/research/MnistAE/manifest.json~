@@ -1,0 +1,14 @@
+{
+    "author": "VELES team",
+    "configuration": "mnist_ae_config.py",
+    "long_description": "Model created for digits recognition. Database - MNIST. Model - autoencoder.",
+    "name": "MnistAE",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for digits recognition with MNIST Database by autoencoder.",
+    "workflow": "mnist_ae.py",
+    "image": "mnist.png",
+    "tags": ["mnist", "autoencoder"]
+}

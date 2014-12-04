@@ -1,0 +1,15 @@
+{
+    "author": "VELES team",
+    "configuration": "kohonen_config.py",
+    "long_description": "Kohonen map demo on a simple two dimension dataset. Package contains dataset.",
+    "name": "DemoKohonen",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Kohonen map demo on a simple two dimension dataset.",
+    "workflow": "kohonen.py",
+    "image": "kohonen.png",
+    "tags": ["kohonen"],
+    "files": ["kohonen.txt.gz"]
+}
