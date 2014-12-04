@@ -50,6 +50,8 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         err_input: backpropagation errors for input (will compute its).
         krn_err_input_: OpenCL kernel for computing err_input.
     """
+    MAPPING = set()
+
     def __init__(self, workflow, **kwargs):
         super(GDPooling, self).__init__(workflow, **kwargs)
         self.demand("input", "err_output")
@@ -152,6 +154,10 @@ class GDMaxPooling(GDPooling):
         input_offset: offsets in err_input where to copy err_output.
         krn_err_input_clear_: OpenCL kernel for setting err_input with zeros.
     """
+
+    MAPPING = {"max_pooling", "stochastic_pooling", "stochastic_pool_depool",
+               "stochastic_abs_pool_depool"}
+
     def __init__(self, workflow, **kwargs):
         super(GDMaxPooling, self).__init__(workflow, **kwargs)
         self.input_offset = None  # formats.Vector()
@@ -214,7 +220,7 @@ class GDMaxPooling(GDPooling):
 class GDMaxAbsPooling(GDMaxPooling):
     """Gradient descent is the same as in GDMaxPooling.
     """
-    pass
+    MAPPING = {"maxabs_pooling", "stochastic_abs_pooling"}
 
 
 class GDAvgPooling(GDPooling):
@@ -227,6 +233,9 @@ class GDAvgPooling(GDPooling):
     Creates within initialize():
 
     """
+
+    MAPPING = {"avg_pooling"}
+
     def initialize(self, device, **kwargs):
         super(GDAvgPooling, self).initialize(device=device, **kwargs)
 

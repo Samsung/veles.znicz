@@ -23,6 +23,8 @@ class Activation(OpenCLUnit):
 
 @implementer(IOpenCLUnit)
 class ActivationForward(Forward, Activation):
+    MAPPING = set()
+
     def initialize(self, device, **kwargs):
         super(ActivationForward, self).initialize(device, **kwargs)
 
@@ -79,6 +81,8 @@ class ActivationBackward(GradientDescentBase, Activation):
         output: output of the layer AFTER applying activation function (IN).
         input: output of the layer BEFORE applying activation function (IN).
     """
+    MAPPING = set()
+
     def initialize(self, device, **kwargs):
         super(ActivationBackward, self).initialize(device=device, **kwargs)
 
@@ -147,6 +151,7 @@ class ForwardTanh(ActivationForward):
     """
 
     kernel_name = "forward_tanh"
+    MAPPING = {"activation_tanh"}
 
     def cpu_run(self):
         _, out = self.cpu_prerun(make_raveled=False, copy_in2out=True)
@@ -160,6 +165,7 @@ class BackwardTanh(ActivationBackward):
     """
 
     kernel_name = "backward_tanh"
+    MAPPING = {"activation_tanh"}
 
     def cpu_run(self):
         _, output, err_input, err_output = \
@@ -175,6 +181,7 @@ class ForwardMul(ActivationForward):
     """
 
     kernel_name = "forward_mul"
+    MAPPING = {"activation_mul"}
 
     def __init__(self, workflow, **kwargs):
         super(ForwardMul, self).__init__(workflow, **kwargs)
@@ -241,6 +248,7 @@ class BackwardMul(ActivationBackward):
     """
 
     kernel_name = "backward_mul"
+    MAPPING = {"activation_mul"}
 
     def __init__(self, workflow, **kwargs):
         super(BackwardMul, self).__init__(workflow, **kwargs)
@@ -286,6 +294,7 @@ class ForwardRELU(ActivationForward):
     """
 
     kernel_name = "forward_relu"
+    MAPPING = {"activation_relu"}
 
     def cpu_run(self):
         inp, out = self.cpu_prerun(make_raveled=False, copy_in2out=False)
@@ -298,6 +307,7 @@ class BackwardRELU(ActivationBackward):
     """
 
     kernel_name = "backward_relu"
+    MAPPING = {"activation_relu"}
 
     def cpu_run(self):
         _, output, err_input, err_output = \
@@ -312,6 +322,7 @@ class ForwardStrictRELU(ActivationForward):
     """
 
     kernel_name = "forward_strict_relu"
+    MAPPING = {"activation_str"}
 
     def cpu_run(self):
         inp, out = self.cpu_prerun(make_raveled=False, copy_in2out=False)
@@ -341,7 +352,9 @@ class BackwardStrictRELU(ActivationBackward):
 
     :math:`x = \\max(y, 0)`
     """
+
     kernel_name = "backward_strict_relu"
+    MAPPING = {"activation_str"}
 
     def cpu_run(self):
         _, output, err_input, err_output = \
@@ -369,6 +382,9 @@ class BackwardStrictRELU(ActivationBackward):
 class ForwardLog(ActivationForward):
     """Forward pass for :math:`y = \\log(x + \\sqrt{x^2 + 1})`.
     """
+
+    MAPPING = {"activation_log"}
+
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
@@ -391,6 +407,9 @@ class ForwardLog(ActivationForward):
 class BackwardLog(ActivationBackward):
     """Backward pass for :class:`ForwardLog`.
     """
+
+    MAPPING = {"activation_log"}
+
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
@@ -421,6 +440,7 @@ class ForwardTanhLog(ActivationForward):
     a = 0.242528761112
     b = 305.459953195
     kernel_name = "forward_tanhlog"
+    MAPPING = {"activation_tanhlog"}
 
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
@@ -447,6 +467,7 @@ class BackwardTanhLog(ActivationBackward):
     """
 
     kernel_name = "backward_tanhlog"
+    MAPPING = {"activation_tanhlog"}
 
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
@@ -475,6 +496,7 @@ class ForwardSinCos(ActivationForward):
     """
 
     kernel_name = "forward_sincos"
+    MAPPING = {"activation_sincos"}
 
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
@@ -495,6 +517,7 @@ class BackwardSinCos(ActivationBackward):
     """
 
     kernel_name = "backward_sincos"
+    MAPPING = {"activation_sincos"}
 
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or

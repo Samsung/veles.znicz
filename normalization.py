@@ -71,6 +71,9 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
     """
     Forward propagation of local response normalization.
     """
+
+    MAPPING = {"norm"}
+
     def init_unpickled(self):
         super(LRNormalizerForward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}
@@ -141,6 +144,9 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
     """
     Backward-propagation for local response normalization.
     """
+
+    MAPPING = {"norm"}
+
     def init_unpickled(self):
         super(LRNormalizerBackward, self).init_unpickled()
         self.cl_sources_["normalization.cl"] = {}

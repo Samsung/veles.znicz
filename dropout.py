@@ -54,6 +54,7 @@ class DropoutForward(Forward, Dropout):
     """
     MIN_RANDOM_STATE = 0
     MAX_RANDOM_STATE = 0x100000000
+    MAPPING = {"dropout"}
 
     def __init__(self, workflow, **kwargs):
         super(DropoutForward, self).__init__(workflow, **kwargs)
@@ -139,6 +140,9 @@ class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.
     """
+
+    MAPPING = {"dropout"}
+
     def __init__(self, workflow, **kwargs):
         self.mask = None  # dropout mask (should be given from forward unit)
         super(DropoutBackward, self).__init__(workflow, **kwargs)

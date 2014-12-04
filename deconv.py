@@ -52,6 +52,9 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         weights_transposed: assume weights matrix as a transposed one.
         unsafe_padding: flag to enable unsafe padding and/or sliding.
     """
+
+    MAPPING = {"deconv"}
+
     @staticmethod
     def compute_padding(sx, sy, kx, ky, sliding):
         """Computes required padding.

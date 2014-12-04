@@ -52,6 +52,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         krn_err_output_: OpenCL kernel for err_output update.
         krn_bias_: OpenCL kernel for bias update.
     """
+
+    MAPPING = {"all2all"}
+
     def __init__(self, workflow, **kwargs):
         super(GradientDescent, self).__init__(workflow, **kwargs)
         self.reduce_size = 64
@@ -300,7 +303,7 @@ class GDSM(GradientDescent):
     We minimize cross-entropy error function for softmax, so gradient descent
     is the same as in :class:`veles.znicz.gd.GradientDescent`.
     """
-    pass
+    MAPPING = {"softmax"}
 
 
 class GDTanh(GradientDescent):
@@ -317,6 +320,9 @@ class GDTanh(GradientDescent):
 
     :math:`z = y^2 (-0.388484177) + 1.14381894`
     """
+
+    MAPPING = {"all2all_tanh"}
+
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative
         by s in terms of output.
@@ -346,6 +352,9 @@ class GDRELU(GradientDescent):
 
     :math:`f'(s) = \\frac{1}{1 + \\exp(-s)} = 1 - \\exp(-y)`
     """
+
+    MAPPING = {"all2all_relu"}
+
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s
         in terms of output.

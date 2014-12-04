@@ -72,6 +72,9 @@ class Conv(nn_units.NNLayerBase, ConvolutionalBase):
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
+
+    MAPPING = {"conv"}
+
     def __init__(self, workflow, **kwargs):
         super(Conv, self).__init__(workflow, **kwargs)
         self.s_activation = "ACTIVATION_LINEAR"
@@ -368,6 +371,9 @@ class ConvTanh(Conv):
     """Conv with scaled tanh() activation \
         :math:`f(x) = 1.7159 \\tanh(0.6666 x)`.
     """
+
+    MAPPING = {"conv_tanh"}
+
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
         super(ConvTanh, self).initialize(device=device, **kwargs)
@@ -386,6 +392,9 @@ class ConvTanh(Conv):
 class ConvRELU(Conv):
     """Conv with smooth RELU activation :math:`f(x) = \\log(1 + \\exp(x))`.
     """
+
+    MAPPING = {"conv_relu"}
+
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
         super(ConvRELU, self).initialize(device=device, **kwargs)
@@ -410,6 +419,9 @@ class ConvStrictRELU(Conv):
     Conv with strict RELU activation :math:`f(x) = \\max(x, 0)`
     (Just like in CAFFE)
     """
+
+    MAPPING = {"conv_str"}
+
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_STRICT_RELU"
         super(ConvStrictRELU, self).initialize(device=device, **kwargs)

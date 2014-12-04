@@ -58,6 +58,9 @@ class GradientDescentConv(nn_units.GradientDescentBase, ConvolutionalBase):
         kx: kernel width.
         ky: kernel height.
     """
+
+    MAPPING = {"conv"}
+
     def __init__(self, workflow, **kwargs):
         super(GradientDescentConv, self).__init__(workflow, **kwargs)
         self.reduce_size = 64
@@ -461,6 +464,9 @@ class GDTanhConv(GradientDescentConv):
           = y * y * (-b / a) + (a * b)
           = y * y * (-0.388484177) + 1.14381894
     """
+
+    MAPPING = {"conv_tanh"}
+
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s
            in terms of output.
@@ -486,6 +492,9 @@ class GDRELUConv(GradientDescentConv):
 
     f'(s) = 1.0 / (1.0 + exp(-s)) = 1.0 - exp(-y)
     """
+
+    MAPPING = {"conv_relu"}
+
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s
         in terms of output.
@@ -512,6 +521,9 @@ class GDStrictRELUConv(GradientDescentConv):
 
     :math:`f'(s) = \\begin{cases}1 & s > 0 \\\\ 0 & else. \\\\ \\end{cases}`
     """
+
+    MAPPING = {"conv_str"}
+
     def cpu_err_output_update(self):
         """Multiply `err_output` by activation derivative by s
         in terms of output.

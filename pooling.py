@@ -88,6 +88,8 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
         ky: pooling kernel height.
         sliding: tuple of kernel sliding (by x-axis, by y-axis).
     """
+    MAPPING = set()
+
     def __init__(self, workflow, **kwargs):
         super(Pooling, self).__init__(workflow, **kwargs)
         self.exports.extend(("kx", "ky", "sliding"))
@@ -195,6 +197,9 @@ class OffsetPooling(Pooling):
     Attributes:
         input_offset: offsets in the input where elements are passed through.
     """
+
+    MAPPING = set()
+
     def __init__(self, workflow, **kwargs):
         super(OffsetPooling, self).__init__(workflow, **kwargs)
         self.input_offset = formats.Vector()
@@ -251,6 +256,7 @@ class OffsetPooling(Pooling):
 class MaxPoolingBase(OffsetPooling):
     """MaxPooling forward propagation base class.
     """
+    MAPPING = set()
 
     def initialize(self, device, **kwargs):
         super(MaxPoolingBase, self).initialize(device=device, **kwargs)
@@ -265,6 +271,8 @@ class MaxPoolingBase(OffsetPooling):
 class MaxPooling(MaxPoolingBase):
     """MaxPooling forward propagation.
     """
+
+    MAPPING = {"max_pooling"}
 
     def cpu_run_cut_offset(self, cut, index):
         return cut.argmax()
@@ -285,6 +293,8 @@ class MaxAbsPooling(MaxPoolingBase):
         input_offset: offsets in the input where maximum elements were found.
     """
 
+    MAPPING = {"maxabs_pooling"}
+
     def __init__(self, workflow, **kwargs):
         super(MaxAbsPooling, self).__init__(workflow, **kwargs)
         self.cl_sources_["pooling.cl"] = {"ABS_VALUES": 1}
@@ -299,6 +309,8 @@ class StochasticPoolingBase(OffsetPooling):
     Attributes:
         uniform: instance of veles.prng.Uniform.
     """
+    MAPPING = set()
+
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingBase, self).__init__(workflow, **kwargs)
         self.uniform = kwargs.get("uniform")
@@ -355,6 +367,8 @@ class StochasticPooling(StochasticPoolingBase):
     """StochasticPooling forward propagation.
     """
 
+    MAPPING = {"stochastic_pooling"}
+
     def cpu_run_cut_offset(self, cut, index):
         vsum = numpy.sum(cut[cut > 0])
         if vsum == 0:
@@ -372,6 +386,8 @@ class StochasticPooling(StochasticPoolingBase):
 class StochasticAbsPooling(StochasticPoolingBase):
     """StochasticAbsPooling forward propagation.
     """
+
+    MAPPING = {"stochastic_abs_pooling"}
 
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPooling, self).__init__(workflow, **kwargs)
@@ -393,6 +409,9 @@ class StochasticAbsPooling(StochasticPoolingBase):
 class StochasticPoolingDepooling(StochasticPooling):
     """Stochastic pooling with depooling in-place.
     """
+
+    MAPPING = {"stochastic_pool_depool"}
+
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingDepooling, self).__init__(workflow, **kwargs)
         self._no_output = True
@@ -413,6 +432,9 @@ class StochasticPoolingDepooling(StochasticPooling):
 class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
     """Stochastic abs pooling with depooling in-place.
     """
+
+    MAPPING = {"stochastic_abs_pool_depool"}
+
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPoolingDepooling, self).__init__(workflow, **kwargs)
 
@@ -431,6 +453,9 @@ class AvgPooling(Pooling):
     Creates within initialize():
 
     """
+
+    MAPPING = {"avg_pooling"}
+
     def initialize(self, device, **kwargs):
         super(AvgPooling, self).initialize(device=device, **kwargs)
 

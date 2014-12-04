@@ -13,21 +13,25 @@ if six.PY3:
 else:
     from UserDict import UserDict
 
+from veles.compat import from_none
 import veles.error as error
 from veles.interaction import Shell
 from veles.mean_disp_normalizer import MeanDispNormalizer
 import veles.plotting_units as plotting_units
+# Important: do not remove unused imports! It will prevent MatchingObject
+# metaclass from adding the mapping in the corresponding modules
+from veles.znicz import nn_units
+from veles.znicz import conv, pooling, all2all, deconv  # pylint: disable=W0611
+from veles.znicz import (gd, gd_conv, gd_pooling,
+                         gd_deconv)  # pylint: disable=W0611
+from veles.znicz import normalization, dropout
+from veles.znicz import activation
 from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
-from veles.znicz import nn_units
-from veles.znicz import conv, pooling, all2all, deconv
-from veles.znicz import gd, gd_conv, gd_pooling, gd_deconv
-from veles.znicz import normalization, dropout
-from veles.znicz import activation
 
 
 class TypeDict(UserDict):
@@ -168,63 +172,10 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     Is able to automatically create backward units by pre-created forward units
     """
     def __init__(self, workflow, **kwargs):
+        super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
+        self.layer_map = nn_units.MatchingObject.mapping
         self.layers = kwargs.get("layers")
         self.device = kwargs.get("device")
-        kwargs["layers"] = self.layers
-        kwargs["device"] = self.device
-        super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
-        self.layer_map = {
-            "conv_tanh": (conv.ConvTanh,
-                          gd_conv.GDTanhConv),
-            "conv_relu": (conv.ConvRELU,
-                          gd_conv.GDRELUConv),
-            "conv_str": (conv.ConvStrictRELU,
-                         gd_conv.GDStrictRELUConv),
-            "conv": (conv.Conv,
-                     gd_conv.GradientDescentConv),
-            "deconv": (deconv.Deconv,
-                       gd_deconv.GDDeconv),
-            "norm": (normalization.LRNormalizerForward,
-                     normalization.LRNormalizerBackward),
-            "dropout": (dropout.DropoutForward,
-                        dropout.DropoutBackward),
-            "max_pooling": (pooling.MaxPooling,
-                            gd_pooling.GDMaxPooling),
-            "maxabs_pooling": (pooling.MaxAbsPooling,
-                               gd_pooling.GDMaxAbsPooling),
-            "avg_pooling": (pooling.AvgPooling,
-                            gd_pooling.GDAvgPooling),
-            "stochastic_abs_pooling": (pooling.StochasticAbsPooling,
-                                       gd_pooling.GDMaxAbsPooling),
-            "stochastic_pooling": (pooling.StochasticPooling,
-                                   gd_pooling.GDMaxPooling),
-            "stochastic_pool_depool": (pooling .StochasticPoolingDepooling,
-                                       gd_pooling.GDMaxPooling),
-            "stochastic_abs_pool_depool":
-            (pooling.StochasticAbsPoolingDepooling,
-             gd_pooling.GDMaxPooling),
-            "all2all": (all2all.All2All,
-                        gd.GradientDescent),
-            "all2all_relu": (all2all.All2AllRELU,
-                             gd.GDRELU),
-            "all2all_tanh": (all2all.All2AllTanh,
-                             gd.GDTanh),
-            "softmax": (all2all.All2AllSoftmax,
-                        gd.GDSM),
-            "activation_mul": (activation.ForwardMul,
-                               activation.BackwardMul),
-            "activation_tanh": (activation.ForwardTanh,
-                                activation.BackwardTanh),
-            "activation_tanhlog": (activation.ForwardTanhLog,
-                                   activation.BackwardTanhLog),
-            "activation_relu": (activation.ForwardRELU,
-                                activation.BackwardRELU),
-            "activation_str": (activation.ForwardStrictRELU,
-                               activation.BackwardStrictRELU),
-            "activation_log": (activation.ForwardLog,
-                               activation.BackwardLog),
-            "activation_sincos": (activation.ForwardSinCos,
-                                  activation.BackwardSinCos)}
 
     def _get_layer_type_kwargs(self, layer):
         if type(layer) != dict:
@@ -252,7 +203,11 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         for i in range(len(self.layers)):
             layer = self.layers[i]
             tpe, kwargs = self._get_layer_type_kwargs(layer)
-            unit = self.layer_map[tpe][0](self, **kwargs)
+            try:
+                unit = self.layer_map[tpe].forward(self, **kwargs)
+            except IndexError:
+                raise from_none(ValueError("Failed to find a Forward in %s" %
+                                           tpe))
             self._add_forward_unit(unit, init_unit, init_attrs)
 
     def _add_forward_unit(self, new_unit, init_unit, init_attrs):
@@ -285,15 +240,15 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             tpe, kwargs = self._get_layer_type_kwargs(layer)
 
             # Check corresponding forward unit type
-            if not isinstance(self.forwards[i], self.layer_map[tpe][0]):
+            if not isinstance(self.forwards[i], self.layer_map[tpe].forward):
                 raise error.BadFormatError(
                     "Forward layer %s at position %d "
                     "is not an instance of %s" %
-                    (repr(self.forwards[i]), i, repr(self.layer_map[tpe][0])))
+                    (self.forwards[i], i, self.layer_map[tpe].forward))
 
             if "name" in kwargs:
                 kwargs["name"] = "gd_" + kwargs["name"]
-            unit = self.layer_map[tpe][1](self, **kwargs)
+            unit = next(self.layer_map[tpe].backwards)(self, **kwargs)
             self.gds[i] = unit
 
             # Link attributes

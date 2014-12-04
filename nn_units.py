@@ -5,7 +5,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
-
+from collections import defaultdict
 import gc
 import numpy
 import logging
@@ -23,13 +23,58 @@ import veles.formats as formats
 from veles.mutable import Bool
 from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
 import veles.prng as prng
+from veles.units import UnitCommandLineArgumentsRegistry
 from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
 from veles.error import MasterSlaveCommunicationError
 from veles.timeit import timeit
 
 
+class Match(list):
+    @property
+    def forward(self):
+        for item in self:
+            if issubclass(item, Forward):
+                return item
+        raise IndexError()
+
+    @property
+    def has_forward(self):
+        for item in self:
+            if issubclass(item, Forward):
+                return True
+        return False
+
+    @property
+    def backwards(self):
+        for item in self:
+            if not issubclass(item, Forward):
+                yield item
+
+
+class MatchingObject(UnitCommandLineArgumentsRegistry):
+    mapping = defaultdict(Match)
+    logger = logging.getLogger("Matcher")
+
+    def __init__(cls, name, bases, clsdict):
+        super(MatchingObject, cls).__init__(name, bases, clsdict)
+        mapping = clsdict.get('MAPPING', None)
+        if mapping is None:
+            MatchingObject.logger.warning("%s does not have MAPPING", cls)
+            return
+        if not isinstance(mapping, set):
+            raise TypeError("%s: MAPPING must be of type 'set'" % cls)
+        for val in mapping:
+            match = MatchingObject.mapping[val]
+            if issubclass(cls, Forward) and match.has_forward:
+                raise ValueError(
+                    "%s: attempted to add a second Forward %s to %s" %
+                    val, cls, match.forward)
+            match.append(cls)
+
+
 @implementer(IDistributable)
+@six.add_metaclass(MatchingObject)
 class Forward(OpenCLUnit):
     """Base class for forward propagation units.
 
@@ -43,6 +88,7 @@ class Forward(OpenCLUnit):
         rand: prng.Rand() object for initial weights generation.
     """
     hide = True
+    MAPPING = set()
 
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "WORKER")
@@ -98,6 +144,8 @@ class Forward(OpenCLUnit):
 
 
 class NNLayerBase(Forward):
+    MAPPING = set()
+
     def print_debug_data(self, t_start):
         """Show some statistics.
         """
@@ -133,6 +181,7 @@ class NNLayerBase(Forward):
 
 
 @implementer(IDistributable)
+@six.add_metaclass(MatchingObject)
 class GradientDescentBase(OpenCLUnit):
     """Base class for gradient descent units.
 
@@ -162,6 +211,7 @@ class GradientDescentBase(OpenCLUnit):
                             had been changed and need to be set again.
     """
     hide = True
+    MAPPING = set()
 
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")

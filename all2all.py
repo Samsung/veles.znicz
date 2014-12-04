@@ -48,6 +48,9 @@ class All2All(nn_units.NNLayerBase):
         weights_stddev: magnitude of uniform weight distribution.
         weights_stddev: StdDev of normal weight distributtion
     """
+
+    MAPPING = {"all2all"}
+
     def __init__(self, workflow, **kwargs):
         super(All2All, self).__init__(workflow, **kwargs)
         self.output_shape = kwargs["output_shape"]
@@ -203,6 +206,7 @@ class All2AllTanh(All2All):
     A = 1.7159
     B = 0.6666
     C = 9.0  # tanh(C) -> 1
+    MAPPING = {"all2all_tanh"}
 
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
@@ -223,6 +227,9 @@ class All2AllTanh(All2All):
 class All2AllRELU(All2All):
     """All2All with RELU activation f(x) = log(1.0 + exp(x)).
     """
+
+    MAPPING = {"all2all_relu"}
+
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
         super(All2AllRELU, self).initialize(device=device, **kwargs)
@@ -252,6 +259,9 @@ class All2AllSoftmax(All2All):
         krn_sm_: kernel for softmax activation calculation.
         max_idx: indexes of element with maximum value for each sample.
     """
+
+    MAPPING = {"softmax"}
+
     def __init__(self, workflow, **kwargs):
         super(All2AllSoftmax, self).__init__(workflow, **kwargs)
         self.max_idx = Vector()

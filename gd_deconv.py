@@ -47,6 +47,9 @@ class GDDeconv(nn_units.GradientDescentBase, ConvolutionalBase):
         padding: padding.
         sliding: sliding.
     """
+
+    MAPPING = {"deconv"}
+
     def __init__(self, workflow, **kwargs):
         super(GDDeconv, self).__init__(workflow, **kwargs)
         self.cl_const = None
