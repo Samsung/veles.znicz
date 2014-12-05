@@ -366,40 +366,55 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_loader(self, init_unit):
         # There must be standard Loader
-        #self.loader.link_from(init_unit)
+        # self.loader.link_from(init_unit)
         pass
 
     def link_forwards(self, init_unit, init_attrs):
         self.parse_forwards_from_config(init_unit, init_attrs)
 
-    def link_gds(self, init_unit):
-        # not work without create forwards, evaluator and decision first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "You can use link_forwards() function")
-        if self.evaluator is None:
-            raise error.NotExistsError(
-                "Please create evaluator in workflow first."
-                "For that you can use link_evaluator() function")
+    def check_decision(self):
         if self.decision is None:
             raise error.NotExistsError(
                 "Please create decision in workflow first."
                 "For that you can use link_decision() function")
+
+    def check_evaluator(self):
+        if self.evaluator is None:
+            raise error.NotExistsError(
+                "Please create evaluator in workflow first."
+                "For that you can use link_evaluator() function")
+
+    def check_forwards(self):
+        if self.forwards is None:
+            raise error.NotExistsError(
+                "Please create forwards in workflow first."
+                "You can use link_forwards() function")
+
+    def check_loader(self):
+        if self.loader is None:
+            raise error.NotExistsError(
+                "Please create loader in workflow first."
+                "For that you can use link_loader() function")
+
+    def check_gds(self):
+        if self.gds is None:
+            raise error.NotExistsError(
+                "Please create gds in workflow first."
+                "For that you can use link_gds() function")
+
+    def link_gds(self, init_unit):
+        # not work without create forwards, evaluator and decision first
+        self.check_evaluator()
+        self.check_forwards()
+        self.check_decision()
         self.create_gd_units_by_config(init_unit)
         self.gds[-1].unlink_before()
         self.gds[-1].link_from(init_unit)
 
     def link_evaluator(self, init_unit):
         # not work without create forwards and loader first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.loader is None:
-            raise error.NotExistsError(
-                "Please create loader in workflow first."
-                "For that you can use link_loader() function")
+        self.check_forwards()
+        self.check_loader()
         self.evaluator = (
             EvaluatorSoftmax(self) if self.loss_function == "softmax"
             else EvaluatorMSE(self))
@@ -418,14 +433,8 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_decision(self, init_unit):
         # not work without create loader and evaluator first
-        if self.loader is None:
-            raise error.NotExistsError(
-                "Please create loader in workflow first."
-                "For that you can use link_loader() function")
-        if self.evaluator is None:
-            raise error.NotExistsError(
-                "Please create evaluator in workflow first."
-                "For that you can use link_evaluator() function")
+        self.check_loader()
+        self.check_evaluator()
         self.decision = (DecisionGD(self, fail_iterations=self.fail_iterations,
                                     max_epochs=self.max_epochs)
                          if self.loss_function == "softmax" else DecisionMSE(
@@ -457,10 +466,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_snapshotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         self.snapshotter = nn_units.NNSnapshotter(
             self, prefix=self.prefix, directory=self.snapshot_dir,
             compress=self.compress, time_interval=self.time_interval,
@@ -473,18 +479,9 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_image_saver(self, init_unit):
         # not work without create forwards, loader and decision first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
-        if self.loader is None:
-            raise error.NotExistsError(
-                "Please create loader in workflow first."
-                "For that you can use link_loader() function")
+        self.check_forwards()
+        self.check_decision()
+        self.check_loader()
         self.image_saver = image_saver.ImageSaver(
             self, out_dirs=self.out_dirs)
         self.image_saver.link_from(init_unit)
@@ -498,10 +495,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_lr_adjuster(self, init_unit):
         # not work without create gds first
-        if self.gds is None:
-            raise error.NotExistsError(
-                "Please create gds in workflow first."
-                "For that you can use link_gds() function")
+        self.check_gds()
         self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
         for gd_elm in self.gds:
             self.lr_adjuster.add_gd_unit(
@@ -519,10 +513,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_meandispnorm(self, init_unit):
         # not work without create loader first
-        if self.loader is None:
-            raise error.NotExistsError(
-                "Please create loader in workflow first."
-                "For that you can use link_loader() function")
+        self.check_loader()
         self.meandispnorm = MeanDispNormalizer(self)
         self.meandispnorm.link_attrs(self.loader,
                                      ("input", "minibatch_data"),
@@ -531,20 +522,14 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_ipython(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         self.ipython = Shell(self)
         self.ipython.link_from(init_unit)
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
     def link_error_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         self.error_plotter = []
         prev = init_unit
         styles = ["r-", "b-", "k-"]
@@ -562,10 +547,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_conf_matrix_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         self.conf_matrix_plotter = []
         prev = init_unit
         for i in range(1, len(self.decision.confusion_matrixes)):
@@ -580,10 +562,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_err_y_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         styles = ["r-", "b-", "k-"]
         self.err_y_plotter = []
         prev = init_unit
@@ -602,14 +581,8 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_multi_hist_plotter(self, init_unit, layers):
         # not work without create decision, forwards first and set layers
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
+        self.check_forwards()
         self.multi_hist_plotter = []
         prev = init_unit
         for i in range(0, len(layers)):
@@ -638,14 +611,8 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_weights_plotter(self, init_unit, layers, limit, weights_input):
         # not work without create decision, forwards first and set layers,
         # limit and weights_input - "weights" or "gradient_weights" for example
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
+        self.check_decision()
+        self.check_forwards()
         prev = init_unit
         self.weights_plotter = []
         prev_channels = 3
@@ -675,14 +642,8 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_similar_weights_plotter(self, init_unit, layers, limit,
                                      magnitude, form, peak):
         # not work without create weights_plotter, decision and forwards first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
+        self.check_forwards()
         self.similar_weights_plotter = []
         prev = init_unit
         k = 0
@@ -720,14 +681,8 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_table_plotter(self, layers, init_unit):
         # not work without create decision and forwards first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
+        self.check_forwards()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
         del self.table_plotter.col_labels[:]
@@ -752,10 +707,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_mse_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         prev = init_unit
         self.mse_plotter = []
         styles = ["", "", "k-"]
@@ -774,10 +726,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_max_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         prev = init_unit
         self.max_plotter = []
         styles = ["", "", "k--"]
@@ -796,10 +745,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_min_plotter(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         prev = init_unit
         self.min_plotter = []
         styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
@@ -819,14 +765,8 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_image_plotter(self, init_unit):
         # not work without create decision and forwards first
-        if self.forwards is None:
-            raise error.NotExistsError(
-                "Please create forwards in workflow first."
-                "For that you can use link_forwards() function")
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
+        self.check_forwards()
         self.image_plotter = plotting_units.ImagePlotter(self,
                                                          name="output sample")
         self.image_plotter.inputs.append(self.forwards[-1].output)
@@ -838,6 +778,9 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_immediate_plotter(self, init_unit):
         # not work without create decision, loader and forwards first
+        self.check_decision()
+        self.check_forwards()
+        self.check_loader()
         self.immediate_plotter = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.immediate_plotter.inputs[:]
@@ -857,10 +800,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_end_point(self, init_unit):
         # not work without create decision first
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
+        self.check_decision()
         self.repeater.link_from(init_unit)
         self.end_point.link_from(init_unit)
         self.end_point.gate_block = ~self.decision.complete
