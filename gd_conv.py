@@ -28,7 +28,7 @@ import veles.znicz.nn_units as nn_units
 
 
 @implementer(IOpenCLUnit)
-class GradientDescentConv(nn_units.GradientDescentBase, ConvolutionalBase):
+class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     """Gradient descent for simple convolutional layer (no activation).
 
     Must be assigned before initialize():

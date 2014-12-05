@@ -22,7 +22,7 @@ from veles.znicz.deconv import Deconv
 
 
 @implementer(IOpenCLUnit)
-class GDDeconv(nn_units.GradientDescentBase, ConvolutionalBase):
+class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
     """Gradient Descent.
 
     Must be assigned before initialize():

@@ -39,7 +39,7 @@ class ConvolutionalBase(object):
 
 
 @implementer(IOpenCLUnit)
-class Conv(nn_units.NNLayerBase, ConvolutionalBase):
+class Conv(ConvolutionalBase, nn_units.NNLayerBase):
     """Convolutional forward propagation with linear activation f(x) = x.
 
     Must be assigned before initialize():
