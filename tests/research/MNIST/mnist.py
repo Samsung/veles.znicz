@@ -10,25 +10,23 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+from veles.znicz.standard_workflow import StandardWorkflow
 from veles.config import root
 from veles.genetics import Tune
-import veles.plotting_units as plotting_units
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
-import veles.znicz.decision as decision
-import veles.znicz.evaluator as evaluator
 import veles.znicz.lr_adjust as lra
 from veles.znicz.tests.research.MNIST.loader_mnist import MnistLoader
-from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.standard_workflow import StandardWorkflowBase
-
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},
+    "add_plotters": True,
+    "loss_function": "softmax",
     "decision": {"fail_iterations": 100,
                  "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": "",
+                    "interval": 1},
     "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "all2all_tanh", "output_shape": Tune(100, 10, 500),
@@ -56,159 +54,119 @@ root.mnistr.update({
                 "bias_stddev": Tune(0.05, 0.0001, 0.1)}]})
 
 
-class MnistWorkflow(StandardWorkflowBase):
-    """Workflow for MNIST dataset (handwritten digits recognition).
+class MnistWorkflow(StandardWorkflow):
+    """Model created for digits recognition. Database - MNIST.
+    Self-constructing Model. It means that Model can change for any Model
+    (Convolutional, Fully connected, different parameters) in configuration
+    file.
     """
-    def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        device = kwargs.get("device")
-        kwargs["layers"] = layers
-        kwargs["device"] = device
-        kwargs["name"] = kwargs.get("name", "MNIST")
-        super(MnistWorkflow, self).__init__(workflow, **kwargs)
+    def link_mnist_lr_adjuster(self, init_unit):
+        self.mnist_lr_adjuster = lra.LearningRateAdjust(self)
+        for gd_elm in self.gds:
+            self.mnist_lr_adjuster.add_gd_unit(
+                gd_elm,
+                lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75),
+                bias_lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75))
+        self.mnist_lr_adjuster.link_from(init_unit)
 
-        self.repeater.link_from(self.start_point)
-
-        self.loader = MnistLoader(
-            self, name="Mnist fullbatch loader",
-            minibatch_size=root.mnistr.loader.minibatch_size,
-            on_device=root.mnistr.loader.on_device)
-        self.loader.link_from(self.repeater)
-
-        # Add fwds units
-        self.parse_forwards_from_config(self.loader,
-                                        ("input", "minibatch_data"))
-
-        # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
-        self.evaluator.link_from(self.forwards[-1])
-        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
-        self.evaluator.link_attrs(self.loader,
-                                  ("batch_size", "minibatch_size"),
-                                  ("labels", "minibatch_labels"),
-                                  ("max_samples_per_epoch", "total_samples"))
-
-        # Add decision unit
-        self.decision = decision.DecisionGD(
-            self, fail_iterations=root.mnistr.decision.fail_iterations,
-            max_epochs=root.mnistr.decision.max_epochs)
-        self.decision.link_from(self.evaluator)
-        self.decision.link_attrs(self.loader,
-                                 "minibatch_class", "minibatch_size",
-                                 "last_minibatch", "class_lengths",
-                                 "epoch_ended", "epoch_number")
-        self.decision.link_attrs(
-            self.evaluator,
-            ("minibatch_n_err", "n_err"),
-            ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_output_sum"))
-
-        self.snapshotter = NNSnapshotter(
-            self, prefix=root.mnistr.snapshotter.prefix,
-            directory=root.common.snapshot_dir,
-            compress=root.mnistr.snapshotter.compress,
-            time_interval=root.mnistr.snapshotter.time_interval)
-        self.snapshotter.link_from(self.decision)
-        self.snapshotter.link_attrs(self.decision,
-                                    ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
-
-        # Add gradient descent units
-        self.create_gd_units_by_config(self.snapshotter)
-
-        if root.mnistr.learning_rate_adjust.do:
-            # Add learning_rate_adjust unit
-            lr_adjuster = lra.LearningRateAdjust(self)
-            for gd_elm in self.gds:
-                lr_adjuster.add_gd_unit(
-                    gd_elm,
-                    lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75),
-                    bias_lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75))
-            lr_adjuster.link_from(self.gds[0])
-            self.repeater.link_from(lr_adjuster)
-            self.end_point.link_from(lr_adjuster)
-        else:
-            self.repeater.link_from(self.gds[0])
-            self.end_point.link_from(self.gds[0])
-        self.end_point.gate_block = ~self.decision.complete
-
-        self.loader.gate_block = self.decision.complete
-
-        # Error plotter
-        self.plt = []
-        styles = ["g-", "r-", "k-"]
-        for i, style in enumerate(styles):
-            self.plt.append(plotting_units.AccumulatingPlotter(
-                self, name="Errors", plot_style=style))
-            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
-            self.plt[-1].input_field = i + 1
-            if i == 0:
-                self.plt[-1].link_from(self.decision)
-            else:
-                self.plt[-1].link_from(self.plt[-2])
-            self.plt[-1].gate_block = ~self.decision.epoch_ended
-        self.plt[0].clear_plot = True
-        self.plt[-1].redraw_plot = True
-
-        # Confusion matrix plotter
-        self.plt_mx = []
-        for i in range(1, len(self.decision.confusion_matrixes)):
-            self.plt_mx.append(plotting_units.MatrixPlotter(
-                self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.plt_mx[-1].link_attrs(self.decision,
-                                       ("input", "confusion_matrixes"))
-            self.plt_mx[-1].input_field = i
-            self.plt_mx[-1].link_from(self.decision)
-            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
-
-        # err_y plotter
-        self.plt_err_y = []
-        for i, style in enumerate(styles):
-            self.plt_err_y.append(plotting_units.AccumulatingPlotter(
-                self, name="Last layer max gradient sum",
-                fit_poly_power=3, plot_style=style))
-            self.plt_err_y[-1].link_attrs(self.decision,
-                                          ("input", "max_err_y_sums"))
-            self.plt_err_y[-1].input_field = i + 1
-            if i == 0:
-                self.plt_err_y[-1].link_from(self.decision)
-            else:
-                self.plt_err_y[-1].link_from(self.plt_err_y[-2])
-            self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
-        self.plt_err_y[0].clear_plot = True
-        self.plt_err_y[-1].redraw_plot = True
-
-        # Weights plotter
-        self.plt_mx = []
+    def link_mnist_weights_plotter(self, init_unit, layers, limit,
+                                   weights_input):
+        self.mnist_weights_plotter = []
         prev_channels = 1
+        prev = init_unit
         for i in range(len(layers)):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             nme = "%s %s" % (i + 1, layers[i]["type"])
             self.debug("Added: %s", nme)
-            plt_mx = nn_plotting_units.Weights2D(
-                self, name=nme, limit=root.mnistr.weights_plotter.limit)
-            self.plt_mx.append(plt_mx)
-            self.plt_mx[-1].link_attrs(self.gds[i], ("input",
-                                                     "gradient_weights"))
-            self.plt_mx[-1].input_field = "mem"
+            mnist_weights_plotter = nn_plotting_units.Weights2D(
+                self, name=nme, limit=limit)
+            self.mnist_weights_plotter.append(mnist_weights_plotter)
+            self.mnist_weights_plotter[-1].link_attrs(
+                self.gds[i], ("input", weights_input))
+            self.mnist_weights_plotter[-1].input_field = "mem"
             if isinstance(self.forwards[i], conv.Conv):
-                self.plt_mx[-1].get_shape_from = (
+                self.mnist_weights_plotter[-1].get_shape_from = (
                     [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
                 prev_channels = self.forwards[i].n_kernels
             if (layers[i].get("output_shape") is not None and
                     layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.forwards[i],
-                                           ("get_shape_from", "input"))
-            self.plt_mx[-1].link_from(self.decision)
-            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+                self.mnist_weights_plotter[-1].link_attrs(
+                    self.forwards[i], ("get_shape_from", "input"))
+            self.mnist_weights_plotter[-1].link_from(prev)
+            prev = self.mnist_weights_plotter[-1]
+            ee = ~self.decision.epoch_ended
+            self.mnist_weights_plotter[-1].gate_skip = ee
 
-    def initialize(self, device, **kwargs):
-        super(MnistWorkflow, self).initialize(device=device)
+    def link_loader(self, init_unit):
+        self.loader = MnistLoader(
+            self,
+            minibatch_size=root.mnistr.loader.minibatch_size,
+            on_device=root.mnistr.loader.on_device)
+        self.loader.link_from(init_unit)
+
+    def create_workflow(self):
+        # Add repeater unit
+        self.link_repeater(self.start_point)
+
+        # Add loader unit
+        self.link_loader(self.repeater)
+
+        # Add fwds units
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
+
+        # Add evaluator unit
+        self.link_evaluator(self.forwards[-1])
+
+        # Add decision unit
+        self.link_decision(self.evaluator)
+
+        # Add snapshotter unit
+        self.link_snapshotter(self.decision)
+
+        # Add gradient descent units
+        self.link_gds(self.snapshotter)
+
+        if root.mnistr.add_plotters:
+
+            # Add error plotter unit
+            self.link_error_plotter(self.gds[0])
+
+            # Add Confusion matrix plotter unit
+            self.link_conf_matrix_plotter(self.error_plotter[-1])
+
+            # Add Err y plotter unit
+            self.link_err_y_plotter(self.conf_matrix_plotter[-1])
+
+            # Add Weights plotter unit
+            self.link_mnist_weights_plotter(
+                self.err_y_plotter[-1], layers=root.mnistr.layers,
+                limit=root.mnistr.weights_plotter.limit,
+                weights_input="gradient_weights")
+
+            last = self.mnist_weights_plotter[-1]
+        else:
+            last = self.gds[0]
+
+        if root.mnistr.learning_rate_adjust.do:
+
+            # Add learning_rate_adjust unit
+            self.link_mnist_lr_adjuster(last)
+
+            # Add end_point unit
+            self.link_end_point(self.mnist_lr_adjuster)
+        else:
+            # Add end_point unit
+            self.link_end_point(last)
 
 
 def run(load, main):
-    load(MnistWorkflow, layers=root.mnistr.layers)
+    load(MnistWorkflow, layers=root.mnistr.layers,
+         fail_iterations=root.mnistr.decision.fail_iterations,
+         max_epochs=root.mnistr.decision.max_epochs,
+         prefix=root.mnistr.snapshotter.prefix,
+         snapshot_interval=root.mnistr.snapshotter.interval,
+         snapshot_dir=root.common.snapshot_dir,
+         loss_function=root.mnistr.loss_function)
     main()
