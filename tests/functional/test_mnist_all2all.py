@@ -67,7 +67,14 @@ class TestMnistAll2All(unittest.TestCase):
         fix_config(root)
         self.w = mnist_all2all.MnistWorkflow(
             dummy_workflow.DummyWorkflow(),
-            layers=root.mnistr.layers, device=self.device)
+            fail_iterations=root.mnistr.decision.fail_iterations,
+            max_epochs=root.mnistr.decision.max_epochs,
+            prefix=root.mnistr.snapshotter.prefix,
+            snapshot_interval=root.mnistr.snapshotter.interval,
+            snapshot_dir=root.common.snapshot_dir,
+            loss_function=root.mnistr.loss_function,
+            layers=root.mnistr.layers,
+            device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.interval = 3

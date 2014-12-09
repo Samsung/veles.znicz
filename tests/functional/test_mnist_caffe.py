@@ -73,7 +73,14 @@ class TestMnistCaffe(unittest.TestCase):
                         "weights_decay_bias": 0.0}]})
         self.w = mnist_caffe.MnistWorkflow(
             dummy_workflow.DummyWorkflow(),
-            layers=root.mnistr.layers, device=self.device)
+            fail_iterations=root.mnistr.decision.fail_iterations,
+            max_epochs=root.mnistr.decision.max_epochs,
+            prefix=root.mnistr.snapshotter.prefix,
+            snapshot_interval=root.mnistr.snapshotter.interval,
+            snapshot_dir=root.common.snapshot_dir,
+            loss_function=root.mnistr.loss_function,
+            layers=root.mnistr.layers,
+            device=self.device)
         self.w.decision.max_epochs = 3
         self.w.snapshotter.interval = 3
         self.assertEqual(self.w.evaluator.labels,

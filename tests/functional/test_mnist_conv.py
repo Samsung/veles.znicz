@@ -95,9 +95,16 @@ class TestMnistConv(unittest.TestCase):
                         "bias_filling": "constant", "bias_stddev": 0.255000,
                         "weights_decay": 0.0005,
                         "weights_decay_bias": 0.476000}]})
-        self.w = mnist_conv.MnistWorkflow(dummy_workflow.DummyWorkflow(),
-                                          layers=root.mnistr.layers,
-                                          device=self.device)
+        self.w = mnist_conv.MnistWorkflow(
+            dummy_workflow.DummyWorkflow(),
+            fail_iterations=root.mnistr.decision.fail_iterations,
+            max_epochs=root.mnistr.decision.max_epochs,
+            prefix=root.mnistr.snapshotter.prefix,
+            snapshot_interval=root.mnistr.snapshotter.interval,
+            snapshot_dir=root.common.snapshot_dir,
+            loss_function=root.mnistr.loss_function,
+            layers=root.mnistr.layers,
+            device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.interval = 2
