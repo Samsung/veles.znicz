@@ -24,7 +24,7 @@ root.kanji.update({"index_map":
                    os.path.join(train_path, "index_map.%d.pickle" %
                                 (sys.version_info[0]))})
 
-root.kanji_standard.update({
+root.kanji.update({
     "decision": {"fail_iterations": 1000,
                  "max_epochs": 10000},
     "loss_function": "mse",

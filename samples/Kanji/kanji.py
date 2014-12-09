@@ -157,12 +157,12 @@ class KanjiWorkflow(StandardWorkflow):
         # Add gradient descent units
         self.link_gds(self.snapshotter)
 
-        if root.kanji_standard.add_plotters:
+        if root.kanji.add_plotters:
             # Add plotters units
             self.link_error_plotter(self.gds[0])
             self.link_weights_plotter(
-                self.error_plotter[-1], layers=root.kanji_standard.layers,
-                limit=root.kanji_standard.weights_plotter.limit,
+                self.error_plotter[-1], layers=root.kanji.layers,
+                limit=root.kanji.weights_plotter.limit,
                 weights_input="weights")
             self.link_max_plotter(self.weights_plotter[-1])
             self.link_min_plotter(self.max_plotter[-1])
@@ -187,10 +187,10 @@ class KanjiWorkflow(StandardWorkflow):
 
     def link_loader(self, init_unit):
         self.loader = KanjiLoader(
-            self, validation_ratio=root.kanji_standard.loader.validation_ratio,
-            train_path=root.kanji_standard.data_paths.train,
-            target_path=root.kanji_standard.data_paths.target,
-            minibatch_size=root.kanji_standard.loader.minibatch_size)
+            self, validation_ratio=root.kanji.loader.validation_ratio,
+            train_path=root.kanji.data_paths.train,
+            target_path=root.kanji.data_paths.target,
+            minibatch_size=root.kanji.loader.minibatch_size)
         self.loader.link_from(init_unit)
 
 
@@ -199,12 +199,12 @@ def run(load, main):
     bias = None
     w, snapshot = load(
         KanjiWorkflow,
-        fail_iterations=root.kanji_standard.decision.fail_iterations,
-        max_epochs=root.kanji_standard.decision.max_epochs,
-        prefix=root.kanji_standard.snapshotter.prefix,
+        fail_iterations=root.kanji.decision.fail_iterations,
+        max_epochs=root.kanji.decision.max_epochs,
+        prefix=root.kanji.snapshotter.prefix,
         snapshot_dir=root.common.snapshot_dir,
-        layers=root.kanji_standard.layers,
-        loss_function=root.kanji_standard.loss_function)
+        layers=root.kanji.layers,
+        loss_function=root.kanji.loss_function)
     if snapshot:
         if type(w) == tuple:
             logging.info("Will load weights")

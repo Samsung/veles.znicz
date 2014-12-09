@@ -18,18 +18,18 @@ import veles.opencl as opencl
 import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
-from veles.znicz.tests.samples.Kanji import kanji as kanji_standard
+from veles.znicz.samples.Kanji import kanji
 import veles.dummy as dummy_workflow
 
 
-class TestKanjiStandard(unittest.TestCase):
+class TestKanji(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     @timeout(1000)
-    def test_kanji_standard(self):
+    def test_kanji(self):
         logging.info("Will test kanji workflow")
 
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -44,14 +44,14 @@ class TestKanjiStandard(unittest.TestCase):
             "index_map": os.path.join(train_path, "index_map.%d.pickle" %
                                       (sys.version_info[0]))})
 
-        root.kanji_standard.update({
+        root.kanji.update({
             "decision": {"fail_iterations": 1000,
                          "max_epochs": 2},
             "loss_function": "mse",
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
                        "validation_ratio": 0.15},
-            "snapshotter": {"prefix": "kanji_standard_test"},
+            "snapshotter": {"prefix": "kanji_test"},
             "layers": [{"type": "all2all_tanh", "learning_rate": 0.00001,
                         "learning_rate_bias": 0.01,
                         "weights_decay": 0.00005, "output_shape": 250},
@@ -68,14 +68,14 @@ class TestKanjiStandard(unittest.TestCase):
                                          (sys.version_info[0]))),
                            "train": train_path}})
 
-        self.w = kanji_standard.KanjiWorkflow(
+        self.w = kanji.KanjiWorkflow(
             dummy_workflow.DummyWorkflow(),
-            fail_iterations=root.kanji_standard.decision.fail_iterations,
-            max_epochs=root.kanji_standard.decision.max_epochs,
-            prefix=root.kanji_standard.snapshotter.prefix,
+            fail_iterations=root.kanji.decision.fail_iterations,
+            max_epochs=root.kanji.decision.max_epochs,
+            prefix=root.kanji.snapshotter.prefix,
             snapshot_dir=root.common.snapshot_dir,
-            layers=root.kanji_standard.layers,
-            loss_function=root.kanji_standard.loss_function,
+            layers=root.kanji.layers,
+            loss_function=root.kanji.loss_function,
             device=self.device)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.interval = 2
