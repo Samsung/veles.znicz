@@ -3,6 +3,7 @@
 #include "random.cu"
 
 /// @brief xorshift128+
+extern "C"
 __global__ void dropout_forward(const dtype /* IN */ *inputs,
                                 const ulong /* IN */ threshold,
                                 const dtype /* IN */ pass,

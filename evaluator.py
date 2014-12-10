@@ -128,7 +128,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
         self.backend_init()
 
-    def ocl_init(self):
+    def _gpu_init(self):
         dtype = self.output.mem.dtype
         block_size = min(self.err_output.shape[0], 128)
         defines = {
@@ -136,21 +136,28 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             "BATCH": self.err_output.shape[0],
             "Y": self.err_output.sample_size
         }
-        self._local_size = [block_size]
-        self._global_size = self._local_size
-
         self.build_program(defines, "%s_%d_%d" %
                            (self.__class__.__name__,
                             self.output.shape[0],
                             self.output.sample_size),
                            dtype=dtype)
-
         self.assign_kernel("ev_sm")
         self.set_args(self.output, self.max_idx, self.labels,
                       self.err_output, self.n_err, self.confusion_matrix,
                       self.max_err_output_sum)
+        return block_size
 
-    def ocl_run(self):
+    def ocl_init(self):
+        block_size = self._gpu_init()
+        self._local_size = [block_size]
+        self._global_size = self._local_size
+
+    def cuda_init(self):
+        block_size = self._gpu_init()
+        self._local_size = (block_size, 1, 1)
+        self._global_size = (1, 1, 1)
+
+    def _gpu_run(self):
         self.err_output.unmap()
         self.output.unmap()
         self.max_idx.unmap()
@@ -166,6 +173,12 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self.set_arg(8, self.krn_constants_f_[0:1])
 
         self.execute_kernel(self._global_size, self._local_size)
+
+    def ocl_run(self):
+        return self._gpu_run()
+
+    def cuda_run(self):
+        return self._gpu_run()
 
     def cpu_run(self):
         self.err_output.map_invalidate()
@@ -288,7 +301,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
         self.backend_init()
 
-    def ocl_init(self):
+    def _gpu_init(self):
         dtype = self.output.mem.dtype
         block_size = min(self.err_output.shape[0], 128)
         defines = {
@@ -298,8 +311,6 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             'SAMPLE_SIZE': 'Y',
             'N_TARGETS': (self.class_targets.shape[0]
                           if self.class_targets is not None else 0)}
-        self._local_size = [block_size]
-        self._global_size = self._local_size
 
         self.build_program(defines, "%s_%d_%d" %
                            (self.__class__.__name__,
@@ -319,7 +330,21 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                 self.labels.devmem,
                 self.n_err.devmem)
 
-    def ocl_run(self):
+        return block_size
+
+    def ocl_init(self):
+        block_size = self._gpu_init()
+        self._local_size = [block_size]
+        self._global_size = self._local_size
+        self._global_size_find_closest = [self.batch_size]
+
+    def cuda_init(self):
+        block_size = self._gpu_init()
+        self._local_size = (block_size, 1, 1)
+        self._global_size = (1, 1, 1)
+        self._global_size_find_closest = (self.batch_size, 1, 1)
+
+    def _gpu_run(self):
         self.err_output.unmap()
         self.output.unmap()
         self.target.unmap()
@@ -339,7 +364,14 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.class_targets.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            self.execute_kernel([batch_size], None, self.krn_find_closest_)
+            self.execute_kernel(self._global_size_find_closest, None,
+                                self.krn_find_closest_)
+
+    def ocl_run(self):
+        return self._gpu_run()
+
+    def cuda_run(self):
+        return self._gpu_run()
 
     def cpu_run(self):
         self.output.map_read()

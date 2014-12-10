@@ -10,6 +10,7 @@
 ///          REDUCE_SIZE - size of the block for matrix reduce,
 ///          H - input size,
 ///          Y - output size.
+extern "C"
 __global__ void compute_col_sums(const dtype /* IN */*weights,
                                  dtype /* OUT */*col_sums) {
 

@@ -24,6 +24,7 @@
 #else
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
+extern "C"
 __global__ void ev_sm(const dtype /* IN */*y, const int /* IN */*max_idx,
                       const int /* IN */*labels, dtype /* OUT */*err_y,
                       int /* IN, OUT */*n_err,
@@ -127,6 +128,7 @@ __global__ void ev_sm(const dtype /* IN */*y, const int /* IN */*max_idx,
 #else
 #define N_BLOCKS (BATCH / BLOCK_SIZE + 1)
 #endif
+extern "C"
 __global__ void ev_mse(
     const dtype /* IN */*y, const dtype /* IN */*target, dtype /* OUT */*err_y,
     dtype /* IN, OUT */*metrics, dtype /* OUT */*mse,

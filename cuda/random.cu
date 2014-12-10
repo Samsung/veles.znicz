@@ -42,6 +42,7 @@ uint64_t next(void) {
   return ( s[ p ] = s0 ^ s1 ) * 1181783497276652981LL;
 }
 */
+extern "C"
 __global__ void RandomXorshift1024star(
     ulong /* IN, OUT */*states,
     const int /* IN */rounds,
@@ -115,6 +116,7 @@ uint64_t next(void) {
     state = seed; \
   } while (0)
 
+extern "C"
 __global__ void random_xorshift128plus(ulong2 /* IN, OUT */   *states,
                                        ulong     /* OUT */    *output) {
   int id = (threadIdx.x + blockIdx.x * blockDim.x) << LOG_CHUNK;

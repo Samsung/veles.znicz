@@ -12,6 +12,7 @@
 /// @details etype is an element type and should be defined externally;
 ///          workgroup dimension 0 corresponds to in-sample offset,
 ///          workgroup dimension 1 corresponds to the sample index.
+extern "C"
 __global__ void join2(etype *output, etype *a, etype *b, const int a_size,
                       const int b_size, const int in_sample_output_offs,
                       const int output_sample_size) {

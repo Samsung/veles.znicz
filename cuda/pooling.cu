@@ -18,6 +18,7 @@
 ///          Kernel should be run as:
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
+extern "C"
 __global__ void max_pooling(
     const dtype /* IN */*h, dtype /* OUT */*y, int /* OUT */*h_offs) {
   dtype max_vle = -FLT_MAX;
@@ -68,6 +69,7 @@ __global__ void max_pooling(
 /// @brief Does avg pooling over convolutional layer output.
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
+extern "C"
 __global__ void avg_pooling(const dtype /* IN */  *h, dtype /* OUT */ *y) {
   dtype smm = 0;
   int target_x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -136,6 +138,7 @@ y[idx] = smm / (NX * NY);
 #if KX * KY > 65536
 #error "Too large kernel size for the current stochastic pooling implementation"
 #endif
+extern "C"
 __global__ void stochastic_pooling(
     const dtype /* IN */ *h, dtype /* OUT */ *y, int /* OUT */ *h_offs,
     ushort  /* IN, OUT */ *rand) {
@@ -226,6 +229,7 @@ __global__ void stochastic_pooling(
 #if (KX != SLIDE_X) || (KY != SLIDE_Y)
 #error "Sliding should be equal to the kernel size for the current implementation"
 #endif
+extern "C"
 __global__
 void stochastic_pooling_depooling(dtype /* IN, OUT */ *h,
                                   ushort /* IN, OUT */ *rand) {
