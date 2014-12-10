@@ -11,9 +11,9 @@ import unittest
 import logging
 
 import numpy as np
-from veles import opencl
+from veles import backends
 
-from veles.formats import Vector
+from veles.memory import Vector
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
 from veles.dummy import DummyWorkflow
 
@@ -21,7 +21,7 @@ from veles.dummy import DummyWorkflow
 class TestNormalization(unittest.TestCase):
     def setUp(self):
         self.workflow = DummyWorkflow()
-        self.device = opencl.Device()
+        self.device = backends.Device()
 
     def test_normalization_forward(self):
         fwd_normalizer = LRNormalizerForward(self.workflow,

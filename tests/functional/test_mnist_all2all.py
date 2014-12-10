@@ -12,7 +12,7 @@ import unittest
 
 from veles.config import root
 from veles.genetics import Tune, fix_config
-import veles.opencl as opencl
+import veles.backends as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout

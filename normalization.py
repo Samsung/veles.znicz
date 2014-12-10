@@ -13,11 +13,11 @@ from __future__ import division
 import numpy as np
 from zope.interface import implementer
 
-from veles.znicz.nn_units import OpenCLUnit, Forward, GradientDescentBase
-from veles.opencl_units import IOpenCLUnit
+from veles.znicz.nn_units import AcceleratedUnit, Forward, GradientDescentBase
+from veles.accelerated_units import IOpenCLUnit
 
 
-class LocalResponseNormalizer(OpenCLUnit):
+class LocalResponseNormalizer(AcceleratedUnit):
     """
     A base class for forward and backward units of local
     response normalization.

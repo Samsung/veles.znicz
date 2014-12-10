@@ -14,8 +14,8 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.formats import roundup
-from veles.opencl_units import IOpenCLUnit
+from veles.memory import roundup
+from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.deconv import Deconv

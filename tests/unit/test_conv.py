@@ -13,8 +13,8 @@ import unittest
 import time
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 from veles.dummy import DummyWorkflow

@@ -12,9 +12,9 @@ import opencl4py as cl
 from zope.interface import implementer
 
 from veles.units import Unit, IUnit
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.opencl_units import IOpenCLUnit, OpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, AcceleratedUnit
 import veles.prng as prng
 from veles.znicz.decision import TrivialDecision
 
@@ -39,7 +39,7 @@ class KohonenBase(object):
 
 
 @implementer(IOpenCLUnit)
-class KohonenForward(KohonenBase, OpenCLUnit):
+class KohonenForward(KohonenBase, AcceleratedUnit):
     """Kohonen forward layer.
 
     Must be assigned before initialize():
@@ -231,7 +231,7 @@ class KohonenForward(KohonenBase, OpenCLUnit):
 
 
 @implementer(IOpenCLUnit)
-class KohonenTrainer(KohonenBase, OpenCLUnit):
+class KohonenTrainer(KohonenBase, AcceleratedUnit):
     """KohonenForward train pass.
 
     Must be assigned before initialize():
@@ -511,7 +511,7 @@ class KohonenTrainer(KohonenBase, OpenCLUnit):
         Doesn't matter for classic Kohonen networks,
         get values as in All2AllTanh.
         """
-        d = self.input.supposed_maxvle * self._sample_length
+        d = self.input.max_supposed * self._sample_length
         if self.input.mem.dtype in (numpy.complex64, numpy.complex128):
             return 1.0 / d
         return 9.0 / d

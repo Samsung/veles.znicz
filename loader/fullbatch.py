@@ -15,7 +15,7 @@ from zope.interface import implementer, Interface
 
 import veles.config as config
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
 from veles.znicz.loader.base import ILoader, Loader, LoaderMSE
 

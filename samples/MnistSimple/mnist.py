@@ -26,7 +26,7 @@ root.mnist.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 100,
                  "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "mnist"},
+    "snapshotter": {"prefix": "mnist", "time_interval": 15},
     "loader": {"minibatch_size": 60, "on_device": True},
     "learning_rate": 0.03,
     "weights_decay": 0.0005,  # 1.6%
@@ -96,7 +96,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=root.mnist.snapshotter.prefix,
-            directory=root.common.snapshot_dir, time_interval=0)
+            directory=root.common.snapshot_dir,
+            time_interval=root.mnist.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

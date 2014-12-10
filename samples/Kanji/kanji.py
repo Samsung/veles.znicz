@@ -20,7 +20,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
 import veles.prng as rnd
 import veles.znicz.loader as loader

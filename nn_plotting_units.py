@@ -10,7 +10,7 @@ import numpy.linalg as linalg
 from zope.interface import implementer
 
 import veles.config as config
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types

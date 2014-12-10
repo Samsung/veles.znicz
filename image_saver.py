@@ -17,7 +17,7 @@ from zope.interface import implementer
 
 import veles.config as config
 from veles.error import BadFormatError
-import veles.formats as formats
+import veles.memory as formats
 from veles.distributable import IDistributable
 from veles.units import Unit, IUnit
 

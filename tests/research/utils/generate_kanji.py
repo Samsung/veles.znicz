@@ -23,7 +23,7 @@ import time
 import xml.etree.ElementTree as et
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 
 SX_ = 32
 SY_ = 32

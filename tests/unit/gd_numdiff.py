@@ -8,7 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import numpy
-import veles.formats as formats
+import veles.memory as formats
 import veles.znicz.all2all as all2all
 
 

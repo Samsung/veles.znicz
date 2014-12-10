@@ -10,8 +10,8 @@ import numpy
 import unittest
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 import veles.znicz.input_joiner as input_joiner
 from veles.dummy import DummyWorkflow
 

@@ -14,9 +14,9 @@ import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
 
-from veles.opencl_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit
 import veles.error as error
-from veles.formats import reshape, roundup, Vector
+from veles.memory import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
@@ -74,7 +74,7 @@ class All2All(nn_units.NNLayerBase):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        vle = (1.0 / self.input.supposed_maxvle /
+        vle = (1.0 / self.input.max_supposed /
                numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
         if self.weights_filling == "gaussian":
             vle /= 3
@@ -257,7 +257,7 @@ class All2AllTanh(All2All):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
         super(All2AllTanh, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = All2AllTanh.A
+        self.output.max_supposed = All2AllTanh.A
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -279,7 +279,7 @@ class All2AllRELU(All2All):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
         super(All2AllRELU, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.max_supposed = 10
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -299,7 +299,7 @@ class All2AllStrictRELU(All2All):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_STRICT_RELU"
         super(All2AllStrictRELU, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.max_supposed = 10
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.

@@ -18,7 +18,7 @@ from zope.interface import implementer
 from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
-import veles.formats as formats
+import veles.memory as formats
 import veles.units as units
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units

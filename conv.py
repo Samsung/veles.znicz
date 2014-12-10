@@ -17,9 +17,9 @@ from zope.interface import implementer
 
 from veles.compat import from_none
 from veles.config import root
-from veles.opencl_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit
 import veles.error as error
-from veles.formats import assert_addr, norm_image, roundup
+from veles.memory import assert_addr, norm_image, roundup
 import veles.znicz.nn_units as nn_units
 
 
@@ -95,7 +95,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         """
         n_channels = (self.input.mem.size // (self.input.mem.shape[0] *
                       self.input.mem.shape[1] * self.input.mem.shape[2]))
-        vle = (1.0 / self.input.supposed_maxvle /
+        vle = (1.0 / self.input.max_supposed /
                numpy.sqrt(self.kx * self.ky * n_channels))
         if self.weights_filling == "gaussian":
             vle /= 3
@@ -377,7 +377,7 @@ class ConvTanh(Conv):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_TANH"
         super(ConvTanh, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 1.7159
+        self.output.max_supposed = 1.7159
 
     def apply_activation(self):
         """Add bias and apply tanh activation function.
@@ -398,7 +398,7 @@ class ConvRELU(Conv):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_RELU"
         super(ConvRELU, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.max_supposed = 10
 
     def apply_activation(self):
         """Add bias and apply RELU activation function.
@@ -425,7 +425,7 @@ class ConvStrictRELU(Conv):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_STRICT_RELU"
         super(ConvStrictRELU, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.max_supposed = 10
 
     def apply_activation(self):
         """Add bias and apply STRICT_RELU activation function.

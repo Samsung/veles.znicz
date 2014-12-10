@@ -1,16 +1,11 @@
-
 import libcudnn as cudnn
-
 import logging
 import numpy
-
 import pycuda.driver as cuda
-
 import unittest
 from zope.interface import implementer
 
-import veles.formats as formats
-
+import veles.memory as formats
 from veles import error
 from veles import units
 

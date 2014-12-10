@@ -16,7 +16,7 @@ from zope.interface import implementer
 
 from veles.config import root
 from veles.mean_disp_normalizer import MeanDispNormalizer
-from veles.opencl_units import OpenCLWorkflow
+from veles.accelerated_units import AcceleratedWorkflow
 from veles.pickle2 import pickle, best_protocol
 from veles.snapshotter import Snapshotter
 from veles.znicz.nn_units import Forward
@@ -259,7 +259,7 @@ class MergeBboxes(Unit):
         self._bboxes = {}
 
 
-class ImagenetForward(OpenCLWorkflow):
+class ImagenetForward(AcceleratedWorkflow):
     def __init__(self, workflow, **kwargs):
         super(ImagenetForward, self).__init__(workflow, **kwargs)
         sys.path.append(os.path.dirname(__file__))

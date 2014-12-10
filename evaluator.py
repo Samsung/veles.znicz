@@ -11,11 +11,11 @@ from zope.interface import implementer
 
 from veles.distributable import TriviallyDistributable
 import veles.error as error
-import veles.formats as formats
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+import veles.memory as formats
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
-class EvaluatorBase(OpenCLUnit):
+class EvaluatorBase(AcceleratedUnit):
     """Base class for Evaluators.
     """
     def __init__(self, workflow, **kwargs):

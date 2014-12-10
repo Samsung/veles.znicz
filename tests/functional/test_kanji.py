@@ -14,7 +14,7 @@ import sys
 import unittest
 
 from veles.config import root
-import veles.opencl as opencl
+import veles.backends as opencl
 import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout

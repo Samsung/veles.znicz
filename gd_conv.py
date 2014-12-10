@@ -21,8 +21,8 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.formats import assert_addr, roundup
-from veles.opencl_units import IOpenCLUnit
+from veles.memory import assert_addr, roundup
+from veles.accelerated_units import IOpenCLUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 

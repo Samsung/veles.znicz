@@ -12,8 +12,8 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
-from veles.opencl_units import IOpenCLUnit
-from veles.formats import assert_addr, roundup, Vector
+from veles.accelerated_units import IOpenCLUnit
+from veles.memory import assert_addr, roundup, Vector
 import veles.znicz.nn_units as nn_units
 import veles.error as error
 from veles.distributable import TriviallyDistributable

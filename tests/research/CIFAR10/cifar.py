@@ -17,7 +17,7 @@ import six
 from zope.interface import implementer
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 from veles.znicz import loader
 from veles.znicz.standard_workflow import StandardWorkflow
 

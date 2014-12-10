@@ -11,7 +11,7 @@ import numpy
 from zope.interface import implementer
 
 import veles.error as error
-from veles.opencl_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
 

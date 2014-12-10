@@ -15,7 +15,7 @@ from zope.interface import implementer
 
 from veles.config import root, get
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.znicz.loader as loader
 from veles.external.progressbar import ProgressBar
 

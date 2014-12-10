@@ -12,14 +12,14 @@ import numpy as np
 import os
 import unittest
 
-from veles import opencl
+from veles import backends
 from veles.dummy import DummyWorkflow
 
 
 class StandardTest(unittest.TestCase):
     def setUp(self):
         self.workflow = DummyWorkflow()
-        self.device = opencl.Device()
+        self.device = backends.Device()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
 

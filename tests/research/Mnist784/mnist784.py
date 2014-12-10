@@ -20,7 +20,7 @@ import os
 from zope.interface import implementer
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units

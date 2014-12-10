@@ -10,8 +10,8 @@ import unittest
 import logging
 import numpy as np
 
-from veles.formats import Vector
-from veles.opencl import Device
+from veles.memory import Vector
+from veles.backends import Device
 from veles.znicz.dropout import DropoutForward, DropoutBackward
 from veles.dummy import DummyWorkflow
 

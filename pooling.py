@@ -29,8 +29,8 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-import veles.formats as formats
-from veles.opencl_units import IOpenCLUnit
+import veles.memory as formats
+from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
 import veles.prng as prng

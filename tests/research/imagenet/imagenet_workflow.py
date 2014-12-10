@@ -16,7 +16,7 @@ import pickle
 from zope.interface import implementer
 
 from veles.config import root
-from veles.formats import Vector
+from veles.memory import Vector
 import veles.error as error
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types

@@ -11,8 +11,8 @@ import numpy
 import unittest
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 import veles.znicz.gd as gd

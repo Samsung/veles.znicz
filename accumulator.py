@@ -13,7 +13,7 @@ import sys
 from zope.interface import implementer
 
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
 

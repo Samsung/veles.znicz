@@ -23,7 +23,7 @@ root.common.plotters_disabled = True
 
 root.wine.update({
     "decision": {"fail_iterations": 200, "max_epochs": 100},
-    "snapshotter": {"prefix": "wine"},
+    "snapshotter": {"prefix": "wine", "time_interval": 1},
     "loader": {"minibatch_size": 10, "on_device": True},
     "learning_rate": 0.3,
     "weights_decay": 0.0,
@@ -93,7 +93,8 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=root.wine.snapshotter.prefix,
-            directory=root.common.snapshot_dir, compress="", time_interval=0)
+            directory=root.common.snapshot_dir, compress="",
+            time_interval=root.wine.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

@@ -13,7 +13,7 @@ import unittest
 from zope.interface import implementer
 
 from veles.config import root
-import veles.opencl as opencl
+import veles.backends as opencl
 import veles.prng as rnd
 from veles.znicz.loader import IFullBatchLoader, FullBatchLoaderMSE
 from veles.dummy import DummyWorkflow

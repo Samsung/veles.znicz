@@ -11,10 +11,10 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.opencl_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit
 
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.znicz.nn_units as nn_units
 from veles.units import Unit
 

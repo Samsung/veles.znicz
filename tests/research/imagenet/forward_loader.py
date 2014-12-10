@@ -17,17 +17,17 @@ from twisted.internet import reactor
 from zope.interface import implementer
 
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
 from veles.pickle2 import pickle
 from veles.znicz.tests.research.imagenet.processor import Processor
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
 from veles.workflow import NoMoreJobs
 
 
 @implementer(IOpenCLUnit)
-class ImagenetForwardLoaderBbox(OpenCLUnit, Processor):
+class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
     """
     Imagenet loader for the first processing stage.
 

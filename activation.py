@@ -9,13 +9,13 @@ Activation functions (:class:`ActivationForward`) and their coupled GD units
 import numpy
 from zope.interface import implementer
 
-from veles import formats
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles import memory
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 from veles import error
 
 
-class Activation(OpenCLUnit):
+class Activation(AcceleratedUnit):
     def init_unpickled(self):
         super(Activation, self).init_unpickled()
         self.cl_sources_["activation"] = {}
@@ -50,12 +50,12 @@ class ActivationForward(Forward, Activation):
 
     def cpu_prerun(self, make_raveled, copy_in2out):
         if make_raveled:
-            inp = formats.ravel(self.input.mem)
-            out = formats.ravel(self.output.mem)
+            inp = memory.ravel(self.input.mem)
+            out = memory.ravel(self.output.mem)
         else:
             inp = self.input.mem
             out = self.output.mem
-        if formats.eq_addr(inp, out):
+        if memory.eq_addr(inp, out):
             self.output.map_write()
         else:
             self.output.map_invalidate()
@@ -114,11 +114,11 @@ class ActivationBackward(GradientDescentBase, Activation):
         out = None
         if is_raveled:
             if io_usage[0]:
-                inp = formats.ravel(self.input.mem)
+                inp = memory.ravel(self.input.mem)
             if io_usage[1]:
-                out = formats.ravel(self.output.mem)
-            err_input = formats.ravel(self.err_input.mem)
-            err_output = formats.ravel(self.err_output.mem)
+                out = memory.ravel(self.output.mem)
+            err_input = memory.ravel(self.err_input.mem)
+            err_output = memory.ravel(self.err_output.mem)
         else:
             if io_usage[0]:
                 inp = self.input.mem
@@ -126,7 +126,7 @@ class ActivationBackward(GradientDescentBase, Activation):
                 out = self.output.mem
             err_input = self.err_input.mem
             err_output = self.err_output.mem
-        if formats.eq_addr(err_input, err_output):
+        if memory.eq_addr(err_input, err_output):
             self.err_input.map_write()
         else:
             self.err_input.map_invalidate()
@@ -386,7 +386,7 @@ class ForwardLog(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             formats.eq_addr(self.output.mem, self.input.mem))):
+             memory.eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
         self.backend_init()
@@ -410,7 +410,7 @@ class BackwardLog(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             formats.eq_addr(self.input.mem, self.output.mem))):
+             memory.eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
@@ -441,7 +441,7 @@ class ForwardTanhLog(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             formats.eq_addr(self.output.mem, self.input.mem))):
+             memory.eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardTanhLog, self).initialize(device=device, **kwargs)
 
@@ -468,7 +468,7 @@ class BackwardTanhLog(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             formats.eq_addr(self.input.mem, self.output.mem))):
+             memory.eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardTanhLog, self).initialize(device=device, **kwargs)
@@ -497,7 +497,7 @@ class ForwardSinCos(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             formats.eq_addr(self.output.mem, self.input.mem))):
+             memory.eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardSinCos, self).initialize(device=device, **kwargs)
 
@@ -518,7 +518,7 @@ class BackwardSinCos(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             formats.eq_addr(self.input.mem, self.output.mem))):
+             memory.eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardSinCos, self).initialize(device=device, **kwargs)

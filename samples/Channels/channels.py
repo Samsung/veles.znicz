@@ -33,7 +33,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.image as image
 from veles.mutable import Bool
 from veles.pickle2 import pickle, best_protocol

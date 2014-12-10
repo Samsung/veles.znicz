@@ -13,14 +13,14 @@ import numpy
 import opencl4py as cl
 from zope.interface import implementer
 
-from veles import formats
+from veles import memory
 import veles.prng as random_generator
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 from veles.znicz.nn_units import Forward, GradientDescentBase
 from veles.distributable import IDistributable, TriviallyDistributable
 
 
-class Dropout(OpenCLUnit, TriviallyDistributable):
+class Dropout(AcceleratedUnit, TriviallyDistributable):
     """
     A base class for forward and backward units of local
     response normalization.
@@ -58,8 +58,8 @@ class DropoutForward(Forward, Dropout):
 
     def __init__(self, workflow, **kwargs):
         super(DropoutForward, self).__init__(workflow, **kwargs)
-        self.mask = formats.Vector()  # dropout mask
-        self.states = formats.Vector()
+        self.mask = memory.Vector()  # dropout mask
+        self.states = memory.Vector()
         self.rand = random_generator.get()
 
     @Dropout.dropout_ratio.setter
@@ -115,7 +115,7 @@ class DropoutForward(Forward, Dropout):
             self.mask.map_invalidate()
             self.calc_mask()
             numpy.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
-                           formats.ravel(self.output.mem))
+                           memory.ravel(self.output.mem))
         else:
             self.output.mem[:] = self.input.mem
 
@@ -173,14 +173,14 @@ class DropoutBackward(GradientDescentBase, Dropout):
         self.set_args(self.mask, self.err_output, self.err_input)
 
     def cpu_run(self):
-        if formats.eq_addr(self.err_input.mem, self.err_output.mem):
+        if memory.eq_addr(self.err_input.mem, self.err_output.mem):
             self.err_output.map_write()
         else:
             self.err_output.map_read()
             self.err_input.map_invalidate()
         self.mask.map_read()
         numpy.multiply(self.err_output.mem.ravel(), self.mask.mem.ravel(),
-                       formats.ravel(self.err_input.mem))
+                       memory.ravel(self.err_input.mem))
 
     def ocl_run(self):
         self.err_output.unmap()

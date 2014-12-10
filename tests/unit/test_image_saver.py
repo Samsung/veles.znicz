@@ -16,7 +16,7 @@ import time
 import unittest
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 import veles.prng as prng
 import veles.znicz.image_saver as image_saver
 import veles.dummy as dummy_workflow

@@ -38,7 +38,7 @@ import scipy.misc
 import shutil
 import sys
 import veles.config as config
-import veles.formats as formats
+import veles.memory as formats
 import veles.prng as rnd
 import veles.znicz.conv as conv
 from veles.znicz.external import xmltodict

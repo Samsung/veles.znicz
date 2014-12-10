@@ -14,7 +14,7 @@ import numpy
 import os
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units

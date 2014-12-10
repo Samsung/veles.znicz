@@ -6,7 +6,7 @@ import scipy.io
 import unittest
 
 from veles.dummy import DummyWorkflow
-from veles.formats import Vector
+from veles.memory import Vector
 
 import veles.znicz.rbm as rbm
 

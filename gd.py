@@ -22,8 +22,8 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.formats import reshape, roundup
-from veles.opencl_units import IOpenCLUnit
+from veles.memory import reshape, roundup
+from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 
 

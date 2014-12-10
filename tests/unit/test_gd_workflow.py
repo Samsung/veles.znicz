@@ -12,9 +12,9 @@ import numpy
 import unittest
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.znicz.nn_units import OpenCLWorkflow
+from veles.znicz.nn_units import AcceleratedWorkflow
 import veles.znicz.activation as activation
 import veles.znicz.all2all as all2all
 import veles.znicz.gd as gd
@@ -26,11 +26,11 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.normalization as normalization
 from veles.dummy import DummyLauncher
 import veles.prng as rnd
-import veles.opencl as opencl
+import veles.backends as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
-class Workflow(OpenCLWorkflow):
+class Workflow(AcceleratedWorkflow):
     def __init__(self, workflow, **kwargs):
         ConvForward = kwargs["ConvForward"]
         ConvGD = kwargs["ConvGD"]

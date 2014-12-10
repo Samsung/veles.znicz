@@ -18,7 +18,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
-from veles.formats import Vector
+from veles.memory import Vector
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units

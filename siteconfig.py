@@ -9,4 +9,4 @@ import os
 
 
 def update(root):
-    root.common.compute.dirs.append(os.path.dirname(__file__))
+    root.common.engine.dirs.append(os.path.dirname(__file__))

@@ -7,8 +7,8 @@ import math
 import numpy
 from zope.interface import implementer
 
-from veles.formats import Vector
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles.memory import Vector
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 from veles.znicz.all2all import All2All
 
 import numpy.matlib as matlib
@@ -68,7 +68,7 @@ class All2AllRBM(All2All):
     def initialize(self, device, **kwargs):
         self.s_activation = "ACTIVATION_Sigmoid"
         super(All2AllRBM, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
+        self.output.max_supposed = 10
         self.vbias.mem = numpy.zeros((1, self.input.shape[1]),
                                      dtype=self.input.mem.dtype)
         self.bias.mem.shape = (1, self.bias.mem.shape[0])
@@ -162,7 +162,7 @@ class GradientDescentRBM(gd.GradientDescent):
 
 
 @implementer(IOpenCLUnit)
-class EvaluatorRBM(OpenCLUnit):
+class EvaluatorRBM(AcceleratedUnit):
     """Evaluates the quality of the autoencoder.
     v := binornd(1, v);
     h : = W * v +  bias;

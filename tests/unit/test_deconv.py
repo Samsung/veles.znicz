@@ -13,16 +13,16 @@ import os
 import unittest
 
 from veles.config import root
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
 import veles.znicz.conv as conv
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 from veles.dummy import DummyWorkflow
 import veles.prng as rnd
-import veles.opencl as opencl
+import veles.backends as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
-from veles.formats import Vector
+from veles.memory import Vector
 
 
 class TestDeconv(unittest.TestCase, GDNumDiff):

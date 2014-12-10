@@ -15,10 +15,10 @@ from zope.interface import implementer, Interface
 
 from veles.distributable import IDistributable
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
 import veles.prng as random_generator
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
 TRAIN = 2
@@ -53,7 +53,7 @@ class ILoader(Interface):
 
 
 @implementer(IOpenCLUnit, IDistributable)
-class Loader(OpenCLUnit):
+class Loader(AcceleratedUnit):
     """Loads data and provides minibatch output interface.
 
     Attributes:

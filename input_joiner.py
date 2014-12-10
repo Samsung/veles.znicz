@@ -12,13 +12,13 @@ import opencl4py as cl
 from zope.interface import implementer
 
 import veles.error as error
-import veles.formats as formats
+import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.opencl_units import OpenCLUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
 @implementer(IOpenCLUnit)
-class InputJoiner(OpenCLUnit):
+class InputJoiner(AcceleratedUnit):
     """Joins several minibatch inputs into one continuous minibatch output.
 
     Must be assigned before initialize():

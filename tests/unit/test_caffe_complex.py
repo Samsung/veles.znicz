@@ -14,7 +14,7 @@ import tarfile
 
 from veles.compat import IntEnum
 from veles.znicz.tests.unit import standard_test
-from veles.formats import Vector
+from veles.memory import Vector
 from veles.logger import Logger
 from veles.znicz import activation
 from veles.znicz import all2all, conv, pooling, normalization

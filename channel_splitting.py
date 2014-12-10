@@ -1,7 +1,7 @@
 import numpy
 from zope.interface import implementer
 
-from veles.opencl_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit
 from veles.znicz.nn_units import Forward
 
 

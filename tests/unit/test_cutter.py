@@ -11,8 +11,8 @@ import logging
 import numpy
 import unittest
 
-from veles.opencl import Device
-from veles.formats import Vector
+from veles.backends import Device
+from veles.memory import Vector
 from veles.znicz.cutter import Cutter, GDCutter
 import veles.prng as prng
 from veles.tests import DummyWorkflow

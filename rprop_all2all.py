@@ -8,7 +8,7 @@ RPROP for :class:`veles.znicz.All2All`
 
 import numpy
 
-from veles import formats
+from veles import memory
 from veles.znicz.gd import GradientDescent
 
 
@@ -24,8 +24,8 @@ class RPropAll2All(GradientDescent):
         self.increase = 1.05
         self.decrease = 0.80
 
-        self.weight_lrs = formats.Vector()
-        self.bias_lrs = formats.Vector()
+        self.weight_lrs = memory.Vector()
+        self.bias_lrs = memory.Vector()
 
     def initialize(self, device, **kwargs):
         super(RPropAll2All, self).initialize(device=device, **kwargs)

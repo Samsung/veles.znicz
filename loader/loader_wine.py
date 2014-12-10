@@ -13,7 +13,7 @@ import os
 from zope.interface import implementer
 
 from veles.config import root, get
-import veles.formats as formats
+import veles.memory as formats
 import veles.znicz.loader as loader
 
 data_path = os.path.abspath(get(

@@ -19,9 +19,9 @@ import opencl4py as cl
 
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
-import veles.formats as formats
+import veles.memory as formats
 from veles.mutable import Bool
-from veles.opencl_units import OpenCLUnit, OpenCLWorkflow
+from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
 from veles.units import UnitCommandLineArgumentsRegistry
 from veles.workflow import Repeater
@@ -75,7 +75,7 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
 
 @implementer(IDistributable)
 @six.add_metaclass(MatchingObject)
-class Forward(OpenCLUnit):
+class Forward(AcceleratedUnit):
     """Base class for forward propagation units.
 
     Attributes:
@@ -182,7 +182,7 @@ class NNLayerBase(Forward):
 
 @implementer(IDistributable)
 @six.add_metaclass(MatchingObject)
-class GradientDescentBase(OpenCLUnit):
+class GradientDescentBase(AcceleratedUnit):
     """Base class for gradient descent units.
 
     Attributes:
@@ -498,7 +498,7 @@ class GradientDescentBase(OpenCLUnit):
         self.ocl_set_const_args = False
 
 
-class NNWorkflow(OpenCLWorkflow):
+class NNWorkflow(AcceleratedWorkflow):
     """Base class for neural network workflow.
 
     Attributes:

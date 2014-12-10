@@ -11,11 +11,11 @@ import os
 import time
 
 from veles.config import root
-from veles.formats import roundup, Vector
-from veles.opencl import Device
+from veles.memory import roundup, Vector
+from veles.backends import Device
 import veles.prng as prng
 from veles.dummy import DummyWorkflow
-from veles.opencl_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialOpenCLUnit
 
 
 class TestMatrixTranspose(unittest.TestCase):

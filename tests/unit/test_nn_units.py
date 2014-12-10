@@ -17,8 +17,8 @@ from zope.interface import implementer
 from veles.dummy import DummyWorkflow
 from veles.znicz.nn_units import Forward, ForwardExporter
 from veles.znicz.gd import GradientDescent
-from veles.opencl_units import IOpenCLUnit
-from veles import formats
+from veles.accelerated_units import IOpenCLUnit
+from veles import memory
 
 
 @implementer(IOpenCLUnit)
@@ -52,7 +52,7 @@ class Test(unittest.TestCase):
             fwd = TrivialForward(workflow, name="forward")
             fwd.weights.mem = numpy.ones(1000)
             fwd.bias.mem = numpy.ones(10)
-            fwd.input = formats.Vector()
+            fwd.input = memory.Vector()
             fe.forwards.append(fwd)
             fwd.initialize(None)
         workflow.initialize()

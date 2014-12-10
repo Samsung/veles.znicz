@@ -12,8 +12,8 @@ import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 import unittest
 
-from veles import opencl
-from veles.formats import Vector
+from veles import backends
+from veles.memory import Vector
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
@@ -30,7 +30,7 @@ from veles.znicz.tests.unit import standard_test
 class TestConvCaffe(standard_test.StandardTest):
     def setUp(self):
         self.workflow = DummyWorkflow()
-        self.device = opencl.Device()
+        self.device = backends.Device()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
 

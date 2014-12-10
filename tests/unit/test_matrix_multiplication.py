@@ -16,12 +16,12 @@ import time
 import unittest
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 import veles.prng as prng
 from veles import opencl_types
 from veles.dummy import DummyWorkflow
-from veles.opencl_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialOpenCLUnit
 import veles.znicz as znicz
 znicz.nothing()
 

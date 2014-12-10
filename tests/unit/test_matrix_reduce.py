@@ -13,12 +13,12 @@ import os
 import unittest
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.dummy import DummyWorkflow
-from veles.opencl_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialOpenCLUnit
 
 
 class TestMatrixReduce(unittest.TestCase):
