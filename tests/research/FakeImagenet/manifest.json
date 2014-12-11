@@ -11,5 +11,5 @@
     "workflow": "ic1000.py",
     "image": "fake_imagenet.png",
     "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "random", "alexnet", "caffe", "vgg", "convnet"],
-    "files": ["cnna_config.py"]
+    "files": ["cnna_config.py", "generate_fake_imagenet.py", "preparation_fake_imagenet.py"]
 }

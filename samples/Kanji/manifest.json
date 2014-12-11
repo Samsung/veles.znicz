@@ -10,5 +10,6 @@
     "short_description": "Model created for Chinese characters recognition",
     "workflow": "kanji.py",
     "image": "kanji.png",
-    "tags": ["kanji", "self-constructing", "mse", "fully-connected"]
+    "tags": ["kanji", "self-constructing", "mse", "fully-connected"],
+    "files": ["generate_kanji.py"]
 }
