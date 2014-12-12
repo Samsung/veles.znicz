@@ -7,12 +7,12 @@ Created on April 24, 2014
 A unit test for local response normalization.
 """
 
-import unittest
+import gc
 import logging
-
 import numpy as np
-from veles import backends
+import unittest
 
+from veles import backends
 from veles.memory import Vector
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
 from veles.dummy import DummyWorkflow
@@ -22,6 +22,10 @@ class TestNormalization(unittest.TestCase):
     def setUp(self):
         self.workflow = DummyWorkflow()
         self.device = backends.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_normalization_forward(self):
         fwd_normalizer = LRNormalizerForward(self.workflow,

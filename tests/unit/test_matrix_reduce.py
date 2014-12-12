@@ -6,7 +6,7 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import os
@@ -29,10 +29,11 @@ class TestMatrixReduce(unittest.TestCase):
         thisdir = os.path.dirname(__file__)
         if not len(thisdir):
             thisdir = "."
-        if thisdir not in root.common.compute.dirs:
-            root.common.compute.dirs.append(thisdir)
+        if thisdir not in root.common.engine.dirs:
+            root.common.engine.dirs.append(thisdir)
 
     def tearDown(self):
+        gc.collect()
         del self.device
 
     def _build_program(self, a, b, A_WIDTH, A_HEIGHT, A_COL, REDUCE_SIZE):

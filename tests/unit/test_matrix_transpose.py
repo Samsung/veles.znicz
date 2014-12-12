@@ -4,6 +4,7 @@ Created on Oct 30, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import gc
 import logging
 import numpy
 import unittest
@@ -19,6 +20,9 @@ from veles.accelerated_units import TrivialOpenCLUnit
 
 
 class TestMatrixTranspose(unittest.TestCase):
+    def tearDown(self):
+        gc.collect()
+
     def test_transpose(self):
         device = Device()
         prng.get().seed(numpy.frombuffer(b'12345678', dtype=numpy.int32))

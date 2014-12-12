@@ -6,7 +6,7 @@ Unit test for deconvolutional unit.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import os
@@ -34,6 +34,10 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         if not len(self.this_dir):
             self.this_dir = "."
         self.dtype = opencl_types.dtypes[root.common.precision_type]
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_fixed(self):
         inp = numpy.ones([1, 4, 4, 1], dtype=self.dtype)

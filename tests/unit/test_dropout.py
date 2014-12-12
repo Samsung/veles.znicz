@@ -6,14 +6,16 @@ Created on April 25, 2014
 
 A unit test for dropout layer.
 """
-import unittest
+
+import gc
 import logging
 import numpy as np
+import unittest
 
-from veles.memory import Vector
 from veles.backends import Device
-from veles.znicz.dropout import DropoutForward, DropoutBackward
 from veles.dummy import DummyWorkflow
+from veles.memory import Vector
+from veles.znicz.dropout import DropoutForward, DropoutBackward
 
 
 class TestType(object):
@@ -28,11 +30,8 @@ class TestType(object):
 
 
 class TestDropout(unittest.TestCase):
-    def setUp(self):
-        pass
-
     def tearDown(self):
-        pass
+        gc.collect()
 
     def _run_test(self, test_type):
         workflow = DummyWorkflow()

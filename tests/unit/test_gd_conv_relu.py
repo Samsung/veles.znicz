@@ -6,7 +6,7 @@ Unit test for RELU convolutional layer back propagation
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -24,6 +24,10 @@ class TestGDRELUConv(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_fixed(self):
         logging.info("Will test RELU convolutional layer back propagation")

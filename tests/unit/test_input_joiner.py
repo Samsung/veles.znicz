@@ -4,7 +4,7 @@ Created on Oct 29, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -23,6 +23,7 @@ class TestInputJoiner(unittest.TestCase):
         self.device = opencl.Device()
 
     def tearDown(self):
+        gc.collect()
         del self.device
 
     def _do_test(self, device):

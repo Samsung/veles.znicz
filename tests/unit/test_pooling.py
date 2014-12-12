@@ -6,7 +6,7 @@ Unit test for pooling layer forward propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -28,6 +28,7 @@ class TestMaxPooling(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
+        self.device = opencl.Device()
         self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._input.mem = numpy.array(
@@ -72,10 +73,12 @@ class TestMaxPooling(unittest.TestCase):
             dtype=numpy.int32)
 
     def tearDown(self):
-        pass
+        del self._input
+        gc.collect()
+        del self.device
 
     def test_ocl(self):
-        self._do_test(opencl.Device())
+        self._do_test(self.device)
 
     def test_cpu(self):
         self._do_test(None)
@@ -107,6 +110,10 @@ class TestStochasticPooling(unittest.TestCase):
         self.random_state = prng.get().state
 
         self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def _do_test(self, device, Unit):
         prng.get().state = self.random_state
@@ -184,8 +191,11 @@ class TestGDMaxPooling(unittest.TestCase):
               [0, -1, 0, 0, -3, 0, 0],
               [0, -2, 2, 0, 0.3, 0, -4]]], dtype=self._dtype)
 
-        if not hasattr(self, "device"):
-            self.device = opencl.Device()
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_fixed_gpu(self):
         return self._test_fixed(self.device)
@@ -224,6 +234,7 @@ class TestAvgPooling(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
 
+        self.device = opencl.Device()
         self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._input.mem = numpy.array(
@@ -256,10 +267,12 @@ class TestAvgPooling(unittest.TestCase):
               [[1.5, -1], [0, -2], [3, -1], [4, -2]]]], dtype=self._dtype)
 
     def tearDown(self):
-        pass
+        del self._input
+        gc.collect()
+        del self.device
 
     def test_ocl(self):
-        self._do_test(opencl.Device())
+        self._do_test(self.device)
 
     def test_cpu(self):
         self._do_test(None)
@@ -267,8 +280,7 @@ class TestAvgPooling(unittest.TestCase):
     def _do_test(self, device):
         c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
         c.input = self._input
-        cur_device = opencl.Device()
-        c.initialize(device=cur_device)
+        c.initialize(device=self.device)
         c.run()
         c.output.map_read()
         max_diff = numpy.fabs(self._gold_output.ravel() -
@@ -281,113 +293,12 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-
         self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self._input = numpy.array([
-            [[[3, 6], [3, 6], [-1, -2], [1, 2], [2, 4], [3, 6], [4, 8]],
-             [[-2, -4], [4, 8], [-2, -4], [3, 6], [-3, -6], [1, 2], [-2, -4]],
-             [[-3, -6], [-1, -2], [2, 4], [-3, -6], [1, 2], [-4, -8], [0, 0]],
-             [[-1, -2], [-2, -4], [2, 4], [-1, -2], [0, 0], [1, 2], [1, 2]],
-             [[2, 4], [4, 8], [-1, -2], [1, 2], [0, 0], [-3, -6], [-1, -2]]],
-            [[[4, 8], [-1, -2], [3, 6], [-4, -8], [-4, -8], [-2, -4],
-              [-1, -2]],
-             [[-1, -2], [3, 6], [-2, -4], [3, 6], [-1, -2], [4, 8], [2, 4]],
-             [[-2, -4], [1, 2], [-2, -4], [0, 0], [0, 0], [-1, -2], [-2, -4]],
-             [[3, 6], [-2, -4], [1, 2], [-2, -4], [4, 8], [0, 0], [-1, -2]],
-             [[2, 4], [-1, -2], [-3, -6], [2, 4], [0, 0], [1, 2], [0, 0]]],
-            [[[-4, -8], [-1, -2], [-1, -2], [3, 6], [4, 8], [4, 8], [1, 2]],
-             [[0, 0], [1, 2], [0, 0], [3, 6], [-3, -6], [4, 8], [-1, -2]],
-             [[-1, -2], [1, 2], [-4, -8], [-4, -8], [2, 4], [2, 4], [1, 2]],
-             [[1, 2], [-4, -8], [1, 2], [-3, -6], [-4, -8], [-1, -2],
-              [-1, -2]],
-             [[-1, -2], [4, 8], [2, 2], [-2, -4],
-              [3, 6], [3, 6], [4, 8]]]], dtype=self._dtype)
-        self._err_output = numpy.array(
-            [[[[1, 2], [3, 6], [0.5, 1], [-4, -8]],
-              [[1, 2], [-2, -4], [-3, -6], [-1, -2]],
-              [[-1, -2], [3, 6], [-3, -6], [-0.5, -1]]],
-             [[[4, 8], [-4, -8], [-0.3, -0.6], [-3, -6]],
-              [[-1, -2], [-3, -6], [2, 4], [-2, -4]],
-              [[-4, -8], [2, 4], [-1, -2], [-3, -6]]],
-             [[[-4, -8], [2, 4], [3, 6], [2, 4]],
-              [[-1, -2], [-1, -2], [-3, -6], [4, 8]],
-              [[-2, -4], [2, 4], [0.3, 0.6], [-4, -8]]]], dtype=self._dtype)
-        self._gold_err_input = numpy.array([
-            [[[0.25, 0.5], [0.25, 0.5], [0.75, 1.5], [0.75, 1.5],
-              [0.125, 0.25], [0.125, 0.25], [-2, -4]],
-             [[0.25, 0.5], [0.25, 0.5], [0.75, 1.5], [0.75, 1.5],
-              [0.125, 0.25], [0.125, 0.25], [-2, -4]],
-             [[0.25, 0.5], [0.25, 0.5], [-0.5, -1], [-0.5, -1],
-              [-0.75, -1.5], [-0.75, -1.5], [-0.5, -1]],
-             [[0.25, 0.5], [0.25, 0.5], [-0.5, -1], [-0.5, -1],
-              [-0.75, -1.5], [-0.75, -1.5], [-0.5, -1]],
-             [[-0.5, -1], [-0.5, -1], [1.5, 3], [1.5, 3],
-              [-1.5, -3], [-1.5, -3], [-0.5, -1]]],
-            [[[1, 2], [1, 2], [-1, -2], [-1, -2],
-              [-0.075, -0.15], [-0.075, -0.15], [-1.5, -3]],
-             [[1, 2], [1, 2], [-1, -2], [-1, -2],
-              [-0.075, -0.15], [-0.075, -0.15], [-1.5, -3]],
-             [[-0.25, -0.5], [-0.25, -0.5], [-0.75, -1.5], [-0.75, -1.5],
-              [0.5, 1], [0.5, 1], [-1, -2]],
-             [[-0.25, -0.5], [-0.25, -0.5], [-0.75, -1.5], [-0.75, -1.5],
-              [0.5, 1], [0.5, 1], [-1, -2]],
-             [[-2, -4], [-2, -4], [1, 2], [1, 2],
-              [-0.5, -1], [-0.5, -1], [-3, -6]]],
-            [[[-1, -2], [-1, -2], [0.5, 1], [0.5, 1],
-              [0.75, 1.5], [0.75, 1.5], [1, 2]],
-             [[-1, -2], [-1, -2], [0.5, 1], [0.5, 1],
-              [0.75, 1.5], [0.75, 1.5], [1, 2]],
-             [[-0.25, -0.5], [-0.25, -0.5], [-0.25, -0.5], [-0.25, -0.5],
-              [-0.75, -1.5], [-0.75, -1.5], [2, 4]],
-             [[-0.25, -0.5], [-0.25, -0.5], [-0.25, -0.5], [-0.25, -0.5],
-              [-0.75, -1.5], [-0.75, -1.5], [2, 4]],
-             [[-1, -2], [-1, -2], [1, 2], [1, 2],
-              [0.15, 0.3], [0.15, 0.3], [-4, -8]]]], dtype=self._dtype)
+        self.device = opencl.Device()
 
-        if not hasattr(self, "device"):
-            self.device = opencl.Device()
-
-    def _test_fixed_gpu(self):
-        return self._test_fixed(self.device)
-
-    def _test_fixed_cpu(self):
-        return self._test_fixed(None)
-
-    def _test_fixed(self, device):
-        logging.info('starting OpenCL avg pooling layer gradient descent '
-                     'test...')
-        c = gd_pooling.GDAvgPooling(DummyWorkflow(), kx=2, ky=2)
-        c.input = formats.Vector()
-        c.input.mem = self._input.copy()
-        c.err_output = formats.Vector()
-        c.err_output.mem = self._err_output.copy()
-        c.initialize(device=device)
-        c.err_input.map_invalidate()
-        c.err_input.mem[:] = 1.0e30
-        c.run()
-        c.err_input.map_read()  # get results back
-
-        max_diff = numpy.fabs(self._gold_err_input.ravel() -
-                              c.err_input.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001, "max difference in err_input matrix"
-                        " is %.6f" % (max_diff))
-        logging.info("test passed")
-
-        logging.info("reverifying by numeric differentiation...")
-
-        forward = pooling.AvgPooling(DummyWorkflow(), kx=c.kx, ky=c.ky)
-        forward.input = formats.Vector()
-        forward.input.mem = self._input.copy()
-        forward.initialize(device=self.device)
-        forward.run()
-        forward.output.map_read()
-        target = forward.output.mem.ravel() - self._err_output.ravel()
-
-        self.numdiff_check_gd(forward, self._input, None, None, target,
-                              c.err_input.mem, None, None,
-                              logging.info, self.assertLess)
-
-        logging.info("test passed")
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, (3, 3))
@@ -448,6 +359,10 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
         self.random_state = prng.get().state
 
         self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def _do_test(self, device, Unit, Forward):
         prng.get().state = self.random_state

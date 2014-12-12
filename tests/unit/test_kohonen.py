@@ -5,7 +5,7 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -57,6 +57,7 @@ class TestKohonen(unittest.TestCase):
                                    dtype=numpy.int)
 
     def tearDown(self):
+        gc.collect()
         del self.device
 
     def test_forward(self):

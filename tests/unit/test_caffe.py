@@ -6,6 +6,7 @@ Unit test for convolutional layer forward propagation, compared to CAFFE data.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import gc
 import logging
 import numpy as np
 import os
@@ -13,17 +14,16 @@ from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 import unittest
 
 from veles import backends
+from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
 import veles.znicz.evaluator as evaluator
-import veles.znicz.pooling as pooling
 import veles.znicz.gd_conv as gd_conv
 import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
-from veles.dummy import DummyWorkflow
-
+import veles.znicz.pooling as pooling
 from veles.znicz.tests.unit import standard_test
 
 
@@ -33,6 +33,10 @@ class TestConvCaffe(standard_test.StandardTest):
         self.device = backends.Device()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_caffe_conv(self, data_filename="conv.txt"):
         """

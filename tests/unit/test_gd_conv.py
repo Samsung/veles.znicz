@@ -6,7 +6,7 @@ Unit test for convolutional layer back propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -26,8 +26,11 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        if not hasattr(self, "device"):
-            self.device = opencl.Device()
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def test_err_h_gpu(self):
         self._test_err_h(self.device)

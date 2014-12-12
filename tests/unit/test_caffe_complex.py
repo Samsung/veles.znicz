@@ -13,20 +13,19 @@ import unittest
 import tarfile
 
 from veles.compat import IntEnum
-from veles.znicz.tests.unit import standard_test
+
 from veles.memory import Vector
 from veles.logger import Logger
-from veles.znicz import activation
-from veles.znicz import all2all, conv, pooling, normalization
-from veles.znicz import evaluator
+from veles.znicz import (activation, all2all, conv, evaluator, pooling,
+                         normalization)
 from veles.znicz.standard_workflow import GradientUnitFactory
+from veles.znicz.tests.unit import standard_test
 
 
 class PropType(IntEnum):
     """
     Propagation: forward of backward
     """
-
     forward = 0
     backward = 1
 
@@ -35,7 +34,6 @@ class WhenTaken(IntEnum):
     """
     When snapshot was taken: before of after propagation
     """
-
     before = 0
     after = 1
 
@@ -55,7 +53,6 @@ class LayerInfo(object):
 
 
 class ComplexTest(standard_test.StandardTest, Logger):
-
     def __init__(self, methodName='runTest'):
         self.layer_dict = {}
         super(ComplexTest, self).__init__(methodName=methodName)

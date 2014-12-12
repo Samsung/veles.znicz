@@ -5,7 +5,7 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -27,8 +27,11 @@ class TestGD(unittest.TestCase, GDNumDiff):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self.state = prng.get().state
-        if not hasattr(self, "device"):
-            self.device = opencl.Device()
+        self.device = opencl.Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def _do_test(self, device, Forward, GD):
         batch_size = 2

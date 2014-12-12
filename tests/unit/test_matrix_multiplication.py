@@ -32,6 +32,10 @@ class TestMatrixMultiplication(unittest.TestCase):
         root.common.plotters_disabled = True
         self.device = opencl.Device()
 
+    def tearDown(self):
+        gc.collect()
+        del self.device
+
     def _do_cpu_tst(self):
         """Pure CPU test.
         """
@@ -170,7 +174,7 @@ class TestMatrixMultiplication(unittest.TestCase):
                     self._cleanup_after_tsts()
 
     def test(self):
-        if not isinstance(self.device, opencl.OCLDevice):
+        if not isinstance(self.device, opencl.OpenCLDevice):
             return
         for dtype in (numpy.float32, numpy.float64):
             logging.info("~" * 80)

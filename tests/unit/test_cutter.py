@@ -6,7 +6,7 @@ Cutter unit.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -23,6 +23,10 @@ class TestCutter(unittest.TestCase):
         self.input = numpy.zeros([25, 37, 43, 23], dtype=numpy.float32)
         prng.get().fill(self.input)
         self.device = Device()
+
+    def tearDown(self):
+        gc.collect()
+        del self.device
 
     def _do_test(self, device):
         cutter = Cutter(DummyWorkflow(), padding=(2, 3, 4, 5))

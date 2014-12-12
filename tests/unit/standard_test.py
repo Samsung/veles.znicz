@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 # pylint: disable=W0633
 
+import gc
 import numpy as np
 import os
 import unittest
@@ -24,7 +25,9 @@ class StandardTest(unittest.TestCase):
             os.path.dirname(os.path.realpath(__file__)), "data")
 
     def tearDown(self):
-        pass
+        del self.workflow
+        gc.collect()
+        del self.device
 
     def _read_array(self, array_name, lines, shape=None):
         """

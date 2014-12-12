@@ -6,7 +6,7 @@ Unit test for convolutional layer forward propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
+import gc
 import logging
 import numpy
 import unittest
@@ -25,9 +25,11 @@ class TestConvBase(unittest.TestCase):
         root.common.unit_test = True
         root.common.plotters_disabled = True
         self._dtype = opencl_types.dtypes[root.common.precision_type]
+        self.device = opencl.Device()
 
     def tearDown(self):
-        pass
+        gc.collect()
+        del self.device
 
     def _run_test(self, unit, device, input_data, weights, bias):
         """Run test for specified unit with specified device.
@@ -161,7 +163,7 @@ class TestConvNoPadding(TestConvBase):
                      "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
-        self._do_trivial_test(opencl.Device(), input_shape, weights_shape)
+        self._do_trivial_test(self.device, input_shape, weights_shape)
         logging.info("TEST PASSED")
 
     def test_trivial_cases_cpu(self):
@@ -218,7 +220,7 @@ class TestConvNoPadding(TestConvBase):
                      "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
-        self._do_test_all_1(opencl.Device(), input_shape, weights_shape)
+        self._do_test_all_1(self.device, input_shape, weights_shape)
         logging.info("TEST PASSED")
 
     def test_all_1_cpu(self):
@@ -264,7 +266,7 @@ class TestConvNoPadding(TestConvBase):
     def test_1_channel_input_ocl(self):
         logging.info("start OpenCL conv. 1 channel layer forward"
                      "propagation...")
-        self._do_1_channel_input_test(opencl.Device())
+        self._do_1_channel_input_test(self.device)
         logging.info("TEST PASSED")
 
     def test_1_channel_input_cpu(self):
@@ -285,7 +287,7 @@ class TestConvWithPadding(TestConvBase):
         weights_shape = (2, 4, 3, 3)
         sliding = (2, 3)
         padding = (2, 3, 1, 2)
-        self._do_trivial_test(opencl.Device(), input_shape, weights_shape,
+        self._do_trivial_test(self.device, input_shape, weights_shape,
                               sliding, padding)
         logging.info("TEST PASSED")
 
@@ -363,7 +365,7 @@ class TestConvWithPadding(TestConvBase):
         logging.info("start 'all 1' OpenCL test [with padding and sliding...")
         input_shape = (3, 8, 8, 3)
         kernels_num = 2
-        self._do_test_all_1(opencl.Device(), input_shape, kernels_num)
+        self._do_test_all_1(self.device, input_shape, kernels_num)
         logging.info("TEST PASSED")
 
     def test_all_1_cpu(self):
@@ -410,7 +412,7 @@ class TestConvWithPadding(TestConvBase):
     def test_fixed_arrays_ocl(self):
         logging.info("start testing OpenCL conv. layer forward propagation "
                      "with fixed input data, weights and bias...")
-        self._do_test_fixed_arrays(opencl.Device())
+        self._do_test_fixed_arrays(self.device)
         logging.info("TEST PASSED")
 
     def test_fixed_arrays_cpu(self):
@@ -437,7 +439,7 @@ class TestConvWithPadding(TestConvBase):
                          ky=weights_shape[1], kx=weights_shape[2],
                          sliding=sliding, padding=padding)
         time0 = time.time()
-        ocl_output = self._run_test(unit, opencl.Device(), input_data,
+        ocl_output = self._run_test(unit, self.device, input_data,
                                     weights, bias)
         time1 = time.time()
         cpu_output = self._run_test(unit, None, input_data, weights, bias)
@@ -447,6 +449,7 @@ class TestConvWithPadding(TestConvBase):
         max_diff = numpy.fabs(ocl_output.ravel() -
                               cpu_output.ravel()).max()
         self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % (max_diff))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

@@ -1,11 +1,12 @@
-from PIL import Image
+import gc
 import logging
 import numpy
+from PIL import Image
 import unittest
 
 from veles.config import root
-import veles.formats as formats
-import veles.opencl as opencl
+import veles.memory as formats
+import veles.backends as opencl
 from veles.dummy import DummyWorkflow
 from veles.znicz import cudnn
 
@@ -20,7 +21,8 @@ class TestCUDNNBase(unittest.TestCase):
         self.device = opencl.Device()
 
     def tearDown(self):
-        pass
+        gc.collect()
+        del self.device
 
     def get_cudnn_conv_result(self):
         workflow = DummyWorkflow()
