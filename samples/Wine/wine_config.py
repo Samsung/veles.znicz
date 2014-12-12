@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-from veles.config import root, get
+from veles.config import root
 
 # optional parameters
 

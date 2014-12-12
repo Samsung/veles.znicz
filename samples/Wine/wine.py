@@ -9,7 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-from veles.config import root, get
+from veles.config import root
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
 import veles.znicz.all2all as all2all

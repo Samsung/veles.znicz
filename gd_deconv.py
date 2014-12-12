@@ -12,7 +12,6 @@ import numpy
 import opencl4py as cl
 from zope.interface import implementer
 
-from veles.config import root
 import veles.error as error
 from veles.memory import roundup
 from veles.accelerated_units import IOpenCLUnit
