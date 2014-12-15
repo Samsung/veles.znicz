@@ -615,8 +615,6 @@ class NNWorkflow(AcceleratedWorkflow):
         if not self.is_master:
             return
 
-        from collections import defaultdict
-
         self.debug("Checking the history...")
         async = self.workflow.args.async
         job_stack = defaultdict(int)
