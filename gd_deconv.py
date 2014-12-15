@@ -9,7 +9,6 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import numpy
-import opencl4py as cl
 from zope.interface import implementer
 
 import veles.error as error
@@ -65,8 +64,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_compute_col_sums_ = None
 
     def initialize(self, device, **kwargs):
-        super(GDDeconv, self).initialize(device, **kwargs)
-
         if self.bias is not None:
             raise error.BadFormatError("bias should not be set")
         if self.err_output.mem is None:
@@ -93,8 +90,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Incorrectly shaped err_output encountered")
 
-        dtype = self.err_output.mem.dtype
-
         batch_size = self.err_output.mem.shape[0]
         sy = self.err_output.mem.shape[1]
         sx = self.err_output.mem.shape[2]
@@ -119,36 +114,10 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 raise
             self.warning("Using unsafe padding of %s", str(self.padding))
 
-        if (self.need_err_input and (
-                self.err_input.mem is None or
-                self.err_input.size != self.input.size)):
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros(self.input.shape, dtype=dtype)
-
-        if (self.store_gradient and
-                (self.gradient_weights.mem is None or
-                 self.gradient_weights.size != self.weights.size)):
-            self.gradient_weights.reset()
-            self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
-
-        side = self.weights.shape[1 if self.weights_transposed else 0]
-        other = self.weights.size // side
-        if self.factor_ortho:
-            if not self.col_sums or self.col_sums.size < other:
-                self.col_sums.reset()
-                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-
-        self.weights.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_output.initialize(self.device)
-        if self.need_err_input:
-            self.err_input.initialize(self.device)
-        if self.store_gradient:
-            self.gradient_weights.initialize(self.device)
         if self.hits:
             self.hits.initialize(self.device)
 
-        self.backend_init()
+        super(GDDeconv, self).initialize(device, **kwargs)
 
     def ocl_init(self):
         batch_size = self.err_output.mem.shape[0]
@@ -163,9 +132,8 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
-        if self.factor_ortho:
-            self.col_sums.initialize(self.device)
-        self.reduce_size = roundup(min(self.reduce_size, other), 32)
+        assert side == self.n_kernels
+        assert other == self.kx * self.ky * n_channels
 
         defines = {
             'INCLUDE_BIAS': 0,
@@ -189,8 +157,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1],
             'REDUCE_SIZE': self.reduce_size,
-            'USE_HITS': int(bool(self.hits)),
-            'USE_ORTHO': int(bool(self.factor_ortho))
+            'USE_HITS': int(bool(self.hits))
         }
 
         a_width = kernel_applies_count
@@ -211,7 +178,8 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             kernel="conv", dtype=self.err_output.dtype)
         self.cl_sources_["deconv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size,
-            "USE_ORTHO": int(bool(self.factor_ortho))
+            "USE_ORTHO": int(bool(self.factor_ortho)),
+            'USE_MOMENT': int(bool(self.gradient_moment))
         }
         self._global_size_weights = [
             roundup(b_width, block_size),
@@ -241,13 +209,14 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_weights_.set_args(self.err_output.devmem,
                                    self.input.devmem,
                                    self.weights.devmem,
-                                   self.gradient_weights.devmem)
+                                   self.gradient_weights.devmem,
+                                   self.gradient_weights_with_moment.devmem)
 
         if self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(9, self.col_sums.devmem)
+            self.krn_weights_.set_arg(10, self.col_sums.devmem)
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
@@ -263,39 +232,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.execute_kernel(
             self._global_size_err_input, self._local_size_err_input,
             self.krn_err_input_)
-
-    def gpu_weights_update(self):
-        self.input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
-        self.gradient_weights.unmap()
-
-        lr = self.learning_rate
-        factor_l12 = self.weights_decay
-        l1_vs_l2 = self.l1_vs_l2
-
-        if self.factor_ortho:
-            self.col_sums.unmap()
-            side = self.weights.shape[1 if self.weights_transposed else 0]
-            other = self.weights.size // side
-            self.execute_kernel(
-                [other * self.reduce_size], [self.reduce_size],
-                self.krn_compute_col_sums_)
-
-            self.cl_const[4] = self.factor_ortho
-            self.krn_weights_.set_arg(8, self.cl_const[4:5])
-
-        self.cl_const[0] = lr
-        self.cl_const[1] = factor_l12
-        self.cl_const[2] = l1_vs_l2
-        self.cl_const[3] = self.gradient_moment
-        self.krn_weights_.set_args(
-            cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
-            self.cl_const[2:3], self.cl_const[3:4])
-
-        self.execute_kernel(
-            self._global_size_weights, self._local_size_weights,
-            self.krn_weights_)
 
     def ocl_run(self):
         self.gpu_err_output_update()

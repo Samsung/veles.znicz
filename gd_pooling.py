@@ -63,22 +63,12 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         self.krn_err_input_clear_ = None
 
     def initialize(self, device, **kwargs):
-        super(GDPooling, self).initialize(device=device, **kwargs)
         self.create_output()
-
         if self.err_output.size != self._output_size:
             raise error.BadFormatError(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
-
-        if not self.err_input or self.err_input.size != self.input.size:
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros_like(self.input.mem)
-
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
-
-        self.backend_init()
+        super(GDPooling, self).initialize(device=device, **kwargs)
 
     def ocl_init(self):
         if self.program_ is None:

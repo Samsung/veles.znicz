@@ -31,9 +31,6 @@ class LocalResponseNormalizer(AcceleratedUnit):
 
         super(LocalResponseNormalizer, self).__init__(workflow, **kwargs)
 
-    def initialize(self, device, **kwargs):
-        super(LocalResponseNormalizer, self).initialize(device, **kwargs)
-
     def _subsums(self, source_array, window_size):
         """
         For each channel calculates the sum of its neighbour channels.
@@ -154,17 +151,8 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
         self.cl_sources_["normalization"] = {}
 
     def initialize(self, device, **kwargs):
-        super(LRNormalizerBackward, self).initialize(device, **kwargs)
-        self.err_input.mem = np.zeros(self.err_output.mem.shape,
-                                      dtype=self.err_output.mem.dtype)
-
-        self.err_output.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_input.initialize(self.device)
-
         self._num_of_chans = self.input.mem.shape[3]
-
-        self.backend_init()
+        super(LRNormalizerBackward, self).initialize(device, **kwargs)
 
     def ocl_init(self):
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,

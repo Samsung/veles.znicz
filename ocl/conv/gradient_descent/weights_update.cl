@@ -12,10 +12,11 @@ void weights_update(__global const dtype    /* IN */    *err_output,
                     __global const dtype    /* IN */    *input,
                     __global dtype     /* IN, OUT */    *weights,
                     __global dtype     /* IN, OUT */    *gradient,
+                    __global dtype     /* IN, OUT */    *gradient_with_moment,
                     const dtype             /* IN */    lr,
                     const dtype             /* IN */    factor_l12,
                     const dtype             /* IN */    l1_vs_l2,
-                    const dtype             /* IN */    gradient_moment
+                    const dtype             /* IN */    moment
 #if USE_ORTHO > 0
                     , const dtype           /* IN */    factor_ortho,
                     __global const dtype    /* IN */    *col_sums
@@ -50,7 +51,7 @@ void weights_update(__global const dtype    /* IN */    *err_output,
   #define A_COL
   #define B_COL
 
-  #define STORE_OUTPUT "conv/gradient_descent/weights_update.store_output.cl"
+  #define STORE_OUTPUT "weights_update.store_output.cl"
   #include "matrix_multiplication.cl"
 
   #undef A_COL

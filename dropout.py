@@ -149,20 +149,12 @@ class DropoutBackward(GradientDescentBase, Dropout):
         super(DropoutBackward, self).__init__(workflow, **kwargs)
 
     def initialize(self, device, **kwargs):
-        super(DropoutBackward, self).initialize(device=device, **kwargs)
-
-        if (self.err_input.mem is None or
-                self.err_input.mem.size != self.err_output.mem.size):
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros_like(self.err_output.mem)
-
-        if self.device is None:
-            return  # if is master
-
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
-
-        self.backend_init()
+        if self.input is None:
+            self.input = self.err_output
+            super(DropoutBackward, self).initialize(device=device, **kwargs)
+            self.input = None
+        else:
+            super(DropoutBackward, self).initialize(device=device, **kwargs)
 
     def ocl_init(self):
         self.build_program({}, "%s_%s" %

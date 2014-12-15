@@ -7,11 +7,6 @@ dtype gd = -lr * (sum + gradient_step_l12(weight, factor_l12, l1_vs_l2)
            + gradient_step_ortho(weight, factor_ortho, get_global_id(0), Y, col_sums)
   #endif
 #endif
-                 );
-#if STORE_GRADIENT > 0
-  gd += gradient[idx] * gradient_moment;
-  gradient[idx] = gd;
-#endif
-#if APPLY_GRADIENT > 0
-  weights[idx] = weight + gd;
-#endif
+                  );
+
+#include "gradient_descent.store_output.cl"

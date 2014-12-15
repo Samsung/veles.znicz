@@ -85,6 +85,12 @@ class TestGD(unittest.TestCase, GDNumDiff):
         c.weights.map_read()
         c.bias.map_read()
 
+        upper = c.err_input.vv[c.err_input.shape[0]:].ravel()
+        nz = numpy.count_nonzero(numpy.isnan(upper))
+        self.assertEqual(
+            nz, upper.size,
+            "Written some values outside of the target array bounds")
+
         err_input = c.err_input.mem.ravel()
         weights_derivative = c.weights.mem - weights
         bias_derivative = c.bias.mem - bias

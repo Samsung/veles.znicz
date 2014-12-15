@@ -17,9 +17,10 @@ import tarfile
 from zope.interface import implementer
 import opencl4py as cl
 
+from veles.config import root
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
-import veles.memory as formats
+from veles.memory import assert_addr, roundup, Vector
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
@@ -101,9 +102,9 @@ class Forward(AcceleratedUnit):
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.include_bias = kwargs.get("include_bias", True)
         self.demand("input")
-        self.output = formats.Vector()
-        self.weights = formats.Vector()
-        self.bias = formats.Vector()
+        self.output = Vector()
+        self.weights = Vector()
+        self.bias = Vector()
         self.exports = ["weights", "bias",
                         "include_bias", "weights_transposed"]
 
@@ -194,24 +195,35 @@ class GradientDescentBase(AcceleratedUnit):
         bias: bias.
         batch_size: current minibatch size.
         learning_rate: gradient descent speed (positive).
-        learning_rate_bias: gradient descent speed for bias
-        weights_decay: coefficient (positive or zero) for weights
-                       regularization term (lambda/2 * sum(weights^2)).
+        learning_rate_bias
+        weights_decay: regularization for weights (see l1_vs_l2).
         weights_decay_bias
-        gradient_moment
+        gradient_moment: moment coefficient for weights.
         gradient_moment_bias
+        gradient_weights_with_moment: accumulated moment.
+        gradient_bias_with_moment
         batch_size: effective batch size (if None, get it from y).
         weights_transposed: assume weights matrix as a transposed one.
-        store_gradient: will save gradient as separate Vector().
+        store_gradient: operation, applied when current gradient is about
+                        to be stored in additional array:
+                        "=": overwrite gradient with the current value,
+                        "+=": accumulate gradient;
+                        gradient is saved with an applied learning rate etc.
         apply_gradient: will apply gradient.
         gradients_changed: when True, slave will send gradients to master
             (assigned to True just before the run call, so it can be set to
-            False inside ocl_run, cpu_run if necessary)
+            False inside ocl_run, cpu_run if necessary).
         ocl_set_const_args: True when constant arguments for the kernel
                             had been changed and need to be set again.
     """
     hide = True
     MAPPING = set()
+
+    OP_DEFAULT = 0  # same as OP_STORE
+    OP_STORE = 1  # overwrites gradient
+    OP_ACCUMULATE = 2  # accumulates gradient
+    OP_FLUSH = 3  # adds accumulated gradient to the current,
+    # then resets it to zero
 
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
@@ -219,7 +231,7 @@ class GradientDescentBase(AcceleratedUnit):
         self.input = None
         self.output = None
         self.err_output = None  # formats.Vector()
-        self.err_input = formats.Vector()
+        self.err_input = Vector()
         self.weights = None
         self.bias = None
         self.batch_size = None
@@ -234,20 +246,22 @@ class GradientDescentBase(AcceleratedUnit):
         self.gradient_moment = kwargs.get("gradient_moment", 0)
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment)
-        self.store_gradient = kwargs.get("store_gradient", True)
+        self.store_gradient = kwargs.get("store_gradient", self.OP_STORE)
         self.apply_gradient = kwargs.get("apply_gradient",
                                          not workflow.is_slave)
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.need_err_input = kwargs.get("need_err_input", True)
         self.include_bias = kwargs.get("include_bias", True)
         self.factor_ortho = kwargs.get("factor_ortho", 0)
-        self.col_sums = formats.Vector()  # for orthogonalization
+        self.col_sums = Vector()  # for orthogonalization
         self.store_gradient = bool(
             (not workflow.is_slave and
              (self.gradient_moment or self.gradient_moment_bias)) or
             self.store_gradient)
-        self.gradient_weights = formats.Vector()
-        self.gradient_bias = formats.Vector()
+        self.gradient_weights = Vector()
+        self.gradient_bias = Vector()
+        self.gradient_weights_with_moment = Vector()
+        self.gradient_bias_with_moment = Vector()
         self.gradients_changed = False
 
     @property
@@ -258,6 +272,10 @@ class GradientDescentBase(AcceleratedUnit):
 
     def initialize(self, device, **kwargs):
         super(GradientDescentBase, self).initialize(device, **kwargs)
+
+        if self.output and self.err_output.shape != self.output.shape:
+            raise ValueError("err_output.shape != output.shape")
+
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
         self.gradient_moment = kwargs.get("gradient_moment",
@@ -268,6 +286,77 @@ class GradientDescentBase(AcceleratedUnit):
                                              self.weights_decay_bias)
         self.gradient_moment = kwargs.get("gradient_moment_bias",
                                           self.gradient_moment_bias)
+
+        if (self.weights and (
+                not self.gradient_weights or
+                self.gradient_weights.size != self.weights.size)):
+            self.gradient_weights.reset()
+            self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
+        if (self.weights and self.gradient_moment and (
+                not self.gradient_weights_with_moment or
+                self.gradient_weights_with_moment.size != self.weights.size)):
+            self.gradient_weights_with_moment.reset()
+            self.gradient_weights_with_moment.mem = (
+                numpy.zeros_like(self.weights.mem))
+
+        if (self.include_bias and self.bias and
+            (not self.gradient_bias or
+             self.gradient_bias.size != self.bias.size)):
+            self.gradient_bias.reset()
+            self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
+        if (self.include_bias and self.bias and self.gradient_moment_bias and (
+                not self.gradient_bias_with_moment or
+                self.gradient_bias_with_moment.size != self.bias.size)):
+            self.gradient_bias_with_moment.reset()
+            self.gradient_bias_with_moment.mem = (
+                numpy.zeros_like(self.bias.mem))
+
+        dtype = self.err_output.dtype
+        if (self.need_err_input and
+                (not self.err_input or
+                 self.err_input.size != self.input.size)):
+            self.err_input.reset()
+            sh = self.input.shape
+            if root.common.unit_test:
+                self.info("Unit test: Allocating 2x mem for err_input")
+                sh = list(sh)
+                sh[0] <<= 1
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+                self.err_input.initialize(self.device)
+                self.err_input.map_write()
+                self.err_input.vv = self.err_input.mem
+                sh[0] >>= 1
+                self.err_input.mem = self.err_input.vv[:sh[0]]
+                assert_addr(self.err_input.mem, self.err_input.vv)
+                self.err_input.vv[sh[0]:] = numpy.nan
+            else:
+                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+
+        if self.weights:
+            side = self.weights.shape[1 if self.weights_transposed else 0]
+            other = self.weights.size // side
+            if self.factor_ortho:
+                if not self.col_sums or self.col_sums.size < other:
+                    self.col_sums.reset()
+                    self.col_sums.mem = numpy.zeros(other, dtype=dtype)
+                self.col_sums.initialize(self.device)
+            self.reduce_size = roundup(min(self.reduce_size, other), 32)
+            self.weights.initialize(self.device)
+        if self.bias:
+            self.bias.initialize(self.device)
+        if self.output:
+            self.output.initialize(self.device)
+        if self.input:
+            self.input.initialize(self.device)
+        if self.err_input:
+            self.err_input.initialize(self.device)
+        self.err_output.initialize(self.device)
+        self.gradient_weights.initialize(self.device)
+        self.gradient_bias.initialize(self.device)
+        self.gradient_weights_with_moment.initialize(self.device)
+        self.gradient_bias_with_moment.initialize(self.device)
+
+        self.backend_init()
 
     @property
     def learning_rate(self):
@@ -346,6 +435,7 @@ class GradientDescentBase(AcceleratedUnit):
         self.err_output.unmap()
         self.weights.unmap()
         self.gradient_weights.unmap()
+        self.gradient_weights_with_moment.unmap()
 
         if self.factor_ortho:
             self.col_sums.unmap()
@@ -357,7 +447,7 @@ class GradientDescentBase(AcceleratedUnit):
 
             if self.ocl_set_const_args:
                 self.cl_const[4] = self.factor_ortho
-                self.krn_weights_.set_arg(8, self.cl_const[4:5])
+                self.krn_weights_.set_arg(9, self.cl_const[4:5])
 
         if self.ocl_set_const_args:
             self.cl_const[0] = self.learning_rate
@@ -365,7 +455,7 @@ class GradientDescentBase(AcceleratedUnit):
             self.cl_const[2] = self.l1_vs_l2
             self.cl_const[3] = self.gradient_moment
             self.krn_weights_.set_args(
-                cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
+                cl.skip(5), self.cl_const[0:1], self.cl_const[1:2],
                 self.cl_const[2:3], self.cl_const[3:4])
         self.execute_kernel(
             self._global_size_weights, self._local_size_weights,
@@ -385,7 +475,7 @@ class GradientDescentBase(AcceleratedUnit):
             self.cl_const[2] = self.l1_vs_l2_bias
             self.cl_const[3] = self.gradient_moment_bias
             self.krn_bias_.set_args(
-                cl.skip(3), self.cl_const[0:1], self.cl_const[1:2],
+                cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
                 self.cl_const[2:3], self.cl_const[3:4])
         self.execute_kernel(
             self._global_size_bias, self._local_size_bias,

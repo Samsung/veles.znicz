@@ -21,7 +21,6 @@ import numpy
 import time
 from zope.interface import implementer
 
-import veles.error as error
 from veles.memory import reshape, roundup
 from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
@@ -64,58 +63,14 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_err_output_ = None
         self.krn_bias_ = None
 
-    def initialize(self, device, **kwargs):
-        super(GradientDescent, self).initialize(device=device, **kwargs)
-
-        if self.err_output.shape != self.output.shape:
-            raise error.BadFormatError("err_output.shape != output.shape")
-
-        if (self.need_err_input and
-            (self.err_input.mem is None or
-             self.err_input.mem.size != self.input.mem.size)):
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros(self.input.mem.shape,
-                                             dtype=self.err_output.mem.dtype)
-
-        if (self.store_gradient and
-            (self.gradient_weights.mem is None or
-             self.gradient_weights.mem.size != self.weights.mem.size)):
-            self.gradient_weights.reset()
-            self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
-
-        if (self.include_bias and self.store_gradient and
-            (self.gradient_bias.mem is None or
-             self.gradient_bias.mem.size != self.bias.mem.size)):
-            self.gradient_bias.reset()
-            self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
-
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
-        self.output.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
-        if self.store_gradient:
-            self.gradient_weights.initialize(self.device)
-            self.gradient_bias.initialize(self.device)
-
-        self.backend_init()
-
     def ocl_init(self):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(5, dtype=dtype)
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
+        assert side == self.err_output.sample_size
         assert other == self.input.sample_size
-        assert side == self.output.sample_size
-        if self.factor_ortho:
-            if not self.col_sums or self.col_sums.size < other:
-                self.col_sums.reset()
-                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-            self.col_sums.initialize(self.device)
-        self.reduce_size = roundup(min(self.reduce_size, other), 32)
-
         batch = self.input.mem.shape[0]
         block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.err_output.dtype)
@@ -127,8 +82,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             "STORE_GRADIENT": int(self.store_gradient),
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "REDUCE_SIZE": self.reduce_size,
-            "BLOCK_SIZE": block_size,
-            "USE_ORTHO": int(bool(self.factor_ortho))
+            "BLOCK_SIZE": block_size
         }
 
         self.cl_sources_["all2all/gradient_descent/err_input_update"] = {}
@@ -136,12 +90,17 @@ class GradientDescent(nn_units.GradientDescentBase):
             roundup(other, block_size), roundup(batch, block_size)]
         self._local_size_err_input = [block_size, block_size]
 
-        self.cl_sources_["all2all/gradient_descent/weights_update"] = {}
+        self.cl_sources_["all2all/gradient_descent/weights_update"] = {
+            "USE_ORTHO": int(bool(self.factor_ortho)),
+            "USE_MOMENT": int(bool(self.gradient_moment))
+        }
         self._global_size_weights = [
             roundup(other, block_size), roundup(side, block_size)]
         self._local_size_weights = [block_size, block_size]
 
-        self.cl_sources_["all2all/gradient_descent/bias_update"] = {}
+        self.cl_sources_["all2all/gradient_descent/bias_update"] = {
+            "USE_MOMENT": int(bool(self.gradient_moment_bias))
+        }
         self._global_size_bias = [side * self.reduce_size]
         self._local_size_bias = [self.reduce_size]
 
@@ -160,19 +119,21 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_weights_.set_args(self.err_output.devmem,
                                    self.input.devmem,
                                    self.weights.devmem,
-                                   self.gradient_weights.devmem)
+                                   self.gradient_weights.devmem,
+                                   self.gradient_weights_with_moment.devmem)
 
         if self.include_bias:
             self.krn_bias_ = self.get_kernel("bias_update")
             self.krn_bias_.set_args(
                 self.err_output.devmem, self.bias.devmem,
-                self.gradient_bias.devmem)
+                self.gradient_bias.devmem,
+                self.gradient_bias_with_moment.devmem)
 
         if self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(9, self.col_sums.devmem)
+            self.krn_weights_.set_arg(10, self.col_sums.devmem)
 
     def cpu_weights_update(self):
         self.input.map_read()

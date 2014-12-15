@@ -19,9 +19,8 @@ import scipy.signal
 import time
 from zope.interface import implementer
 
-from veles.config import root
 import veles.error as error
-from veles.memory import assert_addr, roundup
+from veles.memory import roundup
 from veles.accelerated_units import IOpenCLUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
@@ -74,18 +73,13 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     def initialize(self, device, **kwargs):
         super(GradientDescentConv, self).initialize(device=device, **kwargs)
 
-        if self.err_output.shape != self.output.shape:
-            raise error.BadFormatError("err_output.shape != output.shape")
-
-        batch_size = self.input.mem.shape[0]
-        sy = self.input.mem.shape[1]
-        sx = self.input.mem.shape[2]
-        n_channels = self.input.mem.size // (batch_size * sx * sy)
+        batch_size = self.input.shape[0]
+        sy = self.input.shape[1]
+        sx = self.input.shape[2]
+        n_channels = self.input.size // (batch_size * sx * sy)
         n_weights = self.n_kernels * self.kx * self.ky * n_channels
 
-        dtype = self.err_output.mem.dtype
-
-        if self.weights.mem.size != n_weights:
+        if self.weights.size != n_weights:
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
@@ -95,50 +89,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
-
-        if (self.need_err_input and (
-                self.err_input.mem is None or
-                self.err_input.mem.size != self.input.mem.size)):
-            self.err_input.reset()
-            sh = self.input.mem.shape
-            if root.common.unit_test:
-                sh = list(sh)
-                sh[0] <<= 1
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
-                self.err_input.initialize(self.device)
-                self.err_input.map_write()
-                self.err_input.vv = self.err_input.mem
-                sh[0] >>= 1
-                self.err_input.mem = self.err_input.vv[:sh[0]]
-                assert_addr(self.err_input.mem, self.err_input.vv)
-                self.err_input.vv[sh[0]:] = numpy.nan
-            else:
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
-
-        if (self.store_gradient and
-                (self.gradient_weights.mem is None or
-                 self.gradient_weights.mem.size != self.weights.mem.size)):
-            self.gradient_weights.reset()
-            self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
-
-        if (self.include_bias and self.store_gradient and
-                (self.gradient_bias.mem is None or
-                 self.gradient_bias.mem.size != self.bias.mem.size)):
-            self.gradient_bias.reset()
-            self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
-
-        self.weights.initialize(self.device)
-        if self.include_bias:
-            self.bias.initialize(self.device)
-        self.output.initialize(self.device)
-        self.input.initialize(self.device)
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
-        if self.store_gradient:
-            self.gradient_weights.initialize(self.device)
-            self.gradient_bias.initialize(self.device)
-
-        self.backend_init()
 
     def ocl_init(self):
         batch_size = self.input.mem.shape[0]
@@ -152,13 +102,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
-
-        if self.factor_ortho:
-            if not self.col_sums or self.col_sums.size < other:
-                self.col_sums.reset()
-                self.col_sums.mem = numpy.zeros(other, dtype=dtype)
-            self.col_sums.initialize(self.device)
-        self.reduce_size = roundup(min(self.reduce_size, other), 32)
+        assert side == self.n_kernels
+        assert other == self.kx * self.ky * n_channels
 
         defines = {
             'H': other,
@@ -207,7 +152,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             kernel="conv", dtype=self.err_output.dtype)
         self.cl_sources_["conv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size,
-            "USE_ORTHO": int(bool(self.factor_ortho))
+            "USE_ORTHO": int(bool(self.factor_ortho)),
+            "USE_MOMENT": int(bool(self.gradient_moment))
         }
         self._global_size_weights = [
             roundup(b_width, block_size),
@@ -215,6 +161,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._local_size_weights = [block_size, block_size]
 
         self.cl_sources_["conv/gradient_descent/bias_update"] = {
+            "USE_MOMENT": int(bool(self.gradient_moment_bias))
         }
         self._global_size_bias = [self.n_kernels * self.reduce_size]
         self._local_size_bias = [self.reduce_size]
@@ -238,19 +185,21 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_weights_.set_args(self.err_output.devmem,
                                    self.input.devmem,
                                    self.weights.devmem,
-                                   self.gradient_weights.devmem)
+                                   self.gradient_weights.devmem,
+                                   self.gradient_weights_with_moment.devmem)
 
         if self.include_bias:
             self.krn_bias_ = self.get_kernel("bias_update")
             self.krn_bias_.set_args(
                 self.err_output.devmem, self.bias.devmem,
-                self.gradient_bias.devmem)
+                self.gradient_bias.devmem,
+                self.gradient_bias_with_moment.devmem)
 
         if self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(9, self.col_sums.devmem)
+            self.krn_weights_.set_arg(10, self.col_sums.devmem)
 
     def cpu_weights_update(self):
         # TODO(a.kazantsev): implement in case of transposed weights
