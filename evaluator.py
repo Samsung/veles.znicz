@@ -336,13 +336,13 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         block_size = self._gpu_init()
         self._local_size = [block_size]
         self._global_size = self._local_size
-        self._global_size_find_closest = [self.batch_size]
+        self._global_size_find_closest_ = lambda: (self.batch_size,)
 
     def cuda_init(self):
         block_size = self._gpu_init()
         self._local_size = (block_size, 1, 1)
         self._global_size = (1, 1, 1)
-        self._global_size_find_closest = (self.batch_size, 1, 1)
+        self._global_size_find_closest_ = lambda: (self.batch_size, 1, 1)
 
     def _gpu_run(self):
         self.err_output.unmap()
@@ -364,7 +364,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.class_targets.unmap()
             self.labels.unmap()
             self.n_err.unmap()
-            self.execute_kernel(self._global_size_find_closest, None,
+            self.execute_kernel(self._global_size_find_closest_(), None,
                                 self.krn_find_closest_)
 
     def ocl_run(self):
