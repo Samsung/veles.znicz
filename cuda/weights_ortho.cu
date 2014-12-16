@@ -1,7 +1,7 @@
 #ifndef _WEIGHTS_ORTO_
 #define _WEIGHTS_ORTO_
 
-#include <defines.cu>
+#include "defines.cu"
 
 /// @brief Sums weights matrix over the columns.
 /// @param weights weights.
