@@ -157,7 +157,11 @@ void ev_mse(__global const dtype    /* IN */    *y,
         vle *= multiplier;
         err_y[y_start + j] = vle;
       }
-      dtype sample_mse = sqrt(sample_sse / Y);
+      #if SQUARED_MSE > 0
+      	dtype sample_mse = sample_sse / Y;
+      #else
+      	dtype sample_mse = sqrt(sample_sse / Y);
+      #endif
       mse[i_sample] = sample_mse;
       mse_sum += sample_mse;
       mse_max = max(mse_max, sample_mse);

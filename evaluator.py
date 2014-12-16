@@ -264,6 +264,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.labels = None
         self.class_targets = None
         self.n_err = formats.Vector()
+        self.squared_mse = kwargs.get("squared_mse", False)
         self.demand("target")
 
     def initialize(self, device, **kwargs):
@@ -310,7 +311,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             'Y': self.err_output.sample_size,
             'SAMPLE_SIZE': 'Y',
             'N_TARGETS': (self.class_targets.shape[0]
-                          if self.class_targets is not None else 0)}
+                          if self.class_targets is not None else 0),
+            'SQUARED_MSE': int(self.squared_mse)}
 
         self.build_program(defines, "%s_%d_%d" %
                            (self.__class__.__name__,
@@ -391,8 +393,9 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         if self.error_function_averaged:
             err_output *= 1.0 / batch_size
         self.err_output.mem[batch_size:] = 0
-        mse[:] = numpy.sqrt(numpy.square(err_output).sum(axis=1) /
-                            err_output.shape[1])
+        mse[:] = numpy.square(err_output).sum(axis=1) / err_output.shape[1]
+        if not self.squared_mse:
+            numpy.sqrt(mse, mse)
         self.mse.mem[batch_size:] = 0
 
         self.metrics.mem[0] += numpy.sum(self.mse.mem)
