@@ -63,7 +63,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_err_output_ = None
         self.krn_bias_ = None
 
-    def ocl_init(self):
+    def _gpu_init(self, defines):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(5, dtype=dtype)
 
@@ -72,48 +72,29 @@ class GradientDescent(nn_units.GradientDescentBase):
         assert side == self.err_output.sample_size
         assert other == self.input.sample_size
         batch = self.input.mem.shape[0]
-        block_size = self.device.device_info.get_block_size(
-            kernel="matrix_multiplication", dtype=self.err_output.dtype)
-        defines = {
+        defines.update({
             "H": other,
             "Y": side,
             "BATCH": batch,
             "APPLY_GRADIENT": int(self.apply_gradient),
             "STORE_GRADIENT": int(self.store_gradient),
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
-            "REDUCE_SIZE": self.reduce_size,
-            "BLOCK_SIZE": block_size
-        }
-
-        self.cl_sources_["all2all/gradient_descent/err_input_update"] = {}
-        self._global_size_err_input = [
-            roundup(other, block_size), roundup(batch, block_size)]
-        self._local_size_err_input = [block_size, block_size]
+            "REDUCE_SIZE": self.reduce_size
+        })
 
         self.cl_sources_["all2all/gradient_descent/weights_update"] = {
             "USE_ORTHO": int(bool(self.factor_ortho)),
             "USE_MOMENT": int(bool(self.gradient_moment))
         }
-        self._global_size_weights = [
-            roundup(other, block_size), roundup(side, block_size)]
-        self._local_size_weights = [block_size, block_size]
 
         self.cl_sources_["all2all/gradient_descent/bias_update"] = {
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
         }
-        self._global_size_bias = [side * self.reduce_size]
-        self._local_size_bias = [self.reduce_size]
 
         self.build_program(defines, "%s_%d_%d_%d" % (
             self.__class__.__name__, self.input.shape[0],
             self.input.sample_size, self.output.sample_size),
             dtype=dtype)
-
-        if self.need_err_input:
-            self.krn_err_input_ = self.get_kernel("err_input_update")
-            self.krn_err_input_.set_args(
-                self.err_output.devmem, self.weights.devmem,
-                self.err_input.devmem)
 
         self.krn_weights_ = self.get_kernel("weights_update")
         self.krn_weights_.set_args(self.err_output.devmem,
@@ -134,6 +115,39 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(10, self.col_sums.devmem)
+
+    def ocl_init(self):
+        dtype = self.err_output.dtype
+        block_size = self.device.device_info.get_block_size(
+            kernel="matrix_multiplication", dtype=dtype)
+        side = self.weights.shape[1 if self.weights_transposed else 0]
+        other = self.weights.size // side
+        batch = self.input.mem.shape[0]
+
+        if self.need_err_input:
+            self.cl_sources_["all2all/gradient_descent/err_input_update"] = {}
+
+        self._gpu_init({"BLOCK_SIZE": block_size})
+
+        if self.need_err_input:
+            self.krn_err_input_ = self.get_kernel("err_input_update")
+            self.krn_err_input_.set_args(
+                self.err_output.devmem, self.weights.devmem,
+                self.err_input.devmem)
+            self._global_size_err_input = [
+                roundup(other, block_size), roundup(batch, block_size)]
+            self._local_size_err_input = [block_size, block_size]
+
+        self._global_size_weights = [
+            roundup(other, block_size), roundup(side, block_size)]
+        self._local_size_weights = [block_size, block_size]
+
+        if self.include_bias:
+            self._global_size_bias = [side * self.reduce_size]
+            self._local_size_bias = [self.reduce_size]
+
+    def cuda_init(self):
+        self._gpu_init({})
 
     def cpu_weights_update(self):
         self.input.map_read()
@@ -255,6 +269,22 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gpu_weights_update()
         self.gpu_bias_update()
         self.print_debug_data(t1)
+
+    def cuda_run(self):
+        """Do gradient descent.
+        """
+        t1 = time.time()
+        self.gpu_err_output_update()
+        self.cuda_err_input_update()
+        self.cuda_weights_update()
+        self.gpu_bias_update()
+        self.print_debug_data(t1)
+
+    def cuda_weights_update(self):
+        raise NotImplementedError("TODO(a.kazantsev): implement.")
+
+    def cuda_err_input_update(self):
+        raise NotImplementedError("TODO(a.kazantsev): implement.")
 
 
 class GDSM(GradientDescent):
