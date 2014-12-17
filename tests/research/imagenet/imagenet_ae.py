@@ -252,10 +252,10 @@ class ImagenetAELoader(loader.Loader):
         self.original_labels = None
 
     def __getstate__(self):
-        stt = super(ImagenetAELoader, self).__getstate__()
-        stt["original_labels"] = None
-        stt["file_samples"] = None
-        return stt
+        state = super(ImagenetAELoader, self).__getstate__()
+        state["original_labels"] = None
+        state["file_samples"] = None
+        return state
 
     def load_data(self):
         self.original_labels = []
