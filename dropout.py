@@ -159,7 +159,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
     def ocl_init(self):
         self.build_program({}, "%s_%s" %
                            (self.__class__.__name__,
-                            "x".join(str(x) for x in self.err_input)),
+                            "x".join(str(x) for x in self.err_input.shape)),
                            dtype=self.err_output.mem.dtype)
         self.assign_kernel("dropout_backward")
         self.set_args(self.mask, self.err_output, self.err_input)
