@@ -21,6 +21,7 @@ import sys
 
 from veles.compat import from_none
 from veles.config import root
+import veles.opencl_types as opencl_types
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
 
@@ -30,7 +31,7 @@ TEST = "test"
 TRAIN = "train"
 VALIDATION = "val"
 
-root.prep_imagenet.root_name = "temp"
+root.prep_imagenet.root_name = "imagenet"
 root.prep_imagenet.series = "img"
 root.prep_imagenet.root_path = os.path.join(
     root.common.test_dataset_root, "AlexNet", root.prep_imagenet.root_name)
@@ -70,10 +71,11 @@ root.prep_imagenet.update({
         "count_samples_%s_%s.json"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
     "rect": (256, 256),
+    "channels": 3,
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "save_dataset_to_file"
+    "command_to_run": "init_dataset"
     # "save_dataset_to_file" "init_dataset"
 })
 
@@ -101,7 +103,7 @@ class Main(Processor):
         self.root_path = root.prep_imagenet.root_path
         self.images = {TEST: {}, TRAIN: {}, VALIDATION: {}}
         self.s_sum = numpy.zeros(
-            self.rect + (3,), dtype=numpy.float64)
+            self.rect + (root.prep_imgenet.channels,), dtype=numpy.float64)
         self.s_mean = numpy.zeros_like(self.s_sum)
         self.s_count = numpy.ones_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
@@ -402,7 +404,7 @@ class Main(Processor):
         self.s_mean = s_sum / s_count
         mean = numpy.round(self.s_mean)
         numpy.clip(mean, 0, 255, mean)
-        mean = mean.astype(numpy.uint8)
+        mean = mean.astype(opencl_types.dtypes[root.common.precision_type])
         disp = self.s_max - self.s_min
         rdisp = numpy.ones_like(disp.ravel())
         nz = numpy.nonzero(disp.ravel())
