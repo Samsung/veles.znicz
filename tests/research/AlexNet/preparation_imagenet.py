@@ -9,23 +9,31 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import cv2
 import json
 import logging
 import numpy
+import pickle
 from PIL import Image
 import os
+import scipy.misc
 import sys
 
+from veles.compat import from_none
 from veles.config import root
 from veles.znicz.external import xmltodict
 from veles.znicz.tests.research.imagenet.processor import Processor
 
 
 IMAGES_JSON = "images_imagenet_%s_%s_%s.json"
+TEST = "test"
+TRAIN = "train"
+VALIDATION = "val"
 
-root.prep_imagenet.root_name = "AlexNet"
+root.prep_imagenet.root_name = "temp"
+root.prep_imagenet.series = "img"
 root.prep_imagenet.root_path = os.path.join(
-    root.common.test_dataset_root, "%s" % root.prep_imagenet.root_name)
+    root.common.test_dataset_root, "AlexNet", root.prep_imagenet.root_name)
 
 root.prep_imagenet.update({
     "file_with_indices":
@@ -33,11 +41,40 @@ root.prep_imagenet.update({
                  "indices_imagenet_2014_list.txt"),
     "file_indices_to_categories":
     os.path.join(root.prep_imagenet.root_path, "indices_to_categories.txt"),
-    "series": "DET",
+    "file_text_to_int_labels":
+    os.path.join(
+        root.prep_imagenet.root_path,
+        "text_to_int_labels_%s_%s.json"
+        % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
+    "original_labels_dir":
+    os.path.join(
+        root.prep_imagenet.root_path,
+        "original_labels_%s_%s.pickle"
+        % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
+    "original_data_dir":
+    os.path.join(
+        root.prep_imagenet.root_path,
+        "original_data_%s_%s.dat"
+        % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
+    "matrix_dir":
+    os.path.join(
+        root.prep_imagenet.root_path,
+        "matrixes_%s_%s.pickle"
+        % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
+    "path_hierarchy":
+    os.path.join(root.prep_imagenet.root_path,
+                 "hierarchy_2014_DET_train_0.json"),
+    "count_samples_dir":
+    os.path.join(
+        root.prep_imagenet.root_path,
+        "count_samples_%s_%s.json"
+        % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
     "rect": (256, 256),
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
-    "get_label_from_txt_label": True
+    "get_label_from_txt_label": True,
+    "command_to_run": "save_dataset_to_file"
+    # "save_dataset_to_file" "init_dataset"
 })
 
 root.prep_imagenet.classes_count = (
@@ -62,10 +99,11 @@ class Main(Processor):
         self.root_name = root.prep_imagenet.root_name
         self.series = root.prep_imagenet.series
         self.root_path = root.prep_imagenet.root_path
-        self.images = {"test": {}, "train": {}, "val": {}}
-        self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
+        self.images = {TEST: {}, TRAIN: {}, VALIDATION: {}}
+        self.s_sum = numpy.zeros(
+            self.rect + (3,), dtype=numpy.float64)
+        self.s_mean = numpy.zeros_like(self.s_sum)
         self.s_count = numpy.ones_like(self.s_mean)
-        self.matrixes = []
         self.s_min = numpy.empty_like(self.s_mean)
         self.s_min[:] = 255
         self.s_max = numpy.zeros_like(self.s_mean)
@@ -75,6 +113,9 @@ class Main(Processor):
         self.map_items = None
         self.labels = []
         self.labels_diff = []
+        self.original_labels = []
+        self.command_to_run = root.prep_imagenet.command_to_run
+        self.count_samples = {TEST: 0, TRAIN: 0, VALIDATION: 0}
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -156,19 +197,19 @@ class Main(Processor):
             for temp_label in labels:
                 if temp_label in self.get_labels_list_from_file():
                     label = temp_label
-                    continue
-                if not root.prep_imagenet.get_label_from_txt_label:
-                    self.warning(
-                        "Not a label %s in picture %s"
-                        % (temp_label, image_path))
-                    continue
-                tmp_label = self.get_label_from_txt_label(temp_label)
-                if tmp_label in self.get_labels_list_from_file():
-                    label = tmp_label
                 else:
                     self.warning(
                         "Not a label %s in picture %s"
-                        % (tmp_label, image_path))
+                        % (temp_label, image_path))
+                if (root.prep_imagenet.get_label_from_txt_label
+                        and label is None):
+                    tmp_label = self.get_label_from_txt_label(temp_label)
+                    if tmp_label in self.get_labels_list_from_file():
+                        label = tmp_label
+                    else:
+                        self.warning(
+                            "Not a label %s in picture %s"
+                            % (tmp_label, image_path))
                 result_labels.append(label)
         return result_labels
 
@@ -211,8 +252,7 @@ class Main(Processor):
         return labels
 
     def get_det_label_from_label(self, temp_label):
-        path_hierarchy = os.path.join(
-            self.root_path, "hierarchy_2014_DET_train_0.json")
+        path_hierarchy = root.prep_imagenet.path_hierarchy
         label = temp_label
         with open(path_hierarchy, "r") as file_hier:
             hierarchy = json.load(file_hier)
@@ -226,7 +266,7 @@ class Main(Processor):
             if label not in self.labels_diff:
                 self.labels_diff.append(label)
                 self.label_ind += 1
-                self.labels_int_txt[self.label_ind] = label
+                self.labels_int_txt[label] = self.label_ind
 
     def get_images_from_path(self, path, labels, set_type):
         self.labels = labels
@@ -263,7 +303,7 @@ class Main(Processor):
         self.info("Label is None! %s times" % self.k)
 
     def save_images_to_json(self, images):
-        for set_type in ("test", "val", "train"):
+        for set_type in (TEST, VALIDATION, TRAIN):
             fnme = os.path.join(
                 self.root_path, IMAGES_JSON %
                 (self.root_name, self.series, set_type))
@@ -277,7 +317,7 @@ class Main(Processor):
                 if os.path.splitext(txt_file)[1] == ".txt":
                     abs_path_text_file = os.path.join(rt_path, txt_file)
                     if txt_file.find("neg") == -1:
-                        for set_type in ("test", "val", "train"):
+                        for set_type in (TEST, VALIDATION, TRAIN):
                             self.get_images_from_dict(
                                 set_type, txt_file, abs_path_text_file,
                                 root_folder)
@@ -285,7 +325,7 @@ class Main(Processor):
     def get_images_from_dict(
             self, set_type, text_file, abs_path_text_files, root_folder):
         map_items = root.prep_imagenet.MAPPING[self.root_name][self.series]
-        dir_set_type = {k: map_items[k][0] for k in ("test", "train", "val")}
+        dir_set_type = {k: map_items[k][0] for k in (TEST, VALIDATION, TRAIN)}
         if text_file.find(set_type) != -1:
             images_from_file = self.get_dict_from_files(abs_path_text_files)
             for dict in images_from_file:
@@ -307,6 +347,76 @@ class Main(Processor):
                     {"tail_path": path_tail, "labels": labels})
         return images_from_file
 
+    def save_dataset_to_file(self):
+        original_data_dir = root.prep_imagenet.original_data_dir
+        original_labels_dir = root.prep_imagenet.original_labels_dir
+        count_samples_dir = root.prep_imagenet.count_samples_dir
+        self.file_samples = open(original_data_dir, "wb")
+        for set_type in (TEST, VALIDATION, TRAIN):
+            images_file_name = os.path.join(
+                self.root_path,
+                IMAGES_JSON % (self.root_name, self.series, set_type))
+            try:
+                self.info(
+                    "Loading images info from %s to resize" % images_file_name)
+                with open(images_file_name, 'r') as fp:
+                    self.images[set_type] = json.load(fp)
+            except Exception as e:
+                self.exception("Failed to load %s", images_file_name)
+                raise from_none(e)
+            for image_name in sorted(self.images[set_type].keys()):
+                image_fnme = self.images[set_type][image_name]["path"]
+                image = self.decode_image(image_fnme)
+                sample = self.transformation_image(image)
+                self.get_original_labels_and_data(
+                    self.images[set_type][image_name]["label"],
+                    sample, set_type)
+                self.s_sum += sample
+                self.s_count += 1.0
+        self.transform_and_save_matrixes(self.s_sum, self.s_count)
+        self.file_samples.close()
+        with open(original_labels_dir, "wb") as fout:
+            self.info("Saving labels of images to %s" %
+                      original_labels_dir)
+            pickle.dump(self.original_labels, fout)
+        with open(count_samples_dir, "w") as fout:
+            logging.info("Saving count of test, validation and train to %s"
+                         % count_samples_dir)
+            json.dump(self.count_samples, fout)
+
+    def get_original_labels_and_data(self, txt_labels, sample, set_type):
+        text_to_int_labels_dir = root.prep_imagenet.file_text_to_int_labels
+        with open(text_to_int_labels_dir, "r") as fin:
+            labels_int_txt = json.load(fin)
+        int_labels = [labels_int_txt[txt_label] for txt_label in txt_labels]
+        if self.series != "DET" and len(int_labels) > 1:
+            self.error("Too mach labels for image")
+        else:
+            for int_label in int_labels:
+                sample.tofile(self.file_samples)
+                self.original_labels.append(int_label)
+                self.count_samples[set_type] += 1
+
+    def transform_and_save_matrixes(self, s_sum, s_count):
+        matrix_file = root.prep_imagenet.matrix_dir
+        self.s_mean = s_sum / s_count
+        mean = numpy.round(self.s_mean)
+        numpy.clip(mean, 0, 255, mean)
+        mean = mean.astype(numpy.uint8)
+        disp = self.s_max - self.s_min
+        rdisp = numpy.ones_like(disp.ravel())
+        nz = numpy.nonzero(disp.ravel())
+        rdisp[nz] = numpy.reciprocal(disp.ravel()[nz])
+        rdisp.shape = disp.shape
+        out_path_mean = os.path.join(
+            root.prep_imagenet.root_path, "mean_image.JPEG")
+        scipy.misc.imsave(out_path_mean, self.s_mean)
+        numpy.save((mean, rdisp), matrix_file)
+
+    def transformation_image(self, image):
+        sample = cv2.resize(image, self.rect, interpolation=cv2.INTER_LANCZOS4)
+        return sample
+
     def init_dataset(self):
         if self.series == "DET":
             self.init_files_det()
@@ -314,15 +424,18 @@ class Main(Processor):
             self.init_files_img()
         else:
             self.error("Unknow series. Please choose DET or img")
-
-    def run(self):
-        self.initialize()
-        self.init_dataset()
-        print(self.labels_int_txt)
         if len(self.labels_int_txt) != root.prep_imagenet.classes_count:
             self.error(
                 "Wrong number of classes - %s"
                 % len(self.labels_int_txt))
+        else:
+            fnme = root.prep_imagenet.file_text_to_int_labels
+            with open(fnme, 'w') as fp:
+                json.dump(self.labels_int_txt, fp)
+
+    def run(self):
+        self.initialize()
+        getattr(self, root.prep_imagenet.command_to_run)()
         self.info("End of job")
 
 if __name__ == "__main__":
