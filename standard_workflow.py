@@ -209,7 +209,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                                            tpe))
             self._add_forward_unit(unit, init_unit, init_attrs)
 
-    def _add_forward_unit(self, new_unit, init_unit, init_attrs):
+    def _add_forward_unit(self, new_unit, init_unit=None, init_attrs=None):
         """
         Adds a new fowrard unit to self.forwards, links it with previous fwd
         unit by link_from and link_attrs. If self.forwards is empty, links unit
@@ -219,7 +219,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             prev_forward_unit = self.forwards[-1]
             new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
-            assert self.loader is not None
+            if init_unit is None:
+                raise ValueError("init_unit is None for first fwd!")
             prev_forward_unit = init_unit
             new_unit.link_attrs(init_unit, init_attrs)
 

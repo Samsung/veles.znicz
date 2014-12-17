@@ -304,7 +304,7 @@ class All2AllStrictRELU(All2All):
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllRELU, self).cpu_run()
+        super(All2AllStrictRELU, self).cpu_run()
         self.output.map_write()
         mem = self.output.mem
         numpy.clip(mem, 0.0, 1.0e30, mem)

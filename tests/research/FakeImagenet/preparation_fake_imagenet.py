@@ -24,6 +24,7 @@ IMAGENET_BASE_PATH = os.path.join(config.root.common.test_dataset_root,
 class Main(Processor):
 
     def __init__(self, **kwargs):
+        super(Main, self).__init__(**kwargs)
         self.rect = kwargs.get("rect", (227, 227))
         self.s_mean = numpy.zeros(self.rect + (3,), dtype=numpy.float64)
         self.s_count = numpy.ones_like(self.s_mean)
