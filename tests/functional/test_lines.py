@@ -40,6 +40,7 @@ class TestLines(unittest.TestCase):
                              "Lines/lines_min/learn")
         valid = os.path.join(root.common.test_dataset_root,
                              "Lines/lines_min/test")
+        root.common.precision_level = 1
         root.lines.update({
             "accumulator": {"bars": 30, "squash": True},
             "decision": {"fail_iterations": 100},

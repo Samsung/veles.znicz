@@ -32,6 +32,7 @@ class TestMnistAll2All(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
+        root.common.precision_level = 1
 
         root.mnistr.update({
             "learning_rate_adjust": {"do": False},

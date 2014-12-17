@@ -35,6 +35,7 @@ class TestMnist7(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
+        root.common.precision_level = 1
 
         root.mnist7.update({
             "decision": {"fail_iterations": 25, "max_epochs": 2},

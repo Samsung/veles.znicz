@@ -30,6 +30,7 @@ class TestSpamKohonen(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
+        root.common.precision_level = 1
         root.spam_kohonen.update({
             "forward": {"shape": (8, 8)},
             "decision": {"epochs": 5},

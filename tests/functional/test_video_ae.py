@@ -39,6 +39,7 @@ class TestVideoAE(unittest.TestCase):
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
+        root.common.precision_level = 1
         root.video_ae.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "video_ae_test"},

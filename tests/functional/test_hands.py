@@ -31,6 +31,7 @@ class TestHands(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
+        root.common.precision_level = 1
         root.hands.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "hands_test"},

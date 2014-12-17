@@ -35,6 +35,7 @@ class TestMnist784(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
+        root.common.precision_level = 1
         root.mnist784.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_784_test"},

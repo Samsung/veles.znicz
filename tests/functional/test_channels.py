@@ -38,6 +38,7 @@ class TestChannels(unittest.TestCase):
 
         root.common.cache_dir = os.path.join(root.common.test_dataset_root,
                                              "cache")
+        root.common.precision_level = 1
 
         root.channels.update({
             "accumulator": {"bars": 30},

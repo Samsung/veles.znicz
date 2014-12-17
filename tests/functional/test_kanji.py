@@ -43,6 +43,7 @@ class TestKanji(unittest.TestCase):
         root.kanji.update({
             "index_map": os.path.join(train_path, "index_map.%d.pickle" %
                                       (sys.version_info[0]))})
+        root.common.precision_level = 1
 
         root.kanji.update({
             "decision": {"fail_iterations": 1000,
