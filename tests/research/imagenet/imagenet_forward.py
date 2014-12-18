@@ -383,7 +383,7 @@ class ImagenetForward(AcceleratedWorkflow):
             self.mergebboxes.reset()
             self.run()
         else:
-            super(ImagenetForward, self).on_workflow_finished()
+            super(ImagenetForward, self).on_workflow_finished(force_propagate)
 
 
 def run(load, main):

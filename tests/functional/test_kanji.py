@@ -79,6 +79,7 @@ class TestKanji(unittest.TestCase):
             loss_function=root.kanji.loss_function,
             device=self.device)
         self.w.decision.max_epochs = 2
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

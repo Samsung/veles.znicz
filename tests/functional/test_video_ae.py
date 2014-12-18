@@ -55,6 +55,7 @@ class TestVideoAE(unittest.TestCase):
                                           layers=root.video_ae.layers,
                                           device=self.device)
         self.w.decision.max_epochs = 4
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 4
         self.w.initialize(device=self.device,
                           learning_rate=root.video_ae.learning_rate,

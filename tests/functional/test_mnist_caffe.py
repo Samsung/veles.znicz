@@ -83,6 +83,7 @@ class TestMnistCaffe(unittest.TestCase):
             layers=root.mnistr.layers,
             device=self.device)
         self.w.decision.max_epochs = 3
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 3
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

@@ -80,6 +80,7 @@ class TestChannels(unittest.TestCase):
                                            layers=root.channels.layers,
                                            device=self.device)
         w_neg = None
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

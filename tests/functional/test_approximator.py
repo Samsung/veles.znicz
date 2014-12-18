@@ -49,6 +49,7 @@ class TestApproximator(unittest.TestCase):
             dummy_workflow.DummyWorkflow(),
             layers=root.approximator.layers, device=self.device)
         self.w.decision.max_epochs = 3
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 3
         self.w.initialize(
             device=self.device,

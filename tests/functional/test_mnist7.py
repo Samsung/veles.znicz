@@ -48,6 +48,7 @@ class TestMnist7(unittest.TestCase):
         self.w = mnist7.Mnist7Workflow(dummy_workflow.DummyWorkflow(),
                                        layers=root.mnist7.layers,
                                        device=self.device)
+        self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
