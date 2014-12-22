@@ -260,6 +260,12 @@ class Loader(AcceleratedUnit):
     def epoch_number(self, value):
         if value < 0:
             raise ValueError("epoch_number must be greater than or equal to 0")
+        if self.is_master:
+            if hasattr(self, "_epoch_number"):
+                self.event("epoch", "end",
+                           number=self._epoch_number,  # pylint: disable=E0203
+                           height=0.25)
+            self.event("epoch", "begin", number=value, height=0.25)
         self._epoch_number = value
 
     @property
