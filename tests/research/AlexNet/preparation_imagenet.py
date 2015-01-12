@@ -47,25 +47,25 @@ root.prep_imagenet.update({
         root.prep_imagenet.root_path,
         "text_to_int_labels_%s_%s.json"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "original_labels_dir":
+    "file_original_labels":
     os.path.join(
         root.prep_imagenet.root_path,
         "original_labels_%s_%s.pickle"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "original_data_dir":
+    "file_original_data":
     os.path.join(
         root.prep_imagenet.root_path,
         "original_data_%s_%s.dat"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "matrix_dir":
+    "file_matrix":
     os.path.join(
         root.prep_imagenet.root_path,
         "matrixes_%s_%s.pickle"
         % (root.prep_imagenet.root_name, root.prep_imagenet.series)),
-    "path_hierarchy":
+    "file_hierarchy":
     os.path.join(root.prep_imagenet.root_path,
                  "hierarchy_2014_DET_train_0.json"),
-    "count_samples_dir":
+    "file_count_samples":
     os.path.join(
         root.prep_imagenet.root_path,
         "count_samples_%s_%s.json"
@@ -75,7 +75,7 @@ root.prep_imagenet.update({
     "get_label": "all_ways",
     # "from_image_name" "from_image_path" "from_xml" "all_ways"
     "get_label_from_txt_label": True,
-    "command_to_run": "init_dataset"
+    "command_to_run": "save_dataset_to_file"
     # "save_dataset_to_file" "init_dataset"
 })
 
@@ -103,7 +103,7 @@ class Main(Processor):
         self.root_path = root.prep_imagenet.root_path
         self.images = {TEST: {}, TRAIN: {}, VALIDATION: {}}
         self.s_sum = numpy.zeros(
-            self.rect + (root.prep_imgenet.channels,), dtype=numpy.float64)
+            self.rect + (root.prep_imagenet.channels,), dtype=numpy.float64)
         self.s_mean = numpy.zeros_like(self.s_sum)
         self.s_count = numpy.ones_like(self.s_mean)
         self.s_min = numpy.empty_like(self.s_mean)
@@ -118,6 +118,7 @@ class Main(Processor):
         self.original_labels = []
         self.command_to_run = root.prep_imagenet.command_to_run
         self.count_samples = {TEST: 0, TRAIN: 0, VALIDATION: 0}
+        self.matrixes = []
 
     def initialize(self):
         self.map_items = root.prep_imagenet.MAPPING[
@@ -137,6 +138,7 @@ class Main(Processor):
                         self.warning("Unexpected file in dir %s", f)
         self.info("Saving images to %s" % self.root_path)
         self.save_images_to_json(self.images)
+        self.info("Label is None! %s times" % self.k)
         return None
 
     def get_label_from_image_name(self, image_path):
@@ -254,7 +256,7 @@ class Main(Processor):
         return labels
 
     def get_det_label_from_label(self, temp_label):
-        path_hierarchy = root.prep_imagenet.path_hierarchy
+        path_hierarchy = root.prep_imagenet.file_hierarchy
         label = temp_label
         with open(path_hierarchy, "r") as file_hier:
             hierarchy = json.load(file_hier)
@@ -350,9 +352,9 @@ class Main(Processor):
         return images_from_file
 
     def save_dataset_to_file(self):
-        original_data_dir = root.prep_imagenet.original_data_dir
-        original_labels_dir = root.prep_imagenet.original_labels_dir
-        count_samples_dir = root.prep_imagenet.count_samples_dir
+        original_data_dir = root.prep_imagenet.file_original_data
+        original_labels_dir = root.prep_imagenet.file_original_labels
+        count_samples_dir = root.prep_imagenet.file_count_samples
         self.file_samples = open(original_data_dir, "wb")
         for set_type in (TEST, VALIDATION, TRAIN):
             images_file_name = os.path.join(
@@ -375,8 +377,6 @@ class Main(Processor):
                     sample, set_type)
                 self.s_sum += sample
                 self.s_count += 1.0
-        self.transform_and_save_matrixes(self.s_sum, self.s_count)
-        self.file_samples.close()
         with open(original_labels_dir, "wb") as fout:
             self.info("Saving labels of images to %s" %
                       original_labels_dir)
@@ -385,6 +385,8 @@ class Main(Processor):
             logging.info("Saving count of test, validation and train to %s"
                          % count_samples_dir)
             json.dump(self.count_samples, fout)
+        self.transform_and_save_matrixes(self.s_sum, self.s_count)
+        self.file_samples.close()
 
     def get_original_labels_and_data(self, txt_labels, sample, set_type):
         text_to_int_labels_dir = root.prep_imagenet.file_text_to_int_labels
@@ -400,7 +402,7 @@ class Main(Processor):
                 self.count_samples[set_type] += 1
 
     def transform_and_save_matrixes(self, s_sum, s_count):
-        matrix_file = root.prep_imagenet.matrix_dir
+        matrix_file = root.prep_imagenet.file_matrix
         self.s_mean = s_sum / s_count
         mean = numpy.round(self.s_mean)
         numpy.clip(mean, 0, 255, mean)
@@ -413,7 +415,12 @@ class Main(Processor):
         out_path_mean = os.path.join(
             root.prep_imagenet.root_path, "mean_image.JPEG")
         scipy.misc.imsave(out_path_mean, self.s_mean)
-        numpy.save((mean, rdisp), matrix_file)
+        self.matrixes.append(mean)
+        self.matrixes.append(rdisp)
+        with open(matrix_file, "wb") as fout:
+            self.info(
+                "Saving mean, min and max matrix to %s" % matrix_file)
+            pickle.dump(self.matrixes, fout)
 
     def transformation_image(self, image):
         sample = cv2.resize(image, self.rect, interpolation=cv2.INTER_LANCZOS4)
