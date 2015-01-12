@@ -29,7 +29,7 @@
  *     x = KX * N_CHANNELS
  *     y = KY
  */
-__global__ void UnpackDirect(dtype *data, dtype *unpack_data) {
+__global__ void DirectUnpack(const dtype *data, dtype *unpack_data) {
   int img_idx = blockIdx.y / KY_APP;
   int ch_idx = threadIdx.x % N_CHANNELS;
   int x = blockIdx.x * SLIDE_X + threadIdx.x / N_CHANNELS;
@@ -51,7 +51,7 @@ __global__ void UnpackDirect(dtype *data, dtype *unpack_data) {
 }
 
 
-__global__ void UnpackReverse(dtype *data, dtype *unpack_data) {
+__global__ void ReverseUnpack(const dtype *data, dtype *unpack_data) {
   int tx = threadIdx.x + blockIdx.x * blockDim.x;
   int ty = threadIdx.y + blockIdx.y * blockDim.y;
 
