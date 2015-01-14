@@ -73,7 +73,7 @@ class TestMnistCaffe(unittest.TestCase):
                         "bias_filling": "constant", "weights_decay": 0.0005,
                         "weights_decay_bias": 0.0}]})
         self.w = mnist_caffe.MnistWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.mnistr.decision.fail_iterations,
             max_epochs=root.mnistr.decision.max_epochs,
             prefix=root.mnistr.snapshotter.prefix,

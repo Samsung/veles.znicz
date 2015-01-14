@@ -51,7 +51,7 @@ class TestVideoAE(unittest.TestCase):
             "data_paths":
             os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
-        self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.video_ae.layers,
                                           device=self.device)
         self.w.decision.max_epochs = 4

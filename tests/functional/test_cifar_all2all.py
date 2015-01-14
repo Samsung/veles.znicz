@@ -52,7 +52,7 @@ class TestCifarAll2All(unittest.TestCase):
                        {"type": "softmax", "output_shape": 10,
                         "learning_rate": 0.0005, "weights_decay": 0.0}]})
         self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.cifar.decision.fail_iterations,
             max_epochs=root.cifar.decision.max_epochs,
             prefix=root.cifar.snapshotter.prefix,

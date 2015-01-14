@@ -39,7 +39,7 @@ class TestWineRelu(unittest.TestCase):
             "weights_decay": 0.0,
             "layers": [10, 3]})
 
-        self.w = wine_relu.WineReluWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = wine_relu.WineReluWorkflow(dummy_workflow.DummyLauncher(),
                                             layers=root.wine_relu.layers)
 
         self.assertEqual(self.w.evaluator.labels,

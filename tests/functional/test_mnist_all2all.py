@@ -67,7 +67,7 @@ class TestMnistAll2All(unittest.TestCase):
 
         fix_config(root)
         self.w = mnist_all2all.MnistWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.mnistr.decision.fail_iterations,
             max_epochs=root.mnistr.decision.max_epochs,
             prefix=root.mnistr.snapshotter.prefix,

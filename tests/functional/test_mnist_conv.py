@@ -97,7 +97,7 @@ class TestMnistConv(unittest.TestCase):
                         "weights_decay": 0.0005,
                         "weights_decay_bias": 0.476000}]})
         self.w = mnist_conv.MnistWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.mnistr.decision.fail_iterations,
             max_epochs=root.mnistr.decision.max_epochs,
             prefix=root.mnistr.snapshotter.prefix,

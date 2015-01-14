@@ -53,7 +53,7 @@ class TestYaleFaces(unittest.TestCase):
             root.yalefaces.loader.common_dir, "CroppedYale")
 
         self.w = yale_faces.YaleFacesWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.yalefaces.decision.fail_iterations,
             max_epochs=root.yalefaces.decision.max_epochs,
             prefix=root.yalefaces.snapshotter.prefix,

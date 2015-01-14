@@ -70,7 +70,7 @@ class TestKanji(unittest.TestCase):
                            "train": train_path}})
 
         self.w = kanji.KanjiWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.kanji.decision.fail_iterations,
             max_epochs=root.kanji.decision.max_epochs,
             prefix=root.kanji.snapshotter.prefix,

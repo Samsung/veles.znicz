@@ -51,7 +51,7 @@ class TestMnistRelu(unittest.TestCase):
                         "gradient_moment": 0.0, "gradient_moment_bias": 0.0,
                         "weights_filling": "uniform", "weights_stddev": 0.05,
                         "bias_filling": "uniform", "bias_stddev": 0.05}]})
-        self.w = mnist_relu.MnistWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = mnist_relu.MnistWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.mnistr.layers,
                                           device=self.device)
         self.w.decision.max_epochs = 2

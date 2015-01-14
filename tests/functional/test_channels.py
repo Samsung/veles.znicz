@@ -76,7 +76,7 @@ class TestChannels(unittest.TestCase):
                        {"type": "softmax", "output_shape": 11}],
             "snapshot": ""})
 
-        self.w = channels.ChannelsWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = channels.ChannelsWorkflow(dummy_workflow.DummyLauncher(),
                                            layers=root.channels.layers,
                                            device=self.device)
         w_neg = None

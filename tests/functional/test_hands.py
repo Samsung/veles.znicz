@@ -40,7 +40,7 @@ class TestHands(unittest.TestCase):
             "weights_decay": 0.0,
             "layers": [30, 2]})
 
-        self.w = hands.HandsWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = hands.HandsWorkflow(dummy_workflow.DummyLauncher(),
                                      layers=root.hands.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 2

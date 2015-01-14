@@ -42,7 +42,7 @@ class TestSamplesMnist(unittest.TestCase):
             "layers": [364, 10],
             "factor_ortho": 0.001})
 
-        self.w = mnist.MnistWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = mnist.MnistWorkflow(dummy_workflow.DummyLauncher(),
                                      layers=root.mnist.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 2

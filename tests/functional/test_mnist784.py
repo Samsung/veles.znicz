@@ -45,7 +45,7 @@ class TestMnist784(unittest.TestCase):
             "weights_decay": 0.00005,
             "layers": [784, 784]})
 
-        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyWorkflow(),
+        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
                                            layers=root.mnist784.layers,
                                            device=self.device)
         self.w.decision.max_epochs = 2

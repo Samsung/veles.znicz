@@ -45,7 +45,7 @@ class TestMnist7(unittest.TestCase):
             "weights_decay": 0.00005,
             "layers": [100, 100, 7]})
 
-        self.w = mnist7.Mnist7Workflow(dummy_workflow.DummyWorkflow(),
+        self.w = mnist7.Mnist7Workflow(dummy_workflow.DummyLauncher(),
                                        layers=root.mnist7.layers,
                                        device=self.device)
         self.w.snapshotter.time_interval = 0

@@ -55,7 +55,7 @@ class TestMnistAE(unittest.TestCase):
             "ky": 5,
             "layers": [100, 10]})
 
-        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.mnist_ae.layers,
                                           device=self.device)
         self.w.snapshotter.time_interval = 0

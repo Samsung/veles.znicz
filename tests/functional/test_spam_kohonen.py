@@ -45,7 +45,7 @@ class TestSpamKohonen(unittest.TestCase):
             "exporter": {"file": "classified_fast4.txt"}})
 
         self.w = spam_kohonen.SpamKohonenWorkflow(
-            dummy_workflow.DummyWorkflow(), device=self.device)
+            dummy_workflow.DummyLauncher(), device=self.device)
         self.w.initialize(device=self.device)
         self.w.run()
 

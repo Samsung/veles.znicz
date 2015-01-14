@@ -69,7 +69,7 @@ class TestLines(unittest.TestCase):
                         "bias_stddev": 0.05}],
             "path_for_load_data": {"validation": valid, "train": train}})
 
-        self.w = lines.LinesWorkflow(dummy_workflow.DummyWorkflow(),
+        self.w = lines.LinesWorkflow(dummy_workflow.DummyLauncher(),
                                      layers=root.lines.layers,
                                      device=self.device)
         self.w.decision.max_epochs = 9

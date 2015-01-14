@@ -103,7 +103,7 @@ class TestCifarCaffe(unittest.TestCase):
                         "gradient_moment_bias": 0.9}]})
 
         self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyWorkflow(),
+            dummy_workflow.DummyLauncher(),
             fail_iterations=root.cifar.decision.fail_iterations,
             max_epochs=root.cifar.decision.max_epochs,
             prefix=root.cifar.snapshotter.prefix,
