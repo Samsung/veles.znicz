@@ -10,6 +10,7 @@ import gc
 import logging
 import numpy
 import os
+import time
 import unittest
 
 from veles.config import root
@@ -74,24 +75,47 @@ class TestMatrixReduce(unittest.TestCase):
         a.initialize(self.device)
         b.initialize(self.device)
 
-        for reduce_size in range(1, 11):
-            krn = self._build_program(a, b, a.mem.shape[1],
-                                      a.mem.shape[0], True,
-                                      reduce_size)
-            global_size = [a.mem.shape[1] * reduce_size]
-            local_size = [reduce_size]
-            self.device.queue_.execute_kernel(
-                krn, global_size, local_size, need_event=False)
-            b.map_write()
-            max_diff = numpy.fabs(b[:a.mem.shape[1]] - t).max()
-            self.assertLess(max_diff, 0.0001,
-                            "Result differs by %.6f" % (max_diff))
-            self.assertEqual(
-                numpy.count_nonzero(b.mem[a.mem.shape[1]:] - 1), 0,
-                "Written some values outside of the target array bounds")
-            b.unmap()
+        for reduce_size in range(1, 33, 1):
+            self._do_test(reduce_size, True, a, b, t)
 
         logging.info("test_fixed() succeeded")
+
+    def _do_test(self, reduce_size, A_COL, a, b, t):
+        krn = self._build_program(
+            a, b, a.shape[1], a.shape[0], A_COL, reduce_size)
+
+        if self.device.backend_name == "ocl":
+            global_size = [a.shape[1 if A_COL else 0] * reduce_size]
+            local_size = [reduce_size]
+            self.device.sync()
+            t0 = time.time()
+            self.device.queue_.execute_kernel(
+                krn, global_size, local_size, need_event=False)
+            self.device.sync()
+            dt = time.time() - t0
+        elif self.device.backend_name == "cuda":
+            global_size = (a.shape[1 if A_COL else 0], 1, 1)
+            local_size = (reduce_size, 1, 1)
+            self.device.sync()
+            t0 = time.time()
+            krn(global_size, local_size)
+            self.device.sync()
+            dt = time.time() - t0
+        else:
+            logging.warning("Unsupported device backend name %s",
+                            self.device.name)
+            return
+        logging.info("Completed in %.6f sec", dt)
+
+        b.map_write()
+        max_diff = numpy.fabs(b.mem[:a.shape[1 if A_COL else 0]] - t).max()
+        self.assertLess(max_diff, 0.00032,  # in case of float
+                        "Result differs by %.6f" % (max_diff))
+        self.assertEqual(
+            numpy.count_nonzero(b.mem[a.shape[0]:] - 1), 0,
+            "Written some values outside of the target array bounds")
+        b[:] = 1
+        b.unmap()
 
     def test_random(self):
         """Test with random input vs numpy.
@@ -113,39 +137,8 @@ class TestMatrixReduce(unittest.TestCase):
 
         for reduce_size in range(4, 64, 1):
             logging.info("reduce_size = %d", reduce_size)
-            krn = self._build_program(a, b, a.mem.shape[1],
-                                      a.mem.shape[0], True,
-                                      reduce_size)
-            global_size = [a.mem.shape[1] * reduce_size]
-            local_size = [reduce_size]
-            self.device.queue_.execute_kernel(
-                krn, global_size, local_size, need_event=False)
-            b.map_write()
-            max_diff = numpy.fabs(b[:a.mem.shape[1]] - t_col).max()
-            self.assertLess(max_diff, 0.00032,  # in case of float
-                            "Result differs by %.6f" % (max_diff))
-            self.assertEqual(
-                numpy.count_nonzero(b.mem[a.mem.shape[1]:] - 1), 0,
-                "Written some values outside of the target array bounds")
-            b[:] = 1
-            b.unmap()
-
-            krn = self._build_program(a, b, a.mem.shape[1],
-                                      a.mem.shape[0], False,
-                                      reduce_size)
-            global_size = [a.mem.shape[0] * reduce_size]
-            local_size = [reduce_size]
-            self.device.queue_.execute_kernel(
-                krn, global_size, local_size, need_event=False)
-            b.map_write()
-            max_diff = numpy.fabs(b[:a.mem.shape[0]] - t).max()
-            self.assertLess(max_diff, 0.00032,  # in case of float
-                            "Result differs by %.6f" % (max_diff))
-            self.assertEqual(
-                numpy.count_nonzero(b.mem[a.mem.shape[0]:] - 1), 0,
-                "Written some values outside of the target array bounds")
-            b[:] = 1
-            b.unmap()
+            self._do_test(reduce_size, True, a, b, t_col)
+            self._do_test(reduce_size, False, a, b, t)
 
         logging.info("test_random() succeeded")
 

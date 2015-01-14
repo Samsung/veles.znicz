@@ -573,8 +573,9 @@ class Loader(AcceleratedUnit):
                   self.minibatch_indices):
             v.map_invalidate()
         self.shuffled_indices.map_read()
-        self.minibatch_indices.mem = self.shuffled_indices[
+        self.minibatch_indices.mem[:count] = self.shuffled_indices.mem[
             start_offset:start_offset + count]
+        self.minibatch_indices.mem[count:] = -1
         return False
 
     def _update_total_samples(self):

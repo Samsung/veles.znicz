@@ -142,7 +142,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             'ACTIVATION_LINEAR': 1,
             'APPLY_GRADIENT': int(self.apply_gradient),
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-            'STORE_GRADIENT': int(self.store_gradient),
+            'ACCUMULATE_GRADIENT': int(self.accumulate_gradient),
             'BATCH': batch_size,
             'SX': sx,
             'SY': sy,
@@ -210,13 +210,14 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                                    self.input.devmem,
                                    self.weights.devmem,
                                    self.gradient_weights.devmem,
+                                   self.accumulated_gradient_weights.devmem,
                                    self.gradient_weights_with_moment.devmem)
 
         if self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(10, self.col_sums.devmem)
+            self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
     def gpu_err_output_update(self):
         self.err_output.unmap()

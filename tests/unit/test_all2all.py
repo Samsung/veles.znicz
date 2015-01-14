@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import gc
 import logging
 import numpy
+import time
 import unittest
 
 from veles.config import root
@@ -80,7 +81,7 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.mem[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_shape=[5, 5])
+        c = Unit(DummyWorkflow(), output_shape=[75, 75])
         c.input = inp
         c.initialize(device=device)
 
@@ -93,7 +94,16 @@ class TestAll2All(unittest.TestCase):
             c.weights.mem[:] = self.W[:]
             c.bias.mem[:] = self.b[:]
 
-        c.run()
+        if device is not None:
+            device.sync()
+            t0 = time.time()
+            for _ in range(3):
+                c.run()
+            device.sync()
+            dt = time.time() - t0
+            logging.info("Completed in %.6f sec", dt)
+        else:
+            c.run()
         c.output.map_read()  # get results back
 
         if hasattr(c, "max_idx"):
@@ -108,6 +118,7 @@ class TestAll2All(unittest.TestCase):
         for i, y_gpu in enumerate(y_gpus):
             y_cpu = y_cpus[i]
             max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
+            logging.info("Difference is %.12f", max_diff)
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % (max_diff))
         logging.info("All Ok")

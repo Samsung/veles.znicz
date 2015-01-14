@@ -17,7 +17,8 @@
 __kernel __attribute__((reqd_work_group_size(REDUCE_SIZE, 1, 1)))
 void bias_update(__global const dtype    /* IN */    *err_output,
                  __global dtype     /* IN, OUT */    *bias,
-                 __global dtype     /* IN, OUT */    *gradient,
+                 __global dtype         /* OUT */    *gradient,
+                 __global dtype     /* IN, OUT */    *accumulated_gradient,
                  __global dtype     /* IN, OUT */    *gradient_with_moment,
                  const dtype             /* IN */    lr,
                  const dtype             /* IN */    factor_l12,

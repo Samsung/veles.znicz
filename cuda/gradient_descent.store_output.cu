@@ -1,5 +1,3 @@
-gradient[idx] = sum;
-
 #if ACCUMULATE_GRADIENT == OP_STORE
 accumulated_gradient[idx] = gd;
 #elif ACCUMULATE_GRADIENT == OP_ADD

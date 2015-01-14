@@ -8,9 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 from __future__ import division
-import cuda4py as cu
 import numpy
-import opencl4py as cl
 from zope.interface import implementer, Interface
 
 import veles.config as config
@@ -113,10 +111,11 @@ class FullBatchLoader(Loader):
 
         self.backend_init()
 
-    def _gpu_init(self, skip):
+    def _gpu_init(self):
         defines = {
-            "LABELS": int(self.original_labels.mem is not None),
+            "LABELS": int(bool(self.original_labels)),
             "SAMPLE_SIZE": self.original_data.sample_size,
+            "MAX_MINIBATCH_SIZE": self.max_minibatch_size,
             "original_data_dtype": opencl_types.numpy_dtype_to_opencl(
                 self.original_data.dtype),
             "minibatch_data_dtype": opencl_types.numpy_dtype_to_opencl(
@@ -129,27 +128,33 @@ class FullBatchLoader(Loader):
         self.assign_kernel("fill_minibatch_data_labels")
 
         if not self.original_labels:
-            self.set_args(self.original_data, self.minibatch_data, skip(2),
+            self.set_args(self.original_data, self.minibatch_data,
+                          self.device.skip(2),
                           self.shuffled_indices, self.minibatch_indices)
         else:
-            self.set_args(self.original_data, self.minibatch_data, skip(2),
+            self.set_args(self.original_data, self.minibatch_data,
+                          self.device.skip(2),
                           self.original_labels, self.minibatch_labels,
                           self.shuffled_indices, self.minibatch_indices)
 
     def ocl_init(self):
-        self._gpu_init(cl.skip)
+        self._gpu_init()
         self._global_size = (self.max_minibatch_size,
                              self.minibatch_data.sample_size)
+        self._local_size = None
 
     def cuda_init(self):
-        self._gpu_init(cu.skip)
-        self._global_size = (self.max_minibatch_size,
-                             self.minibatch_data.sample_size, 1)
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (int(numpy.ceil(
+            self.minibatch_data.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def fill_indices(self, start_offset, count):
         if not self.on_device or self.device is None:
             return super(FullBatchLoader, self).fill_indices(start_offset,
                                                              count)
+
         self.original_data.unmap()
         self.minibatch_data.unmap()
 
@@ -164,7 +169,7 @@ class FullBatchLoader(Loader):
         self._krn_const[1] = count
         self._kernel_.set_arg(2, self._krn_const[0:1])
         self._kernel_.set_arg(3, self._krn_const[1:2])
-        self.execute_kernel(self._global_size, None)
+        self.execute_kernel(self._global_size, self._local_size)
 
         self.on_fill_indices(self._krn_const)
 
@@ -227,8 +232,8 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
                 self.minibatch_targets.dtype)
         }
 
-    def _gpu_init(self, skip):
-        super(FullBatchLoaderMSE, self)._gpu_init(skip)
+    def _gpu_init(self):
+        super(FullBatchLoaderMSE, self)._gpu_init()
 
         self.original_targets.initialize(self.device)
         self.minibatch_targets.initialize(self.device)
@@ -236,24 +241,27 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
         self._kernel_target_ = self.get_kernel("fill_minibatch_target")
         self._kernel_target_.set_args(
             self.original_targets.devmem, self.minibatch_targets.devmem,
-            skip(2), self.shuffled_indices.devmem)
+            self.device.skip(2), self.shuffled_indices.devmem)
 
     def ocl_init(self):
         super(FullBatchLoaderMSE, self).ocl_init()
         self._global_size_target = [self.max_minibatch_size,
                                     self.minibatch_targets.sample_size]
+        self._local_size_target = None
 
     def cuda_init(self):
         super(FullBatchLoaderMSE, self).cuda_init()
-        self._global_size_target = (self.max_minibatch_size,
-                                    self.minibatch_targets.sample_size, 1)
+        block_size = self.device.suggest_block_size(self._kernel_target_)
+        self._global_size_target = (int(numpy.ceil(
+            self.minibatch_data.size / block_size)), 1, 1)
+        self._local_size_target = (block_size, 1, 1)
 
     def on_fill_indices(self, krn_consts):
         self.original_targets.unmap()
         self.minibatch_targets.unmap()
         self._kernel_target_.set_arg(2, krn_consts[0:1])
         self._kernel_target_.set_arg(3, krn_consts[1:2])
-        self.execute_kernel(self._global_size_target, None,
+        self.execute_kernel(self._global_size_target, self._local_size_target,
                             self._kernel_target_)
 
     def fill_minibatch(self):

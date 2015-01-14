@@ -146,21 +146,27 @@ class All2All(nn_units.NNLayerBase):
 
     def cuda_init(self):
         dtype = self.input.dtype
-        self.gemm = (cublas.CUBLAS.sgemm if dtype == numpy.float32
-                     else cublas.CUBLAS.dgemm)
+        self.gemm_ = (cublas.CUBLAS.sgemm if dtype == numpy.float32
+                      else cublas.CUBLAS.dgemm)
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
         if self.weights_transposed:
-            raise NotImplementedError("TODO(a.kazantsev): implement")
+            self._A_ = self.input.devmem
+            self._B_ = self.weights.devmem
+            self._transA = cublas.CUBLAS_OP_T
+            self._transB = cublas.CUBLAS_OP_N
+            self._rowsCountA = self.input.shape[0]
+            self._columnCountB = self.weights.shape[0]
         else:
-            self.A = self.weights.devmem
-            self.B = self.input.devmem
-            self.transA = cublas.CUBLAS_OP_T
-            self.transB = cublas.CUBLAS_OP_N
-            self.rowsCountA = self.weights.shape[0]
-            self.columnCountB = self.input.shape[0]
-        self.commonSideLength = self.input.sample_size
+            self._A_ = self.weights.devmem
+            self._B_ = self.input.devmem
+            self._transA = cublas.CUBLAS_OP_T
+            self._transB = cublas.CUBLAS_OP_N
+            self._rowsCountA = self.weights.shape[0]
+            self._columnCountB = self.input.shape[0]
+        self._commonSideLength = self.input.sample_size
         self.build_program({"OUTPUT_SAMPLE_SIZE": self.output.sample_size,
+                            "OUTPUT_SIZE": self.output.size,
                             self.s_activation: 1,
                             "INCLUDE_BIAS": int(self.include_bias),
                             "Y": self.output.sample_size},
@@ -171,8 +177,10 @@ class All2All(nn_units.NNLayerBase):
         if self.include_bias:
             self.assign_kernel("apply_bias_with_activation")
             self.set_args(self.output, self.bias)
-            self._global_size_bias = (self.output.sample_size,
-                                      self.output.shape[0], 1)
+            block_size = self.device.suggest_block_size(self._kernel_)
+            self._global_size_bias = (
+                int(numpy.ceil(self.output.size / block_size)), 1, 1)
+            self._local_size_bias = (block_size, 1, 1)
 
     def ocl_init(self):
         output_shape = (self.output_shape.mem.shape[1:]
@@ -223,13 +231,14 @@ class All2All(nn_units.NNLayerBase):
         self.weights.unmap()
         self.bias.unmap()
 
-        self.gemm(self.device.blas, self.transA, self.transB,
-                  self.rowsCountA, self.columnCountB, self.commonSideLength,
-                  self.np_one, self.A, self.B,
-                  self.np_zero, self.output.devmem)
+        self.gemm_(
+            self.device.blas, self._transA, self._transB,
+            self._rowsCountA, self._columnCountB, self._commonSideLength,
+            self.np_one, self._A_, self._B_,
+            self.np_zero, self.output.devmem)
 
         if self.include_bias:
-            self.execute_kernel(self._global_size_bias, (1, 1, 1))
+            self.execute_kernel(self._global_size_bias, self._local_size_bias)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -331,7 +340,7 @@ class All2AllSoftmax(All2All):
     def __init__(self, workflow, **kwargs):
         super(All2AllSoftmax, self).__init__(workflow, **kwargs)
         self.max_idx = Vector()
-        self.reduce_size = 64
+        self.reduce_size = 256
 
     def init_unpickled(self):
         super(All2AllSoftmax, self).init_unpickled()

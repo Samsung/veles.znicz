@@ -110,7 +110,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             'Y': side,
             'APPLY_GRADIENT': int(self.apply_gradient),
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
-            'STORE_GRADIENT': int(self.store_gradient),
+            'ACCUMULATE_GRADIENT': int(self.accumulate_gradient),
             'USE_ATOMICS': 1,
             'BATCH': batch_size,
             'SX': sx,
@@ -186,6 +186,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                    self.input.devmem,
                                    self.weights.devmem,
                                    self.gradient_weights.devmem,
+                                   self.accumulated_gradient_weights.devmem,
                                    self.gradient_weights_with_moment.devmem)
 
         if self.include_bias:
@@ -193,13 +194,14 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.krn_bias_.set_args(
                 self.err_output.devmem, self.bias.devmem,
                 self.gradient_bias.devmem,
+                self.accumulated_gradient_bias.devmem,
                 self.gradient_bias_with_moment.devmem)
 
         if self.factor_ortho:
             self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
-            self.krn_weights_.set_arg(10, self.col_sums.devmem)
+            self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
     def cpu_weights_update(self):
         # TODO(a.kazantsev): implement in case of transposed weights
@@ -212,6 +214,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.err_output.map_read()
         self.weights.map_write()
         self.gradient_weights.map_write()
+        self.accumulated_gradient_weights.map_write()
 
         dtype = self.weights.mem.dtype
         batch_size = self.current_batch_size
@@ -231,7 +234,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             sh[2] = 1
 
         # calculate gradient for weights
-        gd_weights = numpy.zeros_like(self.weights.mem)
+        gd_weights = self.gradient_weights.mem
+        gd_weights[:] = 0
         cut = numpy.empty((self.ky, self.kx, n_channels), dtype=dtype)
         sample = numpy.empty(sample_shape, dtype=dtype)
         for batch in range(batch_size):
@@ -268,14 +272,26 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         lr = self.learning_rate
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
-        gd_weights_reg = -nn_units.GradientDescentBase.cpu_gradient_step(
+        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
             self.weights.mem, gd_weights, lr, factor_l12, l1_vs_l2,
             self.factor_ortho)
-        if self.store_gradient:
-            gd_weights_reg += self.gradient_weights.mem * self.gradient_moment
-            self.gradient_weights.mem[:] = gd_weights_reg[:]
+        if self.accumulate_gradient == self.OP_NONE:
+            pass
+        elif self.accumulate_gradient == self.OP_STORE:
+            self.accumulated_gradient_weights.mem[:] = gradient
+        elif self.accumulate_gradient == self.OP_ADD:
+            self.accumulated_gradient_weights.mem[:] += gradient
+        elif self.accumulate_gradient == self.OP_FLUSH:
+            gradient += self.accumulated_gradient_weights.mem
+            self.accumulated_gradient_weights.mem[:] = 0
+        else:
+            raise ValueError("Incorrect accumulate_gradient attribute value")
+        if self.gradient_weights_with_moment:
+            gradient += (self.gradient_weights_with_moment.mem *
+                         self.gradient_moment)
+            self.gradient_weights.mem[:] = gradient[:]
         if self.apply_gradient:
-            self.weights.mem += gd_weights_reg
+            self.weights.mem += gradient
 
     def cpu_bias_update(self):
         if not self.include_bias:
@@ -284,12 +300,14 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.err_output.map_read()
         self.bias.map_write()
         self.gradient_bias.map_write()
+        self.accumulated_gradient_bias.map_write()
 
         batch_size = self.current_batch_size
         err_out_shape = self.err_output.mem.shape
 
         # calculate gradient for bias
-        gd_bias = numpy.zeros_like(self.bias.mem)
+        gd_bias = self.gradient_bias.mem
+        gd_bias[:] = 0
         for batch in range(batch_size):
             out = self.err_output.mem[batch].reshape(err_out_shape[1] *
                                                      err_out_shape[2],
@@ -299,11 +317,26 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         lr = self.learning_rate
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
+
         gd_bias_reg = -nn_units.GradientDescentBase.cpu_gradient_step(
             self.bias.mem, gd_bias, lr, factor_l12, l1_vs_l2)
-        if self.store_gradient:
-            gd_bias_reg += self.gradient_bias.mem * self.gradient_moment_bias
-            self.gradient_bias.mem[:] = gd_bias_reg[:]
+
+        if self.accumulate_gradient == self.OP_NONE:
+            pass
+        elif self.accumulate_gradient == self.OP_STORE:
+            self.accumulated_gradient_bias.mem[:] = gd_bias_reg
+        elif self.accumulate_gradient == self.OP_ADD:
+            self.accumulated_gradient_bias.mem[:] += gd_bias_reg
+        elif self.accumulate_gradient == self.OP_FLUSH:
+            gd_bias_reg += self.accumulated_gradient_bias.mem
+            self.accumulated_gradient_bias.mem[:] = 0
+        else:
+            raise ValueError("Incorrect accumulate_gradient attribute value")
+
+        if self.gradient_bias_with_moment:
+            gd_bias_reg += (self.gradient_bias_with_moment.mem *
+                            self.gradient_moment_bias)
+            self.gradient_bias_with_moment.mem[:] = gd_bias_reg[:]
         if self.apply_gradient:
             self.bias.mem += gd_bias_reg
 

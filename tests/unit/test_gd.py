@@ -26,7 +26,6 @@ class TestGD(unittest.TestCase, GDNumDiff):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
-        self.state = prng.get().state
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -38,7 +37,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
         input_size = 25
         n_neurons = 7
 
-        prng.get().state = self.state
+        prng.get().seed(123)
 
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
@@ -108,12 +107,15 @@ class TestGD(unittest.TestCase, GDNumDiff):
         err_cpu, weights_cpu, bias_cpu = self._do_test(None,
                                                        Forward, GD)
         max_diff = numpy.fabs(err_gpu.ravel() - err_cpu.ravel()).max()
+        logging.info("err_input difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU err_input differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(weights_gpu.ravel() - weights_cpu.ravel()).max()
+        logging.info("weights difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU weights differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(bias_gpu.ravel() - bias_cpu.ravel()).max()
+        logging.info("bias difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU bias differs by %.6f" % (max_diff))
         logging.info("All Ok")

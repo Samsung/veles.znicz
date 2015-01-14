@@ -27,7 +27,8 @@ class WineLoader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
     def load_data(self):
-        arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',')
+        arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',',
+                            dtype=numpy.float32)
         self.original_data.mem = arr[:, 1:]
         self.original_labels.mem = arr[:, 0].ravel().astype(numpy.int32) - 1
 

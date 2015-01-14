@@ -15,7 +15,6 @@ import six
 import sys
 import tarfile
 from zope.interface import implementer
-import opencl4py as cl
 
 from veles.config import root
 from veles.external.prettytable import PrettyTable
@@ -204,13 +203,8 @@ class GradientDescentBase(AcceleratedUnit):
         gradient_bias_with_moment
         batch_size: effective batch size (if None, get it from y).
         weights_transposed: assume weights matrix as a transposed one.
-        store_gradient: operation, applied when current gradient is about
-                        to be stored in additional array:
-                        "=": overwrite gradient with the current value,
-                        "+=": accumulate gradient;
-                        gradient is saved with an applied learning rate etc.
         apply_gradient: will apply gradient.
-        gradients_changed: when True, slave will send gradients to master
+        gradient_changed: when True, slave will send gradients to master
             (assigned to True just before the run call, so it can be set to
             False inside ocl_run, cpu_run if necessary).
         ocl_set_const_args: True when constant arguments for the kernel
@@ -219,11 +213,10 @@ class GradientDescentBase(AcceleratedUnit):
     hide = True
     MAPPING = set()
 
-    OP_DEFAULT = 0  # same as OP_STORE
-    OP_STORE = 1  # overwrites gradient
-    OP_ACCUMULATE = 2  # accumulates gradient
-    OP_FLUSH = 3  # adds accumulated gradient to the current,
-    # then resets it to zero
+    OP_NONE = 0
+    OP_STORE = 1
+    OP_ADD = 2
+    OP_FLUSH = 3
 
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
@@ -246,23 +239,39 @@ class GradientDescentBase(AcceleratedUnit):
         self.gradient_moment = kwargs.get("gradient_moment", 0)
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment)
-        self.store_gradient = kwargs.get("store_gradient", self.OP_STORE)
-        self.apply_gradient = kwargs.get("apply_gradient",
-                                         not workflow.is_slave)
         self.weights_transposed = kwargs.get("weights_transposed", False)
         self.need_err_input = kwargs.get("need_err_input", True)
         self.include_bias = kwargs.get("include_bias", True)
         self.factor_ortho = kwargs.get("factor_ortho", 0)
         self.col_sums = Vector()  # for orthogonalization
-        self.store_gradient = bool(
-            (not workflow.is_slave and
-             (self.gradient_moment or self.gradient_moment_bias)) or
-            self.store_gradient)
+
+        # Current gradient as it is without applying learning_rate etc.
         self.gradient_weights = Vector()
         self.gradient_bias = Vector()
+
+        # Gradient with applied learning_rate etc.
+        # optionally accumulated from the previous run
+        self.accumulated_gradient_weights = Vector()
+        self.accumulated_gradient_bias = Vector()
+
+        # Gradient with accumulated moments
         self.gradient_weights_with_moment = Vector()
         self.gradient_bias_with_moment = Vector()
-        self.gradients_changed = False
+
+        # Sets to True when gradient changes
+        self.gradient_changed = False
+
+        # Gradient will be applied to weights immediately just after computing
+        self.apply_gradient = kwargs.get("apply_gradient",
+                                         not workflow.is_slave)
+
+        # Accumulates gradient from the previous run:
+        # OP_NONE: do not allocate array at all
+        # OP_STORE: stores gradient with an applied learning_rate etc.
+        # OP_ADD: adds current gradient to the array
+        # OP_FLUSH: applies accumulated gradient, then resets it to zero
+        self.accumulate_gradient = kwargs.get("accumulate_gradient",
+                                              self.OP_NONE)
 
     @property
     def current_batch_size(self):
@@ -284,14 +293,20 @@ class GradientDescentBase(AcceleratedUnit):
                                              self.learning_rate_bias)
         self.weights_decay_bias = kwargs.get("weights_decay_bias",
                                              self.weights_decay_bias)
-        self.gradient_moment = kwargs.get("gradient_moment_bias",
-                                          self.gradient_moment_bias)
+        self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
+                                               self.gradient_moment_bias)
 
         if (self.weights and (
                 not self.gradient_weights or
                 self.gradient_weights.size != self.weights.size)):
             self.gradient_weights.reset()
             self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
+        if (self.weights and self.accumulate_gradient != self.OP_NONE and (
+                not self.accumulated_gradient_weights or
+                self.accumulated_gradient_weights.size != self.weights.size)):
+            self.accumulated_gradient_weights.reset()
+            self.accumulated_gradient_weights.mem = numpy.zeros_like(
+                self.weights.mem)
         if (self.weights and self.gradient_moment and (
                 not self.gradient_weights_with_moment or
                 self.gradient_weights_with_moment.size != self.weights.size)):
@@ -304,6 +319,13 @@ class GradientDescentBase(AcceleratedUnit):
              self.gradient_bias.size != self.bias.size)):
             self.gradient_bias.reset()
             self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
+        if (self.include_bias and self.bias and
+            self.accumulate_gradient != self.OP_NONE and
+            (not self.accumulated_gradient_bias or
+             self.accumulated_gradient_bias.size != self.bias.size)):
+            self.accumulated_gradient_bias.reset()
+            self.accumulated_gradient_bias.mem = numpy.zeros_like(
+                self.bias.mem)
         if (self.include_bias and self.bias and self.gradient_moment_bias and (
                 not self.gradient_bias_with_moment or
                 self.gradient_bias_with_moment.size != self.bias.size)):
@@ -353,6 +375,8 @@ class GradientDescentBase(AcceleratedUnit):
         self.err_output.initialize(self.device)
         self.gradient_weights.initialize(self.device)
         self.gradient_bias.initialize(self.device)
+        self.accumulated_gradient_weights.initialize(self.device)
+        self.accumulated_gradient_bias.initialize(self.device)
         self.gradient_weights_with_moment.initialize(self.device)
         self.gradient_bias_with_moment.initialize(self.device)
 
@@ -435,19 +459,18 @@ class GradientDescentBase(AcceleratedUnit):
         self.err_output.unmap()
         self.weights.unmap()
         self.gradient_weights.unmap()
+        self.accumulated_gradient_weights.unmap()
         self.gradient_weights_with_moment.unmap()
 
         if self.factor_ortho:
             self.col_sums.unmap()
-            side = self.weights.shape[1 if self.weights_transposed else 0]
-            other = self.weights.size // side
             self.execute_kernel(
-                [other * self.reduce_size], [self.reduce_size],
+                self._global_size_ortho, self._local_size_ortho,
                 self.krn_compute_col_sums_)
 
             if self.ocl_set_const_args:
                 self.cl_const[4] = self.factor_ortho
-                self.krn_weights_.set_arg(9, self.cl_const[4:5])
+                self.krn_weights_.set_arg(10, self.cl_const[4:5])
 
         if self.ocl_set_const_args:
             self.cl_const[0] = self.learning_rate
@@ -455,7 +478,7 @@ class GradientDescentBase(AcceleratedUnit):
             self.cl_const[2] = self.l1_vs_l2
             self.cl_const[3] = self.gradient_moment
             self.krn_weights_.set_args(
-                cl.skip(5), self.cl_const[0:1], self.cl_const[1:2],
+                self.device.skip(6), self.cl_const[0:1], self.cl_const[1:2],
                 self.cl_const[2:3], self.cl_const[3:4])
         self.execute_kernel(
             self._global_size_weights, self._local_size_weights,
@@ -468,15 +491,17 @@ class GradientDescentBase(AcceleratedUnit):
         self.err_output.unmap()
         self.bias.unmap()
         self.gradient_bias.unmap()
+        self.accumulated_gradient_bias.unmap()
+        self.gradient_bias_with_moment.unmap()
 
-        if self.ocl_set_const_args:
-            self.cl_const[0] = self.learning_rate_bias
-            self.cl_const[1] = self.weights_decay_bias
-            self.cl_const[2] = self.l1_vs_l2_bias
-            self.cl_const[3] = self.gradient_moment_bias
+        if self.ocl_set_const_args:  # need own constants for weights and bias
+            self.cl_const[5] = self.learning_rate_bias
+            self.cl_const[6] = self.weights_decay_bias
+            self.cl_const[7] = self.l1_vs_l2_bias
+            self.cl_const[8] = self.gradient_moment_bias
             self.krn_bias_.set_args(
-                cl.skip(4), self.cl_const[0:1], self.cl_const[1:2],
-                self.cl_const[2:3], self.cl_const[3:4])
+                self.device.skip(5), self.cl_const[5:6], self.cl_const[6:7],
+                self.cl_const[7:8], self.cl_const[8:9])
         self.execute_kernel(
             self._global_size_bias, self._local_size_bias,
             self.krn_bias_)
@@ -539,9 +564,9 @@ class GradientDescentBase(AcceleratedUnit):
             self.gradient_bias.mem[:] = 0
 
     def generate_data_for_master(self):
-        if not self.gradients_changed:
+        if not self.gradient_changed:
             return None
-        self.gradients_changed = False
+        self.gradient_changed = False
         self.gradient_weights.map_read()
         self.gradient_bias.map_read()
         return (self.gradient_weights.mem, self.gradient_bias.mem)
@@ -582,8 +607,7 @@ class GradientDescentBase(AcceleratedUnit):
         return gradient
 
     def run(self):
-        if self.store_gradient:
-            self.gradients_changed = True
+        self.gradient_changed = True
         super(GradientDescentBase, self).run()
         self.ocl_set_const_args = False
 

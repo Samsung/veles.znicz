@@ -97,7 +97,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
         self.cl_sources_["evaluator"] = {}
 
-        dtype = self.output.mem.dtype
+        dtype = self.output.dtype
 
         if self.n_err.mem is None:
             self.n_err.reset()
@@ -130,7 +130,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def _gpu_init(self):
         dtype = self.output.mem.dtype
-        block_size = min(self.err_output.shape[0], 128)
+        block_size = min(self.err_output.shape[0], 256)
         defines = {
             "BLOCK_SIZE": block_size,
             "BATCH": self.err_output.shape[0],
@@ -149,13 +149,13 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def ocl_init(self):
         block_size = self._gpu_init()
+        self._global_size = [block_size]
         self._local_size = [block_size]
-        self._global_size = self._local_size
 
     def cuda_init(self):
         block_size = self._gpu_init()
-        self._local_size = (block_size, 1, 1)
         self._global_size = (1, 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def _gpu_run(self):
         self.err_output.unmap()

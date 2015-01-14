@@ -1,8 +1,7 @@
 #ifndef _GRADIENT_DESCENT_COMMON_
 #define _GRADIENT_DESCENT_COMMON_
 
-#include "defines.cl"
-#include "highlight.cl"
+#include "defines.cu"
 
 #ifndef WEIGHTS_TRANSPOSED
 #error "WEIGHTS_TRANSPOSED should be defined"
@@ -26,7 +25,7 @@
 #endif
 
 
-#define gradient_step_l12(weight, factor, l1_vs_l2) (factor * (((dtype)1.0 - l1_vs_l2) * weight + (dtype)0.5 * l1_vs_l2 * sign(weight)))
+#define gradient_step_l12(weight, factor, l1_vs_l2) (factor * (((dtype)1.0 - l1_vs_l2) * weight + (dtype)0.5 * l1_vs_l2 * SIGN(weight)))
 
 
 #endif  // _GRADIENT_DESCENT_COMMON_

@@ -57,6 +57,7 @@ class TestEvaluator(unittest.TestCase):
 
         ev.err_output.map_read()
         max_diff = numpy.fabs(ev.err_output.mem - gold_err_output).max()
+        logging.info("Difference is %.12f", max_diff)
         self.assertLess(max_diff, 1.0e-4)
 
     def test_softmax(self):
@@ -100,6 +101,7 @@ class TestEvaluator(unittest.TestCase):
 
         ev.err_output.map_read()
         max_diff = numpy.fabs(ev.err_output.mem - gold_err_output).max()
+        logging.info("Difference is %.12f", max_diff)
         self.assertLess(max_diff, 1.0e-4)
 
 
