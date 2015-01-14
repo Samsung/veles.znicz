@@ -196,6 +196,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         n_ok = 0
         multiplier = 1.0 / batch_size if self.error_function_averaged else 1.0
         for i in range(batch_size):  # loop by batch
+            if labels[i] < 0:
+                self.err_output.mem[i] = 0.0
+                continue
             output = formats.ravel(self.output[i])
             err_output = formats.ravel(self.err_output[i])
 

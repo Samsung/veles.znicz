@@ -43,9 +43,9 @@ __global__ void ev_sm(const dtype /* IN */*y, const int /* IN */*max_idx,
   // Compute err_y and fill the confusion matrix
   for (int i = 0; i < N_BLOCKS; i++, i_sample += BLOCK_SIZE, y_start += Y * BLOCK_SIZE) {
     dtype err_y_sum = 0;
-    if (i_sample < batch_size) {
+    int ireal = labels[i_sample];
+    if ((i_sample < batch_size) && (ireal >= 0)) {
       int im = max_idx[i_sample];
-      int ireal = labels[i_sample];
 
       IM[tx] = im;
       IREAL[tx] = ireal;
