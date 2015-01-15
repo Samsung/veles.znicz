@@ -20,6 +20,7 @@
 #define IMG_SIZE (SX * SY * N_CHANNELS)
 #define UNPACK_IMG_SIZE (KX_APP * KY_APP * KX * KY * N_CHANNELS)
 
+extern "C"
 __global__ void DirectPack(const dtype *unpack_data, dtype *data) {
   int tx = threadIdx.x + blockIdx.x * blockDim.x;
   int ty = threadIdx.y + blockIdx.y * blockDim.y;
