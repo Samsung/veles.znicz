@@ -165,7 +165,7 @@ class All2All(nn_units.NNLayerBase):
             self._rowsCountA = self.weights.shape[0]
             self._columnCountB = self.input.shape[0]
         self._commonSideLength = self.input.sample_size
-        self.build_program({"OUTPUT_SAMPLE_SIZE": self.output.sample_size,
+        self.build_program({"BIAS_SIZE": self.output.sample_size,
                             "OUTPUT_SIZE": self.output.size,
                             self.s_activation: 1,
                             "INCLUDE_BIAS": int(self.include_bias),
@@ -174,7 +174,7 @@ class All2All(nn_units.NNLayerBase):
                            (self.__class__.__name__, self.input.shape[0],
                             self.input.sample_size, self.output.sample_size),
                            dtype=dtype)
-        if self.include_bias:
+        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
             self.assign_kernel("apply_bias_with_activation")
             self.set_args(self.output, self.bias)
             block_size = self.device.suggest_block_size(self._kernel_)
@@ -237,7 +237,7 @@ class All2All(nn_units.NNLayerBase):
             self.np_one, self._A_, self._B_,
             self.np_zero, self.output.devmem)
 
-        if self.include_bias:
+        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
             self.execute_kernel(self._global_size_bias, self._local_size_bias)
 
     def cpu_run(self):

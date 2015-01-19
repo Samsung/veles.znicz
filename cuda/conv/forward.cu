@@ -64,7 +64,7 @@ __global__ void ReverseUnpack(const dtype *data, dtype *unpack_data) {
   int ch_idx = tx % N_CHANNELS;
   int x = kernel_j + (tx / N_CHANNELS) % KX;
   int y = kernel_i + tx / N_CHANNELS / KX;
-  
+
   if (x >= PAD_LEFT && x < SX + PAD_LEFT &&
       y >= PAD_TOP && y < SY + PAD_TOP) {
     unpack_data[ty * KERNEL_SIZE + tx] =
@@ -74,3 +74,33 @@ __global__ void ReverseUnpack(const dtype *data, dtype *unpack_data) {
     unpack_data[ty * KERNEL_SIZE + tx] = 0;
   }
 }
+
+
+/**
+ * Grid:
+ *  1D with total size >= (KX_APP * KY_APP * number_of_images_to_unpack) * (KX * KY * N_CHANNELS)
+ */
+extern "C"
+__global__ void Unpack1D(const dtype *data, dtype *unpack_data, const int limit) {
+  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+  int ty = idx / KERNEL_SIZE;
+  int tx = idx % KERNEL_SIZE;
+
+  int img_idx = ty / KX_APP / KY_APP;
+  int kernel_j = SLIDE_X *  (ty % KX_APP);
+  int kernel_i = SLIDE_Y * ((ty / KX_APP) % KY_APP);
+
+  int ch_idx = tx % N_CHANNELS;
+  int x = kernel_j + (tx / N_CHANNELS) % KX;
+  int y = kernel_i + tx / N_CHANNELS / KX;
+
+  if (idx < limit) {
+    unpack_data[idx] = (x >= PAD_LEFT && x < SX + PAD_LEFT && y >= PAD_TOP && y < SY + PAD_TOP) ?
+        data[IMG_SIZE * img_idx + ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS + ch_idx] : 0;
+  }
+}
+
+
+// apply_bias_with_activation
+#include "all2all/forward.cu"

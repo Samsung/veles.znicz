@@ -2,8 +2,8 @@
 #error "OUTPUT_SIZE must be defined"
 #endif
 
-#ifndef OUTPUT_SAMPLE_SIZE
-#error "OUTPUT_SAMPLE_SIZE must be defined"
+#ifndef BIAS_SIZE
+#error "BIAS_SIZE must be defined"
 #endif
 
 extern "C"
@@ -12,7 +12,7 @@ __global__ void apply_bias_with_activation(dtype *output, const dtype *bias) {
   if (idx < OUTPUT_SIZE) {
     dtype y = output[idx];
     #if INCLUDE_BIAS > 0
-      y += bias[idx % OUTPUT_SAMPLE_SIZE];
+      y += bias[idx % BIAS_SIZE];
     #endif
     #if ACTIVATION_LINEAR > 0
       output[idx] = y;
