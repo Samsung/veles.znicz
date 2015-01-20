@@ -36,7 +36,7 @@ root.video_ae.update({
     "data_paths": os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
 
-class VideoAELoader(loader.FullBatchImageLoader):
+class VideoAELoader(loader.FullBatchFileImageLoader):
     """Loads dataset.
 
     Attributes:

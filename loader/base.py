@@ -21,6 +21,7 @@ import veles.prng as random_generator
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
+TARGET = 3
 TRAIN = 2
 VALID = 1
 TEST = 0

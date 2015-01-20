@@ -13,11 +13,11 @@ import wget
 import zipfile
 
 from veles.config import root
-from veles.znicz.loader import FullBatchImageLoader
+from veles.znicz.loader import FullBatchFileImageLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
-class YaleFacesLoader(FullBatchImageLoader):
+class YaleFacesLoader(FullBatchFileImageLoader):
     def __init__(self, workflow, **kwargs):
         super(YaleFacesLoader, self).__init__(workflow, **kwargs)
         self.data_dir = kwargs.get("data_dir", "")

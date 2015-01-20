@@ -6,7 +6,7 @@ ImageLoader class for imagenet
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 from __future__ import division
-from veles.znicz.loader.image import FullBatchImageLoader
+from veles.znicz.loader.image import FullBatchFileImageLoader
 import numpy
 import os
 from zope.interface import implementer
@@ -17,7 +17,7 @@ import cv2
 
 
 @implementer(IFullBatchLoader)
-class ImgLoaderClassifier(FullBatchImageLoader):
+class ImgLoaderClassifier(FullBatchFileImageLoader):
     def __init__(self, workflow, **kwargs):
         super(ImgLoaderClassifier, self).__init__(workflow, **kwargs)
         path_mean_img = kwargs["path_mean_img"]
@@ -37,7 +37,7 @@ class ImgLoaderClassifier(FullBatchImageLoader):
             self.class_offsets[i] = total_samples
         self.total_samples = total_samples
 
-    def get_image_data(self, file_name, new_size=227):
+    def get_image_data(self, key, new_size=227):
         """Loads one image image.
         Args:
             fnme(string): name of file with image
@@ -45,7 +45,7 @@ class ImgLoaderClassifier(FullBatchImageLoader):
         Returns:
             numpy array
         """
-        img = plt.imread(file_name)
+        img = plt.imread(key)
         img = img[:, :, ::-1]
         img = cv2.resize(img, (227, 227))
         img = img - self.mean_img
