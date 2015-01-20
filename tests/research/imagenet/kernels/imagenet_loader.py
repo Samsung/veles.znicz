@@ -6,7 +6,7 @@ ImageLoader class for imagenet
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 from __future__ import division
-from veles.znicz.loader.image import ImageLoader
+from veles.znicz.loader.image import FullBatchImageLoader
 import numpy
 import os
 from zope.interface import implementer
@@ -17,7 +17,7 @@ import cv2
 
 
 @implementer(IFullBatchLoader)
-class ImgLoaderClassifier(ImageLoader):
+class ImgLoaderClassifier(FullBatchImageLoader):
     def __init__(self, workflow, **kwargs):
         super(ImgLoaderClassifier, self).__init__(workflow, **kwargs)
         path_mean_img = kwargs["path_mean_img"]
@@ -37,7 +37,7 @@ class ImgLoaderClassifier(ImageLoader):
             self.class_offsets[i] = total_samples
         self.total_samples = total_samples
 
-    def from_image(self, fnme, new_size=227):
+    def get_image_data(self, file_name, new_size=227):
         """Loads one image image.
         Args:
             fnme(string): name of file with image
@@ -45,7 +45,7 @@ class ImgLoaderClassifier(ImageLoader):
         Returns:
             numpy array
         """
-        img = plt.imread(fnme)
+        img = plt.imread(file_name)
         img = img[:, :, ::-1]
         img = cv2.resize(img, (227, 227))
         img = img - self.mean_img
@@ -75,7 +75,7 @@ class ImgLoaderClassifier(ImageLoader):
         this_samples = 0
         next_samples = 0
         for i in range(0, n_files):
-            obj = self.from_image(files[i])
+            obj = self.get_image_data(files[i])
             if type(obj) == numpy.ndarray:
                 wfl = obj
                 if sz != -1 and wfl.size != sz:

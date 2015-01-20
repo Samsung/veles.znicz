@@ -46,11 +46,11 @@ root.hands.update({
     "data_paths": {"train": train_dir, "validation": validation_dir}})
 
 
-class HandsLoader(loader.ImageLoader):
+class HandsLoader(loader.FullBatchImageLoader):
     """Loads Hands dataset.
     """
-    def from_image(self, fnme):
-        a = numpy.fromfile(fnme, dtype=numpy.uint8).astype(numpy.float32)
+    def get_image_data(self, file_name):
+        a = numpy.fromfile(file_name, dtype=numpy.uint8).astype(numpy.float32)
         sx = int(numpy.sqrt(a.size))
         a = hog.hog(a.reshape(sx, sx)).astype(numpy.float32)
         formats.normalize(a)

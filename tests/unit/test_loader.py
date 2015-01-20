@@ -84,7 +84,7 @@ class TestFullBatchLoader(unittest.TestCase):
             res_data[i] = unit.minibatch_data.mem
             res_labels[i] = unit.minibatch_labels.mem
             res_target[i] = unit.minibatch_targets.mem
-        return (res_data, res_labels, res_target)
+        return res_data, res_labels, res_target
 
 
 if __name__ == "__main__":

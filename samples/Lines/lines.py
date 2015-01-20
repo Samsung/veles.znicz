@@ -19,7 +19,7 @@ from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.znicz import conv, all2all, evaluator, decision
-from veles.znicz.loader import ImageLoader, IFullBatchLoader
+from veles.znicz.loader import FullBatchImageLoader, IFullBatchLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -92,7 +92,7 @@ class ImageLabel(IntEnum):
 
 
 @implementer(IFullBatchLoader)
-class LinesLoader(ImageLoader):
+class LinesLoader(FullBatchImageLoader):
     def get_label_from_filename(self, filename):
         # takes folder name "vertical", "horizontal", "etc"
         return int(ImageLabel[filename.split("/")[-2]])

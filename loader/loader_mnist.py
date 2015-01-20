@@ -114,12 +114,8 @@ class MnistLoader(loader.FullBatchLoader):
         self.info("Original range: [%.1f, %.1f];"
                   " performing normalization..." % (images.min(),
                                                     images.max()))
-        progress = ProgressBar(maxval=len(images), term_width=17)
-        progress.start()
-        for image in images:
-            progress.inc()
+        for image in ProgressBar(term_width=17)(images):
             formats.normalize(image)
-        progress.finish()
         self.original_data.mem[offs:offs + n_images] = images[:]
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))

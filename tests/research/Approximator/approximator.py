@@ -42,7 +42,7 @@ root.approximator.update({
     "data_paths": {"target": target_dir, "train": train_dir}})
 
 
-class ApproximatorLoader(loader.ImageLoaderMSE):
+class ApproximatorLoader(loader.FullBatchImageLoaderMSE):
     def load_original(self, fnme):
         a = scipy.io.loadmat(fnme)
         for key in a.keys():
