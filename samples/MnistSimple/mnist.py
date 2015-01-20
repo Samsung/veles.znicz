@@ -18,7 +18,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 from veles.interaction import Shell
 
-from veles.znicz.samples.MnistSimple.loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist.update({

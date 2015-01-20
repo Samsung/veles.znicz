@@ -16,7 +16,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-from veles.znicz.tests.research.WineRelu.loader_wine import WineLoader
+from .loader_wine import WineLoader
 from veles.znicz.nn_units import NNSnapshotter
 
 

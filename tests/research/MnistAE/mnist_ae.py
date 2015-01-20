@@ -20,7 +20,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
-from veles.znicz.tests.research.MnistAE.loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist_ae.update({

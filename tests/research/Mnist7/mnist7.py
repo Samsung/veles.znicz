@@ -25,7 +25,7 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from veles.znicz.tests.research.Mnist7.loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist7.update({

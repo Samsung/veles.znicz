@@ -17,7 +17,7 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
 import veles.znicz.lr_adjust as lra
-from veles.znicz.tests.research.MNIST.loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},
