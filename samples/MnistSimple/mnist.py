@@ -8,6 +8,10 @@ Model - fully-connected Neural Network with SoftMax loss function.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+
+import os
+import sys
+
 from veles.config import root
 import veles.plotting_units as plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -18,7 +22,8 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 from veles.interaction import Shell
 
-from .loader_mnist import MnistLoader
+sys.path.append(os.path.dirname(__file__))
+from loader_mnist import MnistLoader
 
 
 root.mnist.update({

@@ -8,6 +8,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import os
+import sys
+
 from veles.config import root
 import veles.plotting_units as plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -20,7 +23,9 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
-from .loader_mnist import MnistLoader
+
+sys.path.append(os.path.dirname(__file__))
+from loader_mnist import MnistLoader
 
 
 root.mnist_ae.update({

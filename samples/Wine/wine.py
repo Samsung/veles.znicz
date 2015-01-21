@@ -9,6 +9,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import os
+import sys
+
 from veles.config import root
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.nn_units as nn_units
@@ -16,7 +19,9 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-from .loader_wine import WineLoader
+
+sys.path.append(os.path.dirname(__file__))
+from loader_wine import WineLoader
 
 
 root.common.plotters_disabled = True

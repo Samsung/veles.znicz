@@ -10,6 +10,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import os
+import sys
+
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.config import root
 from veles.genetics import Tune
@@ -17,7 +20,9 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.all2all as all2all
 import veles.znicz.lr_adjust as lra
-from .loader_mnist import MnistLoader
+
+sys.path.append(os.path.dirname(__file__))
+from loader_mnist import MnistLoader
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},

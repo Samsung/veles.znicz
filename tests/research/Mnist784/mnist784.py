@@ -15,8 +15,9 @@ from veles.external.freetype import (Face,  # pylint: disable=E0611
                                      FT_Set_Transform, byref)
 import logging
 import numpy
-import six
 import os
+import six
+import sys
 from zope.interface import implementer
 
 from veles.config import root
@@ -33,7 +34,9 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from .loader_mnist import MnistLoader
+
+sys.path.append(os.path.dirname(__file__))
+from loader_mnist import MnistLoader
 
 
 root.mnist784.update({

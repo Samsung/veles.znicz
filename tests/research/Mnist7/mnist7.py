@@ -9,6 +9,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import os
+import sys
 import numpy
 from zope.interface import implementer
 
@@ -25,7 +27,9 @@ import veles.znicz.image_saver as image_saver
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
-from .loader_mnist import MnistLoader
+
+sys.path.append(os.path.dirname(__file__))
+from loader_mnist import MnistLoader
 
 
 root.mnist7.update({
