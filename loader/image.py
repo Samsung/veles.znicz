@@ -20,9 +20,10 @@ from zope.interface import implementer, Interface
 import veles.error as error
 from veles.external.progressbar import ProgressBar, Percentage, Bar
 import veles.memory as memory
-from veles.znicz.loader.base import CLASS_NAME, TARGET
-from veles.znicz.loader.fullbatch import (IFullBatchLoader, FullBatchLoader,
-                                          FullBatchLoaderMSE)
+from veles.znicz.loader.base import (
+    CLASS_NAME, TARGET, ILoader, Loader, LoaderMSEMixin)
+from veles.znicz.loader.fullbatch import (
+    IFullBatchLoader, FullBatchLoader, FullBatchLoaderMSEMixin, DTYPE)
 
 
 MODE_COLOR_MAP = {
@@ -60,18 +61,18 @@ class IImageLoader(Interface):
         """
 
 
-@implementer(IFullBatchLoader)
-class FullBatchImageLoader(FullBatchLoader):
-    """Loads images into fully in-memory batch.
+@implementer(ILoader)
+class ImageLoader(Loader):
+    """Base class for all image loaders. It is generally used for loading large
+    datasets.
 
     Attributes:
         color_space: the color space to which to convert images. Can be any of
                      the values supported by OpenCV, e.g., GRAY or HSV.
-        normalize: True if image data must be normalized; otherwise, False.
         source_dtype: dtype to work with during various image operations.
         shape: image shape (tuple) - set after initialize().
 
-    Must be overriden in child class:
+     Must be overriden in child classes:
         get_image_label()
         get_image_info()
         get_image_data()
@@ -79,12 +80,39 @@ class FullBatchImageLoader(FullBatchLoader):
     """
 
     def __init__(self, workflow, **kwargs):
-        super(FullBatchImageLoader, self).__init__(workflow, **kwargs)
+        super(ImageLoader, self).__init__(workflow, **kwargs)
         self.color_space = kwargs.get("color_space", "RGB")
-        self.normalize = kwargs.get("normalize", True)
         self.source_dtype = numpy.float32
-        self.shape = tuple()
+        self._shape = tuple()
+        self._has_labels = False
+        self.class_keys = [[], [], []]
         self.verify_interface(IImageLoader)
+
+    @Loader.shape.getter
+    def shape(self):
+        return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        if not isinstance(value, tuple):
+            raise TypeError("shape must be a tuple")
+        if len(value) != 3:
+            raise ValueError("len(shape) must be equal to 3")
+        for i in range(3):
+            if not isinstance(value[i], int):
+                raise TypeError(
+                    "shape[%d] is not an integer (= %s)" % (i, value[i]))
+            if value[i] < 1:
+                raise ValueError(
+                    "shape[%d] < 1 (= %s)" % (i, value[i]))
+        self._shape = value
+
+    @property
+    def has_labels(self):
+        """
+        This is set after initialize() (particularly, after load_data()).
+        """
+        return self._has_labels
 
     def preprocess_image(self, data, key):
         _, color = self.get_image_info(key)
@@ -96,7 +124,7 @@ class FullBatchImageLoader(FullBatchLoader):
                 method = getattr(cv2, "COLOR_BGR2%s" % self.color_space)
             data = cv2.cvtColor(data, method)
         if self.normalize:
-            # TODO(v.markovtsev): implement normalization
+            # TODO(v.markovtsev): implement normalization, incl. Loader
             memory.normalize(data)
         return data
 
@@ -121,24 +149,135 @@ class FullBatchImageLoader(FullBatchLoader):
                 if has_labels and label is None:
                     raise error.BadFormatError(
                         "%s does not have a label, but others do" % key)
-                data[index] = obj
-                labels[index] = label
+                if data is not None:
+                    data[index] = obj
+                if labels is not None:
+                    labels[index] = label
                 index += 1
                 if pbar is not None:
                     pbar.inc()
         return has_labels
 
     def load_data(self):
-        keys = [[], [], []]
+        self.class_keys = [[], [], []]
         # First pass
         for index, class_name in enumerate(CLASS_NAME):
-            class_keys = self.get_keys(index)
-            keys[index].extend(class_keys)
-            self.class_lengths[index] += len(class_keys)
-            keys[index].sort()
+            keys = self.get_keys(index)
+            self.class_keys[index].extend(keys)
+            self.class_lengths[index] += len(keys)
+            self.class_keys[index].sort()
         if self.shape == tuple():
-            raise error.BadFormatError("Image shape was not initialized in "
-                                       "get_keys()")
+            raise error.BadFormatError(
+                "Image shape was not initialized in get_keys()")
+
+        # Perform a quick (unreliable) test to determine if we have labels
+        keys = []
+        for i in range(3):
+            keys = self.class_keys[i]
+            if len(keys) > 0:
+                break
+        assert len(keys) > 0
+        data = numpy.zeros((1,) + self.shape, dtype=self.source_dtype)
+        labels = numpy.zeros((1,), dtype=Loader.LABEL_DTYPE)
+        self._has_labels = self.load_keys((keys[0],), None, data, labels)
+
+    def create_minibatches(self):
+        self.minibatch_data.reset()
+        self.minibatch_data.mem = numpy.zeros(
+            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+
+        self.minibatch_labels.reset()
+        if self.has_labels:
+            self.minibatch_labels.mem = numpy.zeros(
+                (self.max_minibatch_size,), dtype=Loader.LABEL_DTYPE)
+
+        self.minibatch_indices.reset()
+        self.minibatch_indices.mem = numpy.zeros(
+            self.max_minibatch_size, dtype=Loader.INDEX_DTYPE)
+
+    def keys_from_indices(self, indices):
+        keys = []
+        for si in indices:
+            class_index, key_index = self.class_index_by_sample_index(si)
+            keys.append(self.class_keys[class_index][key_index])
+        return keys
+
+    def fill_minibatch(self):
+        keys = self.keys_from_indices(
+            self.minibatch_indices.mem[:self.minibatch_size])
+        assert self.has_labels == self.load_keys(
+            keys, None, self.minibatch_data.mem, self.minibatch_labels.mem)
+
+
+class ImageLoaderMSEMixin(LoaderMSEMixin):
+    """
+    Implementation of ImageLoaderMSE for parallel inheritance.
+
+    Attributes:
+        target_keys: additional key list of targets.
+    """
+    def __init__(self, workflow, **kwargs):
+        super(ImageLoaderMSEMixin, self).__init__(workflow, **kwargs)
+        self.target_keys = []
+        self.target_label_map = None
+
+    def load_data(self):
+        super(ImageLoaderMSEMixin, self).load_data()
+        self.target_keys.extend(self.get_keys(TARGET))
+        length = len(self.target_keys)
+        if len(set(self.target_keys)) < length:
+            raise error.BadFormatError("Some targets have duplicate keys")
+        self.target_keys.sort()
+        if not self.has_labels and length != sum(self.class_lengths):
+            raise error.BadFormatError(
+                "Number of class samples %d differs from the number of "
+                "targets %d" % (sum(self.class_lengths), length))
+        if self.has_labels:
+            labels = numpy.zeros(length, dtype=Loader.LABEL_DTYPE)
+            assert self.load_keys(self.target_keys, None, None, labels)
+            if len(set(labels)) < length:
+                raise error.BadFormatError("Targets have duplicate labels")
+            self.target_label_map = {l: self.target_keys[l] for l in labels}
+
+    def create_minibatches(self):
+        super(ImageLoaderMSEMixin, self).create_minibatches()
+        self.minibatch_targets.reset()
+        self.minibatch_targets.mem = numpy.zeros(
+            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+
+    def fill_minibatch(self):
+        super(ImageLoaderMSEMixin, self).fill_minibatch()
+        if not self.has_labels:
+            keys = self.keys_from_indices(
+                self.shuffled_indices[i]
+                for i in self.minibatch_indices.mem[:self.minibatch_size])
+        else:
+            keys = []
+            for label in self.minibatch_labels.mem:
+                keys.append(self.target_label_map[label])
+        assert self.has_labels == self.load_keys(
+            keys, None, self.minibatch_targets.mem, None)
+
+
+class ImageLoaderMSE(ImageLoader, ImageLoaderMSEMixin):
+    """
+    Loads images in MSE schemes. Like ImageLoader, mostly useful for large
+    datasets.
+    """
+    pass
+
+
+@implementer(IFullBatchLoader)
+class FullBatchImageLoader(ImageLoader, FullBatchLoader):
+    """Loads all images into the memory.
+    """
+
+    @property
+    def has_labels(self):
+        return ImageLoader.has_labels.getter(self)
+
+    def load_data(self):
+        ImageLoader.load_data(self)
 
         # Allocate data
         overall = sum(self.class_lengths)
@@ -155,7 +294,7 @@ class FullBatchImageLoader(FullBatchLoader):
         self.original_data.mem = data = numpy.zeros(
             (overall,) + self.shape, dtype=self.source_dtype)
         self.original_labels.mem = labels = numpy.zeros(
-            overall, dtype=numpy.int32)
+            overall, dtype=Loader.LABEL_DTYPE)
 
         # Second pass
         pbar = ProgressBar(term_width=17, maxval=overall,
@@ -165,11 +304,12 @@ class FullBatchImageLoader(FullBatchLoader):
         pbar.start()
         offset = 0
         has_labels = []
-        for class_keys in keys:
-            if len(class_keys) > 0:
-                has_labels.append(self.load_keys(
-                    class_keys, pbar, data[offset:], labels[offset:]))
-                offset += len(class_keys)
+        for keys in self.class_keys:
+            if len(keys) == 0:
+                continue
+            has_labels.append(self.load_keys(
+                keys, pbar, data[offset:], labels[offset:]))
+            offset += len(keys)
         pbar.finish()
 
         # Delete labels mem if no labels was extracted
@@ -180,32 +320,28 @@ class FullBatchImageLoader(FullBatchLoader):
             self.original_labels.mem = None
 
 
-class FullBatchImageLoaderMSE(FullBatchImageLoader, FullBatchLoaderMSE):
+class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
+                                   FullBatchLoaderMSEMixin):
     """
-    MSE modification of FullBatchImageLoader class.
+    FullBatchImageLoaderMSE implementation for parallel inheritance.
     """
 
     def load_data(self):
-        super(FullBatchImageLoaderMSE, self).load_data()
+        super(FullBatchImageLoaderMSEMixin, self).load_data()
 
-        keys = self.get_keys(TARGET)
-        keys.sort()
-        length = len(keys)
+        length = len(self.target_keys)
         targets = numpy.zeros((length,) + self.shape, dtype=self.source_dtype)
-        target_labels = numpy.zeros(length, dtype=numpy.int32)
-        has_labels = self.load_keys(keys, None, targets, target_labels)
+        target_labels = numpy.zeros(length, dtype=Loader.LABEL_DTYPE)
+        has_labels = self.load_keys(
+            self.target_keys, None, targets, target_labels)
         if not has_labels:
-            if self.original_labels.mem is not None:
+            if self.has_labels:
                 raise error.BadFormatError(
                     "Targets do not have labels, but the classes do")
-            if sum(self.class_lengths) != length:
-                raise error.BadFormatError(
-                    "Number of class samples %d differs from the number of "
-                    "targets %d" % (sum(self.class_lengths), length))
-            # Associate targets with classes by sequence order => NOP
+            # Associate targets with classes by sequence order
             self.original_targets.mem = targets
             return
-        if self.original_labels.mem is None:
+        if not self.has_labels:
             raise error.BadFormatError(
                 "Targets have labels, but the classes do not")
         if len(set(target_labels)) < length:
@@ -221,6 +357,14 @@ class FullBatchImageLoaderMSE(FullBatchImageLoader, FullBatchLoaderMSE):
             self.original_targets[i] = targets[target_mapping[label]]
 
 
+class FullBatchImageLoaderMSE(FullBatchImageLoader,
+                              FullBatchImageLoaderMSEMixin):
+    """
+    MSE modification of FullBatchImageLoader class.
+    """
+    pass
+
+
 class IFileImageLoader(Interface):
     def get_label_from_filename(filename):
         """Retrieves label for the specified file path.
@@ -233,8 +377,9 @@ class IFileImageLoader(Interface):
 
 
 @implementer(IImageLoader)
-class FullBatchFileImageLoader(FullBatchImageLoader):
-    """Loads images from multiple folders as full batch.
+class FileImageLoader(ImageLoader):
+    """Loads images from multiple folders. As with ImageLoader, it is useful
+    for large datasets.
 
     Attributes:
         test_paths: list of paths with mask for test set,
@@ -248,8 +393,9 @@ class FullBatchFileImageLoader(FullBatchImageLoader):
         get_label_from_filename()
         is_valid_filename()
     """
+
     def __init__(self, workflow, **kwargs):
-        super(FullBatchFileImageLoader, self).__init__(workflow, **kwargs)
+        super(FileImageLoader, self).__init__(workflow, **kwargs)
         self.test_paths = kwargs.get("test_paths")
         self.validation_paths = kwargs.get("validation_paths")
         self.train_paths = kwargs.get("train_paths")
@@ -361,15 +507,17 @@ class FullBatchFileImageLoader(FullBatchImageLoader):
         return list(chain.from_iterable(self.scan_files(p) for p in paths))
 
 
-class FullBatchFileImageLoaderMSE(FullBatchFileImageLoader,
-                                  FullBatchImageLoaderMSE):
+class FileImageLoaderMSEMixin(FullBatchImageLoaderMSEMixin):
     """
-    MSE modification of  FullBatchFileImageLoader class.
+    FileImageLoaderMSE implementation for parallel inheritance.
+
     Attributes:
         target_paths: list of paths for target in case of MSE.
     """
+
     def __init__(self, workflow, **kwargs):
-        super(FullBatchFileImageLoaderMSE, self).__init__(workflow, **kwargs)
+        super(FileImageLoaderMSEMixin, self).__init__(
+            workflow, **kwargs)
         self.target_paths = kwargs["target_paths"]
 
     @property
@@ -383,6 +531,28 @@ class FullBatchFileImageLoaderMSE(FullBatchFileImageLoader,
 
     def get_keys(self, index):
         if index != TARGET:
-            return super(FullBatchFileImageLoaderMSE, self).get_keys(index)
+            return super(FileImageLoaderMSEMixin, self).get_keys(
+                index)
         return list(chain.from_iterable(
             self.scan_files(p) for p in self.target_paths))
+
+
+class FileImageLoaderMSE(FileImageLoader, FileImageLoaderMSEMixin):
+    """
+    MSE modification of  FileImageLoader class.
+    """
+    pass
+
+
+class FullBatchFileImageLoader(FileImageLoader, FullBatchImageLoader):
+    """Loads images from multiple folders as full batch.
+    """
+    pass
+
+
+class FullBatchFileImageLoaderMSE(FileImageLoaderMSEMixin,
+                                  FullBatchImageLoaderMSEMixin):
+    """
+    MSE modification of  FullBatchFileImageLoader class.
+    """
+    pass

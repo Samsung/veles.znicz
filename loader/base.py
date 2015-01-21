@@ -85,6 +85,9 @@ class Loader(AcceleratedUnit):
         minibatch_size: current minibatch size <= max_minibatch_size.
     """
 
+    LABEL_DTYPE = numpy.int32
+    INDEX_DTYPE = numpy.int32
+
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = "LOADER"
         self.last_minibatch = Bool(False)
@@ -154,7 +157,7 @@ class Loader(AcceleratedUnit):
     def total_samples(self, value):
         if value <= 0:
             raise error.BadFormatError("class_lengths should be filled")
-        if value > numpy.iinfo(numpy.int32).max:
+        if value > numpy.iinfo(Loader.LABEL_DTYPE).max:
             raise NotImplementedError(
                 "total_samples exceeds int32 capacity.")
         self._total_samples = value
@@ -327,6 +330,14 @@ class Loader(AcceleratedUnit):
     def total_failed(self):
         return self._total_failed
 
+    @property
+    def shape(self):
+        """
+        Takes the shape from minibatch_data.
+        :return: Sample's shape.
+        """
+        return self.minibatch_data[0].shape
+
     def initialize(self, device, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
@@ -339,6 +350,9 @@ class Loader(AcceleratedUnit):
                                              self.max_minibatch_size)
         self.on_before_create_minibatches()
         self.create_minibatches()
+        if self.minibatch_labels:
+            assert self.minibatch_labels.dtype.type == Loader.LABEL_DTYPE
+        assert self.minibatch_indices.dtype.type == Loader.INDEX_DTYPE
         if self.minibatch_data is None:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
                                        "create_minibatches()")
@@ -445,7 +459,7 @@ class Loader(AcceleratedUnit):
             if self.shuffled_indices.mem is None:
                 total_samples = numpy.sum(self.class_lengths)
                 self.shuffled_indices.mem = numpy.arange(
-                    total_samples, dtype=numpy.int32)
+                    total_samples, dtype=Loader.LABEL_DTYPE)
             return
         offs_test = self.class_lengths[TEST]
         offs = offs_test
@@ -459,7 +473,7 @@ class Loader(AcceleratedUnit):
 
         if self.shuffled_indices.mem is None:
             self.shuffled_indices.mem = numpy.arange(
-                total_samples, dtype=numpy.int32)
+                total_samples, dtype=Loader.LABEL_DTYPE)
         self.shuffled_indices.map_write()
         shuffled_indices = self.shuffled_indices.mem
 
@@ -529,7 +543,7 @@ class Loader(AcceleratedUnit):
         """
         if self.shuffled_indices.mem is None:
             self.shuffled_indices.mem = numpy.arange(self.total_samples,
-                                                     dtype=numpy.int32)
+                                                     dtype=Loader.LABEL_DTYPE)
         self.shuffled_indices.map_write()
         self.prng.shuffle(self.shuffled_indices.mem[self.class_offsets[VALID]:
                                                     self.class_offsets[TRAIN]])
@@ -579,6 +593,13 @@ class Loader(AcceleratedUnit):
         self.minibatch_indices.mem[count:] = -1
         return False
 
+    def class_index_by_sample_index(self, index):
+        for class_index, class_offset in enumerate(self.class_offsets):
+            if index < class_offset:
+                return class_index, class_offset - index
+        raise error.Bug("Could not convert sample index to class index, "
+                        "probably due to incorrect class_offsets.")
+
     def _update_total_samples(self):
         """Fills self.class_offsets from self.class_lengths.
         """
@@ -621,16 +642,9 @@ class Loader(AcceleratedUnit):
 
         # Compute next minibatch class and size, updating epoch_ended and
         # last_minibatch
-        for class_index, class_offset in enumerate(self.class_offsets):
-            if self.global_offset < class_offset:
-                self.minibatch_class = class_index
-                remainder = class_offset - self.global_offset
-                minibatch_size = min(remainder, self.max_minibatch_size)
-                break
-        else:
-            raise error.Bug("Could not determine minibatch_class, "
-                            "probably due to incorrect class_offsets.")
-
+        self.minibatch_class, remainder = self.class_index_by_sample_index(
+            self.global_offset)
+        minibatch_size = min(remainder, self.max_minibatch_size)
         self.global_offset += minibatch_size
         return self.global_offset, minibatch_size
 
@@ -646,14 +660,17 @@ class Loader(AcceleratedUnit):
             self._minibatch_serve_timestamp_ = time.time()
 
 
-class LoaderMSE(Loader):
-    """Loader with MSE target data.
+class LoaderMSEMixin(object):
+    """
+    Loader MSE implementation for parallel inheritance.
+
     Attributes:
         class_targets: target for each class.
         minibatch_targets: target data.
     """
+
     def __init__(self, workflow, **kwargs):
-        super(LoaderMSE, self).__init__(workflow, **kwargs)
+        super(LoaderMSEMixin, self).__init__(workflow, **kwargs)
         self.class_targets = formats.Vector()
         self.minibatch_targets = formats.Vector()
 
@@ -666,15 +683,24 @@ class LoaderMSE(Loader):
         self._minibatch_target = value
 
     def on_before_create_minibatches(self):
-        super(LoaderMSE, self).on_before_create_minibatches()
+        super(LoaderMSEMixin, self).on_before_create_minibatches()
         self.minibatch_targets.reset()
 
     def serve_next_minibatch(self, slave):
-        super(LoaderMSE, self).serve_next_minibatch(slave)
+        super(LoaderMSEMixin, self).serve_next_minibatch(slave)
 
         if self.minibatch_size < self.max_minibatch_size:
             self.minibatch_targets[self.minibatch_size:] = 0.0
 
     def fill_indices(self, start_offset, count):
         self.minibatch_targets.map_invalidate()
-        return super(LoaderMSE, self).fill_indices(start_offset, count)
+        return super(LoaderMSEMixin, self).fill_indices(start_offset, count)
+
+
+class LoaderMSE(Loader, LoaderMSEMixin):
+    """Loader with MSE target data.
+    Attributes:
+        class_targets: target for each class.
+        minibatch_targets: target data.
+    """
+    pass

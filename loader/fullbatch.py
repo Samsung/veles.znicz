@@ -14,8 +14,11 @@ from zope.interface import implementer, Interface
 import veles.config as config
 import veles.error as error
 import veles.memory as formats
-import veles.opencl_types as opencl_types
-from veles.znicz.loader.base import ILoader, Loader, LoaderMSE
+from veles.opencl_types import numpy_dtype_to_opencl, dtypes
+from veles.znicz.loader.base import ILoader, Loader, LoaderMSEMixin
+
+
+DTYPE = dtypes[config.root.common.precision_type]
 
 
 class IFullBatchLoader(Interface):
@@ -30,7 +33,7 @@ class FullBatchLoader(Loader):
 
     Attributes:
         original_data: original data (Vector).
-        original_labels: original labels (Vector, dtype=numpy.int32)
+        original_labels: original labels (Vector, dtype=Loader.LABEL_DTYPE)
             (in case of classification).
         on_device: True to load all data to the device memory.
 
@@ -48,7 +51,7 @@ class FullBatchLoader(Loader):
         self.original_labels = formats.Vector()
         self.cl_sources_["fullbatch_loader"] = {}
         self._global_size = None
-        self._krn_const = numpy.zeros(2, dtype=numpy.int32)
+        self._krn_const = numpy.zeros(2, dtype=Loader.LABEL_DTYPE)
 
     def __getstate__(self):
         state = super(FullBatchLoader, self).__getstate__()
@@ -56,23 +59,33 @@ class FullBatchLoader(Loader):
         state["original_labels"] = None
         return state
 
+    @Loader.shape.getter
+    def shape(self):
+        """
+        Takes the shape from original_data.
+        :return: Sample's shape.
+        """
+        return self.original_data[0].shape
+
+    @property
+    def has_labels(self):
+        return bool(self.original_labels)
+
     def create_minibatches(self):
         self.check_types()
 
         self.minibatch_data.reset()
-        sh = [self.max_minibatch_size]
-        sh.extend(self.original_data[0].shape)
         self.minibatch_data.mem = numpy.zeros(
-            sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
+            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
 
         self.minibatch_labels.reset()
-        if self.original_labels.mem is not None:
-            sh = [self.max_minibatch_size]
-            self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
+        if self.has_labels:
+            self.minibatch_labels.mem = numpy.zeros(
+                (self.max_minibatch_size,), dtype=Loader.LABEL_DTYPE)
 
         self.minibatch_indices.reset()
-        self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
-                                                 dtype=numpy.int32)
+        self.minibatch_indices.mem = numpy.zeros(
+            self.max_minibatch_size, dtype=Loader.INDEX_DTYPE)
 
     def check_types(self):
         if (not isinstance(self.original_data, formats.Vector) or
@@ -80,9 +93,9 @@ class FullBatchLoader(Loader):
             raise error.BadFormatError(
                 "original_data, original_labels must be of type Vector")
         if (self.original_labels.mem is not None and
-                self.original_labels.dtype != numpy.int32):
+                self.original_labels.dtype != Loader.LABEL_DTYPE):
             raise error.BadFormatError(
-                "original_labels should have dtype=numpy.int32")
+                "original_labels should have dtype=Loader.LABEL_DTYPE")
 
     def get_ocl_defines(self):
         """Add definitions before building the kernel during initialize().
@@ -99,13 +112,13 @@ class FullBatchLoader(Loader):
 
         self.original_data.initialize(self.device)
         self.minibatch_data.initialize(self.device)
-        if self.original_labels:
+        if self.has_labels:
             self.original_labels.initialize(self.device)
             self.minibatch_labels.initialize(self.device)
 
         if not self.shuffled_indices:
             self.shuffled_indices.mem = numpy.arange(
-                self.total_samples, dtype=numpy.int32)
+                self.total_samples, dtype=Loader.LABEL_DTYPE)
         self.shuffled_indices.initialize(self.device)
         self.minibatch_indices.initialize(self.device)
 
@@ -113,12 +126,12 @@ class FullBatchLoader(Loader):
 
     def _gpu_init(self):
         defines = {
-            "LABELS": int(bool(self.original_labels)),
+            "LABELS": int(self.has_labels),
             "SAMPLE_SIZE": self.original_data.sample_size,
             "MAX_MINIBATCH_SIZE": self.max_minibatch_size,
-            "original_data_dtype": opencl_types.numpy_dtype_to_opencl(
+            "original_data_dtype": numpy_dtype_to_opencl(
                 self.original_data.dtype),
-            "minibatch_data_dtype": opencl_types.numpy_dtype_to_opencl(
+            "minibatch_data_dtype": numpy_dtype_to_opencl(
                 self.minibatch_data.dtype)
         }
         defines.update(self.get_ocl_defines())
@@ -127,7 +140,7 @@ class FullBatchLoader(Loader):
                            dtype=self.minibatch_data.dtype)
         self.assign_kernel("fill_minibatch_data_labels")
 
-        if not self.original_labels:
+        if not self.has_labels:
             self.set_args(self.original_data, self.minibatch_data,
                           self.device.skip(2),
                           self.shuffled_indices, self.minibatch_indices)
@@ -152,21 +165,20 @@ class FullBatchLoader(Loader):
 
     def fill_indices(self, start_offset, count):
         if not self.on_device or self.device is None:
-            return super(FullBatchLoader, self).fill_indices(start_offset,
-                                                             count)
+            return super(FullBatchLoader, self).fill_indices(
+                start_offset, count)
 
         self.original_data.unmap()
         self.minibatch_data.unmap()
 
-        if self.original_labels:
+        if self.has_labels:
             self.original_labels.unmap()
             self.minibatch_labels.unmap()
 
         self.shuffled_indices.unmap()
         self.minibatch_indices.unmap()
 
-        self._krn_const[0] = start_offset
-        self._krn_const[1] = count
+        self._krn_const[0:2] = start_offset, count
         self._kernel_.set_arg(2, self._krn_const[0:1])
         self._kernel_.set_arg(3, self._krn_const[1:2])
         self.execute_kernel(self._global_size, self._local_size)
@@ -182,42 +194,37 @@ class FullBatchLoader(Loader):
         pass
 
     def fill_minibatch(self):
-        idxs = self.minibatch_indices.mem
-
-        for i, ii in enumerate(idxs[:self.minibatch_size]):
-            self.minibatch_data[i] = self.original_data[int(ii)]
-
-        if self.original_labels:
-            for i, ii in enumerate(idxs[:self.minibatch_size]):
-                self.minibatch_labels[i] = self.original_labels[int(ii)]
+        for i, sample_index in enumerate(
+                self.minibatch_indices.mem[:self.minibatch_size]):
+            self.minibatch_data[i] = self.original_data[sample_index]
+            if self.has_labels:
+                self.minibatch_labels[i] = self.original_labels[sample_index]
 
 
-class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
+class FullBatchLoaderMSEMixin(LoaderMSEMixin):
     """FullBatchLoader for MSE workflows.
     Attributes:
         original_targets: original target (Vector).
     """
     def init_unpickled(self):
-        super(FullBatchLoaderMSE, self).init_unpickled()
+        super(FullBatchLoaderMSEMixin, self).init_unpickled()
         self.original_targets = formats.Vector()
         self._kernel_target_ = None
         self._global_size_target = None
 
     def __getstate__(self):
-        state = super(FullBatchLoaderMSE, self).__getstate__()
+        state = super(FullBatchLoaderMSEMixin, self).__getstate__()
         state["original_targets"] = None
         return state
 
     def create_minibatches(self):
-        super(FullBatchLoaderMSE, self).create_minibatches()
+        super(FullBatchLoaderMSEMixin, self).create_minibatches()
         self.minibatch_targets.reset()
-        sh = [self.max_minibatch_size]
-        sh.extend(self.original_targets[0].shape)
         self.minibatch_targets.mem = numpy.zeros(
-            sh, dtype=opencl_types.dtypes[config.root.common.precision_type])
+            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
 
     def check_types(self):
-        super(FullBatchLoaderMSE, self).check_types()
+        super(FullBatchLoaderMSEMixin, self).check_types()
         if not isinstance(self.original_targets, formats.Vector):
             raise error.BadFormatError(
                 "original_targets must be of type Vector")
@@ -226,14 +233,14 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
         return {
             "TARGET": 1,
             "TARGET_SIZE": self.original_targets.sample_size,
-            "original_target_dtype": opencl_types.numpy_dtype_to_opencl(
+            "original_target_dtype": numpy_dtype_to_opencl(
                 self.original_targets.dtype),
-            "minibatch_target_dtype": opencl_types.numpy_dtype_to_opencl(
+            "minibatch_target_dtype": numpy_dtype_to_opencl(
                 self.minibatch_targets.dtype)
         }
 
     def _gpu_init(self):
-        super(FullBatchLoaderMSE, self)._gpu_init()
+        super(FullBatchLoaderMSEMixin, self)._gpu_init()
 
         self.original_targets.initialize(self.device)
         self.minibatch_targets.initialize(self.device)
@@ -244,13 +251,13 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
             self.device.skip(2), self.shuffled_indices.devmem)
 
     def ocl_init(self):
-        super(FullBatchLoaderMSE, self).ocl_init()
+        super(FullBatchLoaderMSEMixin, self).ocl_init()
         self._global_size_target = [self.max_minibatch_size,
                                     self.minibatch_targets.sample_size]
         self._local_size_target = None
 
     def cuda_init(self):
-        super(FullBatchLoaderMSE, self).cuda_init()
+        super(FullBatchLoaderMSEMixin, self).cuda_init()
         block_size = self.device.suggest_block_size(self._kernel_target_)
         self._global_size_target = (int(numpy.ceil(
             self.minibatch_data.size / block_size)), 1, 1)
@@ -265,7 +272,12 @@ class FullBatchLoaderMSE(FullBatchLoader, LoaderMSE):
                             self._kernel_target_)
 
     def fill_minibatch(self):
-        super(FullBatchLoaderMSE, self).fill_minibatch()
-        for i, v in enumerate(
-                self.minibatch_indices.mem[:self.minibatch_size]):
-            self.minibatch_targets[i] = self.original_targets[int(v)]
+        super(FullBatchLoaderMSEMixin, self).fill_minibatch()
+        for i, v in enumerate(self.minibatch_indices[:self.minibatch_size]):
+            self.minibatch_targets[i] = self.original_targets[v]
+
+
+class FullBatchLoaderMSE(FullBatchLoader, FullBatchLoaderMSEMixin):
+    """FullBatchLoader for MSE workflows.
+    """
+    pass
