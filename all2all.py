@@ -1,7 +1,7 @@
 """
 Created on Mar 20, 2013
 
-All-to-all perceptoron layers: simple (:class:`All2All`) and with \
+All-to-all perceptron layers: simple (:class:`All2All`) and with \
 activation function (:class:`All2AllTanh`, :class:`All2AllRELU` and  \
 :class:`All2AllSoftmax`).
 

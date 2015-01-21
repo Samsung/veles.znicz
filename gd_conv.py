@@ -98,7 +98,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         kernel_size = self.kx * self.ky * n_channels
         dtype = self.err_output.mem.dtype
 
-        self.cl_const = numpy.zeros(5, dtype=dtype)
+        self.cl_const = numpy.zeros(9, dtype=dtype)
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
