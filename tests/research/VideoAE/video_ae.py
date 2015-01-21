@@ -11,6 +11,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import os
 import re
+from zope.interface import implementer
 
 from veles.config import root
 import veles.znicz.nn_units as nn_units
@@ -36,6 +37,7 @@ root.video_ae.update({
     "data_paths": os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
 
+@implementer(loader.IFileImageLoader)
 class VideoAELoader(loader.FullBatchFileImageLoader):
     """Loads dataset.
 
@@ -72,7 +74,8 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.loader = VideoAELoader(
             self, train_paths=(root.video_ae.data_paths,),
             minibatch_size=root.video_ae.loader.minibatch_size,
-            on_device=root.video_ae.loader.on_device)
+            on_device=root.video_ae.loader.on_device,
+            color_space="GRAY")
         self.loader.link_from(self.repeater)
 
         # Add fwds units

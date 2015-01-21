@@ -155,14 +155,16 @@ class DecisionBase(Unit):
         pass
 
     def initialize_arrays(self, minibatch_array, arrays):
-        if minibatch_array is not None and minibatch_array:
+        if minibatch_array:
             for index, item in enumerate(arrays):
                 if item is None or item.size != len(minibatch_array):
                     arrays[index] = numpy.zeros_like(minibatch_array.mem)
                 else:
                     arrays[index][:] = 0
         else:
-            self.warning("Could not initialize the arrays")
+            import traceback
+            stack = traceback.format_stack(limit=2)[:-1]
+            self.warning("Did not initialize arrays:\n%s", "\n".join(stack))
 
     def _on_last_minibatch(self):
         self.on_last_minibatch()

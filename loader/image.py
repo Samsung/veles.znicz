@@ -14,8 +14,9 @@ import logging
 import numpy
 import os
 from PIL import Image
-from psutil import phymem_usage
+from psutil import virtual_memory
 from zope.interface import implementer, Interface
+from veles.compat import from_none
 
 import veles.error as error
 from veles.external.progressbar import ProgressBar, Percentage, Bar
@@ -36,6 +37,18 @@ MODE_COLOR_MAP = {
     "YCbCr": "YCR_CB",
     "I": "GRAY",
     "F": "GRAY",
+}
+
+COLOR_CHANNELS_MAP = {
+    "RGB": 3,
+    "BGR": 3,
+    "GRAY": 1,
+    "HSV": 3,
+    "YCR_CB": 3,
+    "RGBA": 4,
+    "BGRA": 4,
+    "LAB": 3,
+    "LUV": 3,
 }
 
 
@@ -87,6 +100,19 @@ class ImageLoader(Loader):
         self._has_labels = False
         self.class_keys = [[], [], []]
         self.verify_interface(IImageLoader)
+        self._restored_from_pickle = False
+
+    def __setstate__(self, state):
+        super(ImageLoader, self).__setstate__(state)
+        self.info("Scanning for changes...")
+        for keys in self.class_keys:
+            for key in keys:
+                (size, _), = self.get_image_info(key)
+                if size != self.shape[:2]:
+                    raise error.BadFormatError(
+                        "%s changed the size (now %s, was %s)" %
+                        (key, size, self.shape[:2]))
+        self._restored_from_pickle = True
 
     @Loader.shape.getter
     def shape(self):
@@ -94,18 +120,21 @@ class ImageLoader(Loader):
 
     @shape.setter
     def shape(self, value):
+        if value is None:
+            raise ValueError("shape must not be None")
         if not isinstance(value, tuple):
-            raise TypeError("shape must be a tuple")
-        if len(value) != 3:
-            raise ValueError("len(shape) must be equal to 3")
-        for i in range(3):
-            if not isinstance(value[i], int):
-                raise TypeError(
-                    "shape[%d] is not an integer (= %s)" % (i, value[i]))
-            if value[i] < 1:
-                raise ValueError(
-                    "shape[%d] < 1 (= %s)" % (i, value[i]))
-        self._shape = value
+            raise TypeError("shape must be a tuple (got %s)" % (value,))
+        if len(value) not in (2, 3):
+            raise ValueError("len(shape) must be equal to 2 or 3 (got %s)" %
+                             (value,))
+        for i, d in enumerate(value):
+            if not isinstance(d, int):
+                raise TypeError("shape[%d] is not an integer (= %s)" % (i, d))
+            if d < 1:
+                raise ValueError("shape[%d] < 1 (= %s)" % (i, d))
+        self._shape = value[:2]
+        if self.channels_number > 1:
+            self._shape += (self.channels_number,)
 
     @property
     def has_labels(self):
@@ -114,15 +143,28 @@ class ImageLoader(Loader):
         """
         return self._has_labels
 
+    @property
+    def channels_number(self):
+        return COLOR_CHANNELS_MAP[self.color_space]
+
     def preprocess_image(self, data, key):
-        _, color = self.get_image_info(key)
+        (_, color), = self.get_image_info(key)
         if color != self.color_space:
             method = getattr(
                 cv2, "COLOR_%s2%s" % (color, self.color_space), None)
             if method is None:
-                data = cv2.cvtColor(data, getattr(cv2, "COLOR_%s2BGR" % color))
+                aux_method = getattr(cv2, "COLOR_%s2BGR" % color)
+                try:
+                    data = cv2.cvtColor(data, aux_method)
+                except cv2.error as e:
+                    self.error("Failed to perform '%s' conversion", aux_method)
+                    raise from_none(e)
                 method = getattr(cv2, "COLOR_BGR2%s" % self.color_space)
-            data = cv2.cvtColor(data, method)
+            try:
+                data = cv2.cvtColor(data, method)
+            except cv2.error as e:
+                self.error("Failed to perform '%s' conversion", method)
+                raise from_none(e)
         if self.normalize:
             # TODO(v.markovtsev): implement normalization, incl. Loader
             memory.normalize(data)
@@ -149,6 +191,10 @@ class ImageLoader(Loader):
                 if has_labels and label is None:
                     raise error.BadFormatError(
                         "%s does not have a label, but others do" % key)
+                if obj.shape[:2] != self.shape[:2]:
+                    self.debug("Ignored %s (label %s): shape %s",
+                               key, label, obj.shape[:2])
+                    continue
                 if data is not None:
                     data[index] = obj
                 if labels is not None:
@@ -158,9 +204,15 @@ class ImageLoader(Loader):
                     pbar.inc()
         return has_labels
 
+    def initialize(self, device, **kwargs):
+        super(ImageLoader, self).initialize(device, **kwargs)
+        self._restored_from_pickle = False
+
     def load_data(self):
-        self.class_keys = [[], [], []]
-        # First pass
+        if self._restored_from_pickle:
+            return
+        for keys in self.class_keys:
+            del keys[:]
         for index, class_name in enumerate(CLASS_NAME):
             keys = self.get_keys(index)
             self.class_keys[index].extend(keys)
@@ -179,7 +231,8 @@ class ImageLoader(Loader):
         assert len(keys) > 0
         data = numpy.zeros((1,) + self.shape, dtype=self.source_dtype)
         labels = numpy.zeros((1,), dtype=Loader.LABEL_DTYPE)
-        self._has_labels = self.load_keys((keys[0],), None, data, labels)
+        self._has_labels = self.load_keys(
+            (keys[numpy.random.randint(len(keys))],), None, data, labels)
 
     def create_minibatches(self):
         self.minibatch_data.reset()
@@ -223,6 +276,8 @@ class ImageLoaderMSEMixin(LoaderMSEMixin):
 
     def load_data(self):
         super(ImageLoaderMSEMixin, self).load_data()
+        if self._restored_from_pickle:
+            return
         self.target_keys.extend(self.get_keys(TARGET))
         length = len(self.target_keys)
         if len(set(self.target_keys)) < length:
@@ -274,10 +329,10 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
 
     @property
     def has_labels(self):
-        return ImageLoader.has_labels.getter(self)
+        return ImageLoader.has_labels.fget(self)
 
     def load_data(self):
-        ImageLoader.load_data(self)
+        super(FullBatchImageLoader, self).load_data()
 
         # Allocate data
         overall = sum(self.class_lengths)
@@ -285,10 +340,10 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                   "%d TRAIN)", overall, self.shape, *self.class_lengths)
         required_mem = overall * numpy.prod(self.shape) * numpy.dtype(
             self.source_dtype).itemsize
-        if phymem_usage().free < required_mem:
+        if virtual_memory().free < required_mem:
             gb = 1.0 / (1000 * 1000 * 1000)
             self.critical("Not enough memory (free %.3f Gb, required %.3f Gb)",
-                          phymem_usage().free * gb, required_mem * gb)
+                          virtual_memory().free * gb, required_mem * gb)
             raise MemoryError("Not enough memory")
         # Real allocation will still happen during the second pass
         self.original_data.mem = data = numpy.zeros(
@@ -297,10 +352,10 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
             overall, dtype=Loader.LABEL_DTYPE)
 
         # Second pass
-        pbar = ProgressBar(term_width=17, maxval=overall,
+        pbar = ProgressBar(term_width=50, maxval=overall,
                            widgets=["Loading %d images " % overall,
-                                    Percentage(), ' ', Bar()],
-                           log_level=logging.INFO)
+                                    Bar(), ' ', Percentage()],
+                           log_level=logging.INFO, poll=0.5)
         pbar.start()
         offset = 0
         has_labels = []
@@ -396,14 +451,14 @@ class FileImageLoader(ImageLoader):
 
     def __init__(self, workflow, **kwargs):
         super(FileImageLoader, self).__init__(workflow, **kwargs)
-        self.test_paths = kwargs.get("test_paths")
-        self.validation_paths = kwargs.get("validation_paths")
-        self.train_paths = kwargs.get("train_paths")
+        self.test_paths = kwargs.get("test_paths", [])
+        self.validation_paths = kwargs.get("validation_paths", [])
+        self.train_paths = kwargs.get("train_paths", [])
         self.verify_interface(IFileImageLoader)
 
     def _check_paths(self, paths):
         if not hasattr(paths, "__iter__"):
-            raise TypeError("Paths must be iterable, e.g., a list instance")
+            raise TypeError("Paths must be iterable, e.g., a list or a tuple")
 
     @property
     def test_paths(self):
@@ -442,15 +497,17 @@ class FileImageLoader(ImageLoader):
         (image size, number of channels).
         """
         try:
-            img = Image.open(key)
-            return (tuple(reversed(img.size)), MODE_COLOR_MAP[img.mode]),
-        except:
+            with open(key, "rb") as fin:
+                img = Image.open(fin)
+                return (tuple(reversed(img.size)), MODE_COLOR_MAP[img.mode]),
+        except Exception as e:
+            self.warning("Failed to read %s with PIL: %s", key, e)
             # Unable to read the image with PIL. Fall back to slow OpenCV
             # method which reads the whole image.
             img = cv2.imread(key, cv2.IMREAD_UNCHANGED)
             if img is None:
                 raise error.BadFormatError("Unable to read %s" % key)
-            return (img.shape[:2] + (3,), "BGR"),
+            return (img.shape[:2], "BGR"),
 
     def get_image_data(self, key):
         """
@@ -461,12 +518,15 @@ class FileImageLoader(ImageLoader):
             tuple: `(data, labels)` if there were many images in the file
         """
         try:
-            img = Image.open(key)
-            if img.mode in ("P", "CMYK"):
-                return numpy.array(img.convert("RGB"), dtype=self.source_dtype)
-            else:
-                return numpy.array(img, dtype=self.source_dtype)
-        except:
+            with open(key, "rb") as fin:
+                img = Image.open(fin)
+                if img.mode in ("P", "CMYK"):
+                    return numpy.array(img.convert("RGB"),
+                                       dtype=self.source_dtype)
+                else:
+                    return numpy.array(img, dtype=self.source_dtype)
+        except Exception as e:
+            self.warning("Failed to read %s with PIL: %s", key, e)
             img = cv2.imread(key)
             if img is None:
                 raise error.BadFormatError("Unable to read %s" % key)
@@ -489,13 +549,14 @@ class FileImageLoader(ImageLoader):
         uniform_files = []
         for file in files:
             infos = self.get_image_info(file)
-            for size, channels in infos:
-                shape = size + tuple(channels)
-                if self.shape != tuple() and shape != self.shape:
+            for size, color_space in infos:
+                shape = size + (COLOR_CHANNELS_MAP[color_space],)
+                if self.shape != tuple() and shape[:2] != self.shape[:2]:
                     self.warning("%s has the different shape %s (expected %s)",
-                                 file, shape, self.shape)
+                                 file, shape[:2], self.shape[:2])
                 else:
-                    self.shape = shape
+                    if self.shape == tuple():
+                        self.shape = shape
                     uniform_files.append(file)
         return uniform_files
 

@@ -274,7 +274,9 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
 
         if self.target.shape != self.output.shape:
-            raise error.BadFormatError("target.shape != output.shape")
+            raise error.BadFormatError(
+                "target.shape != output.shape (%s != %s)" %
+                (self.target.shape, self.output.shape))
 
         self.cl_sources_["evaluator"] = {}
 
