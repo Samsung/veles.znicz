@@ -71,51 +71,54 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_bias_ = None
 
     def initialize(self, device, **kwargs):
-        super(GradientDescentConv, self).initialize(device=device, **kwargs)
+        self._batch_size = self.input.shape[0]
+        self._sy = self.input.shape[1]
+        self._sx = self.input.shape[2]
+        self._n_channels = (self.input.size //
+                            (self._batch_size * self._sx * self._sy))
+        self._kernel_size = self.kx * self.ky * self._n_channels
+        self._dtype = self.err_output.dtype
+        self._kernel_applies_count = (
+            self._batch_size *
+            ((self._sx + self.padding[0] + self.padding[2] - self.kx) //
+             self.sliding[0] + 1) *
+            ((self._sy + self.padding[1] + self.padding[3] - self.ky) //
+             self.sliding[1] + 1))
 
-        batch_size = self.input.shape[0]
-        sy = self.input.shape[1]
-        sx = self.input.shape[2]
-        n_channels = self.input.size // (batch_size * sx * sy)
-        n_weights = self.n_kernels * self.kx * self.ky * n_channels
+        self.cl_const = numpy.zeros(9, dtype=self._dtype)
 
+        self._side = self.weights.shape[1 if self.weights_transposed else 0]
+        self._other = self.weights.size // self._side
+        assert self._side == self.n_kernels
+        assert self._other == self.kx * self.ky * self._n_channels
+
+        n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
         if self.weights.size != n_weights:
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
         if self.include_bias and self.bias.size != self.n_kernels:
             raise error.BadFormatError("Expected bias to match n_kernels")
-        if self.input.size != batch_size * sy * sx * n_channels:
+        if (self.input.size !=
+                self._batch_size * self._sy * self._sx * self._n_channels):
             raise error.BadFormatError(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
 
+        super(GradientDescentConv, self).initialize(device=device, **kwargs)
+
     def ocl_init(self):
-        batch_size = self.input.mem.shape[0]
-        sy = self.input.mem.shape[1]
-        sx = self.input.mem.shape[2]
-        n_channels = self.input.mem.size // (batch_size * sx * sy)
-        kernel_size = self.kx * self.ky * n_channels
-        dtype = self.err_output.mem.dtype
-
-        self.cl_const = numpy.zeros(9, dtype=dtype)
-
-        side = self.weights.shape[1 if self.weights_transposed else 0]
-        other = self.weights.size // side
-        assert side == self.n_kernels
-        assert other == self.kx * self.ky * n_channels
-
         defines = {
-            'H': other,
-            'Y': side,
+            'H': self._other,
+            'Y': self._side,
             'APPLY_GRADIENT': int(self.apply_gradient),
             'WEIGHTS_TRANSPOSED': int(self.weights_transposed),
             'ACCUMULATE_GRADIENT': int(self.accumulate_gradient),
             'USE_ATOMICS': 1,
-            'BATCH': batch_size,
-            'SX': sx,
-            'SY': sy,
-            'N_CHANNELS': n_channels,
+            'BATCH': self._batch_size,
+            'SX': self._sx,
+            'SY': self._sy,
+            'N_CHANNELS': self._n_channels,
             'KX': self.kx,
             'KY': self.ky,
             'N_KERNELS': self.n_kernels,
@@ -128,14 +131,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             'REDUCE_SIZE': self.reduce_size
         }
 
-        kernel_applies_count = (
-            batch_size *
-            ((sx + self.padding[0] + self.padding[2] - self.kx) //
-             self.sliding[0] + 1) *
-            ((sy + self.padding[1] + self.padding[3] - self.ky) //
-             self.sliding[1] + 1))
-        a_width = kernel_applies_count
-        b_width = kernel_size
+        a_width = self._kernel_applies_count
+        b_width = self._kernel_size
         block_size = self.device.device_info.get_block_size(
             kernel="deconv", dtype=self.err_output.dtype)
         self.cl_sources_["conv/gradient_descent/err_input_update"] = {
@@ -146,8 +143,10 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             roundup(a_width, block_size)]
         self._local_size_err_input = [block_size, block_size]
 
-        a_width = kernel_size if self.weights_transposed else self.n_kernels
-        b_width = self.n_kernels if self.weights_transposed else kernel_size
+        a_width = (self._kernel_size if self.weights_transposed
+                   else self.n_kernels)
+        b_width = (self.n_kernels if self.weights_transposed
+                   else self._kernel_size)
         block_size = self.device.device_info.get_block_size(
             kernel="conv", dtype=self.err_output.dtype)
         self.cl_sources_["conv/gradient_descent/weights_update"] = {
@@ -170,7 +169,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.__class__.__name__, self.input.shape[0],
             self.input.sample_size, self.output.sample_size,
             self.kx, self.ky, self.n_kernels),
-            dtype=dtype)
+            dtype=self._dtype)
 
         if self.need_err_input:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
@@ -202,6 +201,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.krn_compute_col_sums_.set_args(self.weights.devmem,
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
+
+    def cuda_init(self):
+        raise NotImplementedError("TODO(a.kazantsev): implement.")
 
     def cpu_weights_update(self):
         # TODO(a.kazantsev): implement in case of transposed weights
