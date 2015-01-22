@@ -12,8 +12,8 @@
 /// @param moment Moment for gradient.
 /// @details Should be defined externally:
 ///          REDUCE_SIZE - size of the block for matrix reduce,
-///          BATCH - minibatch size,
-///          Y - output size.
+///          BIAS_SIZE - bias size (Y),
+///          OUTPUT_SIZE - number of output elements in the minibatch (BATCH).
 extern "C"
 __global__ void bias_update(const dtype    *err_output,
                             dtype          *bias,
@@ -26,8 +26,8 @@ __global__ void bias_update(const dtype    *err_output,
                             const dtype    moment) {
 
   #define A err_output
-  #define A_WIDTH Y
-  #define A_HEIGHT BATCH
+  #define A_WIDTH BIAS_SIZE
+  #define A_HEIGHT OUTPUT_SIZE
   #define A_COL
 
   #include "matrix_reduce.cu"

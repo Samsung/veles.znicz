@@ -14,6 +14,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import cuda4py.blas as cublas
 import numpy
 import scipy.signal
 import time
@@ -107,7 +108,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         super(GradientDescentConv, self).initialize(device=device, **kwargs)
 
-    def ocl_init(self):
+    def _gpu_init(self):
         defines = {
             'H': self._other,
             'Y': self._side,
@@ -131,6 +132,35 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             'REDUCE_SIZE': self.reduce_size
         }
 
+        self.build_program(defines, "%s_%d_%d_%d_%dx%dx%d" % (
+            self.__class__.__name__, self.input.shape[0],
+            self.input.sample_size, self.output.sample_size,
+            self.kx, self.ky, self.n_kernels),
+            dtype=self._dtype)
+
+        self.krn_weights_ = self.get_kernel("weights_update")
+        self.krn_weights_.set_args(self.err_output.devmem,
+                                   self.input.devmem,
+                                   self.weights.devmem,
+                                   self.gradient_weights.devmem,
+                                   self.accumulated_gradient_weights.devmem,
+                                   self.gradient_weights_with_moment.devmem)
+
+        if self.include_bias:
+            self.krn_bias_ = self.get_kernel("bias_update")
+            self.krn_bias_.set_args(
+                self.err_output.devmem, self.bias.devmem,
+                self.gradient_bias.devmem,
+                self.accumulated_gradient_bias.devmem,
+                self.gradient_bias_with_moment.devmem)
+
+        if self.factor_ortho:
+            self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
+            self.krn_compute_col_sums_.set_args(self.weights.devmem,
+                                                self.col_sums.devmem)
+            self.krn_weights_.set_arg(11, self.col_sums.devmem)
+
+    def ocl_init(self):
         a_width = self._kernel_applies_count
         b_width = self._kernel_size
         block_size = self.device.device_info.get_block_size(
@@ -165,11 +195,10 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._global_size_bias = [self.n_kernels * self.reduce_size]
         self._local_size_bias = [self.reduce_size]
 
-        self.build_program(defines, "%s_%d_%d_%d_%dx%dx%d" % (
-            self.__class__.__name__, self.input.shape[0],
-            self.input.sample_size, self.output.sample_size,
-            self.kx, self.ky, self.n_kernels),
-            dtype=self._dtype)
+        self._gpu_init()
+
+        self._global_size_ortho = [self._other * self.reduce_size]
+        self._local_size_ortho = [self.reduce_size]
 
         if self.need_err_input:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
@@ -180,29 +209,25 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                          self.weights.devmem,
                                          self.err_input.devmem)
 
-        self.krn_weights_ = self.get_kernel("weights_update")
-        self.krn_weights_.set_args(self.err_output.devmem,
-                                   self.input.devmem,
-                                   self.weights.devmem,
-                                   self.gradient_weights.devmem,
-                                   self.accumulated_gradient_weights.devmem,
-                                   self.gradient_weights_with_moment.devmem)
-
-        if self.include_bias:
-            self.krn_bias_ = self.get_kernel("bias_update")
-            self.krn_bias_.set_args(
-                self.err_output.devmem, self.bias.devmem,
-                self.gradient_bias.devmem,
-                self.accumulated_gradient_bias.devmem,
-                self.gradient_bias_with_moment.devmem)
-
-        if self.factor_ortho:
-            self.krn_compute_col_sums_ = self.get_kernel("compute_col_sums")
-            self.krn_compute_col_sums_.set_args(self.weights.devmem,
-                                                self.col_sums.devmem)
-            self.krn_weights_.set_arg(11, self.col_sums.devmem)
-
     def cuda_init(self):
+        self.cl_sources_["conv/gradient_descent/err_input_update"] = {}
+        self.cl_sources_["all2all/gradient_descent/weights_update"] = {
+            "USE_ORTHO": int(bool(self.factor_ortho)),
+            "USE_MOMENT": int(bool(self.gradient_moment))
+        }
+        self.cl_sources_["all2all/gradient_descent/bias_update"] = {
+            "BIAS_SIZE": self.n_kernels,
+            "OUTPUT_SIZE": self._kernel_applies_count,
+            "USE_MOMENT": int(bool(self.gradient_moment_bias))
+        }
+
+        self._gpu_init()
+
+        self.gemm_ = (cublas.CUBLAS.sgemm if self._dtype == numpy.float32
+                      else cublas.CUBLAS.dgemm)
+        self.np_one = numpy.ones(1, dtype=self._dtype)
+        self.np_zero = numpy.zeros(1, dtype=self._dtype)
+
         raise NotImplementedError("TODO(a.kazantsev): implement.")
 
     def cpu_weights_update(self):

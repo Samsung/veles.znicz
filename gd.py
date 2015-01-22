@@ -91,6 +91,8 @@ class GradientDescent(nn_units.GradientDescentBase):
         }
 
         self.cl_sources_["all2all/gradient_descent/bias_update"] = {
+            "BIAS_SIZE": side,
+            "OUTPUT_SIZE": batch,
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
         }
 

@@ -1,3 +1,5 @@
+#include "defines.cu"
+
 /**
  * Should be defined:
  *   SX: input image width
@@ -11,7 +13,6 @@
  *   PAD_BOTTOM: padding size at the bottom of each image
  *   PAD_LEFT: padding size at the left of each image
  *   PAD_RIGHT: padding size at the right of each image
- *   BATCH: minibatch size
  */
 
 #define KX_APP (1 + ((SX - KX + PAD_LEFT + PAD_RIGHT) / SLIDE_X))
