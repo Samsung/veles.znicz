@@ -19,12 +19,13 @@
 #define KY_APP (1 + ((SY - KY + PAD_TOP + PAD_BOTTOM) / SLIDE_Y))
 #define KERNEL_SIZE (KX * KY * N_CHANNELS)
 #define IMG_SIZE (SX * SY * N_CHANNELS)
-#define UNPACK_IMG_SIZE (KX_APP * KY_APP * KX * KY * N_CHANNELS)
 
 extern "C"
 __global__ void DirectPack(const dtype *unpack_data, dtype *data) {
-  int tx = threadIdx.x + blockIdx.x * blockDim.x;
-  int ty = threadIdx.y + blockIdx.y * blockDim.y;
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;  // we are processing one image at a time, so size_t is not required
+
+  int ty = idx / KERNEL_SIZE;
+  int tx = idx % KERNEL_SIZE;
 
   int img_idx = ty / KX_APP / KY_APP;
   int kernel_j = SLIDE_X *  (ty % KX_APP);
@@ -40,6 +41,6 @@ __global__ void DirectPack(const dtype *unpack_data, dtype *data) {
     data_idx = IMG_SIZE * img_idx +
                ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS +
                ch_idx;
-    atomicAdd(data + data_idx, unpack_data[ty * KERNEL_SIZE + tx]);
+    atomicAdd(data + data_idx, unpack_data[idx]);
   }
 }

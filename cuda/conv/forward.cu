@@ -82,7 +82,7 @@ __global__ void ReverseUnpack(const dtype *data, dtype *unpack_data) {
  */
 extern "C"
 __global__ void Unpack1D(const dtype *data, dtype *unpack_data, const int limit) {
-  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;  // we are processing one image at a time, so size_t is not required
 
   int ty = idx / KERNEL_SIZE;
   int tx = idx % KERNEL_SIZE;

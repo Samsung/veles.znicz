@@ -70,6 +70,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_weights_ = None
         self.krn_err_output_ = None
         self.krn_bias_ = None
+        self.krn_err_output_name = None
 
     def initialize(self, device, **kwargs):
         self._batch_size = self.input.shape[0]
@@ -160,6 +161,11 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
+        if self.krn_err_output_name:
+            self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
+            self.krn_err_output_.set_args(self.err_output.devmem,
+                                          self.output.devmem)
+
     def ocl_init(self):
         a_width = self._kernel_applies_count
         b_width = self._kernel_size
@@ -200,6 +206,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._global_size_ortho = [self._other * self.reduce_size]
         self._local_size_ortho = [self.reduce_size]
 
+        self._global_size_err_output = [self.err_output.mem.size]
+        self._local_size_err_output = None
+
         if self.need_err_input:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
@@ -223,11 +232,24 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self._gpu_init()
 
+        self._global_size_ortho = (self._other, 1, 1)
+        self._local_size_ortho = (self.reduce_size, 1, 1)
+
+        if self.krn_err_output_ is not None:
+            block_size = self.device.suggest_block_size(self.krn_err_output_)
+            self._global_size_err_output = (int(numpy.ceil(
+                self.err_output.size / block_size)), 1, 1)
+            self._local_size_err_output = (block_size, 1, 1)
+
         self.gemm_ = (cublas.CUBLAS.sgemm if self._dtype == numpy.float32
                       else cublas.CUBLAS.dgemm)
         self.np_one = numpy.ones(1, dtype=self._dtype)
         self.np_zero = numpy.zeros(1, dtype=self._dtype)
 
+    def cuda_err_input_update(self):
+        raise NotImplementedError("TODO(a.kazantsev): implement.")
+
+    def cuda_weights_update(self):
         raise NotImplementedError("TODO(a.kazantsev): implement.")
 
     def cpu_weights_update(self):
@@ -427,21 +449,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]
 
-    def gpu_err_output_update(self):
-        """Multiply err_output by activation derivative by output.
-        """
-        if self.krn_err_output_ is None:
-            return
-        self.output.unmap()
-        self.err_output.unmap()
-        self.execute_kernel([self.err_output.mem.size], None,
-                            self.krn_err_output_)
-
-    def cpu_err_output_update(self):
-        """Multiply err_output by activation derivative by output.
-        """
-        pass
-
     def ocl_run(self):
         """Do gradient descent.
         """
@@ -449,6 +456,16 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.gpu_err_output_update()
         self.gpu_err_input_update()
         self.gpu_weights_update()
+        self.gpu_bias_update()
+        self.print_debug_data(t1)
+
+    def cuda_run(self):
+        """Do gradient descent.
+        """
+        t1 = time.time()
+        self.gpu_err_output_update()
+        self.cuda_err_input_update()
+        self.cuda_weights_update()
         self.gpu_bias_update()
         self.print_debug_data(t1)
 
@@ -486,12 +503,8 @@ class GDTanhConv(GradientDescentConv):
 
     def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_tanh"] = {}
+        self.krn_err_output_name = "err_y_update"
         super(GDTanhConv, self).initialize(device=device, **kwargs)
-        if self.device is None:
-            return
-        self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem,
-                                      self.output.devmem)
 
 
 class GDRELUConv(GradientDescentConv):
@@ -514,12 +527,8 @@ class GDRELUConv(GradientDescentConv):
 
     def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_relu"] = {}
+        self.krn_err_output_name = "err_y_update"
         super(GDRELUConv, self).initialize(device=device, **kwargs)
-        if self.device is None:
-            return
-        self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem,
-                                      self.output.devmem)
 
 
 class GDStrictRELUConv(GradientDescentConv):
@@ -543,9 +552,5 @@ class GDStrictRELUConv(GradientDescentConv):
 
     def initialize(self, device, **kwargs):
         self.cl_sources_["gradient_descent_strict_relu"] = {}
+        self.krn_err_output_name = "err_y_update"
         super(GDStrictRELUConv, self).initialize(device=device, **kwargs)
-        if self.device is None:
-            return
-        self.krn_err_output_ = self.get_kernel("err_y_update")
-        self.krn_err_output_.set_args(self.err_output.devmem,
-                                      self.output.devmem)

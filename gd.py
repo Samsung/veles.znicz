@@ -171,7 +171,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
 
-        if self.krn_err_output_name:
+        if self.krn_err_output_ is not None:
             block_size = self.device.suggest_block_size(self.krn_err_output_)
             self._global_size_err_output = (int(numpy.ceil(
                 self.err_output.size / block_size)), 1, 1)
@@ -308,22 +308,6 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.execute_kernel(
             self._global_size_err_input, self._local_size_err_input,
             self.krn_err_input_)
-
-    def cpu_err_output_update(self):
-        """Multiply err_output by activation derivative by output.
-        """
-        pass
-
-    def gpu_err_output_update(self):
-        """Multiply err_output by activation derivative by output.
-        """
-        if self.krn_err_output_ is None:
-            return
-        self.output.unmap()
-        self.err_output.unmap()
-        self.execute_kernel(
-            self._global_size_err_output, self._local_size_err_output,
-            self.krn_err_output_)
 
     def cpu_run(self):
         """Do gradient descent.

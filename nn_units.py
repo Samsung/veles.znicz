@@ -506,6 +506,22 @@ class GradientDescentBase(AcceleratedUnit):
             self._global_size_bias, self._local_size_bias,
             self.krn_bias_)
 
+    def gpu_err_output_update(self):
+        """Multiply err_output by activation derivative by output.
+        """
+        if self.krn_err_output_ is None:
+            return
+        self.output.unmap()
+        self.err_output.unmap()
+        self.execute_kernel(
+            self._global_size_err_output, self._local_size_err_output,
+            self.krn_err_output_)
+
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by output.
+        """
+        pass
+
     def print_debug_data(self, t_start):
         """
         Show weights statistics
