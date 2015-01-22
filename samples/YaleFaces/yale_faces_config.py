@@ -19,14 +19,17 @@ root.yalefaces.update({
     "snapshotter": {"prefix": "yalefaces"},
     "loader": {"minibatch_size": 40, "on_device": True,
                "validation_ratio": 0.15,
-               "common_dir": root.common.test_dataset_root,
-               "url":
-               "http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/"
-               "CroppedYale.zip"},
+               "filename_types": ["x-portable-graymap"],
+               "ignored_files": [".*Ambient.*"],
+               "shuffle_limit": 100000000000000,
+               "add_sobel": False,
+               "normalization_type": (-1, 1),
+               "mirror": False,
+               "color_space": "GRAY",
+               "background_color": (0,),
+               "train_paths":
+               [os.path.join(root.common.test_dataset_root, "CroppedYale")]},
     "layers": [{"type": "all2all_tanh", "learning_rate": 0.01,
                 "weights_decay": 0.00005, "output_shape": 100},
                {"type": "softmax", "output_shape": 39, "learning_rate": 0.01,
                 "weights_decay": 0.00005}]})
-
-root.yalefaces.loader.data_dir = os.path.join(
-    root.yalefaces.loader.common_dir, "CroppedYale")

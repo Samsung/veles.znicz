@@ -15,10 +15,10 @@ from zope.interface import implementer, Interface
 
 from veles.distributable import IDistributable
 import veles.error as error
-import veles.memory as formats
+import veles.memory as memory
 from veles.mutable import Bool
 import veles.prng as random_generator
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.units import Unit, IUnit
 
 
 TARGET = 3
@@ -53,14 +53,12 @@ class ILoader(Interface):
         """
 
 
-@implementer(IOpenCLUnit, IDistributable)
-class Loader(AcceleratedUnit):
+@implementer(IDistributable, IUnit)
+class Loader(Unit):
     """Loads data and provides minibatch output interface.
 
     Attributes:
         prng: veles.prng.RandomGenerator instance.
-        normalize: normalize pixel values into [-1, 1] range.
-                   True by default.
         validation_ratio: used by extract_validation_from_train() as a default
                           ratio.
         max_minibatch_size: maximal size of a minibatch.
@@ -95,8 +93,9 @@ class Loader(AcceleratedUnit):
         self.verify_interface(ILoader)
 
         self.prng = kwargs.get("prng", random_generator.get())
-        self.normalize = kwargs.get("normalize", True)
-        self.validation_ratio = kwargs.get("validation_ratio", 0.15)
+        self.normalization_type = kwargs.get("normalization_type", (-1, 1))
+        self.shuffle_limit = kwargs.get(
+            "shuffle_limit", numpy.iinfo(numpy.uint32).max)
         self._max_minibatch_size = kwargs.get("minibatch_size", 100)
         if self._max_minibatch_size < 1:
             raise ValueError("minibatch_size must be greater than zero")
@@ -112,15 +111,15 @@ class Loader(AcceleratedUnit):
         self.global_offset = 0
 
         self.minibatch_class = 0
-        self.minibatch_data = formats.Vector()
-        self.minibatch_indices = formats.Vector()
-        self.minibatch_labels = formats.Vector()
+        self.minibatch_data = memory.Vector()
+        self.minibatch_indices = memory.Vector()
+        self.minibatch_labels = memory.Vector()
 
         self.failed_minibatches = []
         self._total_failed = 0
         self._unpickled = False
 
-        self.shuffled_indices = formats.Vector()
+        self.shuffled_indices = memory.Vector()
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -338,10 +337,13 @@ class Loader(AcceleratedUnit):
         """
         return self.minibatch_data[0].shape
 
-    def initialize(self, device, **kwargs):
+    def initialize(self, **kwargs):
         """Loads the data, initializes indices, shuffles the training set.
         """
-        super(Loader, self).initialize(device, **kwargs)
+        try:
+            super(Loader, self).initialize(**kwargs)
+        except AttributeError:
+            pass
         self.load_data()
         self._update_total_samples()
         self.info("Samples number: test: %d, validation: %d, train: %d",
@@ -361,23 +363,11 @@ class Loader(AcceleratedUnit):
         else:
             self._unpickled = False
 
-    def cpu_run(self):
+    def run(self):
         """Prepares the minibatch.
         """
         self.serve_next_minibatch(None)
         self._on_successful_serve()
-
-    def ocl_run(self):
-        self.cpu_run()
-
-    def cuda_run(self):
-        self.cpu_run()
-
-    def ocl_init(self):
-        pass
-
-    def cuda_init(self):
-        pass
 
     def generate_data_for_master(self):
         return True
@@ -439,100 +429,6 @@ class Loader(AcceleratedUnit):
                       len(self.failed_minibatches),
                       self.pending_minibatches_count)
 
-    def extract_validation_from_train(self, rand=None, ratio=None):
-        """Extracts validation dataset from train dataset randomly.
-
-        We will rearrange indexes only.
-
-        Parameters:
-            amount: how many samples move from train dataset
-                    relative to the entire samples count for each class.
-            rand: veles.prng.RandomGenerator, if None - will use
-                  self.prng.
-        """
-        amount = ratio or self.validation_ratio
-        rand = rand or self.prng
-
-        if amount <= 0:  # Dispose validation set
-            self.class_lengths[TRAIN] += self.class_lengths[VALID]
-            self.class_lengths[VALID] = 0
-            if self.shuffled_indices.mem is None:
-                total_samples = numpy.sum(self.class_lengths)
-                self.shuffled_indices.mem = numpy.arange(
-                    total_samples, dtype=Loader.LABEL_DTYPE)
-            return
-        offs_test = self.class_lengths[TEST]
-        offs = offs_test
-        train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
-        total_samples = train_samples + offs
-        if isinstance(self.original_labels, formats.Vector):
-            self.original_labels.map_read()
-            original_labels = self.original_labels.mem
-        else:
-            original_labels = self.original_labels
-
-        if self.shuffled_indices.mem is None:
-            self.shuffled_indices.mem = numpy.arange(
-                total_samples, dtype=Loader.LABEL_DTYPE)
-        self.shuffled_indices.map_write()
-        shuffled_indices = self.shuffled_indices.mem
-
-        # If there are no labels
-        if original_labels is None:
-            n = int(numpy.round(amount * train_samples))
-            while n > 0:
-                i = rand.randint(offs, offs + train_samples)
-
-                # Swap indexes
-                shuffled_indices[offs], shuffled_indices[i] = \
-                    shuffled_indices[i], shuffled_indices[offs]
-
-                offs += 1
-                n -= 1
-            self.class_lengths[VALID] = offs - offs_test
-            self.class_lengths[TRAIN] = (total_samples
-                                         - self.class_lengths[VALID]
-                                         - offs_test)
-            return
-        # If there are labels
-        nn = {}
-        for i in shuffled_indices[offs:]:
-            l = original_labels[i]
-            nn[l] = nn.get(l, 0) + 1
-        n = 0
-        for l in nn.keys():
-            n_train = nn[l]
-            nn[l] = max(int(numpy.round(amount * nn[l])), 1)
-            if nn[l] >= n_train:
-                raise error.NotExistsError("There are too few labels "
-                                           "for class %d" % (l))
-            n += nn[l]
-        while n > 0:
-            i = rand.randint(offs, offs_test + train_samples)
-            l = original_labels[shuffled_indices[i]]
-            if nn[l] <= 0:
-                # Move unused label to the end
-
-                # Swap indexes
-                ii = shuffled_indices[offs_test + train_samples - 1]
-                shuffled_indices[
-                    offs_test + train_samples - 1] = shuffled_indices[i]
-                shuffled_indices[i] = ii
-
-                train_samples -= 1
-                continue
-            # Swap indexes
-            ii = shuffled_indices[offs]
-            shuffled_indices[offs] = shuffled_indices[i]
-            shuffled_indices[i] = ii
-
-            nn[l] -= 1
-            n -= 1
-            offs += 1
-        self.class_lengths[VALID] = offs - offs_test
-        self.class_lengths[TRAIN] = (total_samples - self.class_lengths[VALID]
-                                     - offs_test)
-
     def on_before_create_minibatches(self):
         self.minibatch_data.reset()
         self.minibatch_labels.reset()
@@ -541,6 +437,10 @@ class Loader(AcceleratedUnit):
     def shuffle(self):
         """Randomly shuffles the TRAIN dataset.
         """
+        if self.shuffle_limit <= 0:
+            return
+        self.shuffle_limit -= 1
+        self.debug("Shuffling, remaining limit is %d", self.shuffle_limit)
         if self.shuffled_indices.mem is None:
             self.shuffled_indices.mem = numpy.arange(self.total_samples,
                                                      dtype=Loader.LABEL_DTYPE)
@@ -568,11 +468,19 @@ class Loader(AcceleratedUnit):
             return
 
         self.fill_minibatch()
+        self.normalize_data(self.minibatch_data.mem)
 
         if minibatch_size < self.max_minibatch_size:
             self.minibatch_data[minibatch_size:] = 0.0
             self.minibatch_labels[minibatch_size:] = -1
             self.minibatch_indices[minibatch_size:] = -1
+
+    def normalize_data(self, data):
+        nt = self.normalization_type
+        assert nt[0] == -nt[1] and nt[0] < 0
+        for sample in data:
+            memory.normalize(sample)
+            sample *= nt[1]
 
     def fill_indices(self, start_offset, count):
         """Fills minibatch_indices.
@@ -671,8 +579,8 @@ class LoaderMSEMixin(object):
 
     def __init__(self, workflow, **kwargs):
         super(LoaderMSEMixin, self).__init__(workflow, **kwargs)
-        self.class_targets = formats.Vector()
-        self.minibatch_targets = formats.Vector()
+        self.class_targets = memory.Vector()
+        self.minibatch_targets = memory.Vector()
 
     @property
     def minibatch_targets(self):

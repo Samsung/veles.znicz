@@ -10,7 +10,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import os
-import re
 from zope.interface import implementer
 
 from veles.config import root
@@ -38,25 +37,16 @@ root.video_ae.update({
 
 
 @implementer(loader.IFileImageLoader)
-class VideoAELoader(loader.FullBatchFileImageLoader):
+class VideoAELoader(loader.FullBatchAutoLabelFileImageLoader):
     """Loads dataset.
 
     Attributes:
         lbl_re_: regular expression for extracting label from filename.
     """
-    def init_unpickled(self):
-        super(VideoAELoader, self).init_unpickled()
-        self.lbl_re_ = re.compile("(\d+)\.\w+$")
-
-    def is_valid_filename(self, filename):
-        return filename[-4:] == ".png"
-
-    def get_label_from_filename(self, filename):
-        res = self.lbl_re_.search(filename)
-        if res is None:
-            return
-        lbl = int(res.group(1))
-        return lbl
+    def __init__(self, workflow, **kwargs):
+        super(VideoAELoader, self).__init__(
+            workflow, label_regexp="(\\d+)\\.\\w+$",
+            filename_types="png", **kwargs)
 
 
 class VideoAEWorkflow(nn_units.NNWorkflow):
@@ -75,7 +65,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             self, train_paths=(root.video_ae.data_paths,),
             minibatch_size=root.video_ae.loader.minibatch_size,
             on_device=root.video_ae.loader.on_device,
-            color_space="GRAY")
+            color_space="GRAY", background_color=(0x80,))
         self.loader.link_from(self.repeater)
 
         # Add fwds units

@@ -11,13 +11,16 @@ from __future__ import division
 import numpy
 from zope.interface import implementer, Interface
 
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 import veles.config as config
 import veles.error as error
-import veles.memory as formats
+import veles.memory as memory
 from veles.opencl_types import numpy_dtype_to_opencl, dtypes
 from veles.znicz.loader.base import ILoader, Loader, LoaderMSEMixin
 
-
+TRAIN = 2
+VALID = 1
+TEST = 0
 DTYPE = dtypes[config.root.common.precision_type]
 
 
@@ -27,8 +30,8 @@ class IFullBatchLoader(Interface):
         """
 
 
-@implementer(ILoader)
-class FullBatchLoader(Loader):
+@implementer(ILoader, IOpenCLUnit)
+class FullBatchLoader(AcceleratedUnit, Loader):
     """Loads data entire in memory.
 
     Attributes:
@@ -44,11 +47,12 @@ class FullBatchLoader(Loader):
         super(FullBatchLoader, self).__init__(workflow, **kwargs)
         self.verify_interface(IFullBatchLoader)
         self.on_device = kwargs.get("on_device", False)
+        self.validation_ratio = kwargs.get("validation_ratio", 0.15)
 
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
-        self.original_data = formats.Vector()
-        self.original_labels = formats.Vector()
+        self.original_data = memory.Vector()
+        self.original_labels = memory.Vector()
         self.cl_sources_["fullbatch_loader"] = {}
         self._global_size = None
         self._krn_const = numpy.zeros(2, dtype=Loader.LABEL_DTYPE)
@@ -88,8 +92,8 @@ class FullBatchLoader(Loader):
             self.max_minibatch_size, dtype=Loader.INDEX_DTYPE)
 
     def check_types(self):
-        if (not isinstance(self.original_data, formats.Vector) or
-                not isinstance(self.original_labels, formats.Vector)):
+        if (not isinstance(self.original_data, memory.Vector) or
+                not isinstance(self.original_labels, memory.Vector)):
             raise error.BadFormatError(
                 "original_data, original_labels must be of type Vector")
         if (self.original_labels.mem is not None and
@@ -103,7 +107,7 @@ class FullBatchLoader(Loader):
         return {}
 
     def initialize(self, device, **kwargs):
-        super(FullBatchLoader, self).initialize(device, **kwargs)
+        super(FullBatchLoader, self).initialize(device=device, **kwargs)
         self.check_types()
         if not self.on_device or self.device is None:
             return
@@ -149,6 +153,15 @@ class FullBatchLoader(Loader):
                           self.device.skip(2),
                           self.original_labels, self.minibatch_labels,
                           self.shuffled_indices, self.minibatch_indices)
+
+    def cpu_run(self):
+        Loader.run(self)
+
+    def ocl_run(self):
+        self.cpu_run()
+
+    def cuda_run(self):
+        self.cpu_run()
 
     def ocl_init(self):
         self._gpu_init()
@@ -200,6 +213,100 @@ class FullBatchLoader(Loader):
             if self.has_labels:
                 self.minibatch_labels[i] = self.original_labels[sample_index]
 
+    def extract_validation_from_train(self, rand=None, ratio=None):
+        """Extracts validation dataset from train dataset randomly.
+
+        We will rearrange indexes only.
+
+        Parameters:
+            amount: how many samples move from train dataset
+                    relative to the entire samples count for each class.
+            rand: veles.prng.RandomGenerator, if None - will use
+                  self.prng.
+        """
+        amount = ratio or self.validation_ratio
+        rand = rand or self.prng
+
+        if amount <= 0:  # Dispose validation set
+            self.class_lengths[TRAIN] += self.class_lengths[VALID]
+            self.class_lengths[VALID] = 0
+            if self.shuffled_indices.mem is None:
+                total_samples = numpy.sum(self.class_lengths)
+                self.shuffled_indices.mem = numpy.arange(
+                    total_samples, dtype=Loader.LABEL_DTYPE)
+            return
+        offs_test = self.class_lengths[TEST]
+        offs = offs_test
+        train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
+        total_samples = train_samples + offs
+        if isinstance(self.original_labels, memory.Vector):
+            self.original_labels.map_read()
+            original_labels = self.original_labels.mem
+        else:
+            original_labels = self.original_labels
+
+        if self.shuffled_indices.mem is None:
+            self.shuffled_indices.mem = numpy.arange(
+                total_samples, dtype=Loader.LABEL_DTYPE)
+        self.shuffled_indices.map_write()
+        shuffled_indices = self.shuffled_indices.mem
+
+        # If there are no labels
+        if original_labels is None:
+            n = int(numpy.round(amount * train_samples))
+            while n > 0:
+                i = rand.randint(offs, offs + train_samples)
+
+                # Swap indexes
+                shuffled_indices[offs], shuffled_indices[i] = \
+                    shuffled_indices[i], shuffled_indices[offs]
+
+                offs += 1
+                n -= 1
+            self.class_lengths[VALID] = offs - offs_test
+            self.class_lengths[TRAIN] = (total_samples
+                                         - self.class_lengths[VALID]
+                                         - offs_test)
+            return
+        # If there are labels
+        nn = {}
+        for i in shuffled_indices[offs:]:
+            l = original_labels[i]
+            nn[l] = nn.get(l, 0) + 1
+        n = 0
+        for l in nn.keys():
+            n_train = nn[l]
+            nn[l] = max(int(numpy.round(amount * nn[l])), 1)
+            if nn[l] >= n_train:
+                raise error.NotExistsError("There are too few labels "
+                                           "for class %d" % (l))
+            n += nn[l]
+        while n > 0:
+            i = rand.randint(offs, offs_test + train_samples)
+            l = original_labels[shuffled_indices[i]]
+            if nn[l] <= 0:
+                # Move unused label to the end
+
+                # Swap indexes
+                ii = shuffled_indices[offs_test + train_samples - 1]
+                shuffled_indices[
+                    offs_test + train_samples - 1] = shuffled_indices[i]
+                shuffled_indices[i] = ii
+
+                train_samples -= 1
+                continue
+            # Swap indexes
+            ii = shuffled_indices[offs]
+            shuffled_indices[offs] = shuffled_indices[i]
+            shuffled_indices[i] = ii
+
+            nn[l] -= 1
+            n -= 1
+            offs += 1
+        self.class_lengths[VALID] = offs - offs_test
+        self.class_lengths[TRAIN] = (total_samples - self.class_lengths[VALID]
+                                     - offs_test)
+
 
 class FullBatchLoaderMSEMixin(LoaderMSEMixin):
     """FullBatchLoader for MSE workflows.
@@ -208,7 +315,7 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
     """
     def init_unpickled(self):
         super(FullBatchLoaderMSEMixin, self).init_unpickled()
-        self.original_targets = formats.Vector()
+        self.original_targets = memory.Vector()
         self._kernel_target_ = None
         self._global_size_target = None
 
@@ -225,7 +332,7 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
 
     def check_types(self):
         super(FullBatchLoaderMSEMixin, self).check_types()
-        if not isinstance(self.original_targets, formats.Vector):
+        if not isinstance(self.original_targets, memory.Vector):
             raise error.BadFormatError(
                 "original_targets must be of type Vector")
 
