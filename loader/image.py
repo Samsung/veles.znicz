@@ -98,7 +98,7 @@ class ImageLoader(Loader):
         super(ImageLoader, self).__init__(workflow, **kwargs)
         self.color_space = kwargs.get("color_space", "RGB")
         self.source_dtype = numpy.float32
-        self._original_shape = tuple()
+        self._uncropped_shape = tuple()
         self._has_labels = False
         self.class_keys = [[], [], []]
         self.verify_interface(IImageLoader)
@@ -150,7 +150,7 @@ class ImageLoader(Loader):
         """
         :return: Uncropped (but scaled) image shape.
         """
-        return self._original_shape
+        return self._uncropped_shape
 
     @uncropped_shape.setter
     def uncropped_shape(self, value):
@@ -167,7 +167,8 @@ class ImageLoader(Loader):
             if d < 1:
                 raise ValueError("shape[%d] < 1 (= %s)" % (i, d))
         if not isinstance(self.scale, tuple):
-            self._original_shape = tuple(value[i] * self.scale for i in (0, 1))
+            self._uncropped_shape = tuple(
+                int(value[i] * self.scale) for i in (0, 1))
         else:
             self.warning("Setting uncropped_shape is ignored: scale is %s" %
                          self.scale)
@@ -188,7 +189,7 @@ class ImageLoader(Loader):
             if not isinstance(value[0], int) or not isinstance(value[1], int):
                 raise ValueError("scale must consist of integers (got %s)" %
                                  value)
-            self._original_shape = self.scale
+            self._uncropped_shape = self.scale
         self._scale = value
 
     @property
@@ -347,7 +348,8 @@ class ImageLoader(Loader):
         if isinstance(self.scale, tuple):
             return self.scale, info[1]
         else:
-            return tuple(info[0][i] * self.scale for i in (0, 1)), info[1]
+            return tuple(int(info[0][i] * self.scale)
+                         for i in (0, 1)), info[1]
 
     def preprocess_image(self, data, color, crop=True):
         if color != self.color_space:

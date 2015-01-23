@@ -106,6 +106,7 @@ class Loader(Unit):
 
         self.epoch_ended = Bool(False)
         self.epoch_number = 0
+        self.train_ended = Bool(False)
 
         self.samples_served = 0
         self.global_offset = 0
@@ -389,6 +390,7 @@ class Loader(Unit):
             setattr(self, attr, data[attr])
         self.last_minibatch <<= False
         self.epoch_ended <<= False
+        self.train_ended <<= False
         indices = data['indices']
         if indices.size != self.minibatch_size:
             raise error.MasterSlaveCommunicationError(
@@ -554,6 +556,7 @@ class Loader(Unit):
             self.global_offset)
         minibatch_size = min(remainder, self.max_minibatch_size)
         self.global_offset += minibatch_size
+        self.train_ended <<= self.global_offset >= self.total_samples
         return self.global_offset, minibatch_size
 
     def _on_successful_serve(self):
