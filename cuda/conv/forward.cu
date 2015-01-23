@@ -103,4 +103,6 @@ __global__ void Unpack1D(const dtype *data, dtype *unpack_data, const int limit)
 
 
 // apply_bias_with_activation
+#ifndef ACCUMULATE_GRADIENT
 #include "all2all/forward.cu"
+#endif

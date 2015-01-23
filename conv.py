@@ -218,6 +218,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                       else cublas.CUBLAS.dgemm)
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
         defines = {}
         self._gpu_init(defines)
@@ -266,7 +267,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                               self.input.itemsize)
         unpack_side = self._kernel_app * image_count
         limit = unpack_side * self._kernel_size
-        self._kernel_.set_arg(2, limit)
+        self._const_i[0] = limit
+        self._kernel_.set_arg(2, self._const_i)
         self.execute_kernel(self._global_size_unpack(limit),
                             self._local_size_unpack)
         output_offs = (start_image * self.output.sample_size *

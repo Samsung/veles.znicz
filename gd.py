@@ -419,7 +419,8 @@ class GDTanh(GradientDescent):
         self.err_output.mem *= output * output * (-0.388484177) + 1.14381894
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_tanh"] = {}
+        self.cl_sources_["gradient_descent_tanh"] = {
+            "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDTanh, self).initialize(device=device, **kwargs)
 
@@ -447,6 +448,33 @@ class GDRELU(GradientDescent):
         self.err_output.mem *= 1.0 - numpy.exp(-output)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_relu"] = {}
+        self.cl_sources_["gradient_descent_relu"] = {
+            "ERR_OUTPUT_SIZE": self.err_output.size}
+        self.krn_err_output_name = "err_y_update"
+        super(GDRELU, self).initialize(device=device, **kwargs)
+
+
+class GDStrictRELU(GradientDescent):
+    """Gradient Descent for strict ReLU (like in CAFFE)
+
+    :math:`f(x) = \\max(x, 0)`
+
+    :math:`f'(s) = \\begin{cases}1 & s > 0 \\\\ 0 & else. \\\\ \\end{cases}`
+    """
+
+    MAPPING = {"all2all_str"}
+
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by s
+        in terms of output.
+        """
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.mem
+        self.err_output.mem *= numpy.greater(output, 0)
+
+    def initialize(self, device, **kwargs):
+        self.cl_sources_["gradient_descent_strict_relu"] = {
+            "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDRELU, self).initialize(device=device, **kwargs)

@@ -21,7 +21,7 @@
 #define IMG_SIZE (SX * SY * N_CHANNELS)
 
 extern "C"
-__global__ void DirectPack(const dtype *unpack_data, dtype *data) {
+__global__ void DirectPack(const dtype *unpack_data, dtype *data, const int limit) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;  // we are processing one image at a time, so size_t is not required
 
   int ty = idx / KERNEL_SIZE;
@@ -35,12 +35,12 @@ __global__ void DirectPack(const dtype *unpack_data, dtype *data) {
   int x = kernel_j + (tx / N_CHANNELS) % KX;
   int y = kernel_i + tx / N_CHANNELS / KX;
 
-  int data_idx = 0;
-  if (x >= PAD_LEFT && x < SX + PAD_LEFT &&
+  if (idx < limit &&
+      x >= PAD_LEFT && x < SX + PAD_LEFT &&
       y >= PAD_TOP && y < SY + PAD_TOP) {
-    data_idx = IMG_SIZE * img_idx +
-               ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS +
-               ch_idx;
+    int data_idx = IMG_SIZE * img_idx +
+                   ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS +
+                   ch_idx;
     atomicAdd(data + data_idx, unpack_data[idx]);
   }
 }

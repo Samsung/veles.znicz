@@ -6,7 +6,7 @@
 extern "C"
 __global__ void err_y_update(dtype *err_y, const dtype *y) {
   size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < (Y * BATCH)) {
+  if (idx < ERR_OUTPUT_SIZE) {
     dtype x = y[idx];
     err_y[idx] *= x * x * (dtype)(-0.388484177) + (dtype)1.14381894;
   }
