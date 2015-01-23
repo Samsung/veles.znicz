@@ -762,6 +762,7 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
         super(FullBatchImageLoader, self).fill_minibatch()
         if self.epoch_ended and self.crop is not None:
             # Overwrite original_data
+            self.original_data.map_invalidate()
             self._fill_original_data()
 
     def _fill_original_data(self):
