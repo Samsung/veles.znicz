@@ -109,6 +109,8 @@ class ImageLoader(Loader):
         self.add_sobel = kwargs.get("add_sobel", False)
         self.mirror = kwargs.get("mirror", False)  # True, False, "random"
         self.scale = kwargs.get("scale", 1.0)
+        self.scale_maintain_aspect_ratio = kwargs.get(
+            "scale_maintain_aspect_ratio", True)
         self.rotations = kwargs.get("rotations", (0.0,))  # radians
         self.background_image = kwargs.get("background_image", None)
         self.background_color = kwargs.get(
@@ -369,15 +371,41 @@ class ImageLoader(Loader):
 
         if self.add_sobel:
             data = self.add_sobel_channel(data)
-
         if self.scale != 1.0:
-            # TODO(v.markovtsev): implement scaling without aspect ratio change
-            cv2.resize(data, tuple(reversed(self.uncropped_shape[:2])),
-                       interpolation=cv2.INTER_CUBIC)
-
+            data = self.scale_image(data)
         if crop and self.crop is not None:
             data = self.crop_image(data)
 
+        return data
+
+    def scale_image(self, data):
+        if self.scale_maintain_aspect_ratio:
+            if data.shape[1] >= data.shape[0]:
+                dst_width = self.uncropped_shape[:2][1]
+                dst_height = int(numpy.round(
+                    float(dst_width) * data.shape[0] / data.shape[1]))
+            else:
+                dst_height = self.uncropped_shape[:2][0]
+                dst_width = int(numpy.round(
+                    float(dst_height) * data.shape[1] / data.shape[0]))
+            dst_x_min = int(
+                numpy.round(
+                    0.5 * (self.uncropped_shape[:2][1] - dst_width)))
+            dst_y_min = int(
+                numpy.round(
+                    0.5 * (self.uncropped_shape[:2][0] - dst_height)))
+            dst_x_max = dst_x_min + self.uncropped_shape[:2][1]
+            dst_y_max = dst_y_min + self.uncropped_shape[:2][0]
+            data = cv2.resize(
+                data, (dst_width, dst_height),
+                interpolation=cv2.INTER_CUBIC)
+            sample = self.background_image.copy()
+            sample[dst_y_min:dst_y_max, dst_x_min:dst_x_max] = data
+            data = sample.copy()
+        else:
+            cv2.resize(
+                data, tuple(reversed(self.uncropped_shape[:2])),
+                interpolation=cv2.INTER_CUBIC)
         return data
 
     def add_sobel_channel(self, data):
