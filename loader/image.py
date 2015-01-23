@@ -708,25 +708,6 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
         def __iter__(self):
             return self
 
-    def load_distorted_keys(self, keys, data, labels, offset, pbar):
-        has_labels = False
-        for key in keys:
-            img = self._load_image(key, crop=False)
-            label, has_labels = self._load_label(key, has_labels)
-            for ci in range(self.crop_number):
-                if self.crop is not None:
-                    cropped = self.crop_image(img)
-                else:
-                    cropped = img
-                for dist in FullBatchImageLoader.DistortionIterator(
-                        cropped, self):
-                    data[offset] = self.distort(cropped, *dist)
-                    labels[offset] = label
-                    offset += 1
-                    if pbar is not None:
-                        pbar.inc()
-        return offset, has_labels
-
     def load_data(self):
         super(FullBatchImageLoader, self).load_data()
 
@@ -764,7 +745,7 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                     keys, pbar, data[offset:], labels[offset:]))
                 offset += len(keys)
                 continue
-            offset, hl = self.load_distorted_keys(
+            offset, hl = self._load_distorted_keys(
                 keys, data, labels, offset, pbar)
             has_labels.append(hl)
         pbar.finish()
@@ -780,7 +761,29 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
         self.extract_validation_from_train(ratio=self.ratio)
 
     def initialize(self, device, **kwargs):
+        """
+        This method MUST exist to fix the diamond inherited signature.
+        """
         super(FullBatchImageLoader, self).initialize(device=device, **kwargs)
+
+    def _load_distorted_keys(self, keys, data, labels, offset, pbar):
+        has_labels = False
+        for key in keys:
+            img = self._load_image(key, crop=False)
+            label, has_labels = self._load_label(key, has_labels)
+            for ci in range(self.crop_number):
+                if self.crop is not None:
+                    cropped = self.crop_image(img)
+                else:
+                    cropped = img
+                for dist in FullBatchImageLoader.DistortionIterator(
+                        cropped, self):
+                    data[offset] = self.distort(cropped, *dist)
+                    labels[offset] = label
+                    offset += 1
+                    if pbar is not None:
+                        pbar.inc()
+        return offset, has_labels
 
 
 class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
@@ -795,12 +798,12 @@ class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
         length = len(self.target_keys) * self.samples_inflation
         targets = numpy.zeros((length,) + self.shape, dtype=self.source_dtype)
         target_labels = numpy.zeros(length, dtype=Loader.LABEL_DTYPE)
-        has_labels = self.load_keys(
-            self.target_keys, None,
-            targets[-len(self.target_keys)],
-            target_labels[-len(self.target_keys)])
-        if self.samples_inflation > 1:
-            raise NotImplementedError("This is hell")
+        if self.samples_inflation == 1:
+            has_labels = self.load_keys(
+                self.target_keys, None, targets, target_labels)
+        else:
+            _, has_labels = self._load_distorted_keys(
+                self.target_keys, targets, target_labels, 0, None)
         if not has_labels:
             if self.has_labels:
                 raise error.BadFormatError(
@@ -811,7 +814,7 @@ class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
         if not self.has_labels:
             raise error.BadFormatError(
                 "Targets have labels, but the classes do not")
-        if len(set(target_labels)) < length:
+        if len(set(target_labels)) < length / self.samples_inflation:
             raise error.BadFormatError("Some targets have duplicate labels")
         diff = set(self.original_labels).difference(target_labels)
         if len(diff) > 0:
@@ -819,9 +822,12 @@ class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
                 "Labels %s do not have corresponding targets" % diff)
         self.original_targets.mem = numpy.zeros(
             (self.original_labels.shape[0],) + self.shape, self.source_dtype)
-        target_mapping = {target_labels[i]: i for i in range(length)}
+        target_mapping = {
+            target_labels[i * self.samples_inflation]: i
+            for i in range(length // self.samples_inflation)}
         for i, label in enumerate(self.original_labels):
-            self.original_targets[i] = targets[target_mapping[label]]
+            real_i, offset = divmod(i, self.samples_inflation)
+            self.original_targets[i] = targets[target_mapping[real_i] + offset]
 
 
 class FullBatchImageLoaderMSE(FullBatchImageLoader,
