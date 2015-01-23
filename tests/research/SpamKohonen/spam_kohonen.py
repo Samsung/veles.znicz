@@ -132,7 +132,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
                                                len(lines))
         self.class_lengths[loader.TRAIN] = len(lines) - self.class_lengths[1]
         if self.class_lengths[loader.VALID] > 0:
-            self.extract_validation_from_train()
+            self.resize_validation()
         self.info("Samples: %d, labels: %d, lemmas: %d, "
                   "average feature vector length: %d", len(lines),
                   len(distinct_labels), len(lemmas), avglength)

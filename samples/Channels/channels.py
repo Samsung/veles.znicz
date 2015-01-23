@@ -567,7 +567,7 @@ class ChannelsLoader(loader.FullBatchLoader):
         # Randomly generate validation set from train.
         self.info("Will extract validation set from train")
         self._data_labels_to_vector()
-        self.extract_validation_from_train(rnd.get(2))
+        self.resize_validation(rnd.get(2))
 
         # Saving all the samples
         self.info("Dumping all the samples to %s" % (root.common.cache_dir))

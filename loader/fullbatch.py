@@ -47,7 +47,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         super(FullBatchLoader, self).__init__(workflow, **kwargs)
         self.verify_interface(IFullBatchLoader)
         self.on_device = kwargs.get("on_device", False)
-        self.validation_ratio = kwargs.get("validation_ratio", 0.15)
+        self.validation_ratio = kwargs.get("validation_ratio", None)
 
     def init_unpickled(self):
         super(FullBatchLoader, self).init_unpickled()
@@ -74,6 +74,30 @@ class FullBatchLoader(AcceleratedUnit, Loader):
     @property
     def has_labels(self):
         return bool(self.original_labels)
+
+    @property
+    def validation_ratio(self):
+        """
+        Returns the ratio between new train and new validation set lengths.
+        None means no validation set extraction.
+        Negative means move validation to train.
+        """
+        return self._validation_ratio
+
+    @validation_ratio.setter
+    def validation_ratio(self, value):
+        if value is None:
+            self._validation_ratio = None
+            return
+        if not isinstance(value, float):
+            raise TypeError(
+                "validation_ratio must be a floating point value (got %s of "
+                "type %s)" % (value, value.__class__))
+        if value >= 1:
+            raise ValueError(
+                "validation_ratio = %f is out of the allowed range (0, 1)" %
+                value)
+        self._validation_ratio = value
 
     def create_minibatches(self):
         self.check_types()
@@ -105,6 +129,14 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         """Add definitions before building the kernel during initialize().
         """
         return {}
+
+    def load_data(self):
+        try:
+            super(FullBatchLoader, self).load_data()
+        except AttributeError:
+            pass
+        if self.validation_ratio is not None:
+            self.resize_validation(ratio=self.validation_ratio)
 
     def initialize(self, device, **kwargs):
         super(FullBatchLoader, self).initialize(device=device, **kwargs)
@@ -213,21 +245,21 @@ class FullBatchLoader(AcceleratedUnit, Loader):
             if self.has_labels:
                 self.minibatch_labels[i] = self.original_labels[sample_index]
 
-    def extract_validation_from_train(self, rand=None, ratio=None):
-        """Extracts validation dataset from train dataset randomly.
+    def resize_validation(self, rand=None, ratio=None):
+        """Extracts validation dataset from joined validation and train
+        datasets randomly.
 
         We will rearrange indexes only.
 
         Parameters:
-            amount: how many samples move from train dataset
-                    relative to the entire samples count for each class.
-            rand: veles.prng.RandomGenerator, if None - will use
-                  self.prng.
+            ratio: how many samples move to validation dataset
+                   relative to the entire samples count of validation and
+                   train classes.
+            rand: veles.prng.RandomGenerator, if it is None, will use self.prng
         """
-        amount = ratio or self.validation_ratio
         rand = rand or self.prng
 
-        if amount <= 0:  # Dispose validation set
+        if ratio <= 0:  # Dispose validation set
             self.class_lengths[TRAIN] += self.class_lengths[VALID]
             self.class_lengths[VALID] = 0
             if self.shuffled_indices.mem is None:
@@ -235,6 +267,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
                 self.shuffled_indices.mem = numpy.arange(
                     total_samples, dtype=Loader.LABEL_DTYPE)
             return
+
         offs_test = self.class_lengths[TEST]
         offs = offs_test
         train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
@@ -253,7 +286,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
 
         # If there are no labels
         if original_labels is None:
-            n = int(numpy.round(amount * train_samples))
+            n = int(numpy.round(ratio * train_samples))
             while n > 0:
                 i = rand.randint(offs, offs + train_samples)
 
@@ -264,9 +297,8 @@ class FullBatchLoader(AcceleratedUnit, Loader):
                 offs += 1
                 n -= 1
             self.class_lengths[VALID] = offs - offs_test
-            self.class_lengths[TRAIN] = (total_samples
-                                         - self.class_lengths[VALID]
-                                         - offs_test)
+            self.class_lengths[TRAIN] = \
+                total_samples - self.class_lengths[VALID] - offs_test
             return
         # If there are labels
         nn = {}
@@ -276,7 +308,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         n = 0
         for l in nn.keys():
             n_train = nn[l]
-            nn[l] = max(int(numpy.round(amount * nn[l])), 1)
+            nn[l] = max(int(numpy.round(ratio * nn[l])), 1)
             if nn[l] >= n_train:
                 raise error.NotExistsError("There are too few labels "
                                            "for class %d" % (l))

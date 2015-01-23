@@ -117,10 +117,8 @@ class ImageLoader(Loader):
             "background_color", (0xff, 0x14, 0x93))
         self.crop = kwargs.get("crop", None)
         self.crop_number = kwargs.get("crop_number", 1)
-        self.shuffle_limit = kwargs.get(
-            "shuffle_limit", numpy.iinfo(numpy.uint32).max)
         self._background = None
-        self.mean_matrix = None
+        self.mean_image = None
 
     def __setstate__(self, state):
         super(ImageLoader, self).__setstate__(state)
@@ -575,19 +573,19 @@ class ImageLoader(Loader):
                 self.warning(
                     "Could not determine MIME type of %s", self.path_to_mean)
             if mime.startswith("image/"):
-                self.mean_matrix = numpy.array(Image.open(self.path_to_mean))
+                self.mean_image = numpy.array(Image.open(self.path_to_mean))
             else:
                 try:
                     with open(self.path_to_mean, "rb") as fin:
-                        self.mean_matrix = pickle.load(fin)
+                        self.mean_image = pickle.load(fin)
                 except:
                     numpy.load(self.path_to_mean)
                 finally:
                     self.warning(
                         "Could not load mean file %s. Make sure that it's "
                         "image or pickle or npy", self.path_to_mean)
-            if self.mean_matrix is not None:
-                data -= self.mean_matrix
+            if self.mean_image is not None:
+                data -= self.mean_image
             if self.normalization_scale:
                 data *= self.normalization_scale
         else:
@@ -680,10 +678,6 @@ class ImageLoaderMSE(ImageLoader, ImageLoaderMSEMixin):
 class FullBatchImageLoader(ImageLoader, FullBatchLoader):
     """Loads all images into the memory.
     """
-    def __init__(self, workflow, **kwargs):
-        super(FullBatchImageLoader, self).__init__(workflow, **kwargs)
-        self.ratio = kwargs.get("validation_ratio", 0.15)
-
     @property
     def has_labels(self):
         return ImageLoader.has_labels.fget(self)
@@ -723,32 +717,12 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                           virtual_memory().free * gb, required_mem * gb)
             raise MemoryError("Not enough memory")
         # Real allocation will still happen during the second pass
-        self.original_data.mem = data = numpy.zeros(
+        self.original_data.mem = numpy.zeros(
             (overall,) + self.shape, dtype=self.source_dtype)
-        self.original_labels.mem = labels = numpy.zeros(
+        self.original_labels.mem = numpy.zeros(
             overall, dtype=Loader.LABEL_DTYPE)
 
-        # Second pass
-        pbar = ProgressBar(
-            term_width=50, maxval=overall * self.samples_inflation,
-            widgets=["Loading %dx%d images " % (overall, self.crop_number),
-                     Bar(), ' ', Percentage()],
-            log_level=logging.INFO, poll=0.5)
-        pbar.start()
-        offset = 0
-        has_labels = []
-        for keys in self.class_keys:
-            if len(keys) == 0:
-                continue
-            if self.samples_inflation == 1:
-                has_labels.append(self.load_keys(
-                    keys, pbar, data[offset:], labels[offset:]))
-                offset += len(keys)
-                continue
-            offset, hl = self._load_distorted_keys(
-                keys, data, labels, offset, pbar)
-            has_labels.append(hl)
-        pbar.finish()
+        has_labels = self._fill_original_data()
 
         # Delete labels mem if no labels was extracted
         if numpy.prod(has_labels) == 0 and sum(has_labels) > 0:
@@ -758,7 +732,6 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
             self.original_labels.mem = None
 
         self.normalize_data(self.original_data.mem)
-        self.extract_validation_from_train(ratio=self.ratio)
 
     def initialize(self, device, **kwargs):
         """
@@ -784,6 +757,38 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                     if pbar is not None:
                         pbar.inc()
         return offset, has_labels
+
+    def fill_minibatch(self):
+        super(FullBatchImageLoader, self).fill_minibatch()
+        if self.epoch_ended and self.crop is not None:
+            # Overwrite original_data
+            self._fill_original_data()
+
+    def _fill_original_data(self):
+        overall = sum(self.class_lengths)
+        pbar = ProgressBar(
+            term_width=50, maxval=overall * self.samples_inflation,
+            widgets=["Loading %dx%d images " % (overall, self.crop_number),
+                     Bar(), ' ', Percentage()],
+            log_level=logging.INFO, poll=0.5)
+        pbar.start()
+        offset = 0
+        has_labels = []
+        data = self.original_data.mem
+        labels = self.original_labels.mem
+        for keys in self.class_keys:
+            if len(keys) == 0:
+                continue
+            if self.samples_inflation == 1:
+                has_labels.append(self.load_keys(
+                    keys, pbar, data[offset:], labels[offset:]))
+                offset += len(keys)
+                continue
+            offset, hl = self._load_distorted_keys(
+                keys, data, labels, offset, pbar)
+            has_labels.append(hl)
+        pbar.finish()
+        return has_labels
 
 
 class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
@@ -1143,7 +1148,7 @@ class FullBatchAutoLabelFileImageLoader(AutoLabelFileImageLoader,
     pass
 
 
-class FileImageLoaderMSEMixin(FullBatchImageLoaderMSEMixin):
+class FileImageLoaderMSEMixin(ImageLoaderMSEMixin):
     """
     FileImageLoaderMSE implementation for parallel inheritance.
 
@@ -1186,8 +1191,13 @@ class FullBatchFileImageLoader(FileImageLoader, FullBatchImageLoader):
     pass
 
 
-class FullBatchFileImageLoaderMSE(FileImageLoaderMSEMixin,
-                                  FullBatchImageLoaderMSEMixin):
+class FullBatchFileImageLoaderMSEMixin(FullBatchImageLoaderMSEMixin,
+                                       FileImageLoaderMSEMixin):
+    pass
+
+
+class FullBatchFileImageLoaderMSE(FullBatchFileImageLoader,
+                                  FullBatchFileImageLoaderMSEMixin):
     """
     MSE modification of  FullBatchFileImageLoader class.
     """
