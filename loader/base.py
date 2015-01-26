@@ -149,7 +149,7 @@ class Loader(Unit):
 
     @normalization_type.setter
     def normalization_type(self, value):
-        if not hasattr(normalization, "normalize_" + value) and not (
+        if not hasattr(normalization, "normalize_%s" % (value,)) and not (
             isinstance(value, tuple) and len(value) == 2 and
                 value[0] == -value[1]):
             raise ValueError("Unsupported normalization method \"%s\"" % value)
