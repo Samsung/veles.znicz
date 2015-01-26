@@ -669,7 +669,7 @@ class ImageLoaderMSEMixin(LoaderMSEMixin):
                 self.minibatch_targets[len(keys) - key_index - 1]
 
 
-class ImageLoaderMSE(ImageLoader, ImageLoaderMSEMixin):
+class ImageLoaderMSE(ImageLoaderMSEMixin, ImageLoader):
     """
     Loads images in MSE schemes. Like ImageLoader, mostly useful for large
     datasets.
@@ -839,8 +839,8 @@ class FullBatchImageLoaderMSEMixin(ImageLoaderMSEMixin,
             self.original_targets[i] = targets[target_mapping[real_i] + offset]
 
 
-class FullBatchImageLoaderMSE(FullBatchImageLoader,
-                              FullBatchImageLoaderMSEMixin):
+class FullBatchImageLoaderMSE(FullBatchImageLoaderMSEMixin,
+                              FullBatchImageLoader):
     """
     MSE modification of FullBatchImageLoader class.
     """
@@ -1182,7 +1182,7 @@ class FileImageLoaderMSEMixin(ImageLoaderMSEMixin):
             self.scan_files(p) for p in self.target_paths))
 
 
-class FileImageLoaderMSE(FileImageLoader, FileImageLoaderMSEMixin):
+class FileImageLoaderMSE(FileImageLoaderMSEMixin, FileImageLoader):
     """
     MSE modification of  FileImageLoader class.
     """
@@ -1200,8 +1200,8 @@ class FullBatchFileImageLoaderMSEMixin(FullBatchImageLoaderMSEMixin,
     pass
 
 
-class FullBatchFileImageLoaderMSE(FullBatchFileImageLoader,
-                                  FullBatchFileImageLoaderMSEMixin):
+class FullBatchFileImageLoaderMSE(FullBatchFileImageLoaderMSEMixin,
+                                  FullBatchFileImageLoader):
     """
     MSE modification of  FullBatchFileImageLoader class.
     """

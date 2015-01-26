@@ -41,7 +41,7 @@ root.spam_kohonen.update({
     "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
     "exporter": {"file": "weights.txt"}})
-root.spam_kohonen.loader.validation_ratio = 0
+root.spam_kohonen.loader.validation_ratio = 0.0
 
 
 @implementer(IFullBatchLoader)

@@ -59,8 +59,8 @@ class FullBatchLoader(AcceleratedUnit, Loader):
 
     def __getstate__(self):
         state = super(FullBatchLoader, self).__getstate__()
-        state["original_data"] = None
-        state["original_labels"] = None
+        for attr in "original_data", "original_labels":
+            state[attr] = None
         return state
 
     @Loader.shape.getter
@@ -140,6 +140,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
 
     def initialize(self, device, **kwargs):
         super(FullBatchLoader, self).initialize(device=device, **kwargs)
+        assert self.total_samples > 0
         self.check_types()
         if not self.on_device or self.device is None:
             return
@@ -228,15 +229,8 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         self._kernel_.set_arg(3, self._krn_const[1:2])
         self.execute_kernel(self._global_size, self._local_size)
 
-        self.on_fill_indices(self._krn_const)
-
         # No further processing needed, so return True
         return True
-
-    def on_fill_indices(self, krn_consts):
-        """Called in the end of fill_indices().
-        """
-        pass
 
     def fill_minibatch(self):
         for i, sample_index in enumerate(
@@ -360,7 +354,7 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
         super(FullBatchLoaderMSEMixin, self).create_minibatches()
         self.minibatch_targets.reset()
         self.minibatch_targets.mem = numpy.zeros(
-            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+            (self.max_minibatch_size,) + self.original_targets[0].shape, DTYPE)
 
     def check_types(self):
         super(FullBatchLoaderMSEMixin, self).check_types()
@@ -402,13 +396,18 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
             self.minibatch_data.size / block_size)), 1, 1)
         self._local_size_target = (block_size, 1, 1)
 
-    def on_fill_indices(self, krn_consts):
+    def fill_indices(self, start_offset, count):
+        if not super(FullBatchLoaderMSEMixin, self).fill_indices(
+                start_offset, count):
+            return False
         self.original_targets.unmap()
         self.minibatch_targets.unmap()
-        self._kernel_target_.set_arg(2, krn_consts[0:1])
-        self._kernel_target_.set_arg(3, krn_consts[1:2])
-        self.execute_kernel(self._global_size_target, self._local_size_target,
-                            self._kernel_target_)
+        self._kernel_target_.set_arg(2, self._krn_const[0:1])
+        self._kernel_target_.set_arg(3, self._krn_const[1:2])
+        self.execute_kernel(
+            self._global_size_target, self._local_size_target,
+            self._kernel_target_)
+        return True
 
     def fill_minibatch(self):
         super(FullBatchLoaderMSEMixin, self).fill_minibatch()
@@ -416,7 +415,7 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
             self.minibatch_targets[i] = self.original_targets[v]
 
 
-class FullBatchLoaderMSE(FullBatchLoader, FullBatchLoaderMSEMixin):
+class FullBatchLoaderMSE(FullBatchLoaderMSEMixin, FullBatchLoader):
     """FullBatchLoader for MSE workflows.
     """
     pass

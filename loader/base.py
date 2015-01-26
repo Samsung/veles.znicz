@@ -12,6 +12,7 @@ from copy import copy
 import numpy
 import time
 from zope.interface import implementer, Interface
+from veles.compat import from_none
 
 from veles.distributable import IDistributable
 import veles.error as error
@@ -345,7 +346,11 @@ class Loader(Unit):
             super(Loader, self).initialize(**kwargs)
         except AttributeError:
             pass
-        self.load_data()
+        try:
+            self.load_data()
+        except AttributeError as e:
+            self.exception("Failed to load the data")
+            raise from_none(e)
         self._update_total_samples()
         self.info("Samples number: test: %d, validation: %d, train: %d",
                   *self.class_lengths)
@@ -500,7 +505,6 @@ class Loader(Unit):
         self.shuffled_indices.map_read()
         self.minibatch_indices.mem[:count] = self.shuffled_indices.mem[
             start_offset:start_offset + count]
-        self.minibatch_indices.mem[count:] = -1
         return False
 
     def class_index_by_sample_index(self, index):
@@ -571,7 +575,7 @@ class Loader(Unit):
             self._minibatch_serve_timestamp_ = time.time()
 
 
-class LoaderMSEMixin(object):
+class LoaderMSEMixin(Unit):
     """
     Loader MSE implementation for parallel inheritance.
 
