@@ -41,8 +41,9 @@ class YaleFacesWorkflow(StandardWorkflow):
         self.data_saver = MinibatchesSaver(self)
         self.data_saver.link_from(init_unit)
         self.data_saver.link_attrs(
-            self.loader, "minibatch_data", "shuffle_limit",
-            "minibatch_labels", "class_lengths", "max_minibatch_size")
+            self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
+            "minibatch_labels", "class_lengths", "max_minibatch_size",
+            "minibatch_size")
 
     def link_end_point(self, init_unit):
         self.end_point.link_from(init_unit)

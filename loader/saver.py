@@ -19,67 +19,95 @@ from veles.compat import from_none
 
 from veles.config import root
 from veles.pickle2 import pickle, best_protocol
-from veles.snapshotter import Snapshotter
+from veles.snapshotter import SnappyFile
 from veles.units import Unit, IUnit
-from veles.znicz.loader import Loader, ILoader
+from veles.znicz.loader import Loader, ILoader, CLASS_NAME
 
 
 @implementer(IUnit)
 class MinibatchesSaver(Unit):
     """Saves data from Loader to pickle file.
     """
+    CODECS = {
+        "raw": lambda f, _: f,
+        "snappy": lambda f, _: SnappyFile(f, "wb"),
+        "gz": lambda f, l: gzip.GzipFile(None, fileobj=f, compresslevel=l),
+        "bz2": lambda f, l: bz2.BZ2File(f, compresslevel=l),
+        "xz": lambda f, l: lzma.LZMAFile(f, preset=l)
+    }
+
     def __init__(self, workflow, **kwargs):
         super(MinibatchesSaver, self).__init__(workflow, **kwargs)
         kwargs["view_group"] = kwargs.get("view_group", "SERVICE")
         self.file_name = kwargs.get(
             "file_name", os.path.join(root.common.cache_dir,
                                       "minibatches.sav"))
-        self.file = None
-        self.pickler = None
         self.compression = kwargs.get("compression", "snappy")
         self.compression_level = kwargs.get("compression_level", 9)
+        self.class_chunk_sizes = kwargs.get("class_chunk_sizes", (0, 0, 1))
         self.offset_table = []
         self.demand(
-            "minibatch_data", "minibatch_labels",
-            "class_lengths", "max_minibatch_size", "shuffle_limit")
+            "minibatch_data", "minibatch_labels", "minibatch_class",
+            "class_lengths", "max_minibatch_size", "minibatch_size",
+            "shuffle_limit")
+
+    @property
+    def effective_class_chunk_sizes(self):
+        chunk_sizes = []
+        for ci, cs in enumerate(self.class_chunk_sizes):
+            if cs == 0:
+                cs = self.max_minibatch_size
+            elif cs > self.max_minibatch_size:
+                raise ValueError(
+                    "%s's chunk size may not exceed max minibatch size = %d ("
+                    "got %d)" % (CLASS_NAME[ci], self.max_minibatch_size, cs))
+            chunk_sizes.append(cs)
+        return tuple(chunk_sizes)
 
     def initialize(self, **kwargs):
         if self.shuffle_limit != 0:
             raise error.VelesException(
                 "You must disable shuffling in your loader (set shuffle_limit "
                 "to 0)")
-        self.file = self.open_file()
-        self.pickler = pickle.Pickler(self.file, protocol=best_protocol)
-        try:
-            self.pickler.fast = True
-            self.debug("Activated FAST pickling mode")
-        except AttributeError:
-            pass
-        pickle.dump(self.get_header_data(), self.file.fileobj,
-                    protocol=best_protocol)
-
-    def open_file(self):
-        return Snapshotter.WRITE_CODECS[
-            self.compression](self.file_name, self.compression_level)
+        self.file = open(self.file_name, "wb")
+        pickle.dump(self.get_header_data(), self.file, protocol=best_protocol)
 
     def get_header_data(self):
         return self.compression, self.class_lengths, self.max_minibatch_size, \
+            self.effective_class_chunk_sizes, \
             self.minibatch_data.shape, self.minibatch_data.dtype, \
             self.minibatch_labels.shape, self.minibatch_labels.dtype
 
-    def get_chunk_data(self):
+    def prepare_chunk_data(self):
         self.minibatch_data.map_read()
         self.minibatch_labels.map_read()
-        return self.minibatch_data, self.minibatch_labels
+        arr_data = numpy.zeros(
+            (self.effective_class_chunk_sizes[self.minibatch_class],) +
+            self.minibatch_data.shape[1:], dtype=self.minibatch_data.dtype)
+        arr_labels = numpy.zeros(
+            (self.effective_class_chunk_sizes[self.minibatch_class],) +
+            self.minibatch_labels.shape[1:], dtype=self.minibatch_labels.dtype)
+        return arr_data, arr_labels
+
+    def fill_chunk_data(self, prepared, interval):
+        prepared[0][:] = self.minibatch_data[interval[0]:interval[1]]
+        prepared[1][:] = self.minibatch_labels[interval[0]:interval[1]]
 
     def run(self):
-        self.offset_table.append(numpy.uint64(self.file.tell()))
-        self.pickler.dump(self.get_chunk_data())
+        prepared = self.prepare_chunk_data()
+        chunk_size = self.effective_class_chunk_sizes[self.minibatch_class]
+        chunks_number = int(numpy.ceil(self.max_minibatch_size / chunk_size))
+        for i in range(chunks_number):
+            self.offset_table.append(numpy.uint64(self.file.tell()))
+            file = MinibatchesSaver.CODECS[self.compression](
+                self.file, self.compression_level)
+            self.fill_chunk_data(
+                prepared, (i * chunk_size, (i + 1) * chunk_size))
+            pickle.dump(prepared, file, protocol=best_protocol)
+            file.flush()
 
     def stop(self):
-        self.file.flush()
-        pickle.dump(self.offset_table, self.file.fileobj,
-                    protocol=best_protocol)
+        pickle.dump(self.offset_table, self.file, protocol=best_protocol)
         self.file.close()
 
 
@@ -94,11 +122,11 @@ def decompress_snappy(data):
 class MinibatchesLoader(Loader):
 
     CODECS = {
-        ".pickle": lambda b: b,
+        "raw": lambda b: b,
         "snappy": decompress_snappy,
-        ".gz": gzip.decompress,
-        ".bz2": bz2.decompress,
-        ".xz": lzma.decompress,
+        "gz": gzip.decompress,
+        "bz2": bz2.decompress,
+        "xz": lzma.decompress,
     }
 
     def __init__(self, workflow, **kwargs):
@@ -106,6 +134,9 @@ class MinibatchesLoader(Loader):
         self.file_name = kwargs["file_name"]
         self.file = None
         self.offset_table = []
+        self.chunk_numbers = None
+        self.mb_chunk_numbers = None
+        self.class_chunk_lengths = None
         self.minibatch_data_shape = None
         self.minibatch_data_dtype = None
         self.minibatch_labels_shape = None
@@ -114,13 +145,19 @@ class MinibatchesLoader(Loader):
 
     def load_data(self):
         self.file = open(self.file_name, "rb")
-        (codec, self.class_lengths, self.max_minibatch_size,
+        (codec, self.class_lengths, self.old_max_minibatch_size,
+         self.class_chunk_lengths,
          self.minibatch_data_shape, self.minibatch_data_dtype,
          self.minibatch_labels_shape, self.minibatch_labels_dtype) = \
             pickle.load(self.file)
         self.decompress = MinibatchesLoader.CODECS[codec]
-        minibatches_count = sum(int(numpy.ceil(l / self.max_minibatch_size))
-                                for l in self.class_lengths)
+
+        self.chunk_numbers = []
+        for ci, cl in enumerate(self.class_lengths):
+            mb_chunks = int(numpy.ceil(self.old_max_minibatch_size /
+                                       self.class_chunk_lengths[ci]))
+            mb_count = int(numpy.ceil(cl / self.old_max_minibatch_size))
+            self.chunk_numbers.append(mb_chunks * mb_count)
 
         class BytesMeasurer(object):
             def __init__(self):
@@ -130,7 +167,7 @@ class MinibatchesLoader(Loader):
                 self.size += len(data)
 
         bm = BytesMeasurer()
-        fake_table = [numpy.uint64(i) for i in range(minibatches_count)]
+        fake_table = [numpy.uint64(i) for i in range(sum(self.chunk_numbers))]
         pickle.dump(fake_table, bm, protocol=best_protocol)
         self.file.seek(-bm.size, SEEK_END)
         try:
@@ -141,14 +178,17 @@ class MinibatchesLoader(Loader):
             raise from_none(e)
         # Virtual end
         self.offset_table.append(self.file.tell() - bm.size)
+        self.debug("Offsets: %s", self.offset_table)
 
     def create_minibatches(self):
         self.minibatch_data.reset()
         self.minibatch_data.mem = numpy.zeros(
-            self.minibatch_data_shape, dtype=self.minibatch_data_dtype)
+            (self.max_minibatch_size,) + self.minibatch_data_shape[1:],
+            dtype=self.minibatch_data_dtype)
         self.minibatch_labels.reset()
         self.minibatch_labels.mem = numpy.zeros(
-            self.minibatch_labels_shape, dtype=self.minibatch_labels_dtype)
+            (self.max_minibatch_size,) + self.minibatch_labels_shape[1:],
+            dtype=self.minibatch_labels_dtype)
         self.minibatch_indices.reset()
         self.minibatch_indices.mem = numpy.zeros(
             self.max_minibatch_size, dtype=Loader.INDEX_DTYPE)
@@ -171,10 +211,12 @@ class MinibatchesLoader(Loader):
             self.minibatch_labels[index] = mb_labels[chunk_offset]
 
     def get_address(self, index):
-        class_index, class_offset = self.class_index_by_sample_index(index)
-        chunk_number = sum(int(numpy.ceil(l / self.max_minibatch_size))
-                           for i, l in enumerate(self.class_lengths)
-                           if i < class_index)
-        mb_ind, mb_off = divmod(class_offset, self.max_minibatch_size)
-        chunk_number += mb_ind
+        class_index, class_remainder = self.class_index_by_sample_index(index)
+        chunk_length = self.class_chunk_lengths[class_index]
+        chunk_number = sum(self.chunk_numbers[:class_index])
+        class_offset = self.class_lengths[class_index] - class_remainder
+        mb_chunks = int(numpy.ceil(self.old_max_minibatch_size / chunk_length))
+        mb_ind, mb_off = divmod(class_offset, self.old_max_minibatch_size)
+        chunk_number += mb_ind * mb_chunks
+        mb_ind, mb_off = divmod(mb_off, chunk_length)
         return chunk_number, mb_off
