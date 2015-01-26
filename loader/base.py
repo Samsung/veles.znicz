@@ -143,6 +143,18 @@ class Loader(Unit):
         return state
 
     @property
+    def normalization_type(self):
+        return self._normalization_type
+
+    @normalization_type.setter
+    def normalization_type(self, value):
+        if not hasattr(memory, "normalize_" + value) and not (
+            isinstance(value, tuple) and len(value) == 2 and
+                value[0] == -value[1]):
+            raise ValueError("Unsupported normalization method \"%s\"" % value)
+        self._normalization_type = value
+
+    @property
     def shuffled_indices(self):
         return self._shuffled_indices
 
@@ -285,20 +297,6 @@ class Loader(Unit):
         if not isinstance(value, random_generator.RandomGenerator):
             raise TypeError("prng must be an instance of RandomGenerator")
         self._prng = value
-
-    @property
-    def normalize(self):
-        """
-        True if sample values are normalized before being served; otherwise,
-        False.
-        """
-        return self._normalize
-
-    @normalize.setter
-    def normalize(self, value):
-        if not isinstance(value, bool):
-            raise TypeError("normalize must be a boolean value")
-        self._normalize = value
 
     @property
     def validation_ratio(self):
@@ -469,6 +467,9 @@ class Loader(Unit):
 
         if self.fill_indices(minibatch_offset - minibatch_size,
                              minibatch_size):
+            # If this method returned True, it means that some acceleration
+            # is used and numpy/CPU is not directly used; effectively,
+            # fill_minibatch() becomes redundant.
             return
 
         if self.is_master:
@@ -483,11 +484,13 @@ class Loader(Unit):
             self.minibatch_indices[minibatch_size:] = -1
 
     def normalize_data(self, data):
-        nt = self.normalization_type
-        assert nt[0] == -nt[1] and nt[0] < 0
-        for sample in data:
-            memory.normalize(sample)
-            sample *= nt[1]
+        try:
+            getattr(memory, "normalize_" + self.normalization_type)(data)
+        except AttributeError:
+            assert isinstance(self.normalization_type, tuple) and \
+                len(self.normalization_type) == 2
+            for sample in data:
+                memory.normalize_linear(sample, self.normalization_type[1])
 
     def fill_indices(self, start_offset, count):
         """Fills minibatch_indices.

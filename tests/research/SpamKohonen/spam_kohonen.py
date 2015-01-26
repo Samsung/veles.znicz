@@ -137,7 +137,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
                   "average feature vector length: %d", len(lines),
                   len(distinct_labels), len(lemmas), avglength)
         self.info("Normalizing...")
-        self.IMul, self.IAdd = formats.normalize_pointwise(
+        self.IMul, self.IAdd = formats.calculate_pointwise_normalization(
             self.original_data.mem[self.class_lengths[loader.VALID]:])
         self.original_data.mem *= self.IMul
         self.original_data.mem += self.IAdd

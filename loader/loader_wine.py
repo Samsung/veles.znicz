@@ -13,7 +13,6 @@ import os
 from zope.interface import implementer
 
 from veles.config import root, get
-import veles.memory as formats
 import veles.znicz.loader as loader
 
 data_path = os.path.abspath(get(
@@ -26,16 +25,15 @@ root.wine.loader.dataset_file = os.path.join(data_path, "wine.txt.gz")
 class WineLoader(loader.FullBatchLoader):
     """Loads Wine dataset.
     """
+    def __init__(self, workflow, **kwargs):
+        kwargs["normalization_type"] = "pointwise"
+        super(WineLoader, self).__init__(workflow, **kwargs)
+
     def load_data(self):
         arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',',
                             dtype=numpy.float32)
         self.original_data.mem = arr[:, 1:]
         self.original_labels.mem = arr[:, 0].ravel().astype(numpy.int32) - 1
 
-        IMul, IAdd = formats.normalize_pointwise(self.original_data.mem)
-        self.original_data.mem[:] *= IMul
-        self.original_data.mem[:] += IAdd
-
-        self.class_lengths[0] = 0
-        self.class_lengths[1] = 0
+        self.class_lengths[0] = self.class_lengths[1] = 0
         self.class_lengths[2] = self.original_data.shape[0]

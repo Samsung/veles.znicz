@@ -145,8 +145,10 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         if not self.on_device or self.device is None:
             return
 
-        self.info("Will load entire dataset on device")
+        self.info("Normalizing to %s...", self.normalization_type)
+        self.normalize_data(self.original_data.mem)
 
+        self.info("Will load the entire dataset on device")
         self.original_data.initialize(self.device)
         self.minibatch_data.initialize(self.device)
         if self.has_labels:

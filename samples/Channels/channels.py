@@ -213,11 +213,11 @@ class ChannelsLoader(loader.FullBatchLoader):
                 aa[j] = x
 
         if self.grayscale:
-            formats.normalize(aa)
+            formats.normalize_linear(aa)
         else:
             # Normalize Y and UV planes separately.
-            formats.normalize(aa[0])
-            formats.normalize(aa[1:])
+            formats.normalize_linear(aa[0])
+            formats.normalize_linear(aa[1:])
 
         return aa
 

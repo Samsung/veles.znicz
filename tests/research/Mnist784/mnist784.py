@@ -127,7 +127,7 @@ class Mnist784Loader(MnistLoader, loader.FullBatchLoaderMSE):
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_targets[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.precision_type])
-            formats.normalize(self.class_targets[i])
+            formats.normalize_linear(self.class_targets[i])
         self.original_targets.mem = numpy.zeros(
             [self.original_labels.shape[0], self.class_targets.mem.shape[1]],
             dtype=self.original_data.dtype)

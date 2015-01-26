@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 """
 Created on Aug 14, 2013
 
-ImageLoader class.
+Ontology of image loading classes.
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
@@ -594,7 +595,7 @@ class ImageLoader(Loader):
         else:
             assert nt[0] == -nt[1] and nt[0] < 0
             for sample in data:
-                memory.normalize(sample)
+                memory.normalize_linear(sample)
                 sample *= nt[1]
 
     def _load_label(self, key, has_labels):

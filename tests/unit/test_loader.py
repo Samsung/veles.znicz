@@ -26,6 +26,7 @@ class Loader(FullBatchLoaderMSE):
     def load_data(self):
         """Here we will load MNIST data.
         """
+        super(Loader, self).load_data()
         N = 71599
         self.original_labels.mem = numpy.zeros([N], dtype=numpy.int32)
         self.original_data.mem = numpy.zeros([N, 28, 28],
@@ -60,15 +61,14 @@ class TestFullBatchLoader(unittest.TestCase):
         for device in (self.device, None):
             for on_device in (True, False):
                 results.append(self._test_random(device, on_device))
-        for i in range(1, len(results)):
-            for j in range(len(results[0])):
-                max_diff = numpy.fabs(results[i][j] - results[0][j]).max()
-                self.assertEqual(max_diff, 0)
+        for result in results[1:]:
+            for index, item in enumerate(result):
+                max_diff = numpy.fabs(item - results[0][index]).max()
+                self.assertLess(max_diff, 1e-6, "index = %d" % index)
 
     def _test_random(self, device, on_device, N=1000):
         rnd.get().seed(123)
-        unit = Loader(DummyWorkflow(), on_device=on_device,
-                      prng=rnd.get())
+        unit = Loader(DummyWorkflow(), on_device=on_device, prng=rnd.get())
         unit.initialize(device)
         res_data = numpy.zeros([N] + list(unit.minibatch_data.shape),
                                dtype=unit.minibatch_data.dtype)
