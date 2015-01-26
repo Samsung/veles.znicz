@@ -18,6 +18,7 @@ from veles.distributable import IDistributable
 import veles.error as error
 import veles.memory as memory
 from veles.mutable import Bool
+import veles.normalization as normalization
 import veles.prng as random_generator
 from veles.units import Unit, IUnit
 
@@ -148,7 +149,7 @@ class Loader(Unit):
 
     @normalization_type.setter
     def normalization_type(self, value):
-        if not hasattr(memory, "normalize_" + value) and not (
+        if not hasattr(normalization, "normalize_" + value) and not (
             isinstance(value, tuple) and len(value) == 2 and
                 value[0] == -value[1]):
             raise ValueError("Unsupported normalization method \"%s\"" % value)
@@ -485,12 +486,14 @@ class Loader(Unit):
 
     def normalize_data(self, data):
         try:
-            getattr(memory, "normalize_" + self.normalization_type)(data)
+            getattr(normalization,
+                    "normalize_" + self.normalization_type)(data)
         except AttributeError:
             assert isinstance(self.normalization_type, tuple) and \
                 len(self.normalization_type) == 2
             for sample in data:
-                memory.normalize_linear(sample, self.normalization_type[1])
+                normalization.normalize_linear(
+                    sample, self.normalization_type[1])
 
     def fill_indices(self, start_offset, count):
         """Fills minibatch_indices.

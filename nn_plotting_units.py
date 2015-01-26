@@ -12,6 +12,7 @@ from zope.interface import implementer
 import veles.config as config
 import veles.memory as formats
 from veles.mutable import Bool
+from veles.normalization import normalize_image
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types
 
@@ -111,7 +112,7 @@ class Weights2D(plotter.Plotter):
                 w = mem.reshape(sy, sx, n_channels)
                 if self.split_channels:
                     for ch in range(n_channels):
-                        pics.append(formats.norm_image(
+                        pics.append(normalize_image(
                             w[:, :, ch:ch + 1].reshape(sy, sx), self.yuv))
                         if len(pics) >= self.limit:
                             break
@@ -122,9 +123,9 @@ class Weights2D(plotter.Plotter):
                         w = w[:, :, 0].reshape(sy, sx)
                     elif n_channels > 3:
                         w = w[:, :, :3].reshape(sy, sx, 3)
-                    pics.append(formats.norm_image(w, self.yuv))
+                    pics.append(normalize_image(w, self.yuv))
             else:
-                pics.append(formats.norm_image(mem.reshape(sy, sx), self.yuv))
+                pics.append(normalize_image(mem.reshape(sy, sx), self.yuv))
         return pics
 
     def redraw(self):

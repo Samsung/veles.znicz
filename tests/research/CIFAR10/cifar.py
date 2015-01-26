@@ -18,6 +18,7 @@ from zope.interface import implementer
 
 from veles.config import root
 import veles.memory as formats
+from veles.normalization import normalize_linear
 from veles.znicz import loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -79,7 +80,7 @@ class CifarLoader(loader.FullBatchLoader):
             sobel_total = numpy.sqrt(numpy.square(sobel_x) +
                                      numpy.square(sobel_y))
             sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
-            formats.normalize_linear(sobel_gray)
+            normalize_linear(sobel_gray)
 
             if root.cifar.loader.norm == "mean":
                 sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
@@ -148,10 +149,10 @@ class CifarLoader(loader.FullBatchLoader):
                       numpy.average(self.original_data.mem[10000:]))
         elif root.cifar.loader.norm == "-1, 1":
             for sample in self.original_data.mem:
-                formats.normalize_linear(sample)
+                normalize_linear(sample)
         elif root.cifar.loader.norm == "-128, 128":
             for sample in self.original_data.mem:
-                formats.normalize_linear(sample)
+                normalize_linear(sample)
                 sample *= 128
         else:
             raise ValueError("Unsupported normalization type "

@@ -20,7 +20,8 @@ from veles.compat import from_none
 from veles.config import root
 from veles.accelerated_units import IOpenCLUnit
 import veles.error as error
-from veles.memory import assert_addr, norm_image, roundup, Vector
+from veles.memory import assert_addr, roundup, Vector
+from veles.normalization import normalize_image
 import veles.znicz.nn_units as nn_units
 
 
@@ -437,7 +438,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                             theta=ori, lambd=size / wavelen_ratio,
                             gamma=1, psi=phase)
 
-                        kernel_chan = norm_image(kernel_chan) * stddev
+                        kernel_chan = normalize_image(kernel_chan) * stddev
                         kernel = numpy.zeros(shape=[n_chans, self.kx, self.ky],
                                              dtype=numpy.float64)
                         for chan in range(n_chans):

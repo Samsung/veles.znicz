@@ -17,7 +17,7 @@ from zope.interface import implementer
 
 import veles.config as config
 from veles.error import BadFormatError
-import veles.memory as formats
+from veles.normalization import normalize_image
 from veles.distributable import IDistributable
 from veles.units import Unit, IUnit
 
@@ -186,7 +186,7 @@ class ImageSaver(Unit):
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
             try:
-                scipy.misc.imsave(fnme, formats.norm_image(img, self.yuv))
+                scipy.misc.imsave(fnme, normalize_image(img, self.yuv))
             except OSError:
                 self.warning("Could not save image to %s" % (fnme))
 

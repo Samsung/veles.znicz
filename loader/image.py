@@ -24,7 +24,6 @@ from veles.compat import from_none
 
 import veles.error as error
 from veles.external.progressbar import ProgressBar, Percentage, Bar
-import veles.memory as memory
 from veles.znicz.loader.base import (
     CLASS_NAME, TARGET, ILoader, Loader, LoaderMSEMixin)
 from veles.znicz.loader.fullbatch import (
@@ -145,6 +144,13 @@ class ImageLoader(Loader):
         if self.channels_number > 1:
             shape += (self.channels_number,)
         return shape
+
+    @Loader.normalization_type.setter
+    def normalization_type(self, value):
+        if value == "mean":
+            self._normalization_type = value
+        else:
+            Loader.normalization_type.setter(self).fset(value)
 
     @property
     def uncropped_shape(self):
@@ -593,10 +599,7 @@ class ImageLoader(Loader):
             if self.normalization_scale:
                 data *= self.normalization_scale
         else:
-            assert nt[0] == -nt[1] and nt[0] < 0
-            for sample in data:
-                memory.normalize_linear(sample)
-                sample *= nt[1]
+            super(ImageLoader, self).normalize_data(data)
 
     def _load_label(self, key, has_labels):
         label = self.get_image_label(key)

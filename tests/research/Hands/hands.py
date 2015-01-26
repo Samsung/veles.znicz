@@ -14,7 +14,6 @@ import numpy
 import os
 
 from veles.config import root
-import veles.memory as formats
 import veles.external.hog as hog
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
@@ -53,7 +52,6 @@ class HandsLoader(loader.FullBatchFileImageLoader):
         a = numpy.fromfile(key, dtype=numpy.uint8).astype(numpy.float32)
         sx = int(numpy.sqrt(a.size))
         a = hog.hog(a.reshape(sx, sx)).astype(numpy.float32)
-        formats.normalize_linear(a)
         return a
 
     def is_valid_filename(self, filename):

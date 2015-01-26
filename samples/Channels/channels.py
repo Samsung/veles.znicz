@@ -36,6 +36,7 @@ import veles.error as error
 import veles.memory as formats
 import veles.image as image
 from veles.mutable import Bool
+from veles.normalization import normalize_linear
 from veles.pickle2 import pickle, best_protocol
 import veles.plotting_units as plotting_units
 import veles.prng as rnd
@@ -213,11 +214,11 @@ class ChannelsLoader(loader.FullBatchLoader):
                 aa[j] = x
 
         if self.grayscale:
-            formats.normalize_linear(aa)
+            normalize_linear(aa)
         else:
             # Normalize Y and UV planes separately.
-            formats.normalize_linear(aa[0])
-            formats.normalize_linear(aa[1:])
+            normalize_linear(aa[0])
+            normalize_linear(aa[1:])
 
         return aa
 

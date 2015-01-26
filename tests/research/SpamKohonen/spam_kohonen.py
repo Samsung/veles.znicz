@@ -18,7 +18,6 @@ from zope.interface import implementer
 from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
-import veles.memory as formats
 import veles.units as units
 import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
@@ -47,6 +46,7 @@ root.spam_kohonen.loader.validation_ratio = 0.0
 @implementer(IFullBatchLoader)
 class SpamKohonenLoader(loader.FullBatchLoader):
     def __init__(self, workflow, **kwargs):
+        kwargs["normalization_type"] = "pointwise"
         super(SpamKohonenLoader, self).__init__(workflow, **kwargs)
         self.has_ids = kwargs.get("ids", False)
         self.has_classes = kwargs.get("classes", True)
@@ -136,11 +136,9 @@ class SpamKohonenLoader(loader.FullBatchLoader):
         self.info("Samples: %d, labels: %d, lemmas: %d, "
                   "average feature vector length: %d", len(lines),
                   len(distinct_labels), len(lemmas), avglength)
-        self.info("Normalizing...")
-        self.IMul, self.IAdd = formats.calculate_pointwise_normalization(
-            self.original_data.mem[self.class_lengths[loader.VALID]:])
-        self.original_data.mem *= self.IMul
-        self.original_data.mem += self.IAdd
+
+    def initialize(self, **kwargs):
+        super(SpamKohonenLoader, self).initialize(**kwargs)
         if self.class_lengths[loader.VALID] > 0:
             v = self.original_data.mem[:self.class_lengths[loader.VALID]]
             self.info("Range after normalization: validation: [%.6f, %.6f]",
