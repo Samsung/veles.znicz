@@ -142,17 +142,6 @@ class ImagenetWorkflow(StandardWorkflow):
     Model can change for any Model (Convolutional, Fully connected, different
     parameters) in configuration file.
     """
-    def __init__(self, workflow, **kwargs):
-        super(ImagenetWorkflow, self).__init__(
-            workflow,
-            fail_iterations=root.imagenet.decision.fail_iterations,
-            max_epochs=root.imagenet.decision.max_epochs,
-            prefix=root.imagenet.snapshotter.prefix,
-            snapshot_interval=root.imagenet.snapshotter.interval,
-            snapshot_dir=root.common.snapshot_dir,
-            layers=root.imagenet.layers,
-            loss_function=root.imagenet.loss_function, ** kwargs)
-
     def create_workflow(self):
         # Add repeater unit
         self.link_repeater(self.start_point)
@@ -203,12 +192,14 @@ class ImagenetWorkflow(StandardWorkflow):
 
     def link_loader(self, init_unit):
         self.loader = ImagenetLoader(
-            self, on_device=root.imagenet.loader.on_device,
-            minibatch_size=root.imagenet.loader.minibatch_size,
-            shuffle_limit=root.imagenet.loader.shuffle_limit)
+            self, **root.imagenet.loader.__dict__)
         self.loader.link_from(init_unit)
 
 
 def run(load, main):
-    load(ImagenetWorkflow)
+    load(ImagenetWorkflow,
+         decision_config=root.imagenet.decision,
+         snapshotter_config=root.imagenet.snapshotter,
+         layers=root.imagenet.layers,
+         loss_function=root.imagenet.loss_function)
     main()

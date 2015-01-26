@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import numpy
 import os
 from veles.config import root
 
@@ -21,7 +22,7 @@ root.yalefaces.update({
                "validation_ratio": 0.15,
                "filename_types": ["x-portable-graymap"],
                "ignored_files": [".*Ambient.*"],
-               "shuffle_limit": 100000000000000,
+               "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                "add_sobel": False,
                "normalization_type": (-1, 1),
                "mirror": False,

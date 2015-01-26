@@ -167,11 +167,9 @@ class MnistWorkflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(MnistWorkflow, layers=root.mnistr.layers,
-         fail_iterations=root.mnistr.decision.fail_iterations,
-         max_epochs=root.mnistr.decision.max_epochs,
-         prefix=root.mnistr.snapshotter.prefix,
-         snapshot_interval=root.mnistr.snapshotter.interval,
-         snapshot_dir=root.common.snapshot_dir,
+    load(MnistWorkflow,
+         decision_config=root.mnistr.decision,
+         snapshotter_config=root.mnistr.snapshotter,
+         layers=root.mnistr.layers,
          loss_function=root.mnistr.loss_function)
     main()

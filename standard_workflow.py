@@ -324,15 +324,11 @@ class StandardWorkflow(StandardWorkflowBase):
         kwargs["layers"] = layers
         super(StandardWorkflow, self).__init__(
             workflow, **kwargs)
-        self.fail_iterations = kwargs.get("fail_iterations", 20)
-        self.max_epochs = kwargs.get("max_epochs", 1000)
-        self.prefix = kwargs.get("prefix", "")
-        self.snapshot_dir = kwargs.get("snapshot_dir", "")
-        self.compress = kwargs.get("compress", "")
-        self.time_interval = kwargs.get("time_interval", 0)
-        self.snapshot_interval = kwargs.get("snapshot_interval", 1)
+        self.loader_config = kwargs.get("loader_config")
+        self.decision_config = kwargs.get("decision_config")
+        self.snapshotter_config = kwargs.get("snapshotter_config")
         self.loss_function = kwargs.get("loss_function", "softmax")
-        self.out_dirs = kwargs.get("out_dirs", "")
+        self.image_saver_config = kwargs.get("image_saver_config")
         if self.loss_function != "softmax" and self.loss_function != "mse":
             raise error.NotExistsError("Unknown loss function type %s"
                                        % self.loss_function)
@@ -366,6 +362,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_loader(self, init_unit):
         # There must be standard Loader
+        # Loader(**self.loader_config.__dict__)
         # self.loader.link_from(init_unit)
         pass
 
@@ -435,11 +432,9 @@ class StandardWorkflow(StandardWorkflowBase):
         # not work without create loader and evaluator first
         self.check_loader()
         self.check_evaluator()
-        self.decision = (DecisionGD(self, fail_iterations=self.fail_iterations,
-                                    max_epochs=self.max_epochs)
+        self.decision = (DecisionGD(self, **self.decision_config.__dict__)
                          if self.loss_function == "softmax" else DecisionMSE(
-                             self, fail_iterations=self.fail_iterations,
-                             max_epochs=self.max_epochs))
+                             self, **self.decision_config))
         self.decision.link_from(init_unit)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -468,9 +463,7 @@ class StandardWorkflow(StandardWorkflowBase):
         # not work without create decision first
         self.check_decision()
         self.snapshotter = nn_units.NNSnapshotter(
-            self, prefix=self.prefix, directory=self.snapshot_dir,
-            compress=self.compress, time_interval=self.time_interval,
-            interval=self.snapshot_interval)
+            self, **self.snapshotter_config.__dict__)
         self.snapshotter.link_from(init_unit)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -483,7 +476,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.check_decision()
         self.check_loader()
         self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=self.out_dirs)
+            self, **self.image_saver_config.__dict__)
         self.image_saver.link_from(init_unit)
         self.image_saver.link_attrs(self.forwards[-1],
                                     "output", "max_idx")

@@ -187,10 +187,7 @@ class KanjiWorkflow(StandardWorkflow):
 
     def link_loader(self, init_unit):
         self.loader = KanjiLoader(
-            self, validation_ratio=root.kanji.loader.validation_ratio,
-            train_path=root.kanji.data_paths.train,
-            target_path=root.kanji.data_paths.target,
-            minibatch_size=root.kanji.loader.minibatch_size)
+            self, **root.kanji.loader.__dict__)
         self.loader.link_from(init_unit)
 
 
@@ -199,10 +196,8 @@ def run(load, main):
     bias = None
     w, snapshot = load(
         KanjiWorkflow,
-        fail_iterations=root.kanji.decision.fail_iterations,
-        max_epochs=root.kanji.decision.max_epochs,
-        prefix=root.kanji.snapshotter.prefix,
-        snapshot_dir=root.common.snapshot_dir,
+        decision_config=root.kanji.decision,
+        snapshotter_config=root.kanji.snapshotter,
         layers=root.kanji.layers,
         loss_function=root.kanji.loss_function)
     if snapshot:

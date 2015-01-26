@@ -22,32 +22,6 @@ from veles.normalization import normalize_linear
 from veles.znicz import loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
-train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
-validation_dir = os.path.join(root.common.test_dataset_root,
-                              "cifar/10/test_batch")
-
-root.cifar.update({
-    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
-    "learning_rate_adjust": {"do": False},
-    "snapshotter": {"prefix": "cifar", "interval": 1},
-    "loss_function": "softmax",
-    "add_plotters": False,
-    "softmax": {"error_function_avr": False},
-    "image_saver": {"do": False,
-                    "out_dirs":
-                    [os.path.join(root.common.cache_dir, "tmp/test"),
-                     os.path.join(root.common.cache_dir, "tmp/validation"),
-                     os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_size": 180, "norm": "-1, 1",
-               "shuffle_limit": 1, "sobel": False, "on_device": True},
-    "weights_plotter": {"limit": 64},
-    "similar_weights_plotter": {'form': 1.1, 'peak': 0.5, 'magnitude': 0.65},
-    "layers": [{"type": "all2all_tanh", "learning_rate": 0.0005,
-                "weights_decay": 0.00005, "output_shape": 100},
-               {"type": "softmax", "output_shape": 10, "learning_rate": 0.0005,
-                "weights_decay": 0.00005}],
-    "data_paths": {"train": train_dir, "validation": validation_dir}})
-
 
 @implementer(loader.IFullBatchLoader)
 class CifarLoader(loader.FullBatchLoader):
@@ -82,11 +56,11 @@ class CifarLoader(loader.FullBatchLoader):
             sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
             normalize_linear(sobel_gray)
 
-            if root.cifar.loader.norm == "mean":
+            if root.cifar.loader.normalization_type == "mean":
                 sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
-            elif root.cifar.loader.norm == "-128, 128":
+            elif root.cifar.loader.normalization_type == "-128, 128":
                 sobel_data[i, :, :] = sobel_gray * 128
-            elif root.cifar.loader.norm == "-1, 1":
+            elif root.cifar.loader.normalization_type == "-1, 1":
                 sobel_data[i, :, :] = sobel_gray
 
         sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
@@ -136,7 +110,7 @@ class CifarLoader(loader.FullBatchLoader):
         if use_sobel:
             self._add_sobel_chan()
 
-        if root.cifar.loader.norm == "mean":
+        if root.cifar.loader.normalization_type == "mean":
             mean = numpy.mean(self.original_data[10000:], axis=0)
             self.original_data.mem -= mean
             self.info("Validation range: %.6f %.6f %.6f",
@@ -147,10 +121,10 @@ class CifarLoader(loader.FullBatchLoader):
                       self.original_data.mem[10000:].min(),
                       self.original_data.mem[10000:].max(),
                       numpy.average(self.original_data.mem[10000:]))
-        elif root.cifar.loader.norm == "-1, 1":
+        elif root.cifar.loader.normalization_type == "-1, 1":
             for sample in self.original_data.mem:
                 normalize_linear(sample)
-        elif root.cifar.loader.norm == "-128, 128":
+        elif root.cifar.loader.normalization_type == "-128, 128":
             for sample in self.original_data.mem:
                 normalize_linear(sample)
                 sample *= 128
@@ -167,9 +141,7 @@ class CifarWorkflow(StandardWorkflow):
     """
     def link_loader(self, init_unit):
         self.loader = CifarLoader(
-            self, shuffle_limit=root.cifar.loader.shuffle_limit,
-            on_device=root.cifar.loader.on_device,
-            minibatch_size=root.cifar.loader.minibatch_size)
+            self, **root.cifar.loader.__dict__)
         self.loader.link_from(init_unit)
 
     def create_workflow(self):
@@ -253,12 +225,9 @@ class CifarWorkflow(StandardWorkflow):
 
 def run(load, main):
     load(CifarWorkflow,
-         fail_iterations=root.cifar.decision.fail_iterations,
-         max_epochs=root.cifar.decision.max_epochs,
-         prefix=root.cifar.snapshotter.prefix,
-         snapshot_interval=root.cifar.snapshotter.interval,
-         snapshot_dir=root.common.snapshot_dir,
+         decision_config=root.cifar.decision,
+         snapshotter_config=root.cifar.snapshotter,
+         image_saver_config=root.cifar.image_saver,
          layers=root.cifar.layers,
-         out_dirs=root.cifar.image_saver.out_dirs,
          loss_function=root.cifar.loss_function)
     main()
