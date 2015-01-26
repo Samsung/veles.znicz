@@ -9,7 +9,7 @@ A unit test for local response normalization.
 
 import gc
 import logging
-import numpy as np
+import numpy
 import unittest
 
 from veles import backends
@@ -20,7 +20,6 @@ from veles.dummy import DummyWorkflow
 
 class TestNormalization(unittest.TestCase):
     def setUp(self):
-        self.workflow = DummyWorkflow()
         self.device = backends.Device()
 
     def tearDown(self):
@@ -28,27 +27,27 @@ class TestNormalization(unittest.TestCase):
         del self.device
 
     def test_normalization_forward(self):
-        fwd_normalizer = LRNormalizerForward(self.workflow,
+        fwd_normalizer = LRNormalizerForward(DummyWorkflow(),
                                              device=self.device, n=3)
         fwd_normalizer.input = Vector()
-        in_vector = np.zeros(shape=(1, 2, 5, 5), dtype=np.float64)
+        in_vector = numpy.zeros(shape=(1, 2, 5, 5), dtype=numpy.float64)
 
         for i in range(5):
-            in_vector[0, 0, i, :] = np.linspace(10, 50, 5) * (i + 1)
-            in_vector[0, 1, i, :] = np.linspace(10, 50, 5) * (i + 1) + 1
+            in_vector[0, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1)
+            in_vector[0, 1, i, :] = numpy.linspace(10, 50, 5) * (i + 1) + 1
 
         fwd_normalizer.input.mem = in_vector
         fwd_normalizer.initialize(device=self.device)
 
         fwd_normalizer.ocl_run()
         fwd_normalizer.output.map_read()
-        ocl_result = np.copy(fwd_normalizer.output.mem)
+        ocl_result = numpy.copy(fwd_normalizer.output.mem)
 
         fwd_normalizer.cpu_run()
         fwd_normalizer.output.map_read()
-        cpu_result = np.copy(fwd_normalizer.output.mem)
+        cpu_result = numpy.copy(fwd_normalizer.output.mem)
 
-        max_delta = np.fabs(cpu_result - ocl_result).max()
+        max_delta = numpy.fabs(cpu_result - ocl_result).max()
 
         logging.info("FORWARD")
         self.assertLess(max_delta, 0.0001,
@@ -58,17 +57,17 @@ class TestNormalization(unittest.TestCase):
 
     def test_normalization_backward(self):
 
-        h = np.zeros(shape=(2, 1, 5, 5), dtype=np.float64)
+        h = numpy.zeros(shape=(2, 1, 5, 5), dtype=numpy.float64)
         for i in range(5):
-            h[0, 0, i, :] = np.linspace(10, 50, 5) * (i + 1)
-            h[1, 0, i, :] = np.linspace(10, 50, 5) * (i + 1) + 1
+            h[0, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1)
+            h[1, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1) + 1
 
-        err_y = np.zeros(shape=(2, 1, 5, 5), dtype=np.float64)
+        err_y = numpy.zeros(shape=(2, 1, 5, 5), dtype=numpy.float64)
         for i in range(5):
-            err_y[0, 0, i, :] = np.linspace(2, 10, 5) * (i + 1)
-            err_y[1, 0, i, :] = np.linspace(2, 10, 5) * (i + 1) + 1
+            err_y[0, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1)
+            err_y[1, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1) + 1
 
-        back_normalizer = LRNormalizerBackward(self.workflow,
+        back_normalizer = LRNormalizerBackward(DummyWorkflow(),
                                                device=self.device, n=3)
         back_normalizer.input = Vector()
         back_normalizer.err_output = Vector()
@@ -90,12 +89,9 @@ class TestNormalization(unittest.TestCase):
 
         logging.info("BACK")
 
-        max_delta = np.fabs(cpu_result - ocl_result).max()
+        max_delta = numpy.fabs(cpu_result - ocl_result).max()
         self.assertLess(max_delta, 0.0001,
                         "Result differs by %.6f" % (max_delta))
-#        print(err_y)
-#        print(cpu_result)
-#        print(ocl_result)
 
         logging.info("BackProp done.")
 

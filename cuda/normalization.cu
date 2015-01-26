@@ -45,6 +45,9 @@ __device__ void calculate_subsums(const dtype *h, dtype *subsums) {
 extern "C"
 __global__ void forward(const dtype *in_data, dtype *out_data) {
   int global_index = threadIdx.x + blockIdx.x * blockDim.x;
+  if (global_index >= OUTPUT_SIZE) {
+    return;
+  }
   int global_offset = global_index * NUM_OF_CHANS;
 
   dtype h[NUM_OF_CHANS];
@@ -65,6 +68,9 @@ extern "C"
 __global__ void backward(
     const dtype *in_err_y, const dtype *in_h, dtype *out_err_h) {
   int global_index = threadIdx.x + blockIdx.x * blockDim.x;
+  if (global_index >= OUTPUT_SIZE) {
+    return;
+  }
   int global_offset = global_index * NUM_OF_CHANS;
 
   dtype h[NUM_OF_CHANS];
