@@ -541,7 +541,8 @@ class ImageLoader(Loader):
     def keys_from_indices(self, indices):
         keys = []
         for si in indices:
-            class_index, key_index = self.class_index_by_sample_index(si)
+            class_index, key_remainder = self.class_index_by_sample_index(si)
+            key_index = self.class_lengths[class_index] - key_remainder
             keys.append(self.class_keys[class_index][
                 (key_index - 1) // self.samples_inflation])
         return keys
@@ -976,7 +977,7 @@ class FileImageLoaderBase(ImageLoader):
             return False
         mime = guess_type(filename)[0]
         if mime is None:
-            self.warning("Could not determine MIME type of %s", filename)
+            self.debug("Could not determine MIME type of %s", filename)
             return False
         if not mime.startswith("image/"):
             self.debug("Ignored %s (MIME is not an image)", filename)
