@@ -10,14 +10,13 @@ Detailed description given in article by Krizhevsky, Sutskever and Hinton:
 
 from __future__ import division
 import numpy
-import opencl4py as cl
 from zope.interface import implementer
 
-from veles import memory
-import veles.prng as random_generator
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
-from veles.znicz.nn_units import Forward, GradientDescentBase
 from veles.distributable import IDistributable, TriviallyDistributable
+from veles.memory import eq_addr, ravel, Vector
+import veles.prng as random_generator
+from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
 class Dropout(AcceleratedUnit, TriviallyDistributable):
@@ -58,8 +57,8 @@ class DropoutForward(Forward, Dropout):
 
     def __init__(self, workflow, **kwargs):
         super(DropoutForward, self).__init__(workflow, **kwargs)
-        self.mask = memory.Vector()  # dropout mask
-        self.states = memory.Vector()
+        self.mask = Vector()  # dropout mask
+        self.states = Vector()
         self.rand = random_generator.get()
 
     @Dropout.dropout_ratio.setter
@@ -74,9 +73,8 @@ class DropoutForward(Forward, Dropout):
         self.states.mem = self.rand.randint(
             low=DropoutForward.MIN_RANDOM_STATE,
             high=DropoutForward.MAX_RANDOM_STATE,
-            size=self.input.mem.size * 4).astype(numpy.uint32)
-        if (self.output.mem is None or
-                self.output.mem.size != self.input.mem.size):
+            size=self.input.size * 4).astype(numpy.uint32)
+        if (not self.output or self.output.size != self.input.size):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
@@ -87,25 +85,37 @@ class DropoutForward(Forward, Dropout):
 
         self.backend_init()
 
-    def ocl_init(self):
+    def _gpu_init(self):
         self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)
-        self._pass_arg_ = numpy.empty(1, dtype=self.input.mem.dtype)
+        self._pass_arg_ = numpy.empty(1, dtype=self.input.dtype)
 
-        self.build_program({}, "%s_%s" %
+        self.build_program({"OUTPUT_SIZE": self.input.size}, "%s_%s" %
                            (self.__class__.__name__,
                             "x".join(str(x) for x in self.input.shape)),
-                           dtype=self.input.mem.dtype)
+                           dtype=self.input.dtype)
 
         self.assign_kernel("dropout_forward")
-        self.set_args(self.input, cl.skip, cl.skip, self.states, self.mask,
+        self.set_args(self.input, self.device.skip(2), self.states, self.mask,
                       self.output)
+
+    def ocl_init(self):
+        self._gpu_init()
+        self._global_size = (self.input.size,)
+        self._local_size = None
+
+    def cuda_init(self):
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (
+            int(numpy.ceil(self.input.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def calc_mask(self):
         leave_ratio = 1.0 - self.dropout_ratio
         self.rand.fill(self.mask.mem, -self.dropout_ratio, leave_ratio)
         numpy.maximum(self.mask.mem, 0, self.mask.mem)
         numpy.ceil(self.mask.mem, self.mask.mem)
-        self.mask.mem[:] = (self.mask.mem.astype(self.input.mem.dtype) /
+        self.mask.mem[:] = (self.mask.mem.astype(self.input.dtype) /
                             leave_ratio)
 
     def cpu_run(self):
@@ -115,25 +125,33 @@ class DropoutForward(Forward, Dropout):
             self.mask.map_invalidate()
             self.calc_mask()
             numpy.multiply(self.input.mem.ravel(), self.mask.mem.ravel(),
-                           memory.ravel(self.output.mem))
+                           ravel(self.output.mem))
         else:
             self.output.mem[:] = self.input.mem
 
-    def ocl_run(self):
+    def _gpu_run(self):
         self.input.unmap()
         self.output.unmap()
-        if not self.forward_mode:
-            self.states.unmap()
-            self.mask.unmap()
-            self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
-            self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
-            self.set_arg(1, self._threshold_arg_)
-            self.set_arg(2, self._pass_arg_)
-            self.execute_kernel((self.input.mem.size,), None)
-        else:
+        if self.forward_mode:
+            return True
+        self.states.unmap()
+        self.mask.unmap()
+        self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
+        self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
+        self.set_arg(1, self._threshold_arg_)
+        self.set_arg(2, self._pass_arg_)
+        self.execute_kernel(self._global_size, self._local_size)
+        return False
+
+    def ocl_run(self):
+        if self._gpu_run():
             self.device.queue_.copy_buffer(
                 self.input.devmem, self.output.devmem, 0, 0,
                 self.output.nbytes, need_event=False)
+
+    def cuda_run(self):
+        if self._gpu_run():
+            self.output.devmem.from_device_async(self.input.devmem)
 
 
 @implementer(IOpenCLUnit, IDistributable)
@@ -156,26 +174,44 @@ class DropoutBackward(GradientDescentBase, Dropout):
         else:
             super(DropoutBackward, self).initialize(device=device, **kwargs)
 
-    def ocl_init(self):
-        self.build_program({}, "%s_%s" %
+    def _gpu_init(self):
+        self.build_program({"OUTPUT_SIZE": self.err_output.size}, "%s_%s" %
                            (self.__class__.__name__,
                             "x".join(str(x) for x in self.err_input.shape)),
                            dtype=self.err_output.mem.dtype)
         self.assign_kernel("dropout_backward")
         self.set_args(self.mask, self.err_output, self.err_input)
 
+    def ocl_init(self):
+        self._gpu_init()
+        self._global_size = (self.err_output.size,)
+        self._local_size = None
+
+    def cuda_init(self):
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (
+            int(numpy.ceil(self.err_output.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
+
     def cpu_run(self):
-        if memory.eq_addr(self.err_input.mem, self.err_output.mem):
+        if eq_addr(self.err_input.mem, self.err_output.mem):
             self.err_output.map_write()
         else:
             self.err_output.map_read()
             self.err_input.map_invalidate()
         self.mask.map_read()
         numpy.multiply(self.err_output.mem.ravel(), self.mask.mem.ravel(),
-                       memory.ravel(self.err_input.mem))
+                       ravel(self.err_input.mem))
 
-    def ocl_run(self):
+    def _gpu_run(self):
         self.err_output.unmap()
         self.err_input.unmap()
         self.mask.unmap()
-        self.execute_kernel((self.err_output.mem.size,), None)
+        self.execute_kernel(self._global_size, self._local_size)
+
+    def ocl_run(self):
+        self._gpu_run()
+
+    def cuda_run(self):
+        self._gpu_run()

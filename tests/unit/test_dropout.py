@@ -20,7 +20,7 @@ from veles.znicz.dropout import DropoutForward, DropoutBackward
 
 class TestType(object):
     CPU = 0
-    OCL = 1
+    GPU = 1
 
     def __init__(self):
         """
@@ -30,8 +30,12 @@ class TestType(object):
 
 
 class TestDropout(unittest.TestCase):
+    def setUp(self):
+        self.device = Device()
+
     def tearDown(self):
         gc.collect()
+        del self.device
 
     def _run_test(self, test_type):
         workflow = DummyWorkflow()
@@ -45,10 +49,9 @@ class TestDropout(unittest.TestCase):
         fwd_dropout.input.mem = in_matrix
         logging.debug("[DropoutForward] input matrix:\n%s", in_matrix)
 
-        device = Device()
-        fwd_dropout.initialize(device)
-        if test_type == TestType.OCL:
-            fwd_dropout.ocl_run()
+        fwd_dropout.initialize(self.device)
+        if test_type == TestType.GPU:
+            fwd_dropout.run()
             fwd_dropout.output.map_read()
         else:
             fwd_dropout.cpu_run()
@@ -75,9 +78,9 @@ class TestDropout(unittest.TestCase):
         back_dropout.err_output.mem = err_output
         logging.debug("[DropoutBackward] err_y matrix:\n%s", err_output)
 
-        back_dropout.initialize(device)
-        if test_type == TestType.OCL:
-            back_dropout.ocl_run()
+        back_dropout.initialize(self.device)
+        if test_type == TestType.GPU:
+            back_dropout.run()
             back_dropout.err_input.map_read()
         else:
             back_dropout.cpu_run()
@@ -100,8 +103,8 @@ class TestDropout(unittest.TestCase):
         logging.info("TEST PASSED")
 
     def test_ocl(self):
-        logging.info("start OpenCL test...")
-        self._run_test(TestType.OCL)
+        logging.info("start GPU test...")
+        self._run_test(TestType.GPU)
         logging.info("TEST PASSED")
 
 
