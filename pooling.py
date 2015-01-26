@@ -119,7 +119,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
 
         self.backend_init()
 
-    def ocl_init(self):
+    def _gpu_init(self):
         defines = {
             'SX': self._sx,
             'SY': self._sy,
@@ -127,13 +127,29 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
             'KX': self.kx,
             'KY': self.ky,
             'SLIDE_X': self.sliding[0],
-            'SLIDE_Y': self.sliding[1]
+            'SLIDE_Y': self.sliding[1],
+            'OUTPUT_SIZE': self._output_size
         }
         self.build_program(
             defines, "%s_%d_%dx%dx%d_%dx%d" %
             (self.__class__.__name__, self.input.shape[0],
              self._sx, self._sy, self._n_channels,
-             self.kx, self.ky), dtype=self.input.mem.dtype)
+             self.kx, self.ky), dtype=self.input.dtype)
+        self.assign_kernel(self._kernel_name)
+
+    def ocl_init(self):
+        sh = self._output_shape
+        self._gpu_init()
+        self._global_size = [sh[3] * sh[2], sh[1] * sh[0]]
+        self._local_size = None
+
+    def cuda_init(self):
+        sh = self._output_shape
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (int(numpy.ceil(numpy.prod(sh) / block_size)),
+                             1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def print_debug_data(self, t_start):
         """Show some statistics.
@@ -148,14 +164,16 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
              y.shape[3], self.kx, self.ky, self.sliding[0], self.sliding[1],
              time.time() - t_start))
 
+    def _gpu_run(self):
+        self.output.unmap()
+        self.input.unmap()
+        self.execute_kernel(self._global_size, self._local_size)
+
     def ocl_run(self):
-        """Forward propagation from batch on GPU.
-        """
-        self.output.unmap()  # we will be updating output
-        self.input.unmap()  # we will use input
-        sh = self._output_shape
-        global_size = [sh[3] * sh[2], sh[1] * sh[0]]
-        self.execute_kernel(global_size, None)
+        self._gpu_run()
+
+    def cuda_run(self):
+        self._gpu_run()
 
     def cpu_run(self):
         self.input.map_read()
@@ -223,8 +241,12 @@ class OffsetPooling(Pooling):
                                             self.input_offset, *args)
 
     def ocl_run(self):
-        self.input_offset.unmap()  # we will be updating input_offset
+        self.input_offset.unmap()
         super(OffsetPooling, self).ocl_run()
+
+    def cuda_run(self):
+        self.input_offset.unmap()
+        super(OffsetPooling, self).cuda_run()
 
     def cpu_run(self):
         self.input_offset.map_invalidate()
@@ -258,13 +280,14 @@ class MaxPoolingBase(OffsetPooling):
     """
     MAPPING = set()
 
+    def init_unpickled(self):
+        super(MaxPoolingBase, self).init_unpickled()
+        self._kernel_name = "max_pooling"
+
     def initialize(self, device, **kwargs):
         super(MaxPoolingBase, self).initialize(device=device, **kwargs)
-
         if self.device is None:
             return
-
-        self.assign_kernel("do_max_pooling")
         self.set_args()
 
 
@@ -319,7 +342,7 @@ class StochasticPoolingBase(OffsetPooling):
         super(StochasticPoolingBase, self).init_unpickled()
         self._rand_set = False
         self._rand_arg = 3
-        self._kernel_name = "do_stochastic_pooling"
+        self._kernel_name = "stochastic_pooling"
 
     def initialize(self, device, **kwargs):
         super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
@@ -344,15 +367,22 @@ class StochasticPoolingBase(OffsetPooling):
         pass
 
     def cpu_run(self):
-        self.uniform.fill_cpu(self._output_size << 1)
+        self.uniform.cpu_fill(self._output_size << 1)
         super(StochasticPoolingBase, self).cpu_run()
 
     def ocl_run(self):
         if not self._rand_set:
             self.set_arg(self._rand_arg, self.uniform.output)
             self._rand_set = True
-        self.uniform.fill_ocl(self._output_size << 1)
+        self.uniform.ocl_fill(self._output_size << 1)
         super(StochasticPoolingBase, self).ocl_run()
+
+    def cuda_run(self):
+        if not self._rand_set:
+            self.set_arg(self._rand_arg, self.uniform.output)
+            self._rand_set = True
+        self.uniform.cuda_fill(self._output_size << 1)
+        super(StochasticPoolingBase, self).cuda_run()
 
     def calculate_position_cpu(self, index, vsum):
         rnd = self.uniform.output.mem.view(dtype=numpy.uint16)[index]
@@ -420,7 +450,7 @@ class StochasticPoolingDepooling(StochasticPooling):
         super(StochasticPoolingDepooling, self).init_unpickled()
         self.cl_sources_["pooling"]["USE_POOLING_DEPOOLING"] = 1
         self._rand_arg = 1
-        self._kernel_name = "do_stochastic_pooling_depooling"
+        self._kernel_name = "stochastic_pooling_depooling"
 
     def set_args(self, *args):
         self.set_arg(0, self.input)
@@ -456,13 +486,14 @@ class AvgPooling(Pooling):
 
     MAPPING = {"avg_pooling"}
 
+    def init_unpickled(self):
+        super(AvgPooling, self).init_unpickled()
+        self._kernel_name = "avg_pooling"
+
     def initialize(self, device, **kwargs):
         super(AvgPooling, self).initialize(device=device, **kwargs)
-
         if self.device is None:
             return
-
-        self.assign_kernel("do_avg_pooling")
         self.set_args(self.input, self.output)
 
     def cpu_run_cut(self, cut, coords):

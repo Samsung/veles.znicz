@@ -19,15 +19,20 @@
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 extern "C"
-__global__ void max_pooling(
-    const dtype /* IN */*h, dtype /* OUT */*y, int /* OUT */*h_offs) {
+__global__ void max_pooling(const dtype *h, dtype *y, int *h_offs) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= OUTPUT_SIZE) {
+    return;
+  }
+
+  int target_y = idx / (OUT_SX * N_CHANNELS);
+  int target_x = idx % (OUT_SX * N_CHANNELS);
+
   dtype max_vle = -FLT_MAX;
 #ifdef ABS_VALUES
   dtype max_absvle = -1;
 #endif
   int max_offs = 0;
-  int target_x = threadIdx.x + blockIdx.x * blockDim.x;
-  int target_y = threadIdx.y + blockIdx.y * blockDim.y;
 
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL;
   int start_y = target_y % OUT_SY * SLIDE_Y;
@@ -60,7 +65,6 @@ __global__ void max_pooling(
     }
   }
 
-  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   y[idx] = max_vle;
   h_offs[idx] = max_offs;
 }
@@ -71,9 +75,15 @@ __global__ void max_pooling(
 /// @param y batch of output multichannel interleaved images.
 extern "C"
 __global__ void avg_pooling(const dtype /* IN */  *h, dtype /* OUT */ *y) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= OUTPUT_SIZE) {
+    return;
+  }
+
+  int target_y = idx / (OUT_SX * N_CHANNELS);
+  int target_x = idx % (OUT_SX * N_CHANNELS);
+
   dtype smm = 0;
-  int target_x = threadIdx.x + blockIdx.x * blockDim.x;
-  int target_y = threadIdx.y + blockIdx.y * blockDim.y;
 
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL;
   int start_y = target_y % OUT_SY * SLIDE_Y;
@@ -98,19 +108,18 @@ __global__ void avg_pooling(const dtype /* IN */  *h, dtype /* OUT */ *y) {
   }
 
 #if (OUT_SY - 1) * SLIDE_Y + KY == SY
-#define NY KY
+  #define NY KY
 #else
-#define NY MIN(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
+  #define NY MIN(KY, SY - (target_y % OUT_SY) * SLIDE_Y)
 #endif
 
 #if (OUT_SX - 1) * SLIDE_X + KX == SX
-#define NX KX
+  #define NX KX
 #else
-#define NX MIN(KX, SX - TARGET_PIXEL_X * SLIDE_X)
+  #define NX MIN(KX, SX - TARGET_PIXEL_X * SLIDE_X)
 #endif
 
-int idx = target_y * OUT_SX * N_CHANNELS + target_x;
-y[idx] = smm / (NX * NY);
+  y[idx] = smm / (NX * NY);
 
 #undef NX
 #undef NY
@@ -142,14 +151,19 @@ extern "C"
 __global__ void stochastic_pooling(
     const dtype /* IN */ *h, dtype /* OUT */ *y, int /* OUT */ *h_offs,
     ushort  /* IN, OUT */ *rand) {
-  int target_x = threadIdx.x + blockIdx.x * blockDim.x;
-  int target_y = threadIdx.y + blockIdx.y * blockDim.y;
+
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= OUTPUT_SIZE) {
+    return;
+  }
+
+  int target_y = idx / (OUT_SX * N_CHANNELS);
+  int target_x = idx % (OUT_SX * N_CHANNELS);
 
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL;
   int start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
   int original_offset = offs;
-  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   dtype sum = 0;
   int count = 0;
 
@@ -231,16 +245,20 @@ __global__ void stochastic_pooling(
 #endif
 extern "C"
 __global__
-void stochastic_pooling_depooling(dtype /* IN, OUT */ *h,
-                                  ushort /* IN, OUT */ *rand) {
-  int target_x = threadIdx.x + blockIdx.x * blockDim.x;
-  int target_y = threadIdx.y + blockIdx.y * blockDim.y;
+void stochastic_pooling_depooling(dtype *h, const ushort *rand) {
+  
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= OUTPUT_SIZE) {
+    return;
+  }
+
+  int target_y = idx / (OUT_SX * N_CHANNELS);
+  int target_x = idx % (OUT_SX * N_CHANNELS);
 
   int start_x = TARGET_PIXEL_X * SLIDE_X * N_CHANNELS + TARGET_CHANNEL,
       start_y = target_y % OUT_SY * SLIDE_Y;
   int offs = ((target_y / OUT_SY) * SY + start_y) * SX * N_CHANNELS;
   int original_offset = offs;
-  int idx = target_y * OUT_SX * N_CHANNELS + target_x;
   dtype sum = 0;
   int count = 0;
 

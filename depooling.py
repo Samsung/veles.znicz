@@ -68,20 +68,30 @@ class Depooling(nn_units.Forward):
 
         self.backend_init()
 
+    def _gpu_init(self):
+        self.build_program(
+            {"INPUT_SIZE": self.input.size}, "%s_%s" %
+            (self.__class__.__name__,
+             "_".join(str(i) for i in self.input.shape)),
+            dtype=self.input.dtype)
+
+        self.assign_kernel("feed_layer")
+        self.set_args(self.input, self.output_offset, self.output)
+
     def ocl_init(self):
-        if self.program_ is None:
-            self.build_program(
-                {}, "%s_%s" %
-                (self.__class__.__name__,
-                 "_".join(str(i) for i in self.input.shape)),
-                dtype=self.input.dtype)
+        self._gpu_init()
 
-            self.assign_kernel("feed_layer")
-            self.set_args(self.input, self.output_offset, self.output)
+        if self.krn_output_clear_ is None:
+            self.krn_output_clear_ = self.get_kernel("output_clear")
+            self.krn_output_clear_.set_arg(0, self.output.devmem)
 
-            if self.krn_output_clear_ is None:
-                self.krn_output_clear_ = self.get_kernel("output_clear")
-                self.krn_output_clear_.set_arg(0, self.output.devmem)
+    def cuda_init(self):
+        self._gpu_init()
+
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (
+            int(numpy.ceil(self.input.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def ocl_run(self):
         """Do gradient descent.
@@ -92,6 +102,14 @@ class Depooling(nn_units.Forward):
 
         self.execute_kernel([self.output.size], None, self.krn_output_clear_)
         self.execute_kernel([self.input.size], None)
+
+    def cuda_run(self):
+        self.input.unmap()
+        self.output_offset.unmap()
+        self.output.unmap()
+
+        self.output.devmem.memset32_async()
+        self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")

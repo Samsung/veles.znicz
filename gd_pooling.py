@@ -54,6 +54,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
 
     def __init__(self, workflow, **kwargs):
         super(GDPooling, self).__init__(workflow, **kwargs)
+        self.kernel_name = None
         self.demand("input", "err_output")
 
     def init_unpickled(self):
@@ -70,27 +71,39 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
                 "from the size computed based on kx, ky, size of input.")
         super(GDPooling, self).initialize(device=device, **kwargs)
 
-    def ocl_init(self):
-        if self.program_ is None:
-            defines = {
-                'SX': self._sx,
-                'SY': self._sy,
-                'N_CHANNELS': self._n_channels,
-                'KX': self.kx,
-                'KY': self.ky,
-                'SLIDE_X': self.sliding[0],
-                'SLIDE_Y': self.sliding[1]
-            }
-            self.build_program(
-                defines, "%s_%d_%dx%dx%d_%dx%d" %
-                (self.__class__.__name__, self.err_output.shape[0],
-                 self._sx, self._sy, self._n_channels,
-                 self.kx, self.ky),
-                dtype=self.err_output.mem.dtype)
+    def _gpu_init(self):
+        defines = {
+            'SX': self._sx,
+            'SY': self._sy,
+            'N_CHANNELS': self._n_channels,
+            'KX': self.kx,
+            'KY': self.ky,
+            'SLIDE_X': self.sliding[0],
+            'SLIDE_Y': self.sliding[1],
+            'OUTPUT_SIZE': self.err_output.size
+        }
+        self.build_program(
+            defines, "%s_%d_%dx%dx%d_%dx%d" %
+            (self.__class__.__name__, self.err_output.shape[0],
+             self._sx, self._sy, self._n_channels,
+             self.kx, self.ky),
+            dtype=self.err_output.dtype)
+        self.assign_kernel(self.kernel_name)
+        self.set_args(self.err_output, self.err_input)
 
+    def ocl_init(self):
+        self._gpu_init()
         if self.krn_err_input_clear_ is None:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
+
+    def cuda_init(self):
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = lambda: (
+            int(numpy.ceil(self.current_batch_size *
+                           self.err_output.sample_size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def print_debug_data(self, t_start):
         if not self.logger.isEnabledFor(logging.DEBUG):
@@ -115,9 +128,17 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
 
         # Compute err_h
         self.execute_kernel(
-            [(self.batch_size or self.err_output.mem.shape[0]) *
-             (self.err_output.mem.size // self.err_output.mem.shape[0])], None,
-            self.krn_err_input_)
+            [self.current_batch_size * self.err_output.sample_size], None)
+
+    def cuda_run(self):
+        self.err_input.unmap()
+        self.err_output.unmap()
+
+        # Clear err_input
+        self.err_input.devmem.memset32_async()
+
+        # Compute err_input
+        self.execute_kernel(self._global_size(), self._local_size)
 
     def cpu_run(self):
         raise NotImplementedError()
@@ -153,11 +174,8 @@ class GDMaxPooling(GDPooling):
         self.input_offset = None  # formats.Vector()
         self.demand("input_offset")
 
-    def init_unpickled(self):
-        super(GDMaxPooling, self).init_unpickled()
-        self.krn_err_input_clear_ = None
-
     def initialize(self, device, **kwargs):
+        self.kernel_name = "gd_max_pooling"
         super(GDMaxPooling, self).initialize(device=device, **kwargs)
 
         if self.err_output.size != self.input_offset.size:
@@ -166,14 +184,8 @@ class GDMaxPooling(GDPooling):
 
         self.input_offset.initialize(self.device)
 
-        if self.device is None:
-            return
-
-        if self.krn_err_input_ is None:
-            self.krn_err_input_ = self.get_kernel("gd_max_pooling")
-            self.krn_err_input_.set_args(self.err_output.devmem,
-                                         self.err_input.devmem,
-                                         self.input_offset.devmem)
+        if self._kernel_ is not None:
+            self._kernel_.set_arg(2, self.input_offset.devmem)
 
     # IDistributable implementation
     def generate_data_for_slave(self, slave):
@@ -190,6 +202,10 @@ class GDMaxPooling(GDPooling):
         """
         self.input_offset.unmap()  # we will use input_offset
         return super(GDMaxPooling, self).ocl_run()
+
+    def cuda_run(self):
+        self.input_offset.unmap()
+        return super(GDMaxPooling, self).cuda_run()
 
     def cpu_run(self):
         """Do gradient descent on CPU.
@@ -227,15 +243,8 @@ class GDAvgPooling(GDPooling):
     MAPPING = {"avg_pooling"}
 
     def initialize(self, device, **kwargs):
+        self.kernel_name = "gd_avg_pooling"
         super(GDAvgPooling, self).initialize(device=device, **kwargs)
-
-        if self.device is None:
-            return
-
-        if self.krn_err_input_ is None:
-            self.krn_err_input_ = self.get_kernel("gd_avg_pooling")
-            self.krn_err_input_.set_args(self.err_output.devmem,
-                                         self.err_input.devmem)
 
     def cpu_run(self):
         self.err_output.map_read()

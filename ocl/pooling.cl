@@ -20,9 +20,9 @@
 ///          global_size = [out_width, out_height],
 ///          local_size = None.
 __kernel
-void do_max_pooling(__global const dtype    /* IN */    *h,
-                    __global dtype         /* OUT */    *y,
-                    __global int           /* OUT */    *h_offs) {
+void max_pooling(__global const dtype    *h,
+                 __global dtype          *y,
+                 __global int            *h_offs) {
   dtype max_vle = -MAXFLOAT;
 #ifdef ABS_VALUES
   dtype max_absvle = -1;
@@ -72,8 +72,8 @@ void do_max_pooling(__global const dtype    /* IN */    *h,
 /// @param h batch of input multichannel interleaved images.
 /// @param y batch of output multichannel interleaved images.
 __kernel
-void do_avg_pooling(__global const dtype    /* IN */    *h,
-                    __global dtype         /* OUT */    *y) {
+void avg_pooling(__global const dtype    *h,
+                 __global dtype          *y) {
 
   dtype smm = 0;
   int target_x = get_global_id(0),
@@ -143,10 +143,10 @@ y[idx] = smm / (NX * NY);
 #error "Too large kernel size for the current stochastic pooling implementation"
 #endif
 __kernel
-void do_stochastic_pooling(__global const dtype    /* IN */    *h,
-                           __global dtype         /* OUT */    *y,
-                           __global int           /* OUT */    *h_offs,
-                           __global ushort    /* IN, OUT */    *rand) {
+void stochastic_pooling(__global const dtype    *h,
+                        __global dtype          *y,
+                        __global int            *h_offs,
+                        __global ushort         *rand) {
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
 
@@ -235,8 +235,8 @@ void do_stochastic_pooling(__global const dtype    /* IN */    *h,
 #error "Sliding should be equal to the kernel size for the current implementation"
 #endif
 __kernel
-void do_stochastic_pooling_depooling(__global dtype     /* IN, OUT */    *h,
-                                     __global ushort    /* IN, OUT */    *rand) {
+void stochastic_pooling_depooling(__global dtype     *h,
+                                  __global ushort    *rand) {
   int target_x = get_global_id(0),
       target_y = get_global_id(1);
 
