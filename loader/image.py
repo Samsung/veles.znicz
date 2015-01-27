@@ -27,7 +27,7 @@ from veles.external.progressbar import ProgressBar, Percentage, Bar
 from veles.znicz.loader.base import (
     CLASS_NAME, TARGET, ILoader, Loader, LoaderMSEMixin)
 from veles.znicz.loader.fullbatch import (
-    IFullBatchLoader, FullBatchLoader, FullBatchLoaderMSEMixin, DTYPE)
+    IFullBatchLoader, FullBatchLoader, FullBatchLoaderMSEMixin)
 
 MODE_COLOR_MAP = {
     "1": "GRAY",
@@ -534,7 +534,7 @@ class ImageLoader(Loader):
     def create_minibatches(self):
         self.minibatch_data.reset()
         self.minibatch_data.mem = numpy.zeros(
-            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+            (self.max_minibatch_size,) + self.shape, dtype=self.dtype)
 
         self.minibatch_labels.reset()
         if self.has_labels:
@@ -650,7 +650,7 @@ class ImageLoaderMSEMixin(LoaderMSEMixin):
         super(ImageLoaderMSEMixin, self).create_minibatches()
         self.minibatch_targets.reset()
         self.minibatch_targets.mem = numpy.zeros(
-            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+            (self.max_minibatch_size,) + self.shape, dtype=self.dtype)
 
     def fill_minibatch(self):
         super(ImageLoaderMSEMixin, self).fill_minibatch()

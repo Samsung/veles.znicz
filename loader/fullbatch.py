@@ -12,16 +12,14 @@ import numpy
 from zope.interface import implementer, Interface
 
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
-import veles.config as config
 import veles.error as error
 import veles.memory as memory
-from veles.opencl_types import numpy_dtype_to_opencl, dtypes
+from veles.opencl_types import numpy_dtype_to_opencl
 from veles.znicz.loader.base import ILoader, Loader, LoaderMSEMixin
 
 TRAIN = 2
 VALID = 1
 TEST = 0
-DTYPE = dtypes[config.root.common.precision_type]
 
 
 class IFullBatchLoader(Interface):
@@ -104,7 +102,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
 
         self.minibatch_data.reset()
         self.minibatch_data.mem = numpy.zeros(
-            (self.max_minibatch_size,) + self.shape, dtype=DTYPE)
+            (self.max_minibatch_size,) + self.shape, dtype=self.dtype)
 
         self.minibatch_labels.reset()
         if self.has_labels:
@@ -356,7 +354,8 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
         super(FullBatchLoaderMSEMixin, self).create_minibatches()
         self.minibatch_targets.reset()
         self.minibatch_targets.mem = numpy.zeros(
-            (self.max_minibatch_size,) + self.original_targets[0].shape, DTYPE)
+            (self.max_minibatch_size,) + self.original_targets[0].shape,
+            self.dtype)
 
     def check_types(self):
         super(FullBatchLoaderMSEMixin, self).check_types()
@@ -395,7 +394,7 @@ class FullBatchLoaderMSEMixin(LoaderMSEMixin):
         super(FullBatchLoaderMSEMixin, self).cuda_init()
         block_size = self.device.suggest_block_size(self._kernel_target_)
         self._global_size_target = (int(numpy.ceil(
-            self.minibatch_data.size / block_size)), 1, 1)
+            self.minibatch_targets.size / block_size)), 1, 1)
         self._local_size_target = (block_size, 1, 1)
 
     def fill_indices(self, start_offset, count):

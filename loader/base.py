@@ -12,13 +12,15 @@ from copy import copy
 import numpy
 import time
 from zope.interface import implementer, Interface
-from veles.compat import from_none
 
+from veles.compat import from_none
+import veles.config as config
 from veles.distributable import IDistributable
 import veles.error as error
 import veles.memory as memory
 from veles.mutable import Bool
 import veles.normalization as normalization
+from veles.opencl_types import dtypes
 import veles.prng as random_generator
 from veles.units import Unit, IUnit
 
@@ -142,6 +144,10 @@ class Loader(Unit):
         else:
             state["failed_minibatches"] = []
         return state
+
+    @property
+    def dtype(self):
+        return dtypes[config.root.common.precision_type]
 
     @property
     def normalization_type(self):

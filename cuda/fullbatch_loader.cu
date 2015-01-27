@@ -47,14 +47,14 @@ __global__ void fill_minibatch_target(
     int                            *shuffled_indices) {
 
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int sample_number = idx / SAMPLE_SIZE;
+  int sample_number = idx / TARGET_SIZE;
   int real_sample_number = sample_number < count ? shuffled_indices[start_offset + sample_number] : -1;
 
-  int offs_in_sample = blockDim.y * blockIdx.y + threadIdx.y;
+  int offs_in_sample = idx % TARGET_SIZE;
   int offs_in_target = real_sample_number * TARGET_SIZE + offs_in_sample;
   int offs_in_minibatch = sample_number * TARGET_SIZE + offs_in_sample;
 
-  if (idx < (MAX_MINIBATCH_SIZE * SAMPLE_SIZE)) {
+  if (idx < (MAX_MINIBATCH_SIZE * TARGET_SIZE)) {
     minibatch_target[offs_in_minibatch] = sample_number < count ? (minibatch_target_dtype)original_target[offs_in_target] : 0;
   }
 }
