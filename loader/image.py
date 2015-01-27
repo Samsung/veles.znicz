@@ -150,7 +150,7 @@ class ImageLoader(Loader):
         if value == "mean":
             self._normalization_type = value
         else:
-            Loader.normalization_type.setter(self).fset(value)
+            Loader.normalization_type.fset(self, value)
 
     @property
     def uncropped_shape(self):
