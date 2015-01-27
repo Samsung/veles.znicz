@@ -40,10 +40,11 @@ class GDNumDiff(object):
         for v in vector_value_map.keys():
             if v is None or v.mem is None:
                 continue
-            if v.mem.dtype in (numpy.float32, numpy.complex64):
-                raise RuntimeError(
+            if v.dtype == numpy.float32:
+                logging_info(
                     "numdiff_check is invalid for single precision "
-                    "float data type")
+                    "float data type, will skip it")
+                return
 
         numdiff = formats.NumDiff()
 
