@@ -7,7 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import logging
-import numpy as np
+import numpy
 import os
 import unittest
 import tarfile
@@ -139,10 +139,11 @@ class ComplexTest(standard_test.StandardTest, Logger):
             float
         """
         assert array1.shape == array2.shape
-        return np.sum(np.abs(array1 - array2)) / np.sum(np.abs(array1)) * 100
+        return (numpy.sum(numpy.abs(array1 - array2)) /
+                numpy.sum(numpy.abs(array1)) * 100)
 #        a = array1.copy()
 #        b = array2.copy()
-#        return np.fabs(a - b).max() / np.fabs(a).max()
+#        return numpy.fabs(a - b).max() / numpy.fabs(a).max()
 
     def _create_fwd_units(self, iteration):
         # Layer 1: CONV+POOL
@@ -229,7 +230,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
     def _load_labels_and_data(self, _iter):
         labels = self._load_blob(
             "loss", PropType.backward, WhenTaken.before,
-            "bottom_1", _iter).astype(np.int32).ravel()
+            "bottom_1", _iter).astype(numpy.int32).ravel()
 
         ev = self.workflow["ev"]
         if ev.labels is not None:
@@ -471,11 +472,20 @@ class ComplexTest(standard_test.StandardTest, Logger):
         self.workflow.end_point.link_from(self.workflow["gd_conv1"])
 
         self.workflow.initialize(device=self.device)
+        self.info("self.workflow.initialize() completed")
+
         self._load_labels_and_data(cur_iter)
+        self.info("_load_labels_and_data() completed")
 
         self._fill_weights(cur_iter)
+        self.info("_fill_weights() completed")
+
         self._load_labels_and_data(cur_iter)
+        self.info("_load_labels_and_data() completed")
+
+        self.info("Will execute run() now")
         self.workflow.run()
+        self.info("run() completed")
         self._print_deltas(cur_iter)
 
         cur_iter = 1

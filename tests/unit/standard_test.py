@@ -21,6 +21,7 @@ class StandardTest(unittest.TestCase):
     def setUp(self):
         self.workflow = DummyWorkflow()
         self.device = backends.Device()
+        self.device.thread_pool_attach(self.workflow.thread_pool)
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
 

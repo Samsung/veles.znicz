@@ -6,15 +6,12 @@ Unit test for convolutional layer forward propagation, compared to CAFFE data.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
 import logging
 import numpy as np
 import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 import unittest
 
-from veles import backends
-from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
@@ -28,16 +25,6 @@ from veles.znicz.tests.unit import standard_test
 
 
 class TestConvCaffe(standard_test.StandardTest):
-    def setUp(self):
-        self.workflow = DummyWorkflow()
-        self.device = backends.Device()
-        self.data_dir_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "data")
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
     def test_caffe_conv(self, data_filename="conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
@@ -199,7 +186,7 @@ class TestConvCaffe(standard_test.StandardTest):
 
         back_conv.initialize(device=self.device)
 
-        back_conv.gpu_err_input_update()
+        back_conv.run()
 
         back_conv.err_input.map_read()
 
@@ -410,7 +397,7 @@ class TestConvCaffe(standard_test.StandardTest):
         fwd_norm.input = Vector(bottom)
 
         fwd_norm.initialize(self.device)
-        fwd_norm.ocl_run()
+        fwd_norm.run()
 
         fwd_norm.output.map_read()
 
@@ -431,7 +418,7 @@ class TestConvCaffe(standard_test.StandardTest):
         back_norm.err_output = Vector(top_err)
 
         back_norm.initialize(self.device)
-        back_norm.ocl_run()
+        back_norm.run()
 
         back_norm.err_input.map_read()
 
@@ -497,7 +484,7 @@ class TestConvCaffe(standard_test.StandardTest):
         fwd_conv_relu.bias.map_invalidate()
         fwd_conv_relu.bias.mem[:] = 0
 
-        fwd_conv_relu.ocl_run()
+        fwd_conv_relu.run()
 
         fwd_conv_relu.output.map_read()
 
@@ -567,7 +554,7 @@ class TestConvCaffe(standard_test.StandardTest):
         fwd_conv_relu.bias.map_invalidate()
         fwd_conv_relu.bias.mem[:] = 0
 
-        fwd_conv_relu.ocl_run()
+        fwd_conv_relu.run()
 
         fwd_conv_relu.output.map_read()
 

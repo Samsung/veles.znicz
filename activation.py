@@ -6,13 +6,14 @@ Activation functions (:class:`ActivationForward`) and their coupled GD units
 
 """
 
+from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles import memory
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+import veles.error as error
+from veles.memory import eq_addr, ravel
 from veles.znicz.nn_units import Forward, GradientDescentBase
-from veles import error
 
 
 class Activation(AcceleratedUnit):
@@ -28,8 +29,7 @@ class ActivationForward(Forward, Activation):
     def initialize(self, device, **kwargs):
         super(ActivationForward, self).initialize(device, **kwargs)
 
-        if (self.output.mem is None or
-                self.output.mem.size != self.input.mem.size):
+        if not self.output or self.output.size != self.input.size:
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
 
@@ -38,24 +38,38 @@ class ActivationForward(Forward, Activation):
 
         self.backend_init()
 
-    def ocl_init(self):
-        dtype = self.input.mem.dtype
-        self.build_program({}, "%s" % self.__class__.__name__,
-                           dtype=dtype)
+    def _gpu_init(self):
+        dtype = self.input.dtype
+        self.build_program(
+            {"OUTPUT_SIZE": self.input.size},
+            "%s_%d" % (self.__class__.__name__, self.input.size),
+            dtype=dtype)
         self.assign_kernel(self.kernel_name)
         self._set_activation_args()
+
+    def ocl_init(self):
+        self._gpu_init()
+        self._global_size = (self.input.size,)
+        self._local_size = None
+
+    def cuda_init(self):
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (
+            int(numpy.ceil(self.input.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def _set_activation_args(self):
         self.set_args(self.input, self.output)
 
     def cpu_prerun(self, make_raveled, copy_in2out):
         if make_raveled:
-            inp = memory.ravel(self.input.mem)
-            out = memory.ravel(self.output.mem)
+            inp = ravel(self.input.mem)
+            out = ravel(self.output.mem)
         else:
             inp = self.input.mem
             out = self.output.mem
-        if memory.eq_addr(inp, out):
+        if eq_addr(inp, out):
             self.output.map_write()
         else:
             self.output.map_invalidate()
@@ -64,10 +78,16 @@ class ActivationForward(Forward, Activation):
                 numpy.copyto(out, inp)
         return inp, out
 
-    def ocl_run(self):
+    def _gpu_run(self):
         self.input.unmap()
         self.output.unmap()
-        self.execute_kernel((self.input.mem.size,), None)
+        self.execute_kernel(self._global_size, self._local_size)
+
+    def ocl_run(self):
+        self._gpu_run()
+
+    def cuda_run(self):
+        self._gpu_run()
 
 
 @implementer(IOpenCLUnit)
@@ -85,8 +105,7 @@ class ActivationBackward(GradientDescentBase, Activation):
     def initialize(self, device, **kwargs):
         super(ActivationBackward, self).initialize(device=device, **kwargs)
 
-        if (self.err_input.mem is None or
-                self.err_input.mem.size != self.err_output.mem.size):
+        if not self.err_input or self.err_input.size != self.err_output.size:
             self.err_input.reset()
             self.err_input.mem = numpy.zeros_like(self.err_output.mem)
 
@@ -98,12 +117,26 @@ class ActivationBackward(GradientDescentBase, Activation):
 
         self.backend_init()
 
-    def ocl_init(self):
-        dtype = self.err_output.mem.dtype
-        self.build_program({}, "%s" % self.__class__.__name__,
-                           dtype=dtype)
+    def _gpu_init(self):
+        dtype = self.err_output.dtype
+        self.build_program(
+            {"OUTPUT_SIZE": self.err_output.size},
+            "%s_%d" % (self.__class__.__name__, self.err_output.size),
+            dtype=dtype)
         self.assign_kernel(self.kernel_name)
         self._set_activation_args()
+
+    def ocl_init(self):
+        self._gpu_init()
+        self._global_size = (self.err_output.size,)
+        self._local_size = None
+
+    def cuda_init(self):
+        self._gpu_init()
+        block_size = self.device.suggest_block_size(self._kernel_)
+        self._global_size = (
+            int(numpy.ceil(self.err_output.size / block_size)), 1, 1)
+        self._local_size = (block_size, 1, 1)
 
     def _set_activation_args(self):
         self.set_args(self.input, self.output, self.err_output,
@@ -114,11 +147,11 @@ class ActivationBackward(GradientDescentBase, Activation):
         out = None
         if is_raveled:
             if io_usage[0]:
-                inp = memory.ravel(self.input.mem)
+                inp = ravel(self.input.mem)
             if io_usage[1]:
-                out = memory.ravel(self.output.mem)
-            err_input = memory.ravel(self.err_input.mem)
-            err_output = memory.ravel(self.err_output.mem)
+                out = ravel(self.output.mem)
+            err_input = ravel(self.err_input.mem)
+            err_output = ravel(self.err_output.mem)
         else:
             if io_usage[0]:
                 inp = self.input.mem
@@ -126,7 +159,7 @@ class ActivationBackward(GradientDescentBase, Activation):
                 out = self.output.mem
             err_input = self.err_input.mem
             err_output = self.err_output.mem
-        if memory.eq_addr(err_input, err_output):
+        if eq_addr(err_input, err_output):
             self.err_input.map_write()
         else:
             self.err_input.map_invalidate()
@@ -137,10 +170,16 @@ class ActivationBackward(GradientDescentBase, Activation):
             self.output.map_read()
         return inp, out, err_input, err_output
 
-    def ocl_run(self):
+    def _gpu_run(self):
         self.err_output.unmap()
         self.err_input.unmap()
-        self.execute_kernel((self.err_output.mem.size,), None)
+        self.execute_kernel(self._global_size, self._local_size)
+
+    def ocl_run(self):
+        self._gpu_run()
+
+    def cuda_run(self):
+        self._gpu_run()
 
 
 @implementer(IOpenCLUnit)
@@ -386,7 +425,7 @@ class ForwardLog(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             memory.eq_addr(self.output.mem, self.input.mem))):
+             eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
         self.backend_init()
@@ -410,7 +449,7 @@ class BackwardLog(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             memory.eq_addr(self.input.mem, self.output.mem))):
+             eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
@@ -441,7 +480,7 @@ class ForwardTanhLog(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             memory.eq_addr(self.output.mem, self.input.mem))):
+             eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardTanhLog, self).initialize(device=device, **kwargs)
 
@@ -468,7 +507,7 @@ class BackwardTanhLog(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             memory.eq_addr(self.input.mem, self.output.mem))):
+             eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardTanhLog, self).initialize(device=device, **kwargs)
@@ -497,7 +536,7 @@ class ForwardSinCos(ActivationForward):
     def initialize(self, device, **kwargs):
         if (id(self.output) == id(self.input) or
             (self.output is not None and self.output.mem is not None and
-             memory.eq_addr(self.output.mem, self.input.mem))):
+             eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardSinCos, self).initialize(device=device, **kwargs)
 
@@ -518,7 +557,7 @@ class BackwardSinCos(ActivationBackward):
     def initialize(self, device, **kwargs):
         if (self.input is None or self.input.mem is None or
             (self.output is not None and
-             memory.eq_addr(self.input.mem, self.output.mem))):
+             eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardSinCos, self).initialize(device=device, **kwargs)
