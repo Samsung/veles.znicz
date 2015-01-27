@@ -104,8 +104,8 @@ class Forward(AcceleratedUnit):
         self.output = Vector()
         self.weights = Vector()
         self.bias = Vector()
-        self.exports = ["weights", "bias",
-                        "include_bias", "weights_transposed"]
+        self.exports = ["weights", "bias", "include_bias",
+                        "weights_transposed"]
 
     def initialize(self, device, **kwargs):
         super(Forward, self).initialize(device=device, **kwargs)

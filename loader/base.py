@@ -488,7 +488,7 @@ class Loader(Unit):
         try:
             getattr(normalization,
                     "normalize_" + self.normalization_type)(data)
-        except AttributeError:
+        except (AttributeError, TypeError):
             assert isinstance(self.normalization_type, tuple) and \
                 len(self.normalization_type) == 2
             for sample in data:
