@@ -25,23 +25,7 @@ from veles.znicz.standard_workflow import StandardWorkflow
 
 @implementer(loader.IFullBatchLoader)
 class CifarLoader(loader.FullBatchLoader):
-    """Loads Cifar dataset.
-    """
-    def __init__(self, workflow, **kwargs):
-        super(CifarLoader, self).__init__(workflow, **kwargs)
-        self.shuffle_limit = kwargs.get("shuffle_limit", 2000000000)
-
-    def shuffle(self):
-        if self.shuffle_limit <= 0:
-            return
-        self.shuffle_limit -= 1
-        self.info("Shuffling, remaining limit is %d", self.shuffle_limit)
-        super(CifarLoader, self).shuffle()
-
     def _add_sobel_chan(self):
-        """
-        Adds 4th channel (Sobel filtered image) to `self.original_data`
-        """
         import cv2
 
         sobel_data = numpy.zeros(shape=self.original_data.shape[:-1],
@@ -56,19 +40,17 @@ class CifarLoader(loader.FullBatchLoader):
             sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
             normalize_linear(sobel_gray)
 
-            if root.cifar.loader.normalization_type == "mean":
+            if root.cifar.loader.norm == "mean":
                 sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
-            elif root.cifar.loader.normalization_type == "-128, 128":
+            elif root.cifar.loader.norm == (-128, 128):
                 sobel_data[i, :, :] = sobel_gray * 128
-            elif root.cifar.loader.normalization_type == "-1, 1":
+            elif root.cifar.loader.norm == (-1, 1):
                 sobel_data[i, :, :] = sobel_gray
 
         sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
-        numpy.append(self.original_data, sobel_data, axis=3)
+        numpy.append(self.original_data.mem, sobel_data, axis=3)
 
     def load_data(self):
-        """Here we will load data.
-        """
         self.original_data.mem = numpy.zeros([60000, 32, 32, 3],
                                              dtype=numpy.float32)
         self.original_labels.mem = numpy.zeros(60000, dtype=numpy.int32)
@@ -109,23 +91,26 @@ class CifarLoader(loader.FullBatchLoader):
         use_sobel = root.cifar.loader.sobel
         if use_sobel:
             self._add_sobel_chan()
+        self.normalize_data(self.original_data.mem)
 
-        if root.cifar.loader.normalization_type == "mean":
-            mean = numpy.mean(self.original_data[10000:], axis=0)
-            self.original_data.mem -= mean
+    def normalize_data(self, data):
+        self.info("Normalizing to %s" % root.cifar.loader.norm)
+        if root.cifar.loader.norm == "mean":
+            mean = numpy.mean(data[10000:], axis=0)
+            data -= mean
             self.info("Validation range: %.6f %.6f %.6f",
-                      self.original_data.mem[:10000].min(),
-                      self.original_data.mem[:10000].max(),
-                      numpy.average(self.original_data.mem[:10000]))
+                      data[:10000].min(),
+                      data[:10000].max(),
+                      numpy.average(data[:10000]))
             self.info("Train range: %.6f %.6f %.6f",
-                      self.original_data.mem[10000:].min(),
-                      self.original_data.mem[10000:].max(),
-                      numpy.average(self.original_data.mem[10000:]))
-        elif root.cifar.loader.normalization_type == "-1, 1":
-            for sample in self.original_data.mem:
+                      data[10000:].min(),
+                      data[10000:].max(),
+                      numpy.average(data[10000:]))
+        elif root.cifar.loader.norm == (-1, 1):
+            for sample in data:
                 normalize_linear(sample)
-        elif root.cifar.loader.normalization_type == "-128, 128":
-            for sample in self.original_data.mem:
+        elif root.cifar.loader.norm == (-128, 128):
+            for sample in data:
                 normalize_linear(sample)
                 sample *= 128
         else:
