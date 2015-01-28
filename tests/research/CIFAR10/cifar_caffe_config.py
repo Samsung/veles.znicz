@@ -23,8 +23,8 @@ from veles.config import root
 train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
-root.common.precision_type = "float"
-root.common.engine.backend = "cuda"
+root.common.precision_type = "double"
+root.common.engine.backend = "ocl"
 
 root.cifar.update({
     "decision": {"fail_iterations": 250, "max_epochs": 1000000000},
@@ -38,7 +38,7 @@ root.cifar.update({
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 100,
-               "norm": "mean",
+               "normalization_type": "Mean",
                "add_sobel": False,
                "shuffle_limit": 2000000000,
                "on_device": True},

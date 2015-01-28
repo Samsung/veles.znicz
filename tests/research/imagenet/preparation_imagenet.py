@@ -39,7 +39,7 @@ import shutil
 import sys
 import veles.config as config
 import veles.memory as formats
-from veles.normalization import normalize_image
+from veles.normalization import NormalizerImage
 import veles.prng as rnd
 import veles.znicz.conv as conv
 from veles.znicz.external import xmltodict
@@ -392,9 +392,10 @@ class Main(Processor):
                     n_channels = int(size / (forward.kx * forward.ky))
                     mem = weights[_kernel_number].ravel()[:size]
                     kernel = mem.reshape([forward.ky, forward.kx, n_channels])
+                    normalize_image = NormalizerImage()
                     for ch in range(n_channels):
                         pics.append(
-                            normalize_image(
+                            normalize_image.normalize_data(
                                 kernel[:, :, ch:ch
                                        + 1].reshape(forward.ky, forward.kx)))
                         if len(pics) >= limit:

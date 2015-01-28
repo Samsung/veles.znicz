@@ -15,7 +15,7 @@ from zope.interface import implementer
 
 from veles.config import root, get
 import veles.error as error
-from veles.normalization import normalize_linear
+from veles.normalization import NormalizerLinear
 import veles.znicz.loader as loader
 from veles.external.progressbar import ProgressBar
 
@@ -114,8 +114,9 @@ class MnistLoader(loader.FullBatchLoader):
         self.info("Original range: [%.1f, %.1f];"
                   " performing normalization..." % (images.min(),
                                                     images.max()))
+        normalize_linear = NormalizerLinear()
         for image in ProgressBar(term_width=17)(images):
-            normalize_linear(image)
+            normalize_linear.normalize_sample(image)
         self.original_data.mem[offs:offs + n_images] = images[:]
         self.info("Range after normalization: [%.1f, %.1f]" %
                   (images.min(), images.max()))

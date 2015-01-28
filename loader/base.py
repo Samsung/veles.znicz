@@ -97,7 +97,7 @@ class Loader(Unit):
         self.verify_interface(ILoader)
 
         self.prng = kwargs.get("prng", random_generator.get())
-        self.normalization_type = kwargs.get("normalization_type", (-1, 1))
+
         self.shuffle_limit = kwargs.get(
             "shuffle_limit", numpy.iinfo(numpy.uint32).max)
         self._max_minibatch_size = kwargs.get("minibatch_size", 100)
@@ -125,6 +125,9 @@ class Loader(Unit):
         self._unpickled = False
 
         self.shuffled_indices = memory.Vector()
+        self.normalization_type = kwargs.get("normalization_type", "linear")
+        self.normalization_parameters = kwargs.get(
+            "normalization_parameters", {"interval": (-1, 1)})
 
     def init_unpickled(self):
         super(Loader, self).init_unpickled()
@@ -155,11 +158,32 @@ class Loader(Unit):
 
     @normalization_type.setter
     def normalization_type(self, value):
-        if not hasattr(normalization, "normalize_%s" % (value,)) and not (
-            isinstance(value, tuple) and len(value) == 2 and
-                value[0] == -value[1]):
-            raise ValueError("Unsupported normalization method \"%s\"" % value)
+        if not isinstance(value, str):
+            raise TypeError(
+                "Normalization type must be a string (got %s)", type(value))
+        if value not in normalization.NormalizerRegistry.normalizers:
+            raise ValueError("Unknown normalization type \"%s\"" % value)
+        assert not self.is_initialized
         self._normalization_type = value
+        self.normalization_parameters = {}
+
+    @property
+    def normalization_parameters(self):
+        return self._normalization_parameters
+
+    @normalization_parameters.setter
+    def normalization_parameters(self, value):
+        if not isinstance(value, dict):
+            raise TypeError("Normalization parameters must be a dictionary")
+        self._normalization_parameters = value
+        self._normalizer = None
+
+    @property
+    def normalizer(self):
+        if self._normalizer is None:
+            self._normalizer = normalization.NormalizerRegistry.normalizers[
+                self.normalization_type](**self.normalization_parameters)
+        return self._normalizer
 
     @property
     def shuffled_indices(self):
@@ -369,6 +393,7 @@ class Loader(Unit):
         if self.minibatch_data is None:
             raise error.BadFormatError("minibatch_data MUST be initialized in "
                                        "create_minibatches()")
+        self.analyze_train_for_normalization()
         if not self._unpickled:
             self.shuffle()
         else:
@@ -483,23 +508,28 @@ class Loader(Unit):
             return
 
         self.fill_minibatch()
-        self.normalize_data(self.minibatch_data.mem)
+        self.normalize_minibatch()
 
         if minibatch_size < self.max_minibatch_size:
             self.minibatch_data[minibatch_size:] = 0.0
             self.minibatch_labels[minibatch_size:] = -1
             self.minibatch_indices[minibatch_size:] = -1
 
-    def normalize_data(self, data):
-        try:
-            getattr(normalization,
-                    "normalize_" + self.normalization_type)(data)
-        except (AttributeError, TypeError):
-            assert isinstance(self.normalization_type, tuple) and \
-                len(self.normalization_type) == 2
-            for sample in data:
-                normalization.normalize_linear(
-                    sample, self.normalization_type[1])
+    def analyze_train_for_normalization(self):
+        for i in range(int(numpy.ceil(self.class_lengths[TRAIN] /
+                                      self.max_minibatch_size))):
+            self.minibatch_size = min(
+                self.max_minibatch_size,
+                self.class_lengths[TRAIN] - (i + 1) * self.max_minibatch_size)
+            start_index = i * self.max_minibatch_size
+            self.minibatch_indices[:self.minibatch_size] = \
+                numpy.arange(start_index, start_index + self.minibatch_size,
+                             dtype=int) + self.class_offsets[VALID]
+            self.fill_minibatch()
+            self.normalizer.analyze(self.minibatch_data[:self.minibatch_size])
+
+    def normalize_minibatch(self):
+        self.normalizer.normalize(self.minibatch_data[:self.minibatch_size])
 
     def fill_indices(self, start_offset, count):
         """Fills minibatch_indices.

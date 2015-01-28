@@ -15,7 +15,6 @@ import logging
 from mimetypes import guess_type
 import numpy
 import os
-import pickle
 from PIL import Image
 from psutil import virtual_memory
 import re
@@ -103,8 +102,6 @@ class ImageLoader(Loader):
         self.class_keys = [[], [], []]
         self.verify_interface(IImageLoader)
         self._restored_from_pickle = False
-        self.normalization_scale = kwargs.get("normalization_scale", 1)
-        # normalization_scale could be reverse dispersion matrix
         self.path_to_mean = kwargs.get("path_to_mean", None)
         self.add_sobel = kwargs.get("add_sobel", False)
         self.mirror = kwargs.get("mirror", False)  # True, False, "random"
@@ -144,13 +141,6 @@ class ImageLoader(Loader):
         if self.channels_number > 1:
             shape += (self.channels_number,)
         return shape
-
-    @Loader.normalization_type.setter
-    def normalization_type(self, value):
-        if value == "mean":
-            self._normalization_type = value
-        else:
-            Loader.normalization_type.fset(self, value)
 
     @property
     def uncropped_shape(self):
@@ -575,32 +565,6 @@ class ImageLoader(Loader):
         _, color = self.get_image_info(key)
         return self.preprocess_image(data, color, crop=crop)
 
-    def normalize_data(self, data):
-        nt = self.normalization_type
-        if nt == "mean" and self.path_to_mean:
-            mime = guess_type(self.path_to_mean)[0]
-            if mime is None:
-                self.warning(
-                    "Could not determine MIME type of %s", self.path_to_mean)
-            if mime.startswith("image/"):
-                self.mean_image = numpy.array(Image.open(self.path_to_mean))
-            else:
-                try:
-                    with open(self.path_to_mean, "rb") as fin:
-                        self.mean_image = pickle.load(fin)
-                except:
-                    numpy.load(self.path_to_mean)
-                finally:
-                    self.warning(
-                        "Could not load mean file %s. Make sure that it's "
-                        "image or pickle or npy", self.path_to_mean)
-            if self.mean_image is not None:
-                data -= self.mean_image
-            if self.normalization_scale:
-                data *= self.normalization_scale
-        else:
-            super(ImageLoader, self).normalize_data(data)
-
     def _load_label(self, key, has_labels):
         label = self.get_image_label(key)
         if label is not None:
@@ -737,8 +701,6 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                 "Some classes do not have labels while other do")
         if sum(has_labels) == 0:
             self.original_labels.mem = None
-
-        self.normalize_data(self.original_data.mem)
 
     def initialize(self, device, **kwargs):
         """

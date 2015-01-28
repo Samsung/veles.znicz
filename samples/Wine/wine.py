@@ -50,7 +50,8 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine.loader.minibatch_size,
-            on_device=root.wine.loader.on_device)
+            on_device=root.wine.loader.on_device,
+            normalization_type=root.wine.loader.normalization_type)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

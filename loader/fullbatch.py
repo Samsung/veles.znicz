@@ -144,7 +144,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
             return
 
         self.info("Normalizing to %s...", self.normalization_type)
-        self.normalize_data(self.original_data.mem)
+        self.analyze_and_normalize_original_data()
 
         self.info("Will load the entire dataset on device")
         self.original_data.initialize(self.device)
@@ -160,6 +160,16 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         self.minibatch_indices.initialize(self.device)
 
         self.backend_init()
+
+    def analyze_train_for_normalization(self):
+        pass
+
+    def normalize_minibatch(self):
+        pass
+
+    def analyze_and_normalize_original_data(self):
+        self.normalizer.analyze(self.original_data[self.class_offsets[VALID]:])
+        self.normalizer.normalize(self.original_data.mem)
 
     def _gpu_init(self):
         defines = {
