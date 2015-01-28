@@ -128,9 +128,9 @@ class FullBatchLoader(AcceleratedUnit, Loader):
         """
         return {}
 
-    def load_data(self):
+    def on_before_create_minibatches(self):
         try:
-            super(FullBatchLoader, self).load_data()
+            super(FullBatchLoader, self).on_before_create_minibatches()
         except AttributeError:
             pass
         if self.validation_ratio is not None:
@@ -252,7 +252,6 @@ class FullBatchLoader(AcceleratedUnit, Loader):
             rand: veles.prng.RandomGenerator, if it is None, will use self.prng
         """
         rand = rand or self.prng
-
         if ratio <= 0:  # Dispose validation set
             self.class_lengths[TRAIN] += self.class_lengths[VALID]
             self.class_lengths[VALID] = 0
@@ -261,7 +260,6 @@ class FullBatchLoader(AcceleratedUnit, Loader):
                 self.shuffled_indices.mem = numpy.arange(
                     total_samples, dtype=Loader.LABEL_DTYPE)
             return
-
         offs_test = self.class_lengths[TEST]
         offs = offs_test
         train_samples = self.class_lengths[VALID] + self.class_lengths[TRAIN]
@@ -294,6 +292,7 @@ class FullBatchLoader(AcceleratedUnit, Loader):
             self.class_lengths[TRAIN] = \
                 total_samples - self.class_lengths[VALID] - offs_test
             return
+
         # If there are labels
         nn = {}
         for i in shuffled_indices[offs:]:

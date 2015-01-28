@@ -356,12 +356,12 @@ class Loader(Unit):
         except AttributeError as e:
             self.exception("Failed to load the data")
             raise from_none(e)
-        self._update_total_samples()
-        self.info("Samples number: test: %d, validation: %d, train: %d",
-                  *self.class_lengths)
         self.max_minibatch_size = kwargs.get("minibatch_size",
                                              self.max_minibatch_size)
         self.on_before_create_minibatches()
+        self._update_total_samples()
+        self.info("Samples number: test: %d, validation: %d, train: %d",
+                  *self.class_lengths)
         self.create_minibatches()
         if self.minibatch_labels:
             assert self.minibatch_labels.dtype.type == Loader.LABEL_DTYPE
