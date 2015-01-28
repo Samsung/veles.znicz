@@ -123,7 +123,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         self.err_output.unmap()  # we will use err_output
 
         # Clear err_h
-        self.execute_kernel([self.err_input.mem.size], None,
+        self.execute_kernel([self.err_input.size], None,
                             self.krn_err_input_clear_)
 
         # Compute err_h
@@ -187,16 +187,6 @@ class GDMaxPooling(GDPooling):
         if self._kernel_ is not None:
             self._kernel_.set_arg(2, self.input_offset.devmem)
 
-    # IDistributable implementation
-    def generate_data_for_slave(self, slave):
-        self.input_offset.map_read()
-        data = (self.input_offset.mem)
-        return data
-
-    def apply_data_from_master(self, data):
-        self.input_offset.map_invalidate()
-        self.input_offset.mem[:] = data[0][:]
-
     def ocl_run(self):
         """Do gradient descent on OpenCL device.
         """
@@ -219,7 +209,7 @@ class GDMaxPooling(GDPooling):
         for err, offset in numpy.nditer([self.err_output.mem,
                                          self.input_offset.mem]):
             batch, y, x, ch = numpy.unravel_index(offset,
-                                                  self.err_input.mem.shape)
+                                                  self.err_input.shape)
             self.err_input.mem[batch, y, x, ch] += err
 
 

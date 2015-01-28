@@ -45,11 +45,11 @@ class PoolingBase(Unit):
         self.sliding = sliding or (self.kx, self.ky)
 
     def create_output(self):
-        self._batch_size = self.input.mem.shape[0]
-        self._sy = self.input.mem.shape[1]
-        self._sx = self.input.mem.shape[2]
-        self._n_channels = self.input.mem.size // (self._batch_size *
-                                                   self._sx * self._sy)
+        self._batch_size = self.input.shape[0]
+        self._sy = self.input.shape[1]
+        self._sx = self.input.shape[2]
+        self._n_channels = self.input.size // (self._batch_size *
+                                               self._sx * self._sy)
 
         last_x = self._sx - self.kx
         last_y = self._sy - self.ky
@@ -111,7 +111,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
                                      self.output.size != self._output_size)):
             self.output.reset()
             self.output.mem = numpy.zeros(self._output_shape,
-                                          dtype=self.input.mem.dtype)
+                                          dtype=self.input.dtype)
 
         self.input.initialize(self.device)
         if not self._no_output:
@@ -230,7 +230,7 @@ class OffsetPooling(Pooling):
                 not self.input_offset or
                 self.input_offset.size != self.output.size)):
             self.input_offset.reset()
-            self.input_offset.mem = numpy.zeros(self.output.mem.shape,
+            self.input_offset.mem = numpy.zeros(self.output.shape,
                                                 dtype=numpy.int32)
 
         if not self._no_output:
@@ -256,23 +256,13 @@ class OffsetPooling(Pooling):
         batch, y1, x1, ch, out_y, out_x = coords
         cut_index = self.cpu_run_cut_offset(
             cut, numpy.ravel_multi_index((batch, out_y, out_x, ch),
-                                         self.output.mem.shape))
+                                         self.output.shape))
         i, j = numpy.unravel_index(cut_index, cut.shape)
         idx = numpy.ravel_multi_index((batch, y1 + i, x1 + j, ch),
-                                      self.input.mem.shape)
+                                      self.input.shape)
         val = numpy.ravel(self.input.mem)[idx]
         self.input_offset.mem[batch, out_y, out_x, ch] = idx
         return val
-
-    # IDistributable implementation
-    def generate_data_for_slave(self, slave):
-        self.input_offset.map_read()
-        data = (self.input_offset.mem)
-        return data
-
-    def apply_data_from_master(self, data):
-        self.input_offset.map_invalidate()
-        self.input_offset.mem[:] = data[0][:]
 
 
 class MaxPoolingBase(OffsetPooling):
