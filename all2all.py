@@ -80,13 +80,21 @@ class All2All(nn_units.NNLayerBase):
             vle /= 3
         return vle
 
+    def fill_array(self, filling, array, stddev):
+        if filling == "uniform":
+            self.rand.fill(array, -stddev, stddev)
+        elif filling == "gaussian":
+            self.rand.fill_normal_real(array, 0, stddev)
+        elif filling == "constant":
+            self.weights.mem[:] = stddev
+        else:
+            raise error.BadFormatError("Invalid filling type %s" % filling)
+
     def initialize(self, device, **kwargs):
         super(All2All, self).initialize(device=device, **kwargs)
 
-        if self.weights_stddev is None:
-            self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
-        if self.bias_stddev is None:
-            self.bias_stddev = self.weights_stddev
+        self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
+        self.bias_stddev = self.weights_stddev
 
         output_shape = (self.output_shape.mem.shape[1:]
                         if isinstance(self.output_shape, Vector)
@@ -94,48 +102,28 @@ class All2All(nn_units.NNLayerBase):
         output_size = int(numpy.prod(output_shape))
         n_weights = (self.input.mem.size //
                      self.input.mem.shape[0] * output_size)
-        if self.weights.mem is None or self.weights.mem.size != n_weights:
-            self.weights.reset()
-            self.weights.mem = numpy.zeros(n_weights,
-                                           dtype=self.input.mem.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.mem, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.mem, 0,
-                                           self.weights_stddev)
-            elif self.weights_filling == "constant":
-                self.weights.mem[:] = self.weights_stddev
-            else:
-                raise error.BadFormatError("Invalid weights filling type")
-            self.weights.mem = self.weights.mem.reshape([
-                output_size, self.input.mem.size // self.input.mem.shape[0]])
-            # Reshape weights as a matrix:
-            if self.weights_transposed:
-                a = self.weights.mem.transpose().copy()
-                self.weights.mem.shape = a.shape
-                self.weights.mem[:] = a[:]
-        if (self.include_bias and (self.bias.mem is None or
-                                   self.bias.mem.size != output_size)):
+        self.weights.reset()
+        self.weights.mem = numpy.zeros(n_weights,
+                                       dtype=self.input.mem.dtype)
+        self.fill_array(self.weights_filling, self.weights.mem,
+                        self.weights_stddev)
+        self.weights.mem = self.weights.mem.reshape([
+            output_size, self.input.mem.size // self.input.mem.shape[0]])
+        # Reshape weights as a matrix:
+        if self.weights_transposed:
+            transposed_weights = self.weights.mem.transpose().copy()
+            self.weights.mem.shape = transposed_weights.shape
+            self.weights.mem[:] = transposed_weights[:]
+        if self.include_bias:
             self.bias.reset()
             self.bias.mem = numpy.zeros(output_size,
                                         dtype=self.input.mem.dtype)
-            if self.bias_filling == "uniform":
-                self.rand.fill(self.bias.mem, -self.bias_stddev,
-                               self.bias_stddev)
-            elif self.bias_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
-            elif self.bias_filling == "constant":
-                self.bias.mem[:] = self.bias_stddev
-            else:
-                raise error.BadFormatError("Invalid bias filling type")
+            self.fill_array(self.bias_filling, self.bias.mem, self.bias_stddev)
 
-        if (self.output.mem is None or
-                self.output.mem.size != self.input.mem.shape[0] * output_size):
-            self.output.reset()
-            self.output.mem = numpy.zeros(
-                [self.input.mem.shape[0]] + output_shape,
-                dtype=self.input.mem.dtype)
+        self.output.reset()
+        self.output.mem = numpy.zeros(
+            [self.input.mem.shape[0]] + output_shape,
+            dtype=self.input.mem.dtype)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
