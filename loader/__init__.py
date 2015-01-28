@@ -14,3 +14,5 @@ from veles.znicz.loader.fullbatch import (IFullBatchLoader, FullBatchLoader,
 from veles.znicz.loader.image import (
     IFileImageLoader, FullBatchFileImageLoader, FullBatchFileImageLoaderMSE,
     FullBatchAutoLabelFileImageLoader)
+
+from veles.znicz.loader.pickles import PicklesImageFullBatchLoader

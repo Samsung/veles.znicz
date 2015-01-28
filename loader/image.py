@@ -513,11 +513,11 @@ class ImageLoader(Loader):
         for index, class_name in enumerate(CLASS_NAME):
             keys = self.get_keys(index)
             self.class_keys[index].extend(keys)
-            self.class_lengths[index] += len(keys) * self.samples_inflation
+            self.class_lengths[index] = len(keys) * self.samples_inflation
             self.class_keys[index].sort()
         if self.uncropped_shape == tuple():
             raise error.BadFormatError(
-                "original_shape was not initialized in get_keys()")
+                "uncropped_shape was not initialized in get_keys()")
 
         # Perform a quick (unreliable) test to determine if we have labels
         keys = []
@@ -718,7 +718,7 @@ class FullBatchImageLoader(ImageLoader, FullBatchLoader):
                   "%d TRAIN)", overall, self.shape, *self.class_lengths)
         required_mem = overall * numpy.prod(self.shape) * numpy.dtype(
             self.source_dtype).itemsize
-        if virtual_memory().free < required_mem:
+        if virtual_memory().available < required_mem:
             gb = 1.0 / (1000 * 1000 * 1000)
             self.critical("Not enough memory (free %.3f Gb, required %.3f Gb)",
                           virtual_memory().free * gb, required_mem * gb)

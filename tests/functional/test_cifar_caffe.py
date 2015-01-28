@@ -8,7 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import logging
 import numpy
-import os
 import unittest
 
 from veles.config import root
@@ -17,6 +16,8 @@ import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 import veles.znicz.tests.research.CIFAR10.cifar as cifar
+# Apply the default config
+import veles.znicz.tests.research.CIFAR10.cifar_config  # pylint: disable=W0611
 import veles.dummy as dummy_workflow
 
 
@@ -34,85 +35,18 @@ class TestCifarCaffe(unittest.TestCase):
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
         root.common.precision_level = 1
+
         root.cifar.update({
-            "decision": {"fail_iterations": 250},
-            "snapshotter": {"prefix": "cifar_caffe_test"},
-            "image_saver": {"out_dirs":
-                            [os.path.join(root.common.cache_dir, "tmp/test"),
-                             os.path.join(root.common.cache_dir,
-                                          "tmp/validation"),
-                             os.path.join(root.common.cache_dir,
-                                          "tmp/train")]},
-            "loader": {"minibatch_size": 100, "norm": "mean", "sobel": False,
-                       "shuffle_limit": 2000000000},
-            "softmax": {"error_function_avr": True},
-            "layers": [{"name": "conv1", "type": "conv", "n_kernels": 32,
-                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                        "sliding": (1, 1), "weights_filling": "gaussian",
-                        "weights_stddev": 0.0001, "bias_filling": "constant",
-                        "bias_stddev": 0, "learning_rate": 0.001,
-                        "learning_rate_bias": 0.002, "weights_decay": 0.0005,
-                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
-                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
-
-                       {"name": "pool1", "type": "max_pooling",
-                        "kx": 3, "ky": 3, "sliding": (2, 2)},
-
-                       {"name": "relu1", "type": "activation_str"},
-
-                       {"name": "norm1", "type": "norm", "alpha": 0.00005,
-                        "beta": 0.75, "n": 3, "k": 1},
-
-                       {"name": "conv2", "type": "conv", "n_kernels": 32,
-                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                        "sliding": (1, 1), "weights_filling": "gaussian",
-                        "weights_stddev": 0.01, "bias_filling": "constant",
-                        "bias_stddev": 0, "learning_rate": 0.001,
-                        "learning_rate_bias": 0.002, "weights_decay": 0.0005,
-                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
-                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
-
-                       {"name": "relu2", "type": "activation_str"},
-
-                       {"name": "pool2", "type": "avg_pooling",
-                        "kx": 3, "ky": 3, "sliding": (2, 2)},
-
-                       {"name": "norm2", "type": "norm", "alpha": 0.00005,
-                        "beta": 0.75, "n": 3, "k": 1},
-
-                       {"name": "conv3", "type": "conv", "n_kernels": 64,
-                        "kx": 5, "ky": 5, "padding": (2, 2, 2, 2),
-                        "sliding": (1, 1), "weights_filling": "gaussian",
-                        "weights_stddev": 0.01, "bias_filling": "constant",
-                        "bias_stddev": 0, "learning_rate": 0.001,
-                        "learning_rate_bias": 0.001, "weights_decay": 0.0005,
-                        "weights_decay_bias": 0.0005, "factor_ortho": 0.001,
-                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
-
-                       {"name": "relu3", "type": "activation_str"},
-
-                       {"name": "pool3", "type": "avg_pooling",
-                        "kx": 3, "ky": 3, "sliding": (2, 2)},
-
-                       {"name": "a2asm4", "type": "softmax",
-                        "output_shape": 10, "weights_filling": "gaussian",
-                        "weights_stddev": 0.01, "bias_filling": "constant",
-                        "bias_stddev": 0, "learning_rate": 0.001,
-                        "learning_rate_bias": 0.002, "weights_decay": 1.0,
-                        "weights_decay_bias": 0, "gradient_moment": 0.9,
-                        "gradient_moment_bias": 0.9}]})
-
+            "decision": {"max_epochs": 2},
+            "snapshotter": {"prefix": "cifar_caffe_test",
+                            "snapshot_interval": 0}})
         self.w = cifar.CifarWorkflow(
             dummy_workflow.DummyLauncher(),
-            fail_iterations=root.cifar.decision.fail_iterations,
-            max_epochs=root.cifar.decision.max_epochs,
-            prefix=root.cifar.snapshotter.prefix,
-            snapshot_interval=root.cifar.snapshotter.interval,
-            snapshot_dir=root.common.snapshot_dir,
+            decision_config=root.cifar.decision,
+            snapshotter_config=root.cifar.snapshotter,
+            image_saver_config=root.cifar.image_saver,
             layers=root.cifar.layers,
-            out_dirs=root.cifar.image_saver.out_dirs,
-            loss_function=root.cifar.loss_function,
-            device=self.device)
+            loss_function=root.cifar.loss_function)
         self.w.decision.max_epochs = 1
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 1

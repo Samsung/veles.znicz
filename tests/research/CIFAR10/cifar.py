@@ -10,112 +10,31 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import numpy
 import os
-import pickle
-import six
-from zope.interface import implementer
 
 from veles.config import root
-import veles.memory as formats
-from veles.normalization import normalize_linear
-from veles.znicz import loader
+from veles.znicz.loader import PicklesImageFullBatchLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
-@implementer(loader.IFullBatchLoader)
-class CifarLoader(loader.FullBatchLoader):
-    def _add_sobel_chan(self):
-        import cv2
+class CifarLoader(PicklesImageFullBatchLoader):
+    """Loads Cifar dataset.
+    """
+    def __init__(self, workflow, **kwargs):
+        kwargs["color_space"] = "RGB"
+        kwargs["validation_pickles"] = [root.cifar.data_paths.validation]
+        kwargs["train_pickles"] = [
+            os.path.join(root.cifar.data_paths.train, ("data_batch_%d" % i))
+            for i in range(1, 6)]
+        super(CifarLoader, self).__init__(workflow, **kwargs)
 
-        sobel_data = numpy.zeros(shape=self.original_data.shape[:-1],
-                                 dtype=numpy.float32)
+    def reshape(self, shape):
+        assert shape == (3072,)
+        return super(CifarLoader, self).reshape((3, 32, 32))
 
-        for i in range(self.original_data.shape[0]):
-            pic = self.original_data[i, :, :, 0:3]
-            sobel_x = cv2.Sobel(pic, cv2.CV_32F, 1, 0, ksize=3)
-            sobel_y = cv2.Sobel(pic, cv2.CV_32F, 0, 1, ksize=3)
-            sobel_total = numpy.sqrt(numpy.square(sobel_x) +
-                                     numpy.square(sobel_y))
-            sobel_gray = cv2.cvtColor(sobel_total, cv2.COLOR_BGR2GRAY)
-            normalize_linear(sobel_gray)
-
-            if root.cifar.loader.norm == "mean":
-                sobel_data[i, :, :] = (sobel_gray + 1) / 2 * 255
-            elif root.cifar.loader.norm == (-128, 128):
-                sobel_data[i, :, :] = sobel_gray * 128
-            elif root.cifar.loader.norm == (-1, 1):
-                sobel_data[i, :, :] = sobel_gray
-
-        sobel_data = sobel_data.reshape(self.original_data.shape[:-1] + (1,))
-        numpy.append(self.original_data.mem, sobel_data, axis=3)
-
-    def load_data(self):
-        self.original_data.mem = numpy.zeros([60000, 32, 32, 3],
-                                             dtype=numpy.float32)
-        self.original_labels.mem = numpy.zeros(60000, dtype=numpy.int32)
-
-        # Load Validation
-        with open(root.cifar.data_paths.validation, "rb") as fin:
-            if six.PY3:
-                vle = pickle.load(fin, encoding='latin1')
-            else:
-                vle = pickle.load(fin)
-        fin.close()
-        self.original_data.mem[:10000] = formats.interleave(
-            vle["data"].reshape(10000, 3, 32, 32))[:]
-        self.original_labels.mem[:10000] = vle["labels"][:]
-
-        # Load Train
-        for i in range(1, 6):
-            with open(os.path.join(root.cifar.data_paths.train,
-                                   ("data_batch_%d" % i)), "rb") as fin:
-                if six.PY3:
-                    vle = pickle.load(fin, encoding='latin1')
-                else:
-                    vle = pickle.load(fin)
-            self.original_data.mem[i * 10000: (i + 1) * 10000] = (
-                formats.interleave(vle["data"].reshape(10000, 3, 32, 32))[:])
-            self.original_labels.mem[i * 10000: (i + 1) * 10000] = (
-                vle["labels"][:])
-
-        self.class_lengths[0] = 0
-        self.class_offsets[0] = 0
-        self.class_lengths[1] = 10000
-        self.class_offsets[1] = 10000
-        self.class_lengths[2] = 50000
-        self.class_offsets[2] = 60000
-
-        self.total_samples = self.original_data.shape[0]
-
-        use_sobel = root.cifar.loader.sobel
-        if use_sobel:
-            self._add_sobel_chan()
-        self.normalize_data(self.original_data.mem)
-
-    def normalize_data(self, data):
-        self.info("Normalizing to %s" % root.cifar.loader.norm)
-        if root.cifar.loader.norm == "mean":
-            mean = numpy.mean(data[10000:], axis=0)
-            data -= mean
-            self.info("Validation range: %.6f %.6f %.6f",
-                      data[:10000].min(),
-                      data[:10000].max(),
-                      numpy.average(data[:10000]))
-            self.info("Train range: %.6f %.6f %.6f",
-                      data[10000:].min(),
-                      data[10000:].max(),
-                      numpy.average(data[10000:]))
-        elif root.cifar.loader.norm == (-1, 1):
-            for sample in data:
-                normalize_linear(sample)
-        elif root.cifar.loader.norm == (-128, 128):
-            for sample in data:
-                normalize_linear(sample)
-                sample *= 128
-        else:
-            raise ValueError("Unsupported normalization type "
-                             + str(root.cifar.loader.norm))
+    def transform_data(self, data):
+        return super(CifarLoader, self).transform_data(data.reshape(
+            10000, 3, 32, 32))
 
 
 class CifarWorkflow(StandardWorkflow):
