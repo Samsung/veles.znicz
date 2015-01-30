@@ -17,6 +17,7 @@ from veles.config import root
 root.yalefaces.update({
     "decision": {"fail_iterations": 50, "max_epochs": 1000},
     "loss_function": "softmax",
+    "loader_name": "full_batch_auto_label_file_image",
     "snapshotter": {"prefix": "yalefaces", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 40, "on_device": True,
                "validation_ratio": 0.15,

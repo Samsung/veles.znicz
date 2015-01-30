@@ -29,6 +29,7 @@ from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
+from veles.znicz.loader.base import UserLoaderRegistry
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 
@@ -329,6 +330,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.snapshotter_config = kwargs.get("snapshotter_config")
         self.loss_function = kwargs.get("loss_function", "softmax")
         self.image_saver_config = kwargs.get("image_saver_config")
+        self.loader_name = kwargs.get("loader_name")
         if self.loss_function != "softmax" and self.loss_function != "mse":
             raise error.NotExistsError("Unknown loss function type %s"
                                        % self.loss_function)
@@ -361,9 +363,14 @@ class StandardWorkflow(StandardWorkflowBase):
         self.repeater.link_from(init_unit)
 
     def link_loader(self, init_unit):
-        # There must be standard Loader
-        # Loader(**self.loader_config.__dict__)
-        # self.loader.link_from(init_unit)
+        if self.loader_name is None:
+            raise AttributeError(
+                "Set the loader_name. Full list of names is %s. Or redefine"
+                " link_loader() function, if you want to create you own Loader"
+                % list(UserLoaderRegistry.loaders.keys()))
+        self.loader = UserLoaderRegistry.loaders[self.loader_name](
+            self, **self.loader_config.__dict__)
+        self.loader.link_from(init_unit)
         pass
 
     def link_forwards(self, init_unit, init_attrs):

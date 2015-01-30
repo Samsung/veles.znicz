@@ -128,6 +128,8 @@ class PicklesLoader(FullBatchLoader):
 
 @implementer(IImageLoader)
 class PicklesImageFullBatchLoader(FullBatchImageLoader, PicklesLoader):
+    MAPPING = "full_batch_pickles_image"
+
     def __init__(self, workflow, **kwargs):
         super(PicklesImageFullBatchLoader, self).__init__(workflow, **kwargs)
         # Since we can not extract the color space information from pickles

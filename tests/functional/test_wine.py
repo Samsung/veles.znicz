@@ -36,7 +36,6 @@ class TestWine(unittest.TestCase):
             "decision": {"fail_iterations": 200,
                          "snapshot_prefix": "wine"},
             "loader": {"minibatch_size": 10,
-                       "normalization_type": "Pointwize",
                        "on_device": True},
             "learning_rate": 0.3,
             "weights_decay": 0.0,

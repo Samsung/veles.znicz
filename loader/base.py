@@ -11,6 +11,7 @@ from collections import defaultdict
 from copy import copy
 import numpy
 import time
+import six
 from zope.interface import implementer, Interface
 
 from veles.compat import from_none
@@ -23,7 +24,7 @@ import veles.normalization as normalization
 from veles.opencl_types import dtypes
 import veles.prng as random_generator
 from veles.units import Unit, IUnit
-
+from veles.unit_registry import UnitRegistry
 
 TARGET = 3
 TRAIN = 2
@@ -34,6 +35,18 @@ TRIAGE = {"train": TRAIN,
           "valid": VALID,
           "test": TEST}
 CLASS_NAME = ["test", "validation", "train"]
+
+
+class UserLoaderRegistry(UnitRegistry):
+    loaders = {}
+
+    def __init__(cls, name, bases, clsdict):
+        yours = set(cls.mro())
+        mine = set(Unit.mro())
+        left = yours - mine
+        if len(left) > 1 and "MAPPING" in clsdict:
+            UserLoaderRegistry.loaders[clsdict["MAPPING"]] = cls
+        super(UserLoaderRegistry, cls).__init__(name, bases, clsdict)
 
 
 class LoaderError(Exception):
@@ -58,6 +71,7 @@ class ILoader(Interface):
 
 
 @implementer(IDistributable, IUnit)
+@six.add_metaclass(UserLoaderRegistry)
 class Loader(Unit):
     """Loads data and provides minibatch output interface.
 

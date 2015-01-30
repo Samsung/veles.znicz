@@ -439,7 +439,7 @@ class ImageLoader(Loader):
             data = cv2.flip(data, 1)
         data = numpy.resize(data, data.shape[:2] + (data.shape[-1] + 1,))
         data[:, :, -1] = 1
-        center = tuple(reversed(data.shape[i] // 2 for i in (0, 1)))
+        center = tuple(reversed(tuple(data.shape[i] // 2 for i in (0, 1))))
         rot_matrix = cv2.getRotationMatrix2D(
             center, rot * 180 / numpy.pi, 1.0)
         data = cv2.warpAffine(data, rot_matrix,
@@ -961,6 +961,8 @@ class FileListImageLoader(FileImageLoaderBase):
     Input: text file, with each line giving an image filename and label
     As with ImageLoader, it is useful for large datasets.
     """
+    MAPPING = "file_list_image"
+
     def __init__(self, workflow, **kwargs):
         super(FileListImageLoader, self).__init__(workflow, **kwargs)
         self.path_to_test_text_file = kwargs.get("path_to_test_text_file", "")
@@ -1000,7 +1002,7 @@ class FileListImageLoader(FileImageLoaderBase):
 
 @implementer(IFileImageLoader)
 class FullBatchFileListImageLoader(FileListImageLoader, FullBatchImageLoader):
-    pass
+    MAPPING = "full_batch_file_list_image"
 
 
 @implementer(IImageLoader)
@@ -1088,6 +1090,9 @@ class AutoLabelFileImageLoader(FileImageLoader):
     FileImageLoader modification which takes labels by regular expression from
     file names. Unique selection groups are tracked and enumerated.
     """
+
+    MAPPING = "auto_label_file_image"
+
     def __init__(self, workflow, **kwargs):
         super(AutoLabelFileImageLoader, self).__init__(workflow, **kwargs)
         # The default label is the parent directory
@@ -1115,7 +1120,7 @@ class FullBatchAutoLabelFileImageLoader(AutoLabelFileImageLoader,
     """
     Full batch variant of AutoLabelFileImageLoader.
     """
-    pass
+    MAPPING = "full_batch_auto_label_file_image"
 
 
 class FileImageLoaderMSEMixin(ImageLoaderMSEMixin):

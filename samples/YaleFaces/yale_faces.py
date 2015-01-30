@@ -10,7 +10,6 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 
 from veles.config import root
 from veles.znicz.downloader import Downloader
-from veles.znicz.loader.image import FullBatchAutoLabelFileImageLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
@@ -19,13 +18,13 @@ class YaleFacesWorkflow(StandardWorkflow):
     Model was created for face recognition. Database - Yale Faces.
     Model - fully-connected Neural Network with SoftMax loss function.
     """
-
+    """
     def link_loader(self, init_unit):
         self.loader = FullBatchAutoLabelFileImageLoader(
             self, **root.yalefaces.loader.__dict__
         )
         self.loader.link_from(init_unit)
-
+    """
     def link_downloader(self, init_unit):
         self.downloader = Downloader(
             self,
@@ -59,6 +58,8 @@ def run(load, main):
     load(YaleFacesWorkflow,
          decision_config=root.yalefaces.decision,
          snapshotter_config=root.yalefaces.snapshotter,
+         loader_config=root.yalefaces.loader,
          layers=root.yalefaces.layers,
-         loss_function=root.yalefaces.loss_function)
+         loss_function=root.yalefaces.loss_function,
+         loader_name=root.yalefaces.loader_name)
     main()

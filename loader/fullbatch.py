@@ -9,17 +9,30 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 import numpy
+import six
 from zope.interface import implementer, Interface
 
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 import veles.error as error
 import veles.memory as memory
 from veles.opencl_types import numpy_dtype_to_opencl
-from veles.znicz.loader.base import ILoader, Loader, LoaderMSEMixin
+from veles.units import UnitCommandLineArgumentsRegistry
+from veles.znicz.loader.base import ILoader, Loader, LoaderMSEMixin, \
+    UserLoaderRegistry
 
 TRAIN = 2
 VALID = 1
 TEST = 0
+
+
+class FullBatchUserLevelLoaderRegistry(UnitCommandLineArgumentsRegistry,
+                                       UserLoaderRegistry):
+    pass
+
+
+@six.add_metaclass(FullBatchUserLevelLoaderRegistry)
+class FullBatchLoaderBase(Loader):
+    pass
 
 
 class IFullBatchLoader(Interface):
@@ -29,7 +42,7 @@ class IFullBatchLoader(Interface):
 
 
 @implementer(ILoader, IOpenCLUnit)
-class FullBatchLoader(AcceleratedUnit, Loader):
+class FullBatchLoader(AcceleratedUnit, FullBatchLoaderBase):
     """Loads data entire in memory.
 
     Attributes:
