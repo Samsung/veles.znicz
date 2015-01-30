@@ -13,6 +13,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import os
 import scipy.io
+from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
@@ -42,6 +43,7 @@ root.approximator.update({
     "data_paths": {"target": target_dir, "train": train_dir}})
 
 
+@implementer(loader.IFileImageLoader)
 class ApproximatorLoader(loader.FullBatchFileImageLoaderMSE):
     def load_original(self, fnme):
         a = scipy.io.loadmat(fnme)

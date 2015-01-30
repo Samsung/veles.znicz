@@ -21,8 +21,8 @@ import sys
 from zope.interface import implementer
 
 from veles.config import root
-import veles.memory as formats
 from veles.mutable import Bool
+from veles.normalization import NormalizerLinear
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
@@ -122,12 +122,13 @@ class Mnist784Loader(MnistLoader, loader.FullBatchLoaderMSE):
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
+        normalizer = NormalizerLinear()
         for i in range(0, 10):
             img = do_plot(root.mnist784.data_paths.arial,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_targets[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.precision_type])
-            formats.normalize_linear(self.class_targets[i])
+            normalizer.normalize_sample(self.class_targets[i])
         self.original_targets.mem = numpy.zeros(
             [self.original_labels.shape[0], self.class_targets.mem.shape[1]],
             dtype=self.original_data.dtype)

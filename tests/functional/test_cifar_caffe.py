@@ -37,6 +37,7 @@ class TestCifarCaffe(unittest.TestCase):
         root.common.precision_level = 1
 
         root.cifar.update({
+            "loss_function": "softmax",
             "decision": {"max_epochs": 2},
             "snapshotter": {"prefix": "cifar_caffe_test",
                             "snapshot_interval": 0}})

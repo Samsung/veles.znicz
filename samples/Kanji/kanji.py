@@ -27,8 +27,8 @@ import veles.znicz.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
-@implementer(loader.ILoader)
-class KanjiLoader(loader.LoaderMSE):
+@implementer(loader.IFullBatchLoader)
+class KanjiLoader(loader.FullBatchLoaderMSE):
     """Loads dataset.
     """
 
@@ -72,8 +72,8 @@ class KanjiLoader(loader.LoaderMSE):
         self.class_lengths[1] = 0
         self.class_lengths[2] = len(self.index_map)
 
-        self.original_labels = numpy.empty(len(self.index_map),
-                                           dtype=numpy.int32)
+        self.original_labels.mem = numpy.empty(
+            len(self.index_map), dtype=numpy.int32)
         lbl_re = re.compile("^(\d+)_\d+/(\d+)\.\d\.pickle$")
         for i, fnme in enumerate(self.index_map):
             res = lbl_re.search(fnme)
@@ -89,7 +89,7 @@ class KanjiLoader(loader.LoaderMSE):
 
         self.info("Found %d samples. Extracting 15%% for validation..." % (
             len(self.index_map)))
-        self.extract_validation_from_train(rnd.get(2))
+        self.resize_validation(rand=rnd.get(2), ratio=0.15)
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_lengths)))
 
@@ -187,7 +187,9 @@ class KanjiWorkflow(StandardWorkflow):
 
     def link_loader(self, init_unit):
         self.loader = KanjiLoader(
-            self, **root.kanji.loader.__dict__)
+            self, train_path=root.kanji.data_paths.train,
+            target_path=root.kanji.data_paths.target,
+            **root.kanji.loader.__dict__)
         self.loader.link_from(init_unit)
 
 

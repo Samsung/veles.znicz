@@ -54,12 +54,11 @@ class TestYaleFaces(unittest.TestCase):
 
         self.w = yale_faces.YaleFacesWorkflow(
             dummy_workflow.DummyLauncher(),
-            fail_iterations=root.yalefaces.decision.fail_iterations,
-            max_epochs=root.yalefaces.decision.max_epochs,
-            prefix=root.yalefaces.snapshotter.prefix,
-            snapshot_dir=root.common.snapshot_dir,
+            decision_config=root.yalefaces.decision,
+            snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
-            loss_function=root.yalefaces.loss_function, device=self.device)
+            loss_function=root.yalefaces.loss_function,
+            device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0

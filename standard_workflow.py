@@ -434,7 +434,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.check_evaluator()
         self.decision = (DecisionGD(self, **self.decision_config.__dict__)
                          if self.loss_function == "softmax" else DecisionMSE(
-                             self, **self.decision_config))
+                             self, **self.decision_config.__dict__))
         self.decision.link_from(init_unit)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",

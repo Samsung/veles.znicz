@@ -12,6 +12,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import numpy
 import os
+from zope.interface import implementer
 
 from veles.config import root
 import veles.external.hog as hog
@@ -45,6 +46,7 @@ root.hands.update({
     "data_paths": {"train": train_dir, "validation": validation_dir}})
 
 
+@implementer(loader.IFileImageLoader)
 class HandsLoader(loader.FullBatchFileImageLoader):
     """Loads Hands dataset.
     """

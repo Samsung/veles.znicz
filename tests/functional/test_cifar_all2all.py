@@ -33,16 +33,25 @@ class TestCifarAll2All(unittest.TestCase):
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
         root.common.precision_level = 1
+        train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
+        validation_dir = os.path.join(root.common.test_dataset_root,
+                                      "cifar/10/test_batch")
         root.cifar.update({
-            "snapshotter": {"prefix": "cifar_test"},
-            "image_saver": {"out_dirs":
+            "decision": {"fail_iterations": 1000, "max_epochs": 2},
+            "learning_rate_adjust": {"do": False},
+            "loss_function": "softmax",
+            "add_plotters": True,
+            "image_saver": {"do": False,
+                            "out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
                              os.path.join(root.common.cache_dir,
                                           "tmp/validation"),
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
-            "loader": {"minibatch_size": 81},
+            "loader": {"minibatch_size": 81, "on_device": True,
+                       "normalization_type": (-1, 1)},
             "accumulator": {"n_bars": 30},
+            "weights_plotter": {"limit": 25},
             "layers": [{"type": "all2all", "output_shape": 486,
                         "learning_rate": 0.0005, "weights_decay": 0.0},
                        {"type": "activation_sincos"},
@@ -50,19 +59,17 @@ class TestCifarAll2All(unittest.TestCase):
                         "learning_rate": 0.0005, "weights_decay": 0.0},
                        {"type": "activation_sincos"},
                        {"type": "softmax", "output_shape": 10,
-                        "learning_rate": 0.0005, "weights_decay": 0.0}]})
+                        "learning_rate": 0.0005, "weights_decay": 0.0}],
+            "snapshotter": {"prefix": "cifar_test"},
+            "data_paths": {"train": train_dir, "validation": validation_dir}})
         self.w = cifar.CifarWorkflow(
             dummy_workflow.DummyLauncher(),
-            fail_iterations=root.cifar.decision.fail_iterations,
-            max_epochs=root.cifar.decision.max_epochs,
-            prefix=root.cifar.snapshotter.prefix,
-            snapshot_interval=root.cifar.snapshotter.interval,
-            snapshot_dir=root.common.snapshot_dir,
+            decision_config=root.cifar.decision,
+            snapshotter_config=root.cifar.snapshotter,
+            image_saver_config=root.cifar.image_saver,
             layers=root.cifar.layers,
-            out_dirs=root.cifar.image_saver.out_dirs,
             loss_function=root.cifar.loss_function,
             device=self.device)
-        self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,

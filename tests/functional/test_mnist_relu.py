@@ -51,9 +51,13 @@ class TestMnistRelu(unittest.TestCase):
                         "gradient_moment": 0.0, "gradient_moment_bias": 0.0,
                         "weights_filling": "uniform", "weights_stddev": 0.05,
                         "bias_filling": "uniform", "bias_stddev": 0.05}]})
-        self.w = mnist_relu.MnistWorkflow(dummy_workflow.DummyLauncher(),
-                                          layers=root.mnistr.layers,
-                                          device=self.device)
+        self.w = mnist_relu.MnistWorkflow(
+            dummy_workflow.DummyLauncher(),
+            decision_config=root.mnistr.decision,
+            snapshotter_config=root.mnistr.snapshotter,
+            loss_function=root.mnistr.loss_function,
+            layers=root.mnistr.layers,
+            device=self.device)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
