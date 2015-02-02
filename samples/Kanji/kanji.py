@@ -12,10 +12,11 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import logging
-import numpy
 import os
 import pickle
 import re
+
+import numpy
 from zope.interface import implementer
 
 from veles.config import root
@@ -23,7 +24,7 @@ import veles.error as error
 import veles.memory as formats
 import veles.opencl_types as opencl_types
 import veles.prng as rnd
-import veles.znicz.loader as loader
+import veles.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 

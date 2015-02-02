@@ -6,14 +6,16 @@ ImageLoader class for imagenet
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 from __future__ import division
-from veles.znicz.loader.image import FullBatchFileImageLoader
-import numpy
 import os
+
+import numpy
 from zope.interface import implementer
-import veles.error as error
-from veles.znicz.loader import IFullBatchLoader
 import matplotlib.pyplot as plt
 import cv2
+
+from veles.loader.image import FullBatchFileImageLoader
+import veles.error as error
+from veles.znicz.loader import IFullBatchLoader
 
 
 @implementer(IFullBatchLoader)

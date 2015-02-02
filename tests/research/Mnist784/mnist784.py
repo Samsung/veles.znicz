@@ -9,17 +9,17 @@ Neural Network with MSE loss function with target encoded as ideal image
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import logging
+import os
+import sys
+
+import numpy
+import six
+from zope.interface import implementer
 
 from veles.external.freetype import (Face,  # pylint: disable=E0611
                                      FT_Matrix, FT_LOAD_RENDER, FT_Vector,
                                      FT_Set_Transform, byref)
-import logging
-import numpy
-import os
-import six
-import sys
-from zope.interface import implementer
-
 from veles.config import root
 from veles.mutable import Bool
 from veles.normalization import NormalizerLinear
@@ -31,9 +31,10 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
-import veles.znicz.loader as loader
+import veles.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
+
 
 sys.path.append(os.path.dirname(__file__))
 from loader_mnist import MnistLoader

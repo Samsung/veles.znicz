@@ -9,9 +9,9 @@ Model - fully-connected Neural Network with SoftMax loss function.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import os
 
 import numpy
-import os
 from zope.interface import implementer
 
 from veles.config import root
@@ -23,8 +23,9 @@ import veles.znicz.all2all as all2all
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
-import veles.znicz.loader as loader
+import veles.loader as loader
 from veles.znicz.nn_units import NNSnapshotter
+
 
 train_dir = [os.path.join(root.common.test_dataset_root,
                           "hands/Positive/Training"),

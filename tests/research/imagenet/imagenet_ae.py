@@ -9,11 +9,11 @@ constructed, with pretraining of all layers one by one with autoencoder.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
 import json
-import numpy
 import os
 import pickle
+
+import numpy
 from zope.interface import implementer
 
 from veles.config import root
@@ -25,7 +25,7 @@ import veles.plotting_units as plotting_units
 import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
-import veles.znicz.loader as loader
+import veles.loader as loader
 import veles.znicz.deconv as deconv
 import veles.znicz.gd_deconv as gd_deconv
 import veles.znicz.image_saver as image_saver
@@ -45,6 +45,7 @@ from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
 import veles.prng as prng
 from veles.tests import DummyWorkflow
+
 
 root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
                                         "imagenet/snapshots")

@@ -10,21 +10,22 @@ configuration file.
 A workflow to test first layer in simple line detection.
 """
 
-
 from enum import IntEnum
 import os
+
 from zope.interface import implementer
 
 from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.znicz import conv, all2all, evaluator, decision
-from veles.znicz.loader import FullBatchFileImageLoader, IFileImageLoader
+from veles.loader import FullBatchFileImageLoader, IFileImageLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.znicz.pooling as pooling
 from veles.znicz.standard_workflow import StandardWorkflowBase
+
 
 train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
 valid = os.path.join(root.common.test_dataset_root, "Lines/Grid/test")

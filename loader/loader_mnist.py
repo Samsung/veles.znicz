@@ -7,15 +7,15 @@ Loader Mnist file.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
-import numpy
 import os
 import struct
+
+import numpy
 from zope.interface import implementer
 
 from veles.config import root, get
 import veles.error as error
-import veles.znicz.loader as loader
+import veles.loader as loader
 
 
 mnist_dir = os.path.abspath(get(

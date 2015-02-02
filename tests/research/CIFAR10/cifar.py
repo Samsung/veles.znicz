@@ -9,11 +9,10 @@ connected, different parameters) in configuration file.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
 import os
 
 from veles.config import root
-from veles.znicz.loader import PicklesImageFullBatchLoader
+from veles.loader import PicklesImageFullBatchLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 

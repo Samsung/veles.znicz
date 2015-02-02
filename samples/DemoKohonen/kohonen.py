@@ -7,7 +7,6 @@ Kohonen map demo on a simple two dimension dataset.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
 import numpy
 from zope.interface import implementer
 
@@ -17,7 +16,7 @@ from veles.interaction import Shell
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
-import veles.znicz.loader as loader
+import veles.loader as loader
 
 
 @implementer(loader.IFullBatchLoader)

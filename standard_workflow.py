@@ -21,7 +21,7 @@ import veles.plotting_units as plotting_units
 # Important: do not remove unused imports! It will prevent MatchingObject
 # metaclass from adding the mapping in the corresponding modules
 from veles.znicz import nn_units
-from veles.znicz import conv, pooling, all2all, deconv  # pylint: disable=W0611
+from veles.znicz import conv, pooling, all2all  # pylint: disable=W0611
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
 from veles.znicz import activation
@@ -29,7 +29,7 @@ from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
-from veles.znicz.loader.base import UserLoaderRegistry
+from veles.loader.base import UserLoaderRegistry
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 

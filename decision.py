@@ -8,15 +8,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import numpy
 import time
+
+import numpy
 from zope.interface import implementer, Interface
 
 from veles.distributable import IDistributable
 from veles.mutable import Bool
 from veles.units import Unit, IUnit
 from veles.workflow import NoMoreJobs
-from veles.znicz.loader import CLASS_NAME, TRAIN
+from veles.loader import CLASS_NAME, TRAIN
 
 
 class IDecision(Interface):

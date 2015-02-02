@@ -8,11 +8,11 @@ Imagenet recognition.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
 import json
-import numpy
 import os
 import pickle
+
+import numpy
 from zope.interface import implementer
 
 from veles.config import root
@@ -26,12 +26,13 @@ import veles.znicz.conv as conv
 import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.image_saver as image_saver
-import veles.znicz.loader as loader
+import veles.loader as loader
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflow
 from veles.mean_disp_normalizer import MeanDispNormalizer
+
 
 IMAGENET_BASE_PATH = os.path.join(root.common.test_dataset_root,
                                   "imagenet")

@@ -11,17 +11,19 @@ Copyright (c) 2014 Samsung R&D Institute Russia
 """
 
 import json
-import numpy
 import os
 import pickle
+
+import numpy
 from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
 from veles.memory import Vector
 import veles.opencl_types as opencl_types
-import veles.znicz.loader as loader
+import veles.loader as loader
 from veles.znicz.standard_workflow import StandardWorkflow
+
 
 data_dir = "/data/veles/datasets/FakeImagenet/Veles"
 root.imagenet.loader.names_labels_filename = os.path.join(

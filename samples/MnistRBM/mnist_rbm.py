@@ -8,15 +8,16 @@ Model - RBM Neural Network.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import numpy
 import os
+
+import numpy
 import scipy.io
 from zope.interface import implementer
 
 from veles.config import root
 from veles.interaction import Shell
 from veles.znicz.decision import TrivialDecision
-import veles.znicz.loader as loader
+import veles.loader as loader
 import veles.znicz.nn_units as nn_units
 import veles.znicz.rbm as RBM_units
 

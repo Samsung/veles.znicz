@@ -7,13 +7,14 @@ Wine Loader file.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import os
 
 import numpy
-import os
 from zope.interface import implementer
 
 from veles.config import root, get
-import veles.znicz.loader as loader
+import veles.loader as loader
+
 
 data_path = os.path.abspath(get(
     root.wine.loader.base, os.path.dirname(__file__)))

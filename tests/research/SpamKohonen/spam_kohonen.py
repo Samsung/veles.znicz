@@ -7,24 +7,23 @@ Kohonen Spam detection on Lee Man Ha dataset.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
 import json
 import lzma
+import os
+
 import numpy
 import six
-import os
 from zope.interface import implementer
 
 from veles.config import root
 from veles.external.progressbar import ProgressBar
 from veles.interaction import Shell
 import veles.units as units
-import veles.znicz.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 import veles.znicz.nn_units as nn_units
 import veles.znicz.kohonen as kohonen
-from veles.znicz.loader import IFullBatchLoader
-from veles import plotting_units
+from veles.loader import IFullBatchLoader
+from veles import plotting_units, loader
 
 
 spam_dir = os.path.dirname(__file__)

@@ -7,9 +7,9 @@ Model created for compress video. Model - autoencoder.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
 import logging
 import os
+
 from zope.interface import implementer
 
 from veles.config import root
@@ -19,7 +19,7 @@ import veles.znicz.decision as decision
 import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 import veles.znicz.image_saver as image_saver
-import veles.znicz.loader as loader
+import veles.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.plotting_units as plotting_units

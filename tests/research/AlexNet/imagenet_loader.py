@@ -10,18 +10,18 @@ configuration file.
 Copyright (c) 2014 Samsung R&D Institute Russia
 """
 
+import json
+import pickle
 
 import cv2
-import json
 import numpy
-import pickle
 from zope.interface import implementer
 
 from veles.config import root
 import veles.error as error
 from veles.memory import Vector
 import veles.opencl_types as opencl_types
-import veles.znicz.loader as loader
+import veles.loader as loader
 
 
 @implementer(loader.ILoader)
