@@ -10,7 +10,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import cuda4py.blas as cublas
-import cv2
 import math
 from math import pi
 import numpy
@@ -419,6 +418,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             shape(tuple): shape of each filter
             stddev(float): standard deviation of filtering kernels
         """
+        import cv2
 
         # Gabor  filters
         orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
