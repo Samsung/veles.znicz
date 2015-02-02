@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import cv2
 import logging
 import glob
 import numpy
@@ -17,7 +18,6 @@ from zope.interface import implementer
 
 import veles.config as config
 from veles.error import BadFormatError
-from veles.normalization import NormalizerImage
 from veles.distributable import IDistributable
 from veles.units import Unit, IUnit
 
@@ -186,8 +186,8 @@ class ImageSaver(Unit):
             if img.shape[2] == 1:
                 img = img.reshape(img.shape[0], img.shape[1])
             try:
-                normalize_image = NormalizerImage(colorspace="YUV")
-                scipy.misc.imsave(fnme, normalize_image.normalize_sample(img))
+                scipy.misc.imsave(
+                    fnme, cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
             except OSError:
                 self.warning("Could not save image to %s" % (fnme))
 

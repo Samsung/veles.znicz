@@ -10,6 +10,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import cuda4py.blas as cublas
+import cv2
 import math
 from math import pi
 import numpy
@@ -21,7 +22,6 @@ from veles.config import root
 from veles.accelerated_units import IOpenCLUnit
 import veles.error as error
 from veles.memory import assert_addr, roundup, Vector
-from veles.normalization import NormalizerImage
 import veles.znicz.nn_units as nn_units
 
 
@@ -419,7 +419,6 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             shape(tuple): shape of each filter
             stddev(float): standard deviation of filtering kernels
         """
-        import cv2
 
         # Gabor  filters
         orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
@@ -438,9 +437,10 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                             theta=ori, lambd=size / wavelen_ratio,
                             gamma=1, psi=phase)
 
-                        normilize_image = NormalizerImage()
-                        kernel_chan = normilize_image.normalize_sample(
-                            kernel_chan) * stddev
+                        kernel_chan = kernel_chan * stddev
+
+                        # TODO(v.markovtsev): could be problems with
+                        # normalization
 
                         kernel = numpy.zeros(shape=[n_chans, self.kx, self.ky],
                                              dtype=numpy.float64)

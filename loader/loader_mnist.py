@@ -15,9 +15,7 @@ from zope.interface import implementer
 
 from veles.config import root, get
 import veles.error as error
-from veles.normalization import NormalizerLinear
 import veles.znicz.loader as loader
-from veles.external.progressbar import ProgressBar
 
 
 mnist_dir = os.path.abspath(get(
@@ -111,15 +109,7 @@ class MnistLoader(loader.FullBatchLoader):
 
         # Transforming images into float arrays and normalizing to [-1, 1]:
         images = pixels.astype(numpy.float32).reshape(n_images, n_rows, n_cols)
-        self.info("Original range: [%.1f, %.1f];"
-                  " performing normalization..." % (images.min(),
-                                                    images.max()))
-        normalize_linear = NormalizerLinear()
-        for image in ProgressBar(term_width=17)(images):
-            normalize_linear.normalize_sample(image)
         self.original_data.mem[offs:offs + n_images] = images[:]
-        self.info("Range after normalization: [%.1f, %.1f]" %
-                  (images.min(), images.max()))
 
     def load_data(self):
         """Here we will load MNIST data.

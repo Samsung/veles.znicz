@@ -5,6 +5,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
 from __future__ import division
+import cv2
 import numpy
 import numpy.linalg as linalg
 from zope.interface import implementer
@@ -12,7 +13,6 @@ from zope.interface import implementer
 import veles.config as config
 import veles.memory as formats
 from veles.mutable import Bool
-from veles.normalization import NormalizerImage
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types
 
@@ -92,7 +92,6 @@ class Weights2D(plotter.Plotter):
 
     def prepare_pics(self, inp, transposed):
         pics = []
-        normalize_image = NormalizerImage(colorspace="YUV")
         if type(inp) != numpy.ndarray or len(inp.shape) < 2:
             raise ValueError("input should be a numpy array (2D at least)")
 
@@ -112,8 +111,10 @@ class Weights2D(plotter.Plotter):
                 w = mem.reshape(sy, sx, n_channels)
                 if self.split_channels:
                     for ch in range(n_channels):
-                        pics.append(normalize_image.normalize_data(
-                            w[:, :, ch:ch + 1].reshape(sy, sx)))
+                        img = w[:, :, ch:ch + 1].reshape(sy, sx)
+                        img = img.astype(numpy.float32)
+                        pics.append(
+                            cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
                         if len(pics) >= self.limit:
                             break
                     if len(pics) >= self.limit:
@@ -123,10 +124,13 @@ class Weights2D(plotter.Plotter):
                         w = w[:, :, 0].reshape(sy, sx)
                     elif n_channels > 3:
                         w = w[:, :, :3].reshape(sy, sx, 3)
-                    pics.append(normalize_image.normalize_data(w))
+                    w = w.astype(numpy.float32)
+                    pics.append(cv2.cvtColor(w, cv2.COLOR_YUV2RGB))
             else:
-                pics.append(normalize_image.normalize_data(
-                    mem.reshape(sy, sx)))
+                img = mem.reshape(sy, sx)
+                img = img.astype(numpy.float32)
+                pics.append(
+                    cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
         return pics
 
     def redraw(self):
