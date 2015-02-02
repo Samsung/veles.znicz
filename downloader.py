@@ -1,6 +1,8 @@
 """
 Created on Jan 26, 2015
 
+Unit to download data from the specified URL.
+
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 

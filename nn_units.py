@@ -1,6 +1,8 @@
 """
 Created on Jan 28, 2014
 
+Base Forward and Backward Units for Neural Networks
+
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 

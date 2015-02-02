@@ -1,8 +1,11 @@
 """
 Created on May 5, 2014
 
+Plotting units designed specifically for neural networks.
+
 Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
+
 
 from __future__ import division
 import cv2

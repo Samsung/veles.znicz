@@ -1,6 +1,9 @@
 """
 Created on Apr 1, 2013
 
+Defines units which evaluate the target quality function during the neural
+network training.
+
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 

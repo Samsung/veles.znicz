@@ -1,6 +1,9 @@
 """
 Created on Jul 8, 2014
 
+Defines the class which calculates similarity/difference between neural network
+layers.
+
 Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 """
 
