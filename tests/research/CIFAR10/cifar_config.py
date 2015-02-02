@@ -32,7 +32,7 @@ root.cifar.update({
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 81, "on_device": True,
-               "normalization_type": (-1, 1)},
+               "normalization_type": "linear"},
     "accumulator": {"n_bars": 30},
     "weights_plotter": {"limit": 25},
     "layers": [{"type": "all2all", "output_shape": 486,

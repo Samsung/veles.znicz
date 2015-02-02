@@ -565,6 +565,13 @@ class GradientDescentBase(AcceleratedUnit):
                 self.learning_rate_bias, self.weights_decay_bias,
                 self.gradient_moment_bias)
 
+    @staticmethod
+    def fill_zeros(vector):
+        if not vector:
+            return
+        vector.map_invalidate()
+        vector.mem[:] = 0
+
     def apply_data_from_master(self, data):
         self.learning_rate = data[0]
         self.weights_decay = data[1]
@@ -572,38 +579,39 @@ class GradientDescentBase(AcceleratedUnit):
         self.learning_rate_bias = data[3]
         self.weights_decay_bias = data[4]
         self.gradient_moment_bias = data[5]
-        if self.gradient_weights:
-            self.gradient_weights.map_invalidate()
-            self.gradient_weights.mem[:] = 0
-        if self.gradient_bias:
-            self.gradient_bias.map_invalidate()
-            self.gradient_bias.mem[:] = 0
+        self.fill_zeros(self.gradient_weights_with_moment)
+        self.fill_zeros(self.gradient_bias_with_moment)
+        self.fill_zeros(self.gradient_weights)
+        self.fill_zeros(self.gradient_bias)
+        self.fill_zeros(self.accumulated_gradient_weights)
+        self.fill_zeros(self.accumulated_gradient_bias)
 
     def generate_data_for_master(self):
         if not self.gradient_changed:
             return None
         self.gradient_changed = False
-        self.gradient_weights.map_read()
-        self.gradient_bias.map_read()
-        return (self.gradient_weights.mem, self.gradient_bias.mem)
+        self.gradient_weights_with_moment.map_read()
+        self.gradient_bias_with_moment.map_read()
+        return (self.gradient_weights_with_moment.mem,
+                self.gradient_bias_with_moment.mem)
 
     def apply_data_from_slave(self, data, slave):
         if self.weights:
             self.weights.map_write()
-            if self.store_gradient:
-                self.gradient_weights.map_write()
-                self.gradient_weights.mem *= self.gradient_moment
-                self.gradient_weights.mem += data[0]
-                self.weights.mem += self.gradient_weights.mem
+            if True:  # self.store_gradient:
+                self.gradient_weights_with_moment.map_write()
+                self.gradient_weights_with_moment.mem *= self.gradient_moment
+                self.gradient_weights_with_moment.mem += data[0]
+                self.weights.mem += self.gradient_weights_with_moment.mem
             else:
                 self.weights.mem += data[0]
         if self.bias:
             self.bias.map_write()
-            if self.store_gradient:
-                self.gradient_bias.map_write()
-                self.gradient_bias.mem *= self.gradient_moment_bias
-                self.gradient_bias.mem += data[1]
-                self.bias.mem += self.gradient_bias.mem
+            if True:  # self.store_gradient:
+                self.gradient_bias_with_moment.map_write()
+                self.gradient_bias_with_moment.mem *= self.gradient_moment_bias
+                self.gradient_bias_with_moment.mem += data[1]
+                self.bias.mem += self.gradient_bias_with_moment.mem
             else:
                 self.bias.mem += data[1]
 

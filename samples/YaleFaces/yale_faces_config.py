@@ -25,7 +25,6 @@ root.yalefaces.update({
                "ignored_files": [".*Ambient.*"],
                "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                "add_sobel": False,
-               "normalization_type": (-1, 1),
                "mirror": False,
                "color_space": "GRAY",
                "background_color": (0,),
