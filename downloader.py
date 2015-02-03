@@ -16,6 +16,10 @@ from veles.distributable import TriviallyDistributable
 from veles.units import Unit, IUnit
 
 
+if not hasattr(zipfile, "BadZipFile"):
+    zipfile.BadZipFile = zipfile.error
+
+
 @implementer(IUnit)
 class Downloader(Unit, TriviallyDistributable):
     """
