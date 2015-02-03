@@ -19,17 +19,14 @@ from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
 class EvaluatorBase(AcceleratedUnit):
-    """Base class for Evaluators.
+    """Base class for evaluators.
     """
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "EVALUATOR")
-        kwargs["error_function_averaged"] = kwargs.get(
-            "error_function_averaged", True)
         super(EvaluatorBase, self).__init__(workflow, **kwargs)
-        self.error_function_averaged = kwargs["error_function_averaged"]
-        self.output = None  # formats.Vector()
+        self.error_function_averaged = kwargs.get(
+            "error_function_averaged", True)
         self.err_output = formats.Vector()
-        self.batch_size = 0
         self.krn_constants_i_ = None
         self.krn_constants_f_ = None
         self.demand("output", "batch_size")
@@ -38,18 +35,13 @@ class EvaluatorBase(AcceleratedUnit):
         super(EvaluatorBase, self).initialize(device, **kwargs)
 
         dtype = self.output.mem.dtype
+        self.krn_constants_i_ = numpy.zeros(1, numpy.int32)
+        self.krn_constants_f_ = numpy.zeros(1, dtype)
+        self.err_output.reset()
+        self.err_output.mem = numpy.zeros_like(self.output.mem, dtype)
 
-        self.krn_constants_i_ = numpy.zeros(1, dtype=numpy.int32)
-        self.krn_constants_f_ = numpy.zeros(1, dtype=dtype)
-
-        if (self.err_output.mem is None or
-                self.err_output.mem.size != self.output.mem.size):
-            self.err_output.reset()
-            self.err_output.mem = numpy.zeros(self.output.mem.shape,
-                                              dtype=dtype)
-
-        self.output.initialize(self.device)
-        self.err_output.initialize(self.device)
+        for vec in self.output, self.err_output:
+            vec.initialize(self.device)
 
 
 @implementer(IOpenCLUnit)
@@ -85,14 +77,11 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         max_err_output_sum: maximum of backpropagated error sum by sample.
     """
     def __init__(self, workflow, **kwargs):
-        compute_confusion_matrix = kwargs.get("compute_confusion_matrix", True)
-        kwargs["compute_confusion_matrix"] = compute_confusion_matrix
         super(EvaluatorSoftmax, self).__init__(workflow, **kwargs)
-        self.labels = None  # formats.Vector()
-        self.compute_confusion_matrix = compute_confusion_matrix
+        self.compute_confusion_matrix = kwargs.get(
+            "compute_confusion_matrix", True)
         self.confusion_matrix = formats.Vector()
         self.n_err = formats.Vector()
-        self.max_idx = None  # formats.Vector()
         self.max_err_output_sum = formats.Vector()
         self.demand("labels", "max_idx")
 
@@ -102,32 +91,20 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
         dtype = self.output.dtype
 
-        if self.n_err.mem is None:
-            self.n_err.reset()
-            self.n_err.mem = numpy.zeros(1, dtype=numpy.int32)
-        else:
-            assert self.n_err.mem.size == 1
+        self.n_err.reset()
+        self.n_err.mem = numpy.zeros(1, dtype=numpy.int32)
 
         out_size = self.output.mem.size // self.output.mem.shape[0]
+        self.confusion_matrix.reset()
         if self.compute_confusion_matrix:
-            if (self.confusion_matrix.mem is None or
-                    self.confusion_matrix.mem.size != out_size * out_size):
-                self.confusion_matrix.reset()
-                self.confusion_matrix.mem = numpy.zeros(
-                    [out_size, out_size], dtype=numpy.int32)
-        else:
-            self.confusion_matrix.reset()
+            self.confusion_matrix.mem = numpy.zeros(
+                [out_size] * 2, numpy.int32)
+        self.max_err_output_sum.reset()
+        self.max_err_output_sum.mem = numpy.zeros(1, dtype)
 
-        if (self.max_err_output_sum.mem is None or
-                self.max_err_output_sum.mem.size < 1):
-            self.max_err_output_sum.reset()
-            self.max_err_output_sum.mem = numpy.zeros(1, dtype=dtype)
-
-        self.confusion_matrix.initialize(self.device)
-        self.n_err.initialize(self.device)
-        self.max_idx.initialize(self.device)
-        self.labels.initialize(self.device)
-        self.max_err_output_sum.initialize(self.device)
+        for vec in (self.confusion_matrix, self.n_err, self.max_idx,
+                    self.labels, self.max_err_output_sum):
+            vec.initialize(self.device)
 
         self.backend_init()
 
@@ -161,13 +138,10 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self._local_size = (block_size, 1, 1)
 
     def _gpu_run(self):
-        self.err_output.unmap()
-        self.output.unmap()
-        self.max_idx.unmap()
-        self.labels.unmap()
-        self.n_err.unmap()
-        self.confusion_matrix.unmap()
-        self.max_err_output_sum.unmap()
+        for vec in (self.err_output, self.output, self.max_idx, self.labels,
+                    self.n_err, self.confusion_matrix,
+                    self.max_err_output_sum):
+            vec.unmap()
 
         self.krn_constants_i_[0] = self.batch_size
         self.set_arg(7, self.krn_constants_i_[0:1])
@@ -185,12 +159,10 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def cpu_run(self):
         self.err_output.map_invalidate()
-        self.output.map_read()
-        self.max_idx.map_read()
-        self.labels.map_read()
-        self.n_err.map_write()
-        self.confusion_matrix.map_write()
-        self.max_err_output_sum.map_write()
+        for vec in self.output, self.max_idx, self.labels:
+            vec.map_read()
+        for vec in self.n_err, self.confusion_matrix, self.max_err_output_sum:
+            vec.map_write()
 
         batch_size = self.batch_size
         labels = self.labels.mem
@@ -264,7 +236,6 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     """
     def __init__(self, workflow, **kwargs):
         super(EvaluatorMSE, self).__init__(workflow, **kwargs)
-        self.target = None  # formats.Vector()
         self.metrics = formats.Vector()
         self.mse = formats.Vector()
         self.labels = None
@@ -282,31 +253,21 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                 (self.target.shape, self.output.shape))
 
         self.cl_sources_["evaluator"] = {}
+        self.cl_sources_["mse_find_closest"] = {}
 
         dtype = self.output.mem.dtype
 
-        if self.metrics.mem is None or self.metrics.mem.size < 3:
-            self.metrics.reset()
-            self.metrics.mem = numpy.zeros(3, dtype=dtype)
-            self.metrics[2] = 1.0e30  # mse_min
+        self.metrics.reset()
+        self.metrics.mem = numpy.zeros(3, dtype=dtype)
+        self.metrics[2] = 1.0e30  # mse_min
+        self.mse.reset()
+        self.mse.mem = numpy.zeros(self.err_output.mem.shape[0], dtype)
+        self.n_err.reset()
+        self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
 
-        if (self.mse.mem is None or
-                self.mse.mem.size != self.err_output.mem.shape[0]):
-            self.mse.reset()
-            self.mse.mem = numpy.zeros(self.err_output.mem.shape[0],
-                                       dtype=dtype)
-
-        if self.labels is not None and self.class_targets is not None:
-            self.n_err.reset()
-            self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
-            self.cl_sources_["mse_find_closest"] = {}
-            self.class_targets.initialize(self.device)
-            self.labels.initialize(self.device)
-            self.n_err.initialize(self.device)
-
-        self.target.initialize(self.device)
-        self.metrics.initialize(self.device)
-        self.mse.initialize(self.device)
+        for vec in (self.class_targets, self.labels, self.n_err, self.target,
+                    self.metrics, self.mse):
+            vec.initialize(self.device)
 
         self.backend_init()
 
