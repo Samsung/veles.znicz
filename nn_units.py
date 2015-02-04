@@ -307,11 +307,13 @@ class GradientDescentBase(AcceleratedUnit):
                 self.accumulated_gradient_weights.size != self.weights.size)):
             self.accumulated_gradient_weights.reset(numpy.zeros_like(
                 self.weights.mem))
-        if (self.weights and self.gradient_moment and (
-                not self.gradient_weights_with_moment or
-                self.gradient_weights_with_moment.size != self.weights.size)):
-            self.gradient_weights_with_moment.reset(
-                numpy.zeros_like(self.weights.mem))
+        if self.weights and self.gradient_moment:
+            if not self.gradient_weights_with_moment:
+                self.gradient_weights_with_moment.reset(
+                    numpy.zeros_like(self.weights.mem))
+            else:
+                assert self.gradient_weights_with_moment.size == \
+                    self.weights.size
 
         if (self.include_bias and self.bias and
             (not self.gradient_bias or
