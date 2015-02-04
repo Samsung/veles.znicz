@@ -23,6 +23,7 @@ class TestWine(unittest.TestCase):
     def setUp(self):
         root.common.unit_test = True
         root.common.plotters_disabled = True
+        root.wine.snapshotter.time_interval = 86400
         self.device = opencl.Device()
 
     @timeout(300)
