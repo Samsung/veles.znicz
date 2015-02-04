@@ -320,6 +320,21 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
 
 class StandardWorkflow(StandardWorkflowBase):
+    """
+    Workflow for trivially connections between Unit.
+    User can create Self-constructing Models with that class.
+    It means that User can change structure of Model (Convolutional,
+    Fully connected, different parameters) and parameters of training in
+    configuration file.
+    attributes:
+        loss_function: name of Loss function. Choices are "softmax" or "mse"
+        loader_name: name of Loader. If loader_name is None, User should
+            redefine link_loader() function and create own Loader
+        loader_config: loader configuration parameters
+        decision_config: decision configuration parameters
+        snapshotter_config: snapshotter configuration parameters
+        image_saver_config: image_saver configuration parameters
+    """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers", [{}])
         kwargs["layers"] = layers
