@@ -420,6 +420,12 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         """
         import cv2
 
+        def normalize_image(a):
+            a -= a.min()
+            mx = a.max()
+            if mx:
+                a *= 255.0 / mx
+
         # Gabor  filters
         orientations = [0, pi / 4, pi / 2, 3 * pi / 4]  # tilt of filters
         phase_shifts = [0, pi]  # pi phase shift inverts signal
@@ -437,11 +443,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                             theta=ori, lambd=size / wavelen_ratio,
                             gamma=1, psi=phase)
 
-                        kernel_chan = kernel_chan * stddev
-
-                        # TODO(v.markovtsev): could be problems with
-                        # normalization
-
+                        kernel_chan = normalize_image(kernel_chan) * stddev
                         kernel = numpy.zeros(shape=[n_chans, self.kx, self.ky],
                                              dtype=numpy.float64)
                         for chan in range(n_chans):

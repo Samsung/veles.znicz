@@ -102,28 +102,40 @@ class All2All(nn_units.NNLayerBase):
         output_size = int(numpy.prod(output_shape))
         n_weights = (self.input.mem.size //
                      self.input.mem.shape[0] * output_size)
-        self.weights.reset()
-        self.weights.mem = numpy.zeros(n_weights,
-                                       dtype=self.input.mem.dtype)
-        self.fill_array(self.weights_filling, self.weights.mem,
-                        self.weights_stddev)
-        self.weights.mem = self.weights.mem.reshape([
-            output_size, self.input.mem.size // self.input.mem.shape[0]])
-        # Reshape weights as a matrix:
-        if self.weights_transposed:
-            transposed_weights = self.weights.mem.transpose().copy()
-            self.weights.mem.shape = transposed_weights.shape
-            self.weights.mem[:] = transposed_weights[:]
-        if self.include_bias:
-            self.bias.reset()
-            self.bias.mem = numpy.zeros(output_size,
-                                        dtype=self.input.mem.dtype)
-            self.fill_array(self.bias_filling, self.bias.mem, self.bias_stddev)
 
-        self.output.reset()
-        self.output.mem = numpy.zeros(
-            [self.input.mem.shape[0]] + output_shape,
-            dtype=self.input.mem.dtype)
+        # Check that weights vector was not assigned from the outside
+        if not self.weights:
+            self.weights.reset()
+            self.weights.mem = numpy.zeros(n_weights,
+                                           dtype=self.input.dtype)
+            self.fill_array(self.weights_filling, self.weights.mem,
+                            self.weights_stddev)
+            self.weights.shape = [output_size, self.input.sample_size]
+            if self.weights_transposed:
+                transposed_weights = self.weights.mem.transpose().copy()
+                self.weights.shape = transposed_weights.shape
+                self.weights.mem[:] = transposed_weights[:]
+        else:
+            assert self.weights.size == n_weights
+
+        if self.include_bias:
+            # Check that bias was not assigned from the outside
+            if not self.bias:
+                self.bias.reset()
+                self.bias.mem = numpy.zeros(output_size,
+                                            dtype=self.input.mem.dtype)
+                self.fill_array(self.bias_filling, self.bias.mem,
+                                self.bias_stddev)
+            else:
+                assert self.bias.size == output_size
+
+        # Check that output was not assigned from the outside
+        sh = [self.input.shape[0]] + output_shape
+        if not self.output:
+            self.output.reset()
+            self.output.mem = numpy.zeros(sh, dtype=self.input.dtype)
+        else:
+            assert self.output.size == numpy.prod(sh)
 
         self.input.initialize(self.device)
         self.output.initialize(self.device)
