@@ -271,10 +271,12 @@ class MaxPoolingBase(OffsetPooling):
         super(MaxPoolingBase, self).init_unpickled()
         self._kernel_name = "max_pooling"
 
-    def initialize(self, device, **kwargs):
-        super(MaxPoolingBase, self).initialize(device=device, **kwargs)
-        if self.device is None:
-            return
+    def ocl_init(self):
+        super(MaxPoolingBase, self).ocl_init()
+        self.set_args()
+
+    def cuda_init(self):
+        super(MaxPoolingBase, self).cuda_init()
         self.set_args()
 
 
@@ -344,11 +346,17 @@ class StochasticPoolingBase(OffsetPooling):
                     "has not enough output size")
             self.uniform.output_bytes = self._output_size << 1
 
-        if self.device is not None:
-            self.assign_kernel(self._kernel_name)
-            self.set_args()
-
         self.uniform.initialize(self.device)
+
+    def ocl_init(self):
+        super(StochasticPoolingBase, self).ocl_init()
+        self.assign_kernel(self._kernel_name)
+        self.set_args()
+
+    def cuda_init(self):
+        super(StochasticPoolingBase, self).cuda_init()
+        self.assign_kernel(self._kernel_name)
+        self.set_args()
 
     def add_ref(self, unit):
         pass
@@ -481,6 +489,13 @@ class AvgPooling(Pooling):
         super(AvgPooling, self).initialize(device=device, **kwargs)
         if self.device is None:
             return
+
+    def ocl_init(self):
+        super(AvgPooling, self).ocl_init()
+        self.set_args(self.input, self.output)
+
+    def cuda_init(self):
+        super(AvgPooling, self).cuda_init()
         self.set_args(self.input, self.output)
 
     def cpu_run_cut(self, cut, coords):

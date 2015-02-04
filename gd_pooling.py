@@ -184,8 +184,13 @@ class GDMaxPooling(GDPooling):
 
         self.input_offset.initialize(self.device)
 
-        if self._kernel_ is not None:
-            self._kernel_.set_arg(2, self.input_offset.devmem)
+    def ocl_init(self):
+        super(GDMaxPooling, self).ocl_init()
+        self.set_arg(2, self.input_offset)
+
+    def cuda_init(self):
+        super(GDMaxPooling, self).cuda_init()
+        self.set_arg(2, self.input_offset)
 
     def ocl_run(self):
         """Do gradient descent on OpenCL device.

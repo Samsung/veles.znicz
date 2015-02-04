@@ -77,7 +77,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
-        self.output.mem = numpy.zeros_like(self.input)
+        self.output.mem = numpy.zeros_like(self.input.mem)
         self._num_of_chans = self.input.mem.shape[3]
         self.init_vectors(self.input, self.output)
 
