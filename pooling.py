@@ -107,17 +107,15 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
         super(Pooling, self).initialize(device=device, **kwargs)
 
         self.create_output()
-        if (not self._no_output and (not self.output or
-                                     self.output.size != self._output_size)):
-            self.output.reset()
-            self.output.mem = numpy.zeros(self._output_shape,
-                                          dtype=self.input.dtype)
-
-        self.input.initialize(self.device)
         if not self._no_output:
+            if not self.output:
+                self.output.reset(numpy.zeros(self._output_shape,
+                                              dtype=self.input.dtype))
+            else:
+                assert self.output.shape == self._output_shape
             self.output.initialize(self.device)
 
-        self.backend_init()
+        self.input.initialize(self.device)
 
     def _gpu_init(self):
         defines = {
@@ -226,15 +224,14 @@ class OffsetPooling(Pooling):
     def initialize(self, device, **kwargs):
         super(OffsetPooling, self).initialize(device=device, **kwargs)
 
-        if (not self._no_output and (
-                not self.input_offset or
-                self.input_offset.size != self.output.size)):
-            self.input_offset.reset()
-            self.input_offset.mem = numpy.zeros(self.output.shape,
-                                                dtype=numpy.int32)
-
-        if not self._no_output:
-            self.input_offset.initialize(self.device)
+        if self._no_output:
+            return
+        if not self.input_offset:
+            self.input_offset.reset(numpy.zeros(self.output.shape,
+                                                dtype=numpy.int32))
+        else:
+            assert self.input_offset.shape == self.output.shape
+        self.input_offset.initialize(self.device)
 
     def set_args(self, *args):
         super(OffsetPooling, self).set_args(self.input, self.output,

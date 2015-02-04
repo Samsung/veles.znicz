@@ -37,8 +37,7 @@ class EvaluatorBase(AcceleratedUnit):
         dtype = self.output.mem.dtype
         self.krn_constants_i_ = numpy.zeros(1, numpy.int32)
         self.krn_constants_f_ = numpy.zeros(1, dtype)
-        self.err_output.reset()
-        self.err_output.mem = numpy.zeros_like(self.output.mem, dtype)
+        self.err_output.reset(numpy.zeros_like(self.output.mem, dtype))
 
         for vec in self.output, self.err_output:
             vec.initialize(self.device)
@@ -91,22 +90,16 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
         dtype = self.output.dtype
 
-        self.n_err.reset()
-        self.n_err.mem = numpy.zeros(1, dtype=numpy.int32)
+        self.n_err.reset(numpy.zeros(1, dtype=numpy.int32))
 
         out_size = self.output.mem.size // self.output.mem.shape[0]
-        self.confusion_matrix.reset()
-        if self.compute_confusion_matrix:
-            self.confusion_matrix.mem = numpy.zeros(
-                [out_size] * 2, numpy.int32)
-        self.max_err_output_sum.reset()
-        self.max_err_output_sum.mem = numpy.zeros(1, dtype)
+        self.confusion_matrix.reset(numpy.zeros([out_size] * 2, numpy.int32)
+                                    if self.compute_confusion_matrix else None)
 
-        for vec in (self.confusion_matrix, self.n_err, self.max_idx,
-                    self.labels, self.max_err_output_sum):
-            vec.initialize(self.device)
+        self.max_err_output_sum.reset(numpy.zeros(1, dtype))
 
-        self.backend_init()
+        self.init_vectors(self.confusion_matrix, self.n_err, self.max_idx,
+                          self.labels, self.max_err_output_sum)
 
     def _gpu_init(self):
         dtype = self.output.mem.dtype
@@ -257,19 +250,13 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
         dtype = self.output.mem.dtype
 
-        self.metrics.reset()
-        self.metrics.mem = numpy.zeros(3, dtype=dtype)
+        self.metrics.reset(numpy.zeros(3, dtype=dtype))
         self.metrics[2] = 1.0e30  # mse_min
-        self.mse.reset()
-        self.mse.mem = numpy.zeros(self.err_output.mem.shape[0], dtype)
-        self.n_err.reset()
-        self.n_err.mem = numpy.zeros(2, dtype=numpy.int32)
+        self.mse.reset(numpy.zeros(self.err_output.mem.shape[0], dtype))
+        self.n_err.reset(numpy.zeros(2, dtype=numpy.int32))
 
-        for vec in (self.class_targets, self.labels, self.n_err, self.target,
-                    self.metrics, self.mse):
-            vec.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.class_targets, self.labels, self.n_err,
+                          self.target, self.metrics, self.mse)
 
     def _gpu_init(self):
         dtype = self.output.mem.dtype

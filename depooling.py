@@ -56,17 +56,13 @@ class Depooling(nn_units.Forward):
         if self.output_offset.dtype != numpy.int32:
             raise error.BadFormatError("output_offset.dtype != numpy.int32")
 
-        if (self.output.mem is None or
-                self.output.size != self.get_output_shape_from.size):
-            self.output.reset()
-            self.output.mem = numpy.zeros(self.get_output_shape_from.shape,
-                                          dtype=self.input.dtype)
+        if not self.output:
+            self.output.reset(numpy.zeros(self.get_output_shape_from.shape,
+                                          dtype=self.input.dtype))
+        else:
+            assert self.output.shape == self.get_output_shape_from.shape
 
-        self.input.initialize(self.device)
-        self.output_offset.initialize(self.device)
-        self.output.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output_offset, self.output)
 
     def _gpu_init(self):
         self.build_program(

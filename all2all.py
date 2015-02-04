@@ -105,9 +105,7 @@ class All2All(nn_units.NNLayerBase):
 
         # Check that weights vector was not assigned from the outside
         if not self.weights:
-            self.weights.reset()
-            self.weights.mem = numpy.zeros(n_weights,
-                                           dtype=self.input.dtype)
+            self.weights.reset(numpy.zeros(n_weights, self.input.dtype))
             self.fill_array(self.weights_filling, self.weights.mem,
                             self.weights_stddev)
             self.weights.shape = [output_size, self.input.sample_size]
@@ -121,9 +119,7 @@ class All2All(nn_units.NNLayerBase):
         if self.include_bias:
             # Check that bias was not assigned from the outside
             if not self.bias:
-                self.bias.reset()
-                self.bias.mem = numpy.zeros(output_size,
-                                            dtype=self.input.mem.dtype)
+                self.bias.reset(numpy.zeros(output_size, self.input.mem.dtype))
                 self.fill_array(self.bias_filling, self.bias.mem,
                                 self.bias_stddev)
             else:
@@ -132,17 +128,11 @@ class All2All(nn_units.NNLayerBase):
         # Check that output was not assigned from the outside
         sh = [self.input.shape[0]] + output_shape
         if not self.output:
-            self.output.reset()
-            self.output.mem = numpy.zeros(sh, dtype=self.input.dtype)
+            self.output.reset(numpy.zeros(sh, dtype=self.input.dtype))
         else:
             assert self.output.size == numpy.prod(sh)
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output, self.weights, self.bias)
 
     def cuda_init(self):
         dtype = self.input.dtype
@@ -366,10 +356,6 @@ class All2AllSoftmax(All2All):
 
         self.max_idx.initialize(self.device)
 
-        if self.device is not None:
-            self.krn_sm_ = self.get_kernel("apply_exp")
-            self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
-
     def cpu_apply_exp(self):
         self.output.map_write()
         self.max_idx.map_invalidate()
@@ -418,3 +404,8 @@ class All2AllSoftmax(All2All):
         self._force_gpu_apply_exp = True
         super(All2AllSoftmax, self).cuda_run()
         self.cuda_apply_exp()
+
+    def ocl_init(self):
+        super(All2AllSoftmax, self).ocl_init()
+        self.krn_sm_ = self.get_kernel("apply_exp")
+        self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)

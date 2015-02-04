@@ -80,19 +80,15 @@ class InputJoiner(AcceleratedUnit):
                         "before this point")
                 self.output_sample_shape[0] += inp.mem.size // inp.mem.shape[0]
 
-        sh = [minibatch_size]
-        sh.extend(self.output_sample_shape)
-        if self.output.mem is None or self.output.mem.size != numpy.prod(sh):
-            self.output.reset()
-            self.output.mem = numpy.zeros(sh, dtype=self.inputs[0].mem.dtype)
+        output_shape = (minibatch_size,) + self.output_sample_shape
+        if not self.output:
+            self.output.reset(numpy.zeros(output_shape, self.inputs[0].dtype))
         else:
-            self.output.mem = formats.reshape(self.output.mem, sh)
+            assert self.output.shape == output_shape
 
         for inp in self.inputs:
             inp.initialize(self.device)
         self.output.initialize(self.device)
-
-        self.backend_init()
 
     def ocl_init(self):
         defines = {

@@ -185,8 +185,6 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         self.minibatch_images.extend([""] * self.max_minibatch_size)
         self.minibatch_data.initialize(self.device)
 
-        self.backend_init()
-
     def ocl_init(self):
         pass
 

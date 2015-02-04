@@ -13,16 +13,40 @@ import unittest
 import time
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import assert_addr, Vector
 import veles.backends as opencl
 import veles.opencl_types as opencl_types
-import veles.znicz.conv as conv
+from veles.znicz.conv import Conv
 from veles.dummy import DummyWorkflow
+
+
+class TestConv(Conv):
+    def __init__(self, workflow, **kwargs):
+        super(TestConv, self).__init__(workflow, **kwargs)
+
+        def doubling_reset(mem=None):
+            Vector.reset(self.output, mem)
+            if mem is None or self.device is None:
+                return
+            output_shape = [self._batch_size, self._ky_app, self._kx_app,
+                            self.n_kernels]
+            self.info("Unit test mode: allocating 2x memory for output")
+            output_shape[0] <<= 1
+            self.output.mem = numpy.zeros(output_shape,
+                                          dtype=self.input.mem.dtype)
+            self.output.initialize(self.device)
+            self.output.map_write()
+            self.output.vv = self.output.mem
+            output_shape[0] >>= 1
+            self.output.mem = self.output.vv[:output_shape[0]]
+            assert_addr(self.output.mem, self.output.vv)
+            self.output.vv[output_shape[0]:] = numpy.nan
+
+        self.output.reset = doubling_reset
 
 
 class TestConvBase(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
         root.common.plotters_disabled = True
         self._dtype = opencl_types.dtypes[root.common.precision_type]
         self.device = opencl.Device()
@@ -50,9 +74,9 @@ class TestConvBase(unittest.TestCase):
         Returns:
             output: output data of unit.run()
         """
-        assert unit.__class__ == conv.Conv
+        assert unit.__class__ == TestConv
         # set unit input and start initialization
-        input_vector = formats.Vector()
+        input_vector = Vector()
         input_vector.mem = input_data
         unit.input = input_vector
         unit.initialize(device=device)
@@ -124,9 +148,9 @@ class TestConvBase(unittest.TestCase):
         out_x = (input_shape[2] + padding[0] + padding[2] -
                  weights_shape[2]) // sliding[0] + 1
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
-                         ky=weights_shape[1], kx=weights_shape[2],
-                         sliding=sliding, padding=padding)
+        unit = TestConv(DummyWorkflow(), n_kernels=weights_shape[0],
+                        ky=weights_shape[1], kx=weights_shape[2],
+                        sliding=sliding, padding=padding)
 
         logging.info("run conv with input = 0, random weights, random bias...")
         input_data = numpy.zeros(input_shape)
@@ -197,9 +221,9 @@ class TestConvNoPadding(TestConvBase):
         out_x = (input_shape[2] + padding[0] + padding[2] -
                  weights_shape[2]) // sliding[0] + 1
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
-                         ky=weights_shape[1], kx=weights_shape[2],
-                         sliding=sliding, padding=padding)
+        unit = TestConv(DummyWorkflow(), n_kernels=weights_shape[0],
+                        ky=weights_shape[1], kx=weights_shape[2],
+                        sliding=sliding, padding=padding)
 
         logging.info("run conv with input = 1, weights = 1, bias = 1...")
         input_data = numpy.empty(input_shape)
@@ -259,8 +283,8 @@ class TestConvNoPadding(TestConvBase):
                                     [[4, -7.05], [15, -7.7], [4, -4.65]]]],
                                   dtype=self._dtype)
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=weights.shape[0], kx=3,
-                         ky=3)
+        unit = TestConv(DummyWorkflow(), n_kernels=weights.shape[0],
+                        kx=3, ky=3)
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_1_channel_input_ocl(self):
@@ -330,9 +354,9 @@ class TestConvWithPadding(TestConvBase):
         #out_x = (input_shape[2] + padding[0] + padding[2] -
         #         weights_shape[2]) // sliding[0] + 1
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
-                         ky=weights_shape[1], kx=weights_shape[2],
-                         sliding=sliding, padding=padding)
+        unit = TestConv(DummyWorkflow(), n_kernels=weights_shape[0],
+                        ky=weights_shape[1], kx=weights_shape[2],
+                        sliding=sliding, padding=padding)
 
         input_data = numpy.empty(input_shape)
         input_data.fill(1)
@@ -405,8 +429,8 @@ class TestConvWithPadding(TestConvBase):
               [[9, -7.9], [9, -7.9], [9, -7.9], [10, -10]]]],
             dtype=self._dtype)
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
-                         padding=(1, 2, 3, 4), sliding=(2, 3))
+        unit = TestConv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+                        padding=(1, 2, 3, 4), sliding=(2, 3))
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_fixed_arrays_ocl(self):
@@ -435,13 +459,14 @@ class TestConvWithPadding(TestConvBase):
             size=numpy.prod(weights_shape)).reshape(weights_shape)
         bias = numpy.random.uniform(size=weights_shape[0])
 
-        unit = conv.Conv(DummyWorkflow(), n_kernels=weights_shape[0],
-                         ky=weights_shape[1], kx=weights_shape[2],
-                         sliding=sliding, padding=padding)
+        unit = TestConv(DummyWorkflow(), n_kernels=weights_shape[0],
+                        ky=weights_shape[1], kx=weights_shape[2],
+                        sliding=sliding, padding=padding)
         time0 = time.time()
         ocl_output = self._run_test(unit, self.device, input_data,
                                     weights, bias)
         time1 = time.time()
+
         cpu_output = self._run_test(unit, None, input_data, weights, bias)
         time2 = time.time()
         logging.info("OpenCL is faster than CPU in %.4f times",

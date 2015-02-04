@@ -84,20 +84,20 @@ class Cutter(nn_units.Forward, CutterBase):
                 "padding[0], padding[1] should not be less than zero")
         super(Cutter, self).initialize(device=device, **kwargs)
 
-        sh = list(self.input.shape)
-        sh[2] -= self.padding[0] + self.padding[2]
-        sh[1] -= self.padding[1] + self.padding[3]
-        if sh[2] <= 0 or sh[1] <= 0:
+        shape = list(self.input.shape)
+        shape[2] -= self.padding[0] + self.padding[2]
+        shape[1] -= self.padding[1] + self.padding[3]
+        if shape[2] <= 0 or shape[1] <= 0:
             raise error.BadFormatError("Resulted output shape is empty")
-        output_size = int(numpy.prod(sh))
-        self.output_shape = sh
+        self.output_shape = shape
 
-        if not self.output or self.output.size != output_size:
-            self.output.reset()
-            self.output.mem = numpy.zeros(sh, dtype=self.input.dtype)
+        if not self.output:
+            self.output.reset(numpy.zeros(self.output_shape, self.input.dtype))
+        else:
+            assert self.output.shape == self.output_shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
+        for vec in self.input, self.output:
+            vec.initialize(self.device)
 
         self.create_stuff("src")
 
@@ -155,16 +155,14 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
                 "Computed err_output size differs from an assigned one")
         self.output_shape = sh
 
-        if not self.err_input or self.err_input.size != self.input.size:
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros_like(self.input.mem)
+        if not self.err_input:
+            self.err_input.reset(numpy.zeros_like(self.input.mem))
+        else:
+            assert self.err_input.shape == self.input.shape
 
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
+        self.init_vectors(self.err_output, self.err_input)
 
         self.create_stuff("dst")
-
-        self.backend_init()
 
     def ocl_init(self):
         self.cl_sources_["cutter"] = {}

@@ -145,11 +145,9 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             self.warning("Using unsafe padding of %s", str(self.padding))
             if (not self.hits or
                     self.hits.size != int(numpy.prod(output_shape))):
-                self.hits.reset()
-                self.hits.mem = numpy.zeros(output_shape, dtype=numpy.int32)
+                self.hits.reset(numpy.zeros(output_shape, dtype=numpy.int32))
 
-        if (self.output.mem is None or
-                self.output.size != int(numpy.prod(output_shape))):
+        if not self.output:
             self.output.reset()
             if root.common.unit_test:
                 output_shape[0] <<= 1
@@ -164,14 +162,9 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
             else:
                 self.output.mem = numpy.zeros(output_shape, dtype=dtype)
         else:
-            self.output.mem.shape = output_shape
+            assert self.output.shape == output_shape
 
-        self.input.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.output.initialize(self.device)
-        self.hits.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.weights, self.output, self.hits)
 
     def ocl_init(self):
         dtype = self.input.mem.dtype

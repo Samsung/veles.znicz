@@ -29,14 +29,12 @@ class ActivationForward(Forward, Activation):
     def initialize(self, device, **kwargs):
         super(ActivationForward, self).initialize(device, **kwargs)
 
-        if not self.output or self.output.size != self.input.size:
-            self.output.reset()
-            self.output.mem = numpy.zeros_like(self.input.mem)
+        if not self.output:
+            self.output.reset(numpy.zeros_like(self.input.mem))
+        else:
+            assert self.output.shape == self.input.shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output)
 
     def _gpu_init(self):
         dtype = self.input.dtype
@@ -105,17 +103,14 @@ class ActivationBackward(GradientDescentBase, Activation):
     def initialize(self, device, **kwargs):
         super(ActivationBackward, self).initialize(device=device, **kwargs)
 
-        if not self.err_input or self.err_input.size != self.err_output.size:
-            self.err_input.reset()
-            self.err_input.mem = numpy.zeros_like(self.err_output.mem)
+        if not self.err_input:
+            self.err_input.reset(numpy.zeros_like(self.err_output.mem))
+        else:
+            assert self.err_input.shape == self.err_output.shape
 
-        if self.input is not None:
+        if self.input:
             self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.err_output.initialize(self.device)
-        self.err_input.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.output, self.err_output, self.err_input)
 
     def _gpu_init(self):
         dtype = self.err_output.dtype
@@ -423,12 +418,11 @@ class ForwardLog(ActivationForward):
     MAPPING = {"activation_log"}
 
     def initialize(self, device, **kwargs):
-        if (id(self.output) == id(self.input) or
+        if (self.output is self.input or
             (self.output is not None and self.output.mem is not None and
              eq_addr(self.output.mem, self.input.mem))):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardLog, self).initialize(device=device, **kwargs)
-        self.backend_init()
 
     def ocl_init(self):
         self.assign_kernel("forward_log")
@@ -453,7 +447,6 @@ class BackwardLog(ActivationBackward):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardLog, self).initialize(device=device, **kwargs)
-        self.backend_init()
 
     def ocl_init(self):
         self.assign_kernel("backward_log")

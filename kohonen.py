@@ -99,20 +99,15 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
         assert self.input.mem.shape[1] == self.sample_length
         batch_size = self.input.mem.shape[0]
 
-        self.output.reset()
-        self.output.mem = numpy.zeros(batch_size, dtype=numpy.int32)
+        self.output.reset(numpy.zeros(batch_size, dtype=numpy.int32))
         if self.argmins is None:
-            self._distances.reset()
-            self._distances.mem = numpy.zeros(
+            self._distances.reset(numpy.zeros(
                 [batch_size, self.neurons_number],
-                dtype=self.weights.mem.dtype)
+                dtype=self.weights.mem.dtype))
 
         if self.total is not None:
-            self.total.reset()
-            self.total.mem = numpy.zeros(self.batch_size, dtype=numpy.int32)
+            self.total.reset(numpy.zeros(self.batch_size, dtype=numpy.int32))
             self._minibatch_offset_ = numpy.zeros(1, dtype=numpy.int32)
-
-        self.backend_init()
 
     def ocl_init(self):
         batch_size = self.input.mem.shape[0]
@@ -311,10 +306,9 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
             # Get weights magnitude and cap it to 0.05
             self.weights_stddev = min(self._get_weights_magnitude(), 0.05)
         weights_size = (self._sample_length * self._neurons_number)
-        if self.weights.mem is None:
-            self.weights.reset()
-            self.weights.mem = numpy.zeros(weights_size,
-                                           dtype=self.input.mem.dtype)
+        if not self.weights:
+            self.weights.reset(numpy.zeros(weights_size,
+                                           dtype=self.input.mem.dtype))
             filling = {
                 "uniform": lambda rand: rand.fill(
                     self.weights.mem, -self.weights_stddev,
@@ -325,6 +319,9 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
             filling[self.weights_filling](prng.get())
             self.weights.mem = self.weights.mem.reshape((
                 self._neurons_number, self._sample_length))
+        else:
+            assert self.weights.shape == (self._neurons_number,
+                                          self._sample_length)
         if self.weights_transposed:
             # Reshape weights as a matrix:
             wtrncopy = self.weights.mem.transpose().copy()
@@ -334,22 +331,16 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
             self.weights.mem.shape[0 if self.weights_transposed else 1]
 
         # Initialize winners
-        self.winners.reset()
-        self.winners.mem = numpy.zeros(self._neurons_number, dtype=numpy.int32)
+        self.winners.reset(numpy.zeros(self._neurons_number, numpy.int32))
 
         # Initialize distances
         batch_size = self.input.mem.shape[0]
-        self._distances.reset()
-        self._distances.mem = numpy.zeros(
+        self._distances.reset(numpy.zeros(
             [batch_size, self._neurons_number],
-            dtype=self.weights.mem.dtype)
-
-        self.argmins.reset()
-        self.argmins.mem = numpy.zeros(batch_size, dtype=numpy.int32)
-
-        self._coords.reset()
-        self._coords.mem = numpy.zeros([self._neurons_number, 2],
-                                       dtype=self.weights.mem.dtype)
+            dtype=self.weights.mem.dtype))
+        self.argmins.reset(numpy.zeros(batch_size, dtype=numpy.int32))
+        self._coords.reset(numpy.zeros([self._neurons_number, 2],
+                                       dtype=self.weights.mem.dtype))
         sz = self._neurons_number
         rows = int(numpy.round(numpy.sqrt(sz)))
         cols = sz // rows
@@ -375,8 +366,6 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
 
         self._sigma = (self._coords.mem.ravel().max() -
                        self._coords.mem.ravel().min()) * 1.42
-
-        self.backend_init()
 
     def ocl_init(self):
         self.input.initialize(self.device)

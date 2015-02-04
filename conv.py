@@ -17,10 +17,9 @@ import time
 from zope.interface import implementer
 
 from veles.compat import from_none
-from veles.config import root
 from veles.accelerated_units import IOpenCLUnit
 import veles.error as error
-from veles.memory import assert_addr, roundup, Vector
+from veles.memory import roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
@@ -131,37 +130,16 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self._fill_weights()
         self._fill_biases()
 
-        output_shape = [self._batch_size, self._ky_app, self._kx_app,
-                        self.n_kernels]
-        output_size = int(numpy.prod(output_shape))
-        if self.output.mem is None or self.output.mem.size != output_size:
-            self.output.reset()
-            if root.common.unit_test:
-                self.info("Unit test mode: allocating 2x memory for output")
-                output_shape[0] <<= 1
-                self.output.mem = numpy.zeros(output_shape,
-                                              dtype=self.input.mem.dtype)
-                self.output.initialize(self.device)
-                self.output.map_write()
-                self.output.vv = self.output.mem
-                output_shape[0] >>= 1
-                self.output.mem = self.output.vv[:output_shape[0]]
-                assert_addr(self.output.mem, self.output.vv)
-                self.output.vv[output_shape[0]:] = numpy.nan
-            else:
-                self.output.mem = numpy.zeros(output_shape,
-                                              dtype=self.input.mem.dtype)
-        del output_size
-        del output_shape
+        output_shape = (self._batch_size, self._ky_app, self._kx_app,
+                        self.n_kernels)
+        if not self.output:
+            self.output.reset(numpy.zeros(output_shape, self.input.mem.dtype))
+        else:
+            assert self.output.shape == output_shape
 
         assert self._kernel_app * self.n_kernels == self.output.sample_size
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.weights.initialize(self.device)
-        self.bias.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output, self.weights, self.bias)
 
     def _gpu_init(self, defines):
         defines.update({
@@ -225,11 +203,11 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
         self.assign_kernel("Unpack1D")
 
-        sh = (self._kernel_app * self.unpack_size, self._kernel_size)
-        size = sh[0] * sh[1]
-        if not self.unpack_data or self.unpack_data.size < size:
-            self.unpack_data.reset()
-            self.unpack_data.mem = numpy.zeros(sh, dtype=dtype)
+        unpack_shape = (self._kernel_app * self.unpack_size, self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape, dtype=dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
 
         block_size = self.device.suggest_block_size(self._kernel_)
         self._global_size_unpack = (
@@ -344,40 +322,30 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         if self.include_bias:
             self.output.mem += self.bias.mem
 
+    def _fill_array(self, filling_type, mem, stddev):
+        if filling_type == "uniform":
+            self.rand.fill(mem, -stddev, stddev)
+        elif filling_type == "gaussian":
+            self.rand.fill_normal_real(mem, 0, stddev)
+        elif filling_type == "constant":
+            mem[:] = stddev
+        elif filling_type == "gabor":
+            self._fill_with_gabor_filters(
+                self.n_kernels, (self.ky, self.kx), stddev)
+        else:
+            raise error.BadFormatError(
+                "Invalid filling type: %s" % filling_type)
+
     def _fill_weights(self):
         """
         Fills initial filter weights according to `weights_filling` attribute.
         Called within ``initialize`` method.
         """
-        n_weights = self.n_kernels * self.kx * self.ky * self._n_channels
-        if self.weights.mem is None or self.weights.mem.size != n_weights:
-            self.weights.reset()
-            if root.common.unit_test:
-                self.info("Unit test mode: allocating 2x memory for weights")
-                self.weights.mem = numpy.zeros(n_weights * 2,
-                                               dtype=self.input.mem.dtype)
-                self.weights.initialize(self.device)
-                self.weights.map_write()
-                self.weights.vv = self.weights.mem
-                self.weights.mem = self.weights.vv[:n_weights]
-                assert_addr(self.weights.mem, self.weights.vv)
-                self.weights.vv[n_weights:] = numpy.nan
-            else:
-                self.weights.mem = numpy.zeros(n_weights,
-                                               dtype=self.input.mem.dtype)
-            if self.weights_filling == "uniform":
-                self.rand.fill(self.weights.mem, -self.weights_stddev,
-                               self.weights_stddev)
-            elif self.weights_filling == "gaussian":
-                self.rand.fill_normal_real(self.weights.mem, 0,
-                                           self.weights_stddev)
-            elif self.weights_filling == "constant":
-                self.weights.mem[:] = self.weights_stddev
-            elif self.weights_filling == "gabor":
-                self._fill_with_gabor_filters(
-                    self.n_kernels, (self.ky, self.kx), self.weights_stddev)
-            else:
-                raise error.BadFormatError("Invalid weights filling type")
+        weights_size = self.n_kernels * self.kx * self.ky * self._n_channels
+        if not self.weights:
+            self.weights.reset(numpy.zeros(weights_size, self.input.dtype))
+            self._fill_array(self.weights_filling, self.weights.mem,
+                             self.weights_stddev)
             self.weights.mem = self.weights.mem.reshape(
                 self.n_kernels, self.kx * self.ky * self._n_channels)
             # Reshape weights as a matrix:
@@ -385,6 +353,12 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                 a = self.weights.mem.transpose().copy()
                 self.weights.mem.shape = a.shape
                 self.weights.mem[:] = a[:]
+        else:
+            weights_shape = (
+                self.n_kernels, self.kx * self.ky * self._n_channels)
+            if self.weights_transposed:
+                weights_shape = weights_shape[1::-1]
+            assert self.weights.shape == weights_shape
 
     def _fill_biases(self):
         """
@@ -393,20 +367,11 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         """
         if not self.include_bias:
             return
-        if (self.bias.mem is None or
-                self.bias.mem.size != self.n_kernels):
-            self.bias.reset()
-            self.bias.mem = numpy.zeros(self.n_kernels,
-                                        dtype=self.input.mem.dtype)
-            if self.bias_filling == "uniform":
-                self.rand.fill(self.bias.mem, -self.bias_stddev,
-                               self.bias_stddev)
-            elif self.bias_filling == "gaussian":
-                self.rand.fill_normal_real(self.bias.mem, 0, self.bias_stddev)
-            elif self.bias_filling == "constant":
-                self.bias.mem[:] = self.bias_stddev
-            else:
-                raise error.BadFormatError("Invalid bias filling type")
+        if not self.bias:
+            self.bias.reset(numpy.zeros(self.n_kernels, self.input.mem.dtype))
+        else:
+            assert self.bias.size == self.n_kernels
+        self._fill_array(self.bias_filling, self.bias.mem, self.bias_stddev)
 
     def _fill_with_gabor_filters(self, n_filters, shape, stddev):
         """

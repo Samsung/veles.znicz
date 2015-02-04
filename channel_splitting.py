@@ -17,18 +17,13 @@ class ChannelSplitter(Forward):
 
     def initialize(self, device, **kwargs):
         super(ChannelSplitter, self).initialize(device=device, **kwargs)
-        if (self.output.mem is None or
-                self.output.mem.size != self.input.mem.size):
-            self.output.reset()
-            self.output.mem = numpy.zeros(
-                dtype=self.input.mem.dtype,
-                shape=(self.input.mem.shape[0], self.input.mem.shape[3],
-                       self.input.mem.shape[1], self.input.mem.shape[2]))
+        output_shape = self.input.shape[0::3] + self.input.shape[1:3]
+        if not self.output.mem:
+            self.output.reset(numpy.zeros(output_shape, self.input.mem.dtype))
+        else:
+            assert self.output.shape == output_shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output)
 
     def ocl_init(self):
         self.build_program({}, "%s_%s" %
@@ -70,18 +65,13 @@ class ChannelMerger(Forward):
 
     def initialize(self, device, **kwargs):
         super(ChannelMerger, self).initialize(device=device, **kwargs)
-        if (self.output.mem is None or
-                self.output.mem.size != self.input.mem.size):
-            self.output.reset()
-            self.output.mem = numpy.zeros(
-                dtype=self.input.mem.dtype,
-                shape=(self.input.mem.shape[0], self.input.mem.shape[2],
-                       self.input.mem.shape[3], self.input.mem.shape[1]))
+        output_shape = self.input.shape[0::2] + self.input.shape[3::-2]
+        if not self.output:
+            self.output.reset(numpy.zeros(output_shape, self.input.mem.dtype))
+        else:
+            assert self.output.shape == output_shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output)
 
     def ocl_init(self):
         self.build_program({}, "%s_%s" %

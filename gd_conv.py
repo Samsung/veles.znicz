@@ -255,11 +255,11 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._global_size_ortho = (self._other, 1, 1)
         self._local_size_ortho = (self.reduce_size, 1, 1)
 
-        sh = (self._kernel_app * self.unpack_size, self._kernel_size)
-        size = sh[0] * sh[1]
-        if not self.unpack_data or self.unpack_data.size < size:
-            self.unpack_data.reset()
-            self.unpack_data.mem = numpy.zeros(sh, dtype=self._dtype)
+        unpack_shape = (self._kernel_app * self.unpack_size, self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
         self.unpack_data.initialize(self.device)
 
         self.assign_kernel("Unpack1D")

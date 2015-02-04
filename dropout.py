@@ -74,16 +74,12 @@ class DropoutForward(Forward, Dropout):
             low=DropoutForward.MIN_RANDOM_STATE,
             high=DropoutForward.MAX_RANDOM_STATE,
             size=self.input.size * 4).astype(numpy.uint32)
-        if (not self.output or self.output.size != self.input.size):
-            self.output.reset()
-            self.output.mem = numpy.zeros_like(self.input.mem)
+        if not self.output:
+            self.output.reset(numpy.zeros_like(self.input.mem))
+        else:
+            assert self.output.shape == self.input.shape
 
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-        self.states.initialize(self.device)
-        self.mask.initialize(self.device)
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output, self.states, self.mask)
 
     def _gpu_init(self):
         self._threshold_arg_ = numpy.empty(1, dtype=numpy.uint64)

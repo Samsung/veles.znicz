@@ -301,38 +301,32 @@ class GradientDescentBase(AcceleratedUnit):
         if (self.weights and (
                 not self.gradient_weights or
                 self.gradient_weights.size != self.weights.size)):
-            self.gradient_weights.reset()
-            self.gradient_weights.mem = numpy.zeros_like(self.weights.mem)
+            self.gradient_weights.reset(numpy.zeros_like(self.weights.mem))
         if (self.weights and self.accumulate_gradient != self.OP_NONE and (
                 not self.accumulated_gradient_weights or
                 self.accumulated_gradient_weights.size != self.weights.size)):
-            self.accumulated_gradient_weights.reset()
-            self.accumulated_gradient_weights.mem = numpy.zeros_like(
-                self.weights.mem)
+            self.accumulated_gradient_weights.reset(numpy.zeros_like(
+                self.weights.mem))
         if (self.weights and self.gradient_moment and (
                 not self.gradient_weights_with_moment or
                 self.gradient_weights_with_moment.size != self.weights.size)):
-            self.gradient_weights_with_moment.reset()
-            self.gradient_weights_with_moment.mem = (
+            self.gradient_weights_with_moment.reset(
                 numpy.zeros_like(self.weights.mem))
 
         if (self.include_bias and self.bias and
             (not self.gradient_bias or
              self.gradient_bias.size != self.bias.size)):
-            self.gradient_bias.reset()
-            self.gradient_bias.mem = numpy.zeros_like(self.bias.mem)
+            self.gradient_bias.reset(numpy.zeros_like(self.bias.mem))
         if (self.include_bias and self.bias and
             self.accumulate_gradient != self.OP_NONE and
             (not self.accumulated_gradient_bias or
              self.accumulated_gradient_bias.size != self.bias.size)):
-            self.accumulated_gradient_bias.reset()
-            self.accumulated_gradient_bias.mem = numpy.zeros_like(
-                self.bias.mem)
+            self.accumulated_gradient_bias.reset(numpy.zeros_like(
+                self.bias.mem))
         if (self.include_bias and self.bias and self.gradient_moment_bias and (
                 not self.gradient_bias_with_moment or
                 self.gradient_bias_with_moment.size != self.bias.size)):
-            self.gradient_bias_with_moment.reset()
-            self.gradient_bias_with_moment.mem = (
+            self.gradient_bias_with_moment.reset(
                 numpy.zeros_like(self.bias.mem))
 
         dtype = self.err_output.dtype
@@ -361,28 +355,18 @@ class GradientDescentBase(AcceleratedUnit):
             other = self.weights.size // side
             if self.factor_ortho:
                 if not self.col_sums or self.col_sums.size < other:
-                    self.col_sums.reset()
-                    self.col_sums.mem = numpy.zeros(other, dtype=dtype)
+                    self.col_sums.reset(numpy.zeros(other, dtype=dtype))
                 self.col_sums.initialize(self.device)
             self.reduce_size = roundup(min(self.reduce_size, other), 32)
             self.weights.initialize(self.device)
-        if self.bias:
-            self.bias.initialize(self.device)
-        if self.output:
-            self.output.initialize(self.device)
-        if self.input:
-            self.input.initialize(self.device)
-        if self.err_input:
-            self.err_input.initialize(self.device)
-        self.err_output.initialize(self.device)
-        self.gradient_weights.initialize(self.device)
-        self.gradient_bias.initialize(self.device)
-        self.accumulated_gradient_weights.initialize(self.device)
-        self.accumulated_gradient_bias.initialize(self.device)
-        self.gradient_weights_with_moment.initialize(self.device)
-        self.gradient_bias_with_moment.initialize(self.device)
 
-        self.backend_init()
+        for vec in self.bias, self.output, self.input, self.err_input:
+            if vec:
+                vec.initialize(self.device)
+        self.init_vectors(
+            self.err_output, self.gradient_weights, self.gradient_bias,
+            self.accumulated_gradient_weights, self.accumulated_gradient_bias,
+            self.gradient_weights_with_moment, self.gradient_bias_with_moment)
 
     @property
     def learning_rate(self):

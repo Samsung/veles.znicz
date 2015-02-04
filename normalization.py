@@ -77,15 +77,9 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
-        self.output.mem = numpy.zeros(shape=self.input.shape,
-                                      dtype=self.input.dtype)
-
-        self.input.initialize(self.device)
-        self.output.initialize(self.device)
-
+        self.output.mem = numpy.zeros_like(self.input)
         self._num_of_chans = self.input.mem.shape[3]
-
-        self.backend_init()
+        self.init_vectors(self.input, self.output)
 
     def _gpu_init(self):
         defines = {"ALPHA": self.alpha, "BETA": self.beta, "K": self.k,
