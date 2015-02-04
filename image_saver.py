@@ -8,7 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
-import cv2
 import logging
 import glob
 import numpy
@@ -54,8 +53,8 @@ class ImageSaver(Unit):
                                       "tmpimg/validation"),
                          os.path.join(config.root.common.cache_dir,
                                       "tmpimg/train")])
-        self.limit = config.get(config.root.image_saver.limit, 100)
-        yuv = config.get(config.root.image_saver.yuv, False)
+        self.limit = kwargs.get("limit", 100)
+        self.colorspace = kwargs.get("colorspace", "RGB")
         self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
@@ -64,7 +63,6 @@ class ImageSaver(Unit):
         self.max_idx = None  # formats.Vector()
         self.minibatch_class = None  # [0]
         self.minibatch_size = None  # [0]
-        self.yuv = 1 if yuv else 0
         self._last_save_time = 0
         self.save_time = 0
         self._n_saved = [0, 0, 0]
@@ -187,7 +185,7 @@ class ImageSaver(Unit):
                 img = img.reshape(img.shape[0], img.shape[1])
             try:
                 scipy.misc.imsave(
-                    fnme, cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
+                    fnme, self.normalize_image(img, self.colorspace))
             except OSError:
                 self.warning("Could not save image to %s" % (fnme))
 
@@ -195,7 +193,30 @@ class ImageSaver(Unit):
             if self._n_saved[self.minibatch_class] >= self.limit:
                 return
 
+    def normalize_image(self, a, colorspace=None):
+        """Normalizes numpy array to interval [0, 255].
+        """
+        aa = a.astype(numpy.float32)
+        if aa.__array_interface__[
+                "data"][0] == a.__array_interface__["data"][0]:
+            aa = aa.copy()
+        aa -= aa.min()
+        m = aa.max()
+        if m:
+            m /= 255.0
+            aa /= m
+        else:
+            aa[:] = 127.5
+        import cv2
+        if (colorspace and colorspace != "RGB"
+                and len(aa.shape) == 3 and aa.shape[2] == 3):
+            aaa = cv2.cvtColor(
+                aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
+            numpy.clip(aaa, 0.0, 255.0, aa)
+        return aa.astype(numpy.uint8)
+
     # IDistributable implementation
+
     def generate_data_for_slave(self, slave):
         return None
 
