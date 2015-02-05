@@ -35,6 +35,8 @@ root.cifar.update({
                "normalization_type": "linear"},
     "accumulator": {"n_bars": 30},
     "weights_plotter": {"limit": 25},
+    "similar_weights_plotter": {"form_threshold": 1.1, "peak_threshold": 0.5,
+                                "magnitude_threshold": 0.65},
     "layers": [{"type": "all2all", "output_shape": 486,
                 "learning_rate": 0.0005, "weights_decay": 0.0},
                {"type": "activation_sincos"},

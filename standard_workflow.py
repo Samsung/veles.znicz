@@ -30,6 +30,7 @@ import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
 from veles.loader.base import UserLoaderRegistry
+from veles.loader.image import ImageLoader
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 
@@ -345,6 +346,8 @@ class StandardWorkflow(StandardWorkflowBase):
         self.snapshotter_config = kwargs.get("snapshotter_config")
         self.loss_function = kwargs.get("loss_function", "softmax")
         self.image_saver_config = kwargs.get("image_saver_config")
+        self.similar_weights_plotter_config = kwargs.get(
+            "similar_weights_plotter_config")
         self.loader_name = kwargs.get("loader_name")
         if self.loss_function != "softmax" and self.loss_function != "mse":
             raise error.NotExistsError("Unknown loss function type %s"
@@ -502,11 +505,16 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_saver.link_from(init_unit)
         self.image_saver.link_attrs(self.forwards[-1],
                                     "output", "max_idx")
+        if isinstance(self.loader, ImageLoader):
+            self.image_saver.link_attrs(self.loader, "color_space")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
                                     ("indexes", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
+        self.image_saver.gate_skip = ~self.decision.improved
+        self.image_saver.link_attrs(self.snapshotter,
+                                    ("this_save_time", "time"))
 
     def link_lr_adjuster(self, init_unit):
         # not work without create gds first
@@ -641,6 +649,8 @@ class StandardWorkflow(StandardWorkflowBase):
             self.weights_plotter.append(plt_wd)
             self.weights_plotter[-1].link_attrs(self.forwards[i],
                                                 ("input", weights_input))
+            if isinstance(self.loader, ImageLoader):
+                self.weights_plotter[-1].link_attrs(self.loader, "color_space")
             self.weights_plotter[-1].input_field = "mem"
             if isinstance(self.forwards[i], conv.Conv):
                 self.weights_plotter[-1].get_shape_from = (
@@ -650,12 +660,14 @@ class StandardWorkflow(StandardWorkflowBase):
                     layers[i]["type"] != "softmax"):
                 self.weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))
+                if isinstance(self.loader, ImageLoader):
+                    self.weights_plotter[-1].link_attrs(
+                        self.loader, "color_space")
             self.weights_plotter[-1].link_from(prev)
             prev = self.weights_plotter[-1]
             self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
 
-    def link_similar_weights_plotter(self, init_unit, layers, limit,
-                                     magnitude, form, peak):
+    def link_similar_weights_plotter(self, init_unit, layers):
         # not work without create weights_plotter, decision and forwards first
         self.check_decision()
         self.check_forwards()
@@ -671,13 +683,13 @@ class StandardWorkflow(StandardWorkflowBase):
                 continue
             plt_mx = diversity.SimilarWeights2D(
                 self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
-                limit=limit,
-                form_threshold=form,
-                peak_threshold=peak,
-                magnitude_threshold=magnitude)
+                **self.similar_weights_plotter_config.__dict__)
             self.similar_weights_plotter.append(plt_mx)
             self.similar_weights_plotter[-1].link_attrs(self.forwards[i],
                                                         ("input", "weights"))
+            if isinstance(self.loader, ImageLoader):
+                self.similar_weights_plotter[-1].link_attrs(
+                    self.loader, "color_space")
             self.similar_weights_plotter[-1].input_field = "mem"
             wd_plt = self.weights_plotter
             if n != 0:
@@ -687,6 +699,9 @@ class StandardWorkflow(StandardWorkflowBase):
                     layers[i]["type"] != "softmax"):
                 self.similar_weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))
+                if isinstance(self.loader, ImageLoader):
+                    self.similar_weights_plotter[-1].link_attrs(
+                        self.loader, "color_space")
             self.similar_weights_plotter[-1].link_from(prev)
             prev = self.similar_weights_plotter[-1]
             self.similar_weights_plotter[

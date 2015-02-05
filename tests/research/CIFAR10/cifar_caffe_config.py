@@ -42,6 +42,8 @@ root.cifar.update({
                "on_device": True},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
+    "similar_weights_plotter": {"form_threshold": 1.1, "peak_threshold": 0.5,
+                                "magnitude_threshold": 0.65},
     "layers": [{"name": "conv1",
                 "type": "conv", "n_kernels": 32, "kx": 5, "ky": 5,
                 "padding": (2, 2, 2, 2), "sliding": (1, 1),

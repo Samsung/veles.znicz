@@ -143,6 +143,8 @@ class SimilarWeights2D(Weights2D):
         if self.transposed:
             inp = inp.transpose()
         n_channels, _, _ = self.get_number_of_channels(inp)
+        if n_channels is None:
+            return None
         sims = get_similar_kernels(
             inp, n_channels,
             SimilarityCalculationParameters(
