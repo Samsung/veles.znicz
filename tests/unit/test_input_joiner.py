@@ -9,7 +9,6 @@ import logging
 import numpy
 import unittest
 
-from veles.config import root
 import veles.memory as formats
 import veles.backends as opencl
 import veles.znicz.input_joiner as input_joiner
@@ -18,8 +17,6 @@ from veles.dummy import DummyWorkflow
 
 class TestInputJoiner(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

@@ -383,7 +383,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gpu_weights_update()
 
 
-class GDSM(GradientDescent):
+class GDSoftmax(GradientDescent):
     """Gradient Descent for :class:`veles.znicz.all2all.All2AllSoftmax`.
 
     We minimize cross-entropy error function for softmax, so gradient descent

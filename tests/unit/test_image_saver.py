@@ -23,9 +23,6 @@ import veles.dummy as dummy_workflow
 
 
 class TestImageSaver(unittest.TestCase):
-    def setUp(self):
-        root.common.unit_test = True
-
     def data(self):
         self.minibatch_data = formats.Vector()
         self.minibatch_data.mem = numpy.zeros([20, 32, 32],

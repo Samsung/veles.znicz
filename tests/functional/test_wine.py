@@ -21,9 +21,8 @@ import veles.dummy as dummy_workflow
 
 class TestWine(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-        root.wine.snapshotter.time_interval = 86400
+        # We must test how snapshotting works, at least one-way
+        root.wine.snapshotter.time_interval = 0
         self.device = opencl.Device()
 
     @timeout(300)

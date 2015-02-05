@@ -13,7 +13,7 @@ from zope.interface import implementer
 
 from veles.config import root
 from veles.accelerated_units import IOpenCLUnit
-from veles.memory import assert_addr, roundup, Vector
+from veles.memory import roundup, Vector
 import veles.znicz.nn_units as nn_units
 import veles.error as error
 from veles.distributable import TriviallyDistributable
@@ -148,19 +148,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
                 self.hits.reset(numpy.zeros(output_shape, dtype=numpy.int32))
 
         if not self.output:
-            self.output.reset()
-            if root.common.unit_test:
-                output_shape[0] <<= 1
-                self.output.mem = numpy.zeros(output_shape, dtype=dtype)
-                self.output.initialize(self.device)
-                self.output.map_write()
-                self.output.vv = self.output.mem
-                output_shape[0] >>= 1
-                self.output.mem[output_shape[0]:] = numpy.nan
-                self.output.mem = self.output.mem[:output_shape[0]]
-                assert_addr(self.output.mem, self.output.vv)
-            else:
-                self.output.mem = numpy.zeros(output_shape, dtype=dtype)
+            self.output.reset(numpy.zeros(output_shape, dtype=dtype))
         else:
             assert self.output.shape == output_shape
 

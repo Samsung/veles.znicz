@@ -15,20 +15,26 @@ import unittest
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
-import veles.znicz.conv as conv
-import veles.znicz.deconv as deconv
-import veles.znicz.gd_deconv as gd_deconv
 from veles.dummy import DummyWorkflow
 import veles.prng as rnd
 import veles.backends as opencl
-from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 from veles.memory import Vector
+from veles.tests.doubling_reset import patch
+import veles.znicz.conv as conv
+from veles.znicz.deconv import Deconv
+from veles.znicz.gd_deconv import GDDeconv
+from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
+
+
+class PatchedDeconv(Deconv):
+    def __init__(self, workflow, **kwargs):
+        super(PatchedDeconv, self).__init__(workflow, **kwargs)
+        patch(self, self.output, lambda: self.get_output_shape_from.shape,
+              lambda: self.input.dtype)
 
 
 class TestDeconv(unittest.TestCase, GDNumDiff):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
         self.this_dir = os.path.dirname(__file__)
         if not len(self.this_dir):
@@ -50,7 +56,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         forward.weights.mem[:] = 1.0
         forward.run()
 
-        de = deconv.Deconv(DummyWorkflow(), kx=forward.kx, ky=forward.ky,
+        de = PatchedDeconv(DummyWorkflow(), kx=forward.kx, ky=forward.ky,
                            n_kernels=forward.n_kernels,
                            padding=forward.padding, sliding=forward.sliding,
                            unsafe_padding=True)
@@ -81,7 +87,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
             self._test_compute_padding(sx, sx, kx, kx, (slide, slide))
 
     def _test_compute_padding(self, sx, sy, kx, ky, sliding):
-        padding = deconv.Deconv.compute_padding(sx, sy, kx, ky, sliding)
+        padding = PatchedDeconv.compute_padding(sx, sy, kx, ky, sliding)
         a = numpy.zeros([sy + padding[1] + padding[3],
                          sx + padding[0] + padding[2]], dtype=numpy.int32)
         b = numpy.ones([ky, kx], dtype=numpy.int32)
@@ -107,11 +113,11 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         forward.input.map_read()
         inp = forward.input.mem.copy()
 
-        gd = gd_deconv.GDDeconv(first.workflow, n_kernels=first.n_kernels,
-                                kx=first.kx, ky=first.ky,
-                                padding=first.padding, sliding=first.sliding,
-                                learning_rate=-1.0, weights_decay=0.0,
-                                gradient_moment=0.9)
+        gd = GDDeconv(first.workflow, n_kernels=first.n_kernels,
+                      kx=first.kx, ky=first.ky,
+                      padding=first.padding, sliding=first.sliding,
+                      learning_rate=-1.0, weights_decay=0.0,
+                      gradient_moment=0.9)
         gd.weights = first.weights
         gd.input = forward.input
         gd.err_output = formats.Vector(err_output)
@@ -150,11 +156,11 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                                              dtype=dtype))
             inp.initialize(device)
             inp.map_write()
-            inp.vv = inp.mem
-            inp.mem = inp.vv[:batch_size]
-            formats.assert_addr(inp.vv, inp.mem)
+            inp.unit_test_mem = inp.mem
+            inp.mem = inp.unit_test_mem[:batch_size]
+            formats.assert_addr(inp.unit_test_mem, inp.mem)
             rnd.get().fill(inp.mem)
-            inp.vv[batch_size:] = numpy.nan
+            inp.unit_test_mem[batch_size:] = numpy.nan
             forward.input = inp
             forward.initialize(device)
             forward.run()
@@ -165,14 +171,14 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         out = formats.Vector(numpy.zeros(sh, dtype=dtype))
         out.initialize(forward.device)
         out.map_write()
-        out.vv = out.mem
+        out.unit_test_mem = out.mem
         sh[0] >>= 1
-        out.mem = out.vv[:sh[0]]
-        formats.assert_addr(out.mem, out.vv)
+        out.mem = out.unit_test_mem[:sh[0]]
+        formats.assert_addr(out.mem, out.unit_test_mem)
         out.mem[:] = forward.output.mem[:]
-        out.vv[sh[0]:] = numpy.nan
+        out.unit_test_mem[sh[0]:] = numpy.nan
 
-        backward = deconv.Deconv(forward.workflow, n_kernels=forward.n_kernels,
+        backward = PatchedDeconv(forward.workflow, n_kernels=forward.n_kernels,
                                  kx=forward.kx, ky=forward.ky,
                                  padding=forward.padding,
                                  sliding=forward.sliding)
@@ -193,8 +199,9 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
 
         if device is not None:
             nz = numpy.count_nonzero(
-                numpy.isnan(backward.output.vv[backward.output.shape[0]:]))
-            self.assertEqual(nz, backward.output.vv.size >> 1,
+                numpy.isnan(
+                    backward.output.unit_test_mem[backward.output.shape[0]:]))
+            self.assertEqual(nz, backward.output.unit_test_mem.size >> 1,
                              "Written some values outside of the target array")
 
         return backward.output.mem.copy(), forward, backward

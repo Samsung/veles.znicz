@@ -4,7 +4,6 @@ import numpy
 from PIL import Image
 import unittest
 
-from veles.config import root
 import veles.memory as formats
 import veles.backends as opencl
 from veles.dummy import DummyWorkflow
@@ -16,8 +15,6 @@ from veles.znicz import conv
 
 class TestCUDNNBase(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

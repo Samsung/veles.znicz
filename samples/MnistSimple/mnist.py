@@ -115,8 +115,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.forwards))))
-        self.gds[-1] = gd.GDSM(self,
-                               learning_rate=root.mnist.learning_rate)
+        self.gds[-1] = gd.GDSoftmax(
+            self, learning_rate=root.mnist.learning_rate)
         self.gds[-1].link_from(self.ipython)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.forwards[-1],

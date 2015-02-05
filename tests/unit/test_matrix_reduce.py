@@ -24,8 +24,6 @@ from veles.accelerated_units import TrivialOpenCLUnit
 
 class TestMatrixReduce(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
         thisdir = os.path.dirname(__file__)
         if not len(thisdir):

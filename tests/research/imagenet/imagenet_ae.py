@@ -413,7 +413,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             deconv.Deconv: gd_deconv.GDDeconv,
             all2all.All2All: gd.GradientDescent,
             all2all.All2AllTanh: gd.GDTanh,
-            all2all.All2AllSoftmax: gd.GDSM,
+            all2all.All2AllSoftmax: gd.GDSoftmax,
             activation.ForwardTanhLog: activation.BackwardTanhLog,
             activation.ForwardMul: activation.BackwardMul,
             pooling.StochasticAbsPooling: gd_pooling.GDMaxAbsPooling,

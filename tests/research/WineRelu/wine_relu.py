@@ -107,7 +107,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.forwards)))
-        self.gds[-1] = gd.GDSM(self, device=device)
+        self.gds[-1] = gd.GDSoftmax(self, device=device)
         self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
         self.gds[-1].link_attrs(self.evaluator, "err_output")

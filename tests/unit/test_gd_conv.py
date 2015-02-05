@@ -14,18 +14,35 @@ import unittest
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
-import veles.znicz.gd_conv as gd_conv
+from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
+    GDStrictRELUConv, GDTanhConv
 import veles.znicz.conv as conv
 from veles.dummy import DummyWorkflow
 import veles.prng as prng
 import veles.backends as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
+from veles.znicz.tests.unit.test_gd import PatchedGradientDescentBase
+
+
+class PatchedGradientDescentConv(GradientDescentConv,
+                                 PatchedGradientDescentBase):
+    pass
+
+
+class PatchedGDRELUConv(GDRELUConv, PatchedGradientDescentBase):
+    pass
+
+
+class PatchedGDStrictRELUConv(GDStrictRELUConv, PatchedGradientDescentBase):
+    pass
+
+
+class PatchedGDTanhConv(GDTanhConv, PatchedGradientDescentBase):
+    pass
 
 
 class TestGDConv(unittest.TestCase, GDNumDiff):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -88,8 +105,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[4, -1], [-1, 2], [0, 1]],
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
-        c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3, gradient_moment=0.9)
+        c = PatchedGradientDescentConv(DummyWorkflow(), n_kernels=2,
+                                       kx=3, ky=3, gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -210,9 +227,9 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[1, 1], [1, -2], [0, 5], [2, 3]]]],
                                  dtype=dtype)
 
-        c = gd_conv.GradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                        kx=3, ky=3, padding=(1, 2, 3, 4),
-                                        sliding=(2, 3), gradient_moment=0.9)
+        c = PatchedGradientDescentConv(DummyWorkflow(), n_kernels=2,
+                                       kx=3, ky=3, padding=(1, 2, 3, 4),
+                                       sliding=(2, 3), gradient_moment=0.9)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -279,27 +296,26 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, conv.Conv,
-                                  gd_conv.GradientDescentConv)
+                                  PatchedGradientDescentConv)
 
     def test_random_numeric_gpu_tanh(self):
         self._test_random_numeric(self.device, conv.ConvTanh,
-                                  gd_conv.GDTanhConv)
+                                  PatchedGDTanhConv)
 
     def test_random_numeric_gpu_relu(self):
         self._test_random_numeric(self.device, conv.ConvRELU,
-                                  gd_conv.GDRELUConv)
+                                  PatchedGDRELUConv)
 
     def test_random_numeric_cpu(self):
         self._test_random_numeric(None, conv.Conv,
-                                  gd_conv.GradientDescentConv)
+                                  PatchedGradientDescentConv)
 
     def test_random_numeric_cpu_tanh(self):
         self._test_random_numeric(None, conv.ConvTanh,
-                                  gd_conv.GDTanhConv)
+                                  PatchedGDTanhConv)
 
     def test_random_numeric_cpu_relu(self):
-        self._test_random_numeric(None, conv.ConvRELU,
-                                  gd_conv.GDRELUConv)
+        self._test_random_numeric(None, conv.ConvRELU, PatchedGDRELUConv)
 
     def _test_random_numeric(self, device, Forward, GD):
         logging.info("Will test convolutional layer forward-backward "
@@ -315,12 +331,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         forward.input = formats.Vector(numpy.zeros(sh, dtype=dtype))
         forward.input.initialize(self.device)
         forward.input.map_write()
-        forward.input.vv = forward.input.mem
+        forward.input.unit_test_mem = forward.input.mem
         sh[0] >>= 1
-        forward.input.mem = forward.input.vv[:sh[0]]
-        formats.assert_addr(forward.input.mem, forward.input.vv)
+        forward.input.mem = forward.input.unit_test_mem[:sh[0]]
+        formats.assert_addr(forward.input.mem, forward.input.unit_test_mem)
         forward.input.mem[:] = inp[:]
-        forward.input.vv[sh[0]:] = numpy.nan
+        forward.input.unit_test_mem[sh[0]:] = numpy.nan
         forward.initialize(device=self.device)
         forward.run()
 
@@ -346,12 +362,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.err_output = formats.Vector(numpy.zeros(sh, dtype=dtype))
         c.err_output.initialize(device)
         c.err_output.map_write()
-        c.err_output.vv = c.err_output.mem
+        c.err_output.unit_test_mem = c.err_output.mem
         sh[0] >>= 1
-        c.err_output.mem = c.err_output.vv[:sh[0]]
-        formats.assert_addr(c.err_output.mem, c.err_output.vv)
+        c.err_output.mem = c.err_output.unit_test_mem[:sh[0]]
+        formats.assert_addr(c.err_output.mem, c.err_output.unit_test_mem)
         c.err_output.mem[:] = err_output[:]
-        c.err_output.vv[sh[0]:] = numpy.nan
+        c.err_output.unit_test_mem[sh[0]:] = numpy.nan
         c.input = forward.input
         c.weights = forward.weights
         c.bias = forward.bias

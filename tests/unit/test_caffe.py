@@ -756,7 +756,7 @@ class TestConvCaffe(standard_test.StandardTest):
         ev_sm.output.map_read()
         ev_sm.err_output.map_read()
 
-        back_a2a_sm = gd.GDSM(self.workflow, store_gradient=False)
+        back_a2a_sm = gd.GDSoftmax(self.workflow, store_gradient=False)
 
         back_a2a_sm.output = a2a_softmax.output
         back_a2a_sm.input = a2a_softmax.input

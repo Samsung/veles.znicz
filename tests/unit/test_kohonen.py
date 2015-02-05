@@ -20,8 +20,6 @@ import veles.znicz.kohonen as kohonen
 
 class TestKohonen(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
         self.dtype = opencl_types.dtypes[root.common.precision_type]
         self.input = numpy.array([[1, 2, 3, 2, 1],

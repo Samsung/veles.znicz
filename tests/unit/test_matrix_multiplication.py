@@ -28,8 +28,6 @@ znicz.nothing()
 
 class TestMatrixMultiplication(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

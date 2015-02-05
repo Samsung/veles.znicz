@@ -15,14 +15,17 @@ from veles.config import root
 import veles.memory as formats
 import veles.backends as opencl
 import veles.opencl_types as opencl_types
-import veles.znicz.conv as conv
 from veles.dummy import DummyWorkflow
+from veles.znicz.conv import ConvRELU
+from veles.znicz.tests.unit.test_conv import PatchedConv
+
+
+class PatchedConvRELU(ConvRELU, PatchedConv):
+    pass
 
 
 class TestConvRelu(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):
@@ -48,7 +51,7 @@ class TestConvRelu(unittest.TestCase):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = conv.ConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
+        c = PatchedConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
         c.input = inp
 
         c.initialize(device=self.device)
@@ -61,9 +64,11 @@ class TestConvRelu(unittest.TestCase):
         c.run()
         c.output.map_read()  # get results back
         nz = numpy.count_nonzero(
-            numpy.isnan(c.output.vv[c.output.mem.shape[0]:].ravel()))
-        self.assertEqual(nz, c.output.vv[c.output.mem.shape[0]:].size,
-                         "Overflow occured")
+            numpy.isnan(
+                c.output.unit_test_mem[c.output.mem.shape[0]:].ravel()))
+        self.assertEqual(
+            nz, c.output.unit_test_mem[c.output.mem.shape[0]:].size,
+            "Overflow occured")
 
         y = c.output.mem.ravel()
         t = numpy.array([9, 5.3, 15, 5.65, 9, -3.5,

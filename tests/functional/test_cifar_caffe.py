@@ -23,8 +23,6 @@ import veles.dummy as dummy_workflow
 
 class TestCifarCaffe(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     @timeout(300)

@@ -23,8 +23,6 @@ from veles.dummy import DummyWorkflow
 class TestAll2All(unittest.TestCase):
     def setUp(self):
         prng.get().seed(1234)
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

@@ -110,7 +110,7 @@ class Workflow(AcceleratedWorkflow):
         self.ev.batch_size = self.batch_size
 
         # Gradient descent layer for softmax
-        self.sm_gd = gd.GDSM(
+        self.sm_gd = gd.GDSoftmax(
             self, gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0)
@@ -198,8 +198,6 @@ class Workflow(AcceleratedWorkflow):
 
 class TestGDWorkflow(unittest.TestCase, GDNumDiff):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     def tearDown(self):

@@ -25,9 +25,6 @@ from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 class TestMaxPooling(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-
         self.device = opencl.Device()
         self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
@@ -100,9 +97,6 @@ class TestMaxPooling(unittest.TestCase):
 
 class TestStochasticPooling(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-
         self.dtype = opencl_types.dtypes[root.common.precision_type]
         self.input = numpy.zeros([3, 17, 17, 7], dtype=self.dtype)
         prng.get().fill(self.input)
@@ -144,9 +138,6 @@ class TestStochasticPooling(unittest.TestCase):
 
 class TestGDMaxPooling(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-
         self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._input = numpy.array(
             [[[3, 3, -1, 1, 2, 3, 4],
@@ -231,9 +222,6 @@ class TestGDMaxPooling(unittest.TestCase):
 
 class TestAvgPooling(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-
         self.device = opencl.Device()
         self._input = formats.Vector()
         self._dtype = opencl_types.dtypes[root.common.precision_type]
@@ -291,8 +279,6 @@ class TestAvgPooling(unittest.TestCase):
 
 class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
         self._dtype = opencl_types.dtypes[root.common.precision_type]
         self.device = opencl.Device()
 
@@ -349,9 +335,6 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
 
 class TestStochasticPoolingDepooling(unittest.TestCase):
     def setUp(self):
-        root.common.unit_test = True
-        root.common.plotters_disabled = True
-
         self.dtype = opencl_types.dtypes[root.common.precision_type]
         self.input = numpy.zeros([3, 17, 17, 7], dtype=self.dtype)
         prng.get().fill(self.input)

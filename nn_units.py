@@ -18,10 +18,9 @@ import sys
 import tarfile
 from zope.interface import implementer
 
-from veles.config import root
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
-from veles.memory import assert_addr, roundup, Vector
+from veles.memory import roundup, Vector
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
@@ -332,28 +331,14 @@ class GradientDescentBase(AcceleratedUnit):
                 numpy.zeros_like(self.bias.mem))
 
         dtype = self.err_output.dtype
-        if (self.need_err_input and
-                (not self.err_input or
-                 self.err_input.size != self.input.size)):
-            self.err_input.reset()
-            sh = self.input.shape
-            if root.common.unit_test:
-                self.info("Unit test: Allocating 2x mem for err_input")
-                sh = list(sh)
-                sh[0] <<= 1
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
-                self.err_input.initialize(self.device)
-                self.err_input.map_write()
-                self.err_input.vv = self.err_input.mem
-                sh[0] >>= 1
-                self.err_input.mem = self.err_input.vv[:sh[0]]
-                assert_addr(self.err_input.mem, self.err_input.vv)
-                self.err_input.vv[sh[0]:] = numpy.nan
+        if self.need_err_input:
+            if not self.err_input:
+                self.err_input.reset(numpy.zeros(self.input.shape, dtype))
             else:
-                self.err_input.mem = numpy.zeros(sh, dtype=dtype)
+                assert self.err_input.shape == self.input.shape
 
         if self.weights:
-            side = self.weights.shape[1 if self.weights_transposed else 0]
+            side = self.weights.shape[int(self.weights_transposed)]
             other = self.weights.size // side
             if self.factor_ortho:
                 if not self.col_sums or self.col_sums.size < other:

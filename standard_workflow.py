@@ -71,7 +71,7 @@ class GradientUnitFactory(object):
     _all2all_grad_classes = {all2all.All2All: gd.GradientDescent,
                              all2all.All2AllRELU: gd.GDRELU,
                              all2all.All2AllTanh: gd.GDTanh,
-                             all2all.All2AllSoftmax: gd.GDSM}
+                             all2all.All2AllSoftmax: gd.GDSoftmax}
 
     _activation_grad_classes = {
         activation.ForwardTanh: activation.BackwardTanh,
