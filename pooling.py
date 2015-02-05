@@ -38,11 +38,11 @@ from veles.units import Unit
 
 
 class PoolingBase(Unit):
-    def __init__(self, workflow, kx, ky, sliding=None, *args, **kwargs):
-        super(PoolingBase, self).__init__(workflow, *args, **kwargs)
-        self.kx = kx
-        self.ky = ky
-        self.sliding = sliding or (self.kx, self.ky)
+    def __init__(self, workflow, **kwargs):
+        super(PoolingBase, self).__init__(workflow, **kwargs)
+        self.kx = kwargs["kx"]
+        self.ky = kwargs["ky"]
+        self.sliding = kwargs.get("sliding") or (self.kx, self.ky)
 
     def create_output(self):
         self._batch_size = self.input.shape[0]
