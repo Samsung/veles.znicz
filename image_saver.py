@@ -99,6 +99,9 @@ class ImageSaver(Unit):
             self.output.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
+        self.indices.map_read()
+        self.input.map_read()
+        self.labels.map_read()
         for dirnme in self.out_dirs:
             try:
                 os.makedirs(dirnme, mode=0o775)
@@ -125,7 +128,7 @@ class ImageSaver(Unit):
         im = 0
         for i in range(0, self.minibatch_size):
             x = ImageSaver.as_image(self.input[i])
-            idx = self.indices[i]
+            idx = self.indices.mem[i]
             lbl = self.labels[i]
             if self.max_idx is not None:
                 im = self.max_idx[i]
@@ -201,7 +204,7 @@ class ImageSaver(Unit):
         else:
             aa[:] = 127.5
         aa = aa.astype(numpy.uint8)
-        if (colorspace != "RGB"):
+        if (colorspace != "RGB" and len(aa.shape) == 3 and aa.shape[2] == 3):
             import cv2
             aa = cv2.cvtColor(
                 aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))

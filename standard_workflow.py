@@ -509,7 +509,7 @@ class StandardWorkflow(StandardWorkflowBase):
             self.image_saver.link_attrs(self.loader, "color_space")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indices"),
+                                    ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.gate_skip = ~self.decision.improved
