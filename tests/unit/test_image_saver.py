@@ -92,6 +92,7 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_SM.indexes = self.indexes
         self.img_saver_SM.minibatch_size = 20
         self.img_saver_SM.output = self.output
+        self.img_saver_SM.color_space = "RGB"
 
         self.do_image_saver_SM_t()
         self.do_image_saver_SM_validation()
@@ -120,6 +121,7 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.indexes = self.indexes
         self.img_saver_MSE.minibatch_size = 20
         self.img_saver_MSE.output = self.output
+        self.img_saver_MSE.color_space = "RGB"
         self.img_saver_MSE.this_save_time = time.time()
         self.target = formats.Vector()
         self.target.mem = numpy.zeros([20, 10], dtype=numpy.float32)

@@ -32,9 +32,9 @@ class ImageSaver(Unit):
         input: batch with input samples.
         output: batch with corresponding output samples (may be None).
         target: batch with corresponding target samples (may be None).
-        indexes: sample indexes.
+        indices: sample indices.
         labels: sample labels.
-        max_idx: indexes of element with maximum value for each sample.
+        max_idx: indices of element with maximum value for each sample.
 
     Remarks:
         if max_idx is not None:
@@ -54,18 +54,14 @@ class ImageSaver(Unit):
                          os.path.join(config.root.common.cache_dir,
                                       "tmpimg/train")])
         self.limit = kwargs.get("limit", 100)
-        self.colorspace = kwargs.get("colorspace", "RGB")
-        self.input = None  # formats.Vector()
         self.output = None  # formats.Vector()
         self.target = None  # formats.Vector()
-        self.indexes = None  # formats.Vector()
-        self.labels = None  # formats.Vector()
         self.max_idx = None  # formats.Vector()
-        self.minibatch_class = None  # [0]
-        self.minibatch_size = None  # [0]
         self._last_save_time = 0
         self.save_time = 0
         self._n_saved = [0, 0, 0]
+        self.demand("color_space", "input", "indices", "labels",
+                    "minibatch_class", "minibatch_size")
 
     @staticmethod
     def as_image(x):
@@ -99,11 +95,8 @@ class ImageSaver(Unit):
 
     def run(self):
         logging.basicConfig(level=logging.INFO)
-        self.input.map_read()
         if self.output is not None:
             self.output.map_read()
-        self.indexes.map_read()
-        self.labels.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
         for dirnme in self.out_dirs:
@@ -132,7 +125,7 @@ class ImageSaver(Unit):
         im = 0
         for i in range(0, self.minibatch_size):
             x = ImageSaver.as_image(self.input[i])
-            idx = self.indexes[i]
+            idx = self.indices[i]
             lbl = self.labels[i]
             if self.max_idx is not None:
                 im = self.max_idx[i]
@@ -185,7 +178,7 @@ class ImageSaver(Unit):
                 img = img.reshape(img.shape[0], img.shape[1])
             try:
                 scipy.misc.imsave(
-                    fnme, self.normalize_image(img, self.colorspace))
+                    fnme, self.normalize_image(img, self.color_space))
             except OSError:
                 self.warning("Could not save image to %s" % (fnme))
 
@@ -207,13 +200,12 @@ class ImageSaver(Unit):
             aa /= m
         else:
             aa[:] = 127.5
-        import cv2
-        if (colorspace and colorspace != "RGB"
-                and len(aa.shape) == 3 and aa.shape[2] == 3):
-            aaa = cv2.cvtColor(
+        aa = aa.astype(numpy.uint8)
+        if (colorspace != "RGB"):
+            import cv2
+            aa = cv2.cvtColor(
                 aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
-            numpy.clip(aaa, 0.0, 255.0, aa)
-        return aa.astype(numpy.uint8)
+        return aa
 
     # IDistributable implementation
 

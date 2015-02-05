@@ -8,7 +8,6 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 
 from __future__ import division
-import cv2
 import numpy
 import numpy.linalg as linalg
 from zope.interface import implementer
@@ -35,7 +34,7 @@ class Weights2D(plotter.Plotter):
     def __init__(self, workflow, **kwargs):
         kwargs["name"] = kwargs.get("name", "Weights")
         super(Weights2D, self).__init__(workflow, **kwargs)
-        self.demand("input")
+        self.demand("input", "color_space")
         self.get_shape_from = None
         self.limit = kwargs.get("limit", 64)
         self.transposed = kwargs.get('transposed', False)
@@ -110,31 +109,49 @@ class Weights2D(plotter.Plotter):
 
         for i in range(inp.shape[0]):
             mem = inp[i].ravel()[:sz]
-            if n_channels > 1:
-                w = mem.reshape(sy, sx, n_channels)
-                if self.split_channels:
-                    for ch in range(n_channels):
-                        img = w[:, :, ch:ch + 1].reshape(sy, sx)
-                        img = img.astype(numpy.float32)
-                        pics.append(
-                            cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
-                        if len(pics) >= self.limit:
-                            break
+            if n_channels <= 1:
+                pics.append(self.normalize_image(mem.reshape(sy, sx),
+                                                 self.color_space))
+                continue
+            w = mem.reshape(sy, sx, n_channels)
+            if self.split_channels:
+                for ch in range(n_channels):
+                    pics.append(
+                        self.normalize_image(
+                            w[:, :, ch:ch + 1].reshape(sy, sx),
+                            self.color_space))
                     if len(pics) >= self.limit:
                         break
-                else:
-                    if n_channels == 2:
-                        w = w[:, :, 0].reshape(sy, sx)
-                    elif n_channels > 3:
-                        w = w[:, :, :3].reshape(sy, sx, 3)
-                    w = w.astype(numpy.float32)
-                    pics.append(cv2.cvtColor(w, cv2.COLOR_YUV2RGB))
+                if len(pics) >= self.limit:
+                    break
             else:
-                img = mem.reshape(sy, sx)
-                img = img.astype(numpy.float32)
-                pics.append(
-                    cv2.cvtColor(img, cv2.COLOR_YUV2RGB))
+                if n_channels == 2:
+                    w = w[:, :, 0].reshape(sy, sx)
+                elif n_channels > 3:
+                    w = w[:, :, :3].reshape(sy, sx, 3)
+                pics.append(self.normalize_image(w, self.color_space))
         return pics
+
+    def normalize_image(self, a, colorspace=None):
+        """Normalizes numpy array to interval [0, 255].
+        """
+        aa = a.astype(numpy.float32)
+        if aa.__array_interface__[
+                "data"][0] == a.__array_interface__["data"][0]:
+            aa = aa.copy()
+        aa -= aa.min()
+        m = aa.max()
+        if m:
+            m /= 255.0
+            aa /= m
+        else:
+            aa[:] = 127.5
+        aa = aa.astype(numpy.uint8)
+        if (colorspace != "RGB"):
+            import cv2
+            aa = cv2.cvtColor(
+                aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
+        return aa
 
     def redraw(self):
         pics = self._pics_to_draw
