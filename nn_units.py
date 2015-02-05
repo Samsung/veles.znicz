@@ -661,7 +661,7 @@ class NNWorkflow(AcceleratedWorkflow):
             raise ValueError("No units support export. Implement export() "
                              "method in at least one.")
         obj = {"workflow": self.name,
-               "checksum": self.checksum(),
+               "checksum": self.checksum,
                "units": [{"class": {"name": unit.__class__.__name__,
                                     "uuid": unit.__class__.__id__},
                           "data": unit.export()}
