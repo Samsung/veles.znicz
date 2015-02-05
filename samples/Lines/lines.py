@@ -10,16 +10,11 @@ configuration file.
 A workflow to test first layer in simple line detection.
 """
 
-from enum import IntEnum
-import os
-
-from zope.interface import implementer
-
 from veles.config import root
 from veles.mutable import Bool
 import veles.plotting_units as plotting_units
 from veles.znicz import conv, all2all, evaluator, decision
-from veles.loader import FullBatchFileImageLoader, IFileImageLoader
+from veles.loader.fullbatch_image import FullBatchAutoLabelFileImageLoader
 import veles.znicz.image_saver as image_saver
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
@@ -27,100 +22,18 @@ import veles.znicz.pooling as pooling
 from veles.znicz.standard_workflow import StandardWorkflowBase
 
 
-train = os.path.join(root.common.test_dataset_root, "Lines/Grid/learn")
-valid = os.path.join(root.common.test_dataset_root, "Lines/Grid/test")
-
-root.lines.model = "grid"
-
-root.lines.update({
-    "accumulator": {"bars": 20, "squash": True},
-    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "lines"},
-    "loader": {"minibatch_size": 60, "on_device": True, "grayscale": False},
-    "weights_plotter": {"limit": 32},
-    "image_saver": {"out_dirs":
-                    [os.path.join(root.common.cache_dir,
-                                  "tmp %s/test" % root.lines.model),
-                     os.path.join(root.common.cache_dir,
-                                  "tmp %s/validation" % root.lines.model),
-                     os.path.join(root.common.cache_dir,
-                                  "tmp %s/train" % root.lines.model)]},
-    "learning_rate": 0.0001,
-    "weights_decay": 0.0,
-    "layers":
-    [{"type": "conv_relu", "n_kernels": 32,
-      "kx": 13, "ky": 13, "sliding": (2, 2), "padding": (1, 1, 1, 1),
-      "learning_rate": 0.0001, "learning_rate_bias": 0.0002,
-      "gradient_moment": 0.9, "weights_filling": "gaussian",
-      "weights_stddev": 0.0001, "bias_filling": "constant",
-      "bias_stddev": 0.0001, "weights_decay": 0.0, "weights_decay_bias": 0.0},
-
-     {"type": "max_pooling", "kx": 5, "ky": 5, "sliding": (2, 2)},
-     {"type": "avg_pooling", "kx": 5, "ky": 5, "sliding": (2, 2)},
-     {"type": "norm", "alpha": 0.00005, "beta": 0.75, "n": 3},
-
-     {"type": "conv_relu", "n_kernels": 32, "kx": 7, "ky": 7,
-      "sliding": (1, 1), "padding": (2, 2, 2, 2), "learning_rate": 0.0001,
-      "learning_rate_bias": 0.0002, "gradient_moment": 0.9,
-      "weights_filling": "gaussian", "weights_stddev": 0.01,
-      "bias_filling": "constant", "bias_stddev": 0.01,
-      "weights_decay": 0.0, "weights_decay_bias": 0.0},
-
-     {"type": "avg_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
-     {"type": "norm", "alpha": 0.00005, "beta": 0.75, "k": 2, "n": 5},
-
-     {"type": "softmax", "output_shape": 6, "gradient_moment": 0.9,
-      "weights_filling": "uniform", "weights_stddev": 0.05,
-      "bias_filling": "constant", "bias_stddev": 0.05, "learning_rate": 0.0001,
-      "learning_rate_bias": 0.0002, "weights_decay": 1,
-      "weights_decay_bias": 0}],
-    "path_for_load_data": {"validation": valid, "train": train}})
-
-
-class ImageLabel(IntEnum):
-    """An enum for different figure primitive classes"""
-    vertical = 0  # |
-    horizontal = 1  # --
-    tilted_bottom_to_top = 2  # left lower --> right top (/)
-    tilted_top_to_bottom = 3  # left top --> right bottom (\)
-    # straight_grid = 4  # 0 and 90 deg lines simultaneously
-    # tilted_grid = 5  # +45 and -45 deg lines simultaneously
-    # circle = 6
-    # square = 7
-    # right_angle = 8
-    # triangle = 9
-    # sinusoid = 10
-
-
-@implementer(IFileImageLoader)
-class LinesLoader(FullBatchFileImageLoader):
-    def get_label_from_filename(self, filename):
-        # takes folder name "vertical", "horizontal", "etc"
-        return int(ImageLabel[filename.split("/")[-2]])
-
-    def initialize(self, device, **kwargs):
-        super(LinesLoader, self).initialize(device, **kwargs)
-
-
 class LinesWorkflow(StandardWorkflowBase):
     """Workflow for Lines dataset.
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
-        device = kwargs.get("device")
         kwargs["layers"] = layers
-        kwargs["device"] = device
         kwargs["name"] = kwargs.get("name", "Lines")
         super(LinesWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
-        self.loader = LinesLoader(
-            self,
-            train_paths=[root.lines.path_for_load_data.train],
-            validation_paths=[root.lines.path_for_load_data.validation],
-            minibatch_size=root.lines.loader.minibatch_size,
-            grayscale=root.lines.loader.grayscale,
-            on_device=root.lines.loader.on_device)
+        self.loader = FullBatchAutoLabelFileImageLoader(
+            self, **root.lines.loader.__dict__)
 
         self.loader.link_from(self.repeater)
 
@@ -134,13 +47,14 @@ class LinesWorkflow(StandardWorkflowBase):
         self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
         self.image_saver.link_attrs(
             self.loader,
+            "color_space",
             ("input", "minibatch_data"),
-            ("indexes", "minibatch_indices"),
+            ("indices", "minibatch_indices"),
             ("labels", "minibatch_labels"),
             "minibatch_class", "minibatch_size")
 
         # EVALUATOR
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator = evaluator.EvaluatorSoftmax(self)
         self.evaluator.link_from(self.image_saver)
         self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
@@ -191,6 +105,7 @@ class LinesWorkflow(StandardWorkflowBase):
                 limit=root.lines.weights_plotter.limit)
             self.plt_mx.append(plt_mx)
             self.plt_mx[-1].link_attrs(self.forwards[i], ("input", "weights"))
+            self.plt_mx[-1].link_attrs(self.loader, "color_space")
             self.plt_mx[-1].input_field = "mem"
             if isinstance(self.forwards[i], conv.Conv):
                 self.plt_mx[-1].get_shape_from = (
@@ -200,6 +115,7 @@ class LinesWorkflow(StandardWorkflowBase):
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
+                self.plt_mx[-1].link_attrs(self.loader, "color_space")
             self.plt_mx[-1].link_from(self.decision)
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
@@ -216,6 +132,7 @@ class LinesWorkflow(StandardWorkflowBase):
             self.plt_gd.append(plt_gd)
             self.plt_gd[-1].link_attrs(self.gds[i],
                                        ("input", "gradient_weights"))
+            self.plt_gd[-1].link_attrs(self.loader, "color_space")
             self.plt_gd[-1].input_field = "mem"
             if isinstance(self.forwards[i], conv.Conv):
                 self.plt_gd[-1].get_shape_from = (
@@ -225,6 +142,7 @@ class LinesWorkflow(StandardWorkflowBase):
                     layers[i]["type"] != "softmax"):
                 self.plt_gd[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
+                self.plt_gd[-1].link_attrs(self.loader, "color_space")
             self.plt_gd[-1].link_from(self.decision)
             self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
 
@@ -315,9 +233,6 @@ class LinesWorkflow(StandardWorkflowBase):
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
-
-    def initialize(self, device, **kwargs):
-        super(LinesWorkflow, self).initialize(device=device)
 
 
 def run(load, main):
