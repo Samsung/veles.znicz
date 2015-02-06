@@ -37,7 +37,7 @@ class KohonenLoader(loader.FullBatchLoader):
             raise error.BadFormatError("Data in %s has the invalid shape" %
                                        file_name)
 
-        self.original_data.mem = numpy.zeros((1000, 2), dtype=numpy.float32)
+        self.original_data.mem = numpy.zeros((1000, 2), dtype=self.dtype)
         self.original_data.mem[:, 0] = data[0]
         self.original_data.mem[:, 1] = data[1]
 

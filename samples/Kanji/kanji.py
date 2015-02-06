@@ -94,7 +94,7 @@ class KanjiLoader(loader.FullBatchLoaderMSE):
         self.info("Extracted, resulting datasets are: [%s]" % (
             ", ".join(str(x) for x in self.class_lengths)))
 
-    def create_minibatches(self):
+    def create_minibatch_data(self):
         """Allocate arrays for minibatch_data etc. here.
         """
         sh = [self.max_minibatch_size]
@@ -106,12 +106,6 @@ class KanjiLoader(loader.FullBatchLoaderMSE):
         sh.extend((self.class_targets[0].size,))
         self.minibatch_targets.mem = numpy.zeros(
             sh, dtype=opencl_types.dtypes[root.common.precision_type])
-
-        sh = [self.max_minibatch_size]
-        self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
-
-        self.minibatch_indices.mem = numpy.zeros(len(self.index_map),
-                                                 dtype=numpy.int32)
 
     def fill_minibatch(self):
         """Fill minibatch data labels and indexes according to current shuffle.

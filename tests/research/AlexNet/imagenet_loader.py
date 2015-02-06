@@ -107,11 +107,8 @@ class ImagenetCaffeLoader(loader.Loader):
                 len(self.original_labels)):
             raise error.Bug("Wrong data file size")
 
-    def create_minibatches(self):
+    def create_minibatch_data(self):
         sh = [self.max_minibatch_size]
-        self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
-        self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
-                                                 dtype=numpy.int32)
         sh.extend((self.crop_size_sy, self.crop_size_sx, self.channels))
         dtype = opencl_types.dtypes[root.common.precision_type]
         self.minibatch_data.mem = numpy.zeros(sh, dtype=dtype)

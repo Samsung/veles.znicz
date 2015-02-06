@@ -21,9 +21,9 @@ class LMDBLoader(ImageLoader):
     def __init__(self, workflow, **kwargs):
         super(LMDBLoader, self).__init__(workflow, **kwargs)
 
-        self._src_dirs = (kwargs.get("test_path", None),
-                          kwargs.get("validation_path", None),
-                          kwargs.get("train_path", None))
+        self._files = (kwargs.get("test_path", None),
+                       kwargs.get("validation_path", None),
+                       kwargs.get("train_path", None))
 
         self.original_shape = kwargs.get("db_shape", (3, 256, 256))
         self.db_color_space = kwargs.get("db_colorspace", "RGB")
@@ -31,6 +31,10 @@ class LMDBLoader(ImageLoader):
 
         # LMDB base cursors, used as KV-iterators
         self._cursors = [None] * 3
+
+    @property
+    def files(self):
+        return self._files
 
     @property
     def db_color_space(self):
@@ -87,7 +91,7 @@ class LMDBLoader(ImageLoader):
         """
         Return a list of image keys for the specified class index.
         """
-        db_path = self._src_dirs[index]
+        db_path = self._files[index]
         if not db_path:
             return []
 

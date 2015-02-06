@@ -98,14 +98,10 @@ class ImagenetLoader(loader.Loader):
                 len(self.original_labels)):
             raise error.Bug("Wrong data file size")
 
-    def create_minibatches(self):
+    def create_minibatch_data(self):
         sh = [self.max_minibatch_size]
         sh.extend(self.mean.shape)
         self.minibatch_data.mem = numpy.zeros(sh, dtype=numpy.uint8)
-        sh = [self.max_minibatch_size]
-        self.minibatch_labels.mem = numpy.zeros(sh, dtype=numpy.int32)
-        self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
-                                                 dtype=numpy.int32)
 
     def fill_indices(self, start_offset, count):
         self.minibatch_indices.map_invalidate()

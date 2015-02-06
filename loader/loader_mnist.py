@@ -114,13 +114,9 @@ class MnistLoader(loader.FullBatchLoader):
     def load_data(self):
         """Here we will load MNIST data.
         """
-        self.original_labels.mem = numpy.zeros([70000], dtype=numpy.int32)
-        self.original_data.mem = numpy.zeros([70000, 28, 28],
-                                             dtype=numpy.float32)
-
-        self.load_original(0, 10000, test_label_dir, test_image_dir)
-        self.load_original(10000, 60000, train_label_dir, train_image_dir)
-
         self.class_lengths[0] = 0
         self.class_lengths[1] = 10000
         self.class_lengths[2] = 60000
+        self.create_originals((28, 28))
+        self.load_original(0, 10000, test_label_dir, test_image_dir)
+        self.load_original(10000, 60000, train_label_dir, train_image_dir)

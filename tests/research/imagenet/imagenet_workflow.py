@@ -174,16 +174,10 @@ class ImagenetLoader(loader.Loader):
         self.rdisp.mem = self.rdisp.mem * 127.5
         self.file_samples = open(file_samples_dir, "rb")
 
-    def create_minibatches(self):
+    def create_minibatch_data(self):
         shape = [self.max_minibatch_size]
         shape.extend(self.mean.shape)
         self.minibatch_data.mem = numpy.zeros(shape, dtype=numpy.uint8)
-
-        shape = [self.max_minibatch_size]
-        self.minibatch_labels.mem = numpy.zeros(shape, dtype=numpy.int32)
-
-        self.minibatch_indices.mem = numpy.zeros(self.max_minibatch_size,
-                                                 dtype=numpy.int32)
 
     def fill_minibatch(self):
         idxs = self.minibatch_indices.mem
