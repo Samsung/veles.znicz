@@ -409,3 +409,8 @@ class All2AllSoftmax(All2All):
         super(All2AllSoftmax, self).ocl_init()
         self.krn_sm_ = self.get_kernel("apply_exp")
         self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
+
+    def cuda_init(self):
+        super(All2AllSoftmax, self).cuda_init()
+        self.krn_sm_ = self.get_kernel("apply_exp")
+        self.krn_sm_.set_args(self.output.devmem, self.max_idx.devmem)
