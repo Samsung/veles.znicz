@@ -9,6 +9,8 @@ Copyright (c) 2014 Samsung R&D Institute Russia
 from veles.config import root
 from veles.znicz.standard_workflow import StandardWorkflow
 
+from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
+
 
 class ImagenetLMDBWorkflow(StandardWorkflow):
     def __init__(self, workflow, **kwargs):
