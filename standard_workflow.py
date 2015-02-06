@@ -341,17 +341,17 @@ class StandardWorkflow(StandardWorkflowBase):
         kwargs["layers"] = layers
         super(StandardWorkflow, self).__init__(
             workflow, **kwargs)
-        self.loader_config = kwargs.get("loader_config")
-        self.decision_config = kwargs.get("decision_config")
+        self.loader_name = kwargs["loader_name"]
+        self.loader_config = kwargs["loader_config"]
+        self.decision_config = kwargs["decision_config"]
         self.snapshotter_config = kwargs.get("snapshotter_config")
         self.loss_function = kwargs.get("loss_function", "softmax")
         self.image_saver_config = kwargs.get("image_saver_config")
         self.similar_weights_plotter_config = kwargs.get(
             "similar_weights_plotter_config")
-        self.loader_name = kwargs.get("loader_name")
-        if self.loss_function != "softmax" and self.loss_function != "mse":
-            raise error.NotExistsError("Unknown loss function type %s"
-                                       % self.loss_function)
+        if self.loss_function not in ("softmax", "mse"):
+            raise ValueError(
+                "Unknown loss function type %s" % self.loss_function)
 
         self.create_workflow()
 
@@ -387,7 +387,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 " link_loader() function, if you want to create you own Loader"
                 % list(UserLoaderRegistry.loaders.keys()))
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **self.loader_config.__dict__)
+            self, **self.loader_config.__content__)
         self.loader.link_from(init_unit)
         pass
 
@@ -457,9 +457,9 @@ class StandardWorkflow(StandardWorkflowBase):
         # not work without create loader and evaluator first
         self.check_loader()
         self.check_evaluator()
-        self.decision = (DecisionGD(self, **self.decision_config.__dict__)
+        self.decision = (DecisionGD(self, **self.decision_config.__content__)
                          if self.loss_function == "softmax" else DecisionMSE(
-                             self, **self.decision_config.__dict__))
+                             self, **self.decision_config.__content__))
         self.decision.link_from(init_unit)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -488,7 +488,7 @@ class StandardWorkflow(StandardWorkflowBase):
         # not work without create decision first
         self.check_decision()
         self.snapshotter = nn_units.NNSnapshotter(
-            self, **self.snapshotter_config.__dict__)
+            self, **self.snapshotter_config.__content__)
         self.snapshotter.link_from(init_unit)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -501,7 +501,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.check_decision()
         self.check_loader()
         self.image_saver = image_saver.ImageSaver(
-            self, **self.image_saver_config.__dict__)
+            self, **self.image_saver_config.__content__)
         self.image_saver.link_from(init_unit)
         self.image_saver.link_attrs(self.forwards[-1],
                                     "output", "max_idx")
@@ -683,7 +683,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 continue
             plt_mx = diversity.SimilarWeights2D(
                 self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
-                **self.similar_weights_plotter_config.__dict__)
+                **self.similar_weights_plotter_config.__content__)
             self.similar_weights_plotter.append(plt_mx)
             self.similar_weights_plotter[-1].link_attrs(self.forwards[i],
                                                         ("input", "weights"))
