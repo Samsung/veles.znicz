@@ -254,9 +254,9 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.metrics[2] = 1.0e30  # mse_min
         self.mse.reset(numpy.zeros(self.err_output.mem.shape[0], dtype))
         self.n_err.reset(numpy.zeros(2, dtype=numpy.int32))
-
-        self.init_vectors(self.class_targets, self.labels, self.n_err,
-                          self.target, self.metrics, self.mse)
+        self.init_vectors(self.n_err, self.target, self.metrics, self.mse)
+        if self.class_targets:
+            self.class_targets.initialize(self.device)
 
     def _gpu_init(self):
         dtype = self.output.mem.dtype
