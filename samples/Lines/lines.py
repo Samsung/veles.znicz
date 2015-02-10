@@ -111,7 +111,7 @@ class LinesWorkflow(StandardWorkflowBase):
                 self.plt_mx[-1].get_shape_from = (
                     [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
                 prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_shape") is not None and
+            if (layers[i].get("output_sample_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.plt_mx[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
@@ -138,7 +138,7 @@ class LinesWorkflow(StandardWorkflowBase):
                 self.plt_gd[-1].get_shape_from = (
                     [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
                 prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_shape") is not None and
+            if (layers[i].get("output_sample_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.plt_gd[-1].link_attrs(self.forwards[i],
                                            ("get_shape_from", "input"))
@@ -176,9 +176,10 @@ class LinesWorkflow(StandardWorkflowBase):
                                                   ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("output_shape") is not None:
+            if layers[i].get("output_sample_shape") is not None:
                 self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["output_shape"]
+                self.plt_multi_hist[i].hist_number = \
+                    layers[i]["output_sample_shape"]
                 self.plt_multi_hist[i].link_attrs(self.forwards[i],
                                                   ("input", "weights"))
                 self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
@@ -196,10 +197,10 @@ class LinesWorkflow(StandardWorkflowBase):
                     self.gds[i], ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.plt_multi_hist_gd[i].gate_block = end_epoch
-            if layers[i].get("output_shape") is not None:
+            if layers[i].get("output_sample_shape") is not None:
                 self.plt_multi_hist_gd[i].link_from(self.decision)
                 self.plt_multi_hist_gd[i].hist_number = layers[i][
-                    "output_shape"]
+                    "output_sample_shape"]
                 self.plt_multi_hist_gd[i].link_attrs(
                     self.gds[i], ("input", "gradient_weights"))
                 end_epoch = ~self.decision.epoch_ended

@@ -39,7 +39,7 @@ root.cifar.update({
                "normalization_type": "internal_mean",
                "add_sobel": False,
                "shuffle_limit": 2000000000,
-               "on_device": True},
+               "on_device": False},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
     "similar_weights_plotter": {"form_threshold": 1.1, "peak_threshold": 0.5,
@@ -93,7 +93,7 @@ root.cifar.update({
                {"name": "pool3", "type": "avg_pooling", "kx": 3, "ky": 3,
                 "sliding": (2, 2)},
 
-               {"name": "a2asm4", "type": "softmax", "output_shape": 10,
+               {"name": "a2asm4", "type": "softmax", "output_sample_shape": 10,
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
                 "bias_filling": "constant", "bias_stddev": 0,
                 "learning_rate": 0.001, "learning_rate_bias": 0.002,

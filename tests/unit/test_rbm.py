@@ -158,7 +158,7 @@ class TestRBMUnits(unittest.TestCase):
         Raises:
             AssertLess: if unit output is wrong.
         """
-        a2a = rbm.All2AllRBM(DummyWorkflow(), output_shape=1000,
+        a2a = rbm.All2AllRBM(DummyWorkflow(), output_sample_shape=1000,
                              weights_stddev=0.05)
         # add initialize and input
         a2a.input = Vector()

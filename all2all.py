@@ -40,7 +40,11 @@ class All2All(nn_units.NNLayerBase):
         output: output as batch of samples.
         weights: matrix of weights.
         bias: bias.
-        output_shape: shape of the output layer (may be Vector).
+        output_sample_shape: shape of the output layer (may be Vector).
+        output_samples_number: the number of samples in the output If it is
+        None (the default), it is taken from input.
+        output_dtype: the dtype of output. If it is None (the default),
+        it is taken from input.
         s_activation: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
 
@@ -54,10 +58,9 @@ class All2All(nn_units.NNLayerBase):
 
     def __init__(self, workflow, **kwargs):
         super(All2All, self).__init__(workflow, **kwargs)
-        self.output_shape = kwargs["output_shape"]
-        self.output_shape = (
-            [self.output_shape] if isinstance(self.output_shape, int)
-            else list(self.output_shape))
+        self.output_sample_shape = kwargs["output_sample_shape"]
+        self.output_samples_number = kwargs.get("output_samples_number")
+        self.output_dtype = kwargs.get("output_dtype")
         self.s_activation = "ACTIVATION_LINEAR"
         self.exports.append("s_activation")
         self._global_size = None
@@ -67,6 +70,42 @@ class All2All(nn_units.NNLayerBase):
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
         self.sources_["all2all/forward"] = {}
+
+    @property
+    def output_sample_shape(self):
+        return self._output_sample_shape
+
+    @output_sample_shape.setter
+    def output_sample_shape(self, value):
+        if isinstance(value, int):
+            self._output_sample_shape = (value,)
+        elif hasattr(value, "shape"):
+            self._output_sample_shape = value.shape[1:]
+        elif hasattr(value, "__iter__"):
+            self._output_sample_shape = tuple(value)
+        else:
+            raise TypeError("Unsupported output_sample_shape type: %s" %
+                            type(value))
+
+    @property
+    def output_samples_number(self):
+        if self.input:
+            return self.input.shape[0]
+        return self._output_samples_number
+
+    @output_samples_number.setter
+    def output_samples_number(self, value):
+        if value is not None and not isinstance(value, int):
+            raise TypeError("output_samples_number must be an integer")
+        self._output_samples_number = value
+
+    @property
+    def output_shape(self):
+        return (self.output_samples_number,) + self.output_sample_shape
+
+    @property
+    def output_sample_size(self):
+        return int(numpy.prod(self.output_sample_shape))
 
     def get_weights_magnitude(self):
         """
@@ -91,24 +130,35 @@ class All2All(nn_units.NNLayerBase):
             raise error.BadFormatError("Invalid filling type %s" % filling)
 
     def initialize(self, device, **kwargs):
+        if not self.input:
+            assert self.output_samples_number is not None, \
+                "self.input is not initialized and output_samples_number was "\
+                "not specified => unable to validate/create output"
+            if not self.output:
+                assert self.output_dtype is not None, \
+                    "self.input is not initialized and output_dtype was " \
+                    "not specified => unable to create output"
+                self.output.reset(numpy.zeros(
+                    self.output_shape, self.output_dtype))
+            else:
+                assert self.output.shape == self.output_shape
+            return True
+
         super(All2All, self).initialize(device=device, **kwargs)
 
         self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
         self.bias_stddev = self.weights_stddev
 
-        output_shape = (self.output_shape.mem.shape[1:]
-                        if isinstance(self.output_shape, Vector)
-                        else self.output_shape)
-        output_size = int(numpy.prod(output_shape))
-        n_weights = (self.input.mem.size //
-                     self.input.mem.shape[0] * output_size)
+        n_weights = (self.input.size //
+                     self.output_samples_number * self.output_sample_size)
 
         # Check that weights vector was not assigned from the outside
         if not self.weights:
             self.weights.reset(numpy.zeros(n_weights, self.input.dtype))
             self.fill_array(self.weights_filling, self.weights.mem,
                             self.weights_stddev)
-            self.weights.shape = [output_size, self.input.sample_size]
+            self.weights.shape = (self.output_sample_size,
+                                  self.input.sample_size)
             if self.weights_transposed:
                 transposed_weights = self.weights.mem.transpose().copy()
                 self.weights.shape = transposed_weights.shape
@@ -119,18 +169,19 @@ class All2All(nn_units.NNLayerBase):
         if self.include_bias:
             # Check that bias was not assigned from the outside
             if not self.bias:
-                self.bias.reset(numpy.zeros(output_size, self.input.mem.dtype))
+                self.bias.reset(numpy.zeros(
+                    self.output_sample_size, self.input.dtype))
                 self.fill_array(self.bias_filling, self.bias.mem,
                                 self.bias_stddev)
             else:
-                assert self.bias.size == output_size
+                assert self.bias.size == self.output_sample_size
 
-        # Check that output was not assigned from the outside
-        sh = [self.input.shape[0]] + output_shape
-        if not self.output:
-            self.output.reset(numpy.zeros(sh, dtype=self.input.dtype))
-        else:
-            assert self.output.size == numpy.prod(sh)
+        if not self.output or self.output.shape != self.output_shape:
+            if not self.output:
+                self.output.reset(numpy.zeros(
+                    self.output_shape, self.input.dtype))
+            else:
+                assert self.output.shape == self.output_shape
 
         self.init_vectors(self.input, self.output, self.weights, self.bias)
 
@@ -173,13 +224,9 @@ class All2All(nn_units.NNLayerBase):
             self._local_size_bias = (block_size, 1, 1)
 
     def ocl_init(self):
-        output_shape = (self.output_shape.mem.shape[1:]
-                        if isinstance(self.output_shape, Vector)
-                        else self.output_shape)
-        output_size = int(numpy.prod(output_shape))
         a_width = self.output.mem.shape[0]
-        b_width = output_size
-        ab_common = self.weights.mem.size // output_size
+        b_width = self.output_sample_size
+        ab_common = self.weights.mem.size // self.output_sample_size
 
         block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.input.dtype)
@@ -197,7 +244,7 @@ class All2All(nn_units.NNLayerBase):
                            (self.__class__.__name__,
                             self.input.shape[0],
                             self.input.sample_size,
-                            output_size),
+                            self.output_sample_size),
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
@@ -339,7 +386,7 @@ class All2AllSoftmax(All2All):
 
     def initialize(self, device, **kwargs):
         self.reduce_size = min(self.reduce_size,
-                               int(numpy.prod(self.output_shape)))
+                               int(numpy.prod(self.output_sample_shape)))
         self.sources_["all2all/softmax"] = {
             "REDUCE_SIZE": self.reduce_size
         }

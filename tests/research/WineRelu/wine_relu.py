@@ -55,11 +55,11 @@ class WineReluWorkflow(nn_units.NNWorkflow):
         del self.forwards[:]
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
-                aa = all2all.All2AllRELU(self, output_shape=[layers[i]],
+                aa = all2all.All2AllRELU(self, output_sample_shape=[layers[i]],
                                          device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
-                                            device=device)
+                aa = all2all.All2AllSoftmax(
+                    self, output_sample_shape=[layers[i]], device=device)
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])

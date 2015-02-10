@@ -95,7 +95,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # Add fwds units
         del self.forwards[:]
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+            aa = all2all.All2AllTanh(self, output_sample_shape=[layers[i]],
                                      device=device)
             self.forwards.append(aa)
             if i:

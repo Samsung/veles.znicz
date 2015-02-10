@@ -621,11 +621,11 @@ class StandardWorkflow(StandardWorkflowBase):
                     self.forwards[i], ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.multi_hist_plotter[-1].gate_skip = end_epoch
-            if layers[i].get("output_shape") is not None:
+            if layers[i].get("output_sample_shape") is not None:
                 self.multi_hist_plotter[-1].link_from(prev)
                 prev = self.multi_hist_plotter[-1]
                 self.multi_hist_plotter[
-                    - 1].hist_number = layers[i]["output_shape"]
+                    - 1].hist_number = layers[i]["output_sample_shape"]
                 self.multi_hist_plotter[-1].link_attrs(
                     self.forwards[i], ("input", "weights"))
                 self.multi_hist_plotter[
@@ -656,7 +656,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.weights_plotter[-1].get_shape_from = (
                     [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
                 prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_shape") is not None and
+            if (layers[i].get("output_sample_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))
@@ -695,7 +695,7 @@ class StandardWorkflow(StandardWorkflowBase):
             if n != 0:
                 self.similar_weights_plotter[
                     - 1].get_shape_from = wd_plt[n].get_shape_from
-            if (layers[i].get("output_shape") is not None and
+            if (layers[i].get("output_sample_shape") is not None and
                     layers[i]["type"] != "softmax"):
                 self.similar_weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))

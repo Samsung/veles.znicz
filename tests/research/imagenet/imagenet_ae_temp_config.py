@@ -103,7 +103,7 @@ root.imagenet.update({
                   {"type": "ae_end"},
 
                   {"type": "activation_mul"},  # 8
-                  {"type": "all2all_tanh", "output_shape": 512,
+                  {"type": "all2all_tanh", "output_sample_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -113,7 +113,7 @@ root.imagenet.update({
                    "l1_vs_l2": L1_VS_L2},
                   {"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "all2all_tanh", "output_shape": 512,
+                  {"type": "all2all_tanh", "output_sample_shape": 512,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,
@@ -123,7 +123,7 @@ root.imagenet.update({
                    "l1_vs_l2": L1_VS_L2},
                   {"type": "dropout", "dropout_ratio": 0.5},
 
-                  {"type": "softmax", "output_shape": 5,
+                  {"type": "softmax", "output_sample_shape": 5,
                    "learning_rate": LRAA, "learning_rate_bias": LRBAA,
                    "learning_rate_ft": LRFT, "learning_rate_ft_bias": LRFTB,
                    "weights_decay": WDAA, "weights_decay_bias": WDBAA,

@@ -66,7 +66,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
         prng.get().fill(inp)
-        forward = Forward(DummyWorkflow(), output_shape=[n_neurons])
+        forward = Forward(DummyWorkflow(), output_sample_shape=[n_neurons])
         forward.input = Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)

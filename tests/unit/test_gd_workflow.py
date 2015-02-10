@@ -97,7 +97,7 @@ class Workflow(AcceleratedWorkflow):
 
         # Softmax layer
         self.sm_forward = all2all.All2AllSoftmax(
-            self, output_shape=[10])
+            self, output_sample_shape=[10])
         self.sm_forward.link_from(prev)
         self.sm_forward.link_attrs(prev, ("input", "output"))
 

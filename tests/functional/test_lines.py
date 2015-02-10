@@ -54,13 +54,13 @@ class TestLines(unittest.TestCase):
                        {"type": "max_pooling",
                         "kx": 3, "ky": 3, "sliding": (2, 2)},
 
-                       {"type": "all2all_relu", "output_shape": 32,
+                       {"type": "all2all_relu", "output_sample_shape": 32,
                         "learning_rate": 0.0001, "weights_decay": 0.0,
                         "gradient_moment": 0.9, "weights_filling": "uniform",
                         "weights_stddev": 0.05, "bias_filling": "uniform",
                         "bias_stddev": 0.05},
 
-                       {"type": "softmax", "output_shape": 4,
+                       {"type": "softmax", "output_sample_shape": 4,
                         "learning_rate": 0.0001, "weights_decay": 0.0,
                         "gradient_moment": 0.9, "weights_filling": "uniform",
                         "weights_stddev": 0.05, "bias_filling": "uniform",

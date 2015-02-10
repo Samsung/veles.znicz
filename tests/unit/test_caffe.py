@@ -710,8 +710,9 @@ class TestConvCaffe(standard_test.StandardTest):
                                   (n_pics, 1, 1, 1)).astype(np.int32)
 
         a2a_softmax = all2all.All2AllSoftmax(
-            self.workflow, output_shape=n_classes, weights_filling="uniform",
-            weights_stddev=0.1, bias_filling="uniform", bias_stddev=0.01)
+            self.workflow, output_sample_shape=n_classes,
+            weights_filling="uniform", weights_stddev=0.1,
+            bias_filling="uniform", bias_stddev=0.01)
 
         a2a_softmax.input = Vector(a2a_bottom)
 

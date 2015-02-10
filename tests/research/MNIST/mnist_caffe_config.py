@@ -41,14 +41,14 @@ root.mnistr.update({
                {"type": "max_pooling",
                 "kx": 2, "ky": 2, "sliding": (2, 2)},
 
-               {"type": "all2all_relu", "output_shape": 500,
+               {"type": "all2all_relu", "output_sample_shape": 500,
                 "learning_rate": 0.01, "learning_rate_bias": 0.02,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0,
                 "weights_filling": "uniform",
                 "bias_filling": "constant", "bias_stddev": 0,
                 "weights_decay": 0.0005, "weights_decay_bias": 0.0},
 
-               {"type": "softmax", "output_shape": 10,
+               {"type": "softmax", "output_sample_shape": 10,
                 "learning_rate": 0.01, "learning_rate_bias": 0.02,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0,
                 "weights_filling": "uniform",

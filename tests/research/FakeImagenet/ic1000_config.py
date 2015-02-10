@@ -72,7 +72,7 @@ root.imagenet.update({
                {"type": "max_pooling", "kx": 3, "ky": 3,
                 "sliding": (2, 2)},
 
-               {"type": "all2all_relu", "output_shape": 4096,
+               {"type": "all2all_relu", "output_sample_shape": 4096,
                 "weights_filling": "gaussian", "weights_stddev": 0.005,
                 "bias_filling": "constant", "bias_stddev": 1,
                 "learning_rate": base_lr, "learning_rate_bias": base_lr * 2,
@@ -80,7 +80,7 @@ root.imagenet.update({
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
                {"type": "dropout", "dropout_ratio": 0.5},
 
-               {"type": "all2all_relu", "output_shape": 4096,
+               {"type": "all2all_relu", "output_sample_shape": 4096,
                 "weights_filling": "gaussian", "weights_stddev": 0.005,
                 "bias_filling": "constant", "bias_stddev": 1,
                 "learning_rate": base_lr, "learning_rate_bias": base_lr * 2,
@@ -88,7 +88,7 @@ root.imagenet.update({
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9},
                {"type": "dropout", "dropout_ratio": 0.5},
 
-               {"type": "softmax", "output_shape": 1000,
+               {"type": "softmax", "output_sample_shape": 1000,
                 "weights_filling": "gaussian", "weights_stddev": 0.01,
                 "bias_filling": "constant", "bias_stddev": 0,
                 "learning_rate": base_lr, "learning_rate_bias": base_lr * 2,

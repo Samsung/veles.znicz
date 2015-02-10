@@ -220,7 +220,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
 
         # Layer 4: FC
         ip_sm = all2all.All2AllSoftmax(
-            self.workflow, name="ip1", output_shape=10,
+            self.workflow, name="ip1", output_sample_shape=10,
             weights_filling="uniform", weights_stddev=10 ** -2,
             bias_filling="constant", bias_stddev=0)
         ip_sm.link_from(pool3)

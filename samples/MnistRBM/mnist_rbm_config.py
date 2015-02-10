@@ -15,7 +15,7 @@ from veles.config import root
 
 
 root.mnist_rbm.update({
-    "all2all": {"weights_stddev": 0.05, "output_shape": 1000},
+    "all2all": {"weights_stddev": 0.05, "output_sample_shape": 1000},
     "decision": {"fail_iterations": 100,
                  "max_epochs": 100},
     "snapshotter": {"prefix": "mnist_rbm"},

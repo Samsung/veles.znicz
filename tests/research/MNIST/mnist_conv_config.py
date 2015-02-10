@@ -50,7 +50,7 @@ root.mnistr.update({
 
                {"type": "max_pooling", "kx": 2, "ky": 2, "sliding": (2, 2)},
 
-               {"type": "all2all_relu", "output_shape": 791,
+               {"type": "all2all_relu", "output_sample_shape": 791,
                 "learning_rate": 0.03, "learning_rate_bias": 0.196000,
                 "gradient_moment": 0.810000, "gradient_moment_bias": 0.619000,
                 "weights_filling": "uniform", "weights_stddev": 0.039000,
@@ -58,7 +58,7 @@ root.mnistr.update({
                 "weights_decay": 0.0005, "factor_ortho": 0.001,
                 "weights_decay_bias": 0.11487830567238211},
 
-               {"type": "softmax", "output_shape": 10,
+               {"type": "softmax", "output_sample_shape": 10,
                 "learning_rate": 0.03, "learning_rate_bias": 0.488000,
                 "gradient_moment": 0.133000,
                 "gradient_moment_bias": 0.8422143625658985,

@@ -23,7 +23,7 @@ import veles.znicz.rbm as RBM_units
 
 
 root.mnist_rbm.update({
-    "all2all": {"weights_stddev": 0.05, "output_shape": 1000},
+    "all2all": {"weights_stddev": 0.05, "output_sample_shape": 1000},
     "decision": {"fail_iterations": 100,
                  "max_epochs": 100},
     "snapshotter": {"prefix": "mnist_rbm"},
@@ -94,7 +94,8 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
 
         # FORWARD UNIT
         all2all_rbm = RBM_units.All2AllRBM(
-            self, output_shape=root.mnist_rbm.all2all.output_shape,
+            self,
+            output_sample_shape=root.mnist_rbm.all2all.output_sample_shape,
             weights_stddev=root.mnist_rbm.all2all.weights_stddev)
         self.forwards.append(all2all_rbm)
         self.forwards[0].link_from(self.loader)

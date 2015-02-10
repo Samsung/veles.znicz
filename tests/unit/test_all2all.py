@@ -12,7 +12,7 @@ import time
 import unittest
 
 from veles.config import root
-import veles.memory as formats
+from veles.memory import Vector
 import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
@@ -31,7 +31,7 @@ class TestAll2All(unittest.TestCase):
 
     def test_with_fixed_input(self):
         logging.info("Will test all2all unit")
-        inp = formats.Vector()
+        inp = Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
                                [0, 1, 2, 1, 0],
@@ -44,7 +44,7 @@ class TestAll2All(unittest.TestCase):
                               [-1, 2, 0, 1, 3]], dtype=dtype)
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
-        c = all2all.All2All(DummyWorkflow(), output_shape=[3],
+        c = all2all.All2All(DummyWorkflow(), output_sample_shape=[3],
                             weights_amplitude=0.05)
         c.input = inp
 
@@ -69,7 +69,7 @@ class TestAll2All(unittest.TestCase):
         logging.info("All Ok")
 
     def _do_test(self, device, Unit):
-        inp = formats.Vector()
+        inp = Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.empty([1999, 1777], dtype=dtype)
         prng.get().fill(inp.mem)
@@ -79,7 +79,7 @@ class TestAll2All(unittest.TestCase):
         else:
             inp.mem[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_shape=[75, 75])
+        c = Unit(DummyWorkflow(), output_sample_shape=[75, 75])
         c.input = inp
         c.initialize(device=device)
 
@@ -137,6 +137,28 @@ class TestAll2All(unittest.TestCase):
         logging.info("Will test Softmax all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllSoftmax)
 
+    def test_two_stage(self):
+        dtype = opencl_types.dtypes[root.common.precision_type]
+        a2a = all2all.All2All(DummyWorkflow(), output_sample_shape=(75, 75),
+                              output_samples_number=1999, output_dtype=dtype)
+        a2a.input = Vector()
+        a2a.initialize(self.device)
+        self.assertTrue(a2a.output)
+        self.assertEqual(a2a.output.shape, (1999, 75, 75))
+        self.assertEqual(a2a.output.dtype, dtype)
+        self.assertFalse(a2a.weights)
+        self.assertFalse(a2a.bias)
+        out = a2a.output.mem
+
+        inp = Vector()
+        dtype = opencl_types.dtypes[root.common.precision_type]
+        inp.mem = numpy.empty((1999, 1777), dtype=dtype)
+        prng.get().fill(inp.mem)
+        a2a.input = inp
+        a2a.initialize(self.device)
+        self.assertTrue((out == a2a.output.mem).all())
+        self.assertTrue(a2a.weights)
+        self.assertTrue(a2a.bias)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

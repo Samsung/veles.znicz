@@ -58,11 +58,11 @@ class MnistWorkflow(nn_units.NNWorkflow):
         for i in range(0, len(layers)):
             if i < len(layers) - 1:
                 aa = all2all.All2AllTanh(
-                    self, output_shape=[layers[i]],
+                    self, output_sample_shape=[layers[i]],
                     weights_stddev=root.mnist.all2all.weights_stddev)
             else:
                 aa = all2all.All2AllSoftmax(
-                    self, output_shape=[layers[i]],
+                    self, output_sample_shape=[layers[i]],
                     weights_stddev=root.mnist.all2all.weights_stddev)
             self.forwards.append(aa)
             if i:

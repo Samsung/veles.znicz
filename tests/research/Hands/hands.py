@@ -85,13 +85,13 @@ class HandsWorkflow(nn_units.NNWorkflow):
 
         # Add fwds units
         del self.forwards[:]
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_shape=[layers[i]],
+                aa = all2all.All2AllTanh(self, output_sample_shape=[layer],
                                          device=device)
             else:
-                aa = all2all.All2AllSoftmax(self, output_shape=[layers[i]],
-                                            device=device)
+                aa = all2all.All2AllSoftmax(
+                    self, output_sample_shape=[layer], device=device)
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])

@@ -31,6 +31,6 @@ root.yalefaces.update({
                "train_paths":
                [os.path.join(root.common.test_dataset_root, "CroppedYale")]},
     "layers": [{"type": "all2all_tanh", "learning_rate": 0.01,
-                "weights_decay": 0.00005, "output_shape": 100},
-               {"type": "softmax", "output_shape": 39, "learning_rate": 0.01,
-                "weights_decay": 0.00005}]})
+                "weights_decay": 0.00005, "output_sample_shape": 100},
+               {"type": "softmax", "output_sample_shape": 39,
+                "learning_rate": 0.01, "weights_decay": 0.00005}]})

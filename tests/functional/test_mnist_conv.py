@@ -72,7 +72,7 @@ class TestMnistConv(unittest.TestCase):
                         "kx": 2, "ky": 2, "sliding": (2, 2)},
 
                        {"type": "all2all_relu",
-                        "output_shape": 791,
+                        "output_sample_shape": 791,
                         "learning_rate": 0.03,
                         "learning_rate_bias": 0.196000,
                         "gradient_moment": 0.810000,
@@ -84,7 +84,7 @@ class TestMnistConv(unittest.TestCase):
                         "weights_decay_bias": 0.11487830567238211},
 
                        {"type": "softmax",
-                        "output_shape": 10,
+                        "output_sample_shape": 10,
                         "learning_rate": 0.03,
                         "learning_rate_bias": 0.488000,
                         "gradient_moment": 0.133000,
