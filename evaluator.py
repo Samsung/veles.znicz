@@ -86,7 +86,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     def initialize(self, device, **kwargs):
         super(EvaluatorSoftmax, self).initialize(device=device, **kwargs)
-        self.cl_sources_["evaluator"] = {}
+        self.sources_["evaluator"] = {}
 
         dtype = self.output.dtype
 
@@ -245,8 +245,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                 "target.shape != output.shape (%s != %s)" %
                 (self.target.shape, self.output.shape))
 
-        self.cl_sources_["evaluator"] = {}
-        self.cl_sources_["mse_find_closest"] = {}
+        self.sources_["evaluator"] = {}
+        self.sources_["mse_find_closest"] = {}
 
         dtype = self.output.mem.dtype
 

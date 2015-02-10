@@ -66,7 +66,7 @@ class All2All(nn_units.NNLayerBase):
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
-        self.cl_sources_["all2all/forward"] = {}
+        self.sources_["all2all/forward"] = {}
 
     def get_weights_magnitude(self):
         """
@@ -340,7 +340,7 @@ class All2AllSoftmax(All2All):
     def initialize(self, device, **kwargs):
         self.reduce_size = min(self.reduce_size,
                                int(numpy.prod(self.output_shape)))
-        self.cl_sources_["all2all/softmax"] = {
+        self.sources_["all2all/softmax"] = {
             "REDUCE_SIZE": self.reduce_size
         }
         super(All2AllSoftmax, self).initialize(device=device, **kwargs)

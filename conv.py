@@ -89,7 +89,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
     def init_unpickled(self):
         super(Conv, self).init_unpickled()
-        self.cl_sources_["conv/forward"] = {}
+        self.sources_["conv/forward"] = {}
 
     def get_weights_magnitude(self):
         """

@@ -73,7 +73,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
     def init_unpickled(self):
         super(LRNormalizerForward, self).init_unpickled()
-        self.cl_sources_["normalization"] = {}
+        self.sources_["normalization"] = {}
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
@@ -156,7 +156,7 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
 
     def init_unpickled(self):
         super(LRNormalizerBackward, self).init_unpickled()
-        self.cl_sources_["normalization"] = {}
+        self.sources_["normalization"] = {}
 
     def initialize(self, device, **kwargs):
         self._num_of_chans = self.input.mem.shape[3]

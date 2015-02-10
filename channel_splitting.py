@@ -13,7 +13,7 @@ class ChannelSplitter(Forward):
 
     def init_unpickled(self):
         super(ChannelSplitter, self).init_unpickled()
-        self.cl_sources_["channel_splitting"] = {}
+        self.sources_["channel_splitting"] = {}
 
     def initialize(self, device, **kwargs):
         super(ChannelSplitter, self).initialize(device=device, **kwargs)
@@ -61,7 +61,7 @@ class ChannelMerger(Forward):
 
     def init_unpickled(self):
         super(ChannelMerger, self).init_unpickled()
-        self.cl_sources_["channel_splitting"] = {}
+        self.sources_["channel_splitting"] = {}
 
     def initialize(self, device, **kwargs):
         super(ChannelMerger, self).initialize(device=device, **kwargs)

@@ -19,7 +19,7 @@ from veles.znicz.nn_units import Forward, GradientDescentBase
 class Activation(AcceleratedUnit):
     def init_unpickled(self):
         super(Activation, self).init_unpickled()
-        self.cl_sources_["activation"] = {}
+        self.sources_["activation"] = {}
 
 
 @implementer(IOpenCLUnit)

@@ -30,7 +30,7 @@ class Dropout(AcceleratedUnit, TriviallyDistributable):
 
     def init_unpickled(self):
         super(Dropout, self).init_unpickled()
-        self.cl_sources_["dropout"] = {}
+        self.sources_["dropout"] = {}
 
     @property
     def dropout_ratio(self):

@@ -175,7 +175,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         b_width = self._kernel_size
         block_size = self.device.device_info.get_block_size(
             kernel="deconv", dtype=self.err_output.dtype)
-        self.cl_sources_["conv/gradient_descent/err_input_update"] = {
+        self.sources_["conv/gradient_descent/err_input_update"] = {
             "BLOCK_SIZE": block_size
         }
         self._global_size_err_input = [
@@ -189,7 +189,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                    else self._kernel_size)
         block_size = self.device.device_info.get_block_size(
             kernel="conv", dtype=self.err_output.dtype)
-        self.cl_sources_["conv/gradient_descent/weights_update"] = {
+        self.sources_["conv/gradient_descent/weights_update"] = {
             "BLOCK_SIZE": block_size,
             "USE_ORTHO": int(bool(self.factor_ortho)),
             "USE_MOMENT": int(bool(self.gradient_moment))
@@ -199,7 +199,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             roundup(a_width, block_size)]
         self._local_size_weights = [block_size, block_size]
 
-        self.cl_sources_["conv/gradient_descent/bias_update"] = {
+        self.sources_["conv/gradient_descent/bias_update"] = {
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
         }
         self._global_size_bias = [self.n_kernels * self.reduce_size]
@@ -223,13 +223,13 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                          self.err_input.devmem)
 
     def cuda_init(self):
-        self.cl_sources_["conv/forward"] = {}
-        self.cl_sources_["conv/gradient_descent/err_input_update"] = {}
-        self.cl_sources_["all2all/gradient_descent/weights_update"] = {
+        self.sources_["conv/forward"] = {}
+        self.sources_["conv/gradient_descent/err_input_update"] = {}
+        self.sources_["all2all/gradient_descent/weights_update"] = {
             "USE_ORTHO": int(bool(self.factor_ortho)),
             "USE_MOMENT": int(bool(self.gradient_moment))
         }
-        self.cl_sources_["all2all/gradient_descent/bias_update"] = {
+        self.sources_["all2all/gradient_descent/bias_update"] = {
             "BIAS_SIZE": self.n_kernels,
             "OUTPUT_SIZE": self._kernel_applies_count,
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
@@ -616,7 +616,7 @@ class GDTanhConv(GradientDescentConv):
         self.err_output.mem *= output * output * (-0.388484177) + 1.14381894
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_tanh"] = {
+        self.sources_["gradient_descent_tanh"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDTanhConv, self).initialize(device=device, **kwargs)
@@ -641,7 +641,7 @@ class GDRELUConv(GradientDescentConv):
         self.err_output.mem *= 1.0 - numpy.exp(-output)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_relu"] = {
+        self.sources_["gradient_descent_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDRELUConv, self).initialize(device=device, **kwargs)
@@ -667,7 +667,7 @@ class GDStrictRELUConv(GradientDescentConv):
         self.err_output.mem *= numpy.greater(output, 0)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_strict_relu"] = {
+        self.sources_["gradient_descent_strict_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDStrictRELUConv, self).initialize(device=device, **kwargs)

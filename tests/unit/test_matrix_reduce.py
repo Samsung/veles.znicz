@@ -44,7 +44,7 @@ class TestMatrixReduce(unittest.TestCase):
 
         tmp = TrivialOpenCLUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
-        tmp.cl_sources_["test_matrix_reduce"] = {}
+        tmp.sources_["test_matrix_reduce"] = {}
 
         tmp.build_program(defines, "test_matrix_reduce")
 

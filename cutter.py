@@ -165,7 +165,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
         self.create_stuff("dst")
 
     def ocl_init(self):
-        self.cl_sources_["cutter"] = {}
+        self.sources_["cutter"] = {}
         self.build_program(
             {}, "%s_%s_%s" %
             (self.__class__.__name__,

@@ -44,7 +44,7 @@ class Depooling(nn_units.Forward):
 
     def init_unpickled(self):
         super(Depooling, self).init_unpickled()
-        self.cl_sources_["depooling"] = {}
+        self.sources_["depooling"] = {}
         self.krn_output_clear_ = None
 
     def initialize(self, device, **kwargs):

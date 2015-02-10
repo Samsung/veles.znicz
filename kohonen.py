@@ -79,7 +79,7 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
 
     def init_unpickled(self):
         super(KohonenForward, self).init_unpickled()
-        self.cl_sources_["kohonen"] = {"FORWARD": 1}
+        self.sources_["kohonen"] = {"FORWARD": 1}
 
     @property
     def neurons_number(self):
@@ -272,7 +272,7 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
 
     def init_unpickled(self):
         super(KohonenTrainer, self).init_unpickled()
-        self.cl_sources_["kohonen"] = {"TRAIN": 1}
+        self.sources_["kohonen"] = {"TRAIN": 1}
         self._krn_distances_ = None
         self._krn_argmin_ = None
         self._krn_gravity_ = None

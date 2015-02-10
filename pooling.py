@@ -97,7 +97,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
 
     def init_unpickled(self):
         super(Pooling, self).init_unpickled()
-        self.cl_sources_["pooling"] = {}
+        self.sources_["pooling"] = {}
         if not hasattr(self, "_no_output"):
             self._no_output = False
         if not hasattr(self, "uniform"):
@@ -309,7 +309,7 @@ class MaxAbsPooling(MaxPoolingBase):
 
     def __init__(self, workflow, **kwargs):
         super(MaxAbsPooling, self).__init__(workflow, **kwargs)
-        self.cl_sources_["pooling"] = {"ABS_VALUES": 1}
+        self.sources_["pooling"] = {"ABS_VALUES": 1}
 
     def cpu_run_cut_offset(self, cut, index):
         return numpy.abs(cut).argmax()
@@ -416,7 +416,7 @@ class StochasticAbsPooling(StochasticPoolingBase):
 
     def __init__(self, workflow, **kwargs):
         super(StochasticAbsPooling, self).__init__(workflow, **kwargs)
-        self.cl_sources_["pooling"] = {"ABS_VALUES": 1}
+        self.sources_["pooling"] = {"ABS_VALUES": 1}
 
     def cpu_run_cut_offset(self, cut, index):
         vsum = numpy.sum(numpy.abs(cut))
@@ -443,7 +443,7 @@ class StochasticPoolingDepooling(StochasticPooling):
 
     def init_unpickled(self):
         super(StochasticPoolingDepooling, self).init_unpickled()
-        self.cl_sources_["pooling"]["USE_POOLING_DEPOOLING"] = 1
+        self.sources_["pooling"]["USE_POOLING_DEPOOLING"] = 1
         self._rand_arg = 1
         self._kernel_name = "stochastic_pooling_depooling"
 
@@ -465,7 +465,7 @@ class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
 
     def init_unpickled(self):
         super(StochasticAbsPoolingDepooling, self).init_unpickled()
-        self.cl_sources_["pooling"]["ABS_VALUES"] = 1
+        self.sources_["pooling"]["ABS_VALUES"] = 1
 
 
 class AvgPooling(Pooling):

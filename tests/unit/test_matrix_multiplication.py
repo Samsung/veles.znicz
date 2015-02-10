@@ -99,7 +99,7 @@ class TestMatrixMultiplication(unittest.TestCase):
         self.b.initialize(device)
         self.c.initialize(device)
 
-        obj.cl_sources_["all2all/forward"] = {}
+        obj.sources_["all2all/forward"] = {}
         defines = {
             "INCLUDE_BIAS": 0,
             "WEIGHTS_TRANSPOSED": 0,

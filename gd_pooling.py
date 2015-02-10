@@ -59,7 +59,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
-        self.cl_sources_["gradient_descent_pooling"] = {}
+        self.sources_["gradient_descent_pooling"] = {}
         self.krn_err_input_ = None
         self.krn_err_input_clear_ = None
 

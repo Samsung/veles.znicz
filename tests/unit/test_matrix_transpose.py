@@ -42,7 +42,7 @@ class TestMatrixTranspose(unittest.TestCase):
         gold = a.mem.transpose().copy()
 
         bs = 16
-        obj.cl_sources_["matrix_transpose"] = {
+        obj.sources_["matrix_transpose"] = {
             "BLOCK_SIZE": bs
         }
         obj.build_program(

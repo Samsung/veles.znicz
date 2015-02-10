@@ -96,7 +96,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
-        self.cl_sources_["deconv/forward"] = {}
+        self.sources_["deconv/forward"] = {}
 
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)

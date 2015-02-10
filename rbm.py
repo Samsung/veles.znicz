@@ -103,7 +103,7 @@ class GradientDescentRBM(gd.GradientDescent):
     def __init__(self, workflow, **kwargs):
         super(GradientDescentRBM, self).__init__(workflow, **kwargs)
         self.cd_k = kwargs.get("cd_k", 1)
-        self.cl_sources_["gradient_descent_relu"] = {}
+        self.sources_["gradient_descent_relu"] = {}
 
     def cpu_err_output_update(self):
         """Multiply err_output by activation derivative by s

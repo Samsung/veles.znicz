@@ -85,12 +85,12 @@ class GradientDescent(nn_units.GradientDescentBase):
             "REDUCE_SIZE": self.reduce_size
         })
 
-        self.cl_sources_["all2all/gradient_descent/weights_update"] = {
+        self.sources_["all2all/gradient_descent/weights_update"] = {
             "USE_ORTHO": int(bool(self.factor_ortho)),
             "USE_MOMENT": int(bool(self.gradient_moment))
         }
 
-        self.cl_sources_["all2all/gradient_descent/bias_update"] = {
+        self.sources_["all2all/gradient_descent/bias_update"] = {
             "BIAS_SIZE": side,
             "OUTPUT_SIZE": batch,
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
@@ -137,7 +137,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         batch = self.input.mem.shape[0]
 
         if self.need_err_input:
-            self.cl_sources_["all2all/gradient_descent/err_input_update"] = {}
+            self.sources_["all2all/gradient_descent/err_input_update"] = {}
 
         self._gpu_init({"BLOCK_SIZE": block_size})
 
@@ -419,7 +419,7 @@ class GDTanh(GradientDescent):
         self.err_output.mem *= output * output * (-0.388484177) + 1.14381894
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_tanh"] = {
+        self.sources_["gradient_descent_tanh"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDTanh, self).initialize(device=device, **kwargs)
@@ -448,7 +448,7 @@ class GDRELU(GradientDescent):
         self.err_output.mem *= 1.0 - numpy.exp(-output)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_relu"] = {
+        self.sources_["gradient_descent_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDRELU, self).initialize(device=device, **kwargs)
@@ -474,7 +474,7 @@ class GDStrictRELU(GradientDescent):
         self.err_output.mem *= numpy.greater(output, 0)
 
     def initialize(self, device, **kwargs):
-        self.cl_sources_["gradient_descent_strict_relu"] = {
+        self.sources_["gradient_descent_strict_relu"] = {
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDRELU, self).initialize(device=device, **kwargs)
