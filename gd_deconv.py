@@ -10,6 +10,7 @@ from __future__ import division
 
 import numpy
 from zope.interface import implementer
+from veles.compat import from_none
 
 import veles.error as error
 from veles.memory import roundup
@@ -62,6 +63,20 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_err_input_ = None
         self.krn_weights_ = None
         self.krn_compute_col_sums_ = None
+        del self.demanded[self.demanded.index("bias")]
+
+    @property
+    def channels_number(self):
+        sy, sx = self.err_output.mem.shape[1:3]
+        return self.err_output.size // (self.err_output.mem.shape[0] * sx * sy)
+
+    @property
+    def weights_number(self):
+        return self.n_kernels * self.kx * self.ky * self.channels_number
+
+    @property
+    def ky_kx(self):
+        return self.err_output.mem.shape[1:3]
 
     def initialize(self, device, **kwargs):
         if self.bias is not None:
@@ -90,13 +105,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Incorrectly shaped err_output encountered")
 
-        batch_size = self.err_output.mem.shape[0]
-        sy = self.err_output.mem.shape[1]
-        sx = self.err_output.mem.shape[2]
-        n_channels = self.err_output.size // (batch_size * sx * sy)
-        n_weights = self.n_kernels * self.kx * self.ky * n_channels
+        sy, sx = self.ky_kx
 
-        if self.weights.size != n_weights:
+        if self.weights.size != self.weights_number:
             raise error.BadFormatError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
@@ -104,15 +115,15 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         try:
             padding = Deconv.compute_padding(
                 sx, sy, self.kx, self.ky, self.sliding)
-            if self.padding is None:
+            if self.padding is None:  # pylint: disable=E0203
                 self.padding = padding
             elif self.padding != padding:
                 raise error.BadFormatError("Expected padding %s got %s" %
                                            (str(padding), str(self.padding)))
-        except error.BadFormatError:
+        except error.BadFormatError as e:
             if not self.hits:
-                raise
-            self.warning("Using unsafe padding of %s", str(self.padding))
+                raise from_none(e)
+            self.warning("Using unsafe padding of %s", self.padding)
 
         if self.hits:
             self.hits.initialize(self.device)
@@ -121,11 +132,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
     def ocl_init(self):
         batch_size = self.err_output.mem.shape[0]
-        sy = self.err_output.mem.shape[1]
-        sx = self.err_output.mem.shape[2]
-        n_channels = self.err_output.size // (batch_size * sx * sy)
+        sy, sx = self.ky_kx
         kernel_applies_count = self.input.size // self.n_kernels
-        kernel_size = self.kx * self.ky * n_channels
+        kernel_size = self.kx * self.ky * self.channels_number
         dtype = self.err_output.mem.dtype
 
         self.cl_const = numpy.zeros(5, dtype=dtype)
@@ -133,7 +142,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
         assert side == self.n_kernels
-        assert other == self.kx * self.ky * n_channels
+        assert other == self.kx * self.ky * self.channels_number
 
         defines = {
             'INCLUDE_BIAS': 0,
@@ -146,7 +155,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             'BATCH': batch_size,
             'SX': sx,
             'SY': sy,
-            'N_CHANNELS': n_channels,
+            'N_CHANNELS': self.channels_number,
             'KX': self.kx,
             'KY': self.ky,
             'N_KERNELS': self.n_kernels,

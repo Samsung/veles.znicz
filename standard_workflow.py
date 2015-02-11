@@ -7,6 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import six
+from veles.znicz.conv import ConvolutionalBase
 
 if six.PY3:
     from collections import UserDict
@@ -177,7 +178,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
-        self.layers = kwargs.get("layers")
+        self.layers = kwargs.get("layers", [{}])
         self.device = kwargs.get("device")
 
     def _get_layer_type_kwargs(self, layer):
@@ -193,9 +194,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         kwargs_backward = dict(layer.get("<-", {}))
         # Add shared parameters to both dicts
         others = {k: v for k, v in layer.items()
-                  if k not in ("type", "->", "<-")}
+                  if k not in ("type", "->", "<-", "name")}
         kwargs_forward.update(others)
         kwargs_backward.update(others)
+        if "name" in layer:
+            kwargs_forward["name"] = layer["name"] + "_forward"
+            kwargs_backward["name"] = layer["name"] + "_backward"
         return tpe, kwargs_forward, kwargs_backward
 
     def parse_forwards_from_config(self, init_unit, init_attrs):
@@ -260,66 +264,25 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             # Link attributes
             if i < len(self.forwards) - 1:
-                self.gds[i].link_from(self.gds[i + 1])
-                self.gds[i].link_attrs(self.gds[i + 1],
-                                       ("err_output", "err_input"))
+                unit.link_from(self.gds[i + 1])
+                unit.link_attrs(self.gds[i + 1], ("err_output", "err_input"))
             else:
                 self.gds[-1].link_from(init_unit)
                 self.gds[-1].link_attrs(self.evaluator, "err_output")
 
             attrs = []
-            for attr in ("input", "output", "weights", "bias",
-                         "input_offset", "mask"):
+            # TODO(v.markovtsev): add "wants" to Unit and use it here
+            try_link_attrs = ("input", "weights", "bias", "input_offset",
+                              "mask")
+            if isinstance(unit, ConvolutionalBase):
+                try_link_attrs += ConvolutionalBase.CONV_ATTRS
+            for attr in try_link_attrs:
                 if hasattr(self.forwards[i], attr):
                     attrs.append(attr)
-            self.gds[i].link_attrs(self.forwards[i], *attrs)
+            unit.link_attrs(self.forwards[i], *attrs)
 
-            self.gds[i].gate_skip = self.decision.gd_skip
-            self.gds[i].link_attrs(self.loader,
-                                   ("batch_size", "minibatch_size"))
-
-        # Disable error backpropagation on the first layer
-        self.gds[0].need_err_input = False
-
-    def create_gd_units(self, lr_adjuster, **kwargs):
-        """
-        Creates gradient descent units for previously made self.forwards.
-        Feeds their inputs with respect of their order.
-
-        Args:
-            lr_adjuster(:class:`LearningRateAdjust`): learning rate adjust unit
-            lr_policy(:class:`veles.znicz.lr_adjust.ILRPolicy`)
-                - should be set if **lr_adjuster is set**
-            bias_lr_policy(:class:`veles.znicz.lr_adjust.ILRPolicy`)
-                - should be set if **lr_adjuster is set**
-            learning_rate
-            learning_rate_bias
-            weights_decay
-            weights_decay_bias
-            gradient_moment
-            gradient_moment_bias
-        """
-        del self.gds[:]
-        for fwd in self.forwards:
-            self.gds.append(GradientUnitFactory.create(fwd, "gd_" + fwd.name,
-                                                       **kwargs))
-        for i, gd_elm in enumerate(self.gds[:-1]):
-            gd_elm.link_from(self.gds[i + 1])
-            gd_elm.link_attrs(self.gds[i + 1], ("err_output", "err_input"))
-
-        if lr_adjuster is not None:
-            lr_adjuster.link_from(self.snapshotter)
-            for grad_unit in self.gds:
-                lr_adjuster.add_gd_unit(grad_unit, kwargs["lr_policy"],
-                                        kwargs["bias_lr_policy"])
-            self.gds[-1].link_from(lr_adjuster)
-        else:
-            self.gds[-1].link_from(self.snapshotter)
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].gate_skip = self.decision.gd_skip
-
-        for gd_elm in self.gds:
-            gd_elm.link_attrs(self.loader, ("batch_size", "minibatch_size"))
+            unit.gate_skip = self.decision.gd_skip
+            unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
@@ -342,19 +305,16 @@ class StandardWorkflow(StandardWorkflowBase):
         image_saver_config: image_saver configuration parameters
     """
     def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers", [{}])
-        kwargs["layers"] = layers
-        super(StandardWorkflow, self).__init__(
-            workflow, **kwargs)
+        self.loader_config = kwargs.pop("loader_config")
+        self.decision_config = kwargs.pop("decision_config", None)
+        self.snapshotter_config = kwargs.pop("snapshotter_config", None)
+        self.loss_function = kwargs.pop("loss_function", "softmax")
+        self.image_saver_config = kwargs.pop("image_saver_config", None)
+        self.data_saver_config = kwargs.pop("data_saver_config", None)
+        self.similar_weights_plotter_config = kwargs.pop(
+            "similar_weights_plotter_config", None)
+        super(StandardWorkflow, self).__init__(workflow, **kwargs)
         self.loader_name = kwargs["loader_name"]
-        self.loader_config = kwargs["loader_config"]
-        self.decision_config = kwargs.get("decision_config")
-        self.snapshotter_config = kwargs.get("snapshotter_config")
-        self.loss_function = kwargs.get("loss_function", "softmax")
-        self.image_saver_config = kwargs.get("image_saver_config")
-        self.data_saver_config = kwargs.get("data_saver_config")
-        self.similar_weights_plotter_config = kwargs.get(
-            "similar_weights_plotter_config")
         if self.loss_function not in ("softmax", "mse"):
             raise ValueError(
                 "Unknown loss function type %s" % self.loss_function)

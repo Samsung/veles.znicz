@@ -14,13 +14,14 @@ from zope.interface import implementer
 from veles.config import root
 from veles.accelerated_units import IOpenCLUnit
 from veles.memory import roundup, Vector
+from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 import veles.error as error
 from veles.distributable import TriviallyDistributable
 
 
 @implementer(IOpenCLUnit)
-class Deconv(TriviallyDistributable, nn_units.Forward):
+class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     # TriviallyDistributable overrides nn_units.Forward IDistributable
     """Deconvolutional layer for simple convolutional layer
     with linear activation and without bias.
@@ -28,7 +29,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
     Must be assigned before initialize():
         input
         weights
-        get_output_shape_from
+        output_shape_source
 
     Updates after run():
         output
@@ -40,7 +41,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
         input: input as batch of multichannel interleaved images.
         output: output as batch of multichannel interleaved images.
         weights: matrix of weights.
-        get_output_shape_from: Vector to get output shape from.
+        output_shape_source: Vector to get output shape from.
         n_kernels: number of convolutional kernels
                    in the corresponding convolutional layer.
         kx: kernel width.
@@ -72,27 +73,16 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
                 else ky - sliding[0])
 
     def __init__(self, workflow, **kwargs):
-        try:
-            n_kernels = kwargs["n_kernels"]
-            kx = kwargs["kx"]
-            ky = kwargs["ky"]
-        except KeyError:
-            raise KeyError("n_kernels, kx and ky are required parameters")
         super(Deconv, self).__init__(workflow, **kwargs)
-        self.n_kernels = n_kernels
-        self.kx = kx
-        self.ky = ky
-        self.padding = kwargs.get("padding")
-        self.sliding = tuple(kwargs.get("sliding", (1, 1)))
-        self.bias = None
-        self.get_output_shape_from = None
         self.exports.extend(("kx", "ky", "n_kernels", "padding", "sliding"))
-        self.demand("input", "weights", "get_output_shape_from")
+        self.demand("input", "weights", "output_shape_source")
         self.unsafe_padding = kwargs.get("unsafe_padding", False)
         self.hits = Vector()
         self.krn_clear_output_ = None
         self._global_size = None
         self._local_size = None
+        del self.bias
+        self.demand("n_kernels", "kx", "ky", "padding", "sliding")
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
@@ -101,10 +91,10 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
 
-        if self.bias is not None:
+        if hasattr(self, "bias"):
             raise error.BadFormatError("bias should not be set")
         if self.input.mem is None:
-            raise error.BadFormatError("input should be assigned")
+            raise error.BadFormatError("input must be initialized")
         if (len(self.input.shape) != 4 or
                 self.input.shape[3] != self.n_kernels):
             raise error.BadFormatError(
@@ -123,22 +113,22 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
 
         dtype = self.input.mem.dtype
 
-        output_shape = list(self.get_output_shape_from.shape)
+        output_shape = list(self.output_shape_source.shape)
         if len(output_shape) != 4:
-            raise error.BadFormatError("Incorrect get_output_shape_from shape")
+            raise error.BadFormatError("Incorrect output_shape_source shape")
         if output_shape[0] != self.input.shape[0]:
             raise error.BadFormatError(
-                "get_output_shape_from.shape[0] != input.shape[0]")
+                "output_shape_source.shape[0] != input.shape[0]")
 
         try:
             padding = Deconv.compute_padding(
                 output_shape[2], output_shape[1],
                 self.kx, self.ky, self.sliding)
-            if self.padding is None:
+            if self.padding is None:  # pylint: disable=E0203
                 self.padding = padding
             elif self.padding != padding:
-                raise error.BadFormatError("Expected padding %s got %s" %
-                                           (str(padding), str(self.padding)))
+                raise error.BadFormatError("Expected padding %s but got %s" %
+                                           (padding, self.padding))
         except error.BadFormatError:
             if not self.unsafe_padding:
                 raise
@@ -156,7 +146,7 @@ class Deconv(TriviallyDistributable, nn_units.Forward):
 
     def ocl_init(self):
         dtype = self.input.mem.dtype
-        output_shape = list(self.get_output_shape_from.shape)
+        output_shape = list(self.output_shape_source.shape)
         weights_shape = (list(
             self.weights.shape[i] for i in range(
                 len(self.weights.shape) - 1, -1, -1))

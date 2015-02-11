@@ -45,7 +45,8 @@ class All2All(nn_units.NNLayerBase):
         None (the default), it is taken from input.
         output_dtype: the dtype of output. If it is None (the default),
         it is taken from input.
-        s_activation: activation define for OpenCL source.
+        activation_mode: activation type. It is passed as a definition directly
+        to OpenCL/CUDA source code.
         weights_transposed: assume weights matrix as a transposed one.
 
         weights_filling: rand weight filling
@@ -61,8 +62,8 @@ class All2All(nn_units.NNLayerBase):
         self.output_sample_shape = kwargs["output_sample_shape"]
         self.output_samples_number = kwargs.get("output_samples_number")
         self.output_dtype = kwargs.get("output_dtype")
-        self.s_activation = "ACTIVATION_LINEAR"
-        self.exports.append("s_activation")
+        self.activation_mode = "ACTIVATION_LINEAR"
+        self.exports.append("activation_mode")
         self._global_size = None
         self._local_size = None
         self.demand("input")
@@ -208,14 +209,14 @@ class All2All(nn_units.NNLayerBase):
         self._commonSideLength = self.input.sample_size
         self.build_program({"BIAS_SIZE": self.output.sample_size,
                             "OUTPUT_SIZE": self.output.size,
-                            self.s_activation: 1,
+                            self.activation_mode: 1,
                             "INCLUDE_BIAS": int(self.include_bias),
                             "Y": self.output.sample_size},
                            "%s_%d_%d_%d" %
                            (self.__class__.__name__, self.input.shape[0],
                             self.input.sample_size, self.output.sample_size),
                            dtype=dtype)
-        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
+        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.assign_kernel("apply_bias_with_activation")
             self.set_args(self.output, self.bias)
             block_size = self.device.suggest_block_size(self._kernel_)
@@ -233,7 +234,7 @@ class All2All(nn_units.NNLayerBase):
 
         defines = {
             "BLOCK_SIZE": block_size,
-            self.s_activation: 1,
+            self.activation_mode: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
             "H": ab_common,
@@ -274,7 +275,7 @@ class All2All(nn_units.NNLayerBase):
             self.np_one, self._A_, self._B_,
             self.np_zero, self.output.devmem)
 
-        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
+        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.execute_kernel(self._global_size_bias, self._local_size_bias)
 
     def cpu_run(self):
@@ -301,7 +302,7 @@ class All2AllTanh(All2All):
     MAPPING = {"all2all_tanh"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_TANH"
+        self.activation_mode = "ACTIVATION_TANH"
         super(All2AllTanh, self).initialize(device=device, **kwargs)
         self.output.max_supposed = All2AllTanh.A
 
@@ -323,7 +324,7 @@ class All2AllRELU(All2All):
     MAPPING = {"all2all_relu"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_RELU"
+        self.activation_mode = "ACTIVATION_RELU"
         super(All2AllRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 
@@ -343,7 +344,7 @@ class All2AllStrictRELU(All2All):
     MAPPING = {"all2all_str"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_STRICT_RELU"
+        self.activation_mode = "ACTIVATION_STRICT_RELU"
         super(All2AllStrictRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 

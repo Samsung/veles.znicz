@@ -222,14 +222,9 @@ class GradientDescentBase(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         kwargs["view_group"] = kwargs.get("view_group", "TRAINER")
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
-        self.input = None
-        self.output = None
-        self.err_output = None  # formats.Vector()
         self.err_input = Vector()
-        self.weights = None
-        self.bias = None
-        self.batch_size = None
         self.ocl_set_const_args = True
+        self.demand("weights", "bias", "input", "err_output")
         self.learning_rate = kwargs.get("learning_rate", 0.01)
         self.learning_rate_bias = kwargs.get("learning_rate_bias",
                                              self.learning_rate)
@@ -276,15 +271,13 @@ class GradientDescentBase(AcceleratedUnit):
 
     @property
     def current_batch_size(self):
-        if self.batch_size is None:
+        batch_size = getattr(self, "batch_size", None)
+        if batch_size is None:
             return self.err_output.mem.shape[0]
-        return int(self.batch_size)
+        return int(batch_size)
 
     def initialize(self, device, **kwargs):
         super(GradientDescentBase, self).initialize(device, **kwargs)
-
-        if self.output and self.err_output.shape != self.output.shape:
-            raise ValueError("err_output.shape != output.shape")
 
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
@@ -347,7 +340,7 @@ class GradientDescentBase(AcceleratedUnit):
             self.reduce_size = roundup(min(self.reduce_size, other), 32)
             self.weights.initialize(self.device)
 
-        for vec in self.bias, self.output, self.input, self.err_input:
+        for vec in self.bias, self.input, self.err_input:
             if vec:
                 vec.initialize(self.device)
         self.init_vectors(
@@ -484,7 +477,6 @@ class GradientDescentBase(AcceleratedUnit):
         """
         if self.krn_err_output_ is None:
             return
-        self.output.unmap()
         self.err_output.unmap()
         self.execute_kernel(
             self._global_size_err_output, self._local_size_err_output,
@@ -511,12 +503,11 @@ class GradientDescentBase(AcceleratedUnit):
         grad_bias = self.gradient_bias.mem
 
         n_input = self.input.mem.size // self.input.mem.shape[0]
-        n_output = self.output.mem.size // self.output.mem.shape[0]
         delta_time = time.time() - t_start
 
-        stats_table = PrettyTable("n_input", "n_output", "time")
+        stats_table = PrettyTable("n_input", "time")
         stats_table.float_format = ".3"
-        stats_table.add_row(n_input, n_output, delta_time)
+        stats_table.add_row(n_input, delta_time)
         self.debug("\n" + stats_table.get_string())
 
         weight_table = PrettyTable("TYPE", "Mean", "StdDev", "Min", "Max")

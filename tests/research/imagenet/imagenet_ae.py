@@ -520,7 +520,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             self.forwards.append(unit)
             unit.link_from(prev)
             for dst_src in (("weights", "weights"),
-                            ("get_output_shape_from", "input"),
+                            ("output_shape_source", "input"),
                             ("output_offset", "input_offset")):
                 if hasattr(unit, dst_src[0]):
                     unit.link_attrs(ae[i], dst_src)
@@ -529,7 +529,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
             else:
                 unit.link_attrs(prev, ("input", "output"))
             self.fix(unit, "input", "weights", "output",
-                     "get_output_shape_from")
+                     "output_shape_source")
             prev = unit
 
         assert len(ae) == len(de)
@@ -933,7 +933,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 self.forwards.append(unit)
                 unit.link_from(prev)
                 for dst_src in (("weights", "weights"),
-                                ("get_output_shape_from", "input"),
+                                ("output_shape_source", "input"),
                                 ("output_offset", "input_offset")):
                     if hasattr(unit, dst_src[0]):
                         unit.link_attrs(ae[i], dst_src)
@@ -942,7 +942,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 else:
                     unit.link_attrs(prev, ("input", "output"))
                 self.fix(unit, "input", "weights", "output",
-                         "get_output_shape_from")
+                         "output_shape_source")
                 prev = unit
 
             unit = self.evaluator

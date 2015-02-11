@@ -105,8 +105,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[4, -1], [-1, 2], [0, 1]],
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
-        c = PatchedGradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                       kx=3, ky=3, gradient_moment=0.9)
+        c = PatchedGradientDescentConv(DummyWorkflow(), gradient_moment=0.9)
+        c.kx = 3
+        c.ky = 3
+        c.n_kernels = 2
+        c.padding = 0, 0, 0, 0
+        c.sliding = 1, 1
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -227,9 +231,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                                    [[1, 1], [1, -2], [0, 5], [2, 3]]]],
                                  dtype=dtype)
 
-        c = PatchedGradientDescentConv(DummyWorkflow(), n_kernels=2,
-                                       kx=3, ky=3, padding=(1, 2, 3, 4),
-                                       sliding=(2, 3), gradient_moment=0.9)
+        c = PatchedGradientDescentConv(DummyWorkflow(), gradient_moment=0.9)
+        c.n_kernels = 2
+        c.kx = 3
+        c.ky = 3
+        c.padding = 1, 2, 3, 4
+        c.sliding = 2, 3
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()
@@ -329,7 +336,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         sh = list(inp.shape)
         sh[0] <<= 1
         forward.input = formats.Vector(numpy.zeros(sh, dtype=dtype))
-        forward.input.initialize(self.device)
+        forward.input.initialize(device)
         forward.input.map_write()
         forward.input.unit_test_mem = forward.input.mem
         sh[0] >>= 1
@@ -337,7 +344,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         formats.assert_addr(forward.input.mem, forward.input.unit_test_mem)
         forward.input.mem[:] = inp[:]
         forward.input.unit_test_mem[sh[0]:] = numpy.nan
-        forward.initialize(device=self.device)
+        forward.initialize(device=device)
         forward.run()
 
         forward.output.map_read()
@@ -351,12 +358,12 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         bias = forward.bias.mem.copy()
 
         c = GD(
-            DummyWorkflow(), n_kernels=forward.n_kernels,
-            kx=forward.kx, ky=forward.ky,
+            DummyWorkflow(),
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,
             padding=forward.padding, sliding=forward.sliding)
+        c.link_conv_attrs(forward)
         sh = list(err_output.shape)
         sh[0] <<= 1
         c.err_output = formats.Vector(numpy.zeros(sh, dtype=dtype))

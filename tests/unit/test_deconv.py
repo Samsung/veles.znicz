@@ -29,7 +29,7 @@ from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 class PatchedDeconv(Deconv):
     def __init__(self, workflow, **kwargs):
         super(PatchedDeconv, self).__init__(workflow, **kwargs)
-        patch(self, self.output, lambda: self.get_output_shape_from.shape,
+        patch(self, self.output, lambda: self.output_shape_source.shape,
               lambda: self.input.dtype)
 
 
@@ -56,12 +56,10 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         forward.weights.mem[:] = 1.0
         forward.run()
 
-        de = PatchedDeconv(DummyWorkflow(), kx=forward.kx, ky=forward.ky,
-                           n_kernels=forward.n_kernels,
-                           padding=forward.padding, sliding=forward.sliding,
-                           unsafe_padding=True)
+        de = PatchedDeconv(DummyWorkflow(), unsafe_padding=True)
+        de.link_conv_attrs(forward)
         de.input = forward.output
-        de.get_output_shape_from = forward.input
+        de.output_shape_source = forward.input
         de.weights = forward.weights
         de.initialize(self.device)
         de.run()
@@ -113,11 +111,9 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         forward.input.map_read()
         inp = forward.input.mem.copy()
 
-        gd = GDDeconv(first.workflow, n_kernels=first.n_kernels,
-                      kx=first.kx, ky=first.ky,
-                      padding=first.padding, sliding=first.sliding,
-                      learning_rate=-1.0, weights_decay=0.0,
+        gd = GDDeconv(first.workflow, learning_rate=-1.0, weights_decay=0.0,
                       gradient_moment=0.9)
+        gd.link_conv_attrs(first)
         gd.weights = first.weights
         gd.input = forward.input
         gd.err_output = formats.Vector(err_output)
@@ -178,13 +174,11 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         out.mem[:] = forward.output.mem[:]
         out.unit_test_mem[sh[0]:] = numpy.nan
 
-        backward = PatchedDeconv(forward.workflow, n_kernels=forward.n_kernels,
-                                 kx=forward.kx, ky=forward.ky,
-                                 padding=forward.padding,
-                                 sliding=forward.sliding)
+        backward = PatchedDeconv(forward.workflow)
+        backward.link_conv_attrs(forward)
         backward.weights = forward.weights
         backward.input = out
-        backward.get_output_shape_from = forward.input
+        backward.output_shape_source = forward.input
         backward.initialize(device)
 
         self.assertEqual(backward.output.shape, forward.input.shape,

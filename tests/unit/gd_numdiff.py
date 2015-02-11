@@ -111,7 +111,7 @@ class GDNumDiff(object):
         for vector, derivative, nme in (
                 (forward.input, err_input, "err_input"),
                 (forward.weights, weights_derivative, "weights"),
-                (forward.bias, bias_derivative, "bias")):
+                (getattr(forward, "bias", None), bias_derivative, "bias")):
             if derivative is None:
                 continue
             logging_info("Checking %s via numeric differentiation on %s",
@@ -119,7 +119,7 @@ class GDNumDiff(object):
             self.numdiff_check(
                 forward, vector, {forward.input: inp,
                                   forward.weights: weights,
-                                  forward.bias: bias},
+                                  getattr(forward, "bias", None): bias},
                 forward.output, target, derivative,
                 logging_info, assertLess, ef, batch_size,
                 limit=limit, threshold=threshold)

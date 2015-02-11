@@ -53,7 +53,11 @@ class TestGDRELUConv(unittest.TestCase):
 
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = gd_conv.GDRELUConv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
+        c = gd_conv.GDRELUConv(DummyWorkflow())
+        c.n_kernels = 2
+        c.kx = c.ky = 3
+        c.padding = 0, 0, 0, 0
+        c.sliding = 1, 1
         c.err_output = formats.Vector()
         c.err_output.mem = numpy.array(
             [[[-1, 3],

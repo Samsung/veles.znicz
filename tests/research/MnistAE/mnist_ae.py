@@ -101,7 +101,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         unit.link_from(self.depool)
         unit.link_attrs(self.conv, "weights")
         unit.link_attrs(self.depool, ("input", "err_input"))
-        unit.link_attrs(self.conv, ("get_output_shape_from", "input"))
+        unit.link_attrs(self.conv, ("output_shape_source", "input"))
 
         # Add evaluator for single minibatch
         unit = evaluator.EvaluatorMSE(self)

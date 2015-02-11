@@ -380,7 +380,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.accumulated_gradient_weights.map_write()
 
         dtype = self.weights.mem.dtype
-        batch_size = self.current_batch_size
         sy = self.input.mem.shape[1]
         sx = self.input.mem.shape[2]
         n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
@@ -401,7 +400,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         gd_weights[:] = 0
         cut = numpy.empty((self.ky, self.kx, n_channels), dtype=dtype)
         sample = numpy.empty(sample_shape, dtype=dtype)
-        for batch in range(batch_size):
+        for batch in range(self.current_batch_size):
             # input data unrolling
             sample = numpy.empty(sample_shape)
             for by, bx in ((by, bx) for by in range(ny) for bx in range(nx)):
@@ -465,13 +464,12 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.gradient_bias.map_write()
         self.accumulated_gradient_bias.map_write()
 
-        batch_size = self.current_batch_size
         err_out_shape = self.err_output.mem.shape
 
         # calculate gradient for bias
         gd_bias = self.gradient_bias.mem
         gd_bias[:] = 0
-        for batch in range(batch_size):
+        for batch in range(self.current_batch_size):
             out = self.err_output.mem[batch].reshape(err_out_shape[1] *
                                                      err_out_shape[2],
                                                      self.n_kernels)

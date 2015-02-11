@@ -163,7 +163,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
         super(DropoutBackward, self).__init__(workflow, **kwargs)
 
     def initialize(self, device, **kwargs):
-        if self.input is None:
+        if self.input is None:  # pylint: disable=E0203
             self.input = self.err_output
             super(DropoutBackward, self).initialize(device=device, **kwargs)
             self.input = None

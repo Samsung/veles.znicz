@@ -16,26 +16,23 @@ import numpy
 import time
 from zope.interface import implementer
 
-from veles.compat import from_none
 from veles.accelerated_units import IOpenCLUnit
+from veles.compat import from_none
 import veles.error as error
 from veles.memory import roundup, Vector
+from veles.units import Unit
 import veles.znicz.nn_units as nn_units
 
 
-class ConvolutionalBase(object):
+class ConvolutionalBase(Unit):
+    CONV_ATTRS = "n_kernels", "kx", "ky", "sliding", "padding"
+
     def __init__(self, workflow, **kwargs):
         super(ConvolutionalBase, self).__init__(workflow, **kwargs)
-        try:
-            self.n_kernels = kwargs["n_kernels"]
-            self.kx = kwargs["kx"]
-            self.ky = kwargs["ky"]
-        except KeyError:
-            raise from_none(KeyError(
-                "n_kernels, kx and ky are required parameters"))
-        self.padding = tuple(
-            kwargs.get("padding", (0, 0, 0, 0)))  # Left Top Right Bottom
-        self.sliding = tuple(kwargs.get("sliding", (1, 1)))  # X Y
+        self.demand(*self.CONV_ATTRS)
+
+    def link_conv_attrs(self, other):
+        self.link_attrs(other, *self.CONV_ATTRS)
 
 
 @implementer(IOpenCLUnit)
@@ -69,7 +66,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         weights_stddev: standard deviation of normal or Gabor weight fillings
 
         rand: rnd.Rand() object for initial weights generation.
-        s_activation: activation define for OpenCL source.
+        activation_mode: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
     """
 
@@ -77,8 +74,18 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
     def __init__(self, workflow, **kwargs):
         super(Conv, self).__init__(workflow, **kwargs)
-        self.s_activation = "ACTIVATION_LINEAR"
-        self.exports.extend(("s_activation", "kx", "ky", "n_kernels",
+        try:
+            self.n_kernels = kwargs["n_kernels"]
+            self.kx = kwargs["kx"]
+            self.ky = kwargs["ky"]
+        except KeyError:
+            raise from_none(KeyError(
+                "n_kernels, kx and ky are required parameters"))
+        self.padding = tuple(
+            kwargs.get("padding", (0, 0, 0, 0)))  # Left Top Right Bottom
+        self.sliding = tuple(kwargs.get("sliding", (1, 1)))  # X Y
+        self.activation_mode = "ACTIVATION_LINEAR"
+        self.exports.extend(("activation_mode", "kx", "ky", "n_kernels",
                              "padding", "sliding"))
         self._global_size = None
         self._local_size = None
@@ -143,7 +150,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
     def _gpu_init(self, defines):
         defines.update({
-            self.s_activation: 1,
+            self.activation_mode: 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
             "INCLUDE_BIAS": int(self.include_bias),
             "BATCH": self._batch_size,
@@ -218,7 +225,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
         self.set_arg(1, self.unpack_data)
 
-        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
+        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self._krn_bias_ = self.get_kernel("apply_bias_with_activation")
             self._krn_bias_.set_args(self.output.devmem, self.bias.devmem)
             block_size = self.device.suggest_block_size(self._krn_bias_)
@@ -235,7 +242,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         for i in range(0, self._batch_size, self.unpack_size):
             self._process_subblock(i, min(self._batch_size - i,
                                           self.unpack_size))
-        if self.include_bias or self.s_activation != "ACTIVATION_LINEAR":
+        if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.execute_kernel(self._global_size_bias, self._local_size_bias,
                                 self._krn_bias_)
 
@@ -318,7 +325,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
     def apply_activation(self):
         """Add bias and apply linear activation function.
         """
-        assert self.s_activation == "ACTIVATION_LINEAR"
+        assert self.activation_mode == "ACTIVATION_LINEAR"
         if self.include_bias:
             self.output.mem += self.bias.mem
 
@@ -434,14 +441,14 @@ class ConvTanh(Conv):
     MAPPING = {"conv_tanh"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_TANH"
+        self.activation_mode = "ACTIVATION_TANH"
         super(ConvTanh, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 1.7159
 
     def apply_activation(self):
         """Add bias and apply tanh activation function.
         """
-        assert self.s_activation == "ACTIVATION_TANH"
+        assert self.activation_mode == "ACTIVATION_TANH"
         for k in range(self.n_kernels):
             for x in numpy.nditer(self.output.mem[:, :, :, k],
                                   op_flags=['readwrite']):
@@ -455,14 +462,14 @@ class ConvRELU(Conv):
     MAPPING = {"conv_relu"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_RELU"
+        self.activation_mode = "ACTIVATION_RELU"
         super(ConvRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 
     def apply_activation(self):
         """Add bias and apply RELU activation function.
         """
-        assert self.s_activation == "ACTIVATION_RELU"
+        assert self.activation_mode == "ACTIVATION_RELU"
         for k in range(self.n_kernels):
             for x in numpy.nditer(self.output.mem[:, :, :, k],
                                   op_flags=['readwrite']):
@@ -482,14 +489,14 @@ class ConvStrictRELU(Conv):
     MAPPING = {"conv_str"}
 
     def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_STRICT_RELU"
+        self.activation_mode = "ACTIVATION_STRICT_RELU"
         super(ConvStrictRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 
     def apply_activation(self):
         """Add bias and apply STRICT_RELU activation function.
         """
-        assert self.s_activation == "ACTIVATION_STRICT_RELU"
+        assert self.activation_mode == "ACTIVATION_STRICT_RELU"
         for k in range(self.n_kernels):
             for x in numpy.nditer(self.output.mem[:, :, :, k],
                                   op_flags=['readwrite']):

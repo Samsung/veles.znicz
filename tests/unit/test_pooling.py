@@ -368,7 +368,7 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
         de = depooling.Depooling(DummyWorkflow())
         de.output_offset = forward.input_offset
         de.input = forward.output
-        de.get_output_shape_from = forward.input
+        de.output_shape_source = forward.input
         de.initialize(device)
         de.run()
         de.output.map_read()

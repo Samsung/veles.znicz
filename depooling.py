@@ -22,7 +22,7 @@ class Depooling(nn_units.Forward):
     Must be assigned before initialize():
         input
         output_offset
-        get_output_shape_from
+        output_shape_source
 
     Updates after run():
         output
@@ -34,13 +34,13 @@ class Depooling(nn_units.Forward):
         input: data to depool.
         output: depooled data.
         output_offset: input_offset from the corresponding pooling unit.
-        get_output_shape_from: Vector to get output shape from.
+        output_shape_source: Vector to get output shape from.
         krn_output_clear_: kernel for zeroing the output.
     """
     def __init__(self, workflow, **kwargs):
         super(Depooling, self).__init__(workflow, **kwargs)
         self.output_offset = None
-        self.demand("output_offset", "get_output_shape_from")
+        self.demand("output_offset", "output_shape_source")
 
     def init_unpickled(self):
         super(Depooling, self).init_unpickled()
@@ -57,10 +57,10 @@ class Depooling(nn_units.Forward):
             raise error.BadFormatError("output_offset.dtype != numpy.int32")
 
         if not self.output:
-            self.output.reset(numpy.zeros(self.get_output_shape_from.shape,
+            self.output.reset(numpy.zeros(self.output_shape_source.shape,
                                           dtype=self.input.dtype))
         else:
-            assert self.output.shape == self.get_output_shape_from.shape
+            assert self.output.shape == self.output_shape_source.shape
 
         self.init_vectors(self.input, self.output_offset, self.output)
 
