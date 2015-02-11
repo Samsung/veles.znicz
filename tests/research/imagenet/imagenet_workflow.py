@@ -327,7 +327,7 @@ class ImagenetWorkflow(StandardWorkflow):
         del self.forwards[:]
         for i in range(len(self.layers)):
             layer = self.layers[i]
-            tpe, kwargs = self._get_layer_type_kwargs(layer)
+            tpe, kwargs, _ = self._get_layer_type_kwargs(layer)
             unit = self.layer_map[tpe][0](self, **kwargs)
             self.add_frwd_unit(unit)
 

@@ -33,7 +33,7 @@ class LinesWorkflow(StandardWorkflowBase):
 
         self.repeater.link_from(self.start_point)
         self.loader = FullBatchAutoLabelFileImageLoader(
-            self, **root.lines.loader.__dict__)
+            self, **root.lines.loader.__content__)
 
         self.loader.link_from(self.repeater)
 

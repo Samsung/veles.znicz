@@ -172,6 +172,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     A base class for standard workflows with forward and backward propagation.
     Is able to automatically create backward units by pre-created forward units
     """
+
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
@@ -187,9 +188,14 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 "layer type should be non-empty string")
         if tpe not in self.layer_map:
             raise error.NotExistsError("Unknown layer type %s" % tpe)
-        kwargs = dict(layer)
-        del kwargs["type"]
-        return tpe, kwargs
+        kwargs_forward = dict(layer.get("->", {}))
+        kwargs_backward = dict(layer.get("<-", {}))
+        # Add shared parameters to both dicts
+        others = {k: v for k, v in layer.items()
+                  if k not in ("type", "->", "<-")}
+        kwargs_forward.update(others)
+        kwargs_backward.update(others)
+        return tpe, kwargs_forward, kwargs_backward
 
     def parse_forwards_from_config(self, init_unit, init_attrs):
         """
@@ -202,7 +208,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             raise error.BadFormatError("layers should be a list of dicts")
         del self.forwards[:]
         for i, layer in enumerate(self.layers):
-            tpe, kwargs = self._get_layer_type_kwargs(layer)
+            tpe, kwargs, _ = self._get_layer_type_kwargs(layer)
             try:
                 unit = self.layer_map[tpe].forward(self, **kwargs)
             except IndexError:
@@ -237,7 +243,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         del self.gds[:]
         self.gds.extend(None for _ in self.layers)
         for i, layer in reversed(list(enumerate(self.layers))):
-            tpe, kwargs = self._get_layer_type_kwargs(layer)
+            tpe, _, kwargs = self._get_layer_type_kwargs(layer)
 
             # Check corresponding forward unit type
             if not isinstance(self.forwards[i], self.layer_map[tpe].forward):
