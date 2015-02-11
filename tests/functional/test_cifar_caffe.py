@@ -31,7 +31,12 @@ class TestCifarCaffe(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+
+        root.common.update({
+            "precision_level": 1,
+            "plotters_disabled": True,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
 
         train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
         validation_dir = os.path.join(
@@ -43,7 +48,7 @@ class TestCifarCaffe(unittest.TestCase):
             "learning_rate_adjust": {"do": True},
             "snapshotter": {"prefix": "cifar_caffe", "interval": 1},
             "loss_function": "softmax",
-            "add_plotters": True,
+            "add_plotters": False,
             "image_saver": {"do": False,
                             "out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
@@ -113,7 +118,7 @@ class TestCifarCaffe(unittest.TestCase):
                         "ky": 3, "sliding": (2, 2)},
 
                        {"name": "a2asm4", "type": "softmax",
-                        "output_shape": 10,
+                        "output_sample_shape": 10,
                         "weights_filling": "gaussian", "weights_stddev": 0.01,
                         "bias_filling": "constant", "bias_stddev": 0,
                         "learning_rate": 0.001, "learning_rate_bias": 0.002,
@@ -143,7 +148,7 @@ class TestCifarCaffe(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 5661)
+        self.assertEqual(err, 6083)
         self.assertEqual(1, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -160,7 +165,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 4692)
+        self.assertEqual(err, 4461)
         self.assertEqual(3, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

@@ -44,12 +44,6 @@ class CifarWorkflow(StandardWorkflow):
     Model. It means that Model can change for any Model (Convolutional, Fully
     connected, different parameters) in configuration file.
     """
-    """
-    def link_loader(self, init_unit):
-        self.loader = CifarLoader(
-            self, **root.cifar.loader.__dict__)
-        self.loader.link_from(init_unit)
-    """
 
     def create_workflow(self):
         self.link_repeater(self.start_point)

@@ -43,7 +43,7 @@ root.cifar.update({
                "normalization_type": "internal_mean",
                "add_sobel": False,
                "shuffle_limit": 2000000000,
-               "on_device": False},
+               "on_device": True},
     "softmax": {"error_function_avr": True},
     "weights_plotter": {"limit": 64},
     "similar_weights_plotter": {"form_threshold": 1.1, "peak_threshold": 0.5,

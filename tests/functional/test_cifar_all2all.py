@@ -30,7 +30,13 @@ class TestCifarAll2All(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+
+        root.common.update({
+            "precision_level": 1,
+            "plotters_disabled": True,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
         validation_dir = os.path.join(root.common.test_dataset_root,
                                       "cifar/10/test_batch")
@@ -39,7 +45,7 @@ class TestCifarAll2All(unittest.TestCase):
             "loader_name": "cifar_loader",
             "learning_rate_adjust": {"do": False},
             "loss_function": "softmax",
-            "add_plotters": True,
+            "add_plotters": False,
             "image_saver": {"do": False,
                             "out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
@@ -83,7 +89,7 @@ class TestCifarAll2All(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 7457)
+        self.assertEqual(err, 7352)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -100,7 +106,7 @@ class TestCifarAll2All(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 7055)
+        self.assertEqual(err, 7040)
         self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
