@@ -16,6 +16,7 @@ else:
 from veles.compat import from_none
 import veles.error as error
 from veles.interaction import Shell
+from veles.loader.saver import MinibatchesSaver
 from veles.mean_disp_normalizer import MeanDispNormalizer
 import veles.plotting_units as plotting_units
 # Important: do not remove unused imports! It will prevent MatchingObject
@@ -347,10 +348,11 @@ class StandardWorkflow(StandardWorkflowBase):
             workflow, **kwargs)
         self.loader_name = kwargs["loader_name"]
         self.loader_config = kwargs["loader_config"]
-        self.decision_config = kwargs["decision_config"]
+        self.decision_config = kwargs.get("decision_config")
         self.snapshotter_config = kwargs.get("snapshotter_config")
         self.loss_function = kwargs.get("loss_function", "softmax")
         self.image_saver_config = kwargs.get("image_saver_config")
+        self.data_saver_config = kwargs.get("data_saver_config")
         self.similar_weights_plotter_config = kwargs.get(
             "similar_weights_plotter_config")
         if self.loss_function not in ("softmax", "mse"):
@@ -394,6 +396,19 @@ class StandardWorkflow(StandardWorkflowBase):
             self, **self.loader_config.__content__)
         self.loader.link_from(init_unit)
         pass
+
+    def link_data_saver(self, init_unit):
+        if self.data_saver_config is not None:
+            kwargs = self.data_saver_config.__content__
+        else:
+            kwargs = {}
+        self.data_saver = MinibatchesSaver(
+            self, **kwargs)
+        self.data_saver.link_from(init_unit)
+        self.data_saver.link_attrs(
+            self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
+            "minibatch_labels", "class_lengths", "max_minibatch_size",
+            "minibatch_size")
 
     def link_forwards(self, init_unit, init_attrs):
         self.parse_forwards_from_config(init_unit, init_attrs)
@@ -461,9 +476,13 @@ class StandardWorkflow(StandardWorkflowBase):
         # not work without create loader and evaluator first
         self.check_loader()
         self.check_evaluator()
-        self.decision = (DecisionGD(self, **self.decision_config.__content__)
+        if self.decision_config is not None:
+            kwargs = self.decision_config.__content__
+        else:
+            kwargs = {}
+        self.decision = (DecisionGD(self, **kwargs)
                          if self.loss_function == "softmax" else DecisionMSE(
-                             self, **self.decision_config.__content__))
+                             self, **kwargs))
         self.decision.link_from(init_unit)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
@@ -491,8 +510,12 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_snapshotter(self, init_unit):
         # not work without create decision first
         self.check_decision()
+        if self.snapshotter_config is not None:
+            kwargs = self.snapshotter_config.__content__
+        else:
+            kwargs = {}
         self.snapshotter = nn_units.NNSnapshotter(
-            self, **self.snapshotter_config.__content__)
+            self, **kwargs)
         self.snapshotter.link_from(init_unit)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
@@ -504,8 +527,12 @@ class StandardWorkflow(StandardWorkflowBase):
         self.check_forwards()
         self.check_decision()
         self.check_loader()
+        if self.image_saver_config is not None:
+            kwargs = self.image_saver_config.__content__
+        else:
+            kwargs = {}
         self.image_saver = image_saver.ImageSaver(
-            self, **self.image_saver_config.__content__)
+            self, **kwargs)
         self.image_saver.link_from(init_unit)
         self.image_saver.link_attrs(self.forwards[-1],
                                     "output", "max_idx")
@@ -606,12 +633,19 @@ class StandardWorkflow(StandardWorkflowBase):
         self.err_y_plotter[0].clear_plot = True
         self.err_y_plotter[-1].redraw_plot = True
 
-    def link_multi_hist_plotter(self, init_unit, layers):
+    def link_multi_hist_plotter(self, init_unit, layers, weights_input):
         # not work without create decision, forwards first and set layers
         self.check_decision()
         self.check_forwards()
         self.multi_hist_plotter = []
         prev = init_unit
+        if weights_input == "weights":
+            link_units = self.forwards
+        elif weights_input == "gradient_weights":
+            link_units = self.gds
+        else:
+            raise AttributeError(
+                "weights_input should be 'weights' or 'gradient_weights'")
         for i, layer in enumerate(layers):
             multi_hist = plotting_units.MultiHistogram(
                 self, name="Histogram %s %s" % (i + 1, layer["type"]))
@@ -622,7 +656,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.multi_hist_plotter[
                     - 1].hist_number = layer["n_kernels"]
                 self.multi_hist_plotter[-1].link_attrs(
-                    self.forwards[i], ("input", "weights"))
+                    link_units[i], ("input", weights_input))
                 end_epoch = ~self.decision.epoch_ended
                 self.multi_hist_plotter[-1].gate_skip = end_epoch
             if layer.get("output_sample_shape") is not None:
@@ -631,7 +665,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.multi_hist_plotter[
                     - 1].hist_number = layer["output_sample_shape"]
                 self.multi_hist_plotter[-1].link_attrs(
-                    self.forwards[i], ("input", "weights"))
+                    link_units[i], ("input", weights_input))
                 self.multi_hist_plotter[
                     - 1].gate_skip = ~self.decision.epoch_ended
 
@@ -643,6 +677,13 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = init_unit
         self.weights_plotter = []
         prev_channels = 3
+        if weights_input == "weights":
+            link_units = self.forwards
+        elif weights_input == "gradient_weights":
+            link_units = self.gds
+        else:
+            raise AttributeError(
+                "weights_input should be 'weights' or 'gradient_weights'")
         for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
@@ -651,7 +692,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 self, name="%s %s" % (i + 1, layer["type"]),
                 limit=limit)
             self.weights_plotter.append(plt_wd)
-            self.weights_plotter[-1].link_attrs(self.forwards[i],
+            self.weights_plotter[-1].link_attrs(link_units[i],
                                                 ("input", weights_input))
             if isinstance(self.loader, ImageLoader):
                 self.weights_plotter[-1].link_attrs(self.loader, "color_space")
@@ -671,7 +712,7 @@ class StandardWorkflow(StandardWorkflowBase):
             prev = self.weights_plotter[-1]
             self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
 
-    def link_similar_weights_plotter(self, init_unit, layers):
+    def link_similar_weights_plotter(self, init_unit, layers, weights_input):
         # not work without create weights_plotter, decision and forwards first
         self.check_decision()
         self.check_forwards()
@@ -679,6 +720,13 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = init_unit
         k = 0
         n = 0
+        if weights_input == "weights":
+            link_units = self.forwards
+        elif weights_input == "gradient_weights":
+            link_units = self.gds
+        else:
+            raise AttributeError(
+                "weights_input should be 'weights' or 'gradient_weights'")
         for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
@@ -689,8 +737,8 @@ class StandardWorkflow(StandardWorkflowBase):
                 self, name="%s %s [similar]" % (i + 1, layer["type"]),
                 **self.similar_weights_plotter_config.__content__)
             self.similar_weights_plotter.append(plt_mx)
-            self.similar_weights_plotter[-1].link_attrs(self.forwards[i],
-                                                        ("input", "weights"))
+            self.similar_weights_plotter[-1].link_attrs(
+                link_units[i], ("input", weights_input))
             if isinstance(self.loader, ImageLoader):
                 self.similar_weights_plotter[-1].link_attrs(
                     self.loader, "color_space")
@@ -713,7 +761,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.similar_weights_plotter[0].clear_plot = True
         self.similar_weights_plotter[-1].redraw_plot = True
 
-    def link_table_plotter(self, layers, init_unit):
+    def link_table_plotter(self, init_unit, layers):
         # not work without create decision and forwards first
         self.check_decision()
         self.check_forwards()

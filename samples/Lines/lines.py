@@ -10,232 +10,55 @@ configuration file.
 A workflow to test first layer in simple line detection.
 """
 
+
 from veles.config import root
-from veles.mutable import Bool
-import veles.plotting_units as plotting_units
-from veles.znicz import conv, all2all, evaluator, decision
-from veles.loader.fullbatch_image import FullBatchAutoLabelFileImageLoader
-import veles.znicz.image_saver as image_saver
-import veles.znicz.nn_plotting_units as nn_plotting_units
-from veles.znicz.nn_units import NNSnapshotter
-import veles.znicz.pooling as pooling
-from veles.znicz.standard_workflow import StandardWorkflowBase
+from veles.znicz.standard_workflow import StandardWorkflow
 
 
-class LinesWorkflow(StandardWorkflowBase):
+class LinesWorkflow(StandardWorkflow):
     """Workflow for Lines dataset.
     """
-    def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        kwargs["layers"] = layers
-        kwargs["name"] = kwargs.get("name", "Lines")
-        super(LinesWorkflow, self).__init__(workflow, **kwargs)
+    def create_workflow(self):
+        self.link_repeater(self.start_point)
 
-        self.repeater.link_from(self.start_point)
-        self.loader = FullBatchAutoLabelFileImageLoader(
-            self, **root.lines.loader.__content__)
+        self.link_loader(self.repeater)
 
-        self.loader.link_from(self.repeater)
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
 
-        self.parse_forwards_from_config(self.loader,
-                                        ("input", "minibatch_data"))
+        self.link_evaluator(self.forwards[-1])
 
-        # Add Image Saver unit
-        self.image_saver = image_saver.ImageSaver(
-            self, out_dirs=root.lines.image_saver.out_dirs)
-        self.image_saver.link_from(self.forwards[-1])
-        self.image_saver.link_attrs(self.forwards[-1], "output", "max_idx")
-        self.image_saver.link_attrs(
-            self.loader,
-            "color_space",
-            ("input", "minibatch_data"),
-            ("indices", "minibatch_indices"),
-            ("labels", "minibatch_labels"),
-            "minibatch_class", "minibatch_size")
+        self.link_decision(self.evaluator)
 
-        # EVALUATOR
-        self.evaluator = evaluator.EvaluatorSoftmax(self)
-        self.evaluator.link_from(self.image_saver)
-        self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
-        self.evaluator.link_attrs(self.loader,
-                                  ("batch_size", "minibatch_size"),
-                                  ("max_samples_per_epoch", "total_samples"),
-                                  ("labels", "minibatch_labels"))
+        self.link_snapshotter(self.decision)
 
-        # Add decision unit
-        self.decision = decision.DecisionGD(
-            self, fail_iterations=root.lines.decision.fail_iterations,
-            max_epochs=root.lines.decision.max_epochs)
-        self.decision.link_from(self.evaluator)
-        self.decision.link_attrs(self.loader,
-                                 "minibatch_class", "minibatch_size",
-                                 "last_minibatch", "class_lengths",
-                                 "epoch_ended", "epoch_number")
-        self.decision.link_attrs(
-            self.evaluator,
-            ("minibatch_n_err", "n_err"),
-            ("minibatch_confusion_matrix", "confusion_matrix"),
-            ("minibatch_max_err_y_sum", "max_err_output_sum"))
+        self.link_image_saver(self.snapshotter)
 
-        self.snapshotter = NNSnapshotter(
-            self, prefix=root.lines.snapshotter.prefix,
-            directory=root.common.snapshot_dir)
-        self.snapshotter.link_from(self.decision)
-        self.snapshotter.link_attrs(self.decision,
-                                    ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
+        self.link_gds(self.image_saver)
 
-        self.image_saver.gate_skip = ~self.decision.improved
-        self.image_saver.link_attrs(self.snapshotter,
-                                    ("this_save_time", "time"))
+        self.link_error_plotter(self.gds[0])
 
-        # BACKWARD LAYERS (GRADIENT DESCENT)
-        self.create_gd_units_by_config(self.snapshotter)
+        self.link_weights_plotter(
+            self.error_plotter[-1], layers=root.lines.layers,
+            limit=root.lines.weights_plotter.limit,
+            weights_input="gradient_weights")
 
-        # Weights plotter
-        self.plt_mx = []
-        prev_channels = 3
-        for i in range(0, len(layers)):
-            if (not isinstance(self.forwards[i], conv.Conv) and
-                    not isinstance(self.forwards[i], all2all.All2All)):
-                continue
-            plt_mx = nn_plotting_units.Weights2D(
-                self, name="%s %s" % (i + 1, layers[i]["type"]),
-                limit=root.lines.weights_plotter.limit)
-            self.plt_mx.append(plt_mx)
-            self.plt_mx[-1].link_attrs(self.forwards[i], ("input", "weights"))
-            self.plt_mx[-1].link_attrs(self.loader, "color_space")
-            self.plt_mx[-1].input_field = "mem"
-            if isinstance(self.forwards[i], conv.Conv):
-                self.plt_mx[-1].get_shape_from = (
-                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
-                prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_sample_shape") is not None and
-                    layers[i]["type"] != "softmax"):
-                self.plt_mx[-1].link_attrs(self.forwards[i],
-                                           ("get_shape_from", "input"))
-                self.plt_mx[-1].link_attrs(self.loader, "color_space")
-            self.plt_mx[-1].link_from(self.decision)
-            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+        self.link_multi_hist_plotter(
+            self.weights_plotter[-1], layers=root.lines.layers,
+            weights_input="gradient_weights")
 
-        # Weights plotter
-        self.plt_gd = []
-        prev_channels = 3
-        for i in range(0, len(layers)):
-            if (not isinstance(self.forwards[i], conv.Conv) and
-                    not isinstance(self.forwards[i], all2all.All2All)):
-                continue
-            plt_gd = nn_plotting_units.Weights2D(
-                self, name="%s gd %s" % (i + 1, layers[i]["type"]),
-                limit=root.lines.weights_plotter.limit)
-            self.plt_gd.append(plt_gd)
-            self.plt_gd[-1].link_attrs(self.gds[i],
-                                       ("input", "gradient_weights"))
-            self.plt_gd[-1].link_attrs(self.loader, "color_space")
-            self.plt_gd[-1].input_field = "mem"
-            if isinstance(self.forwards[i], conv.Conv):
-                self.plt_gd[-1].get_shape_from = (
-                    [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
-                prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_sample_shape") is not None and
-                    layers[i]["type"] != "softmax"):
-                self.plt_gd[-1].link_attrs(self.forwards[i],
-                                           ("get_shape_from", "input"))
-                self.plt_gd[-1].link_attrs(self.loader, "color_space")
-            self.plt_gd[-1].link_from(self.decision)
-            self.plt_gd[-1].gate_block = ~self.decision.epoch_ended
+        self.link_table_plotter(
+            self.multi_hist_plotter[-1], layers=root.lines.layers)
 
-        # Error plotter
-        self.plt = []
-        styles = ["r-", "b-", "k-"]
-        for i in range(1, 3):
-            self.plt.append(plotting_units.AccumulatingPlotter(
-                self, name="num errors", plot_style=styles[i]))
-            self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
-            self.plt[-1].input_field = i
-            self.plt[-1].link_from(self.decision
-                                   if len(self.plt) == 1 else self.plt[-2])
-            self.plt[-1].gate_block = (~self.decision.epoch_ended
-                                       if len(self.plt) == 1 else Bool(False))
-        self.plt[0].clear_plot = True
-        self.plt[-1].redraw_plot = True
-
-        # MultiHistogram plotter
-        self.plt_multi_hist = []
-        for i in range(0, len(layers)):
-            multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]),
-                limit=4)
-            self.plt_multi_hist.append(multi_hist)
-            if (layers[i].get("n_kernels") is not None and
-                    not isinstance(self.forwards[i], pooling.Pooling)):
-                self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist[i].link_attrs(self.forwards[i],
-                                                  ("input", "weights"))
-                end_epoch = ~self.decision.epoch_ended
-                self.plt_multi_hist[i].gate_block = end_epoch
-            if layers[i].get("output_sample_shape") is not None:
-                self.plt_multi_hist[i].link_from(self.decision)
-                self.plt_multi_hist[i].hist_number = \
-                    layers[i]["output_sample_shape"]
-                self.plt_multi_hist[i].link_attrs(self.forwards[i],
-                                                  ("input", "weights"))
-                self.plt_multi_hist[i].gate_block = ~self.decision.epoch_ended
-
-        # MultiHistogram plotter
-        self.plt_multi_hist_gd = []
-        for i in range(0, len(layers)):
-            multi_hist_gd = plotting_units.MultiHistogram(
-                self, name="GD %s %s" % (i + 1, layers[i]["type"]), limit=4)
-            self.plt_multi_hist_gd.append(multi_hist_gd)
-            if layers[i].get("n_kernels") is not None:
-                self.plt_multi_hist_gd[i].link_from(self.decision)
-                self.plt_multi_hist_gd[i].hist_number = layers[i]["n_kernels"]
-                self.plt_multi_hist_gd[i].link_attrs(
-                    self.gds[i], ("input", "gradient_weights"))
-                end_epoch = ~self.decision.epoch_ended
-                self.plt_multi_hist_gd[i].gate_block = end_epoch
-            if layers[i].get("output_sample_shape") is not None:
-                self.plt_multi_hist_gd[i].link_from(self.decision)
-                self.plt_multi_hist_gd[i].hist_number = layers[i][
-                    "output_sample_shape"]
-                self.plt_multi_hist_gd[i].link_attrs(
-                    self.gds[i], ("input", "gradient_weights"))
-                end_epoch = ~self.decision.epoch_ended
-                self.plt_multi_hist_gd[i].gate_block = end_epoch
-
-        # Table plotter
-        self.plt_tab = plotting_units.TableMaxMin(self, name="Max, Min")
-        del self.plt_tab.y[:]
-        del self.plt_tab.col_labels[:]
-        for i in range(0, len(layers)):
-            if (not isinstance(self.forwards[i], conv.Conv) and
-                    not isinstance(self.forwards[i], all2all.All2All)):
-                continue
-            obj = self.forwards[i].weights
-            name = "weights %s %s" % (i + 1, layers[i]["type"])
-            self.plt_tab.y.append(obj)
-            self.plt_tab.col_labels.append(name)
-            obj = self.gds[i].gradient_weights
-            name = "gd %s %s" % (i + 1, layers[i]["type"])
-            self.plt_tab.y.append(obj)
-            self.plt_tab.col_labels.append(name)
-            obj = self.forwards[i].output
-            name = "Y %s %s" % (i + 1, layers[i]["type"])
-            self.plt_tab.y.append(obj)
-            self.plt_tab.col_labels.append(name)
-        self.plt_tab.link_from(self.decision)
-        self.plt_tab.gate_block = ~self.decision.epoch_ended
-
-        # repeater and gate block
-        self.repeater.link_from(self.gds[0])
-        self.end_point.link_from(self.gds[0])
-        self.end_point.gate_block = ~self.decision.complete
-        self.loader.gate_block = self.decision.complete
+        self.link_end_point(self.table_plotter)
 
 
 def run(load, main):
-    load(LinesWorkflow, layers=root.lines.layers)
+    load(LinesWorkflow,
+         decision_config=root.lines.decision,
+         snapshotter_config=root.lines.snapshotter,
+         image_saver_config=root.lines.image_saver,
+         loader_config=root.lines.loader,
+         layers=root.lines.layers,
+         loader_name=root.lines.loader_name,
+         loss_function=root.lines.loss_function)
     main()

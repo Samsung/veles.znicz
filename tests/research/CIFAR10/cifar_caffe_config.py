@@ -24,7 +24,11 @@ train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
 validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
+# root.common.precision_type = "float"
+root.common.precision_level = 1
+
 root.cifar.update({
+    "loader_name": "cifar_loader",
     "decision": {"fail_iterations": 250, "max_epochs": 1000000000},
     "learning_rate_adjust": {"do": True},
     "snapshotter": {"prefix": "cifar_caffe", "interval": 1},

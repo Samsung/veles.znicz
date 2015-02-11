@@ -19,6 +19,8 @@ from veles.znicz.standard_workflow import StandardWorkflow
 class CifarLoader(PicklesImageFullBatchLoader):
     """Loads Cifar dataset.
     """
+    MAPPING = "cifar_loader"
+
     def __init__(self, workflow, **kwargs):
         kwargs["color_space"] = "RGB"
         kwargs["validation_pickles"] = [root.cifar.data_paths.validation]
@@ -42,10 +44,12 @@ class CifarWorkflow(StandardWorkflow):
     Model. It means that Model can change for any Model (Convolutional, Fully
     connected, different parameters) in configuration file.
     """
+    """
     def link_loader(self, init_unit):
         self.loader = CifarLoader(
             self, **root.cifar.loader.__dict__)
         self.loader.link_from(init_unit)
+    """
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
@@ -80,7 +84,7 @@ class CifarWorkflow(StandardWorkflow):
                 weights_input="weights")
 
             self.link_table_plotter(
-                root.cifar.layers, self.weights_plotter[-1])
+                self.weights_plotter[-1], root.cifar.layers)
 
             last = self.table_plotter
         else:
@@ -99,7 +103,9 @@ def run(load, main):
          decision_config=root.cifar.decision,
          snapshotter_config=root.cifar.snapshotter,
          image_saver_config=root.cifar.image_saver,
+         loader_config=root.cifar.loader,
          similar_weights_plotter_config=root.cifar.similar_weights_plotter,
          layers=root.cifar.layers,
+         loader_name=root.cifar.loader_name,
          loss_function=root.cifar.loss_function)
     main()

@@ -21,6 +21,7 @@ validation_dir = os.path.join(root.common.test_dataset_root,
                               "cifar/10/test_batch")
 
 root.cifar.update({
+    "loader_name": "cifar_loader",
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "learning_rate_adjust": {"do": False},
     "snapshotter": {"prefix": "cifar", "interval": 1},

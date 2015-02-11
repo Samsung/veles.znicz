@@ -24,7 +24,7 @@ class TestCifarAll2All(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
 
-    @timeout(300)
+    @timeout(1200)
     def test_cifar_all2all(self):
         logging.info("Will test cifar fully connected workflow")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -36,6 +36,7 @@ class TestCifarAll2All(unittest.TestCase):
                                       "cifar/10/test_batch")
         root.cifar.update({
             "decision": {"fail_iterations": 1000, "max_epochs": 2},
+            "loader_name": "cifar_loader",
             "learning_rate_adjust": {"do": False},
             "loss_function": "softmax",
             "add_plotters": True,
@@ -47,7 +48,7 @@ class TestCifarAll2All(unittest.TestCase):
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
             "loader": {"minibatch_size": 81, "on_device": True,
-                       "normalization_type": (-1, 1)},
+                       "normalization_type": "linear"},
             "accumulator": {"n_bars": 30},
             "weights_plotter": {"limit": 25},
             "layers": [{"type": "all2all", "output_sample_shape": 486,
@@ -67,6 +68,8 @@ class TestCifarAll2All(unittest.TestCase):
             image_saver_config=root.cifar.image_saver,
             layers=root.cifar.layers,
             loss_function=root.cifar.loss_function,
+            loader_name=root.cifar.loader_name,
+            loader_config=root.cifar.loader,
             device=self.device)
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2

@@ -9,19 +9,27 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import numpy
 import os
 
 from veles.config import root
 
-
+"""
 train = os.path.join(root.common.test_dataset_root,
                      "Lines/LINES_10_500_NOISY_min_valid/learning")
 valid = os.path.join(root.common.test_dataset_root,
                      "Lines/LINES_10_500_NOISY_min_valid/test")
+"""
+train = os.path.join(root.common.test_dataset_root,
+                     "Lines/lines_min/learn")
+valid = os.path.join(root.common.test_dataset_root,
+                     "Lines/lines_min/test")
 
 root.lines.update({
-    "accumulator": {"bars": 30, "squash": True},
-    "decision": {"fail_iterations": 100, "max_epochs": 1000000000},
+    "loader_name": "full_batch_auto_label_file_image",
+    "loss_function": "softmax",
+    "decision": {"fail_iterations": 100,
+                 "max_epochs": numpy.iinfo(numpy.uint32).max},
     "snapshotter": {"prefix": "lines"},
     "image_saver": {"out_dirs":
                     [os.path.join(root.common.cache_dir, "tmp/test"),
