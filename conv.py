@@ -234,11 +234,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self._local_size_bias = (block_size, 1, 1)
 
     def cuda_run(self):
-        self.input.unmap()
-        self.weights.unmap()
-        self.bias.unmap()
-        self.output.unmap()
-        self.unpack_data.unmap()
+        self.unmap_vectors(self.input, self.weights, self.bias, self.output,
+                           self.unpack_data)
         for i in range(0, self._batch_size, self.unpack_size):
             self._process_subblock(i, min(self._batch_size - i,
                                           self.unpack_size))

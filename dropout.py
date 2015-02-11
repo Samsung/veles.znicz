@@ -126,12 +126,10 @@ class DropoutForward(Forward, Dropout):
             self.output.mem[:] = self.input.mem
 
     def _gpu_run(self):
-        self.input.unmap()
-        self.output.unmap()
+        self.unmap_vectors(self.input, self.output)
         if self.forward_mode:
             return True
-        self.states.unmap()
-        self.mask.unmap()
+        self.unmap_vectors(self.states, self.mask)
         self._threshold_arg_[0] = ((1 << 64) - 1.0) * self.dropout_ratio
         self._pass_arg_[0] = 1.0 / (1.0 - self.dropout_ratio)
         self.set_arg(1, self._threshold_arg_)
@@ -201,9 +199,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
                        ravel(self.err_input.mem))
 
     def _gpu_run(self):
-        self.err_output.unmap()
-        self.err_input.unmap()
-        self.mask.unmap()
+        self.unmap_vectors(self.err_output, self.err_input, self.mask)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):

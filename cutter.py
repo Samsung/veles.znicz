@@ -107,8 +107,7 @@ class Cutter(nn_units.Forward, CutterBase):
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.output.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.output, self.input)
         self.device.queue_.copy_buffer_rect(
             self.input.devmem, self.output.devmem,
             self._src_origin, (0, 0, 0), self._region,
@@ -178,8 +177,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.err_output.unmap()
-        self.err_input.unmap()
+        self.unmap_vectors(self.err_output, self.err_input)
         self.execute_kernel([self.err_input.size], None)
         self.device.queue_.copy_buffer_rect(
             self.err_output.devmem, self.err_input.devmem,

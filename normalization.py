@@ -120,8 +120,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
         numpy.copyto(self.output.mem, self.input.mem / subsums)
 
     def _gpu_run(self):
-        self.output.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.input, self.output)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):
@@ -227,9 +226,7 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
             numpy.copyto(err_h[:, :, :, i], delta_h)
 
     def _gpu_run(self):
-        self.err_output.unmap()
-        self.input.unmap()
-        self.err_input.unmap()
+        self.unmap_vectors(self.err_output, self.input, self.err_input)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):

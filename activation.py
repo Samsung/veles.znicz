@@ -77,8 +77,7 @@ class ActivationForward(Forward, Activation):
         return inp, out
 
     def _gpu_run(self):
-        self.input.unmap()
-        self.output.unmap()
+        self.unmap_vectors(self.input, self.output)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):
@@ -110,7 +109,7 @@ class ActivationBackward(GradientDescentBase, Activation):
 
         if self.input:
             self.input.initialize(self.device)
-        self.init_vectors(self.output, self.err_output, self.err_input)
+        self.init_vectors(self.err_output, self.err_input)
 
     def _gpu_init(self):
         dtype = self.err_output.dtype
@@ -134,8 +133,7 @@ class ActivationBackward(GradientDescentBase, Activation):
         self._local_size = (block_size, 1, 1)
 
     def _set_activation_args(self):
-        self.set_args(self.input, self.output, self.err_output,
-                      self.err_input)
+        self.set_args(self.input, None, self.err_output, self.err_input)
 
     def cpu_prerun(self, is_raveled, io_usage):
         inp = None
@@ -166,8 +164,7 @@ class ActivationBackward(GradientDescentBase, Activation):
         return inp, out, err_input, err_output
 
     def _gpu_run(self):
-        self.err_output.unmap()
-        self.err_input.unmap()
+        self.unmap_vectors(self.err_input, self.err_output)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):
@@ -497,13 +494,18 @@ class BackwardTanhLog(ActivationBackward):
     kernel_name = "backward_tanhlog"
     MAPPING = {"activation_tanhlog"}
 
+    def __init__(self, workflow, **kwargs):
+        super(BackwardTanhLog, self).__init__(workflow, **kwargs)
+        self.demand("output")
+
     def initialize(self, device, **kwargs):
-        if (self.input is None or self.input.mem is None or
+        if (not self.input or
             (self.output is not None and
              eq_addr(self.input.mem, self.output.mem))):
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardTanhLog, self).initialize(device=device, **kwargs)
+        self.output.initialize(self.device)
 
     def cpu_run(self):
         inp, out, err_input, err_output = \
@@ -516,6 +518,9 @@ class BackwardTanhLog(ActivationBackward):
             else:
                 y = numpy.square(out[i]) * (-0.388484177) + 1.14381894
             err_input[i] = err_output[i] * y
+
+    def _set_activation_args(self):
+        self.set_args(self.input, self.output, self.err_output, self.err_input)
 
 
 @implementer(IOpenCLUnit)
@@ -548,9 +553,7 @@ class BackwardSinCos(ActivationBackward):
     MAPPING = {"activation_sincos"}
 
     def initialize(self, device, **kwargs):
-        if (self.input is None or self.input.mem is None or
-            (self.output is not None and
-             eq_addr(self.input.mem, self.output.mem))):
+        if not self.input:
             raise error.BadFormatError(
                 "input should be set and should not be equal to output")
         super(BackwardSinCos, self).initialize(device=device, **kwargs)

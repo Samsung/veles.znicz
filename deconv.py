@@ -210,9 +210,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             self.set_arg(3, self.hits)
 
     def ocl_run(self):
-        self.output.unmap()
-        self.input.unmap()
-        self.weights.unmap()
+        self.unmap_vectors(self.output, self.input, self.weights)
         self.execute_kernel([self.output.size], None, self.krn_clear_output_)
         if self.hits:
             self.hits.unmap()

@@ -163,8 +163,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
              time.time() - t_start))
 
     def _gpu_run(self):
-        self.output.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.input, self.output)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):

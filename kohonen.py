@@ -465,12 +465,8 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
 
     @iteration
     def ocl_run(self):
-        self.input.unmap()
-        self.weights.unmap()
-        self.winners.unmap()
-        self._distances.unmap()
-        self.argmins.unmap()
-        self._coords.unmap()
+        self.unmap_vectors(self.input, self.weights, self.winners,
+                           self._distances, self.argmins, self._coords)
 
         batch_size = self.input.mem.shape[0]
         self.execute_kernel(self._gs_distance, self._ls_distance,

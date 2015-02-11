@@ -119,8 +119,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
     def ocl_run(self):
         """Do gradient descent.
         """
-        self.err_input.unmap()  # we will update err_input
-        self.err_output.unmap()  # we will use err_output
+        self.unmap_vectors(self.err_input, self.err_output)
 
         # Clear err_h
         self.execute_kernel([self.err_input.size], None,
@@ -131,8 +130,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
             [self.current_batch_size * self.err_output.sample_size], None)
 
     def cuda_run(self):
-        self.err_input.unmap()
-        self.err_output.unmap()
+        self.unmap_vectors(self.err_input, self.err_output)
 
         # Clear err_input
         self.err_input.devmem.memset32_async()

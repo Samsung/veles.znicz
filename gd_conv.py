@@ -139,7 +139,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self.build_program(defines, "%s_%d_%d_%d_%dx%dx%d" % (
             self.__class__.__name__, self.input.shape[0],
-            self.input.sample_size, self.output.sample_size,
+            self.input.sample_size, self.err_output.sample_size,
             self.kx, self.ky, self.n_kernels),
             dtype=self._dtype)
 
@@ -287,10 +287,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         if not self.need_err_input:
             return
 
-        self.err_input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
-        self.unpack_data.unmap()
+        self.unmap_vectors(self.err_input, self.err_output, self.weights,
+                           self.unpack_data)
 
         self.err_input.devmem.memset32_async()
         for i in range(0, self._batch_size, self.unpack_size):
@@ -320,11 +318,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                             self._local_size_err_input, self.krn_err_input_)
 
     def cuda_weights_update(self):
-        self.err_output.unmap()
-        self.input.unmap()
-        self.gradient_weights.unmap()
-        self.weights.unmap()
-        self.accumulated_gradient_weights.unmap()
+        self.unmap_vectors(self.err_output, self.input, self.gradient_weights,
+                           self.weights, self.accumulated_gradient_weights)
 
         # Calculate weights gradient: err_output * input
         for i in range(0, self._batch_size, self.unpack_size):
@@ -506,10 +501,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         """
         if not self.need_err_input:
             return
-        self.err_input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
 
+        self.unmap_vectors(self.err_input, self.err_output, self.weights)
         # Clear the resulting matrix
         self.execute_kernel([self.err_input.mem.size], None,
                             self.krn_err_input_clear_)

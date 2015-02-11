@@ -131,10 +131,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self._local_size = (block_size, 1, 1)
 
     def _gpu_run(self):
-        for vec in (self.err_output, self.output, self.max_idx, self.labels,
-                    self.n_err, self.confusion_matrix,
-                    self.max_err_output_sum):
-            vec.unmap()
+        self.unmap_vectors(
+            self.err_output, self.output, self.max_idx, self.labels,
+            self.n_err, self.confusion_matrix, self.max_err_output_sum)
 
         self.krn_constants_i_[0] = self.batch_size
         self.set_arg(7, self.krn_constants_i_[0:1])
@@ -303,11 +302,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self._global_size_find_closest_ = lambda: (self.batch_size, 1, 1)
 
     def _gpu_run(self):
-        self.err_output.unmap()
-        self.output.unmap()
-        self.target.unmap()
-        self.metrics.unmap()
-        self.mse.unmap()
+        self.unmap_vectors(self.err_output, self.output, self.target,
+                           self.metrics, self.mse)
 
         batch_size = self.batch_size
         self.krn_constants_i_[0] = batch_size
@@ -319,9 +315,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.execute_kernel(self._global_size, self._local_size)
 
         if self.labels is not None and self.class_targets is not None:
-            self.class_targets.unmap()
-            self.labels.unmap()
-            self.n_err.unmap()
+            self.unmap_vectors(self.class_targets, self.labels, self.n_err)
             self.execute_kernel(self._global_size_find_closest_(), None,
                                 self.krn_find_closest_)
 

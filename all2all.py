@@ -264,10 +264,7 @@ class All2All(nn_units.NNLayerBase):
         return super(All2All, self).ocl_run()
 
     def cuda_run(self):
-        self.output.unmap()
-        self.input.unmap()
-        self.weights.unmap()
-        self.bias.unmap()
+        self.unmap_vectors(self.output, self.input, self.weights, self.bias)
 
         self.gemm_(
             self.device.blas, self._transA, self._transB,
@@ -419,15 +416,13 @@ class All2AllSoftmax(All2All):
             sample /= smm
 
     def ocl_apply_exp(self):
-        self.output.unmap()
-        self.max_idx.unmap()
-        global_size = [self.output.shape[0] * self.reduce_size]
-        local_size = [self.reduce_size]
+        self.unmap_vectors(self.output, self.max_idx)
+        global_size = (self.output.shape[0] * self.reduce_size,)
+        local_size = (self.reduce_size,)
         self.execute_kernel(global_size, local_size, self.krn_sm_)
 
     def cuda_apply_exp(self):
-        self.output.unmap()
-        self.max_idx.unmap()
+        self.unmap_vectors(self.output, self.max_idx)
         global_size = (self.output.shape[0], 1, 1)
         local_size = (self.reduce_size, 1, 1)
         self.execute_kernel(global_size, local_size, self.krn_sm_)

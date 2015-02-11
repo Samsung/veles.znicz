@@ -235,9 +235,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
     def gpu_err_input_update(self):
         if not self.need_err_input:
             return
-        self.err_input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
+        self.unmap_vectors(self.err_input, self.err_output, self.weights)
 
         self.execute_kernel(
             self._global_size_err_input, self._local_size_err_input,

@@ -49,8 +49,7 @@ class ChannelSplitter(Forward):
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.output.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.output, self.input)
         self.execute_kernel(self._global_size, None)
 
 
@@ -95,6 +94,5 @@ class ChannelMerger(Forward):
         self.output.mem[:] = self.input.mem.swapaxes(1, 2).swapaxes(2, 3)[:]
 
     def ocl_run(self):
-        self.output.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.output, self.input)
         self.execute_kernel(self._global_size, None)

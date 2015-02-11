@@ -174,10 +174,7 @@ class NNLayerBase(Forward):
     def ocl_run(self):
         """Forward propagation from batch on GPU.
         """
-        self.output.unmap()
-        self.input.unmap()
-        self.weights.unmap()
-        self.bias.unmap()
+        self.unmap_vectors(self.output, self.input, self.weights, self.bias)
         self.execute_kernel(self._global_size, self._local_size)
 
 
@@ -421,12 +418,10 @@ class GradientDescentBase(AcceleratedUnit):
         self.ocl_set_const_args = True
 
     def gpu_weights_update(self):
-        self.input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
-        self.gradient_weights.unmap()
-        self.accumulated_gradient_weights.unmap()
-        self.gradient_weights_with_moment.unmap()
+        self.unmap_vectors(
+            self.input, self.err_output, self.weights,
+            self.gradient_weights, self.accumulated_gradient_weights,
+            self.gradient_weights_with_moment)
 
         if self.factor_ortho:
             self.col_sums.unmap()
@@ -454,11 +449,9 @@ class GradientDescentBase(AcceleratedUnit):
         if not self.include_bias:
             return
 
-        self.err_output.unmap()
-        self.bias.unmap()
-        self.gradient_bias.unmap()
-        self.accumulated_gradient_bias.unmap()
-        self.gradient_bias_with_moment.unmap()
+        self.unmap_vectors(
+            self.err_output, self.bias, self.gradient_bias,
+            self.accumulated_gradient_bias, self.gradient_bias_with_moment)
 
         if self.ocl_set_const_args:  # need own constants for weights and bias
             self.cl_const[5] = self.learning_rate_bias

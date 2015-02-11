@@ -181,8 +181,7 @@ class TestKohonen(unittest.TestCase):
         c.weights.mem[:] = self.weights
         c.winners.map_invalidate()
         c.winners.mem[:] = 0
-        c.weights.unmap()
-        c.winners.unmap()
+        c.unmap_vectors(c.weights, c.winners)
         c.time = 0
 
         c.ocl_run()

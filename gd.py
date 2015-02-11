@@ -98,7 +98,7 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         self.build_program(defines, "%s_%d_%d_%d" % (
             self.__class__.__name__, self.input.shape[0],
-            self.input.sample_size, self.output.sample_size),
+            self.input.sample_size, self.err_output.sample_size),
             dtype=dtype)
 
         self.krn_weights_ = self.get_kernel("weights_update")
@@ -302,9 +302,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         """
         if not self.need_err_input:
             return
-        self.err_input.unmap()
-        self.err_output.unmap()
-        self.weights.unmap()
+        self.unmap_vectors(self.err_input, self.err_output, self.weights)
         self.execute_kernel(
             self._global_size_err_input, self._local_size_err_input,
             self.krn_err_input_)
@@ -346,9 +344,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         if not self.need_err_input:
             return
 
-        self.err_output.unmap()
-        self.weights.unmap()
-        self.err_input.unmap()
+        self.unmap_vectors(self.err_output, self.weights, self.err_input)
 
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T
@@ -360,9 +356,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.np_zero, self.err_input.devmem)
 
     def cuda_weights_update(self):
-        self.err_output.unmap()
-        self.gradient_weights.unmap()
-        self.input.unmap()
+        self.unmap_vectors(self.err_output, self.gradient_weights, self.input)
 
         if self.weights_transposed:
             self.gemm_(

@@ -92,18 +92,12 @@ class Depooling(nn_units.Forward):
     def ocl_run(self):
         """Do gradient descent.
         """
-        self.input.unmap()
-        self.output_offset.unmap()
-        self.output.unmap()
-
+        self.unmap_vectors(self.input, self.output_offset, self.output)
         self.execute_kernel([self.output.size], None, self.krn_output_clear_)
         self.execute_kernel([self.input.size], None)
 
     def cuda_run(self):
-        self.input.unmap()
-        self.output_offset.unmap()
-        self.output.unmap()
-
+        self.unmap_vectors(self.input, self.output_offset, self.output)
         self.output.devmem.memset32_async()
         self.execute_kernel(self._global_size, self._local_size)
 
