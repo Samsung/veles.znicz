@@ -18,7 +18,7 @@ __plugins__.add(modules[__name__])
 
 root.common.engine.dirs.append("/usr/share/veles/znicz")
 try:
-    from .siteconfig import update
+    from .site_config import update
     update(root)
     del update
 except ImportError:

@@ -159,8 +159,8 @@ class KanjiWorkflow(StandardWorkflow):
                 self.error_plotter[-1], layers=root.kanji.layers,
                 limit=root.kanji.weights_plotter.limit,
                 weights_input="weights")
-            self.link_max_plotter(self.weights_plotter[-1])
-            self.link_min_plotter(self.max_plotter[-1])
+            self.link_min_max_plotter(self.weights_plotter[-1], is_min=False)
+            self.link_min_max_plotter(self.max_plotter[-1], is_min=True)
             self.link_mse_plotter(self.min_plotter[-1])
             last = self.mse_plotter[-1]
         else:

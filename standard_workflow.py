@@ -201,8 +201,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
         del self.forwards[:]
-        for i in range(len(self.layers)):
-            layer = self.layers[i]
+        for i, layer in enumerate(self.layers):
             tpe, kwargs = self._get_layer_type_kwargs(layer)
             try:
                 unit = self.layer_map[tpe].forward(self, **kwargs)
@@ -237,8 +236,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             raise error.BadFormatError("layers should be a list of dicts")
         del self.gds[:]
         self.gds.extend(None for _ in self.layers)
-        for i in range(len(self.layers) - 1, -1, -1):
-            layer = self.layers[i]
+        for i, layer in reversed(list(enumerate(self.layers))):
             tpe, kwargs = self._get_layer_type_kwargs(layer)
 
             # Check corresponding forward unit type
@@ -556,7 +554,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.error_plotter = []
         prev = init_unit
         styles = ["r-", "b-", "k-"]
-        for i in range(1, 3):
+        for i in 1, 2:
             self.error_plotter.append(plotting_units.AccumulatingPlotter(
                 self, name="num errors", plot_style=styles[i]))
             self.error_plotter[-1].link_attrs(self.decision,
@@ -589,7 +587,7 @@ class StandardWorkflow(StandardWorkflowBase):
         styles = ["r-", "b-", "k-"]
         self.err_y_plotter = []
         prev = init_unit
-        for i in range(1, 3):
+        for i in 1, 2:
             self.err_y_plotter.append(plotting_units.AccumulatingPlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
@@ -608,24 +606,24 @@ class StandardWorkflow(StandardWorkflowBase):
         self.check_forwards()
         self.multi_hist_plotter = []
         prev = init_unit
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             multi_hist = plotting_units.MultiHistogram(
-                self, name="Histogram %s %s" % (i + 1, layers[i]["type"]))
+                self, name="Histogram %s %s" % (i + 1, layer["type"]))
             self.multi_hist_plotter.append(multi_hist)
-            if layers[i].get("n_kernels") is not None:
+            if layer.get("n_kernels") is not None:
                 self.multi_hist_plotter[-1].link_from(prev)
                 prev = self.multi_hist_plotter[-1]
                 self.multi_hist_plotter[
-                    - 1].hist_number = layers[i]["n_kernels"]
+                    - 1].hist_number = layer["n_kernels"]
                 self.multi_hist_plotter[-1].link_attrs(
                     self.forwards[i], ("input", "weights"))
                 end_epoch = ~self.decision.epoch_ended
                 self.multi_hist_plotter[-1].gate_skip = end_epoch
-            if layers[i].get("output_sample_shape") is not None:
+            if layer.get("output_sample_shape") is not None:
                 self.multi_hist_plotter[-1].link_from(prev)
                 prev = self.multi_hist_plotter[-1]
                 self.multi_hist_plotter[
-                    - 1].hist_number = layers[i]["output_sample_shape"]
+                    - 1].hist_number = layer["output_sample_shape"]
                 self.multi_hist_plotter[-1].link_attrs(
                     self.forwards[i], ("input", "weights"))
                 self.multi_hist_plotter[
@@ -639,12 +637,12 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = init_unit
         self.weights_plotter = []
         prev_channels = 3
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_wd = nn_plotting_units.Weights2D(
-                self, name="%s %s" % (i + 1, layers[i]["type"]),
+                self, name="%s %s" % (i + 1, layer["type"]),
                 limit=limit)
             self.weights_plotter.append(plt_wd)
             self.weights_plotter[-1].link_attrs(self.forwards[i],
@@ -656,8 +654,8 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.weights_plotter[-1].get_shape_from = (
                     [self.forwards[i].kx, self.forwards[i].ky, prev_channels])
                 prev_channels = self.forwards[i].n_kernels
-            if (layers[i].get("output_sample_shape") is not None and
-                    layers[i]["type"] != "softmax"):
+            if (layer.get("output_sample_shape") is not None and
+                    layer["type"] != "softmax"):
                 self.weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))
                 if isinstance(self.loader, ImageLoader):
@@ -675,14 +673,14 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = init_unit
         k = 0
         n = 0
-        for i in range(len(layers)):
+        for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 k += 1
                 n = i - k
                 continue
             plt_mx = diversity.SimilarWeights2D(
-                self, name="%s %s [similar]" % (i + 1, layers[i]["type"]),
+                self, name="%s %s [similar]" % (i + 1, layer["type"]),
                 **self.similar_weights_plotter_config.__content__)
             self.similar_weights_plotter.append(plt_mx)
             self.similar_weights_plotter[-1].link_attrs(self.forwards[i],
@@ -695,8 +693,8 @@ class StandardWorkflow(StandardWorkflowBase):
             if n != 0:
                 self.similar_weights_plotter[
                     - 1].get_shape_from = wd_plt[n].get_shape_from
-            if (layers[i].get("output_sample_shape") is not None and
-                    layers[i]["type"] != "softmax"):
+            if (layer.get("output_sample_shape") is not None and
+                    layer["type"] != "softmax"):
                 self.similar_weights_plotter[-1].link_attrs(
                     self.forwards[i], ("get_shape_from", "input"))
                 if isinstance(self.loader, ImageLoader):
@@ -716,20 +714,20 @@ class StandardWorkflow(StandardWorkflowBase):
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
         del self.table_plotter.col_labels[:]
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             obj = self.forwards[i].weights
-            name = "weights %s %s" % (i + 1, layers[i]["type"])
+            name = "weights %s %s" % (i + 1, layer["type"])
             self.table_plotter.y.append(obj)
             self.table_plotter.col_labels.append(name)
             obj = self.gds[i].gradient_weights
-            name = "gd %s %s" % (i + 1, layers[i]["type"])
+            name = "gd %s %s" % (i + 1, layer["type"])
             self.table_plotter.y.append(obj)
             self.table_plotter.col_labels.append(name)
             obj = self.forwards[i].output
-            name = "Y %s %s" % (i + 1, layers[i]["type"])
+            name = "Y %s %s" % (i + 1, layer["type"])
             self.table_plotter.y.append(obj)
             self.table_plotter.col_labels.append(name)
         self.table_plotter.link_from(init_unit)
@@ -741,11 +739,11 @@ class StandardWorkflow(StandardWorkflowBase):
         prev = init_unit
         self.mse_plotter = []
         styles = ["", "", "k-"]
-        for i in range(len(styles)):
-            if not len(styles[i]):
+        for i, style in enumerate(styles):
+            if len(style) == 0:
                 continue
             self.mse_plotter.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
+                self, name="mse", plot_style=style))
             self.mse_plotter[-1].link_attrs(
                 self.decision, ("input", "epoch_metrics"))
             self.mse_plotter[-1].input_field = i
@@ -754,44 +752,32 @@ class StandardWorkflow(StandardWorkflowBase):
             self.mse_plotter[-1].gate_skip = ~self.decision.epoch_ended
         self.mse_plotter[0].clear_plot = True
 
-    def link_max_plotter(self, init_unit):
-        # not work without create decision first
+    def link_min_max_plotter(self, init_unit, is_min):
+        """
+        :param is_min: True if linking min plotter, otherwise, False for max.
+        :return: None.
+        """
+        # Requires Decision unit to be linked first.
         self.check_decision()
         prev = init_unit
-        self.max_plotter = []
-        styles = ["", "", "k--"]
-        for i in range(len(styles)):
-            if not len(styles[i]):
+        if is_min:
+            plotter = self.min_plotter = []
+        else:
+            plotter = self.max_plotter = []
+        styles = ["", "", "k:" if is_min else "k--"]
+        for i, style in enumerate(styles):
+            if len(style) == 0:
                 continue
-            self.max_plotter.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
-            self.max_plotter[-1].link_attrs(
+            plotter.append(plotting_units.AccumulatingPlotter(
+                self, name="mse", plot_style=style))
+            plotter[-1].link_attrs(
                 self.decision, ("input", "epoch_metrics"))
-            self.max_plotter[-1].input_field = i
-            self.max_plotter[-1].input_offset = 1
-            self.max_plotter[-1].link_from(prev)
-            prev = self.max_plotter[-1]
-            self.max_plotter[-1].gate_skip = ~self.decision.epoch_ended
-
-    def link_min_plotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
-        prev = init_unit
-        self.min_plotter = []
-        styles = ["", "", "k:"]  # ["r:", "b:", "k:"]
-        for i in range(len(styles)):
-            if not len(styles[i]):
-                continue
-            self.min_plotter.append(plotting_units.AccumulatingPlotter(
-                self, name="mse", plot_style=styles[i]))
-            self.min_plotter[-1].link_attrs(
-                self.decision, ("input", "epoch_metrics"))
-            self.min_plotter[-1].input_field = i
-            self.min_plotter[-1].input_offset = 2
-            self.min_plotter[-1].link_from(prev)
-            prev = self.min_plotter[-1]
-            self.min_plotter[-1].gate_skip = ~self.decision.epoch_ended
-        self.min_plotter[-1].redraw_plot = True
+            plotter[-1].input_field = i
+            plotter[-1].input_offset = 2 if is_min else 1
+            plotter[-1].link_from(prev)
+            prev = plotter[-1]
+            plotter[-1].gate_skip = ~self.decision.epoch_ended
+        plotter[-1].redraw_plot = True
 
     def link_image_plotter(self, init_unit):
         # not work without create decision and forwards first
