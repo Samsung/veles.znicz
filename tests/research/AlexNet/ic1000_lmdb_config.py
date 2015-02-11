@@ -15,7 +15,7 @@ root.common.precision_level = 0
 base_lr = 0.01
 wd = 0.0005
 
-data_path = "/data/veles/datasets/imagenet/temp/LMDB_old"
+data_path = os.path.join(root.common.test_dataset_root, "AlexNet/LMDB")
 
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
@@ -26,10 +26,9 @@ root.imagenet.update({
     "loader_name": "lmdb",
     "loader": {"minibatch_size": 256, "on_device": False,
                "shuffle_limit": 1, "crop": (227, 227), "mirror": True,
-               "color_space": "HSV", "normalization_type": "pointwise",
+               "color_space": "HSV", "normalization_type": "external_mean",
                "train_path": os.path.join(data_path, "ilsvrc12_train_lmdb"),
                "validation_path": os.path.join(data_path, "ilsvrc12_val_lmdb"),
-               "mean_rdisp_path": "data_mean_rdisp_path.npz"
                },
 
     "weights_plotter": {"limit": 64},
@@ -103,3 +102,7 @@ root.imagenet.update({
                 "learning_rate": base_lr, "learning_rate_bias": base_lr * 2,
                 "weights_decay": wd, "weights_decay_bias": 0,
                 "gradient_moment": 0.9, "gradient_moment_bias": 0.9}]})
+
+root.imagenet.loader.normalization_parameters = {
+    "mean_source":
+    os.path.join(root.common.test_dataset_root, "AlexNet/mean_image_227.JPEG")}
