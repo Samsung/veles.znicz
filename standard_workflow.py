@@ -117,6 +117,7 @@ class GradientUnitFactory(object):
             fwd.workflow, name=name, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
             padding=fwd.padding, n_kernels=fwd.n_kernels, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
+        grad_unit.link_conv_attrs(fwd)
         return grad_unit
 
     @staticmethod
