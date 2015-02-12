@@ -12,6 +12,7 @@ import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 import unittest
 
+from veles.dummy import DummyUnit
 from veles.memory import Vector
 import veles.znicz.all2all as all2all
 import veles.znicz.conv as conv
@@ -162,14 +163,7 @@ class TestConvCaffe(standard_test.StandardTest):
         logging.info("CONV: diff with CAFFE: %.2f%%" % (100. * np.sum(np.abs(
             delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
 
-        back_conv = gd_conv.GradientDescentConv(self.workflow, kx=kernel_size,
-                                                padding=(padding_size,
-                                                         padding_size,
-                                                         padding_size,
-                                                         padding_size),
-                                                ky=kernel_size, sliding=(1, 1),
-                                                n_kernels=n_kernels,
-                                                device=self.device)
+        back_conv = gd_conv.GradientDescentConv(self.workflow)
 
         back_conv.input = Vector(bottom)
 
@@ -184,7 +178,9 @@ class TestConvCaffe(standard_test.StandardTest):
 
         back_conv.batch_size = 2
 
-        back_conv.initialize(device=self.device)
+        back_conv.link_conv_attrs(fwd_conv)
+
+        back_conv.initialize(self.device)
 
         back_conv.run()
 
@@ -238,8 +234,8 @@ class TestConvCaffe(standard_test.StandardTest):
 
         bottom = self._read_array("bottom", lines=lines,
                                   shape=(2, in_height, in_width, 2))
-        top = self._read_array("top", lines=lines,
-                               shape=(2, out_height, out_width, 2))
+        # top = self._read_array("top", lines=lines,
+        #                        shape=(2, out_height, out_width, 2))
 
         # do pooling with VELES
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
@@ -622,12 +618,6 @@ class TestConvCaffe(standard_test.StandardTest):
 
         # Testing back prop
         back_conv_relu = gd_conv.GDStrictRELUConv(self.workflow,
-                                                  kx=kernel_size,
-                                                  ky=kernel_size,
-                                                  padding=(padding, padding,
-                                                           padding, padding),
-                                                  sliding=(1, 1),
-                                                  n_kernels=n_kernels,
                                                   device=self.device,
                                                   learning_rate=1,
                                                   weights_decay=0,
@@ -640,6 +630,14 @@ class TestConvCaffe(standard_test.StandardTest):
         back_conv_relu.bias = Vector(np.zeros(shape=n_kernels))
 
         back_conv_relu.output = Vector(relu_top)
+
+        dummy = DummyUnit()
+        dummy.kx = kernel_size
+        dummy.ky = kernel_size
+        dummy.n_kernels = n_kernels
+        dummy.padding = (padding, padding, padding, padding)
+        dummy.sliding = (1, 1)
+        back_conv_relu.link_conv_attrs(dummy)
 
         back_conv_relu.initialize(device=self.device)
 
