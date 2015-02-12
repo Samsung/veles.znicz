@@ -99,6 +99,10 @@ class ActivationBackward(GradientDescentBase, Activation):
     """
     MAPPING = set()
 
+    def __init__(self, workflow, **kwargs):
+        super(ActivationBackward, self).__init__(workflow, **kwargs)
+        self.demand("output")
+
     def initialize(self, device, **kwargs):
         super(ActivationBackward, self).initialize(device=device, **kwargs)
 
@@ -133,7 +137,7 @@ class ActivationBackward(GradientDescentBase, Activation):
         self._local_size = (block_size, 1, 1)
 
     def _set_activation_args(self):
-        self.set_args(self.input, None, self.err_output, self.err_input)
+        self.set_args(self.input, self.output, self.err_output, self.err_input)
 
     def cpu_prerun(self, is_raveled, io_usage):
         inp = None
@@ -164,7 +168,7 @@ class ActivationBackward(GradientDescentBase, Activation):
         return inp, out, err_input, err_output
 
     def _gpu_run(self):
-        self.unmap_vectors(self.err_input, self.err_output)
+        self.unmap_vectors(self.output, self.err_input, self.err_output)
         self.execute_kernel(self._global_size, self._local_size)
 
     def ocl_run(self):

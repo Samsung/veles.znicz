@@ -123,11 +123,6 @@ class GradientDescent(nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
-        if self.krn_err_output_name:
-            self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
-            self.krn_err_output_.set_args(self.err_output.devmem,
-                                          self.output.devmem)
-
     def ocl_init(self):
         dtype = self.err_output.dtype
         block_size = self.device.device_info.get_block_size(
@@ -386,7 +381,7 @@ class GDSoftmax(GradientDescent):
     MAPPING = {"softmax"}
 
 
-class GDTanh(GradientDescent):
+class GDTanh(nn_units.GradientDescentWithActivation, GradientDescent):
     """Gradient Descent for
 
     :math:`f(x) = 1.7159 \\tanh(0.6666  s), s = (W  x + b)`,
@@ -419,7 +414,7 @@ class GDTanh(GradientDescent):
         super(GDTanh, self).initialize(device=device, **kwargs)
 
 
-class GDRELU(GradientDescent):
+class GDRELU(nn_units.GradientDescentWithActivation, GradientDescent):
     """
     Gradient Descent for :math:`f(x) = \\log(1 + \\exp(s))`
 
@@ -448,7 +443,7 @@ class GDRELU(GradientDescent):
         super(GDRELU, self).initialize(device=device, **kwargs)
 
 
-class GDStrictRELU(GradientDescent):
+class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
     """Gradient Descent for strict ReLU (like in CAFFE)
 
     :math:`f(x) = \\max(x, 0)`

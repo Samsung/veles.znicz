@@ -178,6 +178,32 @@ class NNLayerBase(Forward):
         self.execute_kernel(self._global_size, self._local_size)
 
 
+class GradientDescentWithActivation(AcceleratedUnit):
+    def __init__(self, workflow, **kwargs):
+        super(GradientDescentWithActivation, self).__init__(workflow, **kwargs)
+        self.krn_err_output_name = None
+        self.demand("output")
+
+    def initialize(self, device, **kwargs):
+        assert (type(self.krn_err_output_name) == str and
+                len(self.krn_err_output_name))
+        assert self.err_output.shape == self.output.shape
+        super(GradientDescentWithActivation, self).initialize(device, **kwargs)
+        self.output.initialize(device)
+
+    def ocl_init(self):
+        super(GradientDescentWithActivation, self).ocl_init()
+        self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
+
+    def cuda_init(self):
+        super(GradientDescentWithActivation, self).cuda_init()
+        self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
+        self.krn_err_output_.set_args(self.err_output.devmem,
+                                      self.output.devmem)
+
+
 @implementer(IDistributable)
 @six.add_metaclass(MatchingObject)
 class GradientDescentBase(AcceleratedUnit):
@@ -276,6 +302,9 @@ class GradientDescentBase(AcceleratedUnit):
     def initialize(self, device, **kwargs):
         super(GradientDescentBase, self).initialize(device, **kwargs)
 
+        if self.weights:
+            assert len(self.weights.shape) == 2
+
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
         self.gradient_moment = kwargs.get("gradient_moment",
@@ -287,15 +316,20 @@ class GradientDescentBase(AcceleratedUnit):
         self.gradient_moment_bias = kwargs.get("gradient_moment_bias",
                                                self.gradient_moment_bias)
 
-        if (self.weights and (
-                not self.gradient_weights or
-                self.gradient_weights.size != self.weights.size)):
-            self.gradient_weights.reset(numpy.zeros_like(self.weights.mem))
-        if (self.weights and self.accumulate_gradient != self.OP_NONE and (
-                not self.accumulated_gradient_weights or
-                self.accumulated_gradient_weights.size != self.weights.size)):
-            self.accumulated_gradient_weights.reset(numpy.zeros_like(
-                self.weights.mem))
+        if self.weights:
+            if not self.gradient_weights:
+                self.gradient_weights.reset(numpy.zeros_like(self.weights.mem))
+            else:
+                assert self.gradient_weights.size == self.weights.size
+
+        if self.weights and self.accumulate_gradient != self.OP_NONE:
+            if not self.accumulated_gradient_weights:
+                self.accumulated_gradient_weights.reset(
+                    numpy.zeros_like(self.weights.mem))
+            else:
+                assert (self.accumulated_gradient_weights.size ==
+                        self.weights.size)
+
         if self.weights and self.gradient_moment:
             if not self.gradient_weights_with_moment:
                 self.gradient_weights_with_moment.reset(
@@ -331,8 +365,10 @@ class GradientDescentBase(AcceleratedUnit):
             side = self.weights.shape[int(self.weights_transposed)]
             other = self.weights.size // side
             if self.factor_ortho:
-                if not self.col_sums or self.col_sums.size < other:
+                if not self.col_sums:
                     self.col_sums.reset(numpy.zeros(other, dtype=dtype))
+                else:
+                    assert self.col_sums.size == other
                 self.col_sums.initialize(self.device)
             self.reduce_size = roundup(min(self.reduce_size, other), 32)
             self.weights.initialize(self.device)
@@ -341,7 +377,8 @@ class GradientDescentBase(AcceleratedUnit):
             if vec:
                 vec.initialize(self.device)
         self.init_vectors(
-            self.err_output, self.gradient_weights, self.gradient_bias,
+            self.err_output,
+            self.gradient_weights, self.gradient_bias,
             self.accumulated_gradient_weights, self.accumulated_gradient_bias,
             self.gradient_weights_with_moment, self.gradient_bias_with_moment)
 

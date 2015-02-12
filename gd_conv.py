@@ -165,11 +165,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                 self.col_sums.devmem)
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
-        if self.krn_err_output_name:
-            self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
-            self.krn_err_output_.set_args(self.err_output.devmem,
-                                          self.output.devmem)
-
     def ocl_init(self):
         a_width = self._kernel_applies_count
         b_width = self._kernel_size
@@ -296,8 +291,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                     self.unpack_size))
 
     def _process_err_input_subblock(self, start_image, image_count):
-        output_offs = (start_image * self.output.sample_size *
-                       self.output.itemsize)
+        output_offs = (start_image * self.err_output.sample_size *
+                       self.err_output.itemsize)
         unpack_side = self._kernel_app * image_count
 
         self.gemm_(
@@ -340,8 +335,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._kernel_.set_arg(2, self._const_i[1:2])
         self.execute_kernel(self._global_size_unpack(limit),
                             self._local_size_unpack)
-        output_offs = (start_image * self.output.sample_size *
-                       self.output.itemsize)
+        output_offs = (start_image * self.err_output.sample_size *
+                       self.err_output.itemsize)
 
         # Accumulate gradient
         if self.weights_transposed:
@@ -583,7 +578,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.print_debug_data(t1)
 
 
-class GDTanhConv(GradientDescentConv):
+class GDTanhConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
     """Gradient Descent for f(x) = 1.7159 * tanh(0.6666 * s), s = (W * x + b),
        y = a * tanh(b * s).
 
@@ -613,7 +608,7 @@ class GDTanhConv(GradientDescentConv):
         super(GDTanhConv, self).initialize(device=device, **kwargs)
 
 
-class GDRELUConv(GradientDescentConv):
+class GDRELUConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
     """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
        y = log(1.0 + exp(s)).
 
@@ -638,7 +633,8 @@ class GDRELUConv(GradientDescentConv):
         super(GDRELUConv, self).initialize(device=device, **kwargs)
 
 
-class GDStrictRELUConv(GradientDescentConv):
+class GDStrictRELUConv(nn_units.GradientDescentWithActivation,
+                       GradientDescentConv):
     """Gradient Descent for strict ReLU (like in CAFFE)
 
     :math:`f(x) = \\max(x, 0)`

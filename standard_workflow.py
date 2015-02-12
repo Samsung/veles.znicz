@@ -273,7 +273,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
             try_link_attrs = ("input", "weights", "bias", "input_offset",
-                              "mask")
+                              "mask", "output")
             if isinstance(unit, ConvolutionalBase):
                 try_link_attrs += ConvolutionalBase.CONV_ATTRS
             for attr in try_link_attrs:
