@@ -55,13 +55,16 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
     def __init__(self, workflow, **kwargs):
         super(GDPooling, self).__init__(workflow, **kwargs)
         self.kernel_name = None
-        self.demand("input", "err_output")
+        self.demand("input", "err_output", *self.POOL_ATTRS)
 
     def init_unpickled(self):
         super(GDPooling, self).init_unpickled()
         self.sources_["gradient_descent_pooling"] = {}
         self.krn_err_input_ = None
         self.krn_err_input_clear_ = None
+
+    def link_pool_attrs(self, other):
+        self.link_attrs(other, *self.POOL_ATTRS)
 
     def initialize(self, device, **kwargs):
         self.create_output()

@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import six
 from veles.znicz.conv import ConvolutionalBase
+from veles.znicz.gd_pooling import GDPooling
 
 if six.PY3:
     from collections import UserDict
@@ -273,10 +274,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
-            try_link_attrs = ("input", "weights", "bias", "input_offset",
-                              "mask", "output")
+            try_link_attrs = set("input", "weights", "bias", "input_offset",
+                                 "mask", "output")
             if isinstance(unit, ConvolutionalBase):
-                try_link_attrs += ConvolutionalBase.CONV_ATTRS
+                try_link_attrs.update(ConvolutionalBase.CONV_ATTRS)
+            if isinstance(unit, GDPooling):
+                try_link_attrs.update(GDPooling.POOL_ATTRS)
             for attr in try_link_attrs:
                 if hasattr(self.forwards[i], attr):
                     attrs.append(attr)

@@ -32,10 +32,10 @@ from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 class Workflow(AcceleratedWorkflow):
     def __init__(self, workflow, **kwargs):
-        ConvForward = kwargs["ConvForward"]
-        ConvGD = kwargs["ConvGD"]
         super(Workflow, self).__init__(workflow, **kwargs)
 
+        ConvForward = kwargs["ConvForward"]
+        ConvGD = kwargs["ConvGD"]
         dtype = opencl_types.dtypes[root.common.precision_type]
         self.batch_size = 2
 
@@ -129,9 +129,8 @@ class Workflow(AcceleratedWorkflow):
         prev = self.norm_gd
 
         # Gradient descent layer for second pooling
-        self.pool_gd2 = gd_pooling.GDAvgPooling(
-            self, kx=self.pool_forward2.kx, ky=self.pool_forward2.ky,
-            sliding=self.pool_forward2.sliding)
+        self.pool_gd2 = gd_pooling.GDAvgPooling(self)
+        self.pool_gd2.link_pool_attrs(self.pool_forward2)
         self.pool_gd2.link_from(prev)
         self.pool_gd2.link_attrs(prev, ("err_output", "err_input"))
         self.pool_gd2.link_attrs(self.pool_forward2, "input")
@@ -139,13 +138,11 @@ class Workflow(AcceleratedWorkflow):
 
         # Gradient descent layer for second convolutional layer
         self.conv_gd2 = ConvGD(
-            self, n_kernels=self.conv_forward2.n_kernels,
-            kx=self.conv_forward2.kx, ky=self.conv_forward2.ky,
+            self,
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
-            learning_rate_bias=-1, weights_decay_bias=0,
-            padding=self.conv_forward2.padding,
-            sliding=self.conv_forward2.sliding)
+            learning_rate_bias=-1, weights_decay_bias=0)
+        self.conv_gd2.link_conv_attrs(self.conv_forward2)
         self.conv_gd2.link_from(prev)
         self.conv_gd2.link_attrs(prev, ("err_output", "err_input"))
         self.conv_gd2.link_attrs(self.conv_forward2, "weights", "bias",
@@ -169,9 +166,8 @@ class Workflow(AcceleratedWorkflow):
         prev = self.act_backward
 
         # Gradient descent layer for first pooling
-        self.pool_gd = gd_pooling.GDMaxPooling(
-            self, kx=self.pool_forward.kx, ky=self.pool_forward.ky,
-            sliding=self.pool_forward.sliding)
+        self.pool_gd = gd_pooling.GDMaxPooling(self)
+        self.pool_gd.link_pool_attrs(self.pool_forward)
         self.pool_gd.link_from(prev)
         self.pool_gd.link_attrs(prev, ("err_output", "err_input"))
         self.pool_gd.link_attrs(self.pool_forward, "input", "input_offset")
@@ -179,13 +175,10 @@ class Workflow(AcceleratedWorkflow):
 
         # Gradient descent layer for first convolutional layer
         self.conv_gd = ConvGD(
-            self, n_kernels=self.conv_forward.n_kernels,
-            kx=self.conv_forward.kx, ky=self.conv_forward.ky,
-            gradient_moment=0, gradient_moment_bias=0,
+            self, gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
-            learning_rate_bias=-1, weights_decay_bias=0,
-            padding=self.conv_forward.padding,
-            sliding=self.conv_forward.sliding)
+            learning_rate_bias=-1, weights_decay_bias=0)
+        self.conv_gd.link_conv_attrs(self.conv_forward)
         self.conv_gd.link_from(prev)
         self.conv_gd.link_attrs(prev, ("err_output", "err_input"))
         self.conv_gd.link_attrs(self.conv_forward, "weights", "bias",

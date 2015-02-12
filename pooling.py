@@ -38,11 +38,7 @@ from veles.units import Unit
 
 
 class PoolingBase(Unit):
-    def __init__(self, workflow, **kwargs):
-        super(PoolingBase, self).__init__(workflow, **kwargs)
-        self.kx = kwargs["kx"]
-        self.ky = kwargs["ky"]
-        self.sliding = kwargs.get("sliding") or (self.kx, self.ky)
+    POOL_ATTRS = ("kx", "ky", "sliding")
 
     def create_output(self):
         self._batch_size = self.input.shape[0]
@@ -92,7 +88,10 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
 
     def __init__(self, workflow, **kwargs):
         super(Pooling, self).__init__(workflow, **kwargs)
-        self.exports.extend(("kx", "ky", "sliding"))
+        self.kx = kwargs["kx"]
+        self.ky = kwargs["ky"]
+        self.sliding = kwargs.get("sliding") or (self.kx, self.ky)
+        self.exports.extend(self.POOL_ATTRS)
         self._no_output = False
 
     def init_unpickled(self):
