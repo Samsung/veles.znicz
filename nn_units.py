@@ -247,7 +247,9 @@ class GradientDescentBase(AcceleratedUnit):
         super(GradientDescentBase, self).__init__(workflow, **kwargs)
         self.err_input = Vector()
         self.ocl_set_const_args = True
-        self.demand("weights", "bias", "input", "err_output")
+        self.weights = None
+        self.bias = None
+        self.demand("input", "err_output")
         self.learning_rate = kwargs.get("learning_rate", 0.01)
         self.learning_rate_bias = kwargs.get("learning_rate_bias",
                                              self.learning_rate)

@@ -52,7 +52,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
     def __init__(self, workflow, **kwargs):
         super(GDDeconv, self).__init__(workflow, **kwargs)
         self.cl_const = None
-        self.bias = None
         self._global_size_err_input = None
         self._local_size_err_input = None
         self._global_size_weights = None
@@ -63,6 +62,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_err_input_ = None
         self.krn_weights_ = None
         self.krn_compute_col_sums_ = None
+        self.demand("weights")
         del self.demanded[self.demanded.index("bias")]
 
     @property

@@ -65,6 +65,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.krn_bias_ = None
         self.krn_compute_col_sums_ = None
         self.krn_err_output_name = None
+        self.demand("weights")
+        if self.include_bias:
+            self.demand("bias")
 
     def _gpu_init(self, defines):
         dtype = self.err_output.mem.dtype

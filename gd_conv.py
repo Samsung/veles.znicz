@@ -73,6 +73,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_err_output_name = None
         self.unpack_size = kwargs.get("unpack_size", 1)
         self.unpack_data = Vector()
+        self.demand("weights")
+        if self.include_bias:
+            self.demand("bias")
 
     def initialize(self, device, **kwargs):
         self._batch_size = self.input.shape[0]
