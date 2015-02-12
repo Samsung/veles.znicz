@@ -19,6 +19,7 @@ import veles.backends as opencl
 import veles.opencl_types as opencl_types
 from veles.znicz.conv import Conv
 from veles.dummy import DummyWorkflow
+import veles.prng as prng
 from veles.tests.doubling_reset import patch
 
 
@@ -138,9 +139,8 @@ class TestConvBase(unittest.TestCase):
 
         logging.info("run conv with input = 0, random weights, random bias...")
         input_data = numpy.zeros(input_shape)
-        weights = numpy.random.uniform(
-            size=numpy.prod(weights_shape)).reshape(weights_shape)
-        bias = numpy.random.uniform(size=weights_shape[0])
+        weights = prng.get().rand(*weights_shape)
+        bias = prng.get().rand(weights_shape[0])
         gold_output = numpy.empty((input_shape[0], out_y, out_x,
                                    weights_shape[0]))
         for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
@@ -149,10 +149,9 @@ class TestConvBase(unittest.TestCase):
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
         logging.info("run conv with random input, weights = 0, random bias...")
-        input_data = numpy.random.uniform(
-            size=numpy.prod(input_shape)).reshape(input_shape)
+        input_data = prng.get().rand(*input_shape)
         weights = numpy.zeros(weights_shape)
-        bias = numpy.random.uniform(size=weights_shape[0])
+        bias = prng.get().rand(weights_shape[0])
         gold_output = numpy.empty((input_shape[0], out_y, out_x,
                                    weights_shape[0]))
         for batch, i, j in ((batch, i, j) for batch in range(input_shape[0])
@@ -437,11 +436,9 @@ class TestConvWithPadding(TestConvBase):
         weights_shape = (2, 4, 3, 3)
         sliding = (2, 3)
         padding = (1, 3, 2, 4)
-        input_data = numpy.random.uniform(
-            size=numpy.prod(input_shape)).reshape(input_shape)
-        weights = numpy.random.uniform(
-            size=numpy.prod(weights_shape)).reshape(weights_shape)
-        bias = numpy.random.uniform(size=weights_shape[0])
+        input_data = prng.get().rand(*input_shape)
+        weights = prng.get().rand(*weights_shape)
+        bias = prng.get().rand(weights_shape[0])
 
         unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
