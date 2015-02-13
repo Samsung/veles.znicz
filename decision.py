@@ -396,7 +396,7 @@ class DecisionGD(DecisionBase):
             if (self.epoch_n_err[minibatch_class] == 0 and
                     self.epoch_number == 0):
                 self.warning("Number of errors equals to 0 before the training"
-                             "has actually started")
+                             " has actually started")
             ss.append("n_err %d (%.2f%%)" %
                       (self.epoch_n_err[minibatch_class],
                        self.epoch_n_err_pt[minibatch_class]))
