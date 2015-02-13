@@ -19,7 +19,7 @@ import veles.prng as prng
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
-from veles.dummy import DummyWorkflow
+from veles.dummy import DummyUnit, DummyWorkflow
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
@@ -197,8 +197,8 @@ class TestGDMaxPooling(unittest.TestCase):
     def _test_fixed(self, device):
         logging.info('starting OpenCL max pooling layer gradient descent '
                      'test...')
-        c = gd_pooling.GDMaxPooling(DummyWorkflow(), kx=2, ky=2,
-                                    sliding=(2, 2))
+        c = gd_pooling.GDMaxPooling(DummyWorkflow())
+        c.link_pool_attrs(DummyUnit(kx=2, ky=2, sliding=(2, 2)))
         c.input = formats.Vector()
         c.input.mem = self._input.copy()
         c.input_offset = formats.Vector()
@@ -312,9 +312,8 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
         prng.get().fill(target)
         err_output = forward.output.mem - target
 
-        c = gd_pooling.GDAvgPooling(
-            DummyWorkflow(), kx=forward.kx, ky=forward.ky,
-            sliding=forward.sliding)
+        c = gd_pooling.GDAvgPooling(DummyWorkflow())
+        c.link_pool_attrs(forward)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
         c.input = formats.Vector()

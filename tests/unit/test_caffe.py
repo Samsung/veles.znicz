@@ -633,13 +633,9 @@ class TestConvCaffe(standard_test.StandardTest):
 
         back_conv_relu.output = Vector(relu_top)
 
-        dummy = DummyUnit()
-        dummy.kx = kernel_size
-        dummy.ky = kernel_size
-        dummy.n_kernels = n_kernels
-        dummy.padding = (padding, padding, padding, padding)
-        dummy.sliding = (1, 1)
-        back_conv_relu.link_conv_attrs(dummy)
+        back_conv_relu.link_conv_attrs(
+            DummyUnit(kx=kernel_size, ky=kernel_size, n_kernels=n_kernels,
+                      padding=((padding,) * 4), sliding=(1, 1)))
 
         back_conv_relu.initialize(device=self.device)
 
