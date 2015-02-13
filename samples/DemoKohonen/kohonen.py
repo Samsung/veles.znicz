@@ -63,8 +63,7 @@ class KohonenWorkflow(nn_units.NNWorkflow):
 
         # Kohonen training layer
         self.trainer = kohonen.KohonenTrainer(
-            self,
-            shape=root.kohonen.forward.shape,
+            self, shape=root.kohonen.forward.shape,
             weights_filling=root.kohonen.forward.weights_filling,
             weights_stddev=root.kohonen.forward.weights_stddev,
             gradient_decay=root.kohonen.train.gradient_decay,

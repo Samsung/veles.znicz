@@ -21,6 +21,7 @@ import veles.dummy as dummy_workflow
 
 class TestKohonen(unittest.TestCase):
     def setUp(self):
+        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     @timeout(700)
@@ -40,13 +41,13 @@ class TestKohonen(unittest.TestCase):
             "decision": {"snapshot_prefix": "kohonen",
                          "epochs": 160},
             "loader": {"minibatch_size": 10,
+                       "on_device": True,
                        "dataset_file":
                        os.path.join(data_path, "kohonen.txt.gz")},
             "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.01),
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 
-        self.w = kohonen.KohonenWorkflow(dummy_workflow.DummyLauncher(),
-                                         device=self.device)
+        self.w = kohonen.KohonenWorkflow(dummy_workflow.DummyLauncher())
         self.w.initialize(device=self.device)
         self.w.run()
 

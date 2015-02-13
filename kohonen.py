@@ -251,15 +251,13 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
         krn_gravity_: computes gravity to the winner neuron.
         krn_apply_gradients_: applies gradient to weights.
     """
-    def __init__(self, workflow, shape, **kwargs):
+    def __init__(self, workflow, **kwargs):
         super(KohonenTrainer, self).__init__(workflow, **kwargs)
-        self.demand("input", "shape")
         self._distances = formats.Vector()
         self.argmins = formats.Vector()
         self._coords = formats.Vector()
         self.weights = formats.Vector()
         self.winners = formats.Vector()
-        self._shape = shape
         self.weights_filling = kwargs.get("weights_filling", "uniform")
         self.weights_stddev = kwargs.get("weights_stddev", None)
         self.weights_transposed = kwargs.get("weights_transposed", False)
@@ -269,6 +267,8 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
                                          lambda t: 0.1 / (1.0 + t * 0.05))
         self.radius_decay = kwargs.get("radius_decay",
                                        lambda t: 1.0 / (1.0 + t * 0.05))
+        self.demand("input", "shape")
+        self._shape = kwargs.get("shape")
 
     def init_unpickled(self):
         super(KohonenTrainer, self).init_unpickled()
