@@ -114,9 +114,7 @@ class GradientUnitFactory(object):
     @staticmethod
     def _create_grad_conv(fwd, name, **kwargs):
         grad_class = GradientUnitFactory._conv_grad_classes[type(fwd)]
-        grad_unit = grad_class(
-            fwd.workflow, name=name, kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding,
-            padding=fwd.padding, n_kernels=fwd.n_kernels, **kwargs)
+        grad_unit = grad_class(fwd.workflow, name=name, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output", "weights", "bias")
         grad_unit.link_conv_attrs(fwd)
         return grad_unit
@@ -131,12 +129,11 @@ class GradientUnitFactory(object):
     @staticmethod
     def _create_grad_pooling(fwd, name, **kwargs):
         grad_class = GradientUnitFactory._pooling_grad_classes[type(fwd)]
-        grad_unit = grad_class(
-            fwd.workflow, name=name,
-            kx=fwd.kx, ky=fwd.ky, sliding=fwd.sliding, **kwargs)
+        grad_unit = grad_class(fwd.workflow, name=name, **kwargs)
         grad_unit.link_attrs(fwd, "input", "output")
         if isinstance(fwd, pooling.MaxPooling):
             grad_unit.link_attrs(fwd, "input_offset")
+        grad_unit.link_pool_attrs(fwd)
         return grad_unit
 
     @staticmethod
@@ -274,8 +271,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
-            try_link_attrs = set("input", "weights", "bias", "input_offset",
-                                 "mask", "output")
+            try_link_attrs = set(["input", "weights", "bias", "input_offset",
+                                  "mask", "output"])
             if isinstance(unit, ConvolutionalBase):
                 try_link_attrs.update(ConvolutionalBase.CONV_ATTRS)
             if isinstance(unit, GDPooling):
