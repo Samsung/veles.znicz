@@ -63,7 +63,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_weights_ = None
         self.krn_compute_col_sums_ = None
         self.demand("weights")
-        del self.demanded[self.demanded.index("bias")]
 
     @property
     def channels_number(self):
