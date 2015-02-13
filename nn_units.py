@@ -196,12 +196,18 @@ class GradientDescentWithActivation(AcceleratedUnit):
         self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
         self.krn_err_output_.set_args(self.err_output.devmem,
                                       self.output.devmem)
+        self._global_size_err_output = [self.err_output.size]
+        self._local_size_err_output = None
 
     def cuda_init(self):
         super(GradientDescentWithActivation, self).cuda_init()
         self.krn_err_output_ = self.get_kernel(self.krn_err_output_name)
         self.krn_err_output_.set_args(self.err_output.devmem,
                                       self.output.devmem)
+        block_size = self.device.suggest_block_size(self.krn_err_output_)
+        self._global_size_err_output = (int(numpy.ceil(
+            self.err_output.size / block_size)), 1, 1)
+        self._local_size_err_output = (block_size, 1, 1)
 
 
 @implementer(IDistributable)

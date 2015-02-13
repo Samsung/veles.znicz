@@ -208,9 +208,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._global_size_ortho = [self._other * self.reduce_size]
         self._local_size_ortho = [self.reduce_size]
 
-        self._global_size_err_output = [self.err_output.mem.size]
-        self._local_size_err_output = None
-
         if self.need_err_input:
             self.krn_err_input_clear_ = self.get_kernel("err_input_clear")
             self.krn_err_input_clear_.set_arg(0, self.err_input.devmem)
@@ -234,12 +231,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         }
 
         self._gpu_init()
-
-        if self.krn_err_output_ is not None:
-            block_size = self.device.suggest_block_size(self.krn_err_output_)
-            self._global_size_err_output = (int(numpy.ceil(
-                self.err_output.size / block_size)), 1, 1)
-            self._local_size_err_output = (block_size, 1, 1)
 
         block_size = self.device.suggest_block_size(self.krn_weights_)
         self._global_size_weights = (int(numpy.ceil(

@@ -139,10 +139,6 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         self._gpu_init({"BLOCK_SIZE": block_size})
 
-        if self.krn_err_output_name:
-            self._global_size_err_output = [self.err_output.mem.size]
-            self._local_size_err_output = None
-
         if self.need_err_input:
             self.krn_err_input_ = self.get_kernel("err_input_update")
             self.krn_err_input_.set_args(
@@ -168,12 +164,6 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         side = self.weights.shape[1 if self.weights_transposed else 0]
         other = self.weights.size // side
-
-        if self.krn_err_output_ is not None:
-            block_size = self.device.suggest_block_size(self.krn_err_output_)
-            self._global_size_err_output = (int(numpy.ceil(
-                self.err_output.size / block_size)), 1, 1)
-            self._local_size_err_output = (block_size, 1, 1)
 
         block_size = self.device.suggest_block_size(self.krn_weights_)
         self._global_size_weights = (int(numpy.ceil(
