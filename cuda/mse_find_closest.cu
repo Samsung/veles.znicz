@@ -27,11 +27,11 @@ void mse_find_closest(__global dtype *distances,
 /// @param t matrix of targets
 /// @param n_err number of errors.
 extern "C"
-__global__ void mse_find_closest(dtype *y, dtype *t, int *labels, volatile int *n_err) {
+__global__ void mse_find_closest(dtype *y, dtype *t, int *labels, int *n_err) {
   int i_sample = blockIdx.x;
   int y_offs = SAMPLE_SIZE * i_sample;
   int t_offs = 0;
-  dtype d_min = MAXFLOAT;
+  dtype d_min = FLT_MAX;
   int i_min = 0;
   for (int i = 0; i < N_TARGETS; i++, t_offs += SAMPLE_SIZE) {
     dtype smm = 0;
@@ -44,6 +44,6 @@ __global__ void mse_find_closest(dtype *y, dtype *t, int *labels, volatile int *
     }
   }
   if (labels[i_sample] != i_min) {
-    atomicInc(n_err);
+    atomicAdd(n_err, 1);
   }
 }
