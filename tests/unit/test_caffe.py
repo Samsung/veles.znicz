@@ -349,6 +349,8 @@ class TestConvCaffe(standard_test.StandardTest):
 
         grad_pool.input_offset = fwd_pool.input_offset
 
+        grad_pool.link_pool_attrs(fwd_pool)
+
         grad_pool.initialize(device=self.device)
 
         grad_pool.cpu_run()
