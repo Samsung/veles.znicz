@@ -18,13 +18,7 @@ class YaleFacesWorkflow(StandardWorkflow):
     Model was created for face recognition. Database - Yale Faces.
     Model - fully-connected Neural Network with SoftMax loss function.
     """
-    """
-    def link_loader(self, init_unit):
-        self.loader = FullBatchAutoLabelFileImageLoader(
-            self, **root.yalefaces.loader.__dict__
-        )
-        self.loader.link_from(init_unit)
-    """
+
     def link_downloader(self, init_unit):
         self.downloader = Downloader(
             self,

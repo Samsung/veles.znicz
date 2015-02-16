@@ -76,7 +76,7 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
 
 @six.add_metaclass(MatchingObject)
 class ForwardBase(AcceleratedUnit):
-    pass
+    MAPPING = set()
 
 
 @implementer(IDistributable)
