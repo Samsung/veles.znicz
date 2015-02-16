@@ -136,8 +136,8 @@ class SpamKohonenLoader(loader.FullBatchLoader):
                   "average feature vector length: %d", len(lines),
                   len(distinct_labels), len(lemmas), avglength)
 
-    def initialize(self, **kwargs):
-        super(SpamKohonenLoader, self).initialize(**kwargs)
+    def initialize(self, device, **kwargs):
+        super(SpamKohonenLoader, self).initialize(device=device, **kwargs)
         if self.class_lengths[loader.VALID] > 0:
             v = self.original_data.mem[:self.class_lengths[loader.VALID]]
             self.info("Range after normalization: validation: [%.6f, %.6f]",

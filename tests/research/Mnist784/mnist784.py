@@ -22,7 +22,7 @@ from veles.external.freetype import (Face,  # pylint: disable=E0611
                                      FT_Set_Transform, byref)
 from veles.config import root
 from veles.mutable import Bool
-from veles.normalization import NormalizerLinear
+from veles.normalization import LinearNormalizer
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
@@ -123,7 +123,7 @@ class Mnist784Loader(MnistLoader, loader.FullBatchLoaderMSE):
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
-        normalizer = NormalizerLinear()
+        normalizer = LinearNormalizer()
         for i in range(0, 10):
             img = do_plot(root.mnist784.data_paths.arial,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
