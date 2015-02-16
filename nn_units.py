@@ -35,21 +35,21 @@ class Match(list):
     @property
     def forward(self):
         for item in self:
-            if issubclass(item, Forward):
+            if issubclass(item, ForwardBase):
                 return item
         raise IndexError()
 
     @property
     def has_forward(self):
         for item in self:
-            if issubclass(item, Forward):
+            if issubclass(item, ForwardBase):
                 return True
         return False
 
     @property
     def backwards(self):
         for item in self:
-            if not issubclass(item, Forward):
+            if not issubclass(item, ForwardBase):
                 yield item
 
 
@@ -74,9 +74,13 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
             match.append(cls)
 
 
-@implementer(IDistributable)
 @six.add_metaclass(MatchingObject)
-class Forward(AcceleratedUnit):
+class ForwardBase(AcceleratedUnit):
+    pass
+
+
+@implementer(IDistributable)
+class Forward(ForwardBase):
     """Base class for forward propagation units.
 
     Attributes:

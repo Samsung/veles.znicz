@@ -24,7 +24,8 @@ import veles.plotting_units as plotting_units
 # Important: do not remove unused imports! It will prevent MatchingObject
 # metaclass from adding the mapping in the corresponding modules
 from veles.znicz import nn_units
-from veles.znicz import conv, pooling, all2all  # pylint: disable=W0611
+from veles.znicz import conv, pooling, all2all,\
+    weights_zerofilling  # pylint: disable=W0611
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
 from veles.znicz import activation
@@ -173,7 +174,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     A base class for standard workflows with forward and backward propagation.
     Is able to automatically create backward units by pre-created forward units
     """
-
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
@@ -219,6 +219,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 raise from_none(ValueError("Failed to find a Forward in %s" %
                                            tpe))
             self._add_forward_unit(unit, init_unit, init_attrs)
+        # Another loop for ZeroFiller unit. Linking attributes for
+        # ZeroFiller from attributes of next layer
+        for prev_forward, forward in zip(self.forwards, self.forwards[1:]):
+            if isinstance(prev_forward, weights_zerofilling.ZeroFiller):
+                prev_forward.link_attrs(forward, "weights")
+            prev_forward = forward
 
     def _add_forward_unit(self, new_unit, init_unit=None, init_attrs=None):
         """
@@ -228,15 +234,28 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         """
         if len(self.forwards) > 0:
             prev_forward_unit = self.forwards[-1]
-            new_unit.link_attrs(prev_forward_unit, ("input", "output"))
         else:
             if init_unit is None:
                 raise ValueError("init_unit is None for first fwd!")
             prev_forward_unit = init_unit
-            new_unit.link_attrs(init_unit, init_attrs)
 
         new_unit.link_from(prev_forward_unit)
+
+        fwds_with_attrs = tuple(
+            filter(
+                lambda fwd: not isinstance(
+                    fwd, weights_zerofilling.ZeroFiller), self.forwards))
+
         self.forwards.append(new_unit)
+
+        if isinstance(new_unit, weights_zerofilling.ZeroFiller):
+            return
+
+        if len(fwds_with_attrs) > 0:
+            new_unit.link_attrs(fwds_with_attrs[-1], ("input", "output"))
+        else:
+            new_unit.link_attrs(init_unit, init_attrs)
+        del fwds_with_attrs
 
     def create_gd_units_by_config(self, init_unit):
         """
@@ -246,6 +265,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             raise error.BadFormatError("layers should be a list of dicts")
         del self.gds[:]
         self.gds.extend(None for _ in self.layers)
+        last_gd = None
+        units_to_delete = []
         for i, layer in reversed(list(enumerate(self.layers))):
             tpe, _, kwargs = self._get_layer_type_kwargs(layer)
 
@@ -258,16 +279,21 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             if "name" in kwargs:
                 kwargs["name"] = "gd_" + kwargs["name"]
-            unit = next(self.layer_map[tpe].backwards)(self, **kwargs)
+            try:
+                unit = next(self.layer_map[tpe].backwards)(self, **kwargs)
+            except StopIteration:
+                units_to_delete.append(i)
+                continue
+
             self.gds[i] = unit
 
             # Link attributes
-            if i < len(self.forwards) - 1:
-                unit.link_from(self.gds[i + 1])
-                unit.link_attrs(self.gds[i + 1], ("err_output", "err_input"))
+            if last_gd is not None:
+                unit.link_from(last_gd)
+                unit.link_attrs(last_gd, ("err_output", "err_input"))
             else:
-                self.gds[-1].link_from(init_unit)
-                self.gds[-1].link_attrs(self.evaluator, "err_output")
+                unit.link_from(init_unit)
+                unit.link_attrs(self.evaluator, "err_output")
 
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
@@ -284,6 +310,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             unit.gate_skip = self.decision.gd_skip
             unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
+
+            last_gd = unit
+
+        # Remove None elements
+        for i in units_to_delete:
+            del self.gds[i]
 
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False

@@ -13,15 +13,9 @@ from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
 
 
 class ImagenetLMDBWorkflow(StandardWorkflow):
-    def __init__(self, workflow, **kwargs):
-        super(ImagenetLMDBWorkflow, self).__init__(
-            workflow,
-            loader_name=root.imagenet.loader_name,
-            loader_config=root.imagenet.loader,
-            decision_config=root.imagenet.decision,
-            snapshotter_config=root.imagenet.snapshotter,
-            layers=root.imagenet.layers,
-            loss_function=root.imagenet.loss_function, **kwargs)
+    """
+    Imagenet Workflow
+    """
 
     def create_workflow(self):
         # Add repeater unit
@@ -70,5 +64,11 @@ class ImagenetLMDBWorkflow(StandardWorkflow):
 
 
 def run(load, main):
-    load(ImagenetLMDBWorkflow)
+    load(ImagenetLMDBWorkflow,
+         loader_name=root.imagenet.loader_name,
+         loader_config=root.imagenet.loader,
+         decision_config=root.imagenet.decision,
+         snapshotter_config=root.imagenet.snapshotter,
+         layers=root.imagenet.layers,
+         loss_function=root.imagenet.loss_function)
     main()
