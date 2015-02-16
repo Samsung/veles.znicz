@@ -7,7 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import datetime
-import glob
+from glob import glob
 import logging
 import numpy
 import os
@@ -23,7 +23,43 @@ import veles.dummy as dummy_workflow
 
 
 class TestImageSaver(unittest.TestCase):
-    def data(self):
+    def setUp(self):
+        i = datetime.datetime.now()
+        root.image_saver.out_dirs = [
+            os.path.join(
+                root.common.cache_dir, "tmpimg/test_image_saver_%s/test"
+                % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
+            os.path.join(root.common.cache_dir,
+                         "tmpimg/test_image_saver_%s/validation"
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
+            os.path.join(root.common.cache_dir,
+                         "tmpimg/test_image_saver_%s/train"
+                         % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
+        self.img_saver_SM = image_saver.ImageSaver(
+            dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
+
+        self.fill_data()
+
+        self.img_saver_SM.input = self.minibatch_data
+        self.img_saver_SM.labels = self.lbls
+        self.img_saver_SM.indices = self.indices
+        self.img_saver_SM.minibatch_size = 20
+        self.img_saver_SM.output = self.output
+        self.img_saver_SM.color_space = "RGB"
+
+    def tearDown(self):
+        logging.info("All Ok")
+        for i in range(0, 2):
+            for rt, dirs, files in os.walk(root.image_saver.out_dirs[i]):
+                for f in files:
+                    os.unlink(os.path.join(rt, f))
+                for d in dirs:
+                    shutil.rmtree(os.path.join(rt, d))
+                os.removedirs(root.image_saver.out_dirs[i])
+                logging.info("Remove directory %s" %
+                             (root.image_saver.out_dirs[i]))
+
+    def fill_data(self):
         self.minibatch_data = formats.Vector()
         self.minibatch_data.mem = numpy.zeros([20, 32, 32],
                                               dtype=numpy.float32)
@@ -42,8 +78,8 @@ class TestImageSaver(unittest.TestCase):
                                         9, 0, 1, 4, 0],
                                        dtype=self.lbls.mem.dtype)
 
-        self.indexes = formats.Vector()
-        self.indexes.mem = numpy.array([0, 1, 2, 3, 4,
+        self.indices = formats.Vector()
+        self.indices.mem = numpy.array([0, 1, 2, 3, 4,
                                         5, 6, 7, 8, 9,
                                         0, 1, 2, 3, 4,
                                         5, 6, 7, 8, 9],
@@ -58,47 +94,6 @@ class TestImageSaver(unittest.TestCase):
         if smm != 0:
             self. output.mem /= smm
 
-    def remove_dir(self):
-        for i in range(0, 2):
-            for rt, dirs, files in os.walk(root.image_saver.out_dirs[i]):
-                for f in files:
-                    os.unlink(os.path.join(rt, f))
-                for d in dirs:
-                    shutil.rmtree(os.path.join(rt, d))
-                os.removedirs(root.image_saver.out_dirs[i])
-                logging.info("Remove directory %s" %
-                             (root.image_saver.out_dirs[i]))
-
-    def test_image_saver(self):
-        i = datetime.datetime.now()
-        root.image_saver.out_dirs = [
-            os.path.join(
-                root.common.cache_dir, "tmpimg/test_image_saver_%s/test"
-                % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
-                         "tmpimg/test_image_saver_%s/validation"
-                         % (i.strftime('%Y_%m_%d_%H_%M_%S'))),
-            os.path.join(root.common.cache_dir,
-                         "tmpimg/test_image_saver_%s/train"
-                         % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
-        root.image_saver.limit = 7
-        self.img_saver_SM = image_saver.ImageSaver(
-            dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
-
-        self.data()
-
-        self.img_saver_SM.input = self.minibatch_data
-        self.img_saver_SM.labels = self.lbls
-        self.img_saver_SM.indexes = self.indexes
-        self.img_saver_SM.minibatch_size = 20
-        self.img_saver_SM.output = self.output
-        self.img_saver_SM.color_space = "RGB"
-
-        self.do_image_saver_SM_t()
-        self.do_image_saver_SM_validation()
-        self.do_image_saver_SM_train()
-        self.do_image_saver_limit()
-
     def test_image_saver_MSE_test(self):
         logging.info("Will test image_saver unit for MSE, test")
         i = datetime.datetime.now()
@@ -112,13 +107,12 @@ class TestImageSaver(unittest.TestCase):
             os.path.join(root.common.cache_dir,
                          "tmpimg/test_image_saver_%s/train"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
-        root.image_saver.limit = 7
         self.img_saver_MSE = image_saver.ImageSaver(
             dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
-        self.data()
+        self.fill_data()
         self.img_saver_MSE.input = self.minibatch_data
         self.img_saver_MSE.labels = self.lbls
-        self.img_saver_MSE.indexes = self.indexes
+        self.img_saver_MSE.indices = self.indices
         self.img_saver_MSE.minibatch_size = 20
         self.img_saver_MSE.output = self.output
         self.img_saver_MSE.color_space = "RGB"
@@ -130,28 +124,24 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.target = self.target
         self.img_saver_MSE.initialize()
         self.img_saver_MSE.run()
-        files_test = glob.glob("%s/*.png" % (root.image_saver.out_dirs[0]))
+        files_test = glob("%s/*.png" % root.image_saver.out_dirs[0])
         logging.info("files in test: %s", files_test)
         logging.info("Number of files in test: %s", len(files_test))
-        self.assertEqual(len(files_test), 7)
-        logging.info("All Ok")
-        self.remove_dir()
+        self.assertEqual(len(files_test), 20)
 
-    def do_image_saver_SM_t(self):
+    def test_image_saver_SM_t(self):
         logging.info("Will test image_saver unit for Softmax, test")
         self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
         self.img_saver_SM.minibatch_class = 0
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
-        files_test = glob.glob("%s/*.png" % (root.image_saver.out_dirs[0]))
+        files_test = glob("%s/*.png" % root.image_saver.out_dirs[0])
         logging.info("files in test: %s", files_test)
         logging.info("Number of files in test: %s", len(files_test))
         self.assertEqual(len(files_test), 6)
-        logging.info("All Ok")
-        self.remove_dir()
 
-    def do_image_saver_SM_validation(self):
+    def test_image_saver_SM_validation(self):
         logging.info("Will test image_saver unit for Softmax, validation")
         self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
@@ -159,16 +149,13 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
 
-        files_validation = glob.glob("%s/*.png" %
-                                     (root.image_saver.out_dirs[1]))
+        files_validation = glob("%s/*.png" % root.image_saver.out_dirs[1])
         logging.info("files in validation: %s", files_validation)
         logging.info("Number of files in validation: %s",
                      len(files_validation))
         self.assertEqual(len(files_validation), 6)
-        logging.info("All Ok")
-        self.remove_dir()
 
-    def do_image_saver_SM_train(self):
+    def test_image_saver_SM_train(self):
         logging.info("Will test image_saver unit for Softmax, train")
         self.img_saver_SM.this_save_time = time.time()
         self.img_saver_SM.max_idx = self.max_idx
@@ -176,27 +163,10 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_SM.initialize()
         self.img_saver_SM.run()
 
-        files_train = glob.glob("%s/*.png" % (root.image_saver.out_dirs[2]))
+        files_train = glob("%s/*.png" % (root.image_saver.out_dirs[2]))
         logging.info("files in train: %s", files_train)
         logging.info("Number of files in train: %s", len(files_train))
         self.assertEqual(len(files_train), 6)
-        logging.info("All Ok")
-        self.remove_dir()
-
-    def do_image_saver_limit(self):
-        logging.info("Will test image_saver unit for limit")
-        self.img_saver_SM.this_save_time = time.time()
-        self.img_saver_SM.max_idx = self.max_idx
-        self.img_saver_SM.limit = 5
-        self.img_saver_SM.initialize()
-        self.img_saver_SM.run()
-
-        files_train = glob.glob("%s/*.png" % (root.image_saver.out_dirs[2]))
-        logging.info("files in train: %s", files_train)
-        logging.info("Number of files in train: %s", len(files_train))
-        self.assertGreaterEqual(root.image_saver.limit, len(files_train))
-        logging.info("All Ok")
-        self.remove_dir()
 
 
 if __name__ == "__main__":
