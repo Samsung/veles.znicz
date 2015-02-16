@@ -520,6 +520,7 @@ class GradientDescentBase(AcceleratedUnit):
         if self.krn_err_output_ is None:
             return
         self.err_output.unmap()
+        self.output.unmap()
         self.execute_kernel(
             self._global_size_err_output, self._local_size_err_output,
             self.krn_err_output_)
@@ -627,6 +628,7 @@ class GradientDescentBase(AcceleratedUnit):
     @staticmethod
     def cpu_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
                           factor_ortho=0):
+        gradient = gradient.copy()
         gradient += factor_l12 * ((1.0 - l1_vs_l2) * weight +
                                   0.5 * l1_vs_l2 * numpy.sign(weight))
         if factor_ortho:
