@@ -380,7 +380,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.repeater.link_from(init_unit)
 
     def link_loader(self, init_unit):
-        if self.loader_name is None:
+        if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
                 "Set the loader_name. Full list of names is %s. Or redefine"
                 " link_loader() function, if you want to create you own Loader"
@@ -527,8 +527,9 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_saver = image_saver.ImageSaver(
             self, **kwargs)
         self.image_saver.link_from(init_unit)
-        self.image_saver.link_attrs(self.forwards[-1],
-                                    "output", "max_idx")
+        if self.loss_function == "softmax":
+            self.image_saver.link_attrs(self.forwards[-1], "max_idx")
+        self.image_saver.link_attrs(self.forwards[-1], "output")
         if isinstance(self.loader, ImageLoader):
             self.image_saver.link_attrs(self.loader, "color_space")
         self.image_saver.link_attrs(self.loader,
@@ -536,6 +537,9 @@ class StandardWorkflow(StandardWorkflowBase):
                                     ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
+        if self.loss_function == "mse":
+            self.image_saver.link_attrs(
+                self.loader, ("target", "minibatch_targets"))
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
