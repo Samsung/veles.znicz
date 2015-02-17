@@ -24,7 +24,7 @@ sys.path.append(os.path.dirname(__file__))
 from .loader_wine import WineLoader
 
 
-root.common.plotters_disabled = True
+root.common.disable_plotting = True
 
 root.wine.update({
     "decision": {"fail_iterations": 200, "max_epochs": 100},

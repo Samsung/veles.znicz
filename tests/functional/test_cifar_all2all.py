@@ -33,7 +33,6 @@ class TestCifarAll2All(unittest.TestCase):
 
         root.common.update({
             "precision_level": 1,
-            "plotters_disabled": True,
             "precision_type": "double",
             "engine": {"backend": "ocl"}})
 

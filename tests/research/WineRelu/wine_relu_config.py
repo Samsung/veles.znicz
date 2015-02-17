@@ -13,10 +13,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from veles.config import root
 
 
-# optional parameters
-
-root.common.update = {"plotters_disabled": True}
-
 root.wine_relu.update({
     "decision": {"fail_iterations": 250, "max_epochs": 100000},
     "snapshotter": {"prefix": "wine_relu"},

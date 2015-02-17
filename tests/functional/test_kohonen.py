@@ -21,7 +21,6 @@ import veles.dummy as dummy_workflow
 
 class TestKohonen(unittest.TestCase):
     def setUp(self):
-        root.common.plotters_disabled = True
         self.device = opencl.Device()
 
     @timeout(700)

@@ -13,7 +13,7 @@ from veles.config import root
 
 # optional parameters
 
-root.common.update = {"plotters_disabled": True}
+root.common.update = {"disable_plotting": True}
 
 root.wine.update({
     "decision": {"fail_iterations": 200,

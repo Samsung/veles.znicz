@@ -53,8 +53,6 @@ class TestLines(unittest.TestCase):
         valid = os.path.join(root.common.test_dataset_root,
                              "Lines/lines_min/test")
 
-        root.common.plotters_disabled = True
-
         root.lines.update({
             "loader_name": "full_batch_auto_label_file_image",
             "loss_function": "softmax",
