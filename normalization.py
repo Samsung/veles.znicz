@@ -37,7 +37,7 @@ class LocalResponseNormalizer(AcceleratedUnit):
         source_array must be a 4-dimensional array (channel dim is the last).
         """
         assert len(source_array.shape) == 4
-        subsums = numpy.ndarray(shape=source_array.shape, dtype=numpy.float64)
+        subsums = numpy.empty_like(source_array)
         num_of_chans = source_array.shape[3]
         for i in range(num_of_chans):
             min_index = max(0, i - int(window_size / 2))
@@ -77,7 +77,12 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
 
     def initialize(self, device, **kwargs):
         super(LRNormalizerForward, self).initialize(device, **kwargs)
-        self.output.mem = numpy.zeros_like(self.input.mem)
+
+        if not self.output:
+            self.output.reset(numpy.zeros_like(self.input.mem))
+        else:
+            assert self.output.shape == self.input.shape
+
         self._num_of_chans = self.input.mem.shape[3]
         self.init_vectors(self.input, self.output)
 

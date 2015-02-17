@@ -13,28 +13,34 @@ import numpy
 import unittest
 
 from veles import backends
-from veles.memory import Vector
-from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
+from veles.config import root
 from veles.dummy import DummyWorkflow
+from veles.memory import Vector
+from veles.opencl_types import dtypes
+from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
 
 
 class TestNormalization(unittest.TestCase):
     def setUp(self):
         self.device = backends.Device()
+        self.dtype = dtypes[root.common.precision_type]
 
     def tearDown(self):
         gc.collect()
         del self.device
 
     def test_normalization_forward(self):
-        fwd_normalizer = LRNormalizerForward(DummyWorkflow(),
-                                             device=self.device, n=3)
+        fwd_normalizer = LRNormalizerForward(DummyWorkflow())
         fwd_normalizer.input = Vector()
-        in_vector = numpy.zeros(shape=(1, 2, 5, 5), dtype=numpy.float64)
+        in_vector = numpy.zeros(shape=(3, 2, 5, 19), dtype=self.dtype)
 
         for i in range(5):
-            in_vector[0, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1)
-            in_vector[0, 1, i, :] = numpy.linspace(10, 50, 5) * (i + 1) + 1
+            in_vector[0, 0, i, :] = numpy.linspace(10, 50, 19) * (i + 1)
+            in_vector[0, 1, i, :] = numpy.linspace(10, 50, 19) * (i + 1) + 1
+            in_vector[1, 0, i, :] = numpy.linspace(10, 50, 19) * (i + 1) + 2
+            in_vector[1, 1, i, :] = numpy.linspace(10, 50, 19) * (i + 1) + 3
+            in_vector[2, 0, i, :] = numpy.linspace(10, 50, 19) * (i + 1) + 4
+            in_vector[2, 1, i, :] = numpy.linspace(10, 50, 19) * (i + 1) + 5
 
         fwd_normalizer.input.mem = in_vector
         fwd_normalizer.initialize(device=self.device)
@@ -57,18 +63,17 @@ class TestNormalization(unittest.TestCase):
 
     def test_normalization_backward(self):
 
-        h = numpy.zeros(shape=(2, 1, 5, 5), dtype=numpy.float64)
+        h = numpy.zeros(shape=(2, 1, 5, 5), dtype=self.dtype)
         for i in range(5):
             h[0, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1)
             h[1, 0, i, :] = numpy.linspace(10, 50, 5) * (i + 1) + 1
 
-        err_y = numpy.zeros(shape=(2, 1, 5, 5), dtype=numpy.float64)
+        err_y = numpy.zeros(shape=(2, 1, 5, 5), dtype=self.dtype)
         for i in range(5):
             err_y[0, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1)
             err_y[1, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1) + 1
 
-        back_normalizer = LRNormalizerBackward(DummyWorkflow(),
-                                               device=self.device, n=3)
+        back_normalizer = LRNormalizerBackward(DummyWorkflow(), n=3)
         back_normalizer.input = Vector()
         back_normalizer.err_output = Vector()
 
