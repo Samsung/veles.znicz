@@ -21,7 +21,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.gd as gd
 
 sys.path.append(os.path.dirname(__file__))
-from loader_wine import WineLoader
+from .loader_wine import WineLoader
 
 
 root.common.plotters_disabled = True

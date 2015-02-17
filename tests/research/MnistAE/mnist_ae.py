@@ -25,7 +25,7 @@ import veles.znicz.pooling as pooling
 import veles.znicz.gd_pooling as gd_pooling
 
 sys.path.append(os.path.dirname(__file__))
-from loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist_ae.update({

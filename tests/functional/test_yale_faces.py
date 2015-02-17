@@ -46,7 +46,7 @@ class TestYaleFaces(unittest.TestCase):
                        "mirror": False,
                        "color_space": "GRAY",
                        "background_color": (0,),
-                       "normalization_type": "linear",
+                       "normalization_type": "mean_disp",
                        "train_paths":
                            [os.path.join(root.common.test_dataset_root,
                                          "CroppedYale")]},
@@ -67,7 +67,7 @@ class TestYaleFaces(unittest.TestCase):
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 3
+        self.w.snapshotter.interval = 4
         self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -75,7 +75,7 @@ class TestYaleFaces(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 276)
+        self.assertEqual(err, 281)
         self.assertEqual(3, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -91,7 +91,7 @@ class TestYaleFaces(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 135)
+        self.assertEqual(err, 179)
         self.assertEqual(6, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

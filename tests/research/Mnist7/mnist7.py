@@ -30,7 +30,7 @@ from veles.znicz.nn_units import NNSnapshotter
 
 
 sys.path.append(os.path.dirname(__file__))
-from loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist7.update({

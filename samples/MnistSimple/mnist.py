@@ -23,7 +23,7 @@ import veles.znicz.gd as gd
 from veles.interaction import Shell
 
 sys.path.append(os.path.dirname(__file__))
-from loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 
 root.mnist.update({

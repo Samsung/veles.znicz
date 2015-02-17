@@ -22,7 +22,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.lr_adjust as lra
 
 sys.path.append(os.path.dirname(__file__))
-from loader_mnist import MnistLoader
+from .loader_mnist import MnistLoader
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},
