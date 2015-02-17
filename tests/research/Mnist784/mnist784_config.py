@@ -18,7 +18,9 @@ from veles.config import root
 root.mnist784.update({
     "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "mnist_784"},
-    "loader": {"minibatch_size": 100, "on_device": True},
+    "loader": {"minibatch_size": 100, "on_device": True,
+               "normalization_type": "linear",
+               "target_normalization_type": "linear"},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.00001,
     "weights_decay": 0.00005,

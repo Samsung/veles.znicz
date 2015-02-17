@@ -89,6 +89,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         self.loader = Mnist7Loader(
             self, minibatch_size=root.mnist7.loader.minibatch_size,
+            normalization_type=root.mnist7.loader.normalization_type,
             on_device=root.mnist7.loader.on_device)
         self.loader.link_from(self.repeater)
 
@@ -148,7 +149,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.image_saver.link_attrs(self.evaluator, "output", "target")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indices"),
+                                    ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.gate_skip = ~self.decision.improved

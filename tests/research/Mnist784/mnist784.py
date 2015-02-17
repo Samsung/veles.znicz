@@ -22,7 +22,6 @@ from veles.external.freetype import (Face,  # pylint: disable=E0611
                                      FT_Set_Transform, byref)
 from veles.config import root
 from veles.mutable import Bool
-from veles.normalization import LinearNormalizer
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
 import veles.znicz.nn_units as nn_units
@@ -123,13 +122,12 @@ class Mnist784Loader(MnistLoader, loader.FullBatchLoaderMSE):
         self.class_targets.reset()
         self.class_targets.mem = numpy.zeros(
             [10, 784], dtype=opencl_types.dtypes[root.common.precision_type])
-        normalizer = LinearNormalizer()
         for i in range(0, 10):
             img = do_plot(root.mnist784.data_paths.arial,
                           "%d" % (i,), 28, 0.0, 1.0, 1.0, False, 28, 28)
             self.class_targets[i] = img.ravel().astype(
                 opencl_types.dtypes[root.common.precision_type])
-            normalizer.normalize_sample(self.class_targets[i])
+        # normalization
         self.original_targets.mem = numpy.zeros(
             [self.original_labels.shape[0], self.class_targets.mem.shape[1]],
             dtype=self.original_data.dtype)
@@ -154,8 +152,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = Mnist784Loader(
-            self, minibatch_size=root.mnist784.loader.minibatch_size,
-            on_device=root.mnist784.loader.on_device)
+            self, **root.mnist784.loader.__content__)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -215,7 +212,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.image_saver.link_attrs(self.evaluator, "output", "target")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indices"),
+                                    ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.gate_skip = ~self.decision.improved

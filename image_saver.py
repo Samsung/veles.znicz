@@ -60,7 +60,8 @@ class ImageSaver(Unit):
         self._last_save_time = 0
         self.save_time = 0
         self._n_saved = [0, 0, 0]
-        self.demand("color_space", "input", "indices", "labels",
+        self.color_space = kwargs.get("color_space", "RGB")
+        self.demand("input", "indices", "labels",
                     "minibatch_class", "minibatch_size")
 
     @staticmethod

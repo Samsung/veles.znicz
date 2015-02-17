@@ -33,11 +33,17 @@ class TestMnist784(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        root.common.precision_level = 1
+        root.common.update({
+            "plotters_disabled": True,
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.mnist784.update({
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_784_test"},
-            "loader": {"minibatch_size": 100},
+            "loader": {"minibatch_size": 100, "normalization_type": "linear",
+                       "target_normalization_type": "linear"},
             "weights_plotter": {"limit": 16},
             "learning_rate": 0.00001,
             "weights_decay": 0.00005,
