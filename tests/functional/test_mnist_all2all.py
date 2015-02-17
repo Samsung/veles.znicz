@@ -30,14 +30,22 @@ class TestMnistAll2All(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
 
         root.mnistr.update({
+            "loss_function": "softmax",
+            "loader_name": "mnist_loader",
             "learning_rate_adjust": {"do": False},
             "decision": {"fail_iterations": 100,
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist_all2all_test"},
-            "loader": {"minibatch_size": Tune(60, 1, 1000)},
+            "loader": {"minibatch_size": Tune(60, 1, 1000),
+                       "on_device": True,
+                       "normalization_type": "linear"},
             "layers": [{"type": "all2all_tanh",
                         "output_sample_shape": Tune(100, 10, 500),
                         "learning_rate": Tune(0.03, 0.0001, 0.9),
@@ -68,8 +76,10 @@ class TestMnistAll2All(unittest.TestCase):
             dummy_workflow.DummyLauncher(),
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
-            loss_function=root.mnistr.loss_function,
+            loader_name=root.mnistr.loader_name,
+            loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
+            loss_function=root.mnistr.loss_function,
             device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

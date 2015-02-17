@@ -15,10 +15,13 @@ from veles.genetics import Tune
 
 root.mnistr.update({
     "learning_rate_adjust": {"do": False},
-    "decision": {"fail_iterations": 5,
+    "decision": {"fail_iterations": 50,
                  "max_epochs": 1000000000},
+    "loss_function": "softmax",
+    "loader_name": "mnist_loader",
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True},
+    "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True,
+               "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "all2all_tanh",
                 "output_sample_shape": Tune(100, 10, 500),

@@ -34,7 +34,8 @@ class Weights2D(plotter.Plotter):
     def __init__(self, workflow, **kwargs):
         kwargs["name"] = kwargs.get("name", "Weights")
         super(Weights2D, self).__init__(workflow, **kwargs)
-        self.demand("input", "color_space")
+        self.demand("input")
+        self.color_space = kwargs.get("color_space", "RGB")
         self.get_shape_from = None
         self.limit = kwargs.get("limit", 64)
         self.transposed = kwargs.get('transposed', False)

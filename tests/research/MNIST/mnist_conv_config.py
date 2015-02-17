@@ -15,12 +15,15 @@ from veles.config import root
 
 # optional parameters
 root.mnistr.update({
+    "loss_function": "softmax",
+    "loader_name": "mnist_loader",
     "learning_rate_adjust": {"do": True},  # True False
     "decision": {"max_epochs": 10000000,
                  "fail_iterations": 100},
     "snapshotter": {"prefix": "mnist_conv", "time_interval": 0,
                     "compress": ""},
-    "loader": {"minibatch_size": 6, "on_device": True},
+    "loader": {"minibatch_size": 6, "on_device": True,
+               "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv",
                 "n_kernels": 64, "kx": 5, "ky": 5,

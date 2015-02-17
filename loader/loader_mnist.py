@@ -33,6 +33,8 @@ train_label_dir = os.path.join(mnist_dir, "train-labels.idx1-ubyte")
 class MnistLoader(loader.FullBatchLoader):
     """Loads MNIST dataset.
     """
+    MAPPING = "mnist_loader"
+
     def load_original(self, offs, labels_count, labels_fnme, images_fnme):
         """Loads data from original MNIST files.
         """

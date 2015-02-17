@@ -29,12 +29,20 @@ class TestMnistCaffe(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+        root.common.update({
+            "plotters_disabled": True,
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.mnistr.update({
+            "loss_function": "softmax",
+            "loader_name": "mnist_loader",
             "learning_rate_adjust": {"do": True},
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_caffe_test"},
-            "loader": {"minibatch_size": 5},
+            "loader": {"minibatch_size": 5, "on_device": True,
+                       "normalization_type": "linear"},
             "layers": [{"type": "conv", "n_kernels": 20, "kx": 5,
                         "ky": 5, "sliding": (1, 1), "learning_rate": 0.01,
                         "learning_rate_bias": 0.02, "gradient_moment": 0.9,
@@ -70,12 +78,15 @@ class TestMnistCaffe(unittest.TestCase):
                         "weights_filling": "uniform",
                         "bias_filling": "constant", "weights_decay": 0.0005,
                         "weights_decay_bias": 0.0}]})
+
         self.w = mnist_caffe.MnistWorkflow(
             dummy_workflow.DummyLauncher(),
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
-            loss_function=root.mnistr.loss_function,
+            loader_name=root.mnistr.loader_name,
+            loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
+            loss_function=root.mnistr.loss_function,
             device=self.device)
         self.w.decision.max_epochs = 3
         self.w.snapshotter.time_interval = 0

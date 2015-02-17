@@ -15,11 +15,14 @@ from veles.config import root
 # optional parameters
 
 root.mnistr.update({
+    "loss_function": "softmax",
+    "loader_name": "mnist_loader",
     "learning_rate_adjust": {"do": True},
     "decision": {"fail_iterations": 100, "max_epochs": 10000},
     "snapshotter": {"prefix": "mnist_caffe",
                     "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": 5, "on_device": True},
+    "loader": {"minibatch_size": 5, "on_device": True,
+               "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv", "n_kernels": 20, "kx": 5, "ky": 5,
                 "sliding": (1, 1), "learning_rate": 0.01,
