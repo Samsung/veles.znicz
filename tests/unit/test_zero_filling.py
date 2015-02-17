@@ -23,8 +23,7 @@ class TestZeroFilling(unittest.TestCase):
         device = opencl.Device()
         workflow = DummyWorkflow()
 
-        zero_filler = weights_zerofilling.ZeroFiller(
-            workflow, n_kernels=400, ky=15, kx=15, n_channels=40, grouping=2)
+        zero_filler = weights_zerofilling.ZeroFiller(workflow, grouping=2)
         zero_filler.weights = Vector(numpy.ones(shape=(400, 15, 15, 40),
                                                 dtype=numpy.float64))
 
@@ -38,11 +37,12 @@ class TestZeroFilling(unittest.TestCase):
 
         zero_filler.weights.map_read()
         zero_filler.mask.map_read()
-        logging.info("Error: %f" % numpy.average(zero_filler.mask.mem -
-                                                 zero_filler.weights.mem))
+        self.assertLess(numpy.max(
+            zero_filler.mask.mem.ravel() - zero_filler.weights.mem.ravel()),
+            0.00001)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logging.info("Running ZeroFilling tests")
     unittest.main()

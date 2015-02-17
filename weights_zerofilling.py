@@ -25,36 +25,51 @@ class ZeroFiller(ForwardBase):
         super(ZeroFiller, self).init_unpickled()
         self.sources_["weights_zerofilling"] = {}
 
+    @property
+    def effective_shape(self):
+        return (self.weights.shape[0],
+                self.weights.size // self.weights.shape[0])
+
+    @property
+    def grouping(self):
+        return self._grouping
+
+    @grouping.setter
+    def grouping(self, value):
+        if not isinstance(value, int):
+            raise TypeError(
+                "grouping value must be an integer (got %s)" % type(value))
+        if value < 2:
+            raise ValueError("grouping value %d is invalid" % value)
+        self._grouping = value
+
     def initialize(self, device=None, **kwargs):
         super(ZeroFiller, self).initialize(device, **kwargs)
         if not self.weights:
             return True
 
         if not self.mask:
-            assert len(self.weights.shape) == 2
-            if (self.weights.shape[1] % self.grouping != 0 or
-                    self.weights.shape[1] % self.grouping != 0):
+            if self.effective_shape[1] % self.grouping != 0:
                 raise ValueError(
                     "Non-multiple of grouping weights shape detected: "
                     "%s, grouping=%d" %
-                    (str(self.weights.shape), self.grouping))
-            self.mask.reset(numpy.zeros_like(self.weights.mem))
+                    (self.weights.shape, self.grouping))
+            self.mask.reset(numpy.zeros(self.effective_shape))
             self.mask.map_invalidate()
             # TODO(a.kazantsev): add check for transposed weights.
-            for kernel in range(self.weights.shape[0]):
-                for chan in range(self.weights.shape[1]):
-                    if kernel % self.grouping == chan % self.grouping:
-                        self.mask.mem[kernel, chan] = 0
-                    else:
-                        self.mask.mem[kernel, chan] = 1
+            for kernel in range(self.effective_shape[0]):
+                for chan in range(self.effective_shape[1]):
+                    self.mask[kernel, chan] = not (
+                        kernel % self.grouping == chan % self.grouping)
         else:
-            assert self.mask.shape == self.weights.shape
+            assert self.mask.shape == self.effective_shape
 
-        self.mask.initialize(device)
-        self.weights.initialize(device)
+        for vec in self.mask, self.weights:
+            vec.initialize(device)
 
     def _gpu_init(self):
-        self.build_program(dtype=self.weights.dtype)
+        self.build_program(cache_file_name="zero_filling_%d" % self.grouping,
+                           dtype=self.weights.dtype)
 
         self.assign_kernel("multiply_by_mask")
         self.set_args(self.mask, self.weights)
