@@ -239,10 +239,10 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     def initialize(self, device, **kwargs):
         super(EvaluatorMSE, self).initialize(device=device, **kwargs)
 
-        if self.target.shape != self.output.shape:
+        if self.target.size != self.output.size:
             raise error.BadFormatError(
-                "target.shape != output.shape (%s != %s)" %
-                (self.target.shape, self.output.shape))
+                "target.size != output.size (%s != %s)" %
+                (self.target.size, self.output.size))
 
         self.sources_["evaluator"] = {}
         self.sources_["mse_find_closest"] = {}

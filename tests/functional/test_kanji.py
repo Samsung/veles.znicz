@@ -10,7 +10,6 @@ import logging
 import numpy
 import os
 import six
-import sys
 import unittest
 
 from veles.config import root
@@ -36,19 +35,34 @@ class TestKanji(unittest.TestCase):
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
-        train_path = os.path.join(root.common.test_dataset_root, "kanji/train")
 
-        root.kanji.update({
-            "index_map": os.path.join(train_path, "index_map.%d.pickle" %
-                                      (sys.version_info[0]))})
-        root.common.precision_level = 1
+        root.common.update({
+            "precision_level": 1,
+            "plotters_disabled": True,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
+        train_path = os.path.join(root.common.test_dataset_root,
+                                  "new_kanji/train")
+
+        target_path = os.path.join(root.common.test_dataset_root,
+                                   "new_kanji/target")
 
         root.kanji.update({
             "decision": {"fail_iterations": 1000,
                          "max_epochs": 2},
             "loss_function": "mse",
+            "loader_name": "full_batch_auto_label_file_image_mse",
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
+                       "on_device": True,
+                       "filename_types": ["png"],
+                       "train_paths": [train_path],
+                       "target_paths": [target_path],
+                       "color_space": "GRAY",
+                       "normalization_type": "linear",
+                       "targets_shape": (24, 24),
+                       "background_color": (0,),
                        "validation_ratio": 0.15},
             "snapshotter": {"prefix": "kanji_test"},
             "layers": [{"type": "all2all_tanh", "learning_rate": 0.00001,
@@ -60,23 +74,17 @@ class TestKanji(unittest.TestCase):
                        {"type": "all2all_tanh", "output_sample_shape": 24 * 24,
                         "learning_rate_bias": 0.01,
                         "learning_rate": 0.00001,
-                        "weights_decay": 0.00005}],
-            "data_paths": {"target":
-                           os.path.join(root.common.test_dataset_root,
-                                        ("kanji/target/targets.%d.pickle" %
-                                         (sys.version_info[0]))),
-                           "train": train_path}})
+                        "weights_decay": 0.00005}]})
 
         self.w = kanji.KanjiWorkflow(
             dummy_workflow.DummyLauncher(),
-            fail_iterations=root.kanji.decision.fail_iterations,
-            max_epochs=root.kanji.decision.max_epochs,
-            prefix=root.kanji.snapshotter.prefix,
-            snapshot_dir=root.common.snapshot_dir,
+            decision_config=root.kanji.decision,
+            loader_config=root.kanji.loader,
+            loader_name=root.kanji.loader_name,
+            snapshotter_config=root.kanji.snapshotter,
             layers=root.kanji.layers,
             loss_function=root.kanji.loss_function,
             device=self.device)
-        self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,

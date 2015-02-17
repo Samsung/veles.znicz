@@ -99,6 +99,8 @@ class ImageSaver(Unit):
             self.output.map_read()
         if self.max_idx is not None:
             self.max_idx.map_read()
+        if self.target is not None:
+            self.target.map_read()
         self.indices.map_read()
         self.input.map_read()
         self.labels.map_read()

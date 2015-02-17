@@ -15,7 +15,6 @@ import glob
 import logging
 import numpy
 import os
-import pickle
 import scipy.misc
 import sqlite3
 import sys
@@ -23,7 +22,6 @@ import time
 import xml.etree.ElementTree as et
 
 from veles.config import root
-import veles.formats as formats
 
 SX_ = 32
 SY_ = 32
@@ -38,7 +36,6 @@ KANJI_COUNT = 15
 def do_plot(fontPath, text, size, angle, sx, sy,
             randomizePosition, SX, SY):
     face = Face(fontPath.encode('utf-8'))
-    # face.set_char_size(48 * 64)
     face.set_pixel_sizes(0, size)
 
     c = text[0]
@@ -78,8 +75,6 @@ def do_plot(fontPath, text, size, angle, sx, sy,
         if width > SX or height > SY:
             j = j + 1
             face.set_pixel_sizes(0, size - j)
-            # logging.info("Set pixel size for font %s to %d" % (
-            #    fontPath, size - j))
             continue
         break
 
@@ -203,9 +198,7 @@ if __name__ == '__main__':
     n_kanji = rs.fetchone()[0]
     if not n_kanji:
         fill_tables(db)
-    # query = ("select idx, literal from kanji where grade <> 0 "
-    #         "order by grade asc, freq desc, idx asc limit %d" % (
-    #                                                    KANJI_COUNT))
+
     query = ("select idx, literal from kanji where jlpt >= 2 "
              "order by grade asc, freq desc, jlpt desc, idx asc limit %d"
              % (KANJI_COUNT))
@@ -225,8 +218,9 @@ if __name__ == '__main__':
 
     rs = db.execute(query)
 
-    dirnme = os.path.join(root.common.test_dataset_root, "kanji/train")
-    target_dirnme = os.path.join(root.common.test_dataset_root, "kanji/target")
+    dirnme = os.path.join(root.common.test_dataset_root, "new_kanji/train")
+    target_dirnme = os.path.join(root.common.test_dataset_root,
+                                 "new_kanji/target")
 
     logging.info("Be sure that %s and %s are empty" % (dirnme, target_dirnme))
     logging.info("Will continue in 15 seconds")
@@ -242,14 +236,9 @@ if __name__ == '__main__':
     logging.info("Will continue in 1 second")
     time.sleep(1)
 
-    fout = open("%s/label_dbindex" % (dirnme), "w")
-    fout.write("Folders are named as label_dbindex.\n")
-    fout.close()
-
     lbl = -1
     n_dups = 0
-    index_map = []
-    targets = []
+    sample_number = 0
     for row in rs:
         lbl += 1
         db_idx = row[0]
@@ -274,59 +263,26 @@ if __name__ == '__main__':
                 img = do_plot(font, character, SY_, angle_, sx_, sy_, True,
                               SX_, SY_)
                 if img is None:
-                    # logging.info("Not found for font %s" % (font))
                     continue
-                a = img.astype(numpy.float32)
-                formats.normalize(a)
-                outdir = "%s/%05d_%05d" % (dirnme, lbl, db_idx)
+                outdir = "%s/%07d_%07d" % (dirnme, lbl, db_idx)
                 try:
                     os.mkdir(outdir)
                 except OSError:
                     pass
-                sample_number = len(index_map)
-                fnme = "%s/%07d" % (outdir, sample_number)
-                scipy.misc.imsave("%s.png" % (fnme), img)
-                pickle_fnme = "%s.%d.pickle" % (fnme, sys.version_info[0])
-                fout = open(pickle_fnme, "wb")
-                pickle.dump({"angle": angle_,
-                             "lbl": lbl,
-                             "data": a,
-                             "db_idx": db_idx,
-                             "sample_number": sample_number,
-                             "sx": sx_,
-                             "sy": sy_}, fout)
-                fout.close()
-                if not font_ok:
-                    if not font_idx:  # writing to target
-                        img = do_plot(font, character, TARGET_SY, 0, 1.0, 1.0,
-                                      False, TARGET_SX, TARGET_SY)
-                        fnme = "%s/%05d.png" % (target_dirnme, lbl)
-                        scipy.misc.imsave(fnme, img)
-                        a = img.astype(numpy.float32)
-                        formats.normalize(a)
-                        targets.append(a)
-                    font_ok = True
-                index_map.append(pickle_fnme[len(dirnme) + 1:])
-            if font_ok:
-                ok[font] += 1
-                exists = True
-        if not exists:
-            raise Exception("Glyph does not exists in the supplied fonts")
+                train_path = "%s/%07d.png" % (outdir, sample_number)
+                scipy.misc.imsave(train_path, img)
 
-    fout = open("%s/targets.%d.pickle" % (target_dirnme, sys.version_info[0]),
-                "wb")
-    pickle.dump(targets, fout)
-    fout.close()
-
-    fout = open("%s/index_map.%d.pickle" % (dirnme, sys.version_info[0]), "wb")
-    pickle.dump(index_map, fout)
-    fout.close()
-
-    for font, n in ok.items():
-        logging.info("%s: %d (%.2f%%)" % (font, n, 100.0 * n / n_kanji))
-
-    logging.info("Retried transforms %d times" % (n_dups))
-    logging.info("Generated %d samples" % (len(index_map)))
+                target = do_plot(font, character, TARGET_SY, 0, 1.0, 1.0,
+                                 False, TARGET_SX, TARGET_SY)
+                outdir = "%s/%07d_%07d" % (target_dirnme, lbl, db_idx)
+                try:
+                    os.mkdir(outdir)
+                except OSError:
+                    pass
+                target_path = os.path.join(
+                    outdir, "%07d_%07d.png" % (lbl, db_idx))
+                scipy.misc.imsave(target_path, target)
+                sample_number += 1
 
     logging.info("End of job")
     sys.exit(0)
