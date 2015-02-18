@@ -8,7 +8,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import logging
-import os
 
 from zope.interface import implementer
 
@@ -23,17 +22,6 @@ import veles.loader as loader
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.nn_units import NNSnapshotter
 import veles.plotting_units as plotting_units
-
-
-root.video_ae.update({
-    "decision": {"fail_iterations": 100, "max_epochs": 100000},
-    "snapshotter": {"prefix": "video_ae"},
-    "loader": {"minibatch_size": 50, "on_device": True},
-    "weights_plotter": {"limit": 16},
-    "learning_rate": 0.000004,
-    "weights_decay": 0.00005,
-    "layers": [9, [90, 160]],
-    "data_paths": os.path.join(root.common.test_dataset_root, "video_ae/img")})
 
 
 @implementer(loader.IFileImageLoader)
@@ -62,10 +50,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = VideoAELoader(
-            self, train_paths=(root.video_ae.data_paths,),
-            minibatch_size=root.video_ae.loader.minibatch_size,
-            on_device=root.video_ae.loader.on_device,
-            color_space="GRAY", background_color=(0x80,))
+            self, **root.video_ae.loader.__content__)
         self.loader.link_from(self.repeater)
 
         # Add fwds units
@@ -90,7 +75,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.image_saver.link_attrs(self.forwards[-1], "output")
         self.image_saver.link_attrs(self.loader,
                                     ("input", "minibatch_data"),
-                                    ("indexes", "minibatch_indices"),
+                                    ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
         self.image_saver.target = self.image_saver.input

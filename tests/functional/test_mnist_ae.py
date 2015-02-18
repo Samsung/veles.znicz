@@ -33,7 +33,11 @@ class TestMnistAE(unittest.TestCase):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
-        root.common.precision_level = 1
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.mnist_ae.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": 20,

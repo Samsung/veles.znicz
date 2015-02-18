@@ -37,17 +37,25 @@ class TestVideoAE(unittest.TestCase):
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
-        root.common.precision_level = 1
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.video_ae.update({
-            "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "video_ae_test"},
-            "loader": {"minibatch_size": 50},
+            "decision": {"fail_iterations": 100},
+            "loader": {"minibatch_size": 50, "on_device": True,
+                       "train_paths":
+                       (os.path.join(root.common.test_dataset_root,
+                                     "video_ae/img"),),
+                       "color_space": "GRAY",
+                       "background_color": (0x80,),
+                       "normalization_type": "linear"},
             "weights_plotter": {"limit": 16},
             "learning_rate": 0.01,
             "weights_decay": 0.00005,
-            "layers": [9, [90, 160]],
-            "data_paths":
-            os.path.join(root.common.test_dataset_root, "video_ae/img")})
+            "layers": [9, [90, 160]]})
 
         self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.video_ae.layers,

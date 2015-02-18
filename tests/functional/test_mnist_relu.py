@@ -29,13 +29,20 @@ class TestMnistRelu(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+        root.common.update({
+            "plotters_disabled": True,
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.mnistr.update({
+            "loss_function": "softmax",
+            "loader_name": "mnist_loader",
             "learning_rate_adjust": {"do": False},
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
             "snapshotter": {"prefix": "mnist_relu_test"},
-            "loader": {"minibatch_size": 60},
+            "loader": {"minibatch_size": 60, "normalization_type": "linear"},
             "layers": [{"type": "all2all_relu", "output_sample_shape": 100,
                         "learning_rate": 0.03, "weights_decay": 0.0,
                         "learning_rate_bias": 0.03,
@@ -53,8 +60,10 @@ class TestMnistRelu(unittest.TestCase):
             dummy_workflow.DummyLauncher(),
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
-            loss_function=root.mnistr.loss_function,
+            loader_name=root.mnistr.loader_name,
+            loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
+            loss_function=root.mnistr.loss_function,
             device=self.device)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0

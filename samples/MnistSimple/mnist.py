@@ -31,7 +31,8 @@ root.mnist.update({
     "decision": {"fail_iterations": 100,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist", "time_interval": 15},
-    "loader": {"minibatch_size": 60, "on_device": True},
+    "loader": {"minibatch_size": 60, "on_device": True,
+               "normalization_type": "linear"},
     "learning_rate": 0.03,
     "weights_decay": 0.0005,  # 1.6%
     "factor_ortho": 0.0,
@@ -42,15 +43,12 @@ class MnistWorkflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
     def __init__(self, workflow, layers, **kwargs):
-        kwargs["name"] = kwargs.get("name", "MNIST")
         super(MnistWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
         self.loader = MnistLoader(
-            self, name="Mnist fullbatch loader",
-            minibatch_size=root.mnist.loader.minibatch_size,
-            on_device=root.mnist.loader.on_device)
+            self, **root.mnist.loader.__content__)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

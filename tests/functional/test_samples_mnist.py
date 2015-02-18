@@ -29,12 +29,17 @@ class TestSamplesMnist(unittest.TestCase):
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
         root.mnist.update({
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0),
                          "snapshot_prefix": "samples_mnist_test"},
-            "loader": {"minibatch_size": 88},
+            "loader": {"minibatch_size": 88, "normalization_type": "linear"},
             "learning_rate": 0.028557478339518444,
             "weights_decay": 0.00012315096341168246,
             "layers": [364, 10],
