@@ -165,7 +165,7 @@ class DecisionBase(Unit):
         else:
             import traceback
             stack = traceback.format_stack(limit=2)[:-1]
-            self.warning("Did not initialize arrays:\n%s", "\n".join(stack))
+            self.info("Did not initialize arrays:\n%s", "\n".join(stack))
 
     def _on_last_minibatch(self):
         self.on_last_minibatch()
