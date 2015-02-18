@@ -33,7 +33,8 @@ root.mnist_ae.update({
     "decision": {"fail_iterations": 20,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": 100, "on_device": True},
+    "loader": {"minibatch_size": 100, "on_device": True,
+               "normalization_type": "linear"},
     "learning_rate": 0.000001,
     "weights_decay": 0.00005,
     "gradient_moment": 0.00001,
@@ -43,8 +44,7 @@ root.mnist_ae.update({
     "unsafe_padding": True,
     "n_kernels": 5,
     "kx": 5,
-    "ky": 5,
-    "layers": [100, 10]})
+    "ky": 5})
 
 
 class MnistAELoader(MnistLoader):
@@ -57,16 +57,13 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
     """Model created for digits recognition. Database - MNIST.
     Model - autoencoder.
     """
-    def __init__(self, workflow, layers, **kwargs):
-        kwargs["name"] = kwargs.get("name", "MNIST")
+    def __init__(self, workflow, **kwargs):
         super(MnistAEWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
 
         self.loader = MnistAELoader(
-            self, name="MNIST loader",
-            minibatch_size=root.mnist_ae.loader.minibatch_size,
-            on_device=root.mnist_ae.loader.on_device)
+            self, **root.mnist_ae.loader.__content__)
         self.loader.link_from(self.repeater)
 
         unit = conv.Conv(
@@ -85,21 +82,21 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.pool = unit
 
         unit = gd_pooling.GDMaxAbsPooling(
-            self, kx=self.pool.kx, ky=self.pool.ky,
-            sliding=root.mnist_ae.pooling.sliding)
+            self)
+        unit.link_attrs(self.pool, "kx", "ky")
+        unit.sliding = root.mnist_ae.pooling.sliding
         unit.link_from(self.pool)
         unit.link_attrs(self.pool, "input", "input_offset",
                         ("err_output", "output"))
         self.depool = unit
 
         unit = deconv.Deconv(
-            self, n_kernels=root.mnist_ae.n_kernels,
-            kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
-            sliding=self.conv.sliding, padding=self.conv.padding,
-            unsafe_padding=root.mnist_ae.unsafe_padding)
+            self, unsafe_padding=root.mnist_ae.unsafe_padding)
         self.deconv = unit
         unit.link_from(self.depool)
-        unit.link_attrs(self.conv, "weights")
+        unit.link_attrs(
+            self.conv,
+            "weights", "n_kernels", "kx", "ky", "sliding", "padding")
         unit.link_attrs(self.depool, ("input", "err_input"))
         unit.link_attrs(self.conv, ("output_shape_source", "input"))
 
@@ -139,19 +136,19 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         unit = gd_deconv.GDDeconv(
-            self, n_kernels=root.mnist_ae.n_kernels,
-            kx=root.mnist_ae.kx, ky=root.mnist_ae.ky,
-            sliding=self.conv.sliding, padding=self.conv.padding,
+            self,
             learning_rate=root.mnist_ae.learning_rate,
             weights_decay=root.mnist_ae.weights_decay,
             gradient_moment=root.mnist_ae.gradient_moment)
         self.gd_deconv = unit
         unit.link_attrs(self.evaluator, "err_output")
-        unit.link_attrs(self.deconv, "weights", "input", "hits")
+        unit.link_attrs(
+            self.deconv, "weights", "input", "hits", "n_kernels",
+            "kx", "ky", "sliding", "padding")
         unit.gate_skip = self.decision.gd_skip
-
-        self.gd_deconv.need_err_input = False
-        self.repeater.link_from(self.gd_deconv)
+        unit.need_err_input = False
+        unit.gate_block = self.decision.complete
+        self.repeater.link_from(unit)
 
         self.loader.gate_block = self.decision.complete
 
@@ -219,9 +216,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         prev = self.plt_out
 
         self.gd_deconv.link_from(prev)
-        self.gd_deconv.gate_block = self.decision.complete
 
 
 def run(load, main):
-    load(MnistAEWorkflow, layers=root.mnist_ae.layers)
+    load(MnistAEWorkflow)
     main()

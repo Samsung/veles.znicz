@@ -15,7 +15,8 @@ root.mnist_ae.update({
     "decision": {"fail_iterations": 20,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": 100, "on_device": True},
+    "loader": {"minibatch_size": 100, "on_device": True,
+               "normalization_type": "linear"},
     "learning_rate": 0.000001,
     "weights_decay": 0.00005,
     "gradient_moment": 0.00001,
@@ -25,5 +26,4 @@ root.mnist_ae.update({
     "unsafe_padding": True,
     "n_kernels": 5,
     "kx": 5,
-    "ky": 5,
-    "layers": [100, 10]})
+    "ky": 5})

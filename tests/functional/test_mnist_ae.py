@@ -40,7 +40,8 @@ class TestMnistAE(unittest.TestCase):
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
                             "compress": ""},
-            "loader": {"minibatch_size": 100, "on_device": True},
+            "loader": {"minibatch_size": 100, "on_device": True,
+                       "normalization_type": "linear"},
             "learning_rate": 0.000001,
             "weights_decay": 0.00005,
             "gradient_moment": 0.00001,
@@ -50,8 +51,7 @@ class TestMnistAE(unittest.TestCase):
             "unsafe_padding": True,
             "n_kernels": 5,
             "kx": 5,
-            "ky": 5,
-            "layers": [100, 10]})
+            "ky": 5})
 
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.mnist_ae.layers,
