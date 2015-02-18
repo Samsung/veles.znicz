@@ -33,8 +33,8 @@ class TestRBMUnits(unittest.TestCase):
         Raises:
             AssertLess: if unit output is wrong.
         """
-        test_data = scipy.io.loadmat('/home/timmy/Desktop/deepmat-master/'
-                                     'test_a2a.mat')
+        test_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
+                                     '..', 'data', 'rbm_data', 'test_a2a.mat'))
         a2a = rbm.All2AllSigmoid(DummyWorkflow(), output_sample_shape=196,
                                  weights_stddev=0.05)
         # add initialize and input
