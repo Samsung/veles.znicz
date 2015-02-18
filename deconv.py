@@ -16,7 +16,6 @@ from veles.accelerated_units import IOpenCLUnit
 from veles.memory import roundup, Vector
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
-import veles.error as error
 from veles.distributable import TriviallyDistributable
 
 
@@ -61,10 +60,10 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         """Computes required padding.
         """
         if sliding[0] > (ky >> 1) or sliding[1] > (kx >> 1):
-            raise error.BadFormatError(
+            raise ValueError(
                 "sliding should not be greater than half of the kernel size")
         if ky % sliding[0] != 0 or kx % sliding[1] != 0:
-            raise error.BadFormatError(
+            raise ValueError(
                 "Kernel size should be multiple of sliding")
         return (kx - sliding[1], ky - sliding[0],
                 kx - sx % sliding[1] if sx % sliding[1] != 0
@@ -74,15 +73,14 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
     def __init__(self, workflow, **kwargs):
         super(Deconv, self).__init__(workflow, **kwargs)
-        self.exports.extend(("kx", "ky", "n_kernels", "padding", "sliding"))
-        self.demand("input", "weights", "output_shape_source")
         self.unsafe_padding = kwargs.get("unsafe_padding", False)
         self.hits = Vector()
         self.krn_clear_output_ = None
         self._global_size = None
         self._local_size = None
         del self.bias
-        self.demand("n_kernels", "kx", "ky", "padding", "sliding")
+        self.demand("n_kernels", "kx", "ky", "padding", "sliding",
+                    "input", "weights", "output_shape_source")
 
     def init_unpickled(self):
         super(Deconv, self).init_unpickled()
@@ -92,15 +90,10 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         super(Deconv, self).initialize(device, **kwargs)
 
         if hasattr(self, "bias"):
-            raise error.BadFormatError("bias should not be set")
-        if self.input.mem is None:
-            raise error.BadFormatError("input must be initialized")
+            raise ValueError("bias should not be set")
         if (len(self.input.shape) != 4 or
                 self.input.shape[3] != self.n_kernels):
-            raise error.BadFormatError(
-                "Incorrectly shaped input encountered")
-        if self.weights.mem is None:
-            raise error.BadFormatError("weights should be assigned")
+            raise ValueError("Incorrectly shaped input encountered")
         weights_shape = (list(
             self.weights.shape[i] for i in range(
                 len(self.weights.shape) - 1, -1, -1))
@@ -108,16 +101,13 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         if (len(weights_shape) != 2 or
                 weights_shape[0] != self.n_kernels or
                 weights_shape[1] % (self.kx * self.ky) != 0):
-            raise error.BadFormatError(
-                "Incorrectly shaped weights encountered")
-
-        dtype = self.input.mem.dtype
+            raise ValueError("Incorrectly shaped weights encountered")
 
         output_shape = list(self.output_shape_source.shape)
         if len(output_shape) != 4:
-            raise error.BadFormatError("Incorrect output_shape_source shape")
+            raise ValueError("Incorrect output_shape_source shape")
         if output_shape[0] != self.input.shape[0]:
-            raise error.BadFormatError(
+            raise ValueError(
                 "output_shape_source.shape[0] != input.shape[0]")
 
         try:
@@ -127,40 +117,40 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             if self.padding is None:  # pylint: disable=E0203
                 self.padding = padding
             elif self.padding != padding:
-                raise error.BadFormatError("Expected padding %s but got %s" %
-                                           (padding, self.padding))
-        except error.BadFormatError:
+                raise ValueError("Expected padding %s but got %s" %
+                                 (padding, self.padding))
+        except ValueError:
             if not self.unsafe_padding:
                 raise
-            self.warning("Using unsafe padding of %s", str(self.padding))
-            if (not self.hits or
-                    self.hits.size != int(numpy.prod(output_shape))):
+            self.warning("Using unsafe padding of %s", self.padding)
+            if not self.hits:
                 self.hits.reset(numpy.zeros(output_shape, dtype=numpy.int32))
+            else:
+                assert self.hits.size == int(numpy.prod(output_shape))
 
         if not self.output:
-            self.output.reset(numpy.zeros(output_shape, dtype=dtype))
+            self.output.reset(numpy.zeros(output_shape,
+                                          dtype=self.input.dtype))
         else:
             assert self.output.shape == output_shape
 
         self.init_vectors(self.input, self.weights, self.output, self.hits)
 
     def ocl_init(self):
-        dtype = self.input.mem.dtype
+        dtype = self.input.dtype
         output_shape = list(self.output_shape_source.shape)
         weights_shape = (list(
             self.weights.shape[i] for i in range(
                 len(self.weights.shape) - 1, -1, -1))
             if self.weights_transposed else list(self.weights.shape))
 
-        sx = output_shape[2]
-        sy = output_shape[1]
-        n_channels = output_shape[3]
+        sy, sx, n_channels = output_shape[1:]
 
         kernel_applies_count = self.input.size // self.n_kernels
         a_width = kernel_applies_count
         b_width = weights_shape[1]
         block_size = self.device.device_info.get_block_size(
-            kernel="deconv", dtype=self.input.dtype)
+            kernel="deconv", dtype=dtype)
 
         defines = {
             "USE_ATOMICS": 1,
@@ -211,12 +201,12 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
     def ocl_run(self):
         self.unmap_vectors(self.output, self.input, self.weights)
-        self.execute_kernel([self.output.size], None, self.krn_clear_output_)
+        self.execute_kernel((self.output.size,), None, self.krn_clear_output_)
         if self.hits:
             self.hits.unmap()
-            self.execute_kernel([self.hits.size], None, self.krn_clear_hits_)
+            self.execute_kernel((self.hits.size,), None, self.krn_clear_hits_)
             self.execute_kernel(self._global_size, self._local_size)
-            self.execute_kernel([self.hits.size], None, self.krn_apply_hits_)
+            self.execute_kernel((self.hits.size,), None, self.krn_apply_hits_)
         else:
             self.execute_kernel(self._global_size, self._local_size)
 

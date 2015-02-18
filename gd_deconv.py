@@ -12,7 +12,6 @@ import numpy
 from zope.interface import implementer
 from veles.compat import from_none
 
-import veles.error as error
 from veles.memory import roundup
 from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
@@ -79,13 +78,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
     def initialize(self, device, **kwargs):
         if self.bias is not None:
-            raise error.BadFormatError("bias should not be set")
-        if self.err_output.mem is None:
-            raise error.BadFormatError("err_output should be assigned")
-        if self.weights.mem is None:
-            raise error.BadFormatError("weights should be assigned")
-        if self.input.mem is None:
-            raise error.BadFormatError("input should be assigned")
+            raise ValueError("bias should not be set")
         weights_shape = (list(
             self.weights.shape[i] for i in range(
                 len(self.weights.shape) - 1, -1, -1))
@@ -93,21 +86,21 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         if (len(weights_shape) != 2 or
                 weights_shape[0] != self.n_kernels or
                 weights_shape[1] % (self.kx * self.ky) != 0):
-            raise error.BadFormatError(
+            raise ValueError(
                 "Incorrectly shaped weights encountered")
         if (len(self.input.shape) != 4 or
                 self.input.shape[3] != self.n_kernels):
-            raise error.BadFormatError(
+            raise ValueError(
                 "Incorrectly shaped input encountered")
         if (len(self.err_output.shape) != 4 or
                 self.err_output.shape[0] != self.input.shape[0]):
-            raise error.BadFormatError(
+            raise ValueError(
                 "Incorrectly shaped err_output encountered")
 
         sy, sx = self.ky_kx
 
         if self.weights.size != self.weights_number:
-            raise error.BadFormatError(
+            raise ValueError(
                 "Expected number of weights to match "
                 "input, n_kernels, kx, ky parameters")
 
@@ -117,17 +110,18 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             if self.padding is None:  # pylint: disable=E0203
                 self.padding = padding
             elif self.padding != padding:
-                raise error.BadFormatError("Expected padding %s got %s" %
-                                           (str(padding), str(self.padding)))
-        except error.BadFormatError as e:
+                raise ValueError(
+                    "Expected padding %s got %s"
+                    % (str(padding), str(self.padding)))
+        except ValueError as e:
             if not self.hits:
                 raise from_none(e)
             self.warning("Using unsafe padding of %s", self.padding)
 
+        super(GDDeconv, self).initialize(device, **kwargs)
+
         if self.hits:
             self.hits.initialize(self.device)
-
-        super(GDDeconv, self).initialize(device, **kwargs)
 
     def ocl_init(self):
         batch_size = self.err_output.mem.shape[0]
@@ -229,7 +223,8 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
     def gpu_err_output_update(self):
         self.err_output.unmap()
-        self.execute_kernel([self.err_output.size], None, self.krn_err_output_)
+        self.execute_kernel(
+            (self.err_output.size,), None, self.krn_err_output_)
 
     def gpu_err_input_update(self):
         if not self.need_err_input:
