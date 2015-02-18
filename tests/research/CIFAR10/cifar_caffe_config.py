@@ -60,7 +60,7 @@ root.cifar.update({
                        "gradient_moment_bias": 0.9},
                 },
                {"name": "pool1", "type": "max_pooling",
-                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
 
                {"name": "relu1", "type": "activation_str"},
 
@@ -80,7 +80,7 @@ root.cifar.update({
                {"name": "relu2", "type": "activation_str"},
 
                {"name": "pool2", "type": "avg_pooling",
-                "kx": 3, "ky": 3, "sliding": (2, 2)},
+                "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
 
                {"name": "norm2", "type": "norm",
                 "alpha": 0.00005, "beta": 0.75, "n": 3, "k": 1},
@@ -97,8 +97,8 @@ root.cifar.update({
                 },
                {"name": "relu3", "type": "activation_str"},
 
-               {"name": "pool3", "type": "avg_pooling", "kx": 3, "ky": 3,
-                "sliding": (2, 2)},
+               {"name": "pool3", "type": "avg_pooling",
+                "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
 
                {"name": "a2asm4", "type": "softmax",
                 "->": {"output_sample_shape": 10,
