@@ -6,6 +6,7 @@ Standard workflow class definition.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import numpy
 import six
 import sys
 
@@ -38,6 +39,7 @@ import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.gd_pooling import GDPooling
+from veles.znicz.all2all import All2AllSoftmax
 
 
 class TypeDict(UserDict):
@@ -225,7 +227,23 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         for prev_forward, forward in zip(self.forwards, self.forwards[1:]):
             if isinstance(prev_forward, weights_zerofilling.ZeroFiller):
                 prev_forward.link_attrs(forward, "weights")
-            prev_forward = forward
+
+        last_fwd = self.forwards[-1]
+        if not isinstance(last_fwd, All2AllSoftmax):
+            return
+
+        def on_unique_labels_counted():
+            ulc = self.loader.unique_labels_count
+            oss = last_fwd.output_sample_shape
+            if oss != tuple() and numpy.prod(oss) > ulc:
+                self.warning(
+                    "Will not override %s.output_sample_shape %s with (%s,)",
+                    last_fwd, oss, ulc)
+                return
+            self.info("Setting %s.output_sample_shape to %d", last_fwd, ulc)
+            last_fwd.output_sample_shape = ulc
+
+        self.loader.on_unique_labels_counted = on_unique_labels_counted
 
     def _add_forward_unit(self, new_unit, init_unit=None, init_attrs=None):
         """

@@ -59,14 +59,14 @@ class All2All(nn_units.NNLayerBase):
 
     def __init__(self, workflow, **kwargs):
         super(All2All, self).__init__(workflow, **kwargs)
-        self.output_sample_shape = kwargs["output_sample_shape"]
+        self.output_sample_shape = kwargs.get("output_sample_shape", tuple())
         self.output_samples_number = kwargs.get("output_samples_number")
         self.output_dtype = kwargs.get("output_dtype")
         self.activation_mode = "ACTIVATION_LINEAR"
         self.exports.append("activation_mode")
         self._global_size = None
         self._local_size = None
-        self.demand("input")
+        self.demand("input", "output_sample_shape", "output_samples_number")
 
     def init_unpickled(self):
         super(All2All, self).init_unpickled()
