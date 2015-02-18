@@ -22,9 +22,23 @@ import numpy
 import time
 from zope.interface import implementer
 
-from veles.memory import reshape, roundup
+from veles.memory import reshape, roundup, Vector
 from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
+from collections import namedtuple
+
+
+FastGDObjects = namedtuple("FastGDObjects", ("learning_rate",
+                                             "weights", "bias"))
+AdaDeltaGDObjects = namedtuple("AdaDeltaGDObjects", ("momentum",
+                                                     "weights",
+                                                     "gweights",
+                                                     "bias",
+                                                     "gbias",
+                                                     "adom", "epsilon"))
+AdaGradGDObjects = namedtuple("AdaGradGDObjects", ("epsilon",
+                                                   "weights",
+                                                   "bias"))
 
 
 @implementer(IOpenCLUnit)
@@ -51,12 +65,47 @@ class GradientDescent(nn_units.GradientDescentBase):
         krn_weights_: OpenCL kernel for weights update.
         krn_err_output_: OpenCL kernel for err_output update.
         krn_bias_: OpenCL kernel for bias update.
-    """
 
+
+        self.variant_gradient - variant of the method using a gradient
+        0- old (gradient ->l1l2->add moment->new moment->upd weights)
+        1- new ( gradient-> new moment->l1l2->
+            add( adadelta adagard,fast and t.d.)->upd weights)
+        2- TODO : NESTEROV
+        3- Sparsing (different ways)
+        self.variant_moment_gradient -
+            variant of the method using a moment gradient
+        gradient_weights_with_moment  -not the correct name
+        may be gradient_weights_with_moment
+        self.last_minibatch - need of loader
+     """
     MAPPING = {"all2all"}
+    SOLVERS = ("momentum", "adagrad", "adadelta", "fast")
+
+    @property
+    def solvers(self):
+        return self._solvers
+
+    @solvers.setter
+    def solvers(self, arr):
+        if "adagrad" in arr and "adadelta" in arr:
+            raise ValueError("This solver is not have adagrad and adadelta")
+        solvers = set()
+        for value in arr:
+            if value not in self.SOLVERS:
+                raise ValueError(
+                    "This solver is not supported: %s. Select one of %s.",
+                    value, ", ".join(self.SOLVERS))
+            solvers.add(value)
+        self._solvers.clear()
+        self._solvers.update(solvers)
 
     def __init__(self, workflow, **kwargs):
+        self._solvers = set()
         super(GradientDescent, self).__init__(workflow, **kwargs)
+        s = kwargs.get("solvers", set())
+        self.solvers = s
+
         self.reduce_size = 64
         self.cl_const = None
         self.krn_err_input_ = None
@@ -68,6 +117,64 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.demand("weights")
         if self.include_bias:
             self.demand("bias")
+
+        self.last_minibatch = None
+
+        self.variant_gradient = kwargs.get("variant_gradient", True)
+        self.variant_moment_gradient = (
+            kwargs.get("variant_moment_gradient", True))
+        if "fast" in self.solvers:
+            self.fast = FastGDObjects(kwargs.get("fast_learning_rate", 0.02),
+                                      Vector(), Vector())
+        if "adadelta" in self.solvers:
+            self.adadelta = AdaDeltaGDObjects(
+                kwargs.get("adadelta_momentum", 0.9),
+                Vector(), Vector(),
+                Vector(), Vector(),
+                kwargs.get("adadelta_adom", 0.3),
+                kwargs.get("adadelta_epsilon", 1e-8))
+            self.adadelta_adom = self.adadelta.adom
+
+        if "adagrad" in self.solvers:
+            self.adagrad = AdaGradGDObjects(
+                kwargs.get("adagrad_epsilon", 1e-8),
+                Vector(), Vector())
+
+        self.last_minibatch = kwargs.get("last_minibatch", False)
+
+    def initialize(self, device, **kwargs):
+        super(GradientDescent, self).initialize(device=device, **kwargs)
+
+        if "adadelta" in self.solvers:
+            for vec in (self.adadelta.weights, self.adadelta.gweights):
+                vec.reset(numpy.zeros_like(self.weights.mem))
+            for vec in (self.adadelta.bias, self.adadelta.gbias):
+                vec.reset(numpy.zeros_like(self.bias.mem))
+
+        if "fast" in self.solvers:
+            self.fast.bias.reset(numpy.zeros_like(self.bias.mem))
+            self.fast.weights.reset(numpy.zeros_like(self.weights.mem))
+
+        if "adagrad" in self.solvers:
+            self.adagrad.bias.reset(numpy.zeros_like(self.bias.mem))
+            self.adagrad.weights.reset(numpy.zeros_like(self.weights.mem))
+
+        if "fast" in self.solvers:
+            self.init_vectors(self.fast.weights, self.fast.bias)
+
+        if "adadelta" in self.solvers:
+            self.init_vectors(
+                self.adadelta.weights,
+                self.adadelta.gweights,
+                self.adadelta.bias,
+                self.adadelta.gbias)
+
+        if "adagrad" in self.solvers:
+            self.init_vectors(self.adagrad.weights, self.adagrad.bias)
+
+        if (any(s in self.solvers for s in ("fast", "adagrad", "adadelta"))
+                and not self.gradient_weights_with_moment):
+            raise ValueError("Some of the solvers need moment vectors")
 
     def _gpu_init(self, defines):
         dtype = self.err_output.mem.dtype
@@ -183,86 +290,163 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
 
-    def cpu_weights_update(self):
-        self.input.map_read()
-        self.err_output.map_read()
-        self.weights.map_write()
-        self.gradient_weights.map_write()
-        self.accumulated_gradient_weights.map_write()
+    def moment_use(self, gradient_w_moment, grad):
+        if gradient_w_moment:
+            if self.variant_moment_gradient:
+                gradients = (grad +
+                             gradient_w_moment.mem * self.gradient_moment)
+            else:
+                gradients = (
+                    (1 - self.gradient_moment) * grad +
+                    gradient_w_moment.mem * self.gradient_moment)
+            gradient_w_moment.mem[:] = gradients[:]
+        else:
+            gradients = grad
+        return gradients
+
+    def apply_gradient_f(self, gradient, vec, transposed):
+        if self.apply_gradient:
+            if transposed:
+                vec.mem += gradient.transpose()
+            else:
+                vec.mem += gradient
+
+    def accumulate_gradient_f(self, accumulated_gradient, gradient):
+        if accumulated_gradient:
+            if self.accumulate_gradient == self.OP_NONE:
+                pass
+            elif self.accumulate_gradient == self.OP_STORE:
+                accumulated_gradient.mem[:] = gradient
+            elif self.accumulate_gradient == self.OP_ADD:
+                accumulated_gradient.mem[:] += gradient
+            elif self.accumulate_gradient == self.OP_FLUSH:
+                gradient += accumulated_gradient.mem
+                accumulated_gradient.mem[:] = 0
+            else:
+                raise ValueError(
+                    "Incorrect accumulate_gradient attribute value")
+        return gradient
+
+    def cpu_update(self, s):
+
+        f_ortho_use = False if s == 'bias' else self.factor_ortho
+
+        if s == 'weights':
+            self.gradient_weights.map_read()
+            for vec in (self.weights,
+                        self.accumulated_gradient_weights,
+                        self.gradient_weights_with_moment):
+                vec.map_write()
+            v_trans = getattr(self, s + "_transposed")
+        elif s == 'bias':
+            self.gradient_bias.map_read()
+            for vec in (self.bias,
+                        self.accumulated_gradient_bias,
+                        self.gradient_bias_with_moment):
+                vec.map_write()
+            v_trans = 0
+
+        vec = getattr(self, s)
+        grad_vec = getattr(self, "gradient_" + s)
+        acc_vec = getattr(self, "accumulated_gradient_" + s)
+        vec_old = getattr(self, "gradient_%s_with_moment" % s)
+        if "fast" in self.solvers:
+            f_vec = getattr(self.fast, s)
+        if "adagrad" in self.solvers:
+            adagard_vec = getattr(self.adagrad, s)
+        if "adadelta" in self.solvers:
+            adadelta_vec = getattr(self.adadelta, s)
+            adadelta_gvec = getattr(self.adadelta, "g" + s)
 
         lr = self.learning_rate
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
 
+        if self.variant_gradient:
+            gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+                vec.mem, grad_vec.mem, lr, factor_l12, l1_vs_l2, f_ortho_use)
+            gradient = self.accumulate_gradient_f(acc_vec, gradient)
+            # if "momentum" in self.solvers:
+            gradient = self.moment_use(vec_old, gradient)
+
+        else:
+            # it is RNN
+            gradient = self.accumulate_gradient_f(acc_vec, grad_vec)
+
+            gradient = self.moment_use(vec_old, gradient)
+            gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+                vec.mem, gradient, lr, factor_l12, l1_vs_l2, f_ortho_use)
+        if "adagrad" in self.solvers:
+            gradient = self.apply_adagrad(adagard_vec, vec_old, gradient)
+        if "adadelta" in self.solvers:
+            gradient = self.apply_adadelta(adadelta_vec, adadelta_gvec,
+                                           vec_old, gradient)
+        if "fast" in self.solvers:
+            self.apply_fast(f_vec, vec_old)
+
+        self.apply_gradient_f(gradient, vec, v_trans)
+
+        if "fast" in self.solvers and self.apply_gradient and not v_trans:
+            vec.mem -= f_vec.mem
+
+    def apply_fast(self, f_vec, vec_old):
+        f_vec.mem *= 0.95
+        f_vec.mem[:] = f_vec + self.fast.learning_rate * vec_old.mem
+
+    def apply_adagrad(self, adagard_vec, vec_old, gradient):
+
+        adagard_vec.map_write()
+        adagard_vec.mem += (vec_old.mem ** 2)
+        adagard_vec.map_read()
+        gradient *= numpy.sqrt(adagard_vec.mem + self.adagrad.epsilon)
+
+        return gradient
+
+    def apply_adadelta(self, adadelta_vec, adadelta_gvec, vec_old, gradient):
+
+        adadelta_vec.map_write()
+        adadelta_gvec.map_write()
+        adadelta_gvec.mem = (self.adadelta.adom * adadelta_gvec.mem +
+                             (1 - self.adadelta.adom) * vec_old.mem ** 2)
+        s1, s2 = (numpy.sqrt(m.mem + self.adadelta.epsilon)
+                  for m in (adadelta_vec, adadelta_gvec))
+        gradient *= s1 / s2
+        adadelta_vec.mem = (self.adadelta_adom * adadelta_vec.mem +
+                            (1 - self.adadelta_adom) * gradient ** 2)
+        self.adadelta_adom = 0 if (
+            self.last_minibatch) else self.adadelta.momentum
+        return gradient
+
+    def cpu_weights_update(self):
+
+        self.input.map_read()
+        self.output.map_read()
+        self.err_output.map_write()
+
         err_output = reshape(
             self.err_output.mem,
             [self.err_output.mem.shape[0],
              self.err_output.mem.size // self.err_output.mem.shape[0]])
+
         inp = reshape(
             self.input.mem, [self.input.mem.shape[0],
                              self.input.mem.size // self.input.mem.shape[0]])
+
+        self.gradient_weights.map_write()
         numpy.dot(err_output.transpose(), inp, self.gradient_weights.mem)
 
-        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-            self.weights.mem, self.gradient_weights.mem,
-            lr, factor_l12, l1_vs_l2, self.factor_ortho)
-        if self.accumulate_gradient == self.OP_NONE:
-            pass
-        elif self.accumulate_gradient == self.OP_STORE:
-            self.accumulated_gradient_weights.mem[:] = gradient
-        elif self.accumulate_gradient == self.OP_ADD:
-            self.accumulated_gradient_weights.mem[:] += gradient
-        elif self.accumulate_gradient == self.OP_FLUSH:
-            gradient += self.accumulated_gradient_weights.mem
-            self.accumulated_gradient_weights.mem[:] = 0
-        else:
-            raise ValueError("Incorrect accumulate_gradient attribute value")
-        if self.gradient_weights_with_moment:
-            gradient += (self.gradient_weights_with_moment.mem *
-                         self.gradient_moment)
-            self.gradient_weights_with_moment.mem[:] = gradient[:]
-        if self.apply_gradient:
-            if self.weights_transposed:
-                self.weights.mem += gradient.transpose()
-            else:
-                self.weights.mem += gradient
+        self.cpu_update('weights')
 
     def cpu_bias_update(self):
+
         if not self.include_bias:
             return
-
         self.err_output.map_read()
-        self.bias.map_write()
+
         self.gradient_bias.map_write()
-        self.accumulated_gradient_bias.map_write()
-        self.gradient_bias_with_moment.map_write()
-
-        lr = self.learning_rate_bias
-        factor_l12 = self.weights_decay_bias
-        l1_vs_l2 = self.l1_vs_l2_bias
-
         self.gradient_bias.mem[:] = self.err_output.mem.sum(axis=0)
 
-        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-            self.bias.mem, self.gradient_bias.mem,
-            lr, factor_l12, l1_vs_l2)
-        if self.accumulate_gradient == self.OP_NONE:
-            pass
-        elif self.accumulate_gradient == self.OP_STORE:
-            self.accumulated_gradient_bias.mem[:] = gradient
-        elif self.accumulate_gradient == self.OP_ADD:
-            self.accumulated_gradient_bias.mem[:] += gradient
-        elif self.accumulate_gradient == self.OP_FLUSH:
-            gradient += self.accumulated_gradient_bias.mem
-            self.accumulated_gradient_bias.mem[:] = 0
-        else:
-            raise ValueError("Incorrect accumulate_gradient attribute value")
-        if self.gradient_bias_with_moment:
-            gradient += (self.gradient_bias_with_moment.mem *
-                         self.gradient_moment)
-            self.gradient_bias_with_moment.mem[:] = gradient[:]
-        if self.apply_gradient:
-            self.bias.mem += gradient
+        self.cpu_update('bias')
 
     def cpu_err_input_update(self):
         """Backpropagate error (will compute err_input).
