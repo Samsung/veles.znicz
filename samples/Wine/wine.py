@@ -40,11 +40,8 @@ class WineWorkflow(nn_units.NNWorkflow):
     Model - fully-connected Neural Network with SoftMax loss function.
     """
     def __init__(self, workflow, **kwargs):
-        layers = kwargs.get("layers")
-        device = kwargs.get("device")
-        kwargs["layers"] = layers
-        kwargs["device"] = device
         super(WineWorkflow, self).__init__(workflow, **kwargs)
+        layers = kwargs["layers"]
 
         self.repeater.link_from(self.start_point)
 
@@ -58,11 +55,9 @@ class WineWorkflow(nn_units.NNWorkflow):
         del self.forwards[:]
         for i, layer in enumerate(layers):
             if i < len(layers) - 1:
-                aa = all2all.All2AllTanh(self, output_sample_shape=[layer],
-                                         device=device)
+                aa = all2all.All2AllTanh(self, output_sample_shape=(layer,))
             else:
-                aa = all2all.All2AllSoftmax(self, output_sample_shape=[layer],
-                                            device=device)
+                aa = all2all.All2AllSoftmax(self, output_sample_shape=(layer,))
             self.forwards.append(aa)
             if i:
                 self.forwards[-1].link_from(self.forwards[-2])
@@ -74,7 +69,7 @@ class WineWorkflow(nn_units.NNWorkflow):
                     self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorSoftmax(self, device=device)
+        self.evaluator = evaluator.EvaluatorSoftmax(self)
         self.evaluator.link_from(self.forwards[-1])
         self.evaluator.link_attrs(self.forwards[-1], "output", "max_idx")
         self.evaluator.link_attrs(self.loader,
@@ -112,8 +107,8 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.forwards)))
-        self.gds[-1] = gd.GDSoftmax(self, device=device)
+        self.gds.extend(None for i in range(len(self.forwards)))
+        self.gds[-1] = gd.GDSoftmax(self)
         self.gds[-1].link_from(self.snapshotter)
         self.gds[-1].link_attrs(self.evaluator, "err_output")
         self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
@@ -121,7 +116,7 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.forwards) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self, device=device)
+            self.gds[i] = gd.GDTanh(self)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
