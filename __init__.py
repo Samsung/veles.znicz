@@ -16,7 +16,7 @@ from veles.config import root
 
 __plugins__.add(modules[__name__])
 
-root.common.engine.dirs.append("/usr/share/veles/znicz")
+root.common.engine.source_dirs.append("/usr/share/veles/znicz")
 try:
     from .site_config import update
     update(root)

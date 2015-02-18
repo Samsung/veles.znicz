@@ -28,8 +28,8 @@ class TestMatrixReduce(unittest.TestCase):
         thisdir = os.path.dirname(__file__)
         if not len(thisdir):
             thisdir = "."
-        if thisdir not in root.common.engine.dirs:
-            root.common.engine.dirs.append(thisdir)
+        if thisdir not in root.common.engine.source_dirs:
+            root.common.engine.source_dirs.append(thisdir)
 
     def tearDown(self):
         gc.collect()
