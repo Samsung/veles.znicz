@@ -16,7 +16,6 @@ import scipy.io
 from zope.interface import implementer
 
 from veles.config import root
-import veles.error as error
 from veles.mutable import Bool
 import veles.opencl_types as opencl_types
 import veles.plotting_units as plotting_units
@@ -30,67 +29,115 @@ from veles.znicz.nn_units import NNSnapshotter
 
 
 target_dir = [os.path.join(root.common.test_dataset_root,
-                           "approximator/all_org_appertures.mat")]
+                           "approximator/all_org_apertures.mat")]
 train_dir = [os.path.join(root.common.test_dataset_root,
-                          "approximator/all_dec_appertures.mat")]
+                          "approximator/all_dec_apertures.mat")]
 
 root.approximator.update({
     "decision": {"fail_iterations": 1000, "max_epochs": 1000000000},
     "snapshotter": {"prefix": "approximator"},
-    "loader": {"minibatch_size": 100},
+    "loader": {"minibatch_size": 100, "train_paths": train_dir,
+               "target_paths": target_dir, "normalization_type": "mean_disp",
+               "target_normalization_type": "mean_disp"},
     "learning_rate": 0.0001,
     "weights_decay": 0.00005,
-    "layers": [810, 9],
-    "data_paths": {"target": target_dir, "train": train_dir}})
+    "layers": [810, 9]})
 
 
-@implementer(loader.IFileImageLoader)
-class ApproximatorLoader(loader.FullBatchFileImageLoaderMSE):
+@implementer(loader.IFullBatchLoader)
+class ApproximatorLoader(loader.FullBatchLoaderMSE):
+    def __init__(self, workflow, **kwargs):
+        super(ApproximatorLoader, self).__init__(workflow, **kwargs)
+        self.test_paths = kwargs.get("test_paths", [])
+        self.validation_paths = kwargs.get("validation_paths", [])
+        self.train_paths = kwargs.get("train_paths", [])
+        self.target_paths = kwargs["target_paths"]
+
+    def init_unpickled(self):
+        super(ApproximatorLoader, self).init_unpickled()
+        self.target_by_lbl = {}
+
     def load_original(self, fnme):
-        a = scipy.io.loadmat(fnme)
-        for key in a.keys():
+        mat_array = scipy.io.loadmat(fnme)
+        for key in mat_array.keys():
             if key[0] != "_":
-                vle = a[key]
+                array_value = mat_array[key]
                 break
         else:
-            raise error.BadFormatError("Could not find variable to import "
-                                       "in %s" % (fnme))
-        aa = numpy.zeros(vle.shape, dtype=opencl_types.dtypes[
+            raise ValueError(
+                "Could not find variable to import in %s" % (fnme))
+        data = numpy.zeros(array_value.shape, dtype=opencl_types.dtypes[
             root.common.precision_type])
-        aa[:] = vle[:]
-        return (aa, [])
+        data[:] = array_value[:]
+        return data, []
 
     def load_data(self):
-        super(ApproximatorLoader, self).load_data()
-        return
-        if self.class_lengths[1] == 0:
-            n = self.class_lengths[2] * 10 // 70
-            self.class_lengths[1] = n
-            self.class_lengths[2] -= n
+        data = None
+        labels = []
+        # Loading original data and labels.
+        offs = 0
+        for index, sample_paths in enumerate(
+                (self.test_paths, self.validation_paths, self.train_paths)):
+            if sample_paths is None or not len(sample_paths):
+                continue
+            for pathname in sample_paths:
+                raw_data, raw_labels = self.load_original(pathname)
+                if not len(raw_data):
+                    continue
+                if len(raw_labels):
+                    if len(raw_labels) != len(raw_data):
+                        raise ValueError(
+                            "Number of labels %d differs "
+                            "from number of input images %d for %s"
+                            % (len(raw_labels), len(raw_data), pathname))
+                    labels.extend(raw_labels)
+                elif len(labels):
+                    raise ValueError(
+                        "Not labels found for %s" % pathname)
+                if data is None:
+                    data = raw_data
+                else:
+                    data = numpy.append(data, raw_data, axis=0)
+            self.class_lengths[index] = len(data) - offs
+            offs = len(data)
 
-    def initialize(self, device, **kwargs):
-        super(ApproximatorLoader, self).initialize(device, **kwargs)
-        self.info("data range: (%.6f, %.6f), target range: (%.6f, %.6f)"
-                  % (self.original_data.min(), self.original_data.max(),
-                     self.original_targets.min(), self.original_targets.max()))
-        # Normalization
-        for i in range(0, self.original_data.shape[0]):
-            data = self.original_data[i]
-            data /= 127.5
-            data -= 1.0
-            m = data.mean()
-            data -= m
-            data *= 0.5
-            target = self.original_targets[i]
-            target /= 127.5
-            target -= 1.0
-            target -= m
-            target *= 0.5
+        if len(labels):
+            self.info(
+                "Labels are indexed from-to: %d %d"
+                % (min(labels), max(labels)))
+            self.original_labels.mem = numpy.array(labels, dtype=numpy.int32)
 
-        self.info("norm data range: (%.6f, %.6f), "
-                  "norm target range: (%.6f, %.6f)"
-                  % (self.original_data.min(), self.original_data.max(),
-                     self.original_targets.min(), self.original_targets.max()))
+        # Loading target data and labels.
+        if self.target_paths is not None:
+            target_index = 0
+            for pathname in self.target_paths:
+                raw_target, raw_labels = self.load_original(pathname)
+                if len(raw_labels):  # there are labels
+                    for i, label in enumerate(raw_labels):
+                        self.target_by_lbl[label] = raw_target[i]
+                else:  # assume that target order is the same as data
+                    for target in raw_target:
+                        self.target_by_lbl[target_index] = target
+                        target_index += 1
+            if target_index:
+                print(target_index)
+                print(self.class_lengths)
+                if target_index != numpy.sum(self.class_lengths):
+                    raise ValueError(
+                        "Target samples count differs from data samples count")
+                self.original_labels.mem = numpy.arange(
+                    target_index, dtype=numpy.int32)
+
+        self.original_data.mem = data
+
+        targets = list(self.target_by_lbl.values())
+        if len(targets) > 0:
+            shape = (len(self.original_data),) + targets[0].shape
+            target = numpy.zeros(shape, dtype=targets[0].dtype)
+            for i, label in enumerate(self.original_labels.mem):
+                target[i] = self.target_by_lbl[label]
+            self.target_by_lbl.clear()
+        self.original_targets.mem = target
 
 
 class ApproximatorWorkflow(nn_units.NNWorkflow):
@@ -108,8 +155,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
         self.repeater.link_from(self.start_point)
 
         self.loader = ApproximatorLoader(
-            self, train_paths=root.approximator.data_paths.train,
-            target_paths=root.approximator.data_paths.target)
+            self, **root.approximator.loader.__content__)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

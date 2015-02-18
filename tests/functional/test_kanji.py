@@ -61,6 +61,7 @@ class TestKanji(unittest.TestCase):
                        "target_paths": [target_path],
                        "color_space": "GRAY",
                        "normalization_type": "linear",
+                       "target_normalization_type": "linear",
                        "targets_shape": (24, 24),
                        "background_color": (0,),
                        "validation_ratio": 0.15},

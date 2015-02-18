@@ -42,12 +42,7 @@ class LinesWorkflow(StandardWorkflow):
             limit=root.lines.weights_plotter.limit,
             weights_input="gradient_weights")
 
-        self.link_multi_hist_plotter(
-            self.weights_plotter[-1], layers=root.lines.layers,
-            weights_input="gradient_weights")
-
-        self.link_table_plotter(
-            self.multi_hist_plotter[-1], layers=root.lines.layers)
+        self.link_table_plotter(self.weights_plotter[-1], root.lines.layers)
 
         self.link_end_point(self.table_plotter)
 
