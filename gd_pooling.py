@@ -67,8 +67,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         self.link_attrs(other, *self.POOL_ATTRS)
 
     def initialize(self, device, **kwargs):
-        self.create_output()
-        if self.err_output.size != self._output_size:
+        if self.err_output.size != self.output_size:
             raise error.BadFormatError(
                 "Size of err_output differs "
                 "from the size computed based on kx, ky, size of input.")
@@ -76,9 +75,9 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
 
     def _gpu_init(self):
         defines = {
-            'SX': self._sx,
-            'SY': self._sy,
-            'N_CHANNELS': self._n_channels,
+            'SX': self.sx,
+            'SY': self.sy,
+            'N_CHANNELS': self.n_channels,
             'KX': self.kx,
             'KY': self.ky,
             'SLIDE_X': self.sliding[0],
@@ -88,7 +87,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         self.build_program(
             defines, "%s_%d_%dx%dx%d_%dx%d" %
             (self.__class__.__name__, self.err_output.shape[0],
-             self._sx, self._sy, self._n_channels,
+             self.sx, self.sy, self.n_channels,
              self.kx, self.ky),
             dtype=self.err_output.dtype)
         self.assign_kernel(self.kernel_name)
@@ -250,10 +249,10 @@ class GDAvgPooling(GDPooling):
         for (batch, y, x, ch), err in numpy.ndenumerate(self.err_output.mem):
             hx1 = x * self.sliding[0]
             hx2 = hx1 + self.kx
-            hx2 = hx2 if hx2 < self._sx else self._sx
+            hx2 = hx2 if hx2 < self.sx else self.sx
             hy1 = y * self.sliding[1]
             hy2 = hy1 + self.ky
-            hy2 = hy2 if hy2 < self._sy else self._sy
+            hy2 = hy2 if hy2 < self.sy else self.sy
             delta = err / ((hx2 - hx1) * (hy2 - hy1))
             for i, j in ((ii, jj) for ii in range(hy1, hy2)
                          for jj in range(hx1, hx2)):

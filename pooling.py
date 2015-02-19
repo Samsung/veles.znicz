@@ -40,28 +40,43 @@ from veles.units import Unit
 class PoolingBase(Unit):
     POOL_ATTRS = ("kx", "ky", "sliding")
 
-    def create_output(self):
-        self._batch_size = self.input.shape[0]
-        self._sy = self.input.shape[1]
-        self._sx = self.input.shape[2]
-        self._n_channels = self.input.size // (self._batch_size *
-                                               self._sx * self._sy)
+    def __init__(self, workflow, **kwargs):
+        super(PoolingBase, self).__init__(workflow, **kwargs)
+        self._output_shape = tuple()
 
-        last_x = self._sx - self.kx
-        last_y = self._sy - self.ky
-        if last_x % self.sliding[0] == 0:
-            self._out_sx = last_x // self.sliding[0] + 1
-        else:
-            self._out_sx = last_x // self.sliding[0] + 2
-        if last_y % self.sliding[1] == 0:
-            self._out_sy = last_y // self.sliding[1] + 1
-        else:
-            self._out_sy = last_y // self.sliding[1] + 2
+    @property
+    def output_shape(self):
+        if self._output_shape == tuple():
+            outs = [0, 0]
+            for i, last in enumerate((self.sx - self.kx, self.sy - self.ky)):
+                outs[i] = last // self.sliding[i] + 1
+                if last % self.sliding[i] != 0:
+                    outs[i] += 1
 
-        self._output_size = self._n_channels * self._out_sx * self._out_sy * \
-            self._batch_size
-        self._output_shape = [self._batch_size, self._out_sy, self._out_sx,
-                              self._n_channels]
+            self._out_sx, self._out_sy = outs
+            self._output_shape = (self.batch_size, self._out_sy, self._out_sx,
+                                  self.n_channels)
+        return self._output_shape
+
+    @property
+    def output_size(self):
+        return int(numpy.prod(self.output_shape))
+
+    @property
+    def batch_size(self):
+        return self.input.shape[0]
+
+    @property
+    def sy(self):
+        return self.input.shape[1]
+
+    @property
+    def sx(self):
+        return self.input.shape[2]
+
+    @property
+    def n_channels(self):
+        return self.input.size // (self.batch_size * self.sx * self.sy)
 
 
 @implementer(IOpenCLUnit, IDistributable)
@@ -105,46 +120,45 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     def initialize(self, device, **kwargs):
         super(Pooling, self).initialize(device=device, **kwargs)
 
-        self.create_output()
         if not self._no_output:
             if not self.output:
-                self.output.reset(numpy.zeros(self._output_shape,
+                self.output.reset(numpy.zeros(self.output_shape,
                                               dtype=self.input.dtype))
             else:
-                assert self.output.shape == self._output_shape
+                assert self.output.shape == self.output_shape, \
+                    "%s != %s" % (self.output.shape, self.output_shape)
             self.output.initialize(self.device)
 
         self.input.initialize(self.device)
 
     def _gpu_init(self):
         defines = {
-            'SX': self._sx,
-            'SY': self._sy,
-            'N_CHANNELS': self._n_channels,
+            'SX': self.sx,
+            'SY': self.sy,
+            'N_CHANNELS': self.n_channels,
             'KX': self.kx,
             'KY': self.ky,
             'SLIDE_X': self.sliding[0],
             'SLIDE_Y': self.sliding[1],
-            'OUTPUT_SIZE': self._output_size
+            'OUTPUT_SIZE': self.output_size
         }
         self.build_program(
             defines, "%s_%d_%dx%dx%d_%dx%d" %
             (self.__class__.__name__, self.input.shape[0],
-             self._sx, self._sy, self._n_channels,
+             self.sx, self.sy, self.n_channels,
              self.kx, self.ky), dtype=self.input.dtype)
         self.assign_kernel(self._kernel_name)
 
     def ocl_init(self):
-        sh = self._output_shape
+        sh = self.output_shape
         self._gpu_init()
         self._global_size = [sh[3] * sh[2], sh[1] * sh[0]]
         self._local_size = None
 
     def cuda_init(self):
-        sh = self._output_shape
         self._gpu_init()
         block_size = self.device.suggest_block_size(self._kernel_)
-        self._global_size = (int(numpy.ceil(numpy.prod(sh) / block_size)),
+        self._global_size = (int(numpy.ceil(self.output_size / block_size)),
                              1, 1)
         self._local_size = (block_size, 1, 1)
 
@@ -175,16 +189,16 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
         self.input.map_read()
         self.output.map_invalidate()
         for batch, ch in ((batch, ch) for batch in range(self._batch_size)
-                          for ch in range(self._n_channels)):
+                          for ch in range(self.n_channels)):
             for out_x, out_y in ((out_x, out_y)
                                  for out_x in range(self._out_sx)
                                  for out_y in range(self._out_sy)):
                 x1 = out_x * self.sliding[0]
                 y1 = out_y * self.sliding[1]
                 test_idx = x1 + self.kx
-                x2 = test_idx if test_idx <= self._sx else self._sx
+                x2 = test_idx if test_idx <= self.sx else self.sx
                 test_idx = y1 + self.ky
-                y2 = test_idx if test_idx <= self._sy else self._sy
+                y2 = test_idx if test_idx <= self.sy else self.sy
                 cut = self.input.mem[batch, y1:y2, x1:x2, ch]
                 val = self.cpu_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
                 self.output.mem[batch, out_y, out_x, ch] = val
@@ -337,12 +351,12 @@ class StochasticPoolingBase(OffsetPooling):
         if self.uniform is None:
             self.uniform = prng.Uniform(self)
 
-        if self.uniform.output_bytes < (self._output_size << 1):
+        if self.uniform.output_bytes < (self.output_size << 1):
             if self.uniform.is_initialized:
                 raise error.AlreadyExistsError(
                     "uniform is already initialized and "
                     "has not enough output size")
-            self.uniform.output_bytes = self._output_size << 1
+            self.uniform.output_bytes = self.output_size << 1
 
         self.uniform.initialize(self.device)
 
@@ -360,21 +374,21 @@ class StochasticPoolingBase(OffsetPooling):
         pass
 
     def cpu_run(self):
-        self.uniform.cpu_fill(self._output_size << 1)
+        self.uniform.cpu_fill(self.output_size << 1)
         super(StochasticPoolingBase, self).cpu_run()
 
     def ocl_run(self):
         if not self._rand_set:
             self.set_arg(self._rand_arg, self.uniform.output)
             self._rand_set = True
-        self.uniform.ocl_fill(self._output_size << 1)
+        self.uniform.ocl_fill(self.output_size << 1)
         super(StochasticPoolingBase, self).ocl_run()
 
     def cuda_run(self):
         if not self._rand_set:
             self.set_arg(self._rand_arg, self.uniform.output)
             self._rand_set = True
-        self.uniform.cuda_fill(self._output_size << 1)
+        self.uniform.cuda_fill(self.output_size << 1)
         super(StochasticPoolingBase, self).cuda_run()
 
     def calculate_position_cpu(self, index, vsum):
