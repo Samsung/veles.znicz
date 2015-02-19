@@ -11,5 +11,5 @@
     "workflow": "kohonen.py",
     "image": "kohonen.png",
     "tags": ["kohonen"],
-    "files": ["kohonen.txt.gz"]
+    "files": ["kohonen.txt.gz", "__init__.py"]
 }

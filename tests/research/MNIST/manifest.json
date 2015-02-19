@@ -11,5 +11,5 @@
     "workflow": "mnist.py",
     "image": "mnist.png",
     "tags": ["mnist", "convolutional", "fully-connected", "softmax", "self-constructing", "caffe"],
-    "files": ["mnist_config.py", "mnist_caffe_config.py", "loader_mnist.py"]
+    "files": ["mnist_config.py", "mnist_caffe_config.py", "loader_mnist.py", "__init__.py"]
 }

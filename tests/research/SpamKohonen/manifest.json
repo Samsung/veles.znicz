@@ -10,5 +10,6 @@
     "short_description": "Kohonen Spam detection on Lee Man Ha dataset.",
     "workflow": "spam_kohonen.py",
     "image": "stop-spam.jpg",
-    "tags": ["kohonen", "spam"]
+    "tags": ["kohonen", "spam"],
+    "files": ["__init__.py"]
 }

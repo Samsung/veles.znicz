@@ -10,5 +10,6 @@
     "short_description": "Model created for functions approximation.",
     "workflow": "approximator.py",
     "image": "approximator.png",
-    "tags": ["approximator", "mse", "fully-connected"]
+    "tags": ["approximator", "mse", "fully-connected"],
+    "files": ["__init__.py"]
 }

@@ -11,5 +11,5 @@
     "workflow": "kanji.py",
     "image": "kanji.png",
     "tags": ["kanji", "self-constructing", "mse", "fully-connected"],
-    "files": ["generate_kanji.py"]
+    "files": ["generate_kanji.py", "__init__.py"]
 }

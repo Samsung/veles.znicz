@@ -10,5 +10,6 @@
     "short_description": "Model created for geometric figure recognition.",
     "workflow": "lines.py",
     "image": "lines.jpg",
-    "tags": ["lines", "random", "self-constructing", "convolutional", "softmax"]
+    "tags": ["lines", "random", "self-constructing", "convolutional", "softmax"],
+    "files": ["__init__.py"]
 }

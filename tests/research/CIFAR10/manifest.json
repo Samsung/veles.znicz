@@ -11,5 +11,5 @@
     "workflow": "cifar.py",
     "image": "cifar10.png",
     "tags": ["cifar", "self-constructing", "softmax", "convolutional", "fully-connected", "caffe"],
-    "files": ["cifar_config.py"]
+    "files": ["cifar_config.py", "__init__.py"]
 }

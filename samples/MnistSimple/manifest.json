@@ -11,5 +11,5 @@
     "workflow": "mnist.py",
     "tags": ["mnist", "fully-connected", "softmax"],
     "image": "mnist.png",
-    "files": ["loader_mnist.py"]
+    "files": ["loader_mnist.py", "__init__.py"]
 }

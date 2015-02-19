@@ -10,5 +10,6 @@
     "short_description": "Model created for human hands recognition.",
     "workflow": "hands.py",
     "image": "hands.jpeg",
-    "tags": ["hands", "fully-connected", "softmax"]
+    "tags": ["hands", "fully-connected", "softmax"],
+    "files": ["__init__.py"]
 }

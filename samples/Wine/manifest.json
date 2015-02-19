@@ -11,5 +11,5 @@
     "workflow": "wine.py",
     "image": "wine.jpg",
     "tags": ["wine", "fully-connected", "softmax"],
-    "files": ["wine.txt.gz", "loader_wine.py"]
+    "files": ["wine.txt.gz", "loader_wine.py", "__init__.py"]
 }

@@ -10,5 +10,6 @@
     "short_description": "Model created for compress video with autoencoder",
     "workflow": "video_ae.py",
     "image": "videoae.png",
-    "tags": ["autoencoder", "video"]
+    "tags": ["autoencoder", "video"],
+    "files": ["__init__.py"]
 }
