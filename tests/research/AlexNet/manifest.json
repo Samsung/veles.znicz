@@ -1,0 +1,15 @@
+{
+    "author": "VELES team",
+    "configuration": "imagenet_workflow_config.py",
+    "long_description": "Model created for object recognition. Database - Imagenet (1000 classes). Self-constructing Model. It means that Model can change for any Model (Convolutional, Fully connected, different parameters) in configuration file.",
+    "name": "AlexNet",
+    "requires": [
+        "veles >= 0.5.1",
+        "veles.znicz >= 0.4.1"
+    ],
+    "short_description": "Model created for object recognition. Database - Imagenet",
+    "workflow": "imagenet_workflow.py",
+    "image": "imagenet.jpg",
+    "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "alexnet", "caffe"],
+    "files": ["imagenet_loader.py", "preparation_imagenet.py", "__init__.py"]
+}
