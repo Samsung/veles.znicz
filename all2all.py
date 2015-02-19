@@ -126,7 +126,7 @@ class All2All(nn_units.NNLayerBase):
         elif filling == "gaussian":
             self.rand.fill_normal_real(array, 0, stddev)
         elif filling == "constant":
-            self.weights.mem[:] = stddev
+            array[:] = stddev
         else:
             raise error.BadFormatError("Invalid filling type %s" % filling)
 
