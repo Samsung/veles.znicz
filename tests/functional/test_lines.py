@@ -59,7 +59,7 @@ class TestLines(unittest.TestCase):
             "decision": {"fail_iterations": 100,
                          "max_epochs": 9},
             "snapshotter": {"prefix": "lines",
-                            "time_interval": 0, "interval": 1},
+                            "time_interval": 0, "interval": 9 + 1},
             "image_saver": {"out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
                              os.path.join(
@@ -76,7 +76,8 @@ class TestLines(unittest.TestCase):
                  "weights_decay": 0.0, "gradient_moment": 0.9,
                  "weights_filling": "gaussian", "weights_stddev": 0.001,
                  "bias_filling": "gaussian", "bias_stddev": 0.001},
-                {"type": "max_pooling", "kx": 3, "ky": 3, "sliding": (2, 2)},
+                {"type": "max_pooling",
+                 "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
                 {"type": "all2all_relu", "output_sample_shape": 32,
                  "learning_rate": 0.0001, "weights_decay": 0.0,
                  "gradient_moment": 0.9, "weights_filling": "uniform",
@@ -99,8 +100,7 @@ class TestLines(unittest.TestCase):
                                      loader_config=root.lines.loader,
                                      layers=root.lines.layers,
                                      loader_name=root.lines.loader_name,
-                                     loss_function=root.lines.loss_function,
-                                     device=self.device)
+                                     loss_function=root.lines.loss_function)
         # Test workflow
         self.init_wf(self.w)
         self.w.run()

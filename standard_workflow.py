@@ -7,8 +7,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 import six
-from veles.znicz.conv import ConvolutionalBase
-from veles.znicz.gd_pooling import GDPooling
+import sys
 
 if six.PY3:
     from collections import UserDict
@@ -37,6 +36,8 @@ from veles.loader.base import UserLoaderRegistry
 from veles.loader.image import ImageLoader
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
+from veles.znicz.conv import ConvolutionalBase
+from veles.znicz.gd_pooling import GDPooling
 
 
 class TypeDict(UserDict):
@@ -309,7 +310,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             unit.link_attrs(self.forwards[i], *attrs)
 
             unit.gate_skip = self.decision.gd_skip
-            unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
 
             last_gd = unit
 
@@ -512,8 +512,11 @@ class StandardWorkflow(StandardWorkflowBase):
         self.snapshotter.link_from(init_unit)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
+        if "unittest" not in sys.modules:
+            self.snapshotter.gate_skip = \
+                (~self.decision.epoch_ended | ~self.decision.improved)
+        else:
+            self.snapshotter.gate_skip = ~self.decision.epoch_ended
 
     def link_image_saver(self, init_unit):
         # not work without create forwards, loader and decision first
