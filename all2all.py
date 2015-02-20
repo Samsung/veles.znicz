@@ -147,8 +147,10 @@ class All2All(nn_units.NNLayerBase):
 
         super(All2All, self).initialize(device=device, **kwargs)
 
-        self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
-        self.bias_stddev = self.weights_stddev
+        if self.weights_stddev is None:
+            self.weights_stddev = min(self.get_weights_magnitude(), 0.05)
+        if self.bias_stddev is None:
+            self.bias_stddev = self.weights_stddev
 
         n_weights = (self.input.size //
                      self.output_samples_number * self.output_sample_size)
