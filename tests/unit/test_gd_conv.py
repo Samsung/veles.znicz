@@ -15,7 +15,7 @@ from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
 from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
-    GDStrictRELUConv, GDTanhConv
+    GDStrictRELUConv, GDTanhConv, GDSigmoidConv
 import veles.znicz.conv as conv
 from veles.dummy import DummyWorkflow
 import veles.prng as prng
@@ -38,6 +38,10 @@ class PatchedGDStrictRELUConv(GDStrictRELUConv, PatchedGradientDescentBase):
 
 
 class PatchedGDTanhConv(GDTanhConv, PatchedGradientDescentBase):
+    pass
+
+
+class PatchedGDSigmoidConv(GDSigmoidConv, PatchedGradientDescentBase):
     pass
 
 
@@ -309,6 +313,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(self.device, conv.ConvTanh,
                                   PatchedGDTanhConv)
 
+    def test_random_numeric_gpu_sigmoid(self):
+        self._test_random_numeric(self.device, conv.ConvSigmoid,
+                                  PatchedGDSigmoidConv)
+
     def test_random_numeric_gpu_relu(self):
         self._test_random_numeric(self.device, conv.ConvRELU,
                                   PatchedGDRELUConv)
@@ -320,6 +328,10 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
     def test_random_numeric_cpu_tanh(self):
         self._test_random_numeric(None, conv.ConvTanh,
                                   PatchedGDTanhConv)
+
+    def test_random_numeric_cpu_sigmoid(self):
+        self._test_random_numeric(None, conv.ConvSigmoid,
+                                  PatchedGDSigmoidConv)
 
     def test_random_numeric_cpu_relu(self):
         self._test_random_numeric(None, conv.ConvRELU, PatchedGDRELUConv)

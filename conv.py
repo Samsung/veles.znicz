@@ -452,6 +452,28 @@ class ConvTanh(Conv):
                 x[...] = math.tanh((x + self.bias.mem[k]) * 0.6666) * 1.7159
 
 
+class ConvSigmoid(Conv):
+    """Conv with Sigmoid activation \
+        :math:`f(x) = 1.0 / (1.0 + exp(x))`.
+    """
+
+    MAPPING = {"conv_sigmoid"}
+
+    def initialize(self, device, **kwargs):
+        self.activation_mode = "ACTIVATION_SIGMOID"
+        super(ConvSigmoid, self).initialize(device=device, **kwargs)
+        self.output.max_supposed = 1.0
+
+    def apply_activation(self):
+        """Add bias and apply sigmoid activation function.
+        """
+        assert self.activation_mode == "ACTIVATION_SIGMOID"
+        for k in range(self.n_kernels):
+            for x in numpy.nditer(self.output.mem[:, :, :, k],
+                                  op_flags=['readwrite']):
+                x[...] = 1.0 / (1.0 + math.exp(-(x + self.bias.mem[k])))
+
+
 class ConvRELU(Conv):
     """Conv with smooth RELU activation :math:`f(x) = \\log(1 + \\exp(x))`.
     """

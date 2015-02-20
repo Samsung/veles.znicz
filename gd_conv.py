@@ -602,6 +602,32 @@ class GDTanhConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
         super(GDTanhConv, self).initialize(device=device, **kwargs)
 
 
+class GDSigmoidConv(nn_units.GradientDescentWithActivation,
+                    GradientDescentConv):
+    """Gradient Descent for f(x) = 1.0 / (1.0 + exp(-s)), s = (W * x + b),
+       y = 1.0 / (1.0 + exp(-s)).
+
+    f'(s) = y * (1 - y).
+    """
+
+    MAPPING = {"conv_sigmoid"}
+
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative by s
+           in terms of output.
+        """
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.mem
+        self.err_output.mem *= output * (1.0 - output)
+
+    def initialize(self, device, **kwargs):
+        self.sources_["gradient_descent_sigmoid"] = {
+            "ERR_OUTPUT_SIZE": self.err_output.size}
+        self.krn_err_output_name = "err_y_update"
+        super(GDSigmoidConv, self).initialize(device=device, **kwargs)
+
+
 class GDRELUConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
     """Gradient Descent for f(x) = log(1.0 + exp(s)), s = (W * x + b),
        y = log(1.0 + exp(s)).
