@@ -209,6 +209,33 @@ class BackwardTanh(ActivationBackward):
 
 
 @implementer(IOpenCLUnit)
+class ForwardSigmoid(ActivationForward):
+    """Forward pass for y = 1.0 / (1.0 + exp(-x)).
+    """
+
+    kernel_name = "forward_sigmoid"
+    MAPPING = {"activation_sigmoid"}
+
+    def cpu_run(self):
+        _, out = self.cpu_prerun(make_raveled=False, copy_in2out=True)
+        numpy.reciprocal(1.0 + numpy.exp(-out), out)
+
+
+@implementer(IOpenCLUnit)
+class BackwardSigmoid(ActivationBackward):
+    """Backward pass for :class:`ForwardSigmoid`.
+    """
+
+    kernel_name = "backward_sigmoid"
+    MAPPING = {"activation_sigmoid"}
+
+    def cpu_run(self):
+        _, output, err_input, err_output = \
+            self.cpu_prerun(is_raveled=False, io_usage=(False, True))
+        numpy.multiply(err_output, output * (1.0 - output), err_input)
+
+
+@implementer(IOpenCLUnit)
 class ForwardMul(ActivationForward):
     """Forward pass for :math:`y = k x`.
     """

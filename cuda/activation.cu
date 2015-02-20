@@ -25,6 +25,29 @@ __global__ void backward_tanh(const dtype    *input,
 
 
 extern "C"
+__global__ void forward_sigmoid(const dtype    *input,
+                                dtype          *output) {
+  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < OUTPUT_SIZE) {
+    output[idx] = (dtype)1.0 / ((dtype) + exp(-input[idx]));
+  }
+}
+
+
+extern "C"
+__global__ void backward_sigmoid(const dtype    *input,
+                                 const dtype    *output,
+                                 const dtype    *err_output,
+                                 dtype          *err_input) {
+  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < OUTPUT_SIZE) {
+    dtype vle = output[idx];
+    err_input[idx] = err_output[idx] * (vle * ((dtype)1.0 - vle));
+  }
+}
+
+
+extern "C"
 __global__ void forward_mul(const dtype    *input,
                             dtype          *output,
                             const dtype    factor) {
