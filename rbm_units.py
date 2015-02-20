@@ -16,7 +16,7 @@ from veles.mutable import Bool
 import veles.prng as prng
 from veles.units import IUnit, Unit
 from veles.workflow import Repeater
-from veles.znicz.all2all import All2All
+from veles.znicz.all2all import All2AllSigmoid
 from veles.znicz.evaluator import EvaluatorMSE
 
 
@@ -104,25 +104,6 @@ class Binarization(AcceleratedUnit):
             raise ValueError("shape of input Binarization class "
                              "must be 1 or 2 dimensions")
         return res
-
-
-class All2AllSigmoid(All2All):
-    """All2All with scaled sigmoid() activation f(x) = sigmoid(x).
-    """
-    def initialize(self, device, **kwargs):
-        self.s_activation = "ACTIVATION_Sigmoid"
-        super(All2AllSigmoid, self).initialize(device=device, **kwargs)
-        self.output.supposed_maxvle = 10
-
-    def cpu_run(self):
-        """Forward propagation from batch on CPU only.
-        """
-        super(All2AllSigmoid, self).cpu_run()
-        self.output.map_write()
-        mem = self.output.mem
-        # 1 / (1 + numpy.exp(-mem))
-        numpy.exp(-mem, mem)
-        numpy.reciprocal(mem + 1, mem)
 
 
 @implementer(IUnit)

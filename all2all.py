@@ -354,6 +354,25 @@ class All2AllStrictRELU(All2All):
         numpy.clip(mem, 0.0, 1.0e30, mem)
 
 
+class All2AllSigmoid(All2All):
+    """All2All with Sigmoid activation f(x) = 1 / (1 + exp(-x)).
+    """
+    def initialize(self, device, **kwargs):
+        self.activation_mode = "ACTIVATION_SIGMOID"
+        super(All2AllSigmoid, self).initialize(device=device, **kwargs)
+        self.output.supposed_maxvle = 10
+
+    def cpu_run(self):
+        """Forward propagation from batch on CPU only.
+        """
+        super(All2AllSigmoid, self).cpu_run()
+        self.output.map_write()
+        mem = self.output.mem
+        # 1 / (1 + numpy.exp(-mem))
+        numpy.exp(-mem, mem)
+        numpy.reciprocal(mem + 1, mem)
+
+
 class All2AllSoftmax(All2All):
     """All2All with linear activation and softmax normalization.
 

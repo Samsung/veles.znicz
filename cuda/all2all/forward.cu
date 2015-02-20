@@ -22,6 +22,8 @@ __global__ void apply_bias_with_activation(dtype *output, const dtype *bias) {
       output[idx] = y > 15 ? y : log(exp(y) + 1);
     #elif ACTIVATION_STRICT_RELU > 0
       output[idx] = max(y, (dtype)0.0);
+    #elif ACTIVATION_SIGMOID > 0
+      output[idx] = (dtype)1.0 / ((dtype)1.0 + exp(-y));
     #else
       #error "Unsupported activation"
     #endif

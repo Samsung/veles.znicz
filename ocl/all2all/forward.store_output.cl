@@ -11,9 +11,11 @@
 #elif ACTIVATION_TANH > 0
   output[idx] = tanh(sum * (dtype)0.6666) * (dtype)1.7159;
 #elif ACTIVATION_RELU > 0
-  output[idx] = sum > 15 ? sum : log(exp(sum) + 1);
+  output[idx] = sum > 15 ? sum : log(exp(sum) + (dtype)1.0);
 #elif ACTIVATION_STRICT_RELU > 0
   output[idx] = max(sum, (dtype)0.0);
+#elif ACTIVATION_SIGMOID > 0
+  output[idx] = (dtype)1.0 / ((dtype)1.0 + exp(-sum));
 #else
   #error "Activation function should be defined"
 #endif

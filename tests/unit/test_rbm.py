@@ -14,8 +14,8 @@ import unittest
 
 from veles.dummy import DummyLauncher, DummyWorkflow
 from veles.memory import Vector
-
 import veles.prng as prng
+from veles.znicz.all2all import All2AllSigmoid
 import veles.znicz.rbm_units as rbm
 
 
@@ -35,8 +35,8 @@ class TestRBMUnits(unittest.TestCase):
         """
         test_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
                                      '..', 'data', 'rbm_data', 'test_a2a.mat'))
-        a2a = rbm.All2AllSigmoid(DummyWorkflow(), output_sample_shape=196,
-                                 weights_stddev=0.05)
+        a2a = All2AllSigmoid(DummyWorkflow(), output_sample_shape=196,
+                             weights_stddev=0.05)
         # add initialize and input
         a2a.input = Vector()
         a2a.input.reset()

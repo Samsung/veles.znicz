@@ -16,7 +16,8 @@ from veles.memory import Vector
 import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
-from veles.znicz.gd import GradientDescent, GDRELU, GDSoftmax, GDTanh
+from veles.znicz.gd import (GradientDescent, GDRELU, GDSoftmax, GDTanh,
+                            GDSigmoid)
 from veles.dummy import DummyWorkflow
 import veles.znicz.all2all as all2all
 from veles.znicz.nn_units import GradientDescentBase
@@ -45,6 +46,10 @@ class PatchedGDSoftmax(GDSoftmax, PatchedGradientDescentBase):
 
 
 class PatchedGDTanh(GDTanh, PatchedGradientDescentBase):
+    pass
+
+
+class PatchedGDSigmoid(GDSigmoid, PatchedGradientDescentBase):
     pass
 
 
@@ -163,6 +168,11 @@ class TestGD(unittest.TestCase, GDNumDiff):
     def test_gpu_cpu_tanh(self):
         logging.info("Will test Tanh gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllTanh, PatchedGDTanh)
+
+    @timeout()
+    def test_gpu_cpu_sigmoid(self):
+        logging.info("Will test Sigmoid gd unit for gpu/cpu correctness")
+        self._do_test_gpu_cpu(all2all.All2AllSigmoid, PatchedGDSigmoid)
 
 
 if __name__ == "__main__":

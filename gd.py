@@ -644,3 +644,25 @@ class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
             "ERR_OUTPUT_SIZE": self.err_output.size}
         self.krn_err_output_name = "err_y_update"
         super(GDRELU, self).initialize(device=device, **kwargs)
+
+
+class GDSigmoid(nn_units.GradientDescentWithActivation, GradientDescent):
+    """Gradient Descent for Sigmoid activation.
+    """
+
+    MAPPING = {"all2all_sigmoid"}
+
+    def cpu_err_output_update(self):
+        """Multiply err_output by activation derivative
+        by s in terms of output.
+        """
+        self.output.map_read()
+        self.err_output.map_write()
+        output = self.output.mem
+        self.err_output.mem *= output * (1.0 - output)
+
+    def initialize(self, device, **kwargs):
+        self.sources_["gradient_descent_sigmoid"] = {
+            "ERR_OUTPUT_SIZE": self.err_output.size}
+        self.krn_err_output_name = "err_y_update"
+        super(GDSigmoid, self).initialize(device=device, **kwargs)

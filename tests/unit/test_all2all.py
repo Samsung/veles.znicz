@@ -129,6 +129,10 @@ class TestAll2All(unittest.TestCase):
         logging.info("Will test Tanh all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllTanh)
 
+    def test_sigmoid(self):
+        logging.info("Will test Sigmoid all2all unit for gpu/cpu correctness")
+        self._do_gpu_cpu(all2all.All2AllSigmoid)
+
     def test_relu(self):
         logging.info("Will test RELU all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllRELU)
