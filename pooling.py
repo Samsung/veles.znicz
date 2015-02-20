@@ -22,7 +22,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 from __future__ import division
-
+from itertools import product
 import logging
 import numpy
 import time
@@ -43,18 +43,12 @@ class PoolingBase(Unit):
     def __init__(self, workflow, **kwargs):
         super(PoolingBase, self).__init__(workflow, **kwargs)
         self._output_shape = tuple()
+        self._out_sxy = tuple()
 
     @property
     def output_shape(self):
         if self._output_shape == tuple():
-            outs = [0, 0]
-            for i, last in enumerate((self.sx - self.kx, self.sy - self.ky)):
-                outs[i] = last // self.sliding[i] + 1
-                if last % self.sliding[i] != 0:
-                    outs[i] += 1
-
-            self._out_sx, self._out_sy = outs
-            self._output_shape = (self.batch_size, self._out_sy, self._out_sx,
+            self._output_shape = (self.batch_size, self.out_sy, self.out_sx,
                                   self.n_channels)
         return self._output_shape
 
@@ -73,6 +67,26 @@ class PoolingBase(Unit):
     @property
     def sx(self):
         return self.input.shape[2]
+
+    @property
+    def out_sxy(self):
+        if self._out_sxy == tuple():
+            outs = [0, 0]
+            for i, last in enumerate((self.sx - self.kx, self.sy - self.ky)):
+                outs[i] = last // self.sliding[i] + 1
+                if last % self.sliding[i] != 0:
+                    outs[i] += 1
+
+            self._out_sxy = tuple(outs)
+        return self._out_sxy
+
+    @property
+    def out_sx(self):
+        return self.out_sxy[0]
+
+    @property
+    def out_sy(self):
+        return self.out_sxy[1]
 
     @property
     def n_channels(self):
@@ -188,20 +202,17 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     def cpu_run(self):
         self.input.map_read()
         self.output.map_invalidate()
-        for batch, ch in ((batch, ch) for batch in range(self._batch_size)
-                          for ch in range(self.n_channels)):
-            for out_x, out_y in ((out_x, out_y)
-                                 for out_x in range(self._out_sx)
-                                 for out_y in range(self._out_sy)):
-                x1 = out_x * self.sliding[0]
-                y1 = out_y * self.sliding[1]
-                test_idx = x1 + self.kx
-                x2 = test_idx if test_idx <= self.sx else self.sx
-                test_idx = y1 + self.ky
-                y2 = test_idx if test_idx <= self.sy else self.sy
-                cut = self.input.mem[batch, y1:y2, x1:x2, ch]
-                val = self.cpu_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
-                self.output.mem[batch, out_y, out_x, ch] = val
+        for batch, ch, out_x, out_y in product(*map(range, (
+                self.batch_size, self.n_channels) + self.out_sxy)):
+            x1 = out_x * self.sliding[0]
+            y1 = out_y * self.sliding[1]
+            test_idx = x1 + self.kx
+            x2 = test_idx if test_idx <= self.sx else self.sx
+            test_idx = y1 + self.ky
+            y2 = test_idx if test_idx <= self.sy else self.sy
+            cut = self.input.mem[batch, y1:y2, x1:x2, ch]
+            val = self.cpu_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
+            self.output.mem[batch, out_y, out_x, ch] = val
 
     def run(self):
         t1 = time.time()

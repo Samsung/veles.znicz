@@ -68,7 +68,6 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
         self.argmins = None
         self._distances = formats.Vector()
         self.output = formats.Vector()
-        self._batch_size = 0
         self._chunk_size_ = 0
         self.weights_transposed = False
         self.total = formats.Vector() if kwargs.get("total", False) else None
