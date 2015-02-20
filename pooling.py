@@ -48,8 +48,8 @@ class PoolingBase(Unit):
     @property
     def output_shape(self):
         if self._output_shape == tuple():
-            self._output_shape = (self.batch_size, self.out_sy, self.out_sx,
-                                  self.n_channels)
+            self._output_shape = (self.input_batch_size, self.out_sy,
+                                  self.out_sx, self.n_channels)
         return self._output_shape
 
     @property
@@ -57,7 +57,7 @@ class PoolingBase(Unit):
         return int(numpy.prod(self.output_shape))
 
     @property
-    def batch_size(self):
+    def input_batch_size(self):
         return self.input.shape[0]
 
     @property
@@ -90,7 +90,7 @@ class PoolingBase(Unit):
 
     @property
     def n_channels(self):
-        return self.input.size // (self.batch_size * self.sx * self.sy)
+        return self.input.size // (self.input_batch_size * self.sx * self.sy)
 
 
 @implementer(IOpenCLUnit, IDistributable)
@@ -203,7 +203,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
         self.input.map_read()
         self.output.map_invalidate()
         for batch, ch, out_x, out_y in product(*map(range, (
-                self.batch_size, self.n_channels) + self.out_sxy)):
+                self.input_batch_size, self.n_channels) + self.out_sxy)):
             x1 = out_x * self.sliding[0]
             y1 = out_y * self.sliding[1]
             test_idx = x1 + self.kx
