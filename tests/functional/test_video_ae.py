@@ -51,7 +51,7 @@ class TestVideoAE(unittest.TestCase):
                                      "video_ae/img"),),
                        "color_space": "GRAY",
                        "background_color": (0x80,),
-                       "normalization_type": "linear"},
+                       "normalization_type": "mean_disp"},
             "weights_plotter": {"limit": 16},
             "learning_rate": 0.01,
             "weights_decay": 0.00005,
@@ -70,7 +70,7 @@ class TestVideoAE(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertLess(avg_mse, 0.383)
+        self.assertLess(avg_mse, 0.193783)
         self.assertEqual(4, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -84,7 +84,7 @@ class TestVideoAE(unittest.TestCase):
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]
-        self.assertLess(avg_mse, 0.354)
+        self.assertLess(avg_mse, 0.173972)
         self.assertEqual(7, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

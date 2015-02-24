@@ -103,7 +103,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 weights_shape[1] % (self.kx * self.ky) != 0):
             raise ValueError("Incorrectly shaped weights encountered")
 
-        output_shape = list(self.output_shape_source.shape)
+        output_shape = tuple(self.output_shape_source.shape)
         if len(output_shape) != 4:
             raise ValueError("Incorrect output_shape_source shape")
         if output_shape[0] != self.input.shape[0]:
