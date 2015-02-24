@@ -190,7 +190,7 @@ class TestRBMUnits(unittest.TestCase):
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_updateWeights.mat'))
-        uw = rbm.UpdateWeights(DummyWorkflow(), learning_rate=0.001)
+        uw = rbm.WeightsUpdater(DummyWorkflow(), learning_rate=0.001)
         uw.weights = Vector()
         uw.weights.mem = test_data["W_old"]
         uw.vbias = Vector()

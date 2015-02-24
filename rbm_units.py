@@ -62,6 +62,9 @@ class Binarization(AcceleratedUnit):
             self.output.mem = numpy.zeros_like(self.input.mem)
         self.output.initialize(self.device)
 
+    def ocl_init(self):
+        pass
+
     def ocl_run(self):
         self.cpu_run()
 
@@ -167,8 +170,8 @@ class BatchWeights(AcceleratedUnit):
 
     def initialize(self, device, **kwargs):
         super(BatchWeights, self).initialize(device, **kwargs)
-        vbias_size = self.v.size / self.v.shape[0]
-        hbias_size = self.h.size / self.h.shape[0]
+        vbias_size = self.v.size // self.v.shape[0]
+        hbias_size = self.h.size // self.h.shape[0]
         W_size = vbias_size * hbias_size
         if not self.hbias_batch:
             self.hbias_batch.reset(numpy.zeros((1, hbias_size),
@@ -187,6 +190,9 @@ class BatchWeights(AcceleratedUnit):
             assert self.weights_batch.size == W_size
         self.init_vectors(self.weights_batch, self.vbias_batch,
                           self.hbias_batch, self.v, self.h)
+
+    def ocl_init(self):
+        pass
 
     def ocl_run(self):
         pass
@@ -277,6 +283,9 @@ class GradientsCalculator(AcceleratedUnit):
                   self.vbias1, self.weights1):
             v.initialize(self.device)
 
+    def ocl_init(self):
+        pass
+
     def ocl_run(self):
         pass
 
@@ -294,15 +303,18 @@ class GradientsCalculator(AcceleratedUnit):
 
 
 @implementer(IOpenCLUnit)
-class UpdateWeights(AcceleratedUnit):
+class WeightsUpdater(AcceleratedUnit):
     """
     Adds gradiens to weights, bias and hbias
     """
     def __init__(self, workflow, **kwargs):
-        super(UpdateWeights, self).__init__(workflow, **kwargs)
+        super(WeightsUpdater, self).__init__(workflow, **kwargs)
         self.learning_rate = kwargs["learning_rate"]
         self.demand("hbias_grad", "vbias_grad", "weights_grad",
                     "weights", "hbias", "vbias")
+
+    def ocl_init(self):
+        pass
 
     def ocl_run(self):
         pass
@@ -338,6 +350,9 @@ class MemCpy(AcceleratedUnit):
         self.input.initialize(self.device)
         self.output.initialize(self.device)
 
+    def ocl_init(self):
+        pass
+
     def ocl_run(self):
         self.input.unmap()
         self.output.unmap()
@@ -355,7 +370,7 @@ class All2AllSigmoidH(All2AllSigmoid):
     Don't remove.
     Dummy class as a workaround for link_attrs behaviour.
     """
-    pass
+    MAPPING = set()
 
 
 class All2AllSigmoidV(All2AllSigmoid):
@@ -363,7 +378,7 @@ class All2AllSigmoidV(All2AllSigmoid):
     Don't remove.
     Dummy class as a workaround for link_attrs behaviour.
     """
-    pass
+    MAPPING = set()
 
 
 class BinarizationGradH(Binarization):
@@ -449,7 +464,7 @@ class All2AllSigmoidWithForeignWeights(All2AllSigmoid):
     """
     Dummy class as a workaround for link_attrs bug.
     """
-    pass
+    MAPPING = set()
 
 
 class BinarizationEval(Binarization):

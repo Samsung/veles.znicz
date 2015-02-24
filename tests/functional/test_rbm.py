@@ -166,7 +166,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.gds[3].link_attrs(self.gds[2], ("hbias1", "hbias_batch"),
                                ("vbias1", "vbias_batch"),
                                ("weights1", "weights_batch"))
-        gd_unit = RBM_units.UpdateWeights(self, learning_rate=0.001)
+        gd_unit = RBM_units.WeightsUpdater(self, learning_rate=0.001)
         self.gds.append(gd_unit)
         self.gds[4].link_from(self.gds[3])
         self.gds[4].link_attrs(self.gds[3],
