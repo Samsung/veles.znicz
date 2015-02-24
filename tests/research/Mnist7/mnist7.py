@@ -65,10 +65,9 @@ class Mnist7Loader(MnistLoader, loader.FullBatchLoaderMSE):
              [1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0]],  # 9)
             dtype=opencl_types.dtypes[root.common.precision_type])
         self.original_targets.mem = numpy.zeros(
-            [self.original_labels.shape[0], 7],
+            (len(self.original_labels), 7),
             dtype=self.original_data.dtype)
-        for i in range(0, self.original_labels.shape[0]):
-            label = self.original_labels[i]
+        for i, label in enumerate(self.original_labels):
             self.original_targets[i] = self.class_targets[label]
 
 
