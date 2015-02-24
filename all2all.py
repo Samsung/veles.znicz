@@ -359,6 +359,8 @@ class All2AllStrictRELU(All2All):
 class All2AllSigmoid(All2All):
     """All2All with Sigmoid activation f(x) = 1 / (1 + exp(-x)).
     """
+    MAPPING = {"all2all_sigmoid"}
+
     def initialize(self, device, **kwargs):
         self.activation_mode = "ACTIVATION_SIGMOID"
         super(All2AllSigmoid, self).initialize(device=device, **kwargs)
