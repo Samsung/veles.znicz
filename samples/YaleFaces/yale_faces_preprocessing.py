@@ -22,7 +22,7 @@ class YaleFacesWorkflow(StandardWorkflow):
     """
     def link_loader(self, init_unit):
         self.loader = FullBatchAutoLabelFileImageLoader(
-            self, on_device=root.yalefaces.loader.on_device,
+            self, force_cpu=root.yalefaces.loader.force_cpu,
             minibatch_size=root.yalefaces.loader.minibatch_size,
             train_paths=root.yalefaces.loader.train_paths,
             filename_types=root.yalefaces.loader.filename_types,

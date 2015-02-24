@@ -20,7 +20,7 @@ root.imagenet.update({
     "snapshotter": {"prefix": "imagenet", "interval": 10},
     "add_plotters": True,
     "loss_function": "softmax",
-    "loader": {"minibatch_size": 256, "on_device": False,
+    "loader": {"minibatch_size": 256, "force_cpu": True,
                "validation_ratio": 0.5, "shuffle_limit": 1, "sx": 227,
                "sy": 227},
     "weights_plotter": {"limit": 64},

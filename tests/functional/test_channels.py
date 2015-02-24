@@ -49,7 +49,7 @@ class TestChannels(unittest.TestCase):
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
             "loader": {"minibatch_size": 30,
-                       "on_device": False,
+                       "force_cpu": True,
                        "validation_ratio": 0.15,
                        "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                        "normalization_type": "mean_disp",

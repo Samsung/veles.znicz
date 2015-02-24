@@ -34,7 +34,7 @@ class WineLoader(loader.FullBatchLoader):
         arr = numpy.loadtxt(root.wine.loader.dataset_file, delimiter=',',
                             dtype=numpy.float32)
         self.original_data.mem = arr[:, 1:]
-        self.original_labels.mem = arr[:, 0].ravel().astype(numpy.int32) - 1
+        self.original_labels[:] = arr[:, 0].ravel().astype(numpy.int32) - 1
 
         self.class_lengths[0] = self.class_lengths[1] = 0
         self.class_lengths[2] = self.original_data.shape[0]

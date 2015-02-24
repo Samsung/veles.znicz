@@ -29,7 +29,7 @@ root.common.disable_plotting = True
 root.wine.update({
     "decision": {"fail_iterations": 200, "max_epochs": 100},
     "snapshotter": {"prefix": "wine", "time_interval": 1},
-    "loader": {"minibatch_size": 10, "on_device": True},
+    "loader": {"minibatch_size": 10, "force_cpu": False},
     "learning_rate": 0.3,
     "weights_decay": 0.0,
     "layers": [8, 3]})
@@ -47,7 +47,7 @@ class WineWorkflow(nn_units.NNWorkflow):
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine.loader.minibatch_size,
-            on_device=root.wine.loader.on_device,
+            force_cpu=root.wine.loader.force_cpu,
             normalization_type=root.wine.loader.normalization_type)
         self.loader.link_from(self.repeater)
 

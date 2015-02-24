@@ -122,7 +122,7 @@ class ApproximatorLoader(loader.FullBatchLoaderMSE):
             if target_index:
                 print(target_index)
                 print(self.class_lengths)
-                if target_index != numpy.sum(self.class_lengths):
+                if target_index != self.total_samples:
                     raise ValueError(
                         "Target samples count differs from data samples count")
                 self.original_labels.mem = numpy.arange(

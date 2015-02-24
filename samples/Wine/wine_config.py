@@ -20,7 +20,7 @@ root.wine.update({
                  "max_epochs": 100},
     "snapshotter": {"prefix": "wine"},
     "loader": {"minibatch_size": 10,
-               "on_device": True},
+               "force_cpu": False},
     "learning_rate": 0.3,
     "weights_decay": 0.0,
     "layers": [8, 3]})

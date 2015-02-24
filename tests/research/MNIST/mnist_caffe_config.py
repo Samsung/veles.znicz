@@ -21,7 +21,7 @@ root.mnistr.update({
     "decision": {"fail_iterations": 100, "max_epochs": 10000},
     "snapshotter": {"prefix": "mnist_caffe",
                     "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": 5, "on_device": True,
+    "loader": {"minibatch_size": 5, "force_cpu": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv", "n_kernels": 20, "kx": 5, "ky": 5,

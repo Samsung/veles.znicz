@@ -37,7 +37,7 @@ class TestYaleFaces(unittest.TestCase):
             "loss_function": "softmax",
             "snapshotter": {"prefix": "yalefaces_test"},
             "loader_name": "full_batch_auto_label_file_image",
-            "loader": {"minibatch_size": 40, "on_device": True,
+            "loader": {"minibatch_size": 40, "force_cpu": False,
                        "validation_ratio": 0.15,
                        "filename_types": ["x-portable-graymap"],
                        "ignored_files": [".*Ambient.*"],

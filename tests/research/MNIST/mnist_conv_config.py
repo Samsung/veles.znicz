@@ -22,7 +22,7 @@ root.mnistr.update({
                  "fail_iterations": 100},
     "snapshotter": {"prefix": "mnist_conv", "time_interval": 0,
                     "compress": ""},
-    "loader": {"minibatch_size": 6, "on_device": True,
+    "loader": {"minibatch_size": 6, "force_cpu": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv",

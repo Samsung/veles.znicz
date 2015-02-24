@@ -62,8 +62,6 @@ class MnistLoader(loader.FullBatchLoader):
                         fout.write(fin.read())
                     os.remove(gz_file)
 
-        self.info("Loading from original MNIST files...")
-
         # Reading labels:
         with open(labels_fnme, "rb") as fin:
             header, = struct.unpack(">i", fin.read(4))
@@ -80,9 +78,9 @@ class MnistLoader(loader.FullBatchLoader):
             if n != n_labels:
                 raise error.BadFormatError("EOF reached while reading labels "
                                            "from train-labels")
-            self.original_labels.mem[offs:offs + labels_count] = arr[:]
-            if (self.original_labels.mem.min() != 0 or
-                    self.original_labels.mem.max() != 9):
+            self.original_labels[offs:offs + labels_count] = arr[:]
+            if (numpy.min(self.original_labels) != 0 or
+                    numpy.max(self.original_labels) != 9):
                 raise error.BadFormatError(
                     "Wrong labels range in train-labels.")
 
@@ -120,5 +118,7 @@ class MnistLoader(loader.FullBatchLoader):
         self.class_lengths[1] = 10000
         self.class_lengths[2] = 60000
         self.create_originals((28, 28))
+        self.original_labels[:] = (0 for _ in range(len(self.original_labels)))
+        self.info("Loading from original MNIST files...")
         self.load_original(0, 10000, test_label_dir, test_image_dir)
         self.load_original(10000, 60000, train_label_dir, train_image_dir)

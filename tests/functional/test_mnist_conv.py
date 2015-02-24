@@ -45,7 +45,7 @@ class TestMnistConv(unittest.TestCase):
             "snapshotter": {"prefix": "test_mnist_conv", "time_interval": 0,
                             "compress": ""},
             "weights_plotter": {"limit": 64},
-            "loader": {"minibatch_size": 6, "on_device": True,
+            "loader": {"minibatch_size": 6, "force_cpu": False,
                        "normalization_type": "linear"},
             "layers": [{"type": "conv",
                         "n_kernels": 64, "kx": 5, "ky": 5,

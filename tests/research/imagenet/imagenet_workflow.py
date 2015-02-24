@@ -186,9 +186,9 @@ class ImagenetLoader(loader.Loader):
         for i, ii in enumerate(idxs[:self.minibatch_size]):
             self.file_samples.seek(int(ii) * sample_size)
             self.file_samples.readinto(self.minibatch_data[i])
-        if not self.original_labels is False:
+        if self.has_labels:
             for i, ii in enumerate(idxs[:self.minibatch_size]):
-                self.minibatch_labels[i] = self.original_labels[int(ii)]
+                self.raw_minibatch_labels[i] = self.original_labels[int(ii)]
 
 
 class ImagenetWorkflow(StandardWorkflow):

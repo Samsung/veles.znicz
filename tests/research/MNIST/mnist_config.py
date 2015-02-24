@@ -20,7 +20,7 @@ root.mnistr.update({
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
     "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
-    "loader": {"minibatch_size": Tune(60, 1, 1000), "on_device": True,
+    "loader": {"minibatch_size": Tune(60, 1, 1000), "force_cpu": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "all2all_tanh",

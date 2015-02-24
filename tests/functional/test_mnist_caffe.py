@@ -41,7 +41,7 @@ class TestMnistCaffe(unittest.TestCase):
             "learning_rate_adjust": {"do": True},
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_caffe_test"},
-            "loader": {"minibatch_size": 5, "on_device": True,
+            "loader": {"minibatch_size": 5, "force_cpu": False,
                        "normalization_type": "linear"},
             "layers": [{"type": "conv", "n_kernels": 20, "kx": 5,
                         "ky": 5, "sliding": (1, 1), "learning_rate": 0.01,

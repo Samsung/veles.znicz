@@ -30,15 +30,6 @@ class ImgLoaderClassifier(FullBatchFileImageLoader):
         self.mean_img = cv2.resize(self.mean_img, (bottom_conv1_size,
                                                    bottom_conv1_size))
 
-    def _update_total_samples(self):
-        """Fills self.class_offsets from self.class_lengths.
-        """
-        total_samples = 0
-        for i, n in enumerate(self.class_lengths):
-            total_samples += n
-            self.class_offsets[i] = total_samples
-        self.total_samples = total_samples
-
     def get_image_data(self, key, new_size=227):
         """Loads one image image.
         Args:

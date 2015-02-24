@@ -45,7 +45,7 @@ class TestVideoAE(unittest.TestCase):
         root.video_ae.update({
             "snapshotter": {"prefix": "video_ae_test"},
             "decision": {"fail_iterations": 100},
-            "loader": {"minibatch_size": 50, "on_device": True,
+            "loader": {"minibatch_size": 50, "force_cpu": False,
                        "train_paths":
                        (os.path.join(root.common.test_dataset_root,
                                      "video_ae/img"),),

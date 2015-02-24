@@ -52,7 +52,7 @@ class TestCifarAll2All(unittest.TestCase):
                                           "tmp/validation"),
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
-            "loader": {"minibatch_size": 81, "on_device": True,
+            "loader": {"minibatch_size": 81, "force_cpu": False,
                        "normalization_type": "linear"},
             "accumulator": {"n_bars": 30},
             "weights_plotter": {"limit": 25},

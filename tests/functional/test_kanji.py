@@ -55,7 +55,7 @@ class TestKanji(unittest.TestCase):
             "loader_name": "full_batch_auto_label_file_image_mse",
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
-                       "on_device": True,
+                       "force_cpu": False,
                        "filename_types": ["png"],
                        "train_paths": [train_path],
                        "target_paths": [target_path],

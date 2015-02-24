@@ -58,7 +58,7 @@ class KohonenWorkflow(nn_units.NNWorkflow):
         self.loader = KohonenLoader(
             self, name="Kohonen fullbatch loader",
             minibatch_size=root.kohonen.loader.minibatch_size,
-            on_device=root.kohonen.loader.on_device)
+            force_cpu=root.kohonen.loader.force_cpu)
         self.loader.link_from(self.repeater)
 
         # Kohonen training layer

@@ -35,7 +35,7 @@ root.lines.update({
                     [os.path.join(root.common.cache_dir, "tmp/test"),
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
-    "loader": {"minibatch_size": 60, "on_device": True,
+    "loader": {"minibatch_size": 60, "force_cpu": False,
                "color_space": "RGB", "filename_types": ["jpeg"],
                "train_paths": [train], "validation_paths": [valid]},
     "weights_plotter": {"limit": 32},

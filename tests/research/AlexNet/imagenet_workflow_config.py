@@ -87,9 +87,7 @@ root.imagenet.update({
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}},
 
-               {"type": "zero_filter",
-                "n_kernels": 256, "kx": 3, "ky": 3,
-                "n_channels": 384, "grouping": 2},
+               {"type": "zero_filter", "grouping": 2},
                {"type": "conv_str",
                 "->": {"n_kernels": 256, "kx": 3, "ky": 3,
                        "padding": (1, 1, 1, 1), "sliding": (1, 1),
@@ -99,8 +97,8 @@ root.imagenet.update({
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}},
-               {"type": "max_pooling", "kx": 3, "ky": 3,
-                "sliding": (2, 2)},
+               {"type": "max_pooling",
+                "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
 
                {"type": "all2all_relu",
                 "->": {"output_sample_shape": 4096,

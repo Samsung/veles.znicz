@@ -25,7 +25,7 @@ root.mnist.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 300,
                  "snapshot_prefix": "mnist"},
-    "loader": {"minibatch_size": 88, "on_device": True,
+    "loader": {"minibatch_size": 88, "force_cpu": False,
                "normalization_type": "linear"},
     "learning_rate": 0.028557478339518444,
     "weights_decay": 0.00012315096341168246,

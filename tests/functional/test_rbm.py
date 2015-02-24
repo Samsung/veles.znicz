@@ -28,7 +28,7 @@ root.mnist_rbm.update({
     "decision": {"fail_iterations": 100,
                  "max_epochs": 100},
     "snapshotter": {"prefix": "mnist_rbm"},
-    "loader": {"minibatch_size": 128, "on_device": False,
+    "loader": {"minibatch_size": 128, "force_cpu": True,
                "data_path":
                os.path.join(os.path.dirname(__file__), "..",
                             'data', 'rbm_data', 'test_rbm_functional.mat')},
@@ -56,12 +56,12 @@ class MnistRBMLoader(loader.FullBatchLoader):
         for i, ii in enumerate(idxs[:self.minibatch_size]):
             self.minibatch_data[i] = \
                 self.original_data[self.train_indx[cur_class]]
-            self.train_indx[cur_class] = self.train_indx[cur_class] + 1
+            self.train_indx[cur_class] += 1
             if self.train_indx[cur_class] == self.class_lengths[cur_class]:
                 self.train_indx[cur_class] = 0
         if self.original_labels:
             for i, ii in enumerate(idxs[:self.minibatch_size]):
-                self.minibatch_labels[i] = self.original_labels[int(ii)]
+                self.raw_minibatch_labels[i] = self.original_labels[int(ii)]
 
     def load_data(self):
         self.train_indx = numpy.zeros((3, 1), dtype=numpy.int32)
@@ -89,7 +89,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.loader = MnistRBMLoader(
             self, name="Mnist RBM fullbatch loader",
             minibatch_size=root.mnist_rbm.loader.minibatch_size,
-            on_device=root.mnist_rbm.loader.on_device,
+            force_cpu=root.mnist_rbm.loader.force_cpu,
             data_path=root.mnist_rbm.loader.data_path)
         self.loader.link_from(self.repeater)
 

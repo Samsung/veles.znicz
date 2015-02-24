@@ -36,7 +36,7 @@ from .loader_mnist import MnistLoader
 root.mnist7.update({
     "decision": {"fail_iterations": 25, "max_epochs": 1000000},
     "snapshotter": {"prefix": "mnist7"},
-    "loader": {"minibatch_size": 60, "on_device": True},
+    "loader": {"minibatch_size": 60, "force_cpu": False},
     "weights_plotter": {"limit": 25},
     "learning_rate": 0.0000016,
     "weights_decay": 0.00005,
@@ -90,7 +90,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.loader = Mnist7Loader(
             self, minibatch_size=root.mnist7.loader.minibatch_size,
             normalization_type=root.mnist7.loader.normalization_type,
-            on_device=root.mnist7.loader.on_device)
+            force_cpu=root.mnist7.loader.force_cpu)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

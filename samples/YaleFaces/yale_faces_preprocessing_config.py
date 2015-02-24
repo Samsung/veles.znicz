@@ -14,7 +14,7 @@ from veles.config import root
 
 
 root.yalefaces.update({
-    "loader": {"minibatch_size": 40, "on_device": True,
+    "loader": {"minibatch_size": 40, "force_cpu": False,
                "validation_ratio": 0.15,
                "filename_types": ["x-portable-graymap"],
                "ignored_files": [".*Ambient.*"],

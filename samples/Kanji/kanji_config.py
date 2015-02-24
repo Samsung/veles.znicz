@@ -28,7 +28,7 @@ root.kanji.update({
     "loader_name": "full_batch_auto_label_file_image_mse",
     "add_plotters": True,
     "loader": {"minibatch_size": 50,
-               "on_device": True,
+               "force_cpu": False,
                "filename_types": ["png"],
                "train_paths": [train_path],
                "target_paths": [target_path],

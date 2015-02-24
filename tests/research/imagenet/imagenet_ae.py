@@ -274,7 +274,7 @@ class ImagenetAELoader(loader.Loader):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
 
-        if numpy.sum(self.class_lengths) != len(self.original_labels):
+        if self.total_samples != len(self.original_labels):
             raise error.Bug(
                 "Number of labels missmatches sum of class lengths")
 

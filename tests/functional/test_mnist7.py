@@ -42,7 +42,7 @@ class TestMnist7(unittest.TestCase):
         root.mnist7.update({
             "decision": {"fail_iterations": 25, "max_epochs": 2},
             "snapshotter": {"prefix": "mnist7_test"},
-            "loader": {"minibatch_size": 60, "on_device": True,
+            "loader": {"minibatch_size": 60, "force_cpu": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.0001,
             "weights_decay": 0.00005,

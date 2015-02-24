@@ -33,7 +33,7 @@ class TestSpamKohonen(unittest.TestCase):
             "forward": {"shape": (8, 8)},
             "decision": {"epochs": 5},
             "loader": {"minibatch_size": 80,
-                       "on_device": False,
+                       "force_cpu": True,
                        "ids": True,
                        "classes": False,
                        "file":

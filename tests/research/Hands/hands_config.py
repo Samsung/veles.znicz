@@ -29,7 +29,7 @@ root.hands.update({
     "loader_name": "hands_loader",
     "snapshotter": {"prefix": "hands", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 40, "train_paths": train_dir,
-               "on_device": True, "color_space": "GRAY",
+               "force_cpu": False, "color_space": "GRAY",
                "background_color": (0,),
                "normalization_type": "linear",
                "validation_paths": validation_dir},

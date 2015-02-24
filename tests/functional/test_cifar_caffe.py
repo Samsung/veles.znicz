@@ -59,7 +59,7 @@ class TestCifarCaffe(unittest.TestCase):
                        "normalization_type": "internal_mean",
                        "add_sobel": False,
                        "shuffle_limit": 2000000000,
-                       "on_device": True},
+                       "force_cpu": False},
             "softmax": {"error_function_avr": True},
             "weights_plotter": {"limit": 64},
             "similar_weights_plotter": {
