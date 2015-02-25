@@ -26,6 +26,9 @@ class TrivialForward(Forward):
     def cpu_run(self):
         pass
 
+    def ocl_init(self):
+        pass
+
     def ocl_run(self):
         pass
 
