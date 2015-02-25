@@ -120,13 +120,10 @@ class ApproximatorLoader(loader.FullBatchLoaderMSE):
                         self.target_by_lbl[target_index] = target
                         target_index += 1
             if target_index:
-                print(target_index)
-                print(self.class_lengths)
                 if target_index != self.total_samples:
                     raise ValueError(
                         "Target samples count differs from data samples count")
-                self.original_labels.mem = numpy.arange(
-                    target_index, dtype=numpy.int32)
+                self.original_labels.extend(range(target_index))
 
         self.original_data.mem = data
 
@@ -134,7 +131,7 @@ class ApproximatorLoader(loader.FullBatchLoaderMSE):
         if len(targets) > 0:
             shape = (len(self.original_data),) + targets[0].shape
             target = numpy.zeros(shape, dtype=targets[0].dtype)
-            for i, label in enumerate(self.original_labels.mem):
+            for i, label in enumerate(self.original_labels):
                 target[i] = self.target_by_lbl[label]
             self.target_by_lbl.clear()
         self.original_targets.mem = target

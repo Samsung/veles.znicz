@@ -50,7 +50,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
         self.has_ids = kwargs.get("ids", False)
         self.has_classes = kwargs.get("classes", True)
         self.lemmas_map = 0
-        self.labels_mapping = []
+        self.kohonen_labels_mapping = []
         self.samples_by_label = []
         self.ids = []
 
@@ -103,13 +103,12 @@ class SpamKohonenLoader(loader.FullBatchLoader):
             distinct_labels = set(labels)
         else:
             distinct_labels = {0}
-        del self.labels_mapping[:]
-        self.labels_mapping.extend(sorted(distinct_labels))
+        del self.kohonen_labels_mapping[:]
+        self.kohonen_labels_mapping.extend(sorted(distinct_labels))
         reverse_label_mapping = {l: i for i, l
-                                 in enumerate(self.labels_mapping)}
+                                 in enumerate(self.kohonen_labels_mapping)}
         self.lemmas_map = sorted(lemmas)
         lemma_indices = {v: i for i, v in enumerate(self.lemmas_map)}
-        self.original_labels.mem = numpy.zeros([len(lines)], dtype=numpy.int32)
         del self.samples_by_label[:]
         self.samples_by_label.extend([set() for _ in distinct_labels])
         self.original_data.mem = numpy.zeros([len(lines), len(lemmas)],
@@ -119,7 +118,7 @@ class SpamKohonenLoader(loader.FullBatchLoader):
                 label = reverse_label_mapping[labels[index]]
             else:
                 label = 0
-            self.original_labels.mem[index] = label
+            self.original_labels.append(label)
             self.samples_by_label[label].add(index)
             for lemma in sample:
                 self.original_data.mem[index,
