@@ -59,13 +59,9 @@ class MnistRBMLoader(loader.FullBatchLoader):
             self.train_indx[cur_class] += 1
             if self.train_indx[cur_class] == self.class_lengths[cur_class]:
                 self.train_indx[cur_class] = 0
-        if self.original_labels:
-            for i, ii in enumerate(idxs[:self.minibatch_size]):
-                self.raw_minibatch_labels[i] = self.original_labels[int(ii)]
 
     def load_data(self):
         self.train_indx = numpy.zeros((3, 1), dtype=numpy.int32)
-        self.original_labels.mem = numpy.zeros([1000], dtype=numpy.int32)
         self.original_data.mem = numpy.zeros([1000, 196],
                                              dtype=numpy.float32)
         self.class_lengths[0] = 0

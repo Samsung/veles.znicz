@@ -14,7 +14,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
-from veles.loader.image import IFileImageLoader
+from veles.loader import IFileImageLoader
 from veles.loader.fullbatch_image import FullBatchAutoLabelFileImageLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
