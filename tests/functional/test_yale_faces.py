@@ -48,11 +48,11 @@ class TestYaleFaces(unittest.TestCase):
                        "background_color": (0,),
                        "normalization_type": "mean_disp",
                        "train_paths":
-                           [os.path.join(root.common.test_dataset_root,
-                                         "CroppedYale")]},
+                       [os.path.join(root.common.test_dataset_root,
+                                     "CroppedYale")]},
             "layers": [{"type": "all2all_tanh", "learning_rate": 0.01,
                         "weights_decay": 0.00005, "output_sample_shape": 100},
-                       {"type": "softmax", "output_sample_shape": 39,
+                       {"type": "softmax",
                         "learning_rate": 0.01, "weights_decay": 0.00005}]})
 
         self.w = yale_faces.YaleFacesWorkflow(
@@ -75,7 +75,7 @@ class TestYaleFaces(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 236)
+        self.assertEqual(err, 239)
         self.assertEqual(3, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -91,7 +91,7 @@ class TestYaleFaces(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 149)
+        self.assertEqual(err, 147)
         self.assertEqual(6, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

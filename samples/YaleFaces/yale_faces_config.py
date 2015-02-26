@@ -18,7 +18,7 @@ root.yalefaces.update({
     "decision": {"fail_iterations": 50, "max_epochs": 1000},
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",
-    "snapshotter": {"prefix": "yalefaces", "interval": 1, "time_interval": 60},
+    "snapshotter": {"prefix": "yalefaces", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 50, "force_cpu": False,
                "validation_ratio": 0.15,
                "filename_types": ["x-portable-graymap"],
@@ -33,5 +33,5 @@ root.yalefaces.update({
                [os.path.join(root.common.test_dataset_root, "CroppedYale")]},
     "layers": [{"type": "all2all_tanh", "learning_rate": 0.01,
                 "weights_decay": 0.00005, "output_sample_shape": 100},
-               {"type": "softmax", "output_sample_shape": 39,
+               {"type": "softmax",
                 "learning_rate": 0.01, "weights_decay": 0.00005}]})
