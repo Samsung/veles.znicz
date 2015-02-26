@@ -149,7 +149,7 @@ class Main(Processor):
                                      "remove_back", "visualize",
                                      "remove_back_split_dataset",
                                      "classes_to_labels",
-                                     "resize_validation", "none_bboxes"],
+                                     "_resize_validation", "none_bboxes"],
                             help="run functions:"
                                  " 'draw_bbox' run function which generate"
                                  " image with bboxes, 'resize' run function"
@@ -2046,7 +2046,7 @@ class Main(Processor):
         elif self.command_to_run == "resize":
             self.generate_resized_dataset(os.path.join(IMAGENET_BASE_PATH,
                                                        self.year))
-        elif self.command_to_run == "resize_validation":
+        elif self.command_to_run == "_resize_validation":
             self.resize_validation(os.path.join(IMAGENET_BASE_PATH,
                                                 self.year))
         elif self.command_to_run == "split_valid":
