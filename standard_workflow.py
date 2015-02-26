@@ -237,10 +237,11 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             oss = last_fwd.output_sample_shape
             if oss != tuple() and numpy.prod(oss) > ulc:
                 self.warning(
-                    "Will not override %s.output_sample_shape %s with (%s,)",
+                    "Overriding %s.output_sample_shape %s with (%s,)",
                     last_fwd, oss, ulc)
-                return
-            self.info("Setting %s.output_sample_shape to %d", last_fwd, ulc)
+            else:
+                self.info("Setting %s.output_sample_shape to %d",
+                          last_fwd, ulc)
             last_fwd.output_sample_shape = ulc
 
         self.loader.on_unique_labels_counted = on_unique_labels_counted
