@@ -423,12 +423,9 @@ class All2AllSoftmax(All2All):
             raise error.BadFormatError(
                 "Output sample size should be greater than 1 for SoftMax.")
 
-        if (self.max_idx.mem is None or
-                self.max_idx.mem.size != self.output.mem.shape[0]):
-            self.max_idx.mem = numpy.zeros(self.output.mem.shape[0],
-                                           dtype=numpy.int32)
-            self.max_idx.devmem = None
-
+        if not self.max_idx:
+            self.max_idx.reset(numpy.zeros(self.output.shape[0],
+                                           dtype=numpy.int32))
         self.max_idx.initialize(self.device)
 
     def cpu_apply_exp(self):
