@@ -45,7 +45,7 @@ class TestAll2All(unittest.TestCase):
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
         c = all2all.All2All(DummyWorkflow(), output_sample_shape=[3],
-                            weights_amplitude=0.05)
+                            weights_stddev=0.05)
         c.input = inp
 
         c.initialize(device=self.device)

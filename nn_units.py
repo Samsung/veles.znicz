@@ -70,7 +70,7 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
             if issubclass(cls, Forward) and match.has_forward:
                 raise ValueError(
                     "%s: attempted to add a second Forward %s to %s" %
-                    val, cls, match.forward)
+                    (val, cls, match.forward))
             match.append(cls)
 
 

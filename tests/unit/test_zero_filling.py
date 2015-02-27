@@ -3,7 +3,7 @@ import numpy
 import unittest
 
 
-import veles.backends as opencl
+from veles.backends import Device
 from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 
@@ -13,14 +13,12 @@ from veles.znicz import weights_zerofilling
 class TestZeroFilling(unittest.TestCase):
 
     def setUp(self):
-        self.device = opencl.Device()
+        self.device = Device()
 
     def tearDown(self):
         pass
 
     def test_zero_filling(self):
-
-        device = opencl.Device()
         workflow = DummyWorkflow()
 
         zero_filler = weights_zerofilling.ZeroFiller(workflow, grouping=2)
@@ -31,7 +29,7 @@ class TestZeroFilling(unittest.TestCase):
 
         workflow.end_point.link_from(zero_filler)
 
-        workflow.initialize(device=device)
+        workflow.initialize(device=self.device)
 
         workflow.run()
 

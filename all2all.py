@@ -78,6 +78,11 @@ class All2All(nn_units.NNLayerBase):
 
     @output_sample_shape.setter
     def output_sample_shape(self, value):
+        assert not self.is_initialized, \
+            "Cannot set output_sample_shape after initialize() was called"
+        self._set_output_sample_shape(value)
+
+    def _set_output_sample_shape(self, value):
         if isinstance(value, int):
             self._output_sample_shape = (value,)
         elif hasattr(value, "shape"):
@@ -105,7 +110,7 @@ class All2All(nn_units.NNLayerBase):
         return (self.output_samples_number,) + self.output_sample_shape
 
     @property
-    def output_sample_size(self):
+    def neurons_number(self):
         return int(numpy.prod(self.output_sample_shape))
 
     def get_weights_magnitude(self):
@@ -153,14 +158,14 @@ class All2All(nn_units.NNLayerBase):
             self.bias_stddev = self.weights_stddev
 
         n_weights = (self.input.size //
-                     self.output_samples_number * self.output_sample_size)
+                     self.output_samples_number * self.neurons_number)
 
         # Check that weights vector was not assigned from the outside
         if not self.weights:
             self.weights.reset(numpy.zeros(n_weights, self.input.dtype))
             self.fill_array(self.weights_filling, self.weights.mem,
                             self.weights_stddev)
-            self.weights.shape = (self.output_sample_size,
+            self.weights.shape = (self.neurons_number,
                                   self.input.sample_size)
             if self.weights_transposed:
                 transposed_weights = self.weights.mem.transpose().copy()
@@ -173,20 +178,22 @@ class All2All(nn_units.NNLayerBase):
             # Check that bias was not assigned from the outside
             if not self.bias:
                 self.bias.reset(numpy.zeros(
-                    self.output_sample_size, self.input.dtype))
+                    self.neurons_number, self.input.dtype))
                 self.fill_array(self.bias_filling, self.bias.mem,
                                 self.bias_stddev)
             else:
-                assert self.bias.size == self.output_sample_size
+                assert self.bias.size == self.neurons_number
 
-        if not self.output or self.output.shape != self.output_shape:
-            if not self.output:
-                self.output.reset(numpy.zeros(
-                    self.output_shape, self.input.dtype))
-            else:
-                assert self.output.shape == self.output_shape
-
+        self._create_output()
         self.init_vectors(self.input, self.output, self.weights, self.bias)
+
+    def _create_output(self):
+        if self.output and self.output.shape == self.output_shape:
+            return
+        if not self.output:
+            self.output.reset(numpy.zeros(self.output_shape, self.input.dtype))
+        else:
+            assert self.output.shape == self.output_shape
 
     def cuda_init(self):
         dtype = self.input.dtype
@@ -227,9 +234,9 @@ class All2All(nn_units.NNLayerBase):
             self._local_size_bias = (block_size, 1, 1)
 
     def ocl_init(self):
-        a_width = self.output.mem.shape[0]
-        b_width = self.output_sample_size
-        ab_common = self.weights.mem.size // self.output_sample_size
+        a_width = self.output.shape[0]
+        b_width = self.neurons_number
+        ab_common = self.weights.size // self.neurons_number
 
         block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=self.input.dtype)
@@ -247,7 +254,7 @@ class All2All(nn_units.NNLayerBase):
                            (self.__class__.__name__,
                             self.input.shape[0],
                             self.input.sample_size,
-                            self.output_sample_size),
+                            self.neurons_number),
                            dtype=self.input.mem.dtype)
 
         self.assign_kernel("feed_layer")
