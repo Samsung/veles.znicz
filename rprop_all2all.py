@@ -13,6 +13,7 @@ from veles.znicz.gd import GradientDescent
 
 
 class RPropAll2All(GradientDescent):
+    MAPPING = {"rprop_all2all"}
     """
     Only CPU version is implemented
     """

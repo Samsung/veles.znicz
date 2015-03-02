@@ -55,6 +55,7 @@ class CutterBase(Unit):
 
 @implementer(IOpenCLUnit)
 class Cutter(nn_units.Forward, CutterBase):
+    MAPPING = {"cutter"}
     """Cuts rectangular area from an input.
 
     Must be assigned before initialize():
@@ -130,6 +131,7 @@ class Cutter(nn_units.Forward, CutterBase):
 class GDCutter(nn_units.GradientDescentBase, CutterBase):
     """Gradient descent for Cutter.
     """
+    MAPPING = {"cutter"}
 
     def initialize(self, device, **kwargs):
         if not self.input or len(self.input.shape) != 4:
