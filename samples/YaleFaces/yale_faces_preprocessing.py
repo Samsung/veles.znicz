@@ -11,7 +11,7 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 
 from veles.config import root
 from veles.loader.saver import MinibatchesSaver
-from veles.loader.image import FullBatchAutoLabelFileImageLoader
+from veles.loader.fullbatch_image import FullBatchAutoLabelFileImageLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
