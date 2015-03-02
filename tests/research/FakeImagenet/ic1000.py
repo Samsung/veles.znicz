@@ -37,22 +37,35 @@ root.imagenet.loader.matrixes_filename = os.path.join(
 
 
 @implementer(loader.ILoader)
-class ImagenetLoader(loader.Loader):
+class FakeImagenetLoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
+
+    MAPPING = "fake_imagenet_loader"
+
     def __init__(self, workflow, **kwargs):
-        super(ImagenetLoader, self).__init__(workflow, **kwargs)
+        super(FakeImagenetLoader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
-        self.sx = root.imagenet.loader.sx
-        self.sy = root.imagenet.loader.sy
+        self.sx = kwargs["sx"]
+        self.sy = kwargs["sy"]
+        self.names_labels_filename = kwargs["names_labels_filename"]
+        self.count_samples_filename = kwargs["count_samples_filename"]
+        self.matrixes_filename = kwargs["matrixes_filename"]
+        self.samples_filename = kwargs["samples_filename"]
+
+    def initialize(self, **kwargs):
+        self.normalizer.reset()
+        super(FakeImagenetLoader, self).initialize(**kwargs)
+        self.minibatch_labels.reset(numpy.zeros(
+            self.max_minibatch_size, dtype=numpy.int32))
 
     def init_unpickled(self):
-        super(ImagenetLoader, self).init_unpickled()
+        super(FakeImagenetLoader, self).init_unpickled()
         self.original_labels = None
 
     def __getstate__(self):
-        state = super(ImagenetLoader, self).__getstate__()
+        state = super(FakeImagenetLoader, self).__getstate__()
         state["original_labels"] = None
         state["file_samples"] = None
         return state
@@ -60,15 +73,16 @@ class ImagenetLoader(loader.Loader):
     def load_data(self):
         self.original_labels = []
 
-        with open(root.imagenet.loader.names_labels_filename, "rb") as fin:
+        with open(self.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
+                self.labels_mapping[int(lbl)] = int(lbl)
         self.info("Labels (min max count): %d %d %d",
                   numpy.min(self.original_labels),
                   numpy.max(self.original_labels),
                   len(self.original_labels))
 
-        with open(root.imagenet.loader.count_samples_filename, "r") as fin:
+        with open(self.count_samples_filename, "r") as fin:
             for i, n in enumerate(json.load(fin)):
                 self.class_lengths[i] = n
         self.info("Class Lengths: %s", str(self.class_lengths))
@@ -77,7 +91,7 @@ class ImagenetLoader(loader.Loader):
             raise error.Bug(
                 "Number of labels missmatches sum of class lengths")
 
-        with open(root.imagenet.loader.matrixes_filename, "rb") as fin:
+        with open(self.matrixes_filename, "rb") as fin:
             matrixes = pickle.load(fin)
 
         self.mean.mem = matrixes[0]
@@ -92,7 +106,7 @@ class ImagenetLoader(loader.Loader):
         if self.mean.shape[0] != self.sy or self.mean.shape[1] != self.sx:
             raise ValueError("mean.shape != (%d, %d)" % (self.sy, self.sx))
 
-        self.file_samples = open(root.imagenet.loader.samples_filename,
+        self.file_samples = open(self.samples_filename,
                                  "rb")
         if (self.file_samples.seek(0, 2) // (self.sx * self.sy * 3) !=
                 len(self.original_labels)):
@@ -188,16 +202,13 @@ class ImagenetWorkflow(StandardWorkflow):
         # Add end_point unit
         self.link_end_point(last)
 
-    def link_loader(self, init_unit):
-        self.loader = ImagenetLoader(
-            self, **root.imagenet.loader.__dict__)
-        self.loader.link_from(init_unit)
-
 
 def run(load, main):
     load(ImagenetWorkflow,
          decision_config=root.imagenet.decision,
          snapshotter_config=root.imagenet.snapshotter,
+         loader_name=root.imagenet.loader_name,
+         loader_config=root.imagenet.loader,
          layers=root.imagenet.layers,
          loss_function=root.imagenet.loss_function)
     main()

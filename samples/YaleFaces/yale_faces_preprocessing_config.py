@@ -14,13 +14,14 @@ from veles.config import root
 
 
 root.yalefaces.update({
+    "loader_name": "full_batch_auto_label_file_image",
     "loader": {"minibatch_size": 40, "force_cpu": False,
                "validation_ratio": 0.15,
                "filename_types": ["x-portable-graymap"],
                "ignored_files": [".*Ambient.*"],
-               "shuffle_limit": 100000000000000,
+               "shuffle_limit": 0,
                "add_sobel": False,
-               "normalization_type": (-1, 1),
+               "normalization_type": "mean_disp",
                "mirror": False,
                "color_space": "GRAY",
                "background_color": (0,),

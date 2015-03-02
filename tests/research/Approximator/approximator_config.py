@@ -30,13 +30,3 @@ root.approximator.update({
     "learning_rate": 0.0001,
     "weights_decay": 0.00005,
     "layers": [810, 9]})
-
-
-root.approximator.update({
-    "decision": {"fail_iterations": 1000,
-                 "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "approximator"},
-    "loader": {"minibatch_size": 100},
-    "learning_rate": 0.0001,
-    "weights_decay": 0.00005,
-    "layers": [810, 9]})

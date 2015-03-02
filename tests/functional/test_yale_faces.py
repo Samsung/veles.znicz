@@ -50,10 +50,13 @@ class TestYaleFaces(unittest.TestCase):
                        "train_paths":
                        [os.path.join(root.common.test_dataset_root,
                                      "CroppedYale")]},
-            "layers": [{"type": "all2all_tanh", "learning_rate": 0.01,
-                        "weights_decay": 0.00005, "output_sample_shape": 100},
+            "layers": [{"type": "all2all_tanh",
+                        "->": {"output_sample_shape": 100},
+                        "<-": {"learning_rate": 0.01,
+                               "weights_decay": 0.00005}},
                        {"type": "softmax",
-                        "learning_rate": 0.01, "weights_decay": 0.00005}]})
+                        "<-": {"learning_rate": 0.01,
+                               "weights_decay": 0.00005}}]})
 
         self.w = yale_faces.YaleFacesWorkflow(
             dummy_workflow.DummyLauncher(),

@@ -42,7 +42,8 @@ root.mnist.update({
 class MnistWorkflow(nn_units.NNWorkflow):
     """Workflow for MNIST dataset (handwritten digits recognition).
     """
-    def __init__(self, workflow, layers, **kwargs):
+    def __init__(self, workflow, **kwargs):
+        layers = kwargs["layers"]
         super(MnistWorkflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)

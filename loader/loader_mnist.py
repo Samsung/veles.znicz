@@ -13,13 +13,12 @@ import struct
 import numpy
 from zope.interface import implementer
 
-from veles.config import root, get
+from veles.config import root
 import veles.error as error
 import veles.loader as loader
 
 
-mnist_dir = os.path.abspath(get(
-    root.mnist.loader.base, os.path.join(os.path.dirname(__file__), "MNIST")))
+mnist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "MNIST"))
 if not os.access(mnist_dir, os.W_OK):
     # Fall back to ~/.veles/MNIST
     mnist_dir = os.path.join(root.common.veles_user_dir, "MNIST")

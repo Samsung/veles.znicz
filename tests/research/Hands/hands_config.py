@@ -33,7 +33,8 @@ root.hands.update({
                "background_color": (0,),
                "normalization_type": "linear",
                "validation_paths": validation_dir},
-    "layers": [{"type": "all2all_tanh", "learning_rate": 0.008,
-                "weights_decay": 0.0, "output_sample_shape": 30},
-               {"type": "softmax", "output_sample_shape": 2,
-                "learning_rate": 0.008, "weights_decay": 0.0}]})
+    "layers": [{"type": "all2all_tanh",
+                "->": {"output_sample_shape": 30},
+                "<-": {"learning_rate": 0.008, "weights_decay": 0.0}},
+               {"type": "softmax",
+                "<-": {"learning_rate": 0.008, "weights_decay": 0.0}}]})

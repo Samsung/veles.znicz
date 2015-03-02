@@ -79,9 +79,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
     """
     def __init__(self, workflow, **kwargs):
         layers = kwargs.get("layers")
-        device = kwargs.get("device")
         kwargs["layers"] = layers
-        kwargs["device"] = device
         super(Mnist7Workflow, self).__init__(workflow, **kwargs)
 
         self.repeater.link_from(self.start_point)
@@ -95,8 +93,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # Add fwds units
         del self.forwards[:]
         for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_sample_shape=[layers[i]],
-                                     device=device)
+            aa = all2all.All2AllTanh(self, output_sample_shape=[layers[i]])
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])
@@ -108,7 +105,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
                     self.loader, ("input", "minibatch_data"))
 
         # Add evaluator for single minibatch
-        self.evaluator = evaluator.EvaluatorMSE(self, device=device)
+        self.evaluator = evaluator.EvaluatorMSE(self)
         self.evaluator.link_from(self.forwards[-1])
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
@@ -158,7 +155,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # Add gradient descent units
         del self.gds[:]
         self.gds.extend(None for i in range(0, len(self.forwards)))
-        self.gds[-1] = gd.GDTanh(self, device=device)
+        self.gds[-1] = gd.GDTanh(self)
         self.gds[-1].link_from(self.image_saver)
         self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
@@ -166,7 +163,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
         for i in range(len(self.forwards) - 2, -1, -1):
-            self.gds[i] = gd.GDTanh(self, device=device)
+            self.gds[i] = gd.GDTanh(self)
             self.gds[i].link_from(self.gds[i + 1])
             self.gds[i].link_attrs(self.forwards[i], "output", "input",
                                    "weights", "bias")
