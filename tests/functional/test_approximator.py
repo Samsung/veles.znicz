@@ -35,7 +35,7 @@ class TestApproximator(unittest.TestCase):
                                        root.common.veles_dir,
                                        dtype=numpy.uint32, count=1024))
         root.common.update({
-            "plotters_disabled": True,
+            "disable_plotting": True,
             "precision_level": 1,
             "precision_type": "double",
             "engine": {"backend": "ocl"}})

@@ -38,7 +38,7 @@ class TestKanji(unittest.TestCase):
 
         root.common.update({
             "precision_level": 1,
-            "plotters_disabled": True,
+            "disable_plotting": True,
             "precision_type": "double",
             "engine": {"backend": "ocl"}})
 
