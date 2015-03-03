@@ -76,7 +76,7 @@ class TestHands(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 658)
+        self.assertEqual(err, 577)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -92,7 +92,7 @@ class TestHands(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 592)
+        self.assertEqual(err, 593)
         self.assertEqual(9, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

@@ -110,7 +110,7 @@ class TestLines(unittest.TestCase):
         # Test workflow
         self.init_wf(self.w)
         self.w.run()
-        self.check_write_error_rate(self.w, 10)
+        self.check_write_error_rate(self.w, 44)
 
         file_name = self.w.snapshotter.file_name
 
@@ -125,7 +125,7 @@ class TestLines(unittest.TestCase):
 
         self.init_wf(self.wf)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 6)
+        self.check_write_error_rate(self.wf, 40)
 
         logging.info("All Ok")
 
