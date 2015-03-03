@@ -94,7 +94,7 @@ class TestYaleFaces(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 147)
+        self.assertEqual(err, 167)
         self.assertEqual(6, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

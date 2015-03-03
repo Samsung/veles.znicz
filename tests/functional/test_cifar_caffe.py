@@ -158,7 +158,7 @@ class TestCifarCaffe(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 6083)
+        self.assertEqual(err, 5529)
         self.assertEqual(1, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
@@ -175,7 +175,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 4461)
+        self.assertEqual(err, 4347)
         self.assertEqual(3, self.wf.loader.epoch_number)
         logging.info("All Ok")
 

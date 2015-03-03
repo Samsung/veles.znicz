@@ -76,13 +76,13 @@ class TestHands(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 673)
+        self.assertEqual(err, 658)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 3
+        self.wf.decision.max_epochs = 9
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -92,8 +92,8 @@ class TestHands(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 629)
-        self.assertEqual(3, self.wf.loader.epoch_number)
+        self.assertEqual(err, 592)
+        self.assertEqual(9, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":
