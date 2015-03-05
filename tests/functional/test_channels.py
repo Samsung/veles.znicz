@@ -9,6 +9,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
+import six
 import unittest
 
 from veles.config import root
@@ -85,8 +86,6 @@ class TestChannels(unittest.TestCase):
             loss_function=root.channels.loss_function,
             device=self.device)
 
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 3
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
@@ -120,7 +119,8 @@ class TestChannels(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 15)
+        # PIL Image for python2 and PIL for python3 returns different values
+        self.assertEqual(err, 15 if six.PY3 else 14)
         self.assertEqual(4, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
