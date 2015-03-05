@@ -373,9 +373,10 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             return
         if not self.bias:
             self.bias.reset(numpy.zeros(self.n_kernels, self.input.mem.dtype))
+            self._fill_array(self.bias_filling, self.bias.mem,
+                             self.bias_stddev)
         else:
             assert self.bias.size == self.n_kernels
-        self._fill_array(self.bias_filling, self.bias.mem, self.bias_stddev)
 
     def _fill_with_gabor_filters(self, n_filters, shape, stddev):
         """
