@@ -67,6 +67,7 @@ class TestLines(unittest.TestCase):
                              os.path.join(
                                  root.common.cache_dir, "tmp/train")]},
             "loader": {"minibatch_size": 12, "force_cpu": False,
+                       "normalization_type": "mean_disp",
                        "color_space": "RGB", "filename_types": ["jpeg"],
                        "train_paths": [train], "validation_paths": [valid]},
             "weights_plotter": {"limit": 32},
@@ -76,7 +77,7 @@ class TestLines(unittest.TestCase):
                         "sliding": (4, 4), "weights_filling": "gaussian",
                         "weights_stddev": 0.001,
                         "bias_filling": "gaussian", "bias_stddev": 0.001},
-                 "<-": {"learning_rate": 0.0003,
+                 "<-": {"learning_rate": 0.003,
                         "weights_decay": 0.0, "gradient_moment": 0.9}},
                 {"type": "max_pooling",
                  "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
@@ -86,13 +87,13 @@ class TestLines(unittest.TestCase):
                         "output_sample_shape": 32,
                         "weights_stddev": 0.05,
                         "bias_stddev": 0.05},
-                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.0,
+                 "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
                         "gradient_moment": 0.9}},
                 {"type": "softmax",
                  "->": {"output_sample_shape": 4, "weights_filling": "uniform",
                         "weights_stddev": 0.05, "bias_filling": "uniform",
                         "bias_stddev": 0.05},
-                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.0,
+                 "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
                         "gradient_moment": 0.9}}]})
 
         root.common.precision_level = 1
@@ -110,7 +111,7 @@ class TestLines(unittest.TestCase):
         # Test workflow
         self.init_wf(self.w)
         self.w.run()
-        self.check_write_error_rate(self.w, 44)
+        self.check_write_error_rate(self.w, 54)
 
         file_name = self.w.snapshotter.file_name
 
@@ -120,12 +121,12 @@ class TestLines(unittest.TestCase):
         self.wf = Snapshotter.import_(file_name)
 
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 12
+        self.wf.decision.max_epochs = 24
         self.wf.decision.complete <<= False
 
         self.init_wf(self.wf)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 40)
+        self.check_write_error_rate(self.wf, 46)
 
         logging.info("All Ok")
 
