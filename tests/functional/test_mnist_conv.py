@@ -120,7 +120,7 @@ class TestMnistConv(unittest.TestCase):
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 2
+        self.w.snapshotter.interval = 1
         self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
@@ -144,7 +144,7 @@ class TestMnistConv(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 104)
+        self.assertEqual(err, 105)
         self.assertEqual(3, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
