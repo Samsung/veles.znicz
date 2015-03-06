@@ -70,7 +70,7 @@ class TestYaleFaces(unittest.TestCase):
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 4
+        self.w.snapshotter.interval = 3
         self.w.initialize(device=self.device)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
