@@ -91,7 +91,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self._local_size = None
 
         # Image count to unpack at once
-        self.unpack_size = kwargs.get("unpack_size", 1)
+        self.unpack_size = kwargs.get("unpack_size", 16)
         self.unpack_data = Vector()
 
     def init_unpickled(self):

@@ -71,7 +71,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_err_output_ = None
         self.krn_bias_ = None
         self.krn_err_output_name = None
-        self.unpack_size = kwargs.get("unpack_size", 1)
+        self.unpack_size = kwargs.get("unpack_size", 16)
         self.unpack_data = Vector()
         self.demand("weights")
         if self.include_bias:
