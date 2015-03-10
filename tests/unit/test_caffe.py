@@ -52,13 +52,12 @@ class TestConvCaffe(standard_test.StandardTest):
         fwd_conv.input = Vector()
         fwd_conv.input.mem = bottom
 
-        # UNCOMMENT TO SEE CAFFEE DATA
-#        print("bottom shape:", bottom.shape)
-#        print(bottom)
-#        print("weights shape:", weights.shape)
-#        print(weights)
-#        print("top shape:", top.shape)
-#        print(top)
+        logging.debug("bottom shape: %s" % bottom.shape)
+        logging.debug(bottom)
+        logging.debug("weights shape: %s" % weights.shape)
+        logging.debug(weights)
+        logging.debug("top shape: %s" % top.shape)
+        logging.debug(top)
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
@@ -138,14 +137,13 @@ class TestConvCaffe(standard_test.StandardTest):
                              sliding=(1, 1), n_kernels=n_kernels)
 
         fwd_conv.input = Vector(bottom)
-#
-#        #UNCOMMENT TO SEE CAFFEE DATA
-# #        print("bottom shape:", bottom.shape)
-# #        print(bottom)
-# #        print("weights shape:", weights.shape)
-# #        print(weights)
-# #        print("top shape:", top.shape)
-# #        print(top)
+
+        logging.debug("bottom shape: %s" % bottom.shape)
+        logging.debug(bottom)
+        logging.debug("weights shape: %s" % weights.shape)
+        logging.debug(weights)
+        logging.debug("top shape: %s" % top.shape)
+        logging.debug(top)
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
@@ -188,9 +186,6 @@ class TestConvCaffe(standard_test.StandardTest):
 
         # BACKPROP: difference with CAFFE export
         back_delta = back_conv.err_input.mem - bot_err
-#        print(bot_err)
-#        print("~~~~~~~~~~")
-#        print(back_conv.err_input.mem)
 
         logging.info("GDCONV: diff with CAFFE: %.3f%%" %
                      (100. * np.sum(np.fabs(back_delta)) /
@@ -234,8 +229,6 @@ class TestConvCaffe(standard_test.StandardTest):
 
         bottom = self._read_array("bottom", lines=lines,
                                   shape=(2, in_height, in_width, 2))
-        # top = self._read_array("top", lines=lines,
-        #                        shape=(2, out_height, out_width, 2))
 
         # do pooling with VELES
         fwd_pool = pooling.MaxPooling(self.workflow, kx=kernel_size,
@@ -248,14 +241,6 @@ class TestConvCaffe(standard_test.StandardTest):
 
         fwd_pool.cpu_run()
         fwd_pool.output.map_read()
-
-        # UNCOMMENT TO SEE EXTRA DEBUG DATA
-#        print(fwd_pool.output.mem)
-#        logging.info("top")
-#        print(top)
-
-#        print(np.sum(np.abs(fwd_pool.output.mem - top)) / np.sum(np.abs(top)))
-#        print(fwd_pool.output.mem - top)
 
         # do MANUAL pooling
         manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
@@ -635,7 +620,8 @@ class TestConvCaffe(standard_test.StandardTest):
 
         back_conv_relu.link_conv_attrs(
             DummyUnit(kx=kernel_size, ky=kernel_size, n_kernels=n_kernels,
-                      padding=((padding,) * 4), sliding=(1, 1)))
+                      padding=((padding,) * 4), sliding=(1, 1),
+                      unpack_size=1, unpack_data=Vector()))
 
         back_conv_relu.initialize(device=self.device)
 
@@ -729,16 +715,14 @@ class TestConvCaffe(standard_test.StandardTest):
         self.assertLess(fwd_percent_delta, max_percent_delta,
                         "A2A_SM_FWD differs by %.2f%%" % (fwd_percent_delta))
 
-        #Back prop
+        # Back prop
 
         sm_top_err = self._read_array("sm_top_diff", lines,
                                       (n_pics, 1, 1, n_classes))
         sm_bot_err = self._read_array("sm_bottom_diff", lines,
                                       (n_pics, 1, 1, n_classes))
         a2a_bot_err = self._read_array("a2a_bottom_diff", lines,
-                                      (n_pics, size, size, n_chans))
-
-#        a2a_bot_err = a2a_bot_err.transpose((0, 2, 1, 3))
+                                       (n_pics, size, size, n_chans))
 
         ev_sm = evaluator.EvaluatorSoftmax(self.workflow)
 
@@ -782,7 +766,6 @@ class TestConvCaffe(standard_test.StandardTest):
                         target = 1
                     else:
                         target = 0
-#                    print(int(i == j))
                     manual_sm_bot_err[pic, 0, 0, i] += (
                         target / sm_top_err[pic, 0, 0, j] *
                         (sm_top_err[pic, 0, 0, i] * sm_top_err[pic, 0, 0, j]
@@ -815,6 +798,6 @@ class TestConvCaffe(standard_test.StandardTest):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     logging.info("CAFFE CONV TEST")
     unittest.main()

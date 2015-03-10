@@ -125,6 +125,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.bias.mem = bias.copy()
         c.output = formats.Vector()
         c.output.mem = c.err_output.mem.copy()
+        c.unpack_size = 1
+        c.unpack_data = formats.Vector()
 
         batch_size = c.err_output.mem.shape[0]
         b = c.err_output.mem.reshape(9 * batch_size, 2)
@@ -251,6 +253,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         c.bias.mem = bias.copy()
         c.output = formats.Vector()
         c.output.mem = err_output.copy()
+        c.unpack_size = 1
+        c.unpack_data = formats.Vector()
 
         batch_size = c.err_output.mem.shape[0]
         b = c.err_output.mem.reshape(12 * batch_size, 2)
