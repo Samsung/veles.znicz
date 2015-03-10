@@ -5,11 +5,12 @@ from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit
 import veles.memory as formats
+from veles.distributable import TriviallyDistributable
 from veles.znicz.nn_units import ForwardBase
 
 
 @implementer(IOpenCLUnit)
-class ZeroFiller(ForwardBase):
+class ZeroFiller(ForwardBase, TriviallyDistributable):
     """Fills weights of given unit with zero on every step"""
 
     MAPPING = {"zero_filter"}

@@ -17,12 +17,12 @@ from zope.interface import implementer
 
 import veles.config as config
 from veles.error import BadFormatError
-from veles.distributable import IDistributable
+from veles.distributable import TriviallyDistributable
 from veles.units import Unit, IUnit
 
 
-@implementer(IUnit, IDistributable)
-class ImageSaver(Unit):
+@implementer(IUnit)
+class ImageSaver(Unit, TriviallyDistributable):
     """Saves input to pngs in the supplied directory.
 
     Will remove all existing png files in the supplied directory.
@@ -212,20 +212,3 @@ class ImageSaver(Unit):
             aa = cv2.cvtColor(
                 aa, getattr(cv2, "COLOR_" + colorspace + "2RGB"))
         return aa
-
-    # IDistributable implementation
-
-    def generate_data_for_slave(self, slave):
-        return None
-
-    def generate_data_for_master(self):
-        return True
-
-    def apply_data_from_master(self, data):
-        pass
-
-    def apply_data_from_slave(self, data, slave):
-        pass
-
-    def drop_slave(self, slave):
-        pass
