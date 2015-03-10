@@ -94,9 +94,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
             self, unsafe_padding=root.mnist_ae.unsafe_padding)
         self.deconv = unit
         unit.link_from(self.depool)
-        unit.link_attrs(
-            self.conv,
-            "weights", "n_kernels", "kx", "ky", "sliding", "padding")
+        unit.link_attrs(self.conv, "weights")
+        unit.link_conv_attrs(self.conv)
         unit.link_attrs(self.depool, ("input", "err_input"))
         unit.link_attrs(self.conv, ("output_shape_source", "input"))
 
@@ -144,7 +143,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         unit.link_attrs(self.evaluator, "err_output")
         unit.link_attrs(
             self.deconv, "weights", "input", "hits", "n_kernels",
-            "kx", "ky", "sliding", "padding")
+            "kx", "ky", "sliding", "padding", "unpack_data", "unpack_size")
         unit.gate_skip = self.decision.gd_skip
         unit.need_err_input = False
         unit.gate_block = self.decision.complete
