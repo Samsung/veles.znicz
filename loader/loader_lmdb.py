@@ -30,7 +30,7 @@ class LMDBLoader(ImageLoader):
         self.db_splitted_channels = kwargs.get("db_splitted_channels", True)
 
         # LMDB base cursors, used as KV-iterators
-        self._cursors = [None] * 3
+        self._cursors_ = [None] * 3
 
     @property
     def files(self):
@@ -61,7 +61,7 @@ class LMDBLoader(ImageLoader):
         """
         index, key = key
         datum = Datum()
-        datum.ParseFromString(self._cursors[index].get(key))
+        datum.ParseFromString(self._cursors_[index].get(key))
         return datum.label
 
     def get_image_info(self, key):
@@ -72,7 +72,7 @@ class LMDBLoader(ImageLoader):
         """
         index, key = key
         datum = Datum()
-        datum.ParseFromString(self._cursors[index].get(key))
+        datum.ParseFromString(self._cursors_[index].get(key))
         return (datum.height, datum.width), self.db_color_space
 
     def get_image_data(self, key):
@@ -80,7 +80,7 @@ class LMDBLoader(ImageLoader):
         """
         index, key = key
         datum = Datum()
-        datum.ParseFromString(self._cursors[index].get(key))
+        datum.ParseFromString(self._cursors_[index].get(key))
         img = numpy.fromstring(datum.data, dtype=numpy.uint8)
         img = img.reshape(self.original_shape)
         if self.db_splitted_channels:
@@ -96,7 +96,7 @@ class LMDBLoader(ImageLoader):
             return []
 
         npics, cursor = self._open_db(db_path)
-        self._cursors[index] = cursor
+        self._cursors_[index] = cursor
         keys = [(index, cursor.key())]
         while cursor.next():
             keys.append((index, cursor.key()))
