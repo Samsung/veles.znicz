@@ -15,12 +15,16 @@ root.common.precision_level = 0
 base_lr = 0.01
 wd = 0.0005
 
-data_path = os.path.join(root.common.test_dataset_root, "AlexNet/LMDB_old")
+data_path = os.path.join(root.common.test_dataset_root, "AlexNet/LMDB")
+
+root.common.precision_type = "float"
+root.common.engine.backend = "cuda"
+
 
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10},
-    "snapshotter": {"prefix": "imagenet", "interval": 10},
+    "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "loss_function": "softmax",
     "loader_name": "lmdb",

@@ -93,8 +93,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
             ("minibatch_max_err_y_sum", "max_err_output_sum"))
 
         self.snapshotter = NNSnapshotter(
-            self, prefix=root.wine_relu.snapshotter.prefix,
-            directory=root.common.snapshot_dir)
+            self, **root.wine_relu.snapshotter.__content__)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

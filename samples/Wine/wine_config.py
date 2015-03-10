@@ -18,7 +18,7 @@ root.common.update = {"disable_plotting": True}
 root.wine.update({
     "decision": {"fail_iterations": 200,
                  "max_epochs": 100},
-    "snapshotter": {"prefix": "wine"},
+    "snapshotter": {"prefix": "wine", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 10,
                "force_cpu": False},
     "learning_rate": 0.3,
