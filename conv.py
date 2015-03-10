@@ -25,7 +25,8 @@ import veles.znicz.nn_units as nn_units
 
 
 class ConvolutionalBase(Unit):
-    CONV_ATTRS = "n_kernels", "kx", "ky", "sliding", "padding"
+    CONV_ATTRS = ("n_kernels", "kx", "ky", "sliding", "padding",
+                  "unpack_data", "unpack_size")
 
     def __init__(self, workflow, **kwargs):
         super(ConvolutionalBase, self).__init__(workflow, **kwargs)

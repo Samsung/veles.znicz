@@ -21,7 +21,7 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.memory import roundup, Vector
+from veles.memory import roundup
 from veles.accelerated_units import IOpenCLUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
@@ -71,8 +71,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.krn_err_output_ = None
         self.krn_bias_ = None
         self.krn_err_output_name = None
-        self.unpack_size = kwargs.get("unpack_size", 16)
-        self.unpack_data = Vector()
         self.demand("weights")
         if self.include_bias:
             self.demand("bias")
