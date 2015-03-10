@@ -24,18 +24,40 @@ class TestCifarCaffe(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
 
-    @timeout(1200)
+    def init_wf(self, workflow):
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+        workflow.initialize(device=self.device)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+    def check_write_error_rate(self, workflow, error):
+        err = workflow.decision.epoch_n_err[1]
+        self.assertEqual(err, error)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    def init_and_run(self):
+        self.w = cifar.CifarWorkflow(
+            dummy_workflow.DummyLauncher(),
+            decision_config=root.cifar.decision,
+            snapshotter_config=root.cifar.snapshotter,
+            image_saver_config=root.cifar.image_saver,
+            loader_name=root.cifar.loader_name,
+            loader_config=root.cifar.loader,
+            layers=root.cifar.layers,
+            loss_function=root.cifar.loss_function)
+        self.init_wf(self.w)
+        self.w.run()
+
+    @timeout(1500)
     def test_cifar_caffe(self):
-        logging.info("Will test cifar convolutional"
+        logging.info("Will test cifar convolutional "
                      "workflow with caffe config")
         rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                       root.common.veles_dir,
                                       dtype=numpy.int32, count=1024))
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
 
         train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
         validation_dir = os.path.join(
@@ -45,7 +67,8 @@ class TestCifarCaffe(unittest.TestCase):
             "loader_name": "cifar_loader",
             "decision": {"fail_iterations": 250, "max_epochs": 1},
             "learning_rate_adjust": {"do": True},
-            "snapshotter": {"prefix": "cifar_caffe", "interval": 1},
+            "snapshotter": {"prefix": "cifar_caffe", "interval": 1,
+                            "time_interval": 0},
             "loss_function": "softmax",
             "add_plotters": False,
             "image_saver": {"do": False,
@@ -136,47 +159,42 @@ class TestCifarCaffe(unittest.TestCase):
                                "gradient_moment_bias": 0.9}}],
             "data_paths": {"train": train_dir, "validation": validation_dir}})
 
-        self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyLauncher(),
-            decision_config=root.cifar.decision,
-            snapshotter_config=root.cifar.snapshotter,
-            image_saver_config=root.cifar.image_saver,
-            loader_name=root.cifar.loader_name,
-            loader_config=root.cifar.loader,
-            layers=root.cifar.layers,
-            loss_function=root.cifar.loss_function)
+        logging.info("Will run workflow with double and ocl backend")
 
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 1
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device,
-                          minibatch_size=root.cifar.loader.minibatch_size)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
+        # Test workflow
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 5667)
+
+        logging.info("Will run workflow with double and cuda backend")
+
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "cuda"}})
+
+        # Test workflow with cuda and double
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 5877)
+
         file_name = self.w.snapshotter.file_name
 
-        err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 5529)
-        self.assertEqual(1, self.w.loader.epoch_number)
+        # Test loading from snapshot
+        logging.info("Will load workflow from snapshot: %s" % file_name)
 
-        logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 3
         self.wf.decision.complete <<= False
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device,
-                           minibatch_size=root.cifar.loader.minibatch_size)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.run()
 
-        err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 4347)
-        self.assertEqual(3, self.wf.loader.epoch_number)
+        self.init_wf(self.wf)
+        self.wf.run()
+        self.check_write_error_rate(self.wf, 4698)
+
         logging.info("All Ok")
 
 if __name__ == "__main__":

@@ -26,7 +26,23 @@ class TestMnistAE(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(300)
+    def init_wf(self, workflow):
+        workflow.initialize(device=self.device)
+
+    def check_write_error_rate(self, workflow, error):
+        err = workflow.decision.epoch_metrics[1][0]
+        self.assertLess(err, error)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    def init_and_run(self):
+        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
+                                          layers=root.mnist_ae.layers,
+                                          device=self.device)
+        self.init_wf(self.w)
+        self.w.run()
+
+    @timeout(1000)
     def test_mnist_ae(self):
         logging.info("Will test mnist ae workflow")
 
@@ -43,7 +59,7 @@ class TestMnistAE(unittest.TestCase):
             "decision": {"fail_iterations": 20,
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
-                            "compress": ""},
+                            "interval": 3, "compress": ""},
             "loader": {"minibatch_size": 100, "force_cpu": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.000001,
@@ -57,30 +73,64 @@ class TestMnistAE(unittest.TestCase):
             "kx": 5,
             "ky": 5})
 
-        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
-                                          layers=root.mnist_ae.layers,
-                                          device=self.device)
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 3
-        self.w.initialize(device=self.device)
-        self.w.run()
+        logging.info("Will run workflow with double and ocl backend")
+
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
+        # Test workflow
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 0.96093162)
+
         file_name = self.w.snapshotter.file_name
 
-        avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertLess(avg_mse, 0.96093162)
-        self.assertEqual(3, self.w.loader.epoch_number)
+        # Test loading from snapshot
+        logging.info("Will load workflow from snapshot: %s" % file_name)
 
-        logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
-        self.wf.initialize(device=self.device)
-        self.wf.run()
 
-        avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertLess(avg_mse, 0.9606072)
-        self.assertEqual(6, self.wf.loader.epoch_number)
+        self.init_wf(self.wf)
+        self.wf.run()
+        self.check_write_error_rate(self.wf, 0.9606072)
+
+        logging.info("Will run workflow with double and cuda backend")
+
+        root.common.update({
+            "precision_level": 3,
+            "precision_type": "double",
+            "engine": {"backend": "cuda"}})
+
+        # Test workflow with cuda and double
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 0.9612299373)
+
+        logging.info("Will run workflow with float and ocl backend")
+
+        root.common.update({
+            "precision_level": 3,
+            "precision_type": "float",
+            "engine": {"backend": "ocl"}})
+
+        # Test workflow with ocl and float
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 0.96072854)
+
+        logging.info("Will run workflow with float and cuda backend")
+
+        root.common.update({
+            "precision_level": 3,
+            "precision_type": "float",
+            "engine": {"backend": "cuda"}})
+
+        # Test workflow with cuda and float
+        self.init_and_run()
+        self.check_write_error_rate(self.w, 0.96101219)
+
         logging.info("All Ok")
 
 
