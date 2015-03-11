@@ -12,5 +12,6 @@
     "workflow": "yale_faces.py",
     "image": "face.pgm",
     "tags": ["faces", "fully-connected", "softmax", "self-constructing"],
-    "files": ["yale_faces_preprocessing_config.py", "yale_faces_preprocessing.py", "__init__.py"]
+    "files": ["yale_faces_preprocessing_config.py", "yale_faces_preprocessing.py", "__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/YaleFaces/yalefaces_1.93pt.4.pickle.gz"]
 }

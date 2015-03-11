@@ -11,5 +11,6 @@
     "workflow": "mnist.py",
     "image": "mnist.png",
     "tags": ["mnist", "convolutional", "fully-connected", "softmax", "self-constructing", "caffe"],
-    "files": ["mnist_config.py", "mnist_caffe_config.py", "loader_mnist.py", "__init__.py"]
+    "files": ["mnist_config.py", "mnist_caffe_config.py", "loader_mnist.py", "__init__.py"], 
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/MNIST/mnist_1.87pt.4.pickle", "https://s3-eu-west-1.amazonaws.com/veles-forge/MNIST/mnist_caffe_0.95pt.4.pickle", "https://s3-eu-west-1.amazonaws.com/veles-forge/MNIST/mnist_conv_0.72pt.4.pickle"]
 }

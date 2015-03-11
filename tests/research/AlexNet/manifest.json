@@ -11,5 +11,5 @@
     "workflow": "imagenet_workflow.py",
     "image": "imagenet.jpg",
     "tags": ["imagenet", "convolutional", "fully-connected", "softmax", "self-constructing", "alexnet", "caffe"],
-    "files": ["imagenet_loader.py", "preparation_imagenet.py", "__init__.py"]
+    "files": ["imagenet_loader.py", "preparation_imagenet.py", "__init__.py", "imagenet_workflow_lmdb_config.py"]
 }

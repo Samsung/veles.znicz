@@ -11,5 +11,6 @@
     "workflow": "mnist_ae.py",
     "image": "mnist.png",
     "tags": ["mnist", "autoencoder"],
-    "files": ["loader_mnist.py", "__init__.py"]
+    "files": ["loader_mnist.py", "__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/MnistAE/mnist_0.365084.4.pickle"]
 }

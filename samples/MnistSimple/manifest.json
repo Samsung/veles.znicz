@@ -11,5 +11,6 @@
     "workflow": "mnist.py",
     "tags": ["mnist", "fully-connected", "softmax"],
     "image": "mnist.png",
-    "files": ["loader_mnist.py", "__init__.py"]
+    "files": ["loader_mnist.py", "__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/MnistSimple/mnist_1.56pt.4.pickle.gz"]
 }

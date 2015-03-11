@@ -11,5 +11,6 @@
     "workflow": "mnist7.py",
     "image": "mnist.png",
     "tags": ["mnist", "mse"],
-    "files": ["loader_mnist.py", "__init__.py"]
+    "files": ["loader_mnist.py", "__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/Mnist7/mnist7_0.134736_3.16pt.4.pickle.gz"]
 }

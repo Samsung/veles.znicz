@@ -11,5 +11,6 @@
     "workflow": "video_ae.py",
     "image": "videoae.png",
     "tags": ["autoencoder", "video"],
-    "files": ["__init__.py"]
+    "files": ["__init__.py"],
+    "snapshots": ["https://s3-eu-west-1.amazonaws.com/veles-forge/VideoAE/video_ae_0.306552.4.pickle"]
 }
