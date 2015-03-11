@@ -74,7 +74,6 @@ class TestMnistAE(unittest.TestCase):
             "ky": 5})
 
         self._test_mnist_ae_gpu(self.device)
-        self._test_mnist_ae_cpu(None)
 
     def _test_mnist_ae_gpu(self, device):
         logging.info("Will run workflow with double and ocl backend")
@@ -105,7 +104,7 @@ class TestMnistAE(unittest.TestCase):
         logging.info("Will run workflow with double and cuda backend")
 
         root.common.update({
-            "precision_level": 3,
+            "precision_level": 1,
             "precision_type": "double",
             "engine": {"backend": "cuda"}})
 
@@ -116,7 +115,7 @@ class TestMnistAE(unittest.TestCase):
         logging.info("Will run workflow with float and ocl backend")
 
         root.common.update({
-            "precision_level": 3,
+            "precision_level": 1,
             "precision_type": "float",
             "engine": {"backend": "ocl"}})
 
@@ -127,22 +126,13 @@ class TestMnistAE(unittest.TestCase):
         logging.info("Will run workflow with float and cuda backend")
 
         root.common.update({
-            "precision_level": 3,
+            "precision_level": 1,
             "precision_type": "float",
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and float
         self.init_and_run(device)
         self.check_write_error_rate(self.w, 0.96101219)
-
-        logging.info("All Ok")
-
-    def _test_mnist_ae_cpu(self, device):
-        logging.info("Will run workflow with --disable-acceleration")
-
-        # Test workflow with --disable-acceleration
-        self.init_and_run(device)
-        self.check_write_error_rate(self.w, 0.96093162)
 
         logging.info("All Ok")
 

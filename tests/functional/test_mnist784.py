@@ -26,7 +26,27 @@ class TestMnist784(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    @timeout(300)
+    def init_wf(self, workflow, device):
+        workflow.initialize(device=self.device,
+                            learning_rate=root.mnist784.learning_rate,
+                            weights_decay=root.mnist784.weights_decay)
+
+    def check_write_error_rate(self, workflow, mse, error):
+        avg_mse = workflow.decision.epoch_metrics[1][0]
+        err = workflow.decision.epoch_n_err[1]
+        self.assertEqual(err, error)
+        self.assertAlmostEqual(avg_mse, mse, places=6)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    def init_and_run(self, device):
+        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
+                                           layers=root.mnist784.layers,
+                                           device=self.device)
+        self.init_wf(self.w, device)
+        self.w.run()
+
+    @timeout(1000)
     def test_mnist784(self):
         logging.info("Will test mnist784 workflow")
 
@@ -40,8 +60,9 @@ class TestMnist784(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         root.mnist784.update({
-            "decision": {"fail_iterations": 100},
-            "snapshotter": {"prefix": "mnist_784_test"},
+            "decision": {"fail_iterations": 100, "max_epochs": 2},
+            "snapshotter": {"prefix": "mnist_784_test", "time_interval": 0,
+                            "interval": 2},
             "loader": {"minibatch_size": 100, "normalization_type": "linear",
                        "target_normalization_type": "linear"},
             "weights_plotter": {"limit": 16},
@@ -49,49 +70,57 @@ class TestMnist784(unittest.TestCase):
             "weights_decay": 0.00005,
             "layers": [784, 784]})
 
-        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
-                                           layers=root.mnist784.layers,
-                                           device=self.device)
-        self.w.decision.max_epochs = 2
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 2
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device,
-                          learning_rate=root.mnist784.learning_rate,
-                          weights_decay=root.mnist784.weights_decay)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
+        self._test_mnist784_gpu(self.device)
+        self._test_mnist784_cpu(None)
+        logging.info("All Ok")
+
+    def _test_mnist784_gpu(self, device):
+        logging.info("Will run workflow with double and ocl backend")
+
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "ocl"}})
+
+        # Test workflow
+        self.init_and_run(device)
+        self.check_write_error_rate(self.w, 0.409835, 8088)
+
         file_name = self.w.snapshotter.file_name
 
-        err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 8088)
-        avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.409835, places=6)
-        self.assertEqual(2, self.w.loader.epoch_number)
+        # Test loading from snapshot
+        logging.info("Will load workflow from snapshot: %s" % file_name)
 
-        logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 5
         self.wf.decision.complete <<= False
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device,
-                           learning_rate=root.mnist784.learning_rate,
-                           weights_decay=root.mnist784.weights_decay)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
+
+        self.init_wf(self.wf, device)
         self.wf.run()
+        self.check_write_error_rate(self.wf, 0.39173925, 7428)
 
-        err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 7428)
-        avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.39173925, places=6)
-        self.assertEqual(5, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        logging.info("Will run workflow with double and cuda backend")
 
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double",
+            "engine": {"backend": "cuda"}})
+
+        # Test workflow with cuda and double
+        root.mnist784.decision.max_epochs = 3
+        self.init_and_run(device)
+        self.check_write_error_rate(self.w, 0.403975599, 7659)
+
+        logging.info("Will run workflow with float and ocl backend")
+
+    def _test_mnist784_cpu(self, device):
+        logging.info("Will run workflow with --disable-acceleration")
+
+        # Test workflow with --disable-acceleration
+        root.mnist784.decision.max_epochs = 3
+        self.init_and_run(device)
+        self.check_write_error_rate(self.w, 0.40309872, 7840)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
