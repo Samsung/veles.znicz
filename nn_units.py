@@ -62,6 +62,8 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
 
     def __init__(cls, name, bases, clsdict):
         super(MatchingObject, cls).__init__(name, bases, clsdict)
+        if not MatchingObject.enabled:
+            return
         mapping = clsdict.get('MAPPING', None)
         if mapping is None:
             MatchingObject.logger.warning("%s does not have MAPPING", cls)
@@ -70,7 +72,8 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
             raise TypeError("%s: MAPPING must be of type 'set'" % cls)
         for val in mapping:
             match = MatchingObject.mapping[val]
-            if issubclass(cls, Forward) and match.has_forward:
+            if issubclass(cls, Forward) and match.has_forward and \
+                    cls != match.forward:
                 raise ValueError(
                     "%s: attempted to add a second Forward %s to %s" %
                     (val, cls, match.forward))
