@@ -22,11 +22,14 @@ import veles.error as error
 from veles.memory import Vector
 import veles.opencl_types as opencl_types
 import veles.loader as loader
+import veles.prng.random_generator as prng
 
 
 @implementer(loader.ILoader)
 class ImagenetCaffeLoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
+    MAPPING = "imagenet_loader"
+
     def __init__(self, workflow, **kwargs):
         super(ImagenetCaffeLoader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
@@ -58,6 +61,12 @@ class ImagenetCaffeLoader(loader.Loader):
         state["file_samples"] = None
         return state
 
+    def initialize(self, **kwargs):
+        self.normalizer.reset()
+        super(ImagenetCaffeLoader, self).initialize(**kwargs)
+        self.minibatch_labels.reset(numpy.zeros(
+            self.max_minibatch_size, dtype=numpy.int32))
+
     def shuffle(self):
         if self.shuffle_limit <= 0:
             return
@@ -71,6 +80,7 @@ class ImagenetCaffeLoader(loader.Loader):
         with open(self.original_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
+                self.labels_mapping[int(lbl)] = int(lbl)
         self.info("Labels (min max count): %d %d %d",
                   numpy.min(self.original_labels),
                   numpy.max(self.original_labels),
@@ -135,9 +145,10 @@ class ImagenetCaffeLoader(loader.Loader):
 
     def cut_out(self, sample):
         if self.minibatch_class == 2:
-            h_off = numpy.random.randint(
+            rand = prng.get()
+            h_off = rand.randint(
                 sample.shape[0] - self.crop_size_sy + 1)
-            w_off = numpy.random.randint(
+            w_off = rand.randint(
                 sample.shape[1] - self.crop_size_sx + 1)
         else:
             h_off = (sample.shape[0] - self.crop_size_sy) / 2
@@ -168,7 +179,8 @@ class ImagenetCaffeLoader(loader.Loader):
         for index, index_sample in enumerate(idxs[:count]):
             self.file_samples.seek(int(index_sample) * sample_bytes)
             self.file_samples.readinto(sample)
-            self.do_mirror = self.mirror and bool(numpy.random.randint(2))
+            rand = prng.get()
+            self.do_mirror = self.mirror and bool(rand.randint((2)))
             image = self.transform_sample(sample)
             self.minibatch_data.mem[index] = image
             self.minibatch_labels.mem[
