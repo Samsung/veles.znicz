@@ -14,7 +14,7 @@ from zope.interface import implementer
 
 from veles.distributable import TriviallyDistributable
 import veles.error as error
-import veles.memory as formats
+from veles.memory import assert_addr, ravel, Vector
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
 
 
@@ -26,7 +26,7 @@ class EvaluatorBase(AcceleratedUnit):
         super(EvaluatorBase, self).__init__(workflow, **kwargs)
         self.error_function_averaged = kwargs.get(
             "error_function_averaged", True)
-        self.err_output = formats.Vector()
+        self.err_output = Vector()
         self.krn_constants_i_ = None
         self.krn_constants_f_ = None
         self.demand("output", "batch_size")
@@ -79,9 +79,9 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         super(EvaluatorSoftmax, self).__init__(workflow, **kwargs)
         self.compute_confusion_matrix = kwargs.get(
             "compute_confusion_matrix", True)
-        self.confusion_matrix = formats.Vector()
-        self.n_err = formats.Vector()
-        self.max_err_output_sum = formats.Vector()
+        self.confusion_matrix = Vector()
+        self.n_err = Vector()
+        self.max_err_output_sum = Vector()
         self.demand("labels", "max_idx")
 
     def initialize(self, device, **kwargs):
@@ -166,8 +166,8 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
             if labels[i] < 0:
                 self.err_output.mem[i] = 0.0
                 continue
-            output = formats.ravel(self.output[i])
-            err_output = formats.ravel(self.err_output[i])
+            output = ravel(self.output[i])
+            err_output = ravel(self.err_output[i])
 
             max_idx = self.max_idx[i]
             confusion_matrix[max_idx, labels[i]] += 1
@@ -228,11 +228,11 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     """
     def __init__(self, workflow, **kwargs):
         super(EvaluatorMSE, self).__init__(workflow, **kwargs)
-        self.metrics = formats.Vector()
-        self.mse = formats.Vector()
+        self.metrics = Vector()
+        self.mse = Vector()
         self.labels = None
         self.class_targets = None
-        self.n_err = formats.Vector()
+        self.n_err = Vector()
         self.squared_mse = kwargs.get("squared_mse", False)
         self.demand("target")
 
@@ -294,12 +294,14 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self._local_size = [block_size]
         self._global_size = self._local_size
         self._global_size_find_closest_ = lambda: (self.batch_size,)
+        self._local_size_find_closest = None
 
     def cuda_init(self):
         block_size = self._gpu_init()
         self._local_size = (block_size, 1, 1)
         self._global_size = (1, 1, 1)
         self._global_size_find_closest_ = lambda: (self.batch_size, 1, 1)
+        self._local_size_find_closest = (1, 1, 1)
 
     def _gpu_run(self):
         self.unmap_vectors(self.err_output, self.output, self.target,
@@ -314,9 +316,10 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
         self.execute_kernel(self._global_size, self._local_size)
 
-        if self.labels is not None and self.class_targets is not None:
+        if self.labels and self.class_targets:
             self.unmap_vectors(self.class_targets, self.labels, self.n_err)
-            self.execute_kernel(self._global_size_find_closest_(), None,
+            self.execute_kernel(self._global_size_find_closest_(),
+                                self._local_size_find_closest,
                                 self.krn_find_closest_)
 
     def ocl_run(self):
@@ -335,24 +338,35 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         assert(self.output.shape == self.target.shape == self.err_output.shape)
         batch_size = self.batch_size
         err_output = self.err_output.matrix[:batch_size]
+        assert_addr(err_output, self.err_output.mem)
         output = self.output.matrix[:batch_size]
+        assert_addr(output, self.output.mem)
         target = self.target.matrix[:batch_size]
+        assert_addr(target, self.target.mem)
         mse = self.mse.mem[:batch_size]
+        assert_addr(mse, self.mse.mem)
 
         err_output[:] = output - target
-        if self.error_function_averaged:
-            err_output *= 1.0 / batch_size
         self.err_output.mem[batch_size:] = 0
         mse[:] = numpy.square(err_output).sum(axis=1) / err_output.shape[1]
+        if self.error_function_averaged:
+            err_output *= 1.0 / batch_size
         if not self.squared_mse:
             numpy.sqrt(mse, mse)
         self.mse.mem[batch_size:] = 0
 
-        self.metrics.mem[0] += numpy.sum(self.mse.mem)
-        self.metrics.mem[1] = max(self.metrics.mem[1], self.mse.mem.max())
-        self.metrics.mem[2] = min(self.metrics.mem[2], self.mse.mem.min())
+        self.metrics.mem[0] += mse.sum()
+        self.metrics.mem[1] = max(self.metrics.mem[1], mse.max())
+        self.metrics.mem[2] = min(self.metrics.mem[2], mse.min())
 
-        if self.labels is not None and self.class_targets is not None:
-            raise NotImplementedError(
-                "CPU code for calculating number of errors in case of MSE "
-                "is not implemented.")
+        if self.labels and self.class_targets:
+            self.class_targets.map_read()
+            self.labels.map_read()
+            self.n_err.map_write()
+            class_targets = self.class_targets.mem
+            labels = self.labels.mem
+            for i, sample in enumerate(output):
+                lbl = numpy.linalg.norm(class_targets - sample,
+                                        axis=1).argmin()
+                if lbl != labels[i]:
+                    self.n_err.mem[0] += 1

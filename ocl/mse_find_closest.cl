@@ -37,7 +37,8 @@ void mse_find_closest(__global dtype *y, __global dtype *t,
   for (int i = 0; i < N_TARGETS; i++, t_offs += SAMPLE_SIZE) {
     dtype smm = 0;
     for (int j = 0; j < SAMPLE_SIZE; j++) {
-      smm += fabs(y[y_offs + j] - t[t_offs + j]);
+      dtype vle = y[y_offs + j] - t[t_offs + j];
+      smm += vle * vle;
     }
     if (smm < d_min) {
       d_min = smm;
