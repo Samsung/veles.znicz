@@ -135,7 +135,7 @@ class ImagenetCaffeLoader(loader.Loader):
     def deduct_mean(self, sample):
         sample = sample.astype(self.rdisp.dtype)
         sample -= self.mean.mem
-        sample *= self.rdisp.mem
+        # sample *= self.rdisp.mem
         return sample
 
     def mirror_sample(self, sample):
@@ -174,7 +174,7 @@ class ImagenetCaffeLoader(loader.Loader):
         self.minibatch_labels.map_invalidate()
 
         sample_bytes = self.mean.mem.nbytes
-        sample = numpy.zeros_like(self.mean.mem)
+        sample = numpy.zeros_like(self.mean.mem, dtype=numpy.uint8)
 
         for index, index_sample in enumerate(idxs[:count]):
             self.file_samples.seek(int(index_sample) * sample_bytes)

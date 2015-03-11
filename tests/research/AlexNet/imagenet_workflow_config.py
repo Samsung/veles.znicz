@@ -21,6 +21,7 @@ root.imagenet.series = "img"
 root.imagenet.root_path = os.path.join(
     root.common.test_dataset_root, "AlexNet", "%s" % root.imagenet.root_name)
 
+
 root.imagenet.loader.update({
     "sx": 256,
     "sy": 256,
@@ -30,7 +31,7 @@ root.imagenet.loader.update({
     "on_device": False,
     "color_space": "HSV",
     "minibatch_size": 256,
-    "normalization_type": "external_mean",
+    "normalization_type": "none",
     "shuffle_limit": 10000000,
     "original_labels_filename":
     os.path.join(

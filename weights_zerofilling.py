@@ -55,7 +55,8 @@ class ZeroFiller(ForwardBase, TriviallyDistributable):
                     "Non-multiple of grouping weights shape detected: "
                     "%s, grouping=%d" %
                     (self.weights.shape, self.grouping))
-            self.mask.reset(numpy.zeros(self.effective_shape))
+            self.mask.reset(numpy.zeros(self.effective_shape,
+                                        dtype=self.weights.dtype))
             self.mask.map_invalidate()
             # TODO(a.kazantsev): add check for transposed weights.
             for kernel in range(self.effective_shape[0]):
