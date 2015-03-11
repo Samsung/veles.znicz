@@ -76,6 +76,8 @@ class TestGDRELUConv(unittest.TestCase):
         c.bias.mem = bias
         c.output = formats.Vector()
         c.output.mem = c.err_output.mem.copy()
+        c.unpack_size = 1
+        c.unpack_data = formats.Vector()
 
         err_output = c.err_output.mem * (1.0 - numpy.exp(-c.output.mem))
         batch_size = err_output.shape[0]

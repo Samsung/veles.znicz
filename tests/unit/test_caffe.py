@@ -52,11 +52,11 @@ class TestConvCaffe(standard_test.StandardTest):
         fwd_conv.input = Vector()
         fwd_conv.input.mem = bottom
 
-        logging.debug("bottom shape: %s" % bottom.shape)
+        logging.debug("bottom shape: %s" % str(bottom.shape))
         logging.debug(bottom)
-        logging.debug("weights shape: %s" % weights.shape)
+        logging.debug("weights shape: %s" % str(weights.shape))
         logging.debug(weights)
-        logging.debug("top shape: %s" % top.shape)
+        logging.debug("top shape: %s" % str(top.shape))
         logging.debug(top)
 
         fwd_conv.initialize(self.device)
@@ -138,11 +138,11 @@ class TestConvCaffe(standard_test.StandardTest):
 
         fwd_conv.input = Vector(bottom)
 
-        logging.debug("bottom shape: %s" % bottom.shape)
+        logging.debug("bottom shape: %s" % str(bottom.shape))
         logging.debug(bottom)
-        logging.debug("weights shape: %s" % weights.shape)
+        logging.debug("weights shape: %s" % str(weights.shape))
         logging.debug(weights)
-        logging.debug("top shape: %s" % top.shape)
+        logging.debug("top shape: %s" % str(top.shape))
         logging.debug(top)
 
         fwd_conv.initialize(self.device)
