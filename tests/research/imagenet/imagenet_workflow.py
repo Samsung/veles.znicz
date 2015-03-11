@@ -265,7 +265,7 @@ class ImagenetWorkflow(StandardWorkflow):
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
 
-        self.create_gd_units_by_config(self.snapshotter)
+        self.create_gds(self.snapshotter)
 
         # Add learning_rate_adjust unit
         for gd_elm in self.gds:

@@ -20,6 +20,7 @@ from zope.interface import implementer
 
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
+from veles.loader import Loader
 from veles.memory import roundup, Vector
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
@@ -29,6 +30,8 @@ from veles.workflow import Repeater
 from veles.snapshotter import SnapshotterBase, Snapshotter
 from veles.error import MasterSlaveCommunicationError
 from veles.timeit import timeit
+from veles.znicz.decision import DecisionBase
+from veles.znicz.evaluator import EvaluatorBase
 
 
 class Match(list):
@@ -109,12 +112,24 @@ class Forward(ForwardBase):
         self.output = Vector()
         self.weights = Vector()
         self.bias = Vector()
+        self.forward_mode = False
         self.exports = ["weights", "bias", "include_bias",
                         "weights_transposed"]
 
+    @property
+    def forward_mode(self):
+        return self._forward_mode
+
+    @forward_mode.setter
+    def forward_mode(self, value):
+        if not isinstance(value, bool):
+            raise TypeError(
+                "forward_mode must be boolean (got %s)" % type(value))
+        self._forward_mode = value
+
     def initialize(self, device, **kwargs):
-        super(Forward, self).initialize(device=device, **kwargs)
         self.forward_mode = kwargs.get("forward_mode", False)
+        super(Forward, self).initialize(device=device, **kwargs)
 
     def generate_data_for_slave(self, slave):
         if self.forward_mode:
@@ -657,12 +672,68 @@ class NNWorkflow(AcceleratedWorkflow):
     """
     def __init__(self, workflow, **kwargs):
         super(NNWorkflow, self).__init__(workflow, **kwargs)
-        self.repeater = Repeater(self)
-        self.loader = None
-        self.forwards = []
-        self.evaluator = None
-        self.decision = None
-        self.gds = []
+        self._repeater = Repeater(self)
+        self._loader = None
+        self._forwards = []
+        self._evaluator = None
+        self._decision = None
+        self._gds = []
+
+    @property
+    def repeater(self):
+        return self._repeater
+
+    @property
+    def forwards(self):
+        return self._forwards
+
+    @property
+    def gds(self):
+        return self._gds
+
+    @property
+    def loader(self):
+        if self._loader is None:
+            raise AttributeError(
+                "No loader unit currently exists. You must set it first.")
+        return self._loader
+
+    @loader.setter
+    def loader(self, value):
+        if not isinstance(value, Loader):
+            raise TypeError(
+                "Loader must be an instance of veles.loader.Loader")
+        self._loader = value
+
+    @property
+    def decision(self):
+        if self._decision is None:
+            raise AttributeError(
+                "No decision unit currently exists. You must set it first.")
+        return self._decision
+
+    @decision.setter
+    def decision(self, value):
+        if not isinstance(value, DecisionBase):
+            raise TypeError(
+                "Decision must be an instance of veles.znicz.decision."
+                "DecisionBase")
+        self._decision = value
+
+    @property
+    def evaluator(self):
+        if self._evaluator is None:
+            raise AttributeError(
+                "No evaluator unit currently exists. You must set it first.")
+        return self._evaluator
+
+    @evaluator.setter
+    def evaluator(self, value):
+        if not isinstance(value, EvaluatorBase):
+            raise TypeError(
+                "Evaluator must be an instance of veles.znicz.evaluator."
+                "EvaluatorBase")
+        self._evaluator = value
 
     def validate_history(self):
         """Raises error.MasterSlaveCommunicationError if apply-generate

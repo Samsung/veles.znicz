@@ -16,6 +16,7 @@ import veles.backends as opencl
 import veles.prng as rnd
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
+from veles.units import TrivialUnit
 import veles.znicz.samples.YaleFaces.yale_faces as yale_faces
 import veles.dummy as dummy_workflow
 
@@ -39,17 +40,16 @@ class TestYaleFaces(unittest.TestCase):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device):
-        self.w = yale_faces.YaleFacesWorkflow(
+        self.workflow = yale_faces.YaleFacesWorkflow(
             dummy_workflow.DummyLauncher(),
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
             decision_config=root.yalefaces.decision,
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
-            loss_function=root.yalefaces.loss_function,
-            device=device)
-        self.init_wf(self.w, device)
-        self.w.run()
+            loss_function=root.yalefaces.loss_function)
+        self.init_wf(self.workflow, device)
+        self.workflow.run()
 
     @timeout(1500)
     def test_yale_faces_gpu(self):
@@ -62,7 +62,7 @@ class TestYaleFaces(unittest.TestCase):
         root.yalefaces.update({
             "decision": {"fail_iterations": 50, "max_epochs": 3},
             "loss_function": "softmax",
-            "snapshotter": {"prefix": "yalefaces_test", "interval": 3,
+            "snapshotter": {"prefix": "yalefaces_test", "interval": 4,
                             "time_interval": 0},
             "loader_name": "full_batch_auto_label_file_image",
             "loader": {"minibatch_size": 40, "force_cpu": False,
@@ -100,9 +100,16 @@ class TestYaleFaces(unittest.TestCase):
 
         # Test workflow
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 239)
+        self.check_write_error_rate(self.workflow, 239)
 
-        file_name = self.w.snapshotter.file_name
+        logging.info("Extracting the forward workflow...")
+        fwd_wf = self.workflow.extract_forward_workflow(
+            loader_name=root.yalefaces.loader_name,
+            loader_config=root.yalefaces.loader,
+            result_unit_factory=TrivialUnit)
+        self.assertEqual(len(fwd_wf.forwards), 2)
+
+        file_name = self.workflow.snapshotter.file_name
 
         # Test loading from snapshot
         logging.info("Will load workflow from snapshot: %s" % file_name)
@@ -125,7 +132,7 @@ class TestYaleFaces(unittest.TestCase):
 
         # Test workflow with cuda and double
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 222)
+        self.check_write_error_rate(self.workflow, 222)
 
         logging.info("Will run workflow with float and ocl backend")
 
@@ -136,7 +143,7 @@ class TestYaleFaces(unittest.TestCase):
 
         # Test workflow with ocl and float
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 233)
+        self.check_write_error_rate(self.workflow, 233)
 
         logging.info("Will run workflow with float and cuda backend")
 
@@ -147,14 +154,14 @@ class TestYaleFaces(unittest.TestCase):
 
         # Test workflow with cuda and float
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 236)
+        self.check_write_error_rate(self.workflow, 236)
 
     def _test_mnist_ae_cpu(self, device):
         logging.info("Will run workflow with --disable-acceleration")
 
         # Test workflow with --disable-acceleration
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 227)
+        self.check_write_error_rate(self.workflow, 227)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

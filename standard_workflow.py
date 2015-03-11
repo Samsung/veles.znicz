@@ -9,6 +9,9 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 import six
 import sys
+from zope.interface import implementer
+from veles.distributable import IDistributable, TriviallyDistributable
+from veles.units import Unit, IUnit
 
 if six.PY3:
     from collections import UserDict
@@ -180,30 +183,22 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
         self.layers = kwargs.get("layers", [{}])
-        self.device = kwargs.get("device")
+        self.loader_config = kwargs["loader_config"]
+        self.loader_name = kwargs["loader_name"]
+        self._loader = None
+        self.loss_function = kwargs.get("loss_function", "softmax")
 
-    def _get_layer_type_kwargs(self, layer):
-        if type(layer) != dict:
-            raise error.BadFormatError("layers should be a list of dicts")
-        tpe = layer.get("type", "").strip()
-        if not len(tpe):
-            raise error.BadFormatError(
-                "layer type should be non-empty string")
-        if tpe not in self.layer_map:
-            raise error.NotExistsError("Unknown layer type %s" % tpe)
-        kwargs_forward = dict(layer.get("->", {}))
-        kwargs_backward = dict(layer.get("<-", {}))
-        # Add shared parameters to both dicts
-        others = {k: v for k, v in layer.items()
-                  if k not in ("type", "->", "<-", "name")}
-        kwargs_forward.update(others)
-        kwargs_backward.update(others)
-        if "name" in layer:
-            kwargs_forward["name"] = layer["name"] + "_forward"
-            kwargs_backward["name"] = layer["name"] + "_backward"
-        return tpe, kwargs_forward, kwargs_backward
+    @property
+    def loss_function(self):
+        return self._loss_function
 
-    def parse_forwards_from_config(self, init_unit, init_attrs):
+    @loss_function.setter
+    def loss_function(self, value):
+        if value not in ("softmax", "mse"):
+            raise ValueError("Unknown loss function type %s" % value)
+        self._loss_function = value
+
+    def link_forwards(self, init_unit, init_attrs):
         """
         Parsing forward units from config.
         Adds a new fowrard unit to self.forwards, links it with previous
@@ -245,6 +240,56 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
         self.loader.on_unique_labels_counted = on_unique_labels_counted
 
+    def link_repeater(self, init_unit):
+        self.repeater.link_from(init_unit)
+
+    def link_loader(self, init_unit):
+        if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
+            raise AttributeError(
+                "Set the loader_name. Full list of names is %s. Or redefine"
+                " link_loader() function, if you want to create you own Loader"
+                % list(UserLoaderRegistry.loaders.keys()))
+        self.loader = UserLoaderRegistry.loaders[self.loader_name](
+            self, **self.loader_config.__content__)
+        self.loader.link_from(init_unit)
+        pass
+
+    def link_end_point(self, init_unit):
+        self.repeater.link_from(init_unit)
+        self.end_point.link_from(init_unit)
+        self.end_point.gate_block = ~self.loader.train_ended
+        self.loader.gate_block = self.loader.train_ended
+
+    def create_workflow(self):
+        self.link_repeater(self.start_point)
+
+        self.link_loader(self.repeater)
+
+        # Add forwards units
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
+
+        self.end_point.gate_block = ~self.loader.complete
+
+    def _get_layer_type_kwargs(self, layer):
+        if type(layer) != dict:
+            raise error.BadFormatError("layers should be a list of dicts")
+        tpe = layer.get("type", "").strip()
+        if not tpe:
+            raise ValueError("layer type must not be an empty string")
+        if tpe not in self.layer_map:
+            raise error.NotExistsError("Unknown layer type %s" % tpe)
+        kwargs_forward = dict(layer.get("->", {}))
+        kwargs_backward = dict(layer.get("<-", {}))
+        # Add shared parameters to both dicts
+        others = {k: v for k, v in layer.items()
+                  if k not in ("type", "->", "<-", "name")}
+        kwargs_forward.update(others)
+        kwargs_backward.update(others)
+        if "name" in layer:
+            kwargs_forward["name"] = layer["name"] + "_forward"
+            kwargs_backward["name"] = layer["name"] + "_backward"
+        return tpe, kwargs_forward, kwargs_backward
+
     def _add_forward_unit(self, new_unit, init_unit=None, init_attrs=None):
         """
         Adds a new fowrard unit to self.forwards, links it with previous fwd
@@ -276,7 +321,82 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             new_unit.link_attrs(init_unit, init_attrs)
         del fwds_with_attrs
 
-    def create_gd_units_by_config(self, init_unit):
+
+class StandardWorkflow(StandardWorkflowBase):
+    """
+    Workflow for trivially connections between Unit.
+    User can create Self-constructing Models with that class.
+    It means that User can change structure of Model (Convolutional,
+    Fully connected, different parameters) and parameters of training in
+    configuration file.
+    attributes:
+        loss_function: name of Loss function. Choices are "softmax" or "mse"
+        loader_name: name of Loader. If loader_name is None, User should
+            redefine link_loader() function and create own Loader
+        loader_config: loader configuration parameters
+        decision_config: decision configuration parameters
+        snapshotter_config: snapshotter configuration parameters
+        image_saver_config: image_saver configuration parameters
+    """
+    def __init__(self, workflow, **kwargs):
+
+        self.decision_config = kwargs.pop("decision_config", None)
+        self.snapshotter_config = kwargs.pop("snapshotter_config", None)
+        self.image_saver_config = kwargs.pop("image_saver_config", None)
+        self.data_saver_config = kwargs.pop("data_saver_config", None)
+        self.similar_weights_plotter_config = kwargs.pop(
+            "similar_weights_plotter_config", None)
+        super(StandardWorkflow, self).__init__(workflow, **kwargs)
+        self.result_loader_name = kwargs.get("result_loader_name")
+        self.result_loader_config = kwargs.get("result_loader_config")
+        self.result_unit_factory = kwargs.get("result_unit_factory")
+
+        self.create_workflow()
+
+    def create_workflow(self):
+        self.link_repeater(self.start_point)
+
+        self.link_loader(self.repeater)
+
+        # Add forwards units
+        self.link_forwards(self.loader, ("input", "minibatch_data"))
+
+        # Add evaluator for single minibatch
+        self.link_evaluator(self.forwards[-1])
+
+        # Add decision unit
+        self.link_decision(self.evaluator)
+
+        # Add snapshotter unit
+        self.link_snapshotter(self.decision)
+
+        # Add gradient descent units
+        self.link_gds(self.snapshotter)
+
+        self.link_end_point(self.gds[0])
+
+    def extract_forward_workflow(self, loader_name, loader_config,
+                                 result_unit_factory):
+        self.debug("Constructing the new workflow...")
+        wf = StandardWorkflowBase(self.workflow, loader_name=loader_name,
+                                  loader_config=loader_config,
+                                  loss_function=self.loss_function,
+                                  layers=self.layers)
+        wf.link_repeater(self.start_point)
+        wf.link_loader(self.repeater)
+        wf.link_forwards(self.loader, ("input", "minibatch_data"))
+        result_unit = result_unit_factory(wf)
+        result_unit.link_from(self.forwards[-1])
+        result_unit.gate_block = ~self.loader.train_ended
+        wf.repeater.link_from(result_unit)
+        wf.link_end_point(result_unit)
+        self.debug("Importing forwards...")
+        for fwd_exp, fwd_imp in zip(self.forwards, wf.forwards):
+            fwd_imp.apply_data_from_master(
+                fwd_exp.generate_data_for_slave(None))
+        return wf
+
+    def create_gds(self, init_unit):
         """
         Creates GD units by config (`self.layers`)
         """
@@ -316,8 +436,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
-            try_link_attrs = set(["input", "weights", "bias", "input_offset",
-                                  "mask", "output"])
+            try_link_attrs = {"input", "weights", "bias", "input_offset",
+                              "mask", "output"}
             if isinstance(unit, ConvolutionalBase):
                 try_link_attrs.update(ConvolutionalBase.CONV_ATTRS)
             if isinstance(unit, GDPooling):
@@ -338,76 +458,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         # Disable error backpropagation on the first layer
         self.gds[0].need_err_input = False
 
-
-class StandardWorkflow(StandardWorkflowBase):
-    """
-    Workflow for trivially connections between Unit.
-    User can create Self-constructing Models with that class.
-    It means that User can change structure of Model (Convolutional,
-    Fully connected, different parameters) and parameters of training in
-    configuration file.
-    attributes:
-        loss_function: name of Loss function. Choices are "softmax" or "mse"
-        loader_name: name of Loader. If loader_name is None, User should
-            redefine link_loader() function and create own Loader
-        loader_config: loader configuration parameters
-        decision_config: decision configuration parameters
-        snapshotter_config: snapshotter configuration parameters
-        image_saver_config: image_saver configuration parameters
-    """
-    def __init__(self, workflow, **kwargs):
-        self.loader_config = kwargs.pop("loader_config")
-        self.decision_config = kwargs.pop("decision_config", None)
-        self.snapshotter_config = kwargs.pop("snapshotter_config", None)
-        self.loss_function = kwargs.pop("loss_function", "softmax")
-        self.image_saver_config = kwargs.pop("image_saver_config", None)
-        self.data_saver_config = kwargs.pop("data_saver_config", None)
-        self.similar_weights_plotter_config = kwargs.pop(
-            "similar_weights_plotter_config", None)
-        super(StandardWorkflow, self).__init__(workflow, **kwargs)
-        self.loader_name = kwargs["loader_name"]
-        if self.loss_function not in ("softmax", "mse"):
-            raise ValueError(
-                "Unknown loss function type %s" % self.loss_function)
-
-        self.create_workflow()
-
-    def create_workflow(self):
-        self.link_repeater(self.start_point)
-
-        self.link_loader(self.repeater)
-
-        # Add forwards units
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
-
-        # Add evaluator for single minibatch
-        self.link_evaluator(self.forwards[-1])
-
-        # Add decision unit
-        self.link_decision(self.evaluator)
-
-        # Add snapshotter unit
-        self.link_snapshotter(self.decision)
-
-        # Add gradient descent units
-        self.link_gds(self.snapshotter)
-
-        self.link_end_point(self.gds[0])
-
-    def link_repeater(self, init_unit):
-        self.repeater.link_from(init_unit)
-
-    def link_loader(self, init_unit):
-        if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
-            raise AttributeError(
-                "Set the loader_name. Full list of names is %s. Or redefine"
-                " link_loader() function, if you want to create you own Loader"
-                % list(UserLoaderRegistry.loaders.keys()))
-        self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **self.loader_config.__content__)
-        self.loader.link_from(init_unit)
-        pass
-
     def link_data_saver(self, init_unit):
         if self.data_saver_config is not None:
             kwargs = self.data_saver_config.__content__
@@ -421,52 +471,26 @@ class StandardWorkflow(StandardWorkflowBase):
             "minibatch_labels", "class_lengths", "max_minibatch_size",
             "minibatch_size")
 
-    def link_forwards(self, init_unit, init_attrs):
-        self.parse_forwards_from_config(init_unit, init_attrs)
-
-    def check_decision(self):
-        if self.decision is None:
-            raise error.NotExistsError(
-                "Please create decision in workflow first."
-                "For that you can use link_decision() function")
-
-    def check_evaluator(self):
-        if self.evaluator is None:
-            raise error.NotExistsError(
-                "Please create evaluator in workflow first."
-                "For that you can use link_evaluator() function")
-
     def check_forwards(self):
-        if self.forwards is None:
-            raise error.NotExistsError(
+        if len(self.forwards) == 0:
+            raise ValueError(
                 "Please create forwards in workflow first."
                 "You can use link_forwards() function")
 
-    def check_loader(self):
-        if self.loader is None:
-            raise error.NotExistsError(
-                "Please create loader in workflow first."
-                "For that you can use link_loader() function")
-
     def check_gds(self):
-        if self.gds is None:
-            raise error.NotExistsError(
+        if len(self.gds) == 0:
+            raise ValueError(
                 "Please create gds in workflow first."
                 "For that you can use link_gds() function")
 
     def link_gds(self, init_unit):
-        # not work without create forwards, evaluator and decision first
-        self.check_evaluator()
         self.check_forwards()
-        self.check_decision()
-        self.create_gd_units_by_config(init_unit)
+        self.create_gds(init_unit)
         self.gds[-1].unlink_before()
         self.gds[-1].link_from(init_unit)
 
     def link_evaluator(self, init_unit):
-        # not work without create forwards and loader first
         self.check_forwards()
-        self.check_loader()
         self.evaluator = (
             EvaluatorSoftmax(self) if self.loss_function == "softmax"
             else EvaluatorMSE(self))
@@ -484,9 +508,6 @@ class StandardWorkflow(StandardWorkflowBase):
                                       "class_targets")
 
     def link_decision(self, init_unit):
-        # not work without create loader and evaluator first
-        self.check_loader()
-        self.check_evaluator()
         if self.decision_config is not None:
             kwargs = self.decision_config.__content__
         else:
@@ -519,8 +540,6 @@ class StandardWorkflow(StandardWorkflowBase):
                 ("minibatch_mse", "mse"))
 
     def link_snapshotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         if self.snapshotter_config is not None:
             kwargs = self.snapshotter_config.__content__
         else:
@@ -537,10 +556,7 @@ class StandardWorkflow(StandardWorkflowBase):
             self.snapshotter.gate_skip = ~self.decision.epoch_ended
 
     def link_image_saver(self, init_unit):
-        # not work without create forwards, loader and decision first
         self.check_forwards()
-        self.check_decision()
-        self.check_loader()
         if self.image_saver_config is not None:
             kwargs = self.image_saver_config.__content__
         else:
@@ -566,7 +582,6 @@ class StandardWorkflow(StandardWorkflowBase):
                                     ("this_save_time", "time"))
 
     def link_lr_adjuster(self, init_unit):
-        # not work without create gds first
         self.check_gds()
         self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
         for gd_elm in self.gds:
@@ -584,8 +599,6 @@ class StandardWorkflow(StandardWorkflowBase):
         self.lr_adjuster.link_from(init_unit)
 
     def link_meandispnorm(self, init_unit):
-        # not work without create loader first
-        self.check_loader()
         self.meandispnorm = MeanDispNormalizer(self)
         self.meandispnorm.link_attrs(self.loader,
                                      ("input", "minibatch_data"),
@@ -593,15 +606,11 @@ class StandardWorkflow(StandardWorkflowBase):
         self.meandispnorm.link_from(init_unit)
 
     def link_ipython(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         self.ipython = Shell(self)
         self.ipython.link_from(init_unit)
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
     def link_error_plotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         self.error_plotter = []
         prev = init_unit
         styles = ["r-", "b-", "k-"]
@@ -618,8 +627,6 @@ class StandardWorkflow(StandardWorkflowBase):
         self.error_plotter[-1].redraw_plot = True
 
     def link_conf_matrix_plotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         self.conf_matrix_plotter = []
         prev = init_unit
         for i in range(1, len(self.decision.confusion_matrixes)):
@@ -633,8 +640,6 @@ class StandardWorkflow(StandardWorkflowBase):
             prev = self.conf_matrix_plotter[-1]
 
     def link_err_y_plotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         styles = ["r-", "b-", "k-"]
         self.err_y_plotter = []
         prev = init_unit
@@ -652,8 +657,6 @@ class StandardWorkflow(StandardWorkflowBase):
         self.err_y_plotter[-1].redraw_plot = True
 
     def link_multi_hist_plotter(self, init_unit, layers, weights_input):
-        # not work without create decision, forwards first and set layers
-        self.check_decision()
         self.check_forwards()
         self.multi_hist_plotter = []
         prev = init_unit
@@ -688,9 +691,7 @@ class StandardWorkflow(StandardWorkflowBase):
                     - 1].gate_skip = ~self.decision.epoch_ended
 
     def link_weights_plotter(self, init_unit, layers, limit, weights_input):
-        # not work without create decision, forwards first and set layers,
         # limit and weights_input - "weights" or "gradient_weights" for example
-        self.check_decision()
         self.check_forwards()
         prev = init_unit
         self.weights_plotter = []
@@ -731,8 +732,6 @@ class StandardWorkflow(StandardWorkflowBase):
             self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
 
     def link_similar_weights_plotter(self, init_unit, layers, weights_input):
-        # not work without create weights_plotter, decision and forwards first
-        self.check_decision()
         self.check_forwards()
         self.similar_weights_plotter = []
         prev = init_unit
@@ -780,8 +779,6 @@ class StandardWorkflow(StandardWorkflowBase):
         self.similar_weights_plotter[-1].redraw_plot = True
 
     def link_table_plotter(self, init_unit, layers):
-        # not work without create decision and forwards first
-        self.check_decision()
         self.check_forwards()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
@@ -806,8 +803,6 @@ class StandardWorkflow(StandardWorkflowBase):
         self.table_plotter.gate_skip = ~self.decision.epoch_ended
 
     def link_mse_plotter(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         prev = init_unit
         self.mse_plotter = []
         styles = ["", "", "k-"]
@@ -829,8 +824,6 @@ class StandardWorkflow(StandardWorkflowBase):
         :param is_min: True if linking min plotter, otherwise, False for max.
         :return: None.
         """
-        # Requires Decision unit to be linked first.
-        self.check_decision()
         prev = init_unit
         if is_min:
             plotter = self.min_plotter = []
@@ -852,8 +845,6 @@ class StandardWorkflow(StandardWorkflowBase):
         plotter[-1].redraw_plot = True
 
     def link_image_plotter(self, init_unit):
-        # not work without create decision and forwards first
-        self.check_decision()
         self.check_forwards()
         self.image_plotter = plotting_units.ImagePlotter(self,
                                                          name="output sample")
@@ -865,10 +856,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_plotter.gate_skip = ~self.decision.epoch_ended
 
     def link_immediate_plotter(self, init_unit):
-        # not work without create decision, loader and forwards first
-        self.check_decision()
         self.check_forwards()
-        self.check_loader()
         self.immediate_plotter = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.immediate_plotter.inputs[:]
@@ -886,10 +874,40 @@ class StandardWorkflow(StandardWorkflowBase):
         self.immediate_plotter.link_from(init_unit)
         self.immediate_plotter.gate_skip = ~self.decision.epoch_ended
 
+    def link_result_unit(self):
+        res_unit = self.ForwardWorkflowExtractor(
+            self, loader_name=self.result_loader_name,
+            loader_config=self.result_loader_config,
+            result_unit_factory=self.result_unit_factory)
+        self.decision.link_from(res_unit)
+        res_unit.gate_block = ~self.decision.complete
+        return res_unit
+
     def link_end_point(self, init_unit):
-        # not work without create decision first
-        self.check_decision()
         self.repeater.link_from(init_unit)
         self.end_point.link_from(init_unit)
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete
+
+
+@implementer(IUnit, IDistributable)
+class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
+    def __init__(self, workflow, **kwargs):
+        assert isinstance(workflow, StandardWorkflow)
+        super(ForwardWorkflowExtractor, self).__init__(workflow, **kwargs)
+        self.loader_name = kwargs["loader_name"]
+        self.loader_config = kwargs["loader_config"]
+        self.result_unit_factory = kwargs["result_unit_factory"]
+        self.forward_workflow = False  # StandardWorkflow, enable mutable links
+
+    def initialize(self, **kwargs):
+        pass
+
+    def run(self):
+        self.forward_workflow = self.workflow.extract_forward_workflow(
+            loader_name=self.loader_name, loader_config=self.loader_config,
+            result_unit_factory=self.result_unit_factory)
+
+    def apply_data_from_slave(self, data, slave):
+        if not self.gate_block:
+            self.run()
