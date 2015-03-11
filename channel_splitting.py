@@ -7,7 +7,7 @@ from veles.znicz.nn_units import Forward
 
 @implementer(IOpenCLUnit)
 class ChannelSplitter(Forward):
-    MAPPING = {"chan_splitter"}
+    MAPPING = {"channel_splitter"}
 
     def __init__(self, workflow, **kwargs):
         super(ChannelSplitter, self).__init__(workflow, **kwargs)
@@ -56,7 +56,7 @@ class ChannelSplitter(Forward):
 
 @implementer(IOpenCLUnit)
 class ChannelMerger(Forward):
-    MAPPING = {"chan_merger"}
+    MAPPING = {"channel_merger"}
 
     def __init__(self, workflow, **kwargs):
         super(ChannelMerger, self).__init__(workflow, **kwargs)

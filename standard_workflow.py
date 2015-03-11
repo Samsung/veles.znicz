@@ -24,8 +24,7 @@ import veles.plotting_units as plotting_units
 # Important: do not remove unused imports! It will prevent MatchingObject
 # metaclass from adding the mapping in the corresponding modules
 from veles.znicz import nn_units
-from veles.znicz import conv, pooling, all2all,\
-    weights_zerofilling  # pylint: disable=W0611
+from veles.znicz import conv, pooling, all2all, weights_zerofilling
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
 from veles.znicz import activation

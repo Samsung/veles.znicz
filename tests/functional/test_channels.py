@@ -41,7 +41,7 @@ class TestChannels(unittest.TestCase):
         root.channels.update({
             "decision": {"fail_iterations": 50,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "test_channels", "interval": 1,
+            "snapshotter": {"prefix": "test_channels", "interval": 4,
                             "time_interval": 0},
             "image_saver": {"out_dirs":
                             [os.path.join(root.common.cache_dir, "tmp/test"),
@@ -104,12 +104,7 @@ class TestChannels(unittest.TestCase):
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 4
         self.wf.decision.complete <<= False
-
-        self.wf.loader.force_cpu = True
-        # TODO(lyubov.p): Find out why force_cpu was False from snapshot.
-        # TODO(lyubov.p): In accelerated units self._force_cpu was initialized
-        # TODO(lyubov.p): in init_unpickled. WHY?
-
+        self.assertTrue(self.wf.loader.force_cpu)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,

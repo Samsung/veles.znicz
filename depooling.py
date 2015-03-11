@@ -17,7 +17,7 @@ import veles.znicz.nn_units as nn_units
 
 @implementer(IOpenCLUnit)
 class Depooling(nn_units.Forward):
-    MAPPING = {"depool"}
+    MAPPING = {"depooling"}
 
     """Depooling unit for *Max* poolings.
 
