@@ -33,7 +33,7 @@ import veles.memory as formats
 from veles.accelerated_units import IOpenCLUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
-import veles.prng as prng
+from veles.prng.uniform import Uniform
 from veles.units import Unit
 
 
@@ -360,7 +360,7 @@ class StochasticPoolingBase(OffsetPooling):
         super(StochasticPoolingBase, self).initialize(device=device, **kwargs)
 
         if self.uniform is None:
-            self.uniform = prng.Uniform(self)
+            self.uniform = Uniform(self)
 
         if self.uniform.output_bytes < (self.output_size << 1):
             if self.uniform.is_initialized:

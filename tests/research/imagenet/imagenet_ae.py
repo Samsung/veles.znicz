@@ -44,6 +44,7 @@ from veles.mean_disp_normalizer import MeanDispNormalizer
 from veles.units import IUnit, Unit
 from veles.distributable import IDistributable
 import veles.prng as prng
+from veles.prng.uniform import Uniform
 from veles.tests import DummyWorkflow
 
 
@@ -476,8 +477,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 ae_layers.append(layer)
             if isinstance(unit, pooling.StochasticPoolingBase):
                 if self.uniform is None:
-                    self.uniform = prng.Uniform(DummyWorkflow(),
-                                                num_states=512)
+                    self.uniform = Uniform(DummyWorkflow(), num_states=512)
                 unit.uniform = self.uniform
             self.forwards.append(unit)
             unit.link_from(prev)

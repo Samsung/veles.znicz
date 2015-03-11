@@ -16,6 +16,7 @@ import veles.memory as formats
 import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
+from veles.prng.uniform import Uniform
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -111,7 +112,7 @@ class TestStochasticPooling(unittest.TestCase):
 
     def _do_test(self, device, Unit):
         prng.get().state = self.random_state
-        uniform = prng.Uniform(DummyWorkflow(), output_bytes=315)
+        uniform = Uniform(DummyWorkflow(), output_bytes=315)
         unit = Unit(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
         unit.input = formats.Vector(self.input.copy())
@@ -348,7 +349,7 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
 
     def _do_test(self, device, Unit, Forward):
         prng.get().state = self.random_state
-        uniform = prng.Uniform(DummyWorkflow(), output_bytes=315)
+        uniform = Uniform(DummyWorkflow(), output_bytes=315)
         unit = Unit(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
         unit.input = formats.Vector(self.input.copy())
@@ -357,7 +358,7 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
         unit.input.map_read()
 
         prng.get().state = self.random_state
-        uniform = prng.Uniform(DummyWorkflow(), output_bytes=315)
+        uniform = Uniform(DummyWorkflow(), output_bytes=315)
         forward = Forward(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
                           uniform=uniform)
         forward.input = formats.Vector(self.input.copy())
