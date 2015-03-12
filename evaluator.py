@@ -16,6 +16,7 @@ from veles.distributable import TriviallyDistributable
 import veles.error as error
 from veles.memory import assert_addr, ravel, Vector
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.opencl_types import numpy_dtype_to_opencl
 
 
 class EvaluatorBase(AcceleratedUnit):
@@ -34,7 +35,7 @@ class EvaluatorBase(AcceleratedUnit):
     def initialize(self, device, **kwargs):
         super(EvaluatorBase, self).initialize(device, **kwargs)
 
-        dtype = self.output.mem.dtype
+        dtype = self.output.dtype
         self.krn_constants_i_ = numpy.zeros(1, numpy.int32)
         self.krn_constants_f_ = numpy.zeros(1, dtype)
         self.err_output.reset(numpy.zeros_like(self.output.mem, dtype))
@@ -102,7 +103,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
                           self.labels, self.max_err_output_sum)
 
     def _gpu_init(self):
-        dtype = self.output.mem.dtype
+        dtype = self.output.dtype
         block_size = min(self.err_output.shape[0], 256)
         defines = {
             "BLOCK_SIZE": block_size,
@@ -247,7 +248,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.sources_["evaluator"] = {}
         self.sources_["mse_find_closest"] = {}
 
-        dtype = self.output.mem.dtype
+        dtype = self.output.dtype
 
         self.metrics.reset(numpy.zeros(3, dtype=dtype))
         self.metrics[2] = 1.0e30  # mse_min
@@ -258,16 +259,20 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.class_targets.initialize(self.device)
 
     def _gpu_init(self):
-        dtype = self.output.mem.dtype
+        dtype = self.output.dtype
         block_size = min(self.err_output.shape[0], 128)
         defines = {
             'BLOCK_SIZE': block_size,
             'BATCH': self.err_output.shape[0],
             'Y': self.err_output.sample_size,
             'SAMPLE_SIZE': 'Y',
-            'N_TARGETS': (self.class_targets.shape[0]
-                          if self.class_targets is not None else 0),
-            'SQUARED_MSE': int(self.squared_mse)}
+            'SQUARED_MSE': int(self.squared_mse)
+        }
+        if self.class_targets:
+            defines.update({
+                'N_TARGETS': self.class_targets.shape[0],
+                'target_dtype': numpy_dtype_to_opencl(self.class_targets.dtype)
+            })
 
         self.build_program(defines, "%s_%d_%d" %
                            (self.__class__.__name__,
@@ -279,7 +284,8 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.set_args(self.output, self.target, self.err_output,
                       self.metrics, self.mse.devmem)
 
-        if self.labels is not None and self.class_targets is not None:
+        if self.labels and self.class_targets:
+            assert(self.labels.dtype == self.n_err.dtype == numpy.int32)
             self.krn_find_closest_ = self.get_kernel("mse_find_closest")
             self.krn_find_closest_.set_args(
                 self.output.devmem,
@@ -335,7 +341,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
         self.err_output.map_invalidate()
         self.mse.map_invalidate()
 
-        assert(self.output.shape == self.target.shape == self.err_output.shape)
+        assert(self.output.size == self.target.size == self.err_output.size)
         batch_size = self.batch_size
         err_output = self.err_output.matrix[:batch_size]
         assert_addr(err_output, self.err_output.mem)
@@ -363,7 +369,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             self.class_targets.map_read()
             self.labels.map_read()
             self.n_err.map_write()
-            class_targets = self.class_targets.mem
+            class_targets = self.class_targets.matrix
             labels = self.labels.mem
             for i, sample in enumerate(output):
                 lbl = numpy.linalg.norm(class_targets - sample,

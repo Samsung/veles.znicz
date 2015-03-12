@@ -27,8 +27,8 @@ void mse_find_closest(__global dtype *distances,
 /// @param t matrix of targets
 /// @param n_err number of errors.
 __kernel
-void mse_find_closest(__global dtype *y, __global dtype *t,
-                      __global int *labels, __global volatile int *n_err) {
+void mse_find_closest(__global const dtype *y, __global const target_dtype *t,
+                      __global const int *labels, __global volatile int *n_err) {
   int i_sample = get_global_id(0);
   int y_offs = SAMPLE_SIZE * i_sample;
   int t_offs = 0;
