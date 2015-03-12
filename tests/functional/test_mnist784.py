@@ -84,7 +84,7 @@ class TestMnist784(unittest.TestCase):
 
         # Test workflow
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 0.409835, 8088)
+        self.check_write_error_rate(self.w, 0.409835, 8357)
 
         file_name = self.w.snapshotter.file_name
 
@@ -98,7 +98,7 @@ class TestMnist784(unittest.TestCase):
 
         self.init_wf(self.wf, device)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 0.39173925, 7428)
+        self.check_write_error_rate(self.wf, 0.39173925, 7589)
 
         logging.info("Will run workflow with double and cuda backend")
 
@@ -110,7 +110,7 @@ class TestMnist784(unittest.TestCase):
         # Test workflow with cuda and double
         root.mnist784.decision.max_epochs = 3
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 0.403975599, 7659)
+        self.check_write_error_rate(self.w, 0.403975599, 7967)
 
         logging.info("Will run workflow with float and ocl backend")
 
@@ -120,7 +120,7 @@ class TestMnist784(unittest.TestCase):
         # Test workflow with --disable-acceleration
         root.mnist784.decision.max_epochs = 3
         self.init_and_run(device)
-        self.check_write_error_rate(self.w, 0.40309872, 7840)
+        self.check_write_error_rate(self.w, 0.40309872, 8143)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
