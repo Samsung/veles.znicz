@@ -17,6 +17,8 @@ import unittest
 
 from veles.tests import DummyWorkflow
 import veles.znicz.nn_plotting_units as nnpu
+from veles.prng import get as get_prng
+prng = get_prng()
 
 
 STORE_IMAGES = True
@@ -43,7 +45,7 @@ class Test(unittest.TestCase):
     def testKohonenHits(self):
         kh = self.init_plotter("KohonenHits")
         kh.input = numpy.empty((10, 9))
-        kh.input = numpy.digitize(numpy.random.uniform(
+        kh.input = numpy.digitize(prng.uniform(
             size=kh.input.size), numpy.arange(0.05, 1.05, 0.05))
         kh.shape = (10, 9)
         self.plot(kh)
@@ -51,7 +53,7 @@ class Test(unittest.TestCase):
     def testKohonenInputMaps(self):
         kim = self.init_plotter("KohonenInputMaps")
         kim.input = numpy.empty((100, 4))
-        kim.input = numpy.random.uniform(size=kim.input.size).reshape(
+        kim.input = prng.uniform(size=kim.input.size).reshape(
             kim.input.shape)
         kim.shape = (10, 10)
         self.plot(kim)
@@ -59,7 +61,7 @@ class Test(unittest.TestCase):
     def testKohonenNeighborMap(self):
         knm = self.init_plotter("KohonenNeighborMap")
         knm.input = numpy.empty((100, 4))
-        knm.input = numpy.random.uniform(size=knm.input.size).reshape(
+        knm.input = prng.uniform(size=knm.input.size).reshape(
             knm.input.shape)
         knm.shape = (10, 10)
         self.plot(knm)
