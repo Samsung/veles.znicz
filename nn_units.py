@@ -732,10 +732,14 @@ class NNWorkflow(AcceleratedWorkflow):
 
     @evaluator.setter
     def evaluator(self, value):
-        if not isinstance(value, EvaluatorBase):
+        if value is None:
+            raise ValueError("Evaluator may not be None")
+        if not isinstance(value, EvaluatorBase) and (
+                not hasattr(value, "output") or "input" not in value.demanded):
             raise TypeError(
-                "Evaluator must be an instance of veles.znicz.evaluator."
-                "EvaluatorBase")
+                "Evaluator must be either an instance of veles.znicz.evaluator"
+                ".EvaluatorBase or demand \"input\" and provide \"output\" "
+                "(got %s)." % type(value))
         self._evaluator = value
 
     def validate_history(self):

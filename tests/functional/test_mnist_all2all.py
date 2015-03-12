@@ -42,7 +42,7 @@ class TestMnistAll2All(unittest.TestCase):
             "learning_rate_adjust": {"do": False},
             "decision": {"fail_iterations": 100,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "mnist_all2all_test"},
+            "snapshotter": {"prefix": "mnist_all2all_test", "interval": 3},
             "loader": {"minibatch_size": Tune(60, 1, 1000),
                        "force_cpu": False,
                        "normalization_type": "linear"},

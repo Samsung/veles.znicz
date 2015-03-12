@@ -52,7 +52,6 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # Add fwds units
-        self.forwards = []
         for i in range(len(layers)):
             aa = all2all.All2AllTanh(self, output_sample_shape=layers[i])
             self.forwards.append(aa)

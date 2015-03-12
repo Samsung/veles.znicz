@@ -499,3 +499,7 @@ class EvaluatorRBM(AcceleratedWorkflow):
         self.mse.link_attrs(self, "target", "batch_size")
         self.link_attrs(self.rec, ("vbias", "bias"))
         self.demand("input", "weights", "target")
+
+    @property
+    def output(self):
+        return self.vbias
