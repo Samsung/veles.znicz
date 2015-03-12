@@ -51,7 +51,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.init_wf(self.w)
         self.w.run()
 
-    @timeout(1500)
+    @timeout(600)
     def test_cifar_caffe(self):
         logging.info("Will test cifar convolutional "
                      "workflow with caffe config")
@@ -67,7 +67,7 @@ class TestCifarCaffe(unittest.TestCase):
             "loader_name": "cifar_loader",
             "decision": {"fail_iterations": 250, "max_epochs": 1},
             "learning_rate_adjust": {"do": True},
-            "snapshotter": {"prefix": "cifar_caffe", "interval": 1,
+            "snapshotter": {"prefix": "cifar_caffe", "interval": 2,
                             "time_interval": 0},
             "loss_function": "softmax",
             "add_plotters": False,
@@ -193,7 +193,7 @@ class TestCifarCaffe(unittest.TestCase):
 
         self.init_wf(self.wf)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 4698)
+        self.check_write_error_rate(self.wf, 4252)
 
         logging.info("All Ok")
 
