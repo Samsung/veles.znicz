@@ -115,7 +115,8 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
                                     ("this_save_time", "time"))
 
         # Add gradient descent units
-        self.gds = list(None for i in range(0, len(self.forwards)))
+        self.gds[:] = [None] * len(self.forwards)
+
         self.gds[-1] = gd.GDTanh(self)
         self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
                                 "weights", "bias")
