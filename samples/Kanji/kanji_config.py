@@ -27,6 +27,10 @@ root.kanji.update({
     "loss_function": "mse",
     "loader_name": "full_batch_auto_label_file_image_mse",
     "add_plotters": True,
+    "image_saver": {"out_dirs":
+                    [os.path.join(root.common.cache_dir, "tmp/test"),
+                     os.path.join(root.common.cache_dir, "tmp/validation"),
+                     os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 50,
                "force_cpu": False,
                "filename_types": ["png"],

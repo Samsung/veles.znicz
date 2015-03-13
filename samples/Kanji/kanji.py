@@ -31,7 +31,8 @@ class KanjiWorkflow(StandardWorkflow):
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         self.link_snapshotter(self.decision)
-        self.link_gds(self.snapshotter)
+        self.link_image_saver(self.snapshotter)
+        self.link_gds(self.image_saver)
 
         if root.kanji.add_plotters:
             self.link_error_plotter(self.gds[0])
@@ -70,6 +71,7 @@ def run(load, main):
         loader_name=root.kanji.loader_name,
         snapshotter_config=root.kanji.snapshotter,
         layers=root.kanji.layers,
+        image_saver_config=root.kanji.image_saver,
         loss_function=root.kanji.loss_function)
     if snapshot:
         if type(w) == tuple:

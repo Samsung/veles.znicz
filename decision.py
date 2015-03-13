@@ -361,9 +361,10 @@ class DecisionGD(DecisionBase):
                 data[attr] = attrval.mem
 
     def on_generate_data_for_slave(self, data):
-        pass
+        data["improved"] = bool(self.improved)
 
     def on_apply_data_from_master(self, data):
+        self.improved <<= data["improved"]
         self.reset_statistics(self.minibatch_class)
         self.min_validation_n_err = 0
         self.min_train_n_err = 0
