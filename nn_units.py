@@ -360,7 +360,7 @@ class GradientDescentBase(AcceleratedUnit):
                 assert (self.accumulated_gradient_weights.size ==
                         self.weights.size)
 
-        if self.weights and self.gradient_moment:
+        if self.weights and (self.gradient_moment or not self.is_standalone):
             if not self.gradient_weights_with_moment:
                 self.gradient_weights_with_moment.reset(
                     numpy.zeros_like(self.weights.mem))
@@ -372,17 +372,21 @@ class GradientDescentBase(AcceleratedUnit):
             (not self.gradient_bias or
              self.gradient_bias.size != self.bias.size)):
             self.gradient_bias.reset(numpy.zeros_like(self.bias.mem))
+
         if (self.include_bias and self.bias and
             self.accumulate_gradient != self.OP_NONE and
             (not self.accumulated_gradient_bias or
              self.accumulated_gradient_bias.size != self.bias.size)):
             self.accumulated_gradient_bias.reset(numpy.zeros_like(
                 self.bias.mem))
-        if (self.include_bias and self.bias and self.gradient_moment_bias and (
-                not self.gradient_bias_with_moment or
-                self.gradient_bias_with_moment.size != self.bias.size)):
-            self.gradient_bias_with_moment.reset(
-                numpy.zeros_like(self.bias.mem))
+
+        if (self.include_bias and self.bias and
+                (self.gradient_moment_bias or not self.is_standalone)):
+            if not self.gradient_bias_with_moment:
+                self.gradient_bias_with_moment.reset(
+                    numpy.zeros_like(self.bias.mem))
+            else:
+                assert self.gradient_bias_with_moment.size == self.bias.size
 
         dtype = self.err_output.dtype
         if self.need_err_input:
@@ -623,22 +627,16 @@ class GradientDescentBase(AcceleratedUnit):
     def apply_data_from_slave(self, data, slave):
         if self.weights:
             self.weights.map_write()
-            if True:  # self.store_gradient:
-                self.gradient_weights_with_moment.map_write()
-                self.gradient_weights_with_moment.mem *= self.gradient_moment
-                self.gradient_weights_with_moment.mem += data[0]
-                self.weights.mem += self.gradient_weights_with_moment.mem
-            else:
-                self.weights.mem += data[0]
+            self.gradient_weights_with_moment.map_write()
+            self.gradient_weights_with_moment.mem *= self.gradient_moment
+            self.gradient_weights_with_moment.mem += data[0]
+            self.weights.mem += self.gradient_weights_with_moment.mem
         if self.bias:
             self.bias.map_write()
-            if True:  # self.store_gradient:
-                self.gradient_bias_with_moment.map_write()
-                self.gradient_bias_with_moment.mem *= self.gradient_moment_bias
-                self.gradient_bias_with_moment.mem += data[1]
-                self.bias.mem += self.gradient_bias_with_moment.mem
-            else:
-                self.bias.mem += data[1]
+            self.gradient_bias_with_moment.map_write()
+            self.gradient_bias_with_moment.mem *= self.gradient_moment_bias
+            self.gradient_bias_with_moment.mem += data[1]
+            self.bias.mem += self.gradient_bias_with_moment.mem
 
     def drop_slave(self, slave):
         pass
