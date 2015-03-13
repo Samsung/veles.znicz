@@ -245,6 +245,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.repeater.link_from(*parents)
         return self.repeater
 
+    def dictify(self, obj):
+        return getattr(obj, "__content__", obj)
+
+    def get_kwargs_for_config(self, unit_config):
+        return {} if unit_config is not None else self.dictify(unit_config)
+
     def link_loader(self, *parents):
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
@@ -252,7 +258,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 " link_loader() function, if you want to create you own Loader"
                 % list(UserLoaderRegistry.loaders.keys()))
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **self.loader_config.__content__)
+            self, **self.dictify(self.loader_config))
         self.loader.link_from(*parents)
         return self.loader
 
@@ -488,10 +494,7 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.evaluator
 
     def link_decision(self, *parents):
-        if self.decision_config is not None:
-            kwargs = self.decision_config.__content__
-        else:
-            kwargs = {}
+        kwargs = self.get_kwargs_for_config(self.decision_config)
         self.decision = (DecisionGD(self, **kwargs)
                          if self.loss_function == "softmax" else DecisionMSE(
                              self, **kwargs))
@@ -522,10 +525,7 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.decision
 
     def link_snapshotter(self, *parents):
-        if self.snapshotter_config is not None:
-            kwargs = self.snapshotter_config.__content__
-        else:
-            kwargs = {}
+        kwargs = self.get_kwargs_for_config(self.snapshotter_config)
         self.snapshotter = nn_units.NNSnapshotter(
             self, **kwargs)
         self.snapshotter.link_from(*parents)
@@ -545,10 +545,7 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_image_saver(self, *parents):
         self._check_forwards()
-        if self.image_saver_config is not None:
-            kwargs = self.image_saver_config.__content__
-        else:
-            kwargs = {}
+        kwargs = self.get_kwargs_for_config(self.image_saver_config)
         self.image_saver = image_saver.ImageSaver(
             self, **kwargs)
         self.image_saver.link_from(*parents)
@@ -732,7 +729,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 continue
             plt_mx = diversity.SimilarWeights2D(
                 self, name="%s %s [similar]" % (i + 1, layer["type"]),
-                **self.similar_weights_plotter_config.__content__)
+                **self.dictify(self.similar_weights_plotter_config))
             self.similar_weights_plotter.append(plt_mx)
             self.similar_weights_plotter[-1].link_attrs(
                 link_units[i], ("input", weights_input))
@@ -871,10 +868,7 @@ class StandardWorkflow(StandardWorkflowBase):
         return res_unit
 
     def link_data_saver(self, *parents):
-        if self.data_saver_config is not None:
-            kwargs = self.data_saver_config.__content__
-        else:
-            kwargs = {}
+        kwargs = self.get_kwargs_for_config(self.data_saver_config)
         self.data_saver = MinibatchesSaver(
             self, **kwargs)
         self.data_saver.link_from(*parents)
