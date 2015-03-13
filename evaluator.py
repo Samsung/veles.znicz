@@ -246,7 +246,6 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
                 (self.target.size, self.output.size))
 
         self.sources_["evaluator"] = {}
-        self.sources_["mse_find_closest"] = {}
 
         dtype = self.output.dtype
 
@@ -269,6 +268,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
             'SQUARED_MSE': int(self.squared_mse)
         }
         if self.class_targets:
+            self.sources_["mse_find_closest"] = {}
             defines.update({
                 'N_TARGETS': self.class_targets.shape[0],
                 'target_dtype': numpy_dtype_to_opencl(self.class_targets.dtype)
