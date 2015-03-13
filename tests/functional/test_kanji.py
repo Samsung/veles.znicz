@@ -9,7 +9,6 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import logging
 import numpy
 import os
-import six
 import unittest
 
 from veles.config import root
@@ -25,7 +24,7 @@ class TestKanji(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
 
-    @timeout(1000)
+    @timeout(1200)
     def test_kanji(self):
         logging.info("Will test kanji workflow")
 
@@ -68,18 +67,18 @@ class TestKanji(unittest.TestCase):
             "snapshotter": {"prefix": "kanji_test"},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": 250},
-                        "<-": {"learning_rate": 0.00001,
+                        "<-": {"learning_rate": 0.0001,
                                "learning_rate_bias": 0.01,
                                "weights_decay": 0.00005}},
                        {"type": "all2all_tanh",
                         "->": {"output_sample_shape": 250},
-                        "<-": {"learning_rate": 0.00001,
+                        "<-": {"learning_rate": 0.0001,
                                "learning_rate_bias": 0.01,
                                "weights_decay": 0.00005}},
                        {"type": "all2all_tanh",
                         "->": {"output_sample_shape": 24 * 24},
                         "<-": {"learning_rate_bias": 0.01,
-                               "learning_rate": 0.00001,
+                               "learning_rate": 0.0001,
                                "weights_decay": 0.00005}}]})
 
         self.w = kanji.KanjiWorkflow(
@@ -102,15 +101,15 @@ class TestKanji(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         err = self.w.decision.epoch_n_err[1]
-        self.assertEqual(err, 7524 if six.PY3 else 7571)
+        self.assertEqual(err, 7526)
         avg_mse = self.w.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.606057744, places=5)
+        self.assertAlmostEqual(avg_mse, 0.592094, places=5)
         self.assertEqual(2, self.w.loader.epoch_number)
 
         logging.info("Will load workflow from %s" % file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 7
+        self.wf.decision.max_epochs = 5
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
@@ -120,10 +119,10 @@ class TestKanji(unittest.TestCase):
         self.wf.run()
 
         err = self.wf.decision.epoch_n_err[1]
-        self.assertEqual(err, 7557 if six.PY3 else 7565)
+        self.assertEqual(err, 5641)
         avg_mse = self.wf.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.603731, places=5)
-        self.assertEqual(7, self.wf.loader.epoch_number)
+        self.assertAlmostEqual(avg_mse, 0.548595, places=5)
+        self.assertEqual(5, self.wf.loader.epoch_number)
         logging.info("All Ok")
 
 if __name__ == "__main__":

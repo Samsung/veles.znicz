@@ -51,7 +51,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.init_wf(self.w)
         self.w.run()
 
-    @timeout(600)
+    @timeout(1000)
     def test_cifar_caffe(self):
         logging.info("Will test cifar convolutional "
                      "workflow with caffe config")

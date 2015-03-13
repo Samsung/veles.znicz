@@ -46,10 +46,10 @@ root.kanji.update({
     "weights_plotter": {"limit": 16},
     "layers": [{"type": "all2all_tanh",
                 "->": {"output_sample_shape": 250},
-                "<-": {"learning_rate": 0.00001, "weights_decay": 0.00005}},
+                "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}},
                {"type": "all2all_tanh",
                 "->": {"output_sample_shape": 250},
-                "<-": {"learning_rate": 0.00001, "weights_decay": 0.00005}},
+                "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}},
                {"type": "all2all_tanh",
                 "->": {"output_sample_shape": 24 * 24},
-                "<-": {"learning_rate": 0.00001, "weights_decay": 0.00005}}]})
+                "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}}]})
