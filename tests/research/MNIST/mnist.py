@@ -38,6 +38,7 @@ class MnistWorkflow(StandardWorkflow):
                 lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75),
                 bias_lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75))
         self.mnist_lr_adjuster.link_from(*parents)
+        return self.mnist_lr_adjuster
 
     def link_mnist_weights_plotter(self, layers, limit, weights_input, parent):
         self.mnist_weights_plotter = []
@@ -75,22 +76,20 @@ class MnistWorkflow(StandardWorkflow):
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        self.link_snapshotter(self.decision)
         end_units = [link(self.decision)
-                     for link in (self.link_error_plotter,
+                     for link in (self.link_snapshotter,
+                                  self.link_error_plotter,
                                   self.link_conf_matrix_plotter,
                                   self.link_err_y_plotter)]
-
-        if root.mnistr.learning_rate_adjust.do:
-            end_units.append(self.link_mnist_lr_adjuster(self.snapshotter))
-        else:
-            end_units.append(self.snapshotter)
-
         self.link_end_point(*end_units)
         self.link_gds(None, *end_units)
+        if root.mnistr.learning_rate_adjust.do:
+            last = self.link_mnist_lr_adjuster(self.gds[0])
+        else:
+            last = self.gds[0]
         self.repeater.link_from(self.link_mnist_weights_plotter(
             root.mnistr.layers, root.mnistr.weights_plotter.limit,
-            "gradient_weights", self.gds[0]))
+            "gradient_weights", last))
 
 
 def run(load, main):

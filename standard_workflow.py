@@ -348,7 +348,6 @@ class StandardWorkflow(StandardWorkflowBase):
         image_saver_config: image_saver configuration parameters
     """
     def __init__(self, workflow, **kwargs):
-
         self.decision_config = kwargs.pop("decision_config", None)
         self.snapshotter_config = kwargs.pop("snapshotter_config", None)
         self.image_saver_config = kwargs.pop("image_saver_config", None)
@@ -521,7 +520,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.evaluator,
                 ("minibatch_metrics", "metrics"),
                 ("minibatch_mse", "mse"))
-        self.loader.gate_block = self.decision.complete
+        self.repeater.gate_block = self.decision.complete
         return self.decision
 
     def link_snapshotter(self, *parents):

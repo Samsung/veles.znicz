@@ -32,12 +32,12 @@ class LinesWorkflow(StandardWorkflow):
         end_units = [link(self.decision) for link in (self.link_snapshotter,
                                                       self.link_image_saver,
                                                       self.link_error_plotter)]
-        self.link_gds(self.repeater, *end_units)
+        gd = self.link_gds(None, *end_units)
         self.repeater.link_from(
-            self.link_table_plotter(root.lines.layers, self.gds[0]),
             self.link_weights_plotter(
                 root.lines.layers, root.lines.weights_plotter.limit,
-                "gradient_weights", self.gds[0]))
+                "gradient_weights",
+                self.link_table_plotter(root.lines.layers, gd)))
 
         self.link_end_point(*end_units)
 

@@ -132,46 +132,45 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         gd_unit = RBM_units.GradientRBM(self, stddev=0.05, v_size=196,
                                         h_size=1000, cd_k=1)
         self.gds.append(gd_unit)
-        self.gds[0].link_from(self.ipython)
-        self.gds[0].link_attrs(self.forwards[1], ("input", "output"),
-                               ("hbias", "bias"),
-                               "weights")
-        self.gds[0].link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        self.gds[0].link_attrs(self.evaluator, "vbias")
+        gd_unit.link_from(self.ipython)
+        gd_unit.link_attrs(self.forwards[1], ("input", "output"),
+                           ("hbias", "bias"), "weights")
+        gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        gd_unit.link_attrs(self.evaluator, "vbias")
         gd_unit = RBM_units.BatchWeights(self)
         gd_unit.name = "111111"
         self.gds.append(gd_unit)
-        self.gds[1].link_from(self.gds[0])
-        self.gds[1].link_attrs(self.forwards[0], ("v", "output"))
-        self.gds[1].link_attrs(self.forwards[1], ("h", "output"))
+        gd_unit.link_from(self.gds[0])
+        gd_unit.link_attrs(self.forwards[0], ("v", "output"))
+        gd_unit.link_attrs(self.forwards[1], ("h", "output"))
         # Question minibatsh_size is current size of batch
-        self.gds[1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
         gd_unit = RBM_units.BatchWeights2(self)
         gd_unit.name = "222222"
         self.gds.append(gd_unit)
-        self.gds[2].link_from(self.gds[1])
-        self.gds[2].link_attrs(self.gds[0], ("v", "v1"), ("h", "h1"))
+        gd_unit.link_from(self.gds[1])
+        gd_unit.link_attrs(self.gds[0], ("v", "v1"), ("h", "h1"))
         # Question minibatsh_size is current size of batch
-        self.gds[2].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
         gd_unit = RBM_units.GradientsCalculator(self)
         self.gds.append(gd_unit)
-        self.gds[3].link_from(self.gds[2])
-        self.gds[3].link_attrs(self.gds[1], ("hbias0", "hbias_batch"),
-                               ("vbias0", "vbias_batch"),
-                               ("weights0", "weights_batch"))
-        self.gds[3].link_attrs(self.gds[2], ("hbias1", "hbias_batch"),
-                               ("vbias1", "vbias_batch"),
-                               ("weights1", "weights_batch"))
+        gd_unit.link_from(self.gds[2])
+        gd_unit.link_attrs(self.gds[1], ("hbias0", "hbias_batch"),
+                           ("vbias0", "vbias_batch"),
+                           ("weights0", "weights_batch"))
+        gd_unit.link_attrs(self.gds[2], ("hbias1", "hbias_batch"),
+                           ("vbias1", "vbias_batch"),
+                           ("weights1", "weights_batch"))
         gd_unit = RBM_units.WeightsUpdater(self, learning_rate=0.001)
         self.gds.append(gd_unit)
-        self.gds[4].link_from(self.gds[3])
-        self.gds[4].link_attrs(self.gds[3],
-                               "hbias_grad", "vbias_grad", "weights_grad")
-        self.gds[4].link_attrs(self.forwards[1], ("weights", "weights"),
-                               ("hbias", "bias"))
-        self.gds[4].link_attrs(self.evaluator, "vbias")
-        self.repeater.link_from(self.gds[4])
-        self.end_point.link_from(self.gds[4])
+        gd_unit.link_from(self.gds[3])
+        gd_unit.link_attrs(self.gds[3], "hbias_grad", "vbias_grad",
+                           "weights_grad")
+        gd_unit.link_attrs(self.forwards[1], ("weights", "weights"),
+                           ("hbias", "bias"))
+        gd_unit.link_attrs(self.evaluator, "vbias")
+        self.repeater.link_from(gd_unit)
+        self.end_point.link_from(gd_unit)
         self.end_point.gate_block = ~self.decision.complete
 
         self.loader.gate_block = self.decision.complete

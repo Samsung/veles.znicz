@@ -83,8 +83,7 @@ class TestChannels(unittest.TestCase):
             loader_config=root.channels.loader,
             layers=root.channels.layers,
             loader_name=root.channels.loader_name,
-            loss_function=root.channels.loss_function,
-            device=self.device)
+            loss_function=root.channels.loss_function)
 
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)

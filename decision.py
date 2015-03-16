@@ -187,13 +187,9 @@ class DecisionBase(Unit):
         self._print_statistics()
 
     def _stop_condition(self):
-        if self.stop_condition():
-            return True
-        # stop if max epoch number was reached
-        if (self.max_epochs is not None and
-                self.epoch_number >= self.max_epochs):
-            return True
-        return False
+        # stop if max epoch number was reached or earlier
+        return self.stop_condition() or (self.max_epochs is not None and
+                                         self.epoch_number >= self.max_epochs)
 
     def _print_statistics(self):
         stats = []
