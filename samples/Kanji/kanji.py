@@ -27,27 +27,23 @@ class KanjiWorkflow(StandardWorkflow):
     def create_workflow(self):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        self.link_snapshotter(self.decision)
-        self.link_image_saver(self.snapshotter)
-        self.link_gds(self.image_saver)
-
+        end_units = [link(self.decision) for link in (self.link_snapshotter,
+                                                      self.link_image_saver)]
         if root.kanji.add_plotters:
-            self.link_error_plotter(self.gds[0])
-            self.link_weights_plotter(
-                self.error_plotter[-1], layers=root.kanji.layers,
-                limit=root.kanji.weights_plotter.limit,
-                weights_input="weights")
-            self.link_min_max_plotter(self.weights_plotter[-1], is_min=False)
-            self.link_min_max_plotter(self.max_plotter[-1], is_min=True)
-            self.link_mse_plotter(self.min_plotter[-1])
-            last = self.mse_plotter[-1]
-        else:
-            last = self.gds[0]
+            end_units.extend((
+                self.link_error_plotter(self.decision),
+                self.link_weights_plotter(
+                    root.kanji.layers, root.kanji.weights_plotter.limit,
+                    "weights", self.decision),
+                self.link_min_max_plotter(False, self.decision),
+                self.link_min_max_plotter(True, self.max_plotter[-1]),
+                self.link_mse_plotter(self.decision)))
 
-        self.link_end_point(last)
+        self.link_gds(self.repeater, *end_units)
+        self.link_end_point(*end_units)
 
     def initialize(self, device, weights, bias, **kwargs):
         super(KanjiWorkflow, self).initialize(device=device)

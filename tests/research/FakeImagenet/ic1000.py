@@ -165,7 +165,7 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_meandispnorm(self.loader)
 
         # Add fwds units
-        self.link_forwards(self.meandispnorm, ("input", "output"))
+        self.link_forwards(("input", "output"), self.meandispnorm)
 
         # Add evaluator for single minibatch
         self.link_evaluator(self.forwards[-1])
@@ -174,33 +174,22 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_decision(self.evaluator)
 
         # Add snapshotter unit
-        self.link_snapshotter(self.decision)
-
-        # Add gradient descent units
-        self.link_gds(self.snapshotter)
+        end_units = [self.link_snapshotter(self.decision)]
 
         if root.imagenet.add_plotters:
             # Add error plotter unit
-            self.link_error_plotter(self.gds[0])
+            end_units.extend(link(self.decision) for link in (
+                self.link_error_plotter, self.link_conf_matrix_plotter,
+                self.link_err_y_plotter))
+            end_units.append(self.link_weights_plotter(
+                root.imagenet.layers, root.imagenet.weights_plotter.limit,
+                "weights", self.decision))
 
-            # Add Confusion matrix plotter unit
-            self.link_conf_matrix_plotter(self.error_plotter[-1])
-
-            # Add Err y plotter unit
-            self.link_err_y_plotter(self.conf_matrix_plotter[-1])
-
-            # Add Weights plotter unit
-            self.link_weights_plotter(
-                self.err_y_plotter[-1], layers=root.imagenet.layers,
-                limit=root.imagenet.weights_plotter.limit,
-                weights_input="weights")
-
-            last = self.weights_plotter[-1]
-        else:
-            last = self.gds[0]
+        # Add gradient descent units
+        self.link_gds(*end_units)
 
         # Add end_point unit
-        self.link_end_point(last)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):

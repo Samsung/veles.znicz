@@ -21,7 +21,6 @@ else:
 from veles.compat import from_none
 import veles.error as error
 from veles.interaction import Shell
-from veles.loader.saver import MinibatchesSaver
 from veles.mean_disp_normalizer import MeanDispNormalizer
 import veles.plotting_units as plotting_units
 # Important: do not remove unused imports! It will prevent MatchingObject
@@ -35,8 +34,9 @@ from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
-from veles.loader.base import UserLoaderRegistry
+from veles.loader.base import UserLoaderRegistry, CLASS_NAME
 from veles.loader.image import ImageLoader
+from veles.loader.saver import MinibatchesSaver
 import veles.znicz.lr_adjust as lr_adjust
 import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.conv import ConvolutionalBase
@@ -198,7 +198,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             raise ValueError("Unknown loss function type %s" % value)
         self._loss_function = value
 
-    def link_forwards(self, init_unit, init_attrs):
+    def link_forwards(self, init_attrs, *parents):
         """
         Parsing forward units from config.
         Adds a new fowrard unit to self.forwards, links it with previous
@@ -215,7 +215,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             except IndexError:
                 raise from_none(ValueError("Failed to find a Forward in %s" %
                                            tpe))
-            self._add_forward_unit(unit, init_unit, init_attrs)
+            self._add_forward_unit(unit, init_attrs, *parents)
         # Another loop for ZeroFiller unit. Linking attributes for
         # ZeroFiller from attributes of next layer
         for prev_forward, forward in zip(self.forwards, self.forwards[1:]):
@@ -224,7 +224,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
         last_fwd = self.forwards[-1]
         if not isinstance(last_fwd, All2AllSoftmax):
-            return
+            return last_fwd
 
         def on_unique_labels_counted():
             ulc = self.loader.unique_labels_count
@@ -239,11 +239,13 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             last_fwd.output_sample_shape = ulc
 
         self.loader.on_unique_labels_counted = on_unique_labels_counted
+        return last_fwd
 
-    def link_repeater(self, init_unit):
-        self.repeater.link_from(init_unit)
+    def link_repeater(self, *parents):
+        self.repeater.link_from(*parents)
+        return self.repeater
 
-    def link_loader(self, init_unit):
+    def link_loader(self, *parents):
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
                 "Set the loader_name. Full list of names is %s. Or redefine"
@@ -251,14 +253,15 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 % list(UserLoaderRegistry.loaders.keys()))
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
             self, **self.loader_config.__content__)
-        self.loader.link_from(init_unit)
-        pass
+        self.loader.link_from(*parents)
+        return self.loader
 
-    def link_end_point(self, init_unit):
-        self.repeater.link_from(init_unit)
-        self.end_point.link_from(init_unit)
+    def link_end_point(self, *parents):
+        self.repeater.link_from(*parents)
+        self.end_point.link_from(*parents)
         self.end_point.gate_block = ~self.loader.train_ended
         self.loader.gate_block = self.loader.train_ended
+        return self.end_point
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
@@ -266,7 +269,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.link_loader(self.repeater)
 
         # Add forwards units
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
 
         self.end_point.gate_block = ~self.loader.complete
 
@@ -290,20 +293,21 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             kwargs_backward["name"] = layer["name"] + "_backward"
         return tpe, kwargs_forward, kwargs_backward
 
-    def _add_forward_unit(self, new_unit, init_unit=None, init_attrs=None):
+    def _add_forward_unit(self, new_unit, init_attrs=None, *parents):
         """
         Adds a new fowrard unit to self.forwards, links it with previous fwd
         unit by link_from and link_attrs. If self.forwards is empty, links unit
         with self.loader
         """
         if len(self.forwards) > 0:
-            prev_forward_unit = self.forwards[-1]
+            prev_forward_unit = self.forwards[-1],
         else:
-            if init_unit is None:
-                raise ValueError("init_unit is None for first fwd!")
-            prev_forward_unit = init_unit
+            if len(parents) == 0:
+                raise ValueError(
+                    "No parent units were specified for the first forward!")
+            prev_forward_unit = parents
 
-        new_unit.link_from(prev_forward_unit)
+        new_unit.link_from(*prev_forward_unit)
 
         fwds_with_attrs = tuple(
             filter(
@@ -318,8 +322,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         if len(fwds_with_attrs) > 0:
             new_unit.link_attrs(fwds_with_attrs[-1], ("input", "output"))
         else:
-            new_unit.link_attrs(init_unit, init_attrs)
-        del fwds_with_attrs
+            new_unit.link_attrs(parents[0], init_attrs)
 
 
 class StandardWorkflow(StandardWorkflowBase):
@@ -359,7 +362,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.link_loader(self.repeater)
 
         # Add forwards units
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
 
         # Add evaluator for single minibatch
         self.link_evaluator(self.forwards[-1])
@@ -371,9 +374,9 @@ class StandardWorkflow(StandardWorkflowBase):
         self.link_snapshotter(self.decision)
 
         # Add gradient descent units
-        self.link_gds(self.snapshotter)
+        self.link_gds(self.repeater, self.snapshotter)
 
-        self.link_end_point(self.gds[0])
+        self.link_end_point(self.snapshotter)
 
     def extract_forward_workflow(self, loader_name, loader_config,
                                  result_unit_factory):
@@ -384,7 +387,7 @@ class StandardWorkflow(StandardWorkflowBase):
                                   layers=self.layers)
         wf.link_repeater(self.start_point)
         wf.link_loader(self.repeater)
-        wf.link_forwards(self.loader, ("input", "minibatch_data"))
+        wf.link_forwards(("input", "minibatch_data"), self.loader)
         result_unit = result_unit_factory(wf)
         result_unit.link_from(self.forwards[-1])
         result_unit.gate_block = ~self.loader.train_ended
@@ -396,15 +399,19 @@ class StandardWorkflow(StandardWorkflowBase):
                 fwd_exp.generate_data_for_slave(None))
         return wf
 
-    def create_gds(self, init_unit):
+    def link_gds(self, unit_before, *units_after):
         """
-        Creates GD units by config (`self.layers`)
+        Creates GD units by config (`self.layers`).
+
+        unit_before <- [first_gd] <- [gd] <- [gd] <- units_after
+                           ^                  ^
+                      inserted last      inserted first
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
-        del self.gds[:]
-        self.gds.extend(None for _ in self.layers)
-        last_gd = None
+        self._check_forwards()
+        self.gds[:] = (None,) * len(self.layers)
+        first_gd = None
         units_to_delete = []
         for i, layer in reversed(list(enumerate(self.layers))):
             tpe, _, kwargs = self._get_layer_type_kwargs(layer)
@@ -427,11 +434,11 @@ class StandardWorkflow(StandardWorkflowBase):
             self.gds[i] = unit
 
             # Link attributes
-            if last_gd is not None:
-                unit.link_from(last_gd)
-                unit.link_attrs(last_gd, ("err_output", "err_input"))
+            if first_gd is not None:
+                unit.link_from(first_gd)
+                unit.link_attrs(first_gd, ("err_output", "err_input"))
             else:
-                unit.link_from(init_unit)
+                unit.link_from(*units_after)
                 unit.link_attrs(self.evaluator, "err_output")
 
             attrs = []
@@ -449,65 +456,38 @@ class StandardWorkflow(StandardWorkflowBase):
 
             unit.gate_skip = self.decision.gd_skip
 
-            last_gd = unit
+            first_gd = unit
 
         # Remove None elements
         for i in units_to_delete:
             del self.gds[i]
 
-        # Disable error backpropagation on the first layer
+        # Disable error backpropagation on the last layer
         self.gds[0].need_err_input = False
+        if unit_before is not None:
+            unit_before.link_from(first_gd)
+        return first_gd
 
-    def link_data_saver(self, init_unit):
-        if self.data_saver_config is not None:
-            kwargs = self.data_saver_config.__content__
-        else:
-            kwargs = {}
-        self.data_saver = MinibatchesSaver(
-            self, **kwargs)
-        self.data_saver.link_from(init_unit)
-        self.data_saver.link_attrs(
-            self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
-            "minibatch_labels", "class_lengths", "max_minibatch_size",
-            "minibatch_size")
-
-    def check_forwards(self):
-        if len(self.forwards) == 0:
-            raise ValueError(
-                "Please create forwards in workflow first."
-                "You can use link_forwards() function")
-
-    def check_gds(self):
-        if len(self.gds) == 0:
-            raise ValueError(
-                "Please create gds in workflow first."
-                "For that you can use link_gds() function")
-
-    def link_gds(self, init_unit):
-        self.check_forwards()
-        self.create_gds(init_unit)
-        self.gds[-1].unlink_before()
-        self.gds[-1].link_from(init_unit)
-
-    def link_evaluator(self, init_unit):
-        self.check_forwards()
+    def link_evaluator(self, *parents):
+        self._check_forwards()
         self.evaluator = (
             EvaluatorSoftmax(self) if self.loss_function == "softmax"
             else EvaluatorMSE(self))
-        self.evaluator.link_from(init_unit)
+        self.evaluator.link_from(*parents)
         self.evaluator.link_attrs(self.forwards[-1], "output")
-        if self.loss_function == "softmax":
-            self.evaluator.link_attrs(self.forwards[-1], "max_idx")
         self.evaluator.link_attrs(self.loader,
                                   ("batch_size", "minibatch_size"),
                                   ("labels", "minibatch_labels"),
                                   ("max_samples_per_epoch", "total_samples"))
-        if self.loss_function == "mse":
+        if self.loss_function == "softmax":
+            self.evaluator.link_attrs(self.forwards[-1], "max_idx")
+        elif self.loss_function == "mse":
             self.evaluator.link_attrs(self.loader,
                                       ("target", "minibatch_targets"),
                                       "class_targets")
+        return self.evaluator
 
-    def link_decision(self, init_unit):
+    def link_decision(self, *parents):
         if self.decision_config is not None:
             kwargs = self.decision_config.__content__
         else:
@@ -515,7 +495,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.decision = (DecisionGD(self, **kwargs)
                          if self.loss_function == "softmax" else DecisionMSE(
                              self, **kwargs))
-        self.decision.link_from(init_unit)
+        self.decision.link_from(*parents)
         self.decision.link_attrs(self.loader,
                                  "minibatch_class",
                                  "last_minibatch",
@@ -533,20 +513,22 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.evaluator,
                 ("minibatch_confusion_matrix", "confusion_matrix"),
                 ("minibatch_max_err_y_sum", "max_err_output_sum"))
-        if self.loss_function == "mse":
+        elif self.loss_function == "mse":
             self.decision.link_attrs(
                 self.evaluator,
                 ("minibatch_metrics", "metrics"),
                 ("minibatch_mse", "mse"))
+        self.loader.gate_block = self.decision.complete
+        return self.decision
 
-    def link_snapshotter(self, init_unit):
+    def link_snapshotter(self, *parents):
         if self.snapshotter_config is not None:
             kwargs = self.snapshotter_config.__content__
         else:
             kwargs = {}
         self.snapshotter = nn_units.NNSnapshotter(
             self, **kwargs)
-        self.snapshotter.link_from(init_unit)
+        self.snapshotter.link_from(*parents)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
         if "unittest" not in sys.modules:
@@ -554,16 +536,22 @@ class StandardWorkflow(StandardWorkflowBase):
                 (~self.decision.epoch_ended | ~self.decision.improved)
         else:
             self.snapshotter.gate_skip = ~self.decision.epoch_ended
+        return self.snapshotter
 
-    def link_image_saver(self, init_unit):
-        self.check_forwards()
+    def link_end_point(self, *parents):
+        self.end_point.link_from(*parents)
+        self.end_point.gate_block = ~self.decision.complete
+        return self.end_point
+
+    def link_image_saver(self, *parents):
+        self._check_forwards()
         if self.image_saver_config is not None:
             kwargs = self.image_saver_config.__content__
         else:
             kwargs = {}
         self.image_saver = image_saver.ImageSaver(
             self, **kwargs)
-        self.image_saver.link_from(init_unit)
+        self.image_saver.link_from(*parents)
         if self.loss_function == "softmax":
             self.image_saver.link_attrs(self.forwards[-1], "max_idx")
         self.image_saver.link_attrs(self.forwards[-1], "output")
@@ -580,9 +568,10 @@ class StandardWorkflow(StandardWorkflowBase):
         self.image_saver.gate_skip = ~self.decision.improved
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
+        return self.image_saver
 
-    def link_lr_adjuster(self, init_unit):
-        self.check_gds()
+    def link_lr_adjuster(self, *parents):
+        self._check_gds()
         self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
         for gd_elm in self.gds:
             self.lr_adjuster.add_gd_unit(
@@ -596,84 +585,84 @@ class StandardWorkflow(StandardWorkflowBase):
                      (gd_elm.learning_rate_bias / 10., 5000),
                      (gd_elm.learning_rate_bias / 100., 100000000)])
                 )
-        self.lr_adjuster.link_from(init_unit)
+        self.lr_adjuster.link_from(*parents)
+        return self.lr_adjuster
 
-    def link_meandispnorm(self, init_unit):
+    def link_meandispnorm(self, *parents):
         self.meandispnorm = MeanDispNormalizer(self)
         self.meandispnorm.link_attrs(self.loader,
                                      ("input", "minibatch_data"),
                                      "mean", "rdisp")
-        self.meandispnorm.link_from(init_unit)
+        self.meandispnorm.link_from(*parents)
+        return self.meandispnorm
 
-    def link_ipython(self, init_unit):
+    def link_ipython(self, *parents):
         self.ipython = Shell(self)
-        self.ipython.link_from(init_unit)
+        self.ipython.link_from(*parents)
         self.ipython.gate_skip = ~self.decision.epoch_ended
+        return self.ipython
 
-    def link_error_plotter(self, init_unit):
-        self.error_plotter = []
-        prev = init_unit
+    def link_error_plotter(self, *parents):
+        self.error_plotters = []
+        prev = parents
         styles = ["r-", "b-", "k-"]
         for i in 1, 2:
-            self.error_plotter.append(plotting_units.AccumulatingPlotter(
-                self, name="num errors", plot_style=styles[i]))
-            self.error_plotter[-1].link_attrs(self.decision,
-                                              ("input", "epoch_n_err_pt"))
-            self.error_plotter[-1].input_field = i
-            self.error_plotter[-1].link_from(prev)
-            self.error_plotter[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.error_plotter[-1]
-        self.error_plotter[0].clear_plot = True
-        self.error_plotter[-1].redraw_plot = True
+            self.error_plotters.append(plotting_units.AccumulatingPlotter(
+                self, name="Number of errors (%s)" % CLASS_NAME[i],
+                plot_style=styles[i]))
+            self.error_plotters[-1].link_attrs(self.decision,
+                                               ("input", "epoch_n_err_pt"))
+            self.error_plotters[-1].input_field = i
+            self.error_plotters[-1].link_from(*prev)
+            self.error_plotters[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.error_plotters[-1],
+        self.error_plotters[0].clear_plot = True
+        self.error_plotters[-1].redraw_plot = True
+        return prev[0]
 
-    def link_conf_matrix_plotter(self, init_unit):
-        self.conf_matrix_plotter = []
-        prev = init_unit
+    def link_conf_matrix_plotter(self, *parents):
+        self.conf_matrix_plotters = []
+        prev = parents
         for i in range(1, len(self.decision.confusion_matrixes)):
-            self.conf_matrix_plotter.append(plotting_units.MatrixPlotter(
+            self.conf_matrix_plotters.append(plotting_units.MatrixPlotter(
                 self, name=(("Test", "Validation", "Train")[i] + " matrix")))
-            self.conf_matrix_plotter[-1].link_attrs(
-                self.decision, ("input", "confusion_matrixes"))
-            self.conf_matrix_plotter[-1].input_field = i
-            self.conf_matrix_plotter[-1].link_from(prev)
-            self.conf_matrix_plotter[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.conf_matrix_plotter[-1]
+            mp = self.conf_matrix_plotters[-1]
+            mp.link_attrs(self.decision, ("input", "confusion_matrixes"))
+            mp.input_field = i
+            mp.link_from(*prev)
+            mp.gate_skip = ~self.decision.epoch_ended
+            prev = self.conf_matrix_plotters[-1],
+        return prev[0]
 
-    def link_err_y_plotter(self, init_unit):
+    def link_err_y_plotter(self, *parents):
         styles = ["r-", "b-", "k-"]
-        self.err_y_plotter = []
-        prev = init_unit
+        self.err_y_plotters = []
+        prev = parents
         for i in 1, 2:
-            self.err_y_plotter.append(plotting_units.AccumulatingPlotter(
+            self.err_y_plotters.append(plotting_units.AccumulatingPlotter(
                 self, name="Last layer max gradient sum",
                 plot_style=styles[i]))
-            self.err_y_plotter[-1].link_attrs(
+            self.err_y_plotters[-1].link_attrs(
                 self.decision, ("input", "max_err_y_sums"))
-            self.err_y_plotter[-1].input_field = i
-            self.err_y_plotter[-1].link_from(prev)
-            self.err_y_plotter[-1].gate_skip = ~self.decision.epoch_ended
-            prev = self.err_y_plotter[-1]
-        self.err_y_plotter[0].clear_plot = True
-        self.err_y_plotter[-1].redraw_plot = True
+            self.err_y_plotters[-1].input_field = i
+            self.err_y_plotters[-1].link_from(*prev)
+            self.err_y_plotters[-1].gate_skip = ~self.decision.epoch_ended
+            prev = self.err_y_plotters[-1],
+        self.err_y_plotters[0].clear_plot = True
+        self.err_y_plotters[-1].redraw_plot = True
+        return prev[0]
 
-    def link_multi_hist_plotter(self, init_unit, layers, weights_input):
-        self.check_forwards()
+    def link_multi_hist_plotter(self, layers, weights_input, *parents):
         self.multi_hist_plotter = []
-        prev = init_unit
-        if weights_input == "weights":
-            link_units = self.forwards
-        elif weights_input == "gradient_weights":
-            link_units = self.gds
-        else:
-            raise AttributeError(
-                "weights_input should be 'weights' or 'gradient_weights'")
+        prev = parents
+        link_units = self._get_weights_source_units(weights_input)
         for i, layer in enumerate(layers):
             multi_hist = plotting_units.MultiHistogram(
                 self, name="Histogram %s %s" % (i + 1, layer["type"]))
             self.multi_hist_plotter.append(multi_hist)
             if layer.get("n_kernels") is not None:
-                self.multi_hist_plotter[-1].link_from(prev)
-                prev = self.multi_hist_plotter[-1]
+                self.multi_hist_plotter[-1].link_from(*prev)
+                prev = self.multi_hist_plotter[-1],
                 self.multi_hist_plotter[
                     - 1].hist_number = layer["n_kernels"]
                 self.multi_hist_plotter[-1].link_attrs(
@@ -681,35 +670,32 @@ class StandardWorkflow(StandardWorkflowBase):
                 end_epoch = ~self.decision.epoch_ended
                 self.multi_hist_plotter[-1].gate_skip = end_epoch
             if layer.get("output_sample_shape") is not None:
-                self.multi_hist_plotter[-1].link_from(prev)
-                prev = self.multi_hist_plotter[-1]
+                self.multi_hist_plotter[-1].link_from(*prev)
+                prev = self.multi_hist_plotter[-1],
                 self.multi_hist_plotter[
                     - 1].hist_number = layer["output_sample_shape"]
                 self.multi_hist_plotter[-1].link_attrs(
                     link_units[i], ("input", weights_input))
                 self.multi_hist_plotter[
                     - 1].gate_skip = ~self.decision.epoch_ended
+        return prev[0]
 
-    def link_weights_plotter(self, init_unit, layers, limit, weights_input):
+    def link_weights_plotter(self, layers, limit, weights_input, *parents):
         # limit and weights_input - "weights" or "gradient_weights" for example
-        self.check_forwards()
-        prev = init_unit
+        self._check_forwards()
+        prev = parents
         self.weights_plotter = []
         prev_channels = 3
-        if weights_input == "weights":
-            link_units = self.forwards
-        elif weights_input == "gradient_weights":
-            link_units = self.gds
-        else:
-            raise AttributeError(
-                "weights_input should be 'weights' or 'gradient_weights'")
+        link_units = self._get_weights_source_units(weights_input)
+        index = 1
         for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
             plt_wd = nn_plotting_units.Weights2D(
-                self, name="%s %s" % (i + 1, layer["type"]),
+                self, name="Weights #%s: %s" % (index, layer["type"]),
                 limit=limit)
+            index += 1
             self.weights_plotter.append(plt_wd)
             self.weights_plotter[-1].link_attrs(link_units[i],
                                                 ("input", weights_input))
@@ -727,23 +713,17 @@ class StandardWorkflow(StandardWorkflowBase):
                 if isinstance(self.loader, ImageLoader):
                     self.weights_plotter[-1].link_attrs(
                         self.loader, "color_space")
-            self.weights_plotter[-1].link_from(prev)
-            prev = self.weights_plotter[-1]
+            self.weights_plotter[-1].link_from(*prev)
+            prev = self.weights_plotter[-1],
             self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
+        return prev[0]
 
-    def link_similar_weights_plotter(self, init_unit, layers, weights_input):
-        self.check_forwards()
+    def link_similar_weights_plotter(self, layers, weights_input, *parents):
         self.similar_weights_plotter = []
-        prev = init_unit
+        prev = parents
         k = 0
         n = 0
-        if weights_input == "weights":
-            link_units = self.forwards
-        elif weights_input == "gradient_weights":
-            link_units = self.gds
-        else:
-            raise AttributeError(
-                "weights_input should be 'weights' or 'gradient_weights'")
+        link_units = self._get_weights_source_units(weights_input)
         for i, layer in enumerate(layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
@@ -771,15 +751,17 @@ class StandardWorkflow(StandardWorkflowBase):
                 if isinstance(self.loader, ImageLoader):
                     self.similar_weights_plotter[-1].link_attrs(
                         self.loader, "color_space")
-            self.similar_weights_plotter[-1].link_from(prev)
-            prev = self.similar_weights_plotter[-1]
+            self.similar_weights_plotter[-1].link_from(*prev)
+            prev = self.similar_weights_plotter[-1],
             self.similar_weights_plotter[
                 - 1].gate_skip = ~self.decision.epoch_ended
         self.similar_weights_plotter[0].clear_plot = True
         self.similar_weights_plotter[-1].redraw_plot = True
+        return prev[0]
 
-    def link_table_plotter(self, init_unit, layers):
-        self.check_forwards()
+    def link_table_plotter(self, layers, *parents):
+        self._check_forwards()
+        self._check_gds()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
         del self.table_plotter.col_labels[:]
@@ -799,11 +781,12 @@ class StandardWorkflow(StandardWorkflowBase):
             name = "Y %s %s" % (i + 1, layer["type"])
             self.table_plotter.y.append(obj)
             self.table_plotter.col_labels.append(name)
-        self.table_plotter.link_from(init_unit)
+        self.table_plotter.link_from(*parents)
         self.table_plotter.gate_skip = ~self.decision.epoch_ended
+        return self.table_plotter
 
-    def link_mse_plotter(self, init_unit):
-        prev = init_unit
+    def link_mse_plotter(self, *parents):
+        prev = parents
         self.mse_plotter = []
         styles = ["", "", "k-"]
         for i, style in enumerate(styles):
@@ -814,17 +797,18 @@ class StandardWorkflow(StandardWorkflowBase):
             self.mse_plotter[-1].link_attrs(
                 self.decision, ("input", "epoch_metrics"))
             self.mse_plotter[-1].input_field = i
-            self.mse_plotter[-1].link_from(prev)
-            prev = self.mse_plotter[-1]
+            self.mse_plotter[-1].link_from(*prev)
+            prev = self.mse_plotter[-1],
             self.mse_plotter[-1].gate_skip = ~self.decision.epoch_ended
         self.mse_plotter[0].clear_plot = True
+        return prev[0]
 
-    def link_min_max_plotter(self, init_unit, is_min):
+    def link_min_max_plotter(self, is_min, *parents):
         """
         :param is_min: True if linking min plotter, otherwise, False for max.
         :return: None.
         """
-        prev = init_unit
+        prev = parents
         if is_min:
             plotter = self.min_plotter = []
         else:
@@ -839,24 +823,26 @@ class StandardWorkflow(StandardWorkflowBase):
                 self.decision, ("input", "epoch_metrics"))
             plotter[-1].input_field = i
             plotter[-1].input_offset = 2 if is_min else 1
-            plotter[-1].link_from(prev)
-            prev = plotter[-1]
+            plotter[-1].link_from(*prev)
+            prev = plotter[-1],
             plotter[-1].gate_skip = ~self.decision.epoch_ended
         plotter[-1].redraw_plot = True
+        return prev[0]
 
-    def link_image_plotter(self, init_unit):
-        self.check_forwards()
+    def link_image_plotter(self, *parents):
+        self._check_forwards()
         self.image_plotter = plotting_units.ImagePlotter(self,
                                                          name="output sample")
         self.image_plotter.inputs.append(self.forwards[-1].output)
         self.image_plotter.input_fields.append(0)
         self.image_plotter.inputs.append(self.forwards[0].input)
         self.image_plotter.input_fields.append(0)
-        self.image_plotter.link_from(init_unit)
+        self.image_plotter.link_from(*parents)
         self.image_plotter.gate_skip = ~self.decision.epoch_ended
+        return self.image_plotter
 
-    def link_immediate_plotter(self, init_unit):
-        self.check_forwards()
+    def link_immediate_plotter(self, *parents):
+        self._check_forwards()
         self.immediate_plotter = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
         del self.immediate_plotter.inputs[:]
@@ -871,8 +857,9 @@ class StandardWorkflow(StandardWorkflowBase):
         self.immediate_plotter.input_styles.append("k-")
         self.immediate_plotter.input_styles.append("g-")
         self.immediate_plotter.input_styles.append("b-")
-        self.immediate_plotter.link_from(init_unit)
+        self.immediate_plotter.link_from(*parents)
         self.immediate_plotter.gate_skip = ~self.decision.epoch_ended
+        return self.immediate_plotter
 
     def link_result_unit(self):
         res_unit = self.ForwardWorkflowExtractor(
@@ -883,11 +870,41 @@ class StandardWorkflow(StandardWorkflowBase):
         res_unit.gate_block = ~self.decision.complete
         return res_unit
 
-    def link_end_point(self, init_unit):
-        self.repeater.link_from(init_unit)
-        self.end_point.link_from(init_unit)
-        self.end_point.gate_block = ~self.decision.complete
-        self.loader.gate_block = self.decision.complete
+    def link_data_saver(self, *parents):
+        if self.data_saver_config is not None:
+            kwargs = self.data_saver_config.__content__
+        else:
+            kwargs = {}
+        self.data_saver = MinibatchesSaver(
+            self, **kwargs)
+        self.data_saver.link_from(*parents)
+        self.data_saver.link_attrs(
+            self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
+            "minibatch_labels", "class_lengths", "max_minibatch_size",
+            "minibatch_size")
+        return self.data_saver
+
+    def _check_forwards(self):
+        if len(self.forwards) == 0:
+            raise ValueError(
+                "Please create forwards in workflow first."
+                "You can use link_forwards() function")
+
+    def _check_gds(self):
+        if len(self.gds) == 0:
+            raise ValueError(
+                "Please create gds in workflow first."
+                "For that you can use link_gds() function")
+
+    def _get_weights_source_units(self, weights_input):
+        if weights_input == "weights":
+            self._check_forwards()
+            return self.forwards
+        elif weights_input == "gradient_weights":
+            self._check_gds()
+            return self.gds
+        raise ValueError(
+            "weights_input should be 'weights' or 'gradient_weights'")
 
 
 @implementer(IUnit, IDistributable)

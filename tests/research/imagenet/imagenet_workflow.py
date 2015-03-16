@@ -265,7 +265,7 @@ class ImagenetWorkflow(StandardWorkflow):
         self.image_saver.link_attrs(self.snapshotter,
                                     ("this_save_time", "time"))
 
-        self.create_gds(self.snapshotter)
+        self.link_gds(self.repeater, self.snapshotter)
 
         # Add learning_rate_adjust unit
         for gd_elm in self.gds:
@@ -316,7 +316,6 @@ class ImagenetWorkflow(StandardWorkflow):
             self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
 
         # repeater and gate block
-        self.repeater.link_from(self.gds[0])
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
         self.loader.gate_block = self.decision.complete

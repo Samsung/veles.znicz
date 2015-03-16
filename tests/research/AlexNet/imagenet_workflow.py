@@ -25,24 +25,20 @@ class ImagenetWorkflow(StandardWorkflow):
     def create_workflow(self):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        self.link_snapshotter(self.decision)
-        self.link_gds(self.snapshotter)
+        end_units = [self.link_snapshotter(self.decision)]
         if root.imagenet.add_plotters:
-            self.link_error_plotter(self.gds[0])
-            self.link_conf_matrix_plotter(self.error_plotter[-1])
-            self.link_err_y_plotter(self.conf_matrix_plotter[-1])
-            self.link_weights_plotter(
-                self.err_y_plotter[-1], layers=root.imagenet.layers,
-                limit=root.imagenet.weights_plotter.limit,
-                weights_input="weights")
-            last = self.weights_plotter[-1]
-        else:
-            last = self.gds[0]
+            end_units.extend(link(self.decision) for link in (
+                self.link_error_plotter, self.link_conf_matrix_plotter,
+                self.link_err_y_plotter))
+            end_units.append(self.link_weights_plotter(
+                root.imagenet.layers, root.imagenet.weights_plotter.limit,
+                "weights", self.decision))
 
-        self.link_end_point(last)
+        self.link_gds(self.repeater, *end_units)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):

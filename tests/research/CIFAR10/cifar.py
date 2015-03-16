@@ -50,46 +50,35 @@ class CifarWorkflow(StandardWorkflow):
 
         self.link_loader(self.repeater)
 
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
 
         self.link_evaluator(self.forwards[-1])
 
         self.link_decision(self.evaluator)
 
-        self.link_snapshotter(self.decision)
+        end_units = [self.link_snapshotter(self.decision)]
 
         if root.cifar.image_saver.do:
-            self.link_image_saver(self.snapshotter)
-
-            self.link_gds(self.image_saver)
-        else:
-            self.link_gds(self.snapshotter)
+            end_units.append(self.link_image_saver(self.decision))
 
         if root.cifar.add_plotters:
-            self.link_error_plotter(self.gds[0])
+            end_units.extend(link(self.decision) for link in (
+                self.link_error_plotter, self.link_conf_matrix_plotter,
+                self.link_err_y_plotter))
+            end_units.append(self.link_weights_plotter(
+                root.cifar.layers, root.cifar.weights_plotter.limit,
+                "weights", self.decision))
 
-            self.link_conf_matrix_plotter(self.error_plotter[-1])
-
-            self.link_err_y_plotter(self.conf_matrix_plotter[-1])
-
-            self.link_weights_plotter(
-                self.err_y_plotter[-1], layers=root.cifar.layers,
-                limit=root.cifar.weights_plotter.limit,
-                weights_input="weights")
-
-            self.link_table_plotter(
-                self.weights_plotter[-1], root.cifar.layers)
-
-            last = self.table_plotter
+            self.link_gds(None, *end_units)
+            last = self.link_table_plotter(root.cifar.layers, self.gds[0])
         else:
-            last = self.gds[0]
+            last = self.link_gds(None, *end_units)
 
         if root.cifar.learning_rate_adjust.do:
-            self.link_lr_adjuster(last)
+            last = self.link_lr_adjuster(last)
+        self.repeater.link_from(last)
 
-            self.link_end_point(self.lr_adjuster)
-        else:
-            self.link_end_point(last)
+        self.link_end_point(*end_units)
 
 
 def run(load, main):

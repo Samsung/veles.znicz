@@ -30,20 +30,19 @@ class MnistWorkflow(StandardWorkflow):
     (Convolutional, Fully connected, different parameters) in configuration
     file.
     """
-    def link_mnist_lr_adjuster(self, init_unit):
+    def link_mnist_lr_adjuster(self, *parents):
         self.mnist_lr_adjuster = lra.LearningRateAdjust(self)
         for gd_elm in self.gds:
             self.mnist_lr_adjuster.add_gd_unit(
                 gd_elm,
                 lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75),
                 bias_lr_policy=lra.InvAdjustPolicy(0.01, 0.0001, 0.75))
-        self.mnist_lr_adjuster.link_from(init_unit)
+        self.mnist_lr_adjuster.link_from(*parents)
 
-    def link_mnist_weights_plotter(self, init_unit, layers, limit,
-                                   weights_input):
+    def link_mnist_weights_plotter(self, layers, limit, weights_input, parent):
         self.mnist_weights_plotter = []
         prev_channels = 1
-        prev = init_unit
+        prev = parent
         for i in range(len(layers)):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
@@ -68,28 +67,30 @@ class MnistWorkflow(StandardWorkflow):
             prev = self.mnist_weights_plotter[-1]
             ee = ~self.decision.epoch_ended
             self.mnist_weights_plotter[-1].gate_skip = ee
+        return prev
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
         self.link_loader(self.repeater)
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         self.link_snapshotter(self.decision)
-        self.link_gds(self.snapshotter)
-        self.link_error_plotter(self.gds[0])
-        self.link_conf_matrix_plotter(self.error_plotter[-1])
-        self.link_err_y_plotter(self.conf_matrix_plotter[-1])
-        self.link_mnist_weights_plotter(
-            self.err_y_plotter[-1], layers=root.mnistr.layers,
-            limit=root.mnistr.weights_plotter.limit,
-            weights_input="gradient_weights")
+        end_units = [link(self.decision)
+                     for link in (self.link_error_plotter,
+                                  self.link_conf_matrix_plotter,
+                                  self.link_err_y_plotter)]
 
         if root.mnistr.learning_rate_adjust.do:
-            self.link_mnist_lr_adjuster(self.mnist_weights_plotter[-1])
-            self.link_end_point(self.mnist_lr_adjuster)
+            end_units.append(self.link_mnist_lr_adjuster(self.snapshotter))
         else:
-            self.link_end_point(self.mnist_weights_plotter[-1])
+            end_units.append(self.snapshotter)
+
+        self.link_end_point(*end_units)
+        self.link_gds(None, *end_units)
+        self.repeater.link_from(self.link_mnist_weights_plotter(
+            root.mnistr.layers, root.mnistr.weights_plotter.limit,
+            "gradient_weights", self.gds[0]))
 
 
 def run(load, main):

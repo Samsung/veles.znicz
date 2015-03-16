@@ -35,7 +35,7 @@ class YaleFacesWorkflow(StandardWorkflow):
 
         self.link_loader(self.repeater)
 
-        self.link_forwards(self.loader, ("input", "minibatch_data"))
+        self.link_forwards(("input", "minibatch_data"), self.loader)
 
         self.link_evaluator(self.forwards[-1])
 
@@ -43,9 +43,9 @@ class YaleFacesWorkflow(StandardWorkflow):
 
         self.link_snapshotter(self.decision)
 
-        self.link_gds(self.snapshotter)
+        self.link_gds(self.repeater, self.snapshotter)
 
-        self.link_end_point(self.gds[0])
+        self.link_end_point(self.snapshotter)
 
 
 def run(load, main):
