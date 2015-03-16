@@ -362,14 +362,16 @@ class StandardWorkflow(StandardWorkflowBase):
         self.create_workflow()
 
     def create_workflow(self):
+        # Add repeater unit
         self.link_repeater(self.start_point)
 
+        # Add loader unit
         self.link_loader(self.repeater)
 
         # Add forwards units
         self.link_forwards(("input", "minibatch_data"), self.loader)
 
-        # Add evaluator for single minibatch
+        # Add evaluator unit
         self.link_evaluator(self.forwards[-1])
 
         # Add decision unit
@@ -378,9 +380,10 @@ class StandardWorkflow(StandardWorkflowBase):
         # Add snapshotter unit
         self.link_snapshotter(self.decision)
 
-        # Add gradient descent units
-        self.link_gds(self.repeater, self.snapshotter)
+        # Add gradient descent units and loop the workflow
+        self.link_loop(self.link_gds(self.snapshotter))
 
+        # Add end_point unit
         self.link_end_point(self.snapshotter)
 
     def extract_forward_workflow(self, loader_name, loader_config,
@@ -404,7 +407,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 fwd_exp.generate_data_for_slave(None))
         return wf
 
-    def link_gds(self, unit_before, *units_after):
+    def link_gds(self, *parents):
         """
         Creates GD units by config (`self.layers`).
 
@@ -443,7 +446,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 unit.link_from(first_gd)
                 unit.link_attrs(first_gd, ("err_output", "err_input"))
             else:
-                unit.link_from(*units_after)
+                unit.link_from(*parents)
                 unit.link_attrs(self.evaluator, "err_output")
 
             attrs = []
@@ -469,9 +472,10 @@ class StandardWorkflow(StandardWorkflowBase):
 
         # Disable error backpropagation on the last layer
         self.gds[0].need_err_input = False
-        if unit_before is not None:
-            unit_before.link_from(first_gd)
         return first_gd
+
+    def link_loop(self, parent):
+        self.repeater.link_from(parent)
 
     def link_evaluator(self, *parents):
         self._check_forwards()

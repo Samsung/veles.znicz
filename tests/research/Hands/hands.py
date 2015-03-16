@@ -58,7 +58,7 @@ class HandsWorkflow(StandardWorkflow):
             self.link_snapshotter, self.link_error_plotter,
             self.link_conf_matrix_plotter))
 
-        self.link_gds(self.repeater, *end_units)
+        self.link_loop(self.link_gds(*end_units))
 
         self.link_end_point(*end_units)
 

@@ -37,7 +37,7 @@ class ImagenetWorkflow(StandardWorkflow):
                 root.imagenet.layers, root.imagenet.weights_plotter.limit,
                 "weights", self.decision))
 
-        self.link_gds(self.repeater, *end_units)
+        self.link_loop(self.link_gds(*end_units))
         self.link_end_point(*end_units)
 
 

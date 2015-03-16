@@ -82,7 +82,7 @@ class MnistWorkflow(StandardWorkflow):
                                   self.link_conf_matrix_plotter,
                                   self.link_err_y_plotter)]
         self.link_end_point(*end_units)
-        self.link_gds(None, *end_units)
+        self.link_gds(*end_units)
         if root.mnistr.learning_rate_adjust.do:
             last = self.link_mnist_lr_adjuster(self.gds[0])
         else:

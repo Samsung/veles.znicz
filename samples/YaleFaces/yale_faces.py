@@ -43,7 +43,7 @@ class YaleFacesWorkflow(StandardWorkflow):
 
         self.link_snapshotter(self.decision)
 
-        self.link_gds(self.repeater, self.snapshotter)
+        self.link_loop(self.link_gds(self.snapshotter))
 
         self.link_end_point(self.snapshotter)
 

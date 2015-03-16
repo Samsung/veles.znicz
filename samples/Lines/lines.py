@@ -32,7 +32,7 @@ class LinesWorkflow(StandardWorkflow):
         end_units = [link(self.decision) for link in (self.link_snapshotter,
                                                       self.link_image_saver,
                                                       self.link_error_plotter)]
-        gd = self.link_gds(None, *end_units)
+        gd = self.link_gds(*end_units)
         self.repeater.link_from(
             self.link_weights_plotter(
                 root.lines.layers, root.lines.weights_plotter.limit,

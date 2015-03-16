@@ -69,10 +69,10 @@ class CifarWorkflow(StandardWorkflow):
                 root.cifar.layers, root.cifar.weights_plotter.limit,
                 "weights", self.decision))
 
-            self.link_gds(None, *end_units)
+            self.link_gds(*end_units)
             last = self.link_table_plotter(root.cifar.layers, self.gds[0])
         else:
-            last = self.link_gds(None, *end_units)
+            last = self.link_gds(*end_units)
 
         if root.cifar.learning_rate_adjust.do:
             last = self.link_lr_adjuster(last)
