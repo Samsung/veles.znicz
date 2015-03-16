@@ -114,20 +114,27 @@ class TestImageSaver(unittest.TestCase):
         self.img_saver_MSE.labels = self.lbls
         self.img_saver_MSE.indices = self.indices
         self.img_saver_MSE.minibatch_size = 20
+        self.output = formats.Vector()
+        self.output.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
         self.img_saver_MSE.output = self.output
         self.img_saver_MSE.color_space = "RGB"
         self.img_saver_MSE.this_save_time = time.time()
         self.target = formats.Vector()
-        self.target.mem = numpy.zeros([20, 10], dtype=numpy.float32)
+        self.target.mem = numpy.zeros([20, 32, 32], dtype=numpy.float32)
         prng.get().fill(self.target.mem)
         self.img_saver_MSE.minibatch_class = 0
         self.img_saver_MSE.target = self.target
         self.img_saver_MSE.initialize()
         self.img_saver_MSE.run()
-        files_test = glob("%s/*.png" % root.image_saver.out_dirs[0])
+        files_test = []
+        for root_path, _tmp, files in os.walk(
+                root.image_saver.out_dirs[0], followlinks=True):
+            for f in files:
+                f_path = os.path.join(root_path, f)
+                files_test.append(f_path)
         logging.info("files in test: %s", files_test)
         logging.info("Number of files in test: %s", len(files_test))
-        self.assertEqual(len(files_test), 20)
+        self.assertEqual(len(files_test), 60)
 
     def test_image_saver_SM_t(self):
         logging.info("Will test image_saver unit for Softmax, test")
