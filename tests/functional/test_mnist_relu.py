@@ -72,8 +72,7 @@ class TestMnistRelu(unittest.TestCase):
             loader_name=root.mnistr.loader_name,
             loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
-            loss_function=root.mnistr.loss_function,
-            device=self.device)
+            loss_function=root.mnistr.loss_function)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2 + 1

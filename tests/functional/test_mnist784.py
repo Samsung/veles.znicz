@@ -41,8 +41,7 @@ class TestMnist784(unittest.TestCase):
 
     def init_and_run(self, device):
         self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
-                                           layers=root.mnist784.layers,
-                                           device=self.device)
+                                           layers=root.mnist784.layers)
         self.init_wf(self.w, device)
         self.w.run()
 

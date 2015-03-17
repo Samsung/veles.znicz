@@ -65,8 +65,7 @@ class TestHands(unittest.TestCase):
             snapshotter_config=root.hands.snapshotter,
             loader_config=root.hands.loader,
             loss_function=root.hands.loss_function,
-            loader_name=root.hands.loader_name,
-            device=self.device)
+            loader_name=root.hands.loader_name)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device)

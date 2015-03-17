@@ -58,8 +58,7 @@ class TestVideoAE(unittest.TestCase):
             "layers": [9, [90, 160]]})
 
         self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyLauncher(),
-                                          layers=root.video_ae.layers,
-                                          device=self.device)
+                                          layers=root.video_ae.layers)
         self.w.decision.max_epochs = 4
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 4

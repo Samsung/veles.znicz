@@ -88,8 +88,7 @@ class TestKanji(unittest.TestCase):
             loader_name=root.kanji.loader_name,
             snapshotter_config=root.kanji.snapshotter,
             layers=root.kanji.layers,
-            loss_function=root.kanji.loss_function,
-            device=self.device)
+            loss_function=root.kanji.loss_function)
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 1
         self.assertEqual(self.w.evaluator.labels,

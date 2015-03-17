@@ -348,12 +348,12 @@ class StandardWorkflow(StandardWorkflowBase):
         image_saver_config: image_saver configuration parameters
     """
     def __init__(self, workflow, **kwargs):
-        self.decision_config = kwargs.pop("decision_config", None)
-        self.snapshotter_config = kwargs.pop("snapshotter_config", None)
-        self.image_saver_config = kwargs.pop("image_saver_config", None)
-        self.data_saver_config = kwargs.pop("data_saver_config", None)
+        self.decision_config = kwargs.pop("decision_config", {})
+        self.snapshotter_config = kwargs.pop("snapshotter_config", {})
+        self.image_saver_config = kwargs.pop("image_saver_config", {})
+        self.data_saver_config = kwargs.pop("data_saver_config", {})
         self.similar_weights_plotter_config = kwargs.pop(
-            "similar_weights_plotter_config", None)
+            "similar_weights_plotter_config", {})
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
         self.result_loader_name = kwargs.get("result_loader_name")
         self.result_loader_config = kwargs.get("result_loader_config")
@@ -549,8 +549,7 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_image_saver(self, *parents):
         self._check_forwards()
         kwargs = self.get_kwargs_for_config(self.image_saver_config)
-        self.image_saver = image_saver.ImageSaver(
-            self, **kwargs)
+        self.image_saver = image_saver.ImageSaver(self, **kwargs)
         self.image_saver.link_from(*parents)
         if self.loss_function == "softmax":
             self.image_saver.link_attrs(self.forwards[-1], "max_idx")

@@ -46,8 +46,7 @@ class TestSamplesMnist(unittest.TestCase):
             "factor_ortho": 0.001})
 
         self.w = mnist.MnistWorkflow(dummy_workflow.DummyLauncher(),
-                                     layers=root.mnist.layers,
-                                     device=self.device)
+                                     layers=root.mnist.layers)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2

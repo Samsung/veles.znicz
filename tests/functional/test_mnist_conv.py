@@ -115,8 +115,7 @@ class TestMnistConv(unittest.TestCase):
             loader_name=root.mnistr.loader_name,
             loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
-            loss_function=root.mnistr.loss_function,
-            device=self.device)
+            loss_function=root.mnistr.loss_function)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0

@@ -78,8 +78,7 @@ class TestCifarAll2All(unittest.TestCase):
             layers=root.cifar.layers,
             loss_function=root.cifar.loss_function,
             loader_name=root.cifar.loader_name,
-            loader_config=root.cifar.loader,
-            device=self.device)
+            loader_config=root.cifar.loader)
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 2
         self.assertEqual(self.w.evaluator.labels,
