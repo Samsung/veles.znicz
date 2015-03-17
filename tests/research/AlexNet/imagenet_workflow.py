@@ -13,7 +13,7 @@ Copyright (c) 2014 Samsung R&D Institute Russia
 from veles.config import root
 from veles.znicz.standard_workflow import StandardWorkflow
 
-from .imagenet_loader import ImagenetCaffeLoader  # pylint: disable=W0611
+from .imagenet_pickle_loader import ImagenetLoader  # pylint: disable=W0611
 from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
 
 

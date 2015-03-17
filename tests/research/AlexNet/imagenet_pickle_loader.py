@@ -26,12 +26,12 @@ import veles.prng.random_generator as prng
 
 
 @implementer(loader.ILoader)
-class ImagenetCaffeLoader(loader.Loader):
+class ImagenetLoader(loader.Loader):
     """loads imagenet from samples.dat, labels.pickle"""
-    MAPPING = "imagenet_loader"
+    MAPPING = "imagenet_pickle_loader"
 
     def __init__(self, workflow, **kwargs):
-        super(ImagenetCaffeLoader, self).__init__(workflow, **kwargs)
+        super(ImagenetLoader, self).__init__(workflow, **kwargs)
         self.mean = Vector()
         self.rdisp = Vector()
         self.file_samples = ""
@@ -52,18 +52,18 @@ class ImagenetCaffeLoader(loader.Loader):
         self.channels = kwargs.get("channels", 3)
 
     def init_unpickled(self):
-        super(ImagenetCaffeLoader, self).init_unpickled()
+        super(ImagenetLoader, self).init_unpickled()
         self.original_labels = None
 
     def __getstate__(self):
-        state = super(ImagenetCaffeLoader, self).__getstate__()
+        state = super(ImagenetLoader, self).__getstate__()
         state["original_labels"] = None
         state["file_samples"] = None
         return state
 
     def initialize(self, **kwargs):
         self.normalizer.reset()
-        super(ImagenetCaffeLoader, self).initialize(**kwargs)
+        super(ImagenetLoader, self).initialize(**kwargs)
         self.minibatch_labels.reset(numpy.zeros(
             self.max_minibatch_size, dtype=numpy.int32))
 
@@ -72,7 +72,7 @@ class ImagenetCaffeLoader(loader.Loader):
             return
         self.shuffle_limit -= 1
         self.info("Shuffling, remaining limit is %d", self.shuffle_limit)
-        super(ImagenetCaffeLoader, self).shuffle()
+        super(ImagenetLoader, self).shuffle()
 
     def load_data(self):
         self.original_labels = []
@@ -135,7 +135,7 @@ class ImagenetCaffeLoader(loader.Loader):
     def deduct_mean(self, sample):
         sample = sample.astype(self.rdisp.dtype)
         sample -= self.mean.mem
-        # sample *= self.rdisp.mem
+        sample *= self.rdisp.mem
         return sample
 
     def mirror_sample(self, sample):

@@ -21,15 +21,13 @@ root.imagenet.series = "img"
 root.imagenet.root_path = os.path.join(
     root.common.test_dataset_root, "AlexNet", "%s" % root.imagenet.root_name)
 
-
 root.imagenet.loader.update({
     "sx": 256,
     "sy": 256,
     "crop": (227, 227),
     "mirror": True,
     "channels": 3,
-    "on_device": False,
-    "color_space": "HSV",
+    "color_space": "RGB",
     "minibatch_size": 256,
     "normalization_type": "none",
     "shuffle_limit": 10000000,
@@ -55,10 +53,6 @@ root.imagenet.loader.update({
         % (root.imagenet.root_name, root.imagenet.series)),
 })
 
-root.imagenet.loader.normalization_parameters = {
-    "mean_source": os.path.join(root.common.test_dataset_root,
-                                "AlexNet/mean_image_227.JPEG")}
-
 
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
@@ -66,7 +60,7 @@ root.imagenet.update({
     "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "loss_function": "softmax",
-    "loader_name": "imagenet_loader",
+    "loader_name": "imagenet_pickle_loader",
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv_str",
                 "->": {"n_kernels": 96, "kx": 11, "ky": 11,

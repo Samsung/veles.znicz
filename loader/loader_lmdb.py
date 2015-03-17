@@ -10,7 +10,7 @@ import numpy
 from zope.interface import implementer
 
 import lmdb
-from veles.loader import IImageLoader, ImageLoader
+from veles.loader import IImageLoader, ImageLoader, CLASS_NAME
 from veles.znicz.loader.caffe_pb2 import Datum
 
 
@@ -25,10 +25,12 @@ class LMDBLoader(ImageLoader):
                        kwargs.get("validation_path", None),
                        kwargs.get("train_path", None))
 
-        self.original_shape = kwargs.get("db_shape", (3, 256, 256))
+        self.original_shape = kwargs.get("db_shape", (256, 256, 3))
         self.db_color_space = kwargs.get("db_colorspace", "RGB")
         self.db_splitted_channels = kwargs.get("db_splitted_channels", True)
 
+    def init_unpickled(self):
+        super(LMDBLoader, self).init_unpickled()
         # LMDB base cursors, used as KV-iterators
         self._cursors_ = [None] * 3
 
@@ -91,18 +93,27 @@ class LMDBLoader(ImageLoader):
         """
         Return a list of image keys for the specified class index.
         """
-        db_path = self._files[index]
-        if not db_path:
-            return []
-
-        npics, cursor = self._open_db(db_path)
-        self._cursors_[index] = cursor
+        self._initialize_cursor(index)
+        cursor = self._cursors_[index]
         keys = [(index, cursor.key())]
         while cursor.next():
             keys.append((index, cursor.key()))
         cursor.first()
 
         return keys
+
+    def load_data(self):
+        for index, _ in enumerate(CLASS_NAME):
+            self._initialize_cursor(index)
+        super(LMDBLoader, self).load_data()
+
+    def _initialize_cursor(self, index):
+        db_path = self._files[index]
+        if not db_path:
+            return tuple()
+
+        _, cursor = self._open_db(db_path)
+        self._cursors_[index] = cursor
 
     def _open_db(self, base_path):
         """

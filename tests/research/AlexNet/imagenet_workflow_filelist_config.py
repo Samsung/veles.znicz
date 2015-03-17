@@ -12,26 +12,37 @@ from veles.config import root
 base_lr = 0.01
 wd = 0.0005
 
-data_path = os.path.join(root.common.test_dataset_root, "AlexNet/LMDB")
-
-root.common.engine.backend = "cuda"
 root.common.precision_type = "float"
 root.common.precision_level = 0
+root.common.engine.backend = "cuda"
+
+train_path = os.path.join(
+    root.common.test_dataset_root, "AlexNet/imagenet",
+    "%s" % "images_imagenet_imagenet_img_train.json")
+
+valid_path = os.path.join(
+    root.common.test_dataset_root, "AlexNet/imagenet",
+    "%s" % "images_imagenet_imagenet_img_val.json")
+
+root.imagenet.loader.update({
+    "minibatch_size": 256, "scale": (256, 256),
+    "scale_maintain_aspect_ratio": False,
+    "shuffle_limit": 1, "crop": (227, 227), "mirror": "random",
+    "color_space": "RGB", "normalization_type": "external_mean",
+    "path_to_train_text_file": [train_path],
+    "path_to_val_text_file": [valid_path]})
+
+root.imagenet.loader.normalization_parameters = {
+    "mean_source": os.path.join(root.common.test_dataset_root,
+                                "AlexNet/mean_image_227.JPEG")}
 
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
-                 "max_epochs": 10000000},
+                 "max_epochs": 10000},
     "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "loss_function": "softmax",
-    "loader_name": "lmdb",
-    "loader": {"minibatch_size": 256,
-               "shuffle_limit": 1, "crop": (227, 227), "mirror": "random",
-               "color_space": "RGB", "normalization_type": "external_mean",
-               "train_path": os.path.join(data_path, "ilsvrc12_train_lmdb"),
-               "validation_path": os.path.join(data_path, "ilsvrc12_val_lmdb"),
-               },
-
+    "loader_name": "file_list_image",
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv_str",
                 "->": {"n_kernels": 96, "kx": 11, "ky": 11,
@@ -58,7 +69,7 @@ root.imagenet.update({
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}},
                {"type": "max_pooling", "->": {"kx": 3, "ky": 3,
-                                              "sliding": (2, 2)}},
+                "sliding": (2, 2)}},
                {"type": "norm", "n": 5, "alpha": 0.0001, "beta": 0.75},
 
                {"type": "zero_filter", "grouping": 2},
@@ -124,7 +135,3 @@ root.imagenet.update({
                        "learning_rate_bias": base_lr * 2,
                        "weights_decay": wd, "weights_decay_bias": 0,
                        "gradient_moment": 0.9, "gradient_moment_bias": 0.9}}]})
-
-root.imagenet.loader.normalization_parameters = {
-    "mean_source": os.path.join(root.common.test_dataset_root,
-                                "AlexNet/mean_image_227.JPEG")}
