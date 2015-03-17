@@ -118,6 +118,6 @@ class MnistLoader(loader.FullBatchLoader):
         self.class_lengths[2] = 60000
         self.create_originals((28, 28))
         self.original_labels[:] = (0 for _ in range(len(self.original_labels)))
-        self.info("Loading from original MNIST files...")
+        self.info("Loading from the original MNIST files...")
         self.load_original(0, 10000, test_label_dir, test_image_dir)
         self.load_original(10000, 60000, train_label_dir, train_image_dir)

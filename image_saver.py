@@ -66,8 +66,10 @@ class ImageSaver(Unit, TriviallyDistributable):
     @staticmethod
     def as_image(input):
         if len(input.shape) == 1:
-            return input.copy()
+            return None
         elif len(input.shape) == 2:
+            if 1 in input.shape:
+                return None
             return input.reshape(input.shape[0], input.shape[1])
         elif len(input.shape) == 3:
             if input.shape[2] == 3:
@@ -192,15 +194,17 @@ class ImageSaver(Unit, TriviallyDistributable):
         else:
             out_path_dir = os.path.join(
                 self.out_dirs[self.minibatch_class], "%d" % index)
-            if (self.output is not None and self.target is not None):
+            if self.output is not None and self.target is not None:
                 output_image, target_image = (
                     ImageSaver.as_image(v[image_index]) for v in
                     (self.output, self.target))
 
-                output_image = output_image.reshape(target_image.shape)
-
+                if output_image is None:
+                    assert target_image is None
+                else:
+                    output_image = output_image.reshape(target_image.shape)
                 mse = numpy.linalg.norm(
-                    target_image - output_image) / input_image.size
+                    self.output.mem - self.target.mem) / input_image.size
             else:
                 output_image = None
                 target_image = None
