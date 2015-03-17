@@ -11,7 +11,7 @@ from __future__ import division
 import glob
 import numpy
 import os
-import scipy.misc
+from PIL import Image
 from zope.interface import implementer
 
 import veles.config as config
@@ -126,8 +126,9 @@ class ImageSaver(Unit, TriviallyDistributable):
                         pass
 
     def save_image(self, image, path):
+        image_to_save = Image.fromarray(image)
         try:
-            scipy.misc.imsave(path, image)
+            image_to_save.save(path)
         except ValueError:
             self.warning(
                 "Could not save image to %s. Image does not have a suitable"
