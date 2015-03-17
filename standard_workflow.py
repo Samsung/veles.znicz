@@ -249,7 +249,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         return getattr(obj, "__content__", obj)
 
     def get_kwargs_for_config(self, unit_config):
-        return {} if unit_config is not None else self.dictify(unit_config)
+        return {} if unit_config is None else self.dictify(unit_config)
 
     def link_loader(self, *parents):
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
