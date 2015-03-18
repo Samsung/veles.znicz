@@ -112,7 +112,7 @@ class KohonenWorkflow(nn_units.NNWorkflow):
         self.plotters[2].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, device, **kwargs):
-        return super(KohonenWorkflow, self).initialize(device=device)
+        return super(KohonenWorkflow, self).initialize(device=device, **kwargs)
 
 
 def run(load, main):

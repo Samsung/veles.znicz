@@ -50,7 +50,7 @@ class TestWine(unittest.TestCase):
                          self.w.loader.minibatch_labels)
         self.w.initialize(learning_rate=root.wine.learning_rate,
                           weights_decay=root.wine.weights_decay,
-                          device=self.device)
+                          device=self.device, snapshot=False)
         self.w.run()
 
         epoch = self.w.decision.epoch_number

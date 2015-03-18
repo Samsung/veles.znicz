@@ -15,8 +15,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import cuda4py.blas as cublas
+from itertools import product
 import numpy
-import scipy.signal
 import time
 from zope.interface import implementer
 
@@ -506,6 +506,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         if self.weights_transposed:
             raise NotImplementedError(
                 "cpu_run is not implemented for transposed weights")
+
+        from scipy.signal import convolve2d
+
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.weights.map_read()
@@ -527,16 +530,13 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                               j * self.sliding[0], k] = err
         err_sample = numpy.empty((sy_full - self.ky + 1,
                                   sx_full - self.kx + 1))
-        for batch, k in ((batch, k)
-                         for batch in range(batch_size)
-                         for k in range(self.n_kernels)):
+        for batch, k in product(range(batch_size), range(self.n_kernels)):
             err_sample[:] = sparse_err_output[batch, :, :, k]
             cur_kernel = self.weights.mem[k].reshape(self.ky, self.kx,
                                                      n_channels)
             for ch in range(n_channels):
-                err_input_full = scipy.signal.convolve2d(err_sample,
-                                                         cur_kernel[:, :, ch],
-                                                         mode='full')
+                err_input_full = convolve2d(err_sample, cur_kernel[:, :, ch],
+                                            mode='full')
                 self.err_input.mem[batch, :, :, ch] += \
                     err_input_full[self.padding[1]:(sy_full - self.padding[3]),
                                    self.padding[0]:(sx_full - self.padding[2])]

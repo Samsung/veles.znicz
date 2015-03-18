@@ -92,7 +92,8 @@ class TestKanji(unittest.TestCase):
             loss_function=root.kanji.loss_function)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device, weights=None, bias=None)
+        self.w.initialize(device=self.device, weights=None, bias=None,
+                          snapshot=False)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -111,7 +112,8 @@ class TestKanji(unittest.TestCase):
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device, weights=None, bias=None)
+        self.wf.initialize(device=self.device, weights=None, bias=None,
+                           snapshot=True)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

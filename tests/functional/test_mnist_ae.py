@@ -37,8 +37,7 @@ class TestMnistAE(unittest.TestCase):
 
     def init_and_run(self, device):
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
-                                          layers=root.mnist_ae.layers,
-                                          device=device)
+                                          layers=root.mnist_ae.layers)
         self.init_wf(self.w, device)
         self.w.run()
 

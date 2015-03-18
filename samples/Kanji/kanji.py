@@ -46,7 +46,7 @@ class KanjiWorkflow(StandardWorkflow):
         self.link_end_point(*end_units)
 
     def initialize(self, device, weights, bias, **kwargs):
-        super(KanjiWorkflow, self).initialize(device=device)
+        super(KanjiWorkflow, self).initialize(device=device, **kwargs)
         if weights is not None:
             for i, fwds in enumerate(self.forwards):
                 fwds.weights.map_invalidate()

@@ -34,7 +34,7 @@ from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
 import veles.znicz.image_saver as image_saver
-from veles.loader.base import UserLoaderRegistry, CLASS_NAME
+from veles.loader.base import UserLoaderRegistry, CLASS_NAME, LoaderMSEMixin
 from veles.loader.image import ImageLoader
 from veles.loader.saver import MinibatchesSaver
 import veles.znicz.lr_adjust as lr_adjust
@@ -223,22 +223,34 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 prev_forward.link_attrs(forward, "weights")
 
         last_fwd = self.forwards[-1]
-        if not isinstance(last_fwd, All2AllSoftmax):
+        if not isinstance(last_fwd, All2AllSoftmax) and \
+                not isinstance(self.loader, LoaderMSEMixin):
             return last_fwd
 
-        def on_unique_labels_counted():
-            ulc = self.loader.unique_labels_count
-            oss = last_fwd.output_sample_shape
-            if oss != tuple() and numpy.prod(oss) > ulc:
-                self.warning(
-                    "Overriding %s.output_sample_shape %s with (%s,)",
-                    last_fwd, oss, ulc)
-            else:
-                self.info("Setting %s.output_sample_shape to %d",
-                          last_fwd, ulc)
-            last_fwd.output_sample_shape = ulc
+        def on_initialized():
+            if isinstance(self.loader, LoaderMSEMixin):
+                if last_fwd.output_sample_shape != tuple() and \
+                    numpy.prod(last_fwd.output_sample_shape) != \
+                        numpy.prod(self.loader.targets_shape):
+                    self.warning("Overriding %s.output_sample_shape with %s",
+                                 last_fwd, self.loader.targets_shape)
+                else:
+                    self.info("Setting %s.output_sample_shape to %s",
+                              last_fwd, self.loader.targets_shape)
+                last_fwd.output_sample_shape = self.loader.targets_shape
+            elif isinstance(last_fwd, All2AllSoftmax):
+                ulc = self.loader.unique_labels_count
+                oss = last_fwd.output_sample_shape
+                if oss != tuple() and numpy.prod(oss) != ulc:
+                    self.warning(
+                        "Overriding %s.output_sample_shape %s with (%s,)",
+                        last_fwd, oss, ulc)
+                else:
+                    self.info("Setting %s.output_sample_shape to %d",
+                              last_fwd, ulc)
+                last_fwd.output_sample_shape = ulc
 
-        self.loader.on_unique_labels_counted = on_unique_labels_counted
+        self.loader.on_initialized = on_initialized
         return last_fwd
 
     def link_repeater(self, *parents):
