@@ -64,7 +64,8 @@ class TestKanji(unittest.TestCase):
                        "targets_shape": (24, 24),
                        "background_color": (0,),
                        "validation_ratio": 0.15},
-            "snapshotter": {"prefix": "kanji_test"},
+            "snapshotter": {"prefix": "kanji_test", "interval": 3,
+                            "time_interval": 0},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": 250},
                         "<-": {"learning_rate": 0.0001,
@@ -76,7 +77,7 @@ class TestKanji(unittest.TestCase):
                                "learning_rate_bias": 0.01,
                                "weights_decay": 0.00005}},
                        {"type": "all2all_tanh",
-                        "->": {"output_sample_shape": 24 * 24},
+                        "->": {"output_sample_shape": (24, 24)},
                         "<-": {"learning_rate_bias": 0.01,
                                "learning_rate": 0.0001,
                                "weights_decay": 0.00005}}]})
@@ -89,8 +90,6 @@ class TestKanji(unittest.TestCase):
             snapshotter_config=root.kanji.snapshotter,
             layers=root.kanji.layers,
             loss_function=root.kanji.loss_function)
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 1
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device, weights=None, bias=None)

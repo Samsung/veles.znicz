@@ -51,5 +51,5 @@ root.kanji.update({
                 "->": {"output_sample_shape": 250},
                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}},
                {"type": "all2all_tanh",
-                "->": {"output_sample_shape": 24 * 24},
+                "->": {"output_sample_shape": (24, 24)},
                 "<-": {"learning_rate": 0.0001, "weights_decay": 0.00005}}]})

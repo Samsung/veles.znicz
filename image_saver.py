@@ -200,7 +200,9 @@ class ImageSaver(Unit, TriviallyDistributable):
                     (self.output, self.target))
 
                 if output_image is None:
-                    assert target_image is None
+                    assert target_image is None, \
+                        "Output shape is %s while target shape is %s" % (
+                            self.output.shape[1:], target_image.shape)
                 else:
                     output_image = output_image.reshape(target_image.shape)
                 mse = numpy.linalg.norm(
