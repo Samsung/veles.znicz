@@ -68,7 +68,7 @@ class TestHands(unittest.TestCase):
             loader_name=root.hands.loader_name)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device)
+        self.w.initialize(device=self.device, snapshot=False)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -85,7 +85,7 @@ class TestHands(unittest.TestCase):
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device)
+        self.wf.initialize(device=self.device, snapshot=True)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

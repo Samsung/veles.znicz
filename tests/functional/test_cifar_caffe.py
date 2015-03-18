@@ -28,7 +28,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
-        workflow.initialize(device=self.device)
+        workflow.initialize(device=self.device, snapshot=False)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 

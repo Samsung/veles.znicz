@@ -44,7 +44,7 @@ class TestSpamKohonen(unittest.TestCase):
 
         self.w = spam_kohonen.SpamKohonenWorkflow(
             dummy_workflow.DummyLauncher())
-        self.w.initialize(device=self.device)
+        self.w.initialize(device=self.device, snapshot=False)
         self.w.run()
 
         diff = self.w.decision.weights_diff

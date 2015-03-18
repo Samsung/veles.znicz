@@ -47,7 +47,7 @@ class TestKohonen(unittest.TestCase):
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 
         self.w = kohonen.KohonenWorkflow(dummy_workflow.DummyLauncher())
-        self.w.initialize(device=self.device)
+        self.w.initialize(device=self.device, snapshot=False)
         self.w.run()
 
         diff = self.w.decision.weights_diff

@@ -27,11 +27,11 @@ class TestLines(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def init_wf(self, workflow):
+    def init_wf(self, workflow, snapshot):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
-        workflow.initialize(device=self.device)
+        workflow.initialize(device=self.device, snapshot=snapshot)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
@@ -109,7 +109,7 @@ class TestLines(unittest.TestCase):
                                      loader_name=root.lines.loader_name,
                                      loss_function=root.lines.loss_function)
         # Test workflow
-        self.init_wf(self.w)
+        self.init_wf(self.w, False)
         self.w.run()
         self.check_write_error_rate(self.w, 54)
 
@@ -124,7 +124,7 @@ class TestLines(unittest.TestCase):
         self.wf.decision.max_epochs = 24
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf)
+        self.init_wf(self.wf, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, 46)
 

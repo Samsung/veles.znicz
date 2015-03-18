@@ -120,7 +120,7 @@ class TestMnistConv(unittest.TestCase):
                          self.w.loader.minibatch_labels)
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 1
-        self.w.initialize(device=self.device)
+        self.w.initialize(device=self.device, snapshot=False)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -137,7 +137,7 @@ class TestMnistConv(unittest.TestCase):
         self.wf.decision.complete <<= False
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device)
+        self.wf.initialize(device=self.device, snapshot=True)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()
