@@ -64,7 +64,8 @@ class TestVideoAE(unittest.TestCase):
         self.w.snapshotter.interval = 4
         self.w.initialize(device=self.device,
                           learning_rate=root.video_ae.learning_rate,
-                          weights_decay=root.video_ae.weights_decay)
+                          weights_decay=root.video_ae.weights_decay,
+                          snapshot=False)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
@@ -79,7 +80,8 @@ class TestVideoAE(unittest.TestCase):
         self.wf.decision.complete <<= False
         self.wf.initialize(device=self.device,
                            learning_rate=root.video_ae.learning_rate,
-                           weights_decay=root.video_ae.weights_decay)
+                           weights_decay=root.video_ae.weights_decay,
+                           snapshot=True)
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]

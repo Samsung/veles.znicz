@@ -44,7 +44,7 @@ class TestWineRelu(unittest.TestCase):
                          self.w.loader.minibatch_labels)
         self.w.initialize(learning_rate=root.wine_relu.learning_rate,
                           weights_decay=root.wine_relu.weights_decay,
-                          device=self.device)
+                          device=self.device, snapshot=False)
         self.w.run()
 
         epoch = self.w.decision.epoch_number

@@ -26,8 +26,8 @@ class TestMnistAE(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def init_wf(self, workflow, device):
-        workflow.initialize(device=device)
+    def init_wf(self, workflow, device, snapshot):
+        workflow.initialize(device=device, snapshot=snapshot)
 
     def check_write_error_rate(self, workflow, error):
         err = workflow.decision.epoch_metrics[1][0]
@@ -35,10 +35,10 @@ class TestMnistAE(unittest.TestCase):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    def init_and_run(self, device):
+    def init_and_run(self, device, snapshot):
         self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.mnist_ae.layers)
-        self.init_wf(self.w, device)
+        self.init_wf(self.w, device, snapshot)
         self.w.run()
 
     @timeout(1500)
@@ -83,7 +83,7 @@ class TestMnistAE(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.96093162)
 
         file_name = self.w.snapshotter.file_name
@@ -96,7 +96,7 @@ class TestMnistAE(unittest.TestCase):
         self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf, device)
+        self.init_wf(self.wf, device, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, 0.9606072)
 
@@ -108,7 +108,7 @@ class TestMnistAE(unittest.TestCase):
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and double
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.9612299373)
 
         logging.info("Will run workflow with float and ocl backend")
@@ -119,7 +119,7 @@ class TestMnistAE(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow with ocl and float
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.96072854)
 
         logging.info("Will run workflow with float and cuda backend")
@@ -130,7 +130,7 @@ class TestMnistAE(unittest.TestCase):
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and float
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.96101219)
 
         logging.info("All Ok")

@@ -54,7 +54,8 @@ class TestSamplesMnist(unittest.TestCase):
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
                           learning_rate=root.mnist.learning_rate,
-                          weights_decay=root.mnist.weights_decay)
+                          weights_decay=root.mnist.weights_decay,
+                          snapshot=False)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -73,7 +74,8 @@ class TestSamplesMnist(unittest.TestCase):
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
                            learning_rate=root.mnist.learning_rate,
-                           weights_decay=root.mnist.weights_decay)
+                           weights_decay=root.mnist.weights_decay,
+                           snapshot=True)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

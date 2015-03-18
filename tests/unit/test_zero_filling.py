@@ -29,7 +29,7 @@ class TestZeroFilling(unittest.TestCase):
 
         workflow.end_point.link_from(zero_filler)
 
-        workflow.initialize(device=self.device)
+        workflow.initialize(device=self.device, snapshot=False)
 
         workflow.run()
 

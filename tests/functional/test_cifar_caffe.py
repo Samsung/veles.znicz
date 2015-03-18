@@ -24,11 +24,11 @@ class TestCifarCaffe(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
 
-    def init_wf(self, workflow):
+    def init_wf(self, workflow, snapshot):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
-        workflow.initialize(device=self.device, snapshot=False)
+        workflow.initialize(device=self.device, snapshot=snapshot)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
@@ -38,7 +38,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    def init_and_run(self):
+    def init_and_run(self, snapshot):
         self.w = cifar.CifarWorkflow(
             dummy_workflow.DummyLauncher(),
             decision_config=root.cifar.decision,
@@ -48,7 +48,7 @@ class TestCifarCaffe(unittest.TestCase):
             loader_config=root.cifar.loader,
             layers=root.cifar.layers,
             loss_function=root.cifar.loss_function)
-        self.init_wf(self.w)
+        self.init_wf(self.w, snapshot)
         self.w.run()
 
     @timeout(1000)
@@ -167,7 +167,7 @@ class TestCifarCaffe(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow
-        self.init_and_run()
+        self.init_and_run(False)
         self.check_write_error_rate(self.w, 5667)
 
         logging.info("Will run workflow with double and cuda backend")
@@ -178,7 +178,7 @@ class TestCifarCaffe(unittest.TestCase):
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and double
-        self.init_and_run()
+        self.init_and_run(False)
         self.check_write_error_rate(self.w, 5877)
 
         file_name = self.w.snapshotter.file_name
@@ -191,7 +191,7 @@ class TestCifarCaffe(unittest.TestCase):
         self.wf.decision.max_epochs = 3
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf)
+        self.init_wf(self.wf, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, 4252)
 

@@ -58,7 +58,7 @@ class Test(unittest.TestCase):
             fwd.input = memory.Vector()
             fe.forwards.append(fwd)
             fwd.initialize(None)
-        workflow.initialize()
+        workflow.initialize(snapshot=False)
         fe.run()
         self.assertTrue(fe.file_name)
         self.assertTrue(os.path.exists(fe.file_name))

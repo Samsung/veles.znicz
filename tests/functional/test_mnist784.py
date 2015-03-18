@@ -26,10 +26,11 @@ class TestMnist784(unittest.TestCase):
     def tearDown(self):
         del self.device
 
-    def init_wf(self, workflow, device):
-        workflow.initialize(device=self.device,
+    def init_wf(self, workflow, device, snapshot):
+        workflow.initialize(device=device,
                             learning_rate=root.mnist784.learning_rate,
-                            weights_decay=root.mnist784.weights_decay)
+                            weights_decay=root.mnist784.weights_decay,
+                            snapshot=snapshot)
 
     def check_write_error_rate(self, workflow, mse, error):
         avg_mse = workflow.decision.epoch_metrics[1][0]
@@ -39,10 +40,10 @@ class TestMnist784(unittest.TestCase):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    def init_and_run(self, device):
+    def init_and_run(self, device, snapshot):
         self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
                                            layers=root.mnist784.layers)
-        self.init_wf(self.w, device)
+        self.init_wf(self.w, device, snapshot)
         self.w.run()
 
     @timeout(1000)
@@ -82,7 +83,7 @@ class TestMnist784(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.409835, 8357)
 
         file_name = self.w.snapshotter.file_name
@@ -95,7 +96,7 @@ class TestMnist784(unittest.TestCase):
         self.wf.decision.max_epochs = 5
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf, device)
+        self.init_wf(self.wf, device, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, 0.39173925, 7589)
 
@@ -108,7 +109,7 @@ class TestMnist784(unittest.TestCase):
 
         # Test workflow with cuda and double
         root.mnist784.decision.max_epochs = 3
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.403975599, 7967)
 
         logging.info("Will run workflow with float and ocl backend")
@@ -118,7 +119,7 @@ class TestMnist784(unittest.TestCase):
 
         # Test workflow with --disable-acceleration
         root.mnist784.decision.max_epochs = 3
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.w, 0.40309872, 8143)
 
 if __name__ == "__main__":

@@ -228,7 +228,7 @@ class TestGDWorkflow(unittest.TestCase, GDNumDiff):
                      "CPU, limited to 2 checks" if device is None else "GPU")
 
         w = Workflow(DummyLauncher(), ConvForward=ConvForward, ConvGD=ConvGD)
-        w.initialize(device=device)
+        w.initialize(device=device, snapshot=False)
 
         w.conv_forward.weights.map_read()
         conv_weights = w.conv_forward.weights.mem.copy()

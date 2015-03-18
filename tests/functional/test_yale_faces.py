@@ -25,11 +25,11 @@ class TestYaleFaces(unittest.TestCase):
     def setUp(self):
         self.device = opencl.Device()
 
-    def init_wf(self, workflow, device):
+    def init_wf(self, workflow, device, snapshot):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
-        workflow.initialize(device=device)
+        workflow.initialize(device=device, snapshot=snapshot)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
@@ -39,7 +39,7 @@ class TestYaleFaces(unittest.TestCase):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    def init_and_run(self, device):
+    def init_and_run(self, device, snapshot):
         self.workflow = yale_faces.YaleFacesWorkflow(
             dummy_workflow.DummyLauncher(),
             loader_name=root.yalefaces.loader_name,
@@ -48,7 +48,7 @@ class TestYaleFaces(unittest.TestCase):
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
             loss_function=root.yalefaces.loss_function)
-        self.init_wf(self.workflow, device)
+        self.init_wf(self.workflow, device, snapshot)
         self.workflow.run()
 
     @timeout(1500)
@@ -99,7 +99,7 @@ class TestYaleFaces(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 239)
 
         logging.info("Extracting the forward workflow...")
@@ -119,7 +119,7 @@ class TestYaleFaces(unittest.TestCase):
         self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf, device)
+        self.init_wf(self.wf, device, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, 167)
 
@@ -131,7 +131,7 @@ class TestYaleFaces(unittest.TestCase):
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and double
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 222)
 
         logging.info("Will run workflow with float and ocl backend")
@@ -142,7 +142,7 @@ class TestYaleFaces(unittest.TestCase):
             "engine": {"backend": "ocl"}})
 
         # Test workflow with ocl and float
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 233)
 
         logging.info("Will run workflow with float and cuda backend")
@@ -153,14 +153,14 @@ class TestYaleFaces(unittest.TestCase):
             "engine": {"backend": "cuda"}})
 
         # Test workflow with cuda and float
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 236)
 
     def _test_mnist_ae_cpu(self, device):
         logging.info("Will run workflow with --disable-acceleration")
 
         # Test workflow with --disable-acceleration
-        self.init_and_run(device)
+        self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 227)
 
 if __name__ == "__main__":
