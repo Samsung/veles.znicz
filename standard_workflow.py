@@ -200,10 +200,20 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def link_forwards(self, init_attrs, *parents):
         """
-        Parsing forward units from config.
-        Adds a new fowrard unit to self.forwards, links it with previous
-        fwd unit by link_from and link_attrs. If self.forwards is empty, links
-        unit with self.loader
+        Creates forward units ( :class:`veles.znicz.nn_units.ForwardBase`
+        descendant) from "layers" configuration.
+        Links first forward unit from *parents argument.
+        Links init_attrs argument with first forward unit attributes.
+        For each layer adds a new forward unit to self.forwards, links it with
+        the previous forward unit by :func:`veles.units.Unit.link_from()` .
+        Links attributes of that unit with attributes of the previous forward
+        unit by :func:`veles.units.Unit.link_attrs()` .
+        Returns the last of :class:`veles.znicz.nn_units.ForwardBase`
+        descendant units.
+        Arguments:
+            init_attrs: attrubutes of parents unit, which will be transfer to\
+            first forward unit
+            parents: units, from whom will be link first forward unit
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
@@ -255,6 +265,13 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         return last_fwd
 
     def link_repeater(self, *parents):
+        """
+        Links :class:`veles.workflow.Repeater` descendant from *parents.
+        Returns :class:`veles.workflow.Repeater` instance.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.workflow.Repeater` unit
+        """
         self.repeater.link_from(*parents)
         return self.repeater
 
@@ -265,6 +282,15 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         return {} if unit_config is None else self.dictify(unit_config)
 
     def link_loader(self, *parents):
+        """
+        Creates a new :class:`veles.loader.base.Loader` descendant. The actual
+        class type is taken from the global mapping by "loader_name" key.
+        Links :class:`veles.loader.base.Loader` descendant from *parents.
+        Returns :class:`veles.loader.base.Loader` descendant instance.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.loader.base.Loader` descendant unit
+        """
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
                 "Set the loader_name. Full list of names is %s. Or redefine"
@@ -276,6 +302,15 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         return self.loader
 
     def link_end_point(self, *parents):
+        """
+        Links the existing :class:`veles.workflow.EndPoint` and
+        :class:`veles.workflow.Repeater` with *parents.
+        Returns :class:`veles.workflow.EndPoint` instance.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.workflow.Repeater` and\
+            :class:`veles.workflow.EndPoint` unit
+        """
         self.repeater.link_from(*parents)
         self.end_point.link_from(*parents)
         self.end_point.gate_block = ~self.loader.train_ended
@@ -314,9 +349,9 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def _add_forward_unit(self, new_unit, init_attrs=None, *parents):
         """
-        Adds a new fowrard unit to self.forwards, links it with previous fwd
+        Adds a new forward unit to self.forwards, links it with previous fwd
         unit by link_from and link_attrs. If self.forwards is empty, links unit
-        with self.loader
+        with new_unit
         """
         if len(self.forwards) > 0:
             prev_forward_unit = self.forwards[-1],
@@ -351,10 +386,10 @@ class StandardWorkflow(StandardWorkflowBase):
     It means that User can change structure of Model (Convolutional,
     Fully connected, different parameters) and parameters of training in
     configuration file.
-    attributes:
+    Arguments:
         loss_function: name of Loss function. Choices are "softmax" or "mse"
-        loader_name: name of Loader. If loader_name is None, User should
-            redefine link_loader() function and create own Loader
+        loader_name: name of Loader. If loader_name is None, User should\
+        redefine link_loader() function and create own Loader
         loader_config: loader configuration parameters
         decision_config: decision configuration parameters
         snapshotter_config: snapshotter configuration parameters
@@ -422,11 +457,31 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_gds(self, *parents):
         """
-        Creates GD units by config (`self.layers`).
-
-        unit_before <- [first_gd] <- [gd] <- [gd] <- units_after
-                           ^                  ^
-                      inserted last      inserted first
+        Creates :class:`veles.znicz.nn_units.GradientDescentBase`
+        descendant units from from "layers" configuration.
+        Link the last of :class:`veles.znicz.nn_units.GradientDescentBase`
+        descendant units from *parents.
+        Links attributes of the last
+        :class:`veles.znicz.nn_units.GradientDescentBase` descendant units
+        from :class:`veles.znicz.evaluator.EvaluatorBase` descendant,
+        :class:`veles.znicz.decision.DecisionBase` descendant and corresponded
+        :class:`veles.znicz.nn_units.ForwardBase` descendant unit.
+        Links :class:`veles.znicz.nn_units.GradientDescentBase`
+        descendant with previous
+        :class:`veles.znicz.nn_units.GradientDescentBase` descendant in gds.
+        Links attributes of :class:`veles.znicz.nn_units.GradientDescentBase`
+        descendant from previous
+        :class:`veles.znicz.nn_units.GradientDescentBase` descendant,
+        :class:`veles.znicz.decision.DecisionBase` descendant and
+        corresponded :class:`veles.znicz.nn_units.ForwardBase` descendant unit.
+        Returns the first :class:`veles.znicz.nn_units.GradientDescentBase`
+        which correspond to the first :class:`veles.znicz.nn_units.ForwardBase`
+        descendant (but the first
+        :class:`veles.znicz.nn_units.GradientDescentBase` runs the last of all
+        gds. Do not confused).
+        Arguments:
+            parents: units, from whom will be link last of\
+            :class:`veles.znicz.nn_units.GradientDescentBase` descendant units
         """
         if type(self.layers) != list:
             raise error.BadFormatError("layers should be a list of dicts")
@@ -488,9 +543,29 @@ class StandardWorkflow(StandardWorkflowBase):
         return first_gd
 
     def link_loop(self, parent):
+        """
+        Closes the loop based on the :class:`veles.workflow.Repeater`.
+        Arguments:
+            parent: unit, from whom will be link\
+            :class:`veles.workflow.Repeater` unit
+        """
         self.repeater.link_from(parent)
 
     def link_evaluator(self, *parents):
+        """
+        Creates instance of :class:`veles.znicz.evaluator.EvaluatorBase`
+        descendant unit given the "loss_function" parameter.
+        Links :class:`veles.znicz.evaluator.EvaluatorBase`
+        descendant unit from *parents.
+        Links attributes of :class:`veles.znicz.evaluator.EvaluatorBase`
+        descendant unit from attributes of :class:`veles.loader.base.Loader`
+        descendant and :class:`veles.znicz.nn_units.ForwardBase` descendant.
+        Returns instance of :class:`veles.znicz.evaluator.EvaluatorBase`
+        descendant unit.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
+        """
         self._check_forwards()
         self.evaluator = (
             EvaluatorSoftmax(self) if self.loss_function == "softmax"
@@ -510,6 +585,22 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.evaluator
 
     def link_decision(self, *parents):
+        """
+        Creates instance of :class:`veles.znicz.decision.DecisionBase`
+        descendant unit given the "loss_function" parameter.
+        Links :class:`veles.znicz.decision.DecisionBase`
+        descendant unit from *parents.
+        Links attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant from attributes of :class:`veles.loader.base.Loader`
+        descendant, :class:`veles.znicz.evaluator.EvaluatorBase` descendant,
+        :class:`veles.znicz.decision.DecisionBase` descendant,
+        :class:`veles.workflow.Repeater`.
+        Returns instance of :class:`veles.znicz.decision.DecisionBase`
+        descendant.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.znicz.decision.DecisionBase` descendant unit
+        """
         kwargs = self.get_kwargs_for_config(self.decision_config)
         self.decision = (DecisionGD(self, **kwargs)
                          if self.loss_function == "softmax" else DecisionMSE(
@@ -541,6 +632,20 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.decision
 
     def link_snapshotter(self, *parents):
+        """
+        Creates instance of :class:`veles.snapshotter.SnapshotterBase`
+        descendant unit.
+        Links :class:`veles.snapshotter.SnapshotterBase`
+        descendant unit from *parents.
+        Links attributes of :class:`veles.snapshotter.SnapshotterBase`
+        descendant from attributes of
+        :class:`veles.znicz.decision.DecisionBase` descendant.
+        Returns instance of :class:`veles.snapshotter.SnapshotterBase`
+        descendant.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.snapshotter.SnapshotterBase` descendant unit
+        """
         kwargs = self.get_kwargs_for_config(self.snapshotter_config)
         self.snapshotter = nn_units.NNSnapshotter(
             self, **kwargs)
@@ -555,11 +660,31 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.snapshotter
 
     def link_end_point(self, *parents):
+        """
+        Links the existing :class:`veles.workflow.EndPoint` unit with *parents.
+        Returns :class:`veles.workflow.EndPoint` instance.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.workflow.EndPoint` unit
+        """
         self.end_point.link_from(*parents)
         self.end_point.gate_block = ~self.decision.complete
         return self.end_point
 
     def link_image_saver(self, *parents):
+        """
+        Creates instance of :class:`veles.znicz.image_saver.ImageSaver` .
+        Links :class:`veles.znicz.image_saver.ImageSaver` unit with *parents.
+        Links attributes of :class:`veles.znicz.image_saver.ImageSaver` from
+        attributes of :class:`veles.znicz.nn_units.ForwardBase`
+        descendant, :class:`veles.loader.base.Loader` descendant,
+        :class:`veles.znicz.decision.DecisionBase` descendant and
+        :class:`veles.snapshotter.SnapshotterBase` descendant units.
+        Returns instance of :class:`veles.znicz.image_saver.ImageSaver`.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.znicz.image_saver.ImageSaver` unit
+        """
         self._check_forwards()
         kwargs = self.get_kwargs_for_config(self.image_saver_config)
         self.image_saver = image_saver.ImageSaver(self, **kwargs)
@@ -583,6 +708,17 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.image_saver
 
     def link_lr_adjuster(self, *parents):
+        """
+        Creates instance of :class:`veles.znicz.lr_adjust.LearningRateAdjust`
+        unit.
+        Links :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit with
+        *parents. Changing "learning_rate" and "learning_rate_bias" in
+        :class:`veles.znicz.nn_units.GradientDescentBase` descendant units.
+        Returns instance of :class:`veles.znicz.lr_adjust.LearningRateAdjust`.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
+        """
         self._check_gds()
         self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
         for gd_elm in self.gds:
@@ -601,6 +737,20 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.lr_adjuster
 
     def link_meandispnorm(self, *parents):
+        """
+        Creates instance of
+        :class:`veles.mean_disp_normalizer.MeanDispNormalizer` unit.
+        Links :class:`veles.mean_disp_normalizer.MeanDispNormalizer`
+        unit with *parents.
+        Links attributes of
+        :class:`veles.mean_disp_normalizer.MeanDispNormalizer` from
+        attributes of :class:`veles.loader.base.Loader` descendant.
+        Returns instance of
+        :class:`veles.mean_disp_normalizer.MeanDispNormalizer`.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.mean_disp_normalizer.MeanDispNormalizer` unit
+        """
         self.meandispnorm = MeanDispNormalizer(self)
         self.meandispnorm.link_attrs(self.loader,
                                      ("input", "minibatch_data"),
@@ -609,12 +759,36 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.meandispnorm
 
     def link_ipython(self, *parents):
+        """
+        Creates instance of :class:`veles.interaction.Shell` unit.
+        Links :class:`veles.interaction.Shell`  unit with *parents.
+        Returns instance of :class:`veles.interaction.Shell`.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.interaction.Shell` unit
+        """
         self.ipython = Shell(self)
         self.ipython.link_from(*parents)
         self.ipython.gate_skip = ~self.decision.epoch_ended
         return self.ipython
 
     def link_error_plotter(self, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.plotting_units.AccumulatingPlotter` units.
+        Links the first :class:`veles.plotting_units.AccumulatingPlotter` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.AccumulatingPlotter` unit from
+        previous :class:`veles.plotting_units.AccumulatingPlotter` unit.
+        Links attributes of :class:`veles.plotting_units.AccumulatingPlotter`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant (epoch_n_err_pt).
+        Returns the last of :class:`veles.plotting_units.AccumulatingPlotter`
+        units.
+        Arguments:
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.AccumulatingPlotter` units.
+        """
         self.error_plotters = []
         prev = parents
         styles = ["r-", "b-", "k-"]
@@ -633,6 +807,20 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_conf_matrix_plotter(self, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.plotting_units.MatrixPlotter` .
+        Links the first :class:`veles.plotting_units.MatrixPlotter` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.MatrixPlotter` unit from
+        previous :class:`veles.plotting_units.MatrixPlotter` unit.
+        Links attributes of MatrixPlotter units from attributes of
+        :class:`veles.znicz.decision.DecisionBase` descendant.
+        Returns the last of :class:`veles.plotting_units.MatrixPlotter` units.
+        Arguments:
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.MatrixPlotter` units.
+        """
         self.conf_matrix_plotters = []
         prev = parents
         for i in range(1, len(self.decision.confusion_matrixes)):
@@ -647,6 +835,22 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_err_y_plotter(self, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Links the first :class:`veles.plotting_units.AccumulatingPlotter` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.AccumulatingPlotter` unit from
+        previous :class:`veles.plotting_units.AccumulatingPlotter` unit.
+        Links attributes of :class:`veles.plotting_units.AccumulatingPlotter`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant (max_err_y_sums).
+        Returns the last instance of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Arguments:
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.AccumulatingPlotter` units.
+        """
         styles = ["r-", "b-", "k-"]
         self.err_y_plotters = []
         prev = parents
@@ -664,7 +868,26 @@ class StandardWorkflow(StandardWorkflowBase):
         self.err_y_plotters[-1].redraw_plot = True
         return prev[0]
 
-    def link_multi_hist_plotter(self, layers, weights_input, *parents):
+    def link_multi_hist_plotter(self, weights_input, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.plotting_units.MultiHistogram` units.
+        Links the first :class:`veles.plotting_units.MultiHistogram` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.MultiHistogram` unit from
+        previous :class:`veles.plotting_units.MultiHistogram` unit.
+        Links attributes of :class:`veles.plotting_units.MultiHistogram` units
+        from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant.
+        Returns the last :class:`veles.plotting_units.MultiHistogram` unit.
+        Arguments:
+            weights_input: weights to plotting. "weights" or\
+            "gradient_weights" for example
+            limit: max number of pictures on one plotter
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.MultiHistogram` units.
+        """
+
         self.multi_hist_plotter = []
         prev = parents
         link_units = self._get_weights_source_units(weights_input)
@@ -693,6 +916,26 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_weights_plotter(self, limit, weights_input, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.znicz.nn_plotting_units.Weights2D` units.
+        Links the first :class:`veles.znicz.nn_plotting_units.Weights2D` unit
+        with *parents.
+        Links each :class:`veles.znicz.nn_plotting_units.Weights2D` unit from
+        previous :class:`veles.znicz.nn_plotting_units.Weights2D` unit.
+        Links attributes of :class:`veles.znicz.nn_plotting_units.Weights2D`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant, :class:`veles.loader.base.Loader` descendant,
+        :class:`veles.znicz.nn_units.ForwardBase` descendant.
+        Returns the last instance of
+        :class:`veles.znicz.nn_plotting_units.Weights2D` unit.
+        Arguments:
+            weights_input: weights to plotting. "weights" or\
+            "gradient_weights" for example
+            limit: max number of pictures on one plotter
+            parents: units, from whom will be link the first of\
+            :class:`veles.znicz.nn_plotting_units.Weights2D` units.
+        """
         self._check_forwards()
         prev = parents
         self.weights_plotter = []
@@ -730,6 +973,26 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_similar_weights_plotter(self, weights_input, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.znicz.diversity.SimilarWeights2D` units.
+        Links the first :class:`veles.znicz.diversity.SimilarWeights2D` unit
+        with *parents.
+        Links each :class:`veles.znicz.diversity.SimilarWeights2D` unit from
+        previous :class:`veles.znicz.diversity.SimilarWeights2D` unit.
+        Links attributes of :class:`veles.znicz.diversity.SimilarWeights2D`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant, :class:`veles.loader.base.Loader` descendant,
+        :class:`veles.znicz.nn_units.ForwardBase` descendant and
+        :class:`veles.znicz.nn_plotting_units.Weights2D` unit.
+        Returns the last of :class:`veles.znicz.diversity.SimilarWeights2D`
+        units.
+        Arguments:
+            weights_input: weights to plotting. "weights" or\
+            "gradient_weights" for example
+            parents: units, from whom will be link the first of\
+            :class:`veles.znicz.diversity.SimilarWeights2D` units.
+        """
         self.similar_weights_plotter = []
         prev = parents
         k = 0
@@ -771,6 +1034,18 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_table_plotter(self, *parents):
+        """
+        Creates instance of :class:`veles.plotting_units.TableMaxMin` unit.
+        Links :class:`veles.plotting_units.TableMaxMin` unit with *parents.
+        Links attributes of :class:`veles.plotting_units.TableMaxMin` from
+        attributes of :class:`veles.znicz.decision.DecisionBase` descendant,
+        :class:`veles.znicz.nn_units.GradientDescentBase` descendant units ,
+        :class:`veles.znicz.nn_units.ForwardBase` descendant.
+        Returns instance of :class:`veles.plotting_units.TableMaxMin` unit.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.plotting_units.TableMaxMin` unit.
+        """
         self._check_forwards()
         self._check_gds()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
@@ -797,6 +1072,22 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.table_plotter
 
     def link_mse_plotter(self, *parents):
+        """
+        Creates list of instances of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Links the first :class:`veles.plotting_units.AccumulatingPlotter` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.AccumulatingPlotter` unit from
+        previous :class:`veles.plotting_units.AccumulatingPlotter` unit.
+        Links attributes of :class:`veles.plotting_units.AccumulatingPlotter`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant (epoch_metrics).
+        Returns the last instance of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Arguments:
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.AccumulatingPlotter` units.
+        """
         prev = parents
         self.mse_plotter = []
         styles = ["", "", "k-"]
@@ -816,8 +1107,21 @@ class StandardWorkflow(StandardWorkflowBase):
 
     def link_min_max_plotter(self, is_min, *parents):
         """
-        :param is_min: True if linking min plotter, otherwise, False for max.
-        :return: None.
+        Creates list of instances of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Links the first :class:`veles.plotting_units.AccumulatingPlotter` unit
+        with *parents.
+        Links each :class:`veles.plotting_units.AccumulatingPlotter` unit from
+        previous :class:`veles.plotting_units.AccumulatingPlotter` unit.
+        Links attributes of :class:`veles.plotting_units.AccumulatingPlotter`
+        units from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant (epoch_metrics).
+        Returns the last instance of
+        :class:`veles.plotting_units.AccumulatingPlotter`.
+        Arguments:
+            is_min: True if linking min plotter, otherwise, False for max.
+            parents: units, from whom will be link the first of\
+            :class:`veles.plotting_units.AccumulatingPlotter` units.
         """
         prev = parents
         if is_min:
@@ -841,6 +1145,17 @@ class StandardWorkflow(StandardWorkflowBase):
         return prev[0]
 
     def link_image_plotter(self, *parents):
+        """
+        Creates instance of :class:`veles.plotting_units.ImagePlotter` unit.
+        Links :class:`veles.plotting_units.ImagePlotter` unit with *parents.
+        Links attributes of :class:`veles.plotting_units.ImagePlotter` from
+        attributes of :class:`veles.znicz.decision.DecisionBase` descendant,
+        :class:`veles.znicz.nn_units.ForwardBase` descendant.
+        Returns instance of :class:`veles.plotting_units.ImagePlotter` unit.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.plotting_units.ImagePlotter` unit.
+        """
         self._check_forwards()
         self.image_plotter = plotting_units.ImagePlotter(self,
                                                          name="output sample")
@@ -853,6 +1168,21 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.image_plotter
 
     def link_immediate_plotter(self, *parents):
+        """
+        Creates instance of :class:`veles.plotting_units.ImmediatePlotter`
+        unit.
+        Links :class:`veles.plotting_units.ImmediatePlotter` unit with
+        *parents.
+        Links attributes of :class:`veles.plotting_units.ImmediatePlotter`
+        from attributes of :class:`veles.znicz.decision.DecisionBase`
+        descendant, :class:`veles.znicz.nn_units.ForwardBase` descendant,
+        :class:`veles.loader.base.Loader` descendant.
+        Returns instance of :class:`veles.plotting_units.ImmediatePlotter`
+        unit.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.plotting_units.ImmediatePlotter` unit.
+        """
         self._check_forwards()
         self.immediate_plotter = plotting_units.ImmediatePlotter(
             self, name="ImmediatePlotter", ylim=[-1.1, 1.1])
@@ -873,6 +1203,14 @@ class StandardWorkflow(StandardWorkflowBase):
         return self.immediate_plotter
 
     def link_result_unit(self):
+        """
+        Creates instance of
+        :class:`veles.znicz.standard_workflow.ForwardWorkflowExtractor` unit.
+        Links :class:`veles.znicz.decision.DecisionBase` descendant from
+        :class:`veles.znicz.standard_workflow.ForwardWorkflowExtractor`.
+        Returns instance of
+        :class:`veles.znicz.standard_workflow.ForwardWorkflowExtractor`.
+        """
         res_unit = self.ForwardWorkflowExtractor(
             self, loader_name=self.result_loader_name,
             loader_config=self.result_loader_config,
@@ -882,6 +1220,17 @@ class StandardWorkflow(StandardWorkflowBase):
         return res_unit
 
     def link_data_saver(self, *parents):
+        """
+        Creates instance of :class:`veles.loader.saver.MinibatchesSaver` unit.
+        Links :class:`veles.loader.saver.MinibatchesSaver` unit with
+        *parents.
+        Links attributes of :class:`veles.loader.saver.MinibatchesSaver` units
+        from attributes of :class:`veles.loader.base.Loader` descendant
+        Returns instance of :class:`veles.loader.saver.MinibatchesSaver` unit.
+        Arguments:
+            parents: units, from whom will be link\
+            :class:`veles.loader.saver.MinibatchesSaver` unit.
+        """
         kwargs = self.get_kwargs_for_config(self.data_saver_config)
         self.data_saver = MinibatchesSaver(
             self, **kwargs)
@@ -917,6 +1266,9 @@ class StandardWorkflow(StandardWorkflowBase):
 
 @implementer(IUnit, IDistributable)
 class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
+    """
+    Class to extract core of Neural Network without back propagation.
+    """
     def __init__(self, workflow, **kwargs):
         assert isinstance(workflow, StandardWorkflow)
         super(ForwardWorkflowExtractor, self).__init__(workflow, **kwargs)

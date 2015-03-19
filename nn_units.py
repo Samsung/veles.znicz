@@ -82,12 +82,14 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
 
 @six.add_metaclass(MatchingObject)
 class ForwardBase(AcceleratedUnit):
+    """Base class for forward propagation units.
+    """
     MAPPING = set()
 
 
 @implementer(IDistributable)
 class Forward(ForwardBase):
-    """Base class for forward propagation units.
+    """Class for forward propagation units.
 
     Attributes:
         input: input layer values.

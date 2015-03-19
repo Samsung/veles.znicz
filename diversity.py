@@ -132,6 +132,9 @@ def get_similar_kernels(weights, channels=3,
 
 
 class SimilarWeights2D(Weights2D):
+    """
+    Class for plotters, which show similar kernels
+    """
     def __init__(self, workflow, **kwargs):
         kwargs['split_channels'] = False
         super(SimilarWeights2D, self).__init__(workflow, **kwargs)
