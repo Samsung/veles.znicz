@@ -20,13 +20,13 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
 from veles.znicz.pooling import PoolingBase
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class GDPooling(PoolingBase, nn_units.GradientDescentBase,
                 TriviallyDistributable):
     """Gradient Descent for pooling unit.

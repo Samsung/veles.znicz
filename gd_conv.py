@@ -22,12 +22,12 @@ from zope.interface import implementer
 
 import veles.error as error
 from veles.memory import roundup
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     """Gradient descent for simple convolutional layer (no activation).
 

@@ -30,7 +30,7 @@ from zope.interface import implementer
 
 import veles.error as error
 import veles.memory as formats
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.prng.uniform import Uniform
@@ -93,7 +93,7 @@ class PoolingBase(Unit):
         return self.input.size // (self.input_batch_size * self.sx * self.sy)
 
 
-@implementer(IOpenCLUnit, IDistributable)
+@implementer(IOpenCLUnit, ICUDAUnit, IDistributable)
 class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     """Pooling forward propagation.
 

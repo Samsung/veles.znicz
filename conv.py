@@ -10,14 +10,13 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import cuda4py.blas as cublas
-import logging
 import math
 from math import pi
 import numpy
 import time
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.compat import from_none
 import veles.error as error
 from veles.memory import roundup, Vector
@@ -37,7 +36,7 @@ class ConvolutionalBase(Unit):
         self.link_attrs(other, *self.CONV_ATTRS)
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class Conv(ConvolutionalBase, nn_units.NNLayerBase):
     """Convolutional forward propagation with linear activation f(x) = x.
 
@@ -315,8 +314,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self.apply_activation()
 
     def run(self):
-        if self.logger.isEnabledFor(logging.DEBUG):
-            t1 = time.time()
+        t1 = time.time()
         retval = super(Conv, self).run()
         if retval:
             return retval
