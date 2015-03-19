@@ -11,7 +11,7 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 
 import veles.error as error
 import veles.memory as formats
@@ -51,9 +51,11 @@ class CutterBase(Unit):
             self.input.shape[2] * self.input.shape[3] * self.input.itemsize))
         setattr(self, "_%s_slice_pitch" % prefix,
                 self.input.sample_size * self.input.itemsize)
+        setattr(self, "_%s_slice_height" % prefix,
+                self.input.shape[1])
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class Cutter(nn_units.Forward, CutterBase):
     MAPPING = {"cutter"}
     """Cuts rectangular area from an input.
@@ -105,8 +107,11 @@ class Cutter(nn_units.Forward, CutterBase):
     def ocl_init(self):
         pass
 
+    def cuda_init(self):
+        pass
+
     def ocl_run(self):
-        """Forward propagation from batch on GPU.
+        """Forward propagation from batch on OpenCL.
         """
         self.unmap_vectors(self.output, self.input)
         self.device.queue_.copy_buffer_rect(
@@ -114,6 +119,15 @@ class Cutter(nn_units.Forward, CutterBase):
             self._src_origin, (0, 0, 0), self._region,
             self._src_row_pitch, self._src_slice_pitch,
             need_event=False)
+
+    def cuda_run(self):
+        """Forward propagation from batch on CUDA.
+        """
+        self.unmap_vectors(self.output, self.input)
+        self.input.devmem.memcpy_3d_async(
+            self._src_origin, (0, 0, 0), self._region,
+            self._src_row_pitch, self._src_slice_height,
+            dst=self.output.devmem)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -127,7 +141,7 @@ class Cutter(nn_units.Forward, CutterBase):
             self.padding[0]:self.padding[0] + self.output_shape[2], :]
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class GDCutter(nn_units.GradientDescentBase, CutterBase):
     """Gradient descent for Cutter.
     """
@@ -176,8 +190,11 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
         self.assign_kernel("clear_err_input")
         self.set_args(self.err_input)
 
+    def cuda_init(self):
+        pass
+
     def ocl_run(self):
-        """Forward propagation from batch on GPU.
+        """Backward propagation from batch on OpenCL.
         """
         self.unmap_vectors(self.err_output, self.err_input)
         self.execute_kernel([self.err_input.size], None)
@@ -186,6 +203,16 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
             (0, 0, 0), self._dst_origin, self._region,
             0, 0, self._dst_row_pitch, self._dst_slice_pitch,
             need_event=False)
+
+    def cuda_run(self):
+        """Backward propagation from batch on OpenCL.
+        """
+        self.unmap_vectors(self.err_output, self.err_input)
+        self.err_input.devmem.memset32_async()
+        self.err_output.devmem.memcpy_3d_async(
+            (0, 0, 0), self._dst_origin, self._region,
+            0, 0, self._dst_row_pitch, self._dst_slice_height,
+            dst=self.err_input.devmem)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
