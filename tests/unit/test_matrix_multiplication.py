@@ -21,7 +21,7 @@ import veles.backends as opencl
 import veles.prng as prng
 from veles import opencl_types
 from veles.dummy import DummyWorkflow
-from veles.accelerated_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialAcceleratedUnit
 import veles.znicz as znicz
 znicz.nothing()
 
@@ -92,7 +92,7 @@ class TestMatrixMultiplication(unittest.TestCase):
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
-        obj = TrivialOpenCLUnit(DummyWorkflow())
+        obj = TrivialAcceleratedUnit(DummyWorkflow())
         obj.initialize(device=device)
 
         self.a.initialize(device)

@@ -23,7 +23,7 @@ import time
 from zope.interface import implementer
 
 from veles.memory import reshape, roundup, Vector
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 from collections import namedtuple
 
@@ -41,7 +41,7 @@ AdaGradGDObjects = namedtuple("AdaGradGDObjects", ("epsilon",
                                                    "bias"))
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class GradientDescent(nn_units.GradientDescentBase):
     """Gradient Descent unit for :class:`veles.znicz.all2all.All2All`.
 

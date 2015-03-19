@@ -14,13 +14,13 @@ import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.error as error
 from veles.memory import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class All2All(nn_units.NNLayerBase):
     """All2All with linear activation f(x) = x.
 

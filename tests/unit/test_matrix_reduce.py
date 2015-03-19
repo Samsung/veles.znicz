@@ -19,7 +19,7 @@ import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.dummy import DummyWorkflow
-from veles.accelerated_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialAcceleratedUnit
 
 
 class TestMatrixReduce(unittest.TestCase):
@@ -42,7 +42,7 @@ class TestMatrixReduce(unittest.TestCase):
         if A_COL:
             defines["A_COL"] = 1
 
-        tmp = TrivialOpenCLUnit(DummyWorkflow())
+        tmp = TrivialAcceleratedUnit(DummyWorkflow())
         tmp.initialize(device=self.device)
         tmp.sources_["test_matrix_reduce"] = {}
 

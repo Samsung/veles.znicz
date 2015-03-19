@@ -16,7 +16,7 @@ from veles.memory import roundup, Vector
 from veles.backends import Device
 import veles.prng as prng
 from veles.dummy import DummyWorkflow
-from veles.accelerated_units import TrivialOpenCLUnit
+from veles.accelerated_units import TrivialAcceleratedUnit
 
 
 class TestMatrixTranspose(unittest.TestCase):
@@ -33,7 +33,7 @@ class TestMatrixTranspose(unittest.TestCase):
         prng.get().fill(a.mem)
         b = Vector(numpy.zeros([WIDTH * 2, HEIGHT], dtype=dtype))
 
-        obj = TrivialOpenCLUnit(DummyWorkflow())
+        obj = TrivialAcceleratedUnit(DummyWorkflow())
         obj.initialize(device=device)
 
         a.initialize(device)

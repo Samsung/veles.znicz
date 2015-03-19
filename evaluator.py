@@ -15,7 +15,7 @@ from zope.interface import implementer
 from veles.distributable import TriviallyDistributable
 import veles.error as error
 from veles.memory import assert_addr, ravel, Vector
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
 from veles.opencl_types import numpy_dtype_to_opencl
 
 
@@ -44,7 +44,7 @@ class EvaluatorBase(AcceleratedUnit):
             vec.initialize(self.device)
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 

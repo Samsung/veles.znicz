@@ -304,7 +304,7 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
                    device, **kwargs):
         super(ApproximatorWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
-            minibatch_size=minibatch_size, device=device)
+            minibatch_size=minibatch_size, device=device, **kwargs)
 
 
 def run(load, main):

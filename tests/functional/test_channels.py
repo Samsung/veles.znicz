@@ -88,7 +88,8 @@ class TestChannels(unittest.TestCase):
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.initialize(device=self.device,
-                          minibatch_size=root.channels.loader.minibatch_size)
+                          minibatch_size=root.channels.loader.minibatch_size,
+                          snapshot=False)
         self.assertEqual(self.w.evaluator.labels,
                          self.w.loader.minibatch_labels)
         self.w.run()
@@ -107,7 +108,8 @@ class TestChannels(unittest.TestCase):
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.initialize(device=self.device,
-                           minibatch_size=root.channels.loader.minibatch_size)
+                           minibatch_size=root.channels.loader.minibatch_size,
+                           snapshot=True)
         self.assertEqual(self.wf.evaluator.labels,
                          self.wf.loader.minibatch_labels)
         self.wf.run()

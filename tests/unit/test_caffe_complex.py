@@ -471,7 +471,7 @@ class ComplexTest(standard_test.StandardTest, Logger):
         self._create_gd_units(cur_iter)
         self.workflow.end_point.link_from(self.workflow["gd_conv1"])
 
-        self.workflow.initialize(device=self.device)
+        self.workflow.initialize(device=self.device, snapshot=False)
         self.info("self.workflow.initialize() completed")
 
         self._load_labels_and_data(cur_iter)

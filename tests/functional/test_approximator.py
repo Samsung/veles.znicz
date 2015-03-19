@@ -66,7 +66,8 @@ class TestApproximator(unittest.TestCase):
             device=self.device,
             learning_rate=root.approximator.learning_rate,
             weights_decay=root.approximator.weights_decay,
-            minibatch_size=root.approximator.loader.minibatch_size)
+            minibatch_size=root.approximator.loader.minibatch_size,
+            snapshot=False)
         self.w.run()
         file_name = self.w.snapshotter.file_name
 
@@ -83,7 +84,8 @@ class TestApproximator(unittest.TestCase):
             device=self.device,
             learning_rate=root.approximator.learning_rate,
             weights_decay=root.approximator.weights_decay,
-            minibatch_size=root.approximator.loader.minibatch_size)
+            minibatch_size=root.approximator.loader.minibatch_size,
+            snapshot=True)
         self.wf.run()
 
         avg_mse = self.wf.decision.epoch_metrics[2][0]

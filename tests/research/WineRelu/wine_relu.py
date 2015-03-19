@@ -132,7 +132,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
         super(WineReluWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
-            device=device)
+            device=device, **kwargs)
 
 
 def run(load, main):

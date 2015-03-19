@@ -10,7 +10,7 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
 import veles.error as error
 from veles.memory import eq_addr, ravel
 from veles.znicz.nn_units import Forward, GradientDescentBase
@@ -22,7 +22,7 @@ class Activation(AcceleratedUnit):
         self.sources_["activation"] = {}
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class ActivationForward(Forward, Activation):
     MAPPING = set()
 
@@ -87,7 +87,7 @@ class ActivationForward(Forward, Activation):
         self._gpu_run()
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class ActivationBackward(GradientDescentBase, Activation):
     """Backward activation pass: err_input = err_output * F'(output).
 
@@ -178,7 +178,6 @@ class ActivationBackward(GradientDescentBase, Activation):
         self._gpu_run()
 
 
-@implementer(IOpenCLUnit)
 class ForwardTanh(ActivationForward):
     """Forward pass for y = 1.7159 * tanh(0.6666 * x).
     """
@@ -192,7 +191,6 @@ class ForwardTanh(ActivationForward):
         out *= 1.7159
 
 
-@implementer(IOpenCLUnit)
 class BackwardTanh(ActivationBackward):
     """Backward pass for :class:`ForwardTanh`.
     """
@@ -208,7 +206,6 @@ class BackwardTanh(ActivationBackward):
             err_input)
 
 
-@implementer(IOpenCLUnit)
 class ForwardSigmoid(ActivationForward):
     """Forward pass for y = 1.0 / (1.0 + exp(-x)).
     """
@@ -221,7 +218,6 @@ class ForwardSigmoid(ActivationForward):
         numpy.reciprocal(1.0 + numpy.exp(-out), out)
 
 
-@implementer(IOpenCLUnit)
 class BackwardSigmoid(ActivationBackward):
     """Backward pass for :class:`ForwardSigmoid`.
     """
@@ -235,7 +231,6 @@ class BackwardSigmoid(ActivationBackward):
         numpy.multiply(err_output, output * (1.0 - output), err_input)
 
 
-@implementer(IOpenCLUnit)
 class ForwardMul(ActivationForward):
     """Forward pass for :math:`y = k x`.
     """
@@ -302,7 +297,6 @@ class ForwardMul(ActivationForward):
         out *= self.factor
 
 
-@implementer(IOpenCLUnit)
 class BackwardMul(ActivationBackward):
     """Backward pass for :class:`ForwardMul`.
     """
@@ -342,7 +336,6 @@ class BackwardMul(ActivationBackward):
         err_input[:] = err_output[:] * self.factor
 
 
-@implementer(IOpenCLUnit)
 class ForwardRELU(ActivationForward):
     """
     This activation is taken from article
@@ -361,7 +354,6 @@ class ForwardRELU(ActivationForward):
         out[:] = numpy.where(inp > 15, inp, numpy.log(numpy.exp(inp) + 1.0))
 
 
-@implementer(IOpenCLUnit)
 class BackwardRELU(ActivationBackward):
     """Backward pass for :class:`ForwardRELU`
     """
@@ -375,7 +367,6 @@ class BackwardRELU(ActivationBackward):
         numpy.multiply(err_output, 1.0 - numpy.exp(-output), err_input)
 
 
-@implementer(IOpenCLUnit)
 class ForwardStrictRELU(ActivationForward):
     """
     Forward pass for :math:`y = \\max(0, x)`.
@@ -405,7 +396,6 @@ class ForwardStrictRELU(ActivationForward):
         pass
 
 
-@implementer(IOpenCLUnit)
 class BackwardStrictRELU(ActivationBackward):
     """
     Backward pass for :class:`ForwardStrictRELU`.
@@ -438,7 +428,6 @@ class BackwardStrictRELU(ActivationBackward):
         pass
 
 
-@implementer(IOpenCLUnit)
 class ForwardLog(ActivationForward):
     """Forward pass for :math:`y = \\log(x + \\sqrt{x^2 + 1})`.
     """
@@ -461,7 +450,6 @@ class ForwardLog(ActivationForward):
         numpy.log(inp + numpy.sqrt(numpy.square(inp) + 1), out)
 
 
-@implementer(IOpenCLUnit)
 class BackwardLog(ActivationBackward):
     """Backward pass for :class:`ForwardLog`.
     """
@@ -488,7 +476,6 @@ class BackwardLog(ActivationBackward):
             err_input)
 
 
-@implementer(IOpenCLUnit)
 class ForwardTanhLog(ActivationForward):
     """Forward pass for hybrid tanh-log function.
     """
@@ -517,7 +504,6 @@ class ForwardTanhLog(ActivationForward):
             out[i] = y
 
 
-@implementer(IOpenCLUnit)
 class BackwardTanhLog(ActivationBackward):
     """Backward pass for hybrid tanh-log function.
     """
@@ -554,7 +540,6 @@ class BackwardTanhLog(ActivationBackward):
         self.set_args(self.input, self.output, self.err_output, self.err_input)
 
 
-@implementer(IOpenCLUnit)
 class ForwardSinCos(ActivationForward):
     """Forward pass for y = sin(x) if idx(x) is odd else cos(x).
     """
@@ -575,7 +560,6 @@ class ForwardSinCos(ActivationForward):
         out[0::2] = numpy.cos(inp[0::2])
 
 
-@implementer(IOpenCLUnit)
 class BackwardSinCos(ActivationBackward):
     """Backward pass for :class:`ForwardSinCos`.
     """

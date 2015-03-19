@@ -219,7 +219,7 @@ class VideoAEWorkflow(nn_units.NNWorkflow):
             forward.device = device
         return super(VideoAEWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
-            device=device)
+            device=device, **kwargs)
 
 
 def run(load, main):
