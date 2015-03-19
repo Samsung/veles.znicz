@@ -1,5 +1,5 @@
 #include "defines.cu"
-#include "highlight.cuh"
+#include "highlight.cu"
 #include "random.cu"
 
 

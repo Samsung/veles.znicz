@@ -1,4 +1,4 @@
-#include "pooling_common.cuh"
+#include "pooling_common.cu"
 #include "random.cu"
 
 /// @brief Does max pooling over convolutional layer output.

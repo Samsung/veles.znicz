@@ -191,7 +191,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self.n_err[0] += batch_size - n_ok
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     """Evaluator for nn softmax output from the batch labels.
 

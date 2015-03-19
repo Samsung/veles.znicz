@@ -1,5 +1,5 @@
 #include "defines.cu"
-#include "highlight.cuh"
+#include "highlight.cu"
 
 /// @brief Evaluate softmax.
 /// @param y output of the last layer with applied softmax.

@@ -1,24 +1,23 @@
-import logging
+"""
+Created on February ??, 2015
+
+A unit test for ResizableAll2All - recursive net building block.
+"""
+
+
 import numpy
-import unittest
 
-
-from veles.backends import Device
 from veles.config import root
 from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 import veles.opencl_types as opencl_types
+from veles.tests import AcceleratedTest, assign_backend
 
 from veles.znicz.resizable_all2all import ResizableAll2All
 
 
-class TestResizableAll2All(unittest.TestCase):
-
-    def setUp(self):
-        self.device = Device()
-
-    def tearDown(self):
-        pass
+class TestResizableAll2All(AcceleratedTest):
+    ABSTRACT = True
 
     def test_adjust(self):
         dtype = opencl_types.dtypes[root.common.precision_type]
@@ -38,6 +37,15 @@ class TestResizableAll2All(unittest.TestCase):
         self.assertEqual(ra2a.output.shape, (5, 6))
 
 
+@assign_backend("ocl")
+class OpenCLTestResizableAll2All(TestResizableAll2All):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestResizableAll2All(TestResizableAll2All):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    unittest.main()
+    AcceleratedTest.main()

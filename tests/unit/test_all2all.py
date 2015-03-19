@@ -5,32 +5,28 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
+
 import numpy
 import time
-import unittest
 
 from veles.config import root
 from veles.memory import Vector
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
+from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.all2all as all2all
 from veles.dummy import DummyWorkflow
 
 
-class TestAll2All(unittest.TestCase):
-    def setUp(self):
-        prng.get().seed(1234)
-        self.device = opencl.Device()
+class TestAll2All(AcceleratedTest):
+    ABSTRACT = True
 
-    def tearDown(self):
-        gc.collect()
-        del self.device
+    def setUp(self):
+        super(TestAll2All, self).setUp()
+        prng.get().seed(1234)
 
     def test_with_fixed_input(self):
-        logging.info("Will test all2all unit")
+        self.info("Will test all2all unit")
         inp = Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.array([[1, 2, 3, 2, 1],
@@ -65,13 +61,13 @@ class TestAll2All(unittest.TestCase):
 
         max_diff = numpy.fabs(t.ravel() - y.ravel()).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
-        logging.info("All Ok")
+                        "Result differs by %.6f" % max_diff)
+        self.info("All Ok")
 
     def _do_test(self, device, Unit):
         inp = Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
-        inp.mem = numpy.empty([1999, 1777], dtype=dtype)
+        inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)
 
         if device is not None:
@@ -99,16 +95,16 @@ class TestAll2All(unittest.TestCase):
                 c.run()
             device.sync()
             dt = time.time() - t0
-            logging.info("Completed in %.6f sec", dt)
+            self.info("Completed in %.6f sec", dt)
         else:
             c.run()
         c.output.map_read()  # get results back
 
         if hasattr(c, "max_idx"):
             c.max_idx.map_read()
-            return (c.output.mem.copy(), c.max_idx.mem.copy())
+            return c.output.mem.copy(), c.max_idx.mem.copy()
 
-        return (c.output.mem.copy(),)
+        return c.output.mem.copy(),
 
     def _do_gpu_cpu(self, Unit):
         y_gpus = self._do_test(self.device, Unit)
@@ -116,29 +112,29 @@ class TestAll2All(unittest.TestCase):
         for i, y_gpu in enumerate(y_gpus):
             y_cpu = y_cpus[i]
             max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
-            logging.info("Difference is %.12f", max_diff)
+            self.info("Difference is %.12f", max_diff)
             self.assertLess(max_diff, 0.0001,
-                            "Result differs by %.6f" % (max_diff))
-        logging.info("All Ok")
+                            "Result differs by %.6f" % max_diff)
+        self.info("All Ok")
 
     def test_linear(self):
-        logging.info("Will test linear all2all unit for gpu/cpu correctness")
+        self.info("Will test linear all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2All)
 
     def test_tanh(self):
-        logging.info("Will test Tanh all2all unit for gpu/cpu correctness")
+        self.info("Will test Tanh all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllTanh)
 
     def test_sigmoid(self):
-        logging.info("Will test Sigmoid all2all unit for gpu/cpu correctness")
+        self.info("Will test Sigmoid all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllSigmoid)
 
     def test_relu(self):
-        logging.info("Will test RELU all2all unit for gpu/cpu correctness")
+        self.info("Will test RELU all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllRELU)
 
     def test_softmax(self):
-        logging.info("Will test Softmax all2all unit for gpu/cpu correctness")
+        self.info("Will test Softmax all2all unit for gpu/cpu correctness")
         self._do_gpu_cpu(all2all.All2AllSoftmax)
 
     def test_two_stage(self):
@@ -164,7 +160,16 @@ class TestAll2All(unittest.TestCase):
         self.assertTrue(a2a.weights)
         self.assertTrue(a2a.bias)
 
+
+@assign_backend("ocl")
+class OpenCLTestAll2All(AcceleratedTest):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestAll2All(AcceleratedTest):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

@@ -5,15 +5,11 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
-import unittest
 
 import numpy
 
 from veles.config import root
 from veles.memory import Vector
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.znicz.gd import (GradientDescent, GDRELU, GDSoftmax, GDTanh,
@@ -22,7 +18,7 @@ from veles.dummy import DummyWorkflow
 import veles.znicz.all2all as all2all
 from veles.znicz.nn_units import GradientDescentBase
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
-from veles.tests import timeout
+from veles.tests import timeout, AcceleratedTest, assign_backend
 from veles.tests.doubling_reset import patch
 
 
@@ -53,13 +49,8 @@ class PatchedGDSigmoid(GDSigmoid, PatchedGradientDescentBase):
     pass
 
 
-class TestGD(unittest.TestCase, GDNumDiff):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestGD(AcceleratedTest, GDNumDiff):
+    ABSTRACT = True
 
     def _do_test(self, device, Forward, GD):
         batch_size = 2
@@ -125,7 +116,7 @@ class TestGD(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False)
 
         return c.err_input.mem.copy(), c.weights.mem.copy(), c.bias.mem.copy()
@@ -136,46 +127,54 @@ class TestGD(unittest.TestCase, GDNumDiff):
         err_cpu, weights_cpu, bias_cpu = self._do_test(None,
                                                        Forward, GD)
         max_diff = numpy.fabs(err_gpu.ravel() - err_cpu.ravel()).max()
-        logging.info("err_input difference is %.12f", max_diff)
+        self.info("err_input difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU err_input differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(weights_gpu.ravel() - weights_cpu.ravel()).max()
-        logging.info("weights difference is %.12f", max_diff)
+        self.info("weights difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU weights differs by %.6f" % (max_diff))
         max_diff = numpy.fabs(bias_gpu.ravel() - bias_cpu.ravel()).max()
-        logging.info("bias difference is %.12f", max_diff)
+        self.info("bias difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,
                         "GPU-CPU bias differs by %.6f" % (max_diff))
-        logging.info("All Ok")
+        self.info("All Ok")
 
     @timeout()
     def test_gpu_cpu_linear(self):
-        logging.info("Will test linear gd unit for gpu/cpu correctness")
+        self.info("Will test linear gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2All, PatchedGradientDescent)
 
     @timeout()
     def test_gpu_cpu_relu(self):
-        logging.info("Will test RELU gd unit for gpu/cpu correctness")
+        self.info("Will test RELU gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllRELU, PatchedGDRELU)
 
     @timeout()
     def test_gpu_cpu_softmax(self):
-        logging.info("Will test SoftMax gd unit for gpu/cpu correctness")
+        self.info("Will test SoftMax gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllSoftmax, PatchedGDSoftmax)
 
     @timeout()
     def test_gpu_cpu_tanh(self):
-        logging.info("Will test Tanh gd unit for gpu/cpu correctness")
+        self.info("Will test Tanh gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllTanh, PatchedGDTanh)
 
     @timeout()
     def test_gpu_cpu_sigmoid(self):
-        logging.info("Will test Sigmoid gd unit for gpu/cpu correctness")
+        self.info("Will test Sigmoid gd unit for gpu/cpu correctness")
         self._do_test_gpu_cpu(all2all.All2AllSigmoid, PatchedGDSigmoid)
 
 
+@assign_backend("ocl")
+class OpenCLTestGD(TestGD):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGD(TestGD):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

@@ -4,7 +4,7 @@
 //
 
 #include "defines.cu"
-#include "highlight.cuh"
+#include "highlight.cu"
 
 //#define ALPHA 0.0001
 //#define BETA 0.75

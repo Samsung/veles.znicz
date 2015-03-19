@@ -6,25 +6,22 @@ Unit test for RBM.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import logging
 import numpy
 import os
 import scipy.io
-import unittest
 
 from veles.dummy import DummyLauncher, DummyWorkflow
 from veles.memory import Vector
 import veles.prng as prng
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.all2all import All2AllSigmoid
 import veles.znicz.rbm_units as rbm
 
 
-class TestRBMUnits(unittest.TestCase):
+class TestRBMUnits(AcceleratedTest):
     """Tests for uniits used in RBM workflow.
     """
-    def setUp(self):
-
-        self.device = None
+    ABSTRACT = True
 
     def test_All2AllSigmoid(self):
         """This function creates All2AllRBM unit for MNIST task
@@ -217,7 +214,14 @@ class TestRBMUnits(unittest.TestCase):
         self.assertLess(diff3, 1e-12, " total error  is %0.17f" % diff3)
 
 
+@assign_backend("ocl")
+class OpenCLTestRBMUnits(TestRBMUnits):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestRBMUnits(TestRBMUnits):
+    pass
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logging.info("Running RBM tests")
-    unittest.main()
+    AcceleratedTest.main()

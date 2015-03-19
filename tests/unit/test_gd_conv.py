@@ -6,20 +6,17 @@ Unit test for convolutional layer back propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
     GDStrictRELUConv, GDTanhConv, GDSigmoidConv
 import veles.znicz.conv as conv
 from veles.dummy import DummyWorkflow
 import veles.prng as prng
-import veles.backends as opencl
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 from veles.znicz.tests.unit.test_gd import PatchedGradientDescentBase
 
@@ -45,14 +42,7 @@ class PatchedGDSigmoidConv(GDSigmoidConv, PatchedGradientDescentBase):
     pass
 
 
-class TestGDConv(unittest.TestCase, GDNumDiff):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
+class TestGDConv(AcceleratedTest, GDNumDiff):
     def test_err_h_gpu(self):
         self._test_err_h(self.device)
 
@@ -60,7 +50,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         self._test_err_h(None)
 
     def _test_err_h(self, device):
-        logging.info("Will test convolutional layer back propagation")
+        self.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.array([[[-1, 0, 2, 0, 3],
@@ -160,18 +150,18 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         max_diff = numpy.fabs(t.ravel() - c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Err_input differs by %.6f" % (max_diff))
-        logging.info("Err_input Ok")
+        self.info("Err_input Ok")
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Weights differ by %.6f" % (max_diff))
-        logging.info("Weights Ok")
+        self.info("Weights Ok")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Bias differs by %.6f" % (max_diff))
-        logging.info("Bias Ok")
+        self.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
         forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
@@ -180,7 +170,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
@@ -203,7 +193,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         self._test_padding_sliding(None)
 
     def _test_padding_sliding(self, device):
-        logging.info("Will test convolutional layer back propagation")
+        self.info("Will test convolutional layer back propagation")
 
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.array([[[1, 2, 3, 2, 1],
@@ -285,18 +275,18 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
                         (max_diff, " ".join("%.2f" % x for x in t.ravel()),
                          " ".join("%.2f" % x for x in
                                   c.err_input.mem.ravel())))
-        logging.info("Err_input Ok")
+        self.info("Err_input Ok")
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Weights differ by %.6f" % (max_diff))
-        logging.info("Weights Ok")
+        self.info("Weights Ok")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Bias differs by %.6f" % (max_diff))
-        logging.info("Bias Ok")
+        self.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
         forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
@@ -306,7 +296,7 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False)
 
     def test_random_numeric_gpu(self):
@@ -341,8 +331,8 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(None, conv.ConvRELU, PatchedGDRELUConv)
 
     def _test_random_numeric(self, device, Forward, GD):
-        logging.info("Will test convolutional layer forward-backward "
-                     "via numeric differentiation")
+        self.info("Will test convolutional layer forward-backward "
+                  "via numeric differentiation")
 
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
@@ -416,11 +406,19 @@ class TestGDConv(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, weights, bias, target,
                               err_input, weights_derivative, bias_derivative,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False)
 
 
+@assign_backend("ocl")
+class OpenCLTestGDConv(TestGDConv):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGDConv(TestGDConv):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

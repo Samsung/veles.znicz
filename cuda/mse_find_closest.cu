@@ -1,5 +1,5 @@
 #include "defines.cu"
-#include "highlight.cuh"
+#include "highlight.cu"
 
 /* TODO(a.kazantsev): implement properly.
 /// @brief For each sample, outputs the distances to the targets.

@@ -5,23 +5,19 @@ Created on November 18, 2013
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
-from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
-import veles.opencl_types as opencl_types
 from veles.dummy import DummyWorkflow
+from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.kohonen as kohonen
 
 
-class TestKohonen(unittest.TestCase):
+class TestKohonen(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self.device = opencl.Device()
-        self.dtype = opencl_types.dtypes[root.common.precision_type]
+        super(AcceleratedTest, self).setUp()
         self.input = numpy.array([[1, 2, 3, 2, 1],
                                   [0, 1, 2, 1, 0],
                                   [0, 1, 0, 1, 0],
@@ -54,12 +50,8 @@ class TestKohonen(unittest.TestCase):
         self.winners = numpy.array([2, 1, 0, 1, 0, 0, 0, 0, 1],
                                    dtype=numpy.int)
 
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
     def test_forward(self):
-        logging.info("Will test KohonenForward unit forward pass")
+        self.info("Will test KohonenForward unit forward pass")
         c = kohonen.KohonenForward(DummyWorkflow())
         c.input = formats.Vector()
         c.input.mem = self.input[:]
@@ -104,7 +96,7 @@ class TestKohonen(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
     def test_forward_with_argmins(self):
-        logging.info("Will test KohonenForward unit forward pass")
+        self.info("Will test KohonenForward unit forward pass")
         c = kohonen.KohonenForward(DummyWorkflow())
         c.input = formats.Vector()
         c.input.mem = self.input[:]
@@ -157,7 +149,7 @@ class TestKohonen(unittest.TestCase):
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
     def test_train(self):
-        logging.info("Will test KohonenForward unit train pass")
+        self.info("Will test KohonenForward unit train pass")
 
         c = kohonen.KohonenTrainer(DummyWorkflow(), shape=(3, 3))
         c.input = formats.Vector()
@@ -296,7 +288,15 @@ class TestKohonen(unittest.TestCase):
                         "Result differs by %.6f" % (max_diff))
 
 
+@assign_backend("ocl")
+class OpenCLTestKohonen(TestKohonen):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestKohonen(TestKohonen):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

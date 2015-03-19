@@ -2,7 +2,6 @@
 #define _POOLING_COMMON_
 
 #include "defines.cu"
-#include "highlight.cuh"
 
 #if (KX < SLIDE_X) || (KY < SLIDE_Y)
 #error "Sliding should not be greater than kernel size"

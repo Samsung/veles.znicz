@@ -1,7 +1,7 @@
 #if (SLIDE_X < KX) || (SLIDE_Y < KY)
 #define USE_ATOMICS 1
 #endif
-#include "pooling_common.cuh"
+#include "pooling_common.cu"
 
 
 /// @brief Backpropagates max pooling.

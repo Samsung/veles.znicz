@@ -7,14 +7,11 @@ Created on April 25, 2014
 A unit test for dropout layer.
 """
 
-import gc
-import logging
 import numpy as np
-import unittest
 
-from veles.backends import Device
 from veles.dummy import DummyWorkflow
 from veles.memory import Vector
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.dropout import DropoutForward, DropoutBackward
 
 
@@ -29,13 +26,8 @@ class TestType(object):
         pass
 
 
-class TestDropout(unittest.TestCase):
-    def setUp(self):
-        self.device = Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestDropout(AcceleratedTest):
+    ABSTRACT = True
 
     def _run_test(self, test_type):
         workflow = DummyWorkflow()
@@ -47,7 +39,7 @@ class TestDropout(unittest.TestCase):
         for i in range(sz):
             in_matrix[0, 0, i, :] = np.linspace(0, sz * 10, sz) * (i + 1)
         fwd_dropout.input.mem = in_matrix
-        logging.debug("[DropoutForward] input matrix:\n%s", in_matrix)
+        self.debug("[DropoutForward] input matrix:\n%s", in_matrix)
 
         fwd_dropout.initialize(self.device)
         if test_type == TestType.GPU:
@@ -56,11 +48,11 @@ class TestDropout(unittest.TestCase):
         else:
             fwd_dropout.cpu_run()
 
-        logging.debug("[DropoutForward] output matrix:\n%s",
-                      fwd_dropout.output.mem)
+        self.debug("[DropoutForward] output matrix:\n%s",
+                   fwd_dropout.output.mem)
         ratio = 1.0 - float(np.count_nonzero(fwd_dropout.output.mem)) / \
             fwd_dropout.output.mem.size
-        logging.debug("[DropoutForward] dropout ratio: %.4f", ratio)
+        self.debug("[DropoutForward] dropout ratio: %.4f", ratio)
         self.assertAlmostEqual(ratio, fwd_dropout.dropout_ratio,
                                delta=fwd_dropout.dropout_ratio / 10,
                                msg='error in DropoutForward results: ratio of '
@@ -76,7 +68,7 @@ class TestDropout(unittest.TestCase):
             err_output[0, 0, i, :] = np.linspace(0, sz * 2, sz) * (i + 1)
         back_dropout.err_output = Vector()
         back_dropout.err_output.mem = err_output
-        logging.debug("[DropoutBackward] err_y matrix:\n%s", err_output)
+        self.debug("[DropoutBackward] err_y matrix:\n%s", err_output)
 
         back_dropout.initialize(self.device)
         if test_type == TestType.GPU:
@@ -85,11 +77,11 @@ class TestDropout(unittest.TestCase):
         else:
             back_dropout.cpu_run()
 
-        logging.debug("[DropoutBackward] err_input:")
-        logging.debug(back_dropout.err_input.mem)
+        self.debug("[DropoutBackward] err_input:")
+        self.debug(back_dropout.err_input.mem)
         ratio = 1.0 - float(np.count_nonzero(back_dropout.err_input.mem)) / \
             back_dropout.err_input.mem.size
-        logging.debug("[DropoutBackward]  dropout ratio: %.4f", ratio)
+        self.debug("[DropoutBackward]  dropout ratio: %.4f", ratio)
         self.assertAlmostEqual(ratio, fwd_dropout.dropout_ratio,
                                delta=fwd_dropout.dropout_ratio / 10,
                                msg='error in DropoutBackward results: ratio of'
@@ -98,17 +90,25 @@ class TestDropout(unittest.TestCase):
                                    ratio, fwd_dropout.dropout_ratio))
 
     def test_cpu(self):
-        logging.info("start CPU test...")
+        self.info("start CPU test...")
         self._run_test(TestType.CPU)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_ocl(self):
-        logging.info("start GPU test...")
+        self.info("start GPU test...")
         self._run_test(TestType.GPU)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
+
+
+@assign_backend("ocl")
+class OpenCLTestDropout(TestDropout):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestDropout(TestDropout):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logging.info("Running dropout tests")
-    unittest.main()
+    AcceleratedTest.main()

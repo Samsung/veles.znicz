@@ -8,12 +8,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 
 import gc
-import logging
 import numpy
 import opencl4py
 import os
 import time
-import unittest
 
 from veles.config import root
 import veles.memory as formats
@@ -22,17 +20,12 @@ import veles.prng as prng
 from veles import opencl_types
 from veles.dummy import DummyWorkflow
 from veles.accelerated_units import TrivialAcceleratedUnit
-import veles.znicz as znicz
-znicz.nothing()
+from veles.tests import AcceleratedTest, assign_backend
+import veles.znicz as znicz  # pylint: disable=W0611
 
 
-class TestMatrixMultiplication(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestMatrixMultiplication(AcceleratedTest):
+    ABSTRACT = True
 
     def _do_cpu_tst(self):
         """Pure CPU test.
@@ -132,12 +125,12 @@ class TestMatrixMultiplication(unittest.TestCase):
                                           need_event=False)
         self.c.map_read()
         dt = time.time() - t0
-        logging.info("%.6f sec", dt)
+        self.info("%.6f sec", dt)
 
     def _tst_matrix_multiplication(self, block_size):
         # Iterate over the different matrix configurations
-        logging.info("#" * 80)
-        logging.info("BLOCK_SIZE = %d", block_size)
+        self.info("#" * 80)
+        self.info("BLOCK_SIZE = %d", block_size)
         for (a_col, b_col) in ((False, False),
                                (False, True),
                                (True, False),
@@ -151,9 +144,9 @@ class TestMatrixMultiplication(unittest.TestCase):
                     (2, 11, 65),  # large common
                     (1, 25, 1),  # very small
                     ):
-                logging.info("[%d, %d] * [%d, %d] = [%d, %d] %s %s",
-                             AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
-                             A_HEIGHT, B_HEIGHT, str(a_col), str(b_col))
+                self.info("[%d, %d] * [%d, %d] = [%d, %d] %s %s",
+                          AB_WIDTH, A_HEIGHT, B_HEIGHT, AB_WIDTH,
+                          A_HEIGHT, B_HEIGHT, str(a_col), str(b_col))
                 self._prepare_tsts(AB_WIDTH=AB_WIDTH,
                                    B_HEIGHT=B_HEIGHT,
                                    A_HEIGHT=A_HEIGHT,
@@ -175,9 +168,9 @@ class TestMatrixMultiplication(unittest.TestCase):
         if not isinstance(self.device, opencl.OpenCLDevice):
             return
         for dtype in (numpy.float32, numpy.float64):
-            logging.info("~" * 80)
-            logging.info(str(dtype))
-            self.dtype = dtype
+            self.info("~" * 80)
+            self.info(str(dtype))
+            self._dtype = dtype
             for block_size in range(
                     8, self.device.device_info.get_max_block_size(
                         opencl_types.numpy_dtype_to_opencl(dtype)) + 1,
@@ -185,12 +178,20 @@ class TestMatrixMultiplication(unittest.TestCase):
                 try:
                     self._tst_matrix_multiplication(block_size)
                 except opencl4py.CLRuntimeError as e:
-                    logging.warning("OpenCL error: %s", str(e))
+                    self.warning("OpenCL error: %s", str(e))
                     if e.code == -5:
                         break
 
 
+@assign_backend("ocl")
+class OpenCLTestMatrixMultiplication(TestMatrixMultiplication):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestMatrixMultiplication(TestMatrixMultiplication):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

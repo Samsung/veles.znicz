@@ -6,14 +6,12 @@ Unit test for convolutional-ppoling-softmax 3-layer back propagation.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
+from veles.tests import assign_backend
 from veles.znicz.nn_units import AcceleratedWorkflow
 import veles.znicz.activation as activation
 import veles.znicz.all2all as all2all
@@ -26,7 +24,7 @@ import veles.znicz.evaluator as evaluator
 import veles.znicz.normalization as normalization
 from veles.dummy import DummyLauncher
 import veles.prng as rnd
-import veles.backends as opencl
+from veles.znicz.tests.functional import StandardTest
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
@@ -189,13 +187,8 @@ class Workflow(AcceleratedWorkflow):
         self.end_point.link_from(prev)
 
 
-class TestGDWorkflow(unittest.TestCase, GDNumDiff):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestGDWorkflow(StandardTest, GDNumDiff):
+    ABSTRACT = True
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, conv.Conv,
@@ -222,10 +215,10 @@ class TestGDWorkflow(unittest.TestCase, GDNumDiff):
                                   gd_conv.GDRELUConv)
 
     def _test_random_numeric(self, device, ConvForward, ConvGD):
-        logging.info("Will check %s <=> %s "
-                     "via numeric differentiation on %s",
-                     ConvForward.__name__, ConvGD.__name__,
-                     "CPU, limited to 2 checks" if device is None else "GPU")
+        self.info("Will check %s <=> %s "
+                  "via numeric differentiation on %s",
+                  ConvForward.__name__, ConvGD.__name__,
+                  "CPU, limited to 2 checks" if device is None else "GPU")
 
         w = Workflow(DummyLauncher(), ConvForward=ConvForward, ConvGD=ConvGD)
         w.initialize(device=device, snapshot=False)
@@ -274,14 +267,22 @@ class TestGDWorkflow(unittest.TestCase, GDNumDiff):
                 (w.conv_gd.input, err_input, "err_input"),
                 (w.conv_gd.weights, weights_derivative, "weights"),
                 (w.conv_gd.bias, bias_derivative, "bias")):
-            logging.info("Checking %s via numeric differentiation", nme)
+            self.info("Checking %s via numeric differentiation", nme)
             self.numdiff_check(w, v2c, vv_map, w.sm_forward.output, target,
-                               d2c, logging.info, self.assertLess,
+                               d2c, self.info, self.assertLess,
                                GDNumDiff.cross_entropy_mean, w.batch_size,
                                limit=(2 if device is None else None))
 
 
+@assign_backend("ocl")
+class OpenCLTestGDWorkflow(TestGDWorkflow):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGDWorkflow(TestGDWorkflow):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

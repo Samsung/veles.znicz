@@ -6,17 +6,12 @@ Unit test for pooling layer forward propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
-from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
-import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.prng.uniform import Uniform
+from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
@@ -24,11 +19,12 @@ from veles.dummy import DummyUnit, DummyWorkflow
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
-class TestMaxPooling(unittest.TestCase):
+class TestMaxPooling(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self.device = opencl.Device()
+        super(TestMaxPooling, self).setUp()
         self._input = formats.Vector()
-        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -72,10 +68,9 @@ class TestMaxPooling(unittest.TestCase):
 
     def tearDown(self):
         del self._input
-        gc.collect()
-        del self.device
+        super(TestMaxPooling, self).tearDown()
 
-    def test_ocl(self):
+    def test_device(self):
         self._do_test(self.device)
 
     def test_cpu(self):
@@ -96,19 +91,15 @@ class TestMaxPooling(unittest.TestCase):
         self.assertTrue((c.input_offset.mem == self._gold_offs).all())
 
 
-class TestStochasticPooling(unittest.TestCase):
+class TestStochasticPooling(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self.dtype = opencl_types.dtypes[root.common.precision_type]
+        super(TestStochasticPooling, self).setUp()
         self.input = numpy.zeros([3, 17, 17, 7], dtype=self.dtype)
         prng.get().fill(self.input)
 
         self.random_state = prng.get().state
-
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
 
     def _do_test(self, device, Unit):
         prng.get().state = self.random_state
@@ -137,9 +128,11 @@ class TestStochasticPooling(unittest.TestCase):
         self._test_gpu_cpu(pooling.StochasticAbsPooling)
 
 
-class TestGDMaxPooling(unittest.TestCase):
+class TestGDMaxPooling(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self._dtype = opencl_types.dtypes[root.common.precision_type]
+        super(TestGDMaxPooling, self).setUp()
         self._input = numpy.array(
             [[[3, 3, -1, 1, 2, 3, 4],
               [-2, 4, -2, 3, -3, 1, -2],
@@ -183,12 +176,6 @@ class TestGDMaxPooling(unittest.TestCase):
               [0, -1, 0, 0, -3, 0, 0],
               [0, -2, 2, 0, 0.3, 0, -4]]], dtype=self._dtype)
 
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
     def test_fixed_gpu(self):
         return self._test_fixed(self.device)
 
@@ -196,8 +183,8 @@ class TestGDMaxPooling(unittest.TestCase):
         return self._test_fixed(None)
 
     def _test_fixed(self, device):
-        logging.info('starting OpenCL max pooling layer gradient descent '
-                     'test...')
+        self.info('starting OpenCL max pooling layer gradient descent '
+                  'test...')
         c = gd_pooling.GDMaxPooling(DummyWorkflow())
         c.link_pool_attrs(DummyUnit(kx=2, ky=2, sliding=(2, 2)))
         c.input = formats.Vector()
@@ -215,17 +202,18 @@ class TestGDMaxPooling(unittest.TestCase):
                               c.err_input.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "max difference in err_input is %.6f" % (max_diff))
-        logging.info("test passed")
+        self.info("test passed")
 
         # We cannot check by numeric differentiation here
         # 'cause of the non-differentiable function "max".
 
 
-class TestAvgPooling(unittest.TestCase):
+class TestAvgPooling(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self.device = opencl.Device()
+        super(TestAvgPooling, self).setUp()
         self._input = formats.Vector()
-        self._dtype = opencl_types.dtypes[root.common.precision_type]
         self._input.mem = numpy.array(
             [3, 4, 3, 1, -1, -2, 1, 3, 2, 3, 3, 0, 4, 1,
              (-2), 0, 4, 4, -2, 1, 3, -3, -3, 4, 1, -3, -2, -4,
@@ -257,10 +245,9 @@ class TestAvgPooling(unittest.TestCase):
 
     def tearDown(self):
         del self._input
-        gc.collect()
-        del self.device
+        super(TestAvgPooling, self).tearDown()
 
-    def test_ocl(self):
+    def test_device(self):
         self._do_test(self.device)
 
     def test_cpu(self):
@@ -275,17 +262,11 @@ class TestAvgPooling(unittest.TestCase):
         max_diff = numpy.fabs(self._gold_output.ravel() -
                               c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "max difference in output matrix"
-                        " is %.6f" % (max_diff))
+                        " is %.6f" % max_diff)
 
 
-class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
-    def setUp(self):
-        self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
+    ABSTRACT = True
 
     def test_random_numeric_gpu(self):
         self._test_random_numeric(self.device, (3, 3))
@@ -296,8 +277,8 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
         self._test_random_numeric(None, (1, 1))
 
     def _test_random_numeric(self, device, sliding):
-        logging.info("Will test AvgPooling layer forward-backward "
-                     "via numeric differentiation")
+        self.info("Will test AvgPooling layer forward-backward "
+                  "via numeric differentiation")
 
         inp = numpy.zeros([2, 6, 6, 3], dtype=self._dtype)
         prng.get().fill(inp)
@@ -329,23 +310,18 @@ class TestGDAvgPooling(unittest.TestCase, GDNumDiff):
 
         self.numdiff_check_gd(forward, inp, None, None, target,
                               err_input, None, None,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False)
 
 
-class TestStochasticPoolingDepooling(unittest.TestCase):
+class TestStochasticPoolingDepooling(AcceleratedTest):
+    ABSTRACT = True
+
     def setUp(self):
-        self.dtype = opencl_types.dtypes[root.common.precision_type]
+        super(TestStochasticPoolingDepooling, self).setUp()
         self.input = numpy.zeros([3, 17, 17, 7], dtype=self.dtype)
         prng.get().fill(self.input)
-
         self.random_state = prng.get().state
-
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
 
     def _do_test(self, device, Unit, Forward):
         prng.get().state = self.random_state
@@ -389,6 +365,64 @@ class TestStochasticPoolingDepooling(unittest.TestCase):
                       pooling.StochasticAbsPooling)
 
 
+@assign_backend("ocl")
+class OpenCLTestMaxPooling(TestMaxPooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestMaxPooling(TestMaxPooling):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestStochasticPooling(TestStochasticPooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestStochasticPooling(TestStochasticPooling):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestGDMaxPooling(TestGDMaxPooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGDMaxPooling(TestGDMaxPooling):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestAvgPooling(TestAvgPooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestAvgPooling(TestAvgPooling):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestGDAvgPooling(TestGDAvgPooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGDAvgPooling(TestGDAvgPooling):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestStochasticPoolingDepooling(TestStochasticPoolingDepooling):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestStochasticPoolingDepooling(TestStochasticPoolingDepooling):
+    pass
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    unittest.main()
+    AcceleratedTest.main()

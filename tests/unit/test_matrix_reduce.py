@@ -6,34 +6,27 @@ Unit test for OpenCL kernel which does reduce over matrix rows or columns.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
 import os
 import time
-import unittest
 
 from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.dummy import DummyWorkflow
 from veles.accelerated_units import TrivialAcceleratedUnit
+from veles.tests import AcceleratedTest, assign_backend
 
 
-class TestMatrixReduce(unittest.TestCase):
+class TestMatrixReduce(AcceleratedTest):
     def setUp(self):
-        self.device = opencl.Device()
+        super(TestMatrixReduce, self).setUp()
         thisdir = os.path.dirname(__file__)
         if not len(thisdir):
             thisdir = "."
         if thisdir not in root.common.engine.source_dirs:
             root.common.engine.source_dirs.append(thisdir)
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
 
     def _build_program(self, a, b, A_WIDTH, A_HEIGHT, A_COL, REDUCE_SIZE):
         defines = {"A_WIDTH": A_WIDTH,
@@ -76,7 +69,7 @@ class TestMatrixReduce(unittest.TestCase):
         for reduce_size in range(1, 33, 1):
             self._do_test(reduce_size, True, a, b, t)
 
-        logging.info("test_fixed() succeeded")
+        self.info("test_fixed() succeeded")
 
     def _do_test(self, reduce_size, A_COL, a, b, t):
         krn = self._build_program(
@@ -100,10 +93,10 @@ class TestMatrixReduce(unittest.TestCase):
             self.device.sync()
             dt = time.time() - t0
         else:
-            logging.warning("Unsupported device backend name %s",
-                            self.device.name)
+            self.warning("Unsupported device backend name %s",
+                         self.device.name)
             return
-        logging.info("Completed in %.6f sec", dt)
+        self.info("Completed in %.6f sec", dt)
 
         b.map_write()
         max_diff = numpy.fabs(b.mem[:a.shape[1 if A_COL else 0]] - t).max()
@@ -134,14 +127,22 @@ class TestMatrixReduce(unittest.TestCase):
         b.initialize(self.device)
 
         for reduce_size in range(4, 64, 1):
-            logging.info("reduce_size = %d", reduce_size)
+            self.info("reduce_size = %d", reduce_size)
             self._do_test(reduce_size, True, a, b, t_col)
             self._do_test(reduce_size, False, a, b, t)
 
-        logging.info("test_random() succeeded")
+        self.info("test_random() succeeded")
+
+
+@assign_backend("ocl")
+class OpenCLTestMatrixReduce(TestMatrixReduce):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestMatrixReduce(TestMatrixReduce):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

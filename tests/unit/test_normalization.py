@@ -7,27 +7,16 @@ Created on April 24, 2014
 A unit test for local response normalization.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
-from veles import backends
-from veles.config import root
 from veles.dummy import DummyWorkflow
 from veles.memory import Vector
-from veles.opencl_types import dtypes
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
 
 
-class TestNormalization(unittest.TestCase):
-    def setUp(self):
-        self.device = backends.Device()
-        self.dtype = dtypes[root.common.precision_type]
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestNormalization(AcceleratedTest):
+    ABSTRACT = True
 
     def test_normalization_forward(self):
         fwd_normalizer = LRNormalizerForward(DummyWorkflow())
@@ -55,11 +44,11 @@ class TestNormalization(unittest.TestCase):
 
         max_delta = numpy.fabs(cpu_result - ocl_result).max()
 
-        logging.info("FORWARD")
+        self.info("FORWARD")
         self.assertLess(max_delta, 0.0001,
                         "Result differs by %.6f" % (max_delta))
 
-        logging.info("FwdProp done.")
+        self.info("FwdProp done.")
 
     def test_normalization_backward(self):
 
@@ -92,16 +81,24 @@ class TestNormalization(unittest.TestCase):
         back_normalizer.err_input.map_read()
         ocl_result = back_normalizer.err_input.mem.copy()
 
-        logging.info("BACK")
+        self.info("BACK")
 
         max_delta = numpy.fabs(cpu_result - ocl_result).max()
         self.assertLess(max_delta, 0.0001,
                         "Result differs by %.6f" % (max_delta))
 
-        logging.info("BackProp done.")
+        self.info("BackProp done.")
+
+
+@assign_backend("ocl")
+class OpenCLTestNormalization(TestNormalization):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestNormalization(TestNormalization):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("Running LR normalizer test!")
-    unittest.main()
+    AcceleratedTest.main()

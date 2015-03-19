@@ -453,8 +453,8 @@ class ComplexTest(standard_test.StandardTest, Logger):
             "ip1", PropType.forward, WhenTaken.before,
             "blob_1", _iter + 1).ravel()
         bias_delta = self._diff(ip_sm.bias.mem, ip_sm_biases)
-        self.assertLess(bias_delta, max_delta,
-                        "Result differs by %.6f" % (bias_delta))
+        self.assertLess(
+            bias_delta, max_delta, "Result differs by %.6f" % bias_delta)
         self.info(">>> ip1 biases delta %.12f%%" % bias_delta)
 
     def test_all(self):

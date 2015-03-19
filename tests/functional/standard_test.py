@@ -8,27 +8,38 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 # pylint: disable=W0633
 
-import gc
-import numpy as np
+import logging
+import numpy
 import os
 import unittest
 
-from veles import backends
+from veles.config import root
 from veles.dummy import DummyWorkflow
+from veles.tests import AcceleratedTest
+import veles.prng as prng
 
 
-class StandardTest(unittest.TestCase):
+class StandardTest(AcceleratedTest):
     def setUp(self):
-        self.workflow = DummyWorkflow()
-        self.device = backends.Device()
-        self.device.thread_pool_attach(self.workflow.thread_pool)
+        super(StandardTest, self).setUp()
+        self.parent = DummyWorkflow()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
+        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
+                                       root.common.veles_dir,
+                                       dtype=numpy.int32, count=1024))
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.uint32, count=1024))
 
     def tearDown(self):
-        del self.workflow
-        gc.collect()
-        del self.device
+        del self.parent
+        super(StandardTest, self).tearDown()
+
+    @staticmethod
+    def main():
+        logging.basicConfig(level=logging.INFO)
+        unittest.main()
 
     def _read_array(self, array_name, lines, shape=None):
         """
@@ -66,8 +77,8 @@ class StandardTest(unittest.TestCase):
                     assert len(shape) == 4
                     n_pics, height, width, n_chans = shape
 
-                out_array = np.zeros(shape=(n_pics, height, width, n_chans),
-                                     dtype=np.float64)
+                out_array = numpy.zeros((n_pics, height, width, n_chans),
+                                        numpy.float64)
                 cur_line = i + 1
                 break
 

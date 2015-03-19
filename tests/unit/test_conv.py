@@ -6,17 +6,11 @@ Unit test for convolutional layer forward propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
-import unittest
+import numpy
 import time
 
-import numpy
-
-from veles.config import root
 from veles.memory import Vector
-import veles.backends as opencl
-import veles.opencl_types as opencl_types
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import Conv
 from veles.dummy import DummyWorkflow
 import veles.prng as prng
@@ -31,15 +25,7 @@ class PatchedConv(Conv):
             self.n_kernels), lambda: self.input.dtype)
 
 
-class TestConvBase(unittest.TestCase):
-    def setUp(self):
-        self._dtype = opencl_types.dtypes[root.common.precision_type]
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
+class TestConvBase(AcceleratedTest):
     def _run_test(self, unit, device, input_data, weights, bias):
         """Run test for specified unit with specified device.
 
@@ -137,7 +123,7 @@ class TestConvBase(unittest.TestCase):
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
 
-        logging.info("run conv with input = 0, random weights, random bias...")
+        self.info("run conv with input = 0, random weights, random bias...")
         input_data = numpy.zeros(input_shape)
         weights = prng.get().rand(*weights_shape)
         bias = prng.get().rand(weights_shape[0])
@@ -148,7 +134,7 @@ class TestConvBase(unittest.TestCase):
             gold_output[batch, i, j, :] = bias[:]
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
-        logging.info("run conv with random input, weights = 0, random bias...")
+        self.info("run conv with random input, weights = 0, random bias...")
         input_data = prng.get().rand(*input_shape)
         weights = numpy.zeros(weights_shape)
         bias = prng.get().rand(weights_shape[0])
@@ -166,20 +152,20 @@ class TestConvNoPadding(TestConvBase):
     """
 
     def test_trivial_cases_ocl(self):
-        logging.info("start trivial OpenCL test [no padding, "
-                     "sliding = (1, 1)]...")
+        self.info("start trivial OpenCL test [no padding, "
+                  "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         self._do_trivial_test(self.device, input_shape, weights_shape)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_trivial_cases_cpu(self):
-        logging.info("start trivial CPU test [no padding, "
-                     "sliding = (1, 1)]...")
+        self.info("start trivial CPU test [no padding, "
+                  "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         self._do_trivial_test(None, input_shape, weights_shape)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def _do_test_all_1(self, device, input_shape, weights_shape):
         """ Run test, which checks result of conv without padding and
@@ -208,7 +194,7 @@ class TestConvNoPadding(TestConvBase):
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
 
-        logging.info("run conv with input = 1, weights = 1, bias = 1...")
+        self.info("run conv with input = 1, weights = 1, bias = 1...")
         input_data = numpy.empty(input_shape)
         input_data.fill(1)
         weights = numpy.empty(weights_shape)
@@ -223,20 +209,20 @@ class TestConvNoPadding(TestConvBase):
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_all_1_ocl(self):
-        logging.info("start 'all 1' OpenCL test [no padding, "
-                     "sliding = (1, 1)]...")
+        self.info("start 'all 1' OpenCL test [no padding, "
+                  "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         self._do_test_all_1(self.device, input_shape, weights_shape)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_all_1_cpu(self):
-        logging.info("start 'all 1' CPU test [no padding, "
-                     "sliding = (1, 1)]...")
+        self.info("start 'all 1' CPU test [no padding, "
+                  "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         self._do_test_all_1(None, input_shape, weights_shape)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def _do_1_channel_input_test(self, device):
         """ Run test with 1 channel input without padding and with
@@ -271,15 +257,15 @@ class TestConvNoPadding(TestConvBase):
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_1_channel_input_ocl(self):
-        logging.info("start OpenCL conv. 1 channel layer forward"
-                     "propagation...")
+        self.info("start OpenCL conv. 1 channel layer forward"
+                  "propagation...")
         self._do_1_channel_input_test(self.device)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_1_channel_input_cpu(self):
-        logging.info("start CPU conv. 1 channel layer forward propagation...")
+        self.info("start CPU conv. 1 channel layer forward propagation...")
         self._do_1_channel_input_test(None)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
 
 class TestConvWithPadding(TestConvBase):
@@ -288,26 +274,26 @@ class TestConvWithPadding(TestConvBase):
     """
 
     def test_trivial_cases_ocl(self):
-        logging.info("start trivial OpenCL test (with padding and tricky "
-                     "sliding)...")
+        self.info("start trivial OpenCL test (with padding and tricky "
+                  "sliding)...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         sliding = (2, 3)
         padding = (2, 3, 1, 2)
         self._do_trivial_test(self.device, input_shape, weights_shape,
                               sliding, padding)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_trivial_cases_cpu(self):
-        logging.info("start trivial CPU test [no padding, "
-                     "sliding = (1, 1)]...")
+        self.info("start trivial CPU test [no padding, "
+                  "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
         sliding = (2, 3)
         padding = (2, 3, 1, 2)
         self._do_trivial_test(None, input_shape, weights_shape, sliding,
                               padding)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def _do_test_all_1(self, device, input_shape, kernels_num):
         """Run test, which checks result of conv with specified weights shape,
@@ -332,9 +318,9 @@ class TestConvWithPadding(TestConvBase):
         padding = (size // 2, size // 2, size // 2, size // 2)
 
         # calculate x and y size of unit output
-        #out_y = (input_shape[1] + padding[1] + padding[3] -
+        # out_y = (input_shape[1] + padding[1] + padding[3] -
         #         weights_shape[1]) // sliding[1] + 1
-        #out_x = (input_shape[2] + padding[0] + padding[2] -
+        # out_x = (input_shape[2] + padding[0] + padding[2] -
         #         weights_shape[2]) // sliding[0] + 1
 
         unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
@@ -369,18 +355,18 @@ class TestConvWithPadding(TestConvBase):
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_all_1_ocl(self):
-        logging.info("start 'all 1' OpenCL test [with padding and sliding...")
+        self.info("start 'all 1' OpenCL test [with padding and sliding...")
         input_shape = (3, 8, 8, 3)
         kernels_num = 2
         self._do_test_all_1(self.device, input_shape, kernels_num)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_all_1_cpu(self):
-        logging.info("start 'all 1' CPU test [with padding and sliding...")
+        self.info("start 'all 1' CPU test [with padding and sliding...")
         input_shape = (3, 8, 8, 3)
         kernels_num = 2
         self._do_test_all_1(None, input_shape, kernels_num)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def _do_test_fixed_arrays(self, device):
         """ Run test with fixed input data, weights and bias with tricky
@@ -417,16 +403,16 @@ class TestConvWithPadding(TestConvBase):
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
     def test_fixed_arrays_ocl(self):
-        logging.info("start testing OpenCL conv. layer forward propagation "
-                     "with fixed input data, weights and bias...")
+        self.info("start testing OpenCL conv. layer forward propagation "
+                  "with fixed input data, weights and bias...")
         self._do_test_fixed_arrays(self.device)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_fixed_arrays_cpu(self):
-        logging.info("start testing CPU conv. layer forward propagation "
-                     "with fixed input data, weights and bias...")
+        self.info("start testing CPU conv. layer forward propagation "
+                  "with fixed input data, weights and bias...")
         self._do_test_fixed_arrays(None)
-        logging.info("TEST PASSED")
+        self.info("TEST PASSED")
 
     def test_compare_ocl_vs_cpu(self):
         """Run test with random input data, weights, bias to compare results of
@@ -450,13 +436,32 @@ class TestConvWithPadding(TestConvBase):
 
         cpu_output = self._run_test(unit, None, input_data, weights, bias)
         time2 = time.time()
-        logging.info("OpenCL is faster than CPU in %.4f times",
-                     (time2 - time1) / (time1 - time0))
+        self.info("OpenCL is faster than CPU in %.4f times",
+                  (time2 - time1) / (time1 - time0))
         max_diff = numpy.fabs(ocl_output.ravel() -
                               cpu_output.ravel()).max()
-        self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % (max_diff))
+        self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % max_diff)
+
+
+@assign_backend("ocl")
+class OpenCLTestConvNoPadding(TestConvNoPadding):
+    pass
+
+
+@assign_backend("ocl")
+class OpenCLTestConvWithPadding(TestConvWithPadding):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestConvNoPadding(TestConvNoPadding):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestConvWithPadding(TestConvWithPadding):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    unittest.main()
+    AcceleratedTest.main()

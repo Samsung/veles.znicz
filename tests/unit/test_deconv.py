@@ -6,19 +6,16 @@ Unit test for deconvolutional unit.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
 import os
-import unittest
 
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
 from veles.dummy import DummyWorkflow
 import veles.prng as rnd
-import veles.backends as opencl
 from veles.memory import Vector
+from veles.tests import AcceleratedTest, assign_backend
 from veles.tests.doubling_reset import patch
 import veles.znicz.conv as conv
 from veles.znicz.deconv import Deconv
@@ -33,17 +30,14 @@ class PatchedDeconv(Deconv):
               lambda: self.input.dtype)
 
 
-class TestDeconv(unittest.TestCase, GDNumDiff):
+class TestDeconv(AcceleratedTest, GDNumDiff):
+    ABSTRACT = True
+
     def setUp(self):
-        self.device = opencl.Device()
+        super(TestDeconv, self).setUp()
         self.this_dir = os.path.dirname(__file__)
         if not len(self.this_dir):
             self.this_dir = "."
-        self.dtype = opencl_types.dtypes[root.common.precision_type]
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
 
     def test_fixed(self):
         inp = numpy.ones([1, 4, 4, 1], dtype=self.dtype)
@@ -98,7 +92,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
                          "Wrong value")
 
     def test_gd_deconv(self):
-        logging.info("GDDeconv err_input overflow test...")
+        self.info("GDDeconv err_input overflow test...")
         _, first, forward = self._test_deconv(self.device, None)
 
         first.weights.map_read()
@@ -124,7 +118,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         nz = numpy.count_nonzero(numpy.isnan(gd.err_input.mem))
         self.assertEqual(nz, 0, "NaNs encountered in err_input")
 
-        logging.info("GDDeconv numeric derivative test...")
+        self.info("GDDeconv numeric derivative test...")
         gd.weights.map_read()
         nz = numpy.count_nonzero(numpy.isnan(gd.weights.mem))
         self.assertEqual(nz, 0, "NaNs encountered in weights")
@@ -132,7 +126,7 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         weights_derivative = gd.weights.mem - weights
         self.numdiff_check_gd(forward, inp, weights, None, target,
                               err_input, weights_derivative, None,
-                              logging.info, self.assertLess,
+                              self.info, self.assertLess,
                               error_function_averaged=False,
                               threshold=1.0e-3)
 
@@ -201,7 +195,15 @@ class TestDeconv(unittest.TestCase, GDNumDiff):
         return backward.output.mem.copy(), forward, backward
 
 
+@assign_backend("ocl")
+class OpenCLTestDeconv(TestDeconv):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestDeconv(TestDeconv):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

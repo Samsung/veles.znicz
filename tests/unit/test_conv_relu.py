@@ -6,16 +6,13 @@ Unit test for RELU convolutional layer forward propagation.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
 from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
 from veles.dummy import DummyWorkflow
+from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import ConvRELU
 from veles.znicz.tests.unit.test_conv import PatchedConv
 
@@ -24,16 +21,9 @@ class PatchedConvRELU(ConvRELU, PatchedConv):
     pass
 
 
-class TestConvRelu(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
+class TestConvRelu(AcceleratedTest):
     def test_fixed(self):
-        logging.info("Will test RELU convolutional layer forward propagation")
+        self.info("Will test RELU convolutional layer forward propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
@@ -77,12 +67,20 @@ class TestConvRelu(unittest.TestCase):
         t = numpy.where(t > 15, t, numpy.log(numpy.exp(t) + 1.0))
         max_diff = numpy.fabs(t - y).max()
         self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+                        "Result differs by %.6f" % max_diff)
 
-        logging.info("All Ok")
+        self.info("All Ok")
+
+
+@assign_backend("ocl")
+class OpenCLTestConvRelu(TestConvRelu):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestConvRelu(TestConvRelu):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

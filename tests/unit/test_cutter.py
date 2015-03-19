@@ -6,27 +6,19 @@ Cutter unit.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
-from veles.backends import Device
 from veles.memory import Vector
 from veles.znicz.cutter import Cutter, GDCutter
 import veles.prng as prng
-from veles.tests import DummyWorkflow
+from veles.tests import DummyWorkflow, AcceleratedTest, assign_backend
 
 
-class TestCutter(unittest.TestCase):
+class TestCutter(AcceleratedTest):
     def setUp(self):
+        super(TestCutter, self).setUp()
         self.input = numpy.zeros([25, 37, 43, 23], dtype=numpy.float32)
         prng.get().fill(self.input)
-        self.device = Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
 
     def _do_test(self, device):
         cutter = Cutter(DummyWorkflow(), padding=(2, 3, 4, 5))
@@ -66,7 +58,14 @@ class TestCutter(unittest.TestCase):
         self.assertEqual(max_diff, 0)
 
 
+@assign_backend("ocl")
+class OpenCLTestCutter(TestCutter):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestCutter(TestCutter):
+    pass
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

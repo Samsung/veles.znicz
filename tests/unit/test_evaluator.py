@@ -6,27 +6,19 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import gc
-import logging
 import numpy
-import unittest
 
 from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
 import veles.prng as random_generator
 from veles.dummy import DummyWorkflow
+from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.evaluator as evaluator
 
 
-class TestEvaluator(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
+class TestEvaluator(AcceleratedTest):
+    ABSTRACT = True
 
     def test_mse(self):
         batch_size = 25
@@ -55,7 +47,7 @@ class TestEvaluator(unittest.TestCase):
 
         ev.err_output.map_read()
         max_diff = numpy.fabs(ev.err_output.mem - gold_err_output).max()
-        logging.info("Difference is %.12f", max_diff)
+        self.info("Difference is %.12f", max_diff)
         self.assertLess(max_diff, 1.0e-4)
 
     def test_softmax(self):
@@ -99,11 +91,19 @@ class TestEvaluator(unittest.TestCase):
 
         ev.err_output.map_read()
         max_diff = numpy.fabs(ev.err_output.mem - gold_err_output).max()
-        logging.info("Difference is %.12f", max_diff)
+        self.info("Difference is %.12f", max_diff)
         self.assertLess(max_diff, 1.0e-4)
 
 
+@assign_backend("ocl")
+class OpenCLTestEvaluator(TestEvaluator):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestEvaluator(TestEvaluator):
+    pass
+
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()

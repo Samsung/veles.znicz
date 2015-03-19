@@ -6,29 +6,19 @@ Unit test for RELU convolutional layer back propagation
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import gc
-import logging
 import numpy
-import unittest
 
 from veles.config import root
 import veles.memory as formats
-import veles.backends as opencl
 import veles.opencl_types as opencl_types
+from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.gd_conv as gd_conv
 from veles.dummy import DummyWorkflow
 
 
-class TestGDRELUConv(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        gc.collect()
-        del self.device
-
+class TestGDRELUConv(AcceleratedTest):
     def test_fixed(self):
-        logging.info("Will test RELU convolutional layer back propagation")
+        self.info("Will test RELU convolutional layer back propagation")
 
         inp = formats.Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
@@ -108,22 +98,30 @@ class TestGDRELUConv(unittest.TestCase):
         max_diff = numpy.fabs(t.ravel() - c.err_h.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        logging.info("Err_h is right")
+        self.info("Err_h is right")
         """
 
         max_diff = numpy.fabs(weights_new.ravel() -
                               c.weights.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        logging.info("Weights is right")
+        self.info("Weights is right")
 
         max_diff = numpy.fabs(bias_new.ravel() - c.bias.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001,
                         "Result differs by %.6f" % (max_diff))
-        logging.info("Bias is right")
+        self.info("Bias is right")
+
+
+@assign_backend("ocl")
+class OpenCLTestGDRELUConv(TestGDRELUConv):
+    pass
+
+
+@assign_backend("cuda")
+class CUDATestGDRELUConv(TestGDRELUConv):
+    pass
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    AcceleratedTest.main()
