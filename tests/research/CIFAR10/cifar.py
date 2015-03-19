@@ -66,11 +66,11 @@ class CifarWorkflow(StandardWorkflow):
                 self.link_error_plotter, self.link_conf_matrix_plotter,
                 self.link_err_y_plotter))
             end_units.append(self.link_weights_plotter(
-                root.cifar.layers, root.cifar.weights_plotter.limit,
+                root.cifar.weights_plotter.limit,
                 "weights", self.decision))
 
             self.link_gds(*end_units)
-            last = self.link_table_plotter(root.cifar.layers, self.gds[0])
+            last = self.link_table_plotter(self.gds[0])
         else:
             last = self.link_gds(*end_units)
 

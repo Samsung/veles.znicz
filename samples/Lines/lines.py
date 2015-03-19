@@ -35,9 +35,9 @@ class LinesWorkflow(StandardWorkflow):
         gd = self.link_gds(*end_units)
         self.repeater.link_from(
             self.link_weights_plotter(
-                root.lines.layers, root.lines.weights_plotter.limit,
+                root.lines.weights_plotter.limit,
                 "gradient_weights",
-                self.link_table_plotter(root.lines.layers, gd)))
+                self.link_table_plotter(gd)))
 
         self.link_end_point(*end_units)
 

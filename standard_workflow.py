@@ -668,7 +668,7 @@ class StandardWorkflow(StandardWorkflowBase):
         self.multi_hist_plotter = []
         prev = parents
         link_units = self._get_weights_source_units(weights_input)
-        for i, layer in enumerate(layers):
+        for i, layer in enumerate(self.layers):
             multi_hist = plotting_units.MultiHistogram(
                 self, name="Histogram %s %s" % (i + 1, layer["type"]))
             self.multi_hist_plotter.append(multi_hist)
@@ -692,15 +692,14 @@ class StandardWorkflow(StandardWorkflowBase):
                     - 1].gate_skip = ~self.decision.epoch_ended
         return prev[0]
 
-    def link_weights_plotter(self, layers, limit, weights_input, *parents):
-        # limit and weights_input - "weights" or "gradient_weights" for example
+    def link_weights_plotter(self, limit, weights_input, *parents):
         self._check_forwards()
         prev = parents
         self.weights_plotter = []
         prev_channels = 3
         link_units = self._get_weights_source_units(weights_input)
         index = 1
-        for i, layer in enumerate(layers):
+        for i, layer in enumerate(self.layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue
@@ -730,13 +729,13 @@ class StandardWorkflow(StandardWorkflowBase):
             self.weights_plotter[-1].gate_skip = ~self.decision.epoch_ended
         return prev[0]
 
-    def link_similar_weights_plotter(self, layers, weights_input, *parents):
+    def link_similar_weights_plotter(self, weights_input, *parents):
         self.similar_weights_plotter = []
         prev = parents
         k = 0
         n = 0
         link_units = self._get_weights_source_units(weights_input)
-        for i, layer in enumerate(layers):
+        for i, layer in enumerate(self.layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 k += 1
@@ -771,13 +770,13 @@ class StandardWorkflow(StandardWorkflowBase):
         self.similar_weights_plotter[-1].redraw_plot = True
         return prev[0]
 
-    def link_table_plotter(self, layers, *parents):
+    def link_table_plotter(self, *parents):
         self._check_forwards()
         self._check_gds()
         self.table_plotter = plotting_units.TableMaxMin(self, name="Max, Min")
         del self.table_plotter.y[:]
         del self.table_plotter.col_labels[:]
-        for i, layer in enumerate(layers):
+        for i, layer in enumerate(self.layers):
             if (not isinstance(self.forwards[i], conv.Conv) and
                     not isinstance(self.forwards[i], all2all.All2All)):
                 continue

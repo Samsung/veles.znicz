@@ -182,7 +182,7 @@ class ImagenetWorkflow(StandardWorkflow):
                 self.link_error_plotter, self.link_conf_matrix_plotter,
                 self.link_err_y_plotter))
             end_units.append(self.link_weights_plotter(
-                root.imagenet.layers, root.imagenet.weights_plotter.limit,
+                root.imagenet.weights_plotter.limit,
                 "weights", self.decision))
 
         # Add gradient descent units

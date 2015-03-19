@@ -36,7 +36,7 @@ class KanjiWorkflow(StandardWorkflow):
             end_units.extend((
                 self.link_error_plotter(self.decision),
                 self.link_weights_plotter(
-                    root.kanji.layers, root.kanji.weights_plotter.limit,
+                    root.kanji.weights_plotter.limit,
                     "weights", self.decision),
                 self.link_min_max_plotter(False, self.decision),
                 self.link_min_max_plotter(True, self.max_plotter[-1]),
