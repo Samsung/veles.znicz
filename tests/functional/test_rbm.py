@@ -5,22 +5,21 @@ Created on November 6, 2014
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-import logging
 import numpy
 import os
 import scipy.io
-import unittest
 from zope.interface import implementer
 
 from veles.config import root
 from veles.dummy import DummyLauncher
 from veles.interaction import Shell
+from veles.tests import multi_device
 from veles.znicz.decision import TrivialDecision
-
 import veles.loader as loader
 import veles.prng as prng
 import veles.znicz.nn_units as nn_units
 import veles.znicz.rbm_units as RBM_units
+from veles.znicz.tests.functional import StandardTest
 
 
 root.mnist_rbm.update({
@@ -181,12 +180,14 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
             device=device)
 
 
-class TestRBMworkflow(unittest.TestCase):
+class TestRBMworkflow(StandardTest):
     """Test RBM workflow for MNIST.
     """
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         root.mnist_rbm.decision.max_epochs = 2
 
+    @multi_device
     def test_rbm(self):
         """This function creates RBM workflow for MNIST task
         and compares result with the output produced function RBM
@@ -194,18 +195,16 @@ class TestRBMworkflow(unittest.TestCase):
         Raises:
             AssertLess: if unit output is wrong.
         """
-        device = None
         init_weights = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
                                                      '..', 'data', 'rbm_data',
                                                      'R_141014_init.mat'))
         learned_weights = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__), '..', 'data', 'rbm_data',
                          'R_141014_learned.mat'))
-        logging.basicConfig(level=logging.DEBUG)
-        logging.info("MNIST RBM TEST")
+        self.info("MNIST RBM TEST")
         workflow = MnistRBMWorkflow(DummyLauncher(), 0)
         workflow.run_is_blocking = True
-        workflow.initialize(device=device, learning_rate=0,
+        workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)
         workflow.forwards[1].weights.map_write()
         workflow.forwards[1].bias.map_write()
@@ -235,6 +234,4 @@ class TestRBMworkflow(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logging.info("Running RBM tests")
-    unittest.main()
+    StandardTest.main()

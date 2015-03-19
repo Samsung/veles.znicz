@@ -6,35 +6,17 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
-import unittest
-
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_relu
 import veles.dummy as dummy_workflow
 
 
-class TestMnistRelu(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    @timeout(300)
-    def test_mnist_relu(self):
-        logging.info("Will test mnist workflow with relu config")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        root.common.update({
-            "disable_plotting": True,
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestMnistRelu(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
@@ -65,6 +47,12 @@ class TestMnistRelu(unittest.TestCase):
                                "weights_decay_bias": 0.0,
                                "gradient_moment": 0.0,
                                "gradient_moment_bias": 0.0}}]})
+
+    @timeout(300)
+    @multi_device
+    def test_mnist_relu(self):
+        self.info("Will test mnist workflow with relu config")
+
         self.w = mnist_relu.MnistWorkflow(
             dummy_workflow.DummyLauncher(),
             decision_config=root.mnistr.decision,
@@ -88,7 +76,7 @@ class TestMnistRelu(unittest.TestCase):
         self.assertEqual(err, 840)
         self.assertEqual(2, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 5
@@ -103,9 +91,7 @@ class TestMnistRelu(unittest.TestCase):
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 566)
         self.assertEqual(5, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

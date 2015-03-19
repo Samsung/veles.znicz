@@ -6,29 +6,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
-import unittest
-
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.WineRelu.wine_relu as wine_relu
 import veles.dummy as dummy_workflow
 
 
-class TestWineRelu(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    @timeout(300)
-    def test_wine_relu(self):
-        logging.info("Will test wine relu workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
+class TestWineRelu(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.wine_relu.update({
             "decision": {"fail_iterations": 250},
             "snapshotter": {"prefix": "wine_relu"},
@@ -36,6 +23,11 @@ class TestWineRelu(unittest.TestCase):
             "learning_rate": 0.03,
             "weights_decay": 0.0,
             "layers": [10, 3]})
+
+    @timeout(300)
+    @multi_device
+    def test_wine_relu(self):
+        self.info("Will test wine relu workflow")
 
         self.w = wine_relu.WineReluWorkflow(dummy_workflow.DummyLauncher(),
                                             layers=root.wine_relu.layers)
@@ -48,12 +40,10 @@ class TestWineRelu(unittest.TestCase):
         self.w.run()
 
         epoch = self.w.decision.epoch_number
-        logging.info("Converged in %d epochs", epoch)
+        self.info("Converged in %d epochs", epoch)
         self.assertEqual(epoch, 161)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

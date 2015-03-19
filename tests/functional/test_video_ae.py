@@ -6,56 +6,37 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as prng
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.VideoAE.video_ae as video_ae
 import veles.dummy as dummy_workflow
 
 
-class TestVideoAE(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        del self.device
-
-    @timeout(1800)
-    def test_video_ae(self):
-        logging.info("Will test video_ae workflow")
-
-        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                       root.common.veles_dir,
-                                       dtype=numpy.uint32, count=1024))
-        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
-                                        root.common.veles_dir,
-                                        dtype=numpy.uint32, count=1024))
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestVideoAE(StandardTest):
+    def setUpClass(cls):
         root.video_ae.update({
             "snapshotter": {"prefix": "video_ae_test"},
             "decision": {"fail_iterations": 100},
-            "loader": {"minibatch_size": 50, "force_cpu": False,
-                       "train_paths":
-                       (os.path.join(root.common.test_dataset_root,
-                                     "video_ae/img"),),
-                       "color_space": "GRAY",
-                       "background_color": (0x80,),
-                       "normalization_type": "mean_disp"},
+            "loader": {
+                "minibatch_size": 50, "force_cpu": False,
+                "train_paths": (os.path.join(root.common.test_dataset_root,
+                                "video_ae/img"),),
+                "color_space": "GRAY",
+                "background_color": (0x80,),
+                "normalization_type": "mean_disp"},
             "weights_plotter": {"limit": 16},
             "learning_rate": 0.01,
             "weights_decay": 0.00005,
             "layers": [9, [90, 160]]})
+
+    @timeout(1800)
+    @multi_device
+    def test_video_ae(self):
+        self.info("Will test video_ae workflow")
 
         self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyLauncher(),
                                           layers=root.video_ae.layers)
@@ -73,7 +54,7 @@ class TestVideoAE(unittest.TestCase):
         self.assertLess(avg_mse, 0.1957178)
         self.assertEqual(4, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 7
@@ -87,10 +68,8 @@ class TestVideoAE(unittest.TestCase):
         avg_mse = self.wf.decision.epoch_metrics[2][0]
         self.assertLess(avg_mse, 0.18736321)
         self.assertEqual(7, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

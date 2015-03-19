@@ -6,59 +6,21 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
 import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
 from veles.units import TrivialUnit
 import veles.znicz.samples.YaleFaces.yale_faces as yale_faces
 import veles.dummy as dummy_workflow
+from veles.znicz.tests.functional import StandardTest
 
 
-class TestYaleFaces(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def init_wf(self, workflow, device, snapshot):
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-        workflow.initialize(device=device, snapshot=snapshot)
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-    def check_write_error_rate(self, workflow, error):
-        err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, error)
-        self.assertEqual(
-            workflow.decision.max_epochs, workflow.loader.epoch_number)
-
-    def init_and_run(self, device, snapshot):
-        self.workflow = yale_faces.YaleFacesWorkflow(
-            dummy_workflow.DummyLauncher(),
-            loader_name=root.yalefaces.loader_name,
-            loader_config=root.yalefaces.loader,
-            decision_config=root.yalefaces.decision,
-            snapshotter_config=root.yalefaces.snapshotter,
-            layers=root.yalefaces.layers,
-            loss_function=root.yalefaces.loss_function)
-        self.init_wf(self.workflow, device, snapshot)
-        self.workflow.run()
-
-    @timeout(1500)
-    def test_yale_faces_gpu(self):
-        logging.info("Will test fully connectected yale_faces workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
-
+class TestYaleFaces(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.yalefaces.update({
             "decision": {"fail_iterations": 50, "max_epochs": 3},
             "loss_function": "softmax",
@@ -86,23 +48,48 @@ class TestYaleFaces(unittest.TestCase):
                         "<-": {"learning_rate": 0.01,
                                "weights_decay": 0.00005}}]})
 
-        self._test_yale_faces_gpu(device=self.device)
-        self._test_mnist_ae_cpu(None)
-        logging.info("All Ok")
+    def init_wf(self, workflow, device, snapshot):
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
 
+        workflow.initialize(device=device, snapshot=snapshot)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+    def check_write_error_rate(self, workflow, error):
+        err = workflow.decision.epoch_n_err[1]
+        self.assertEqual(err, error)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    def init_and_run(self, device, snapshot):
+        self.workflow = yale_faces.YaleFacesWorkflow(
+            dummy_workflow.DummyLauncher(),
+            loader_name=root.yalefaces.loader_name,
+            loader_config=root.yalefaces.loader,
+            decision_config=root.yalefaces.decision,
+            snapshotter_config=root.yalefaces.snapshotter,
+            layers=root.yalefaces.layers,
+            loss_function=root.yalefaces.loss_function)
+        self.init_wf(self.workflow, device, snapshot)
+        self.workflow.run()
+
+    errors = {"ocl": (239, 167, 233), "cuda": (222, 167, 236)}
+
+    @timeout(1500)
+    @multi_device
     def _test_yale_faces_gpu(self, device):
-        logging.info("Will run workflow with double and ocl backend")
+        self.info("Will test fully connectected yale_faces workflow")
 
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
+        errors = self.errors[self.device.backend_name]
+        self.info("Will run workflow with double")
+        root.common.precision_type = "double"
 
         # Test workflow
         self.init_and_run(device, False)
-        self.check_write_error_rate(self.workflow, 239)
+        self.check_write_error_rate(self.workflow, errors[0])
 
-        logging.info("Extracting the forward workflow...")
+        self.info("Extracting the forward workflow...")
         fwd_wf = self.workflow.extract_forward_workflow(
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
@@ -112,7 +99,7 @@ class TestYaleFaces(unittest.TestCase):
         file_name = self.workflow.snapshotter.file_name
 
         # Test loading from snapshot
-        logging.info("Will load workflow from snapshot: %s" % file_name)
+        self.info("Will load workflow from snapshot: %s", file_name)
 
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
@@ -121,48 +108,19 @@ class TestYaleFaces(unittest.TestCase):
 
         self.init_wf(self.wf, device, True)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 167)
+        self.check_write_error_rate(self.wf, errors[1])
 
-        logging.info("Will run workflow with double and cuda backend")
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "cuda"}})
-
-        # Test workflow with cuda and double
-        self.init_and_run(device, False)
-        self.check_write_error_rate(self.workflow, 222)
-
-        logging.info("Will run workflow with float and ocl backend")
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "float",
-            "engine": {"backend": "ocl"}})
+        self.info("Will run workflow with float")
+        root.common.precision_type = "float"
 
         # Test workflow with ocl and float
         self.init_and_run(device, False)
-        self.check_write_error_rate(self.workflow, 233)
+        self.check_write_error_rate(self.workflow, errors[2])
 
-        logging.info("Will run workflow with float and cuda backend")
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "float",
-            "engine": {"backend": "cuda"}})
-
-        # Test workflow with cuda and float
-        self.init_and_run(device, False)
-        self.check_write_error_rate(self.workflow, 236)
-
-    def _test_mnist_ae_cpu(self, device):
-        logging.info("Will run workflow with --disable-acceleration")
-
-        # Test workflow with --disable-acceleration
+    def test_mnist_ae_cpu(self, device):
+        self.info("Will run workflow on Numpy")
         self.init_and_run(device, False)
         self.check_write_error_rate(self.workflow, 227)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    unittest.main()
+    StandardTest.main()

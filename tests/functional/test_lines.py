@@ -6,50 +6,22 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
 import veles.znicz.samples.Lines.lines as lines
 import veles.dummy as dummy_workflow
+from veles.znicz.tests.functional import StandardTest
 
 
-class TestLines(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        del self.device
-
-    def init_wf(self, workflow, snapshot):
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-        workflow.initialize(device=self.device, snapshot=snapshot)
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-    def check_write_error_rate(self, workflow, error):
-        err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, error)
-        self.assertEqual(
-            workflow.decision.max_epochs, workflow.loader.epoch_number)
-
-    @timeout(300)
-    def test_lines(self):
-        logging.info("Will test lines workflow with one convolutional relu"
-                     " layer and one fully connected relu layer")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
+class TestLines(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         train = os.path.join(root.common.test_dataset_root,
                              "Lines/lines_min/learn")
+
         valid = os.path.join(root.common.test_dataset_root,
                              "Lines/lines_min/test")
 
@@ -60,12 +32,12 @@ class TestLines(unittest.TestCase):
                          "max_epochs": 9},
             "snapshotter": {"prefix": "lines",
                             "time_interval": 0, "interval": 9 + 1},
-            "image_saver": {"out_dirs":
-                            [os.path.join(root.common.cache_dir, "tmp/test"),
-                             os.path.join(
-                                 root.common.cache_dir, "tmp/validation"),
-                             os.path.join(
-                                 root.common.cache_dir, "tmp/train")]},
+            "image_saver": {"out_dirs": [
+                os.path.join(root.common.cache_dir, "tmp/test"),
+                os.path.join(
+                    root.common.cache_dir, "tmp/validation"),
+                os.path.join(
+                    root.common.cache_dir, "tmp/train")]},
             "loader": {"minibatch_size": 12, "force_cpu": False,
                        "normalization_type": "mean_disp",
                        "color_space": "RGB", "filename_types": ["jpeg"],
@@ -96,9 +68,29 @@ class TestLines(unittest.TestCase):
                  "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
                         "gradient_moment": 0.9}}]})
 
-        root.common.precision_level = 1
-        root.common.precision_type = "double"
-        root.common.engine.backend = "ocl"
+    root.common.precision_level = 1
+    root.common.precision_type = "double"
+    root.common.engine.backend = "ocl"
+
+    def init_wf(self, workflow, snapshot):
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+        workflow.initialize(device=self.device, snapshot=snapshot)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+    def check_write_error_rate(self, workflow, error):
+        err = workflow.decision.epoch_n_err[1]
+        self.assertEqual(err, error)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    @timeout(300)
+    @multi_device
+    def test_lines(self):
+        self.info("Will test lines workflow with one convolutional relu"
+                  " layer and one fully connected relu layer")
 
         self.w = lines.LinesWorkflow(dummy_workflow.DummyLauncher(),
                                      decision_config=root.lines.decision,
@@ -116,7 +108,7 @@ class TestLines(unittest.TestCase):
         file_name = self.w.snapshotter.file_name
 
         # Test loading from snapshot
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
 
         self.wf = Snapshotter.import_(file_name)
 
@@ -128,9 +120,7 @@ class TestLines(unittest.TestCase):
         self.wf.run()
         self.check_write_error_rate(self.wf, 46)
 
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

@@ -6,39 +6,17 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
-import unittest
-
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Mnist7.mnist7 as mnist7
 import veles.dummy as dummy_workflow
 
 
-class TestMnist7(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def tearDown(self):
-        del self.device
-
-    @timeout(300)
-    def test_mnist7(self):
-        logging.info("Will test mnist7 workflow")
-
-        prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                       root.common.veles_dir,
-                                       dtype=numpy.uint32, count=1024))
-        root.common.update({
-            "disable_plotting": True,
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestMnist7(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.mnist7.update({
             "decision": {"fail_iterations": 25, "max_epochs": 2},
             "snapshotter": {"prefix": "mnist7_test"},
@@ -47,6 +25,10 @@ class TestMnist7(unittest.TestCase):
             "learning_rate": 0.0001,
             "weights_decay": 0.00005,
             "layers": [100, 100, 7]})
+
+    @timeout(300)
+    def test_mnist7(self):
+        self.info("Will test mnist7 workflow")
 
         self.w = mnist7.Mnist7Workflow(dummy_workflow.DummyLauncher(),
                                        layers=root.mnist7.layers)
@@ -69,7 +51,7 @@ class TestMnist7(unittest.TestCase):
         self.assertAlmostEqual(avg_mse, 0.821236, places=5)
         self.assertEqual(2, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 5
@@ -89,10 +71,8 @@ class TestMnist7(unittest.TestCase):
         avg_mse = self.wf.decision.epoch_metrics[1][0]
         self.assertAlmostEqual(avg_mse, 0.759115, places=5)
         self.assertEqual(5, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

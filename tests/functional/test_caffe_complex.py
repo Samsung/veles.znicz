@@ -6,10 +6,8 @@ A complex test: comparison with CAFFE on full CIFAR model
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import logging
 import numpy
 import os
-import unittest
 import tarfile
 
 from veles.compat import IntEnum
@@ -19,7 +17,7 @@ from veles.logger import Logger
 from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
 from veles.znicz.standard_workflow import GradientUnitFactory
-from veles.znicz.tests.unit import standard_test
+from .standard_test import StandardTest
 
 
 class PropType(IntEnum):
@@ -52,7 +50,7 @@ class LayerInfo(object):
         self.path = None
 
 
-class ComplexTest(standard_test.StandardTest, Logger):
+class ComplexTest(StandardTest, Logger):
     def __init__(self, methodName='runTest'):
         self.layer_dict = {}
         super(ComplexTest, self).__init__(methodName=methodName)
@@ -500,6 +498,4 @@ class ComplexTest(standard_test.StandardTest, Logger):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("COMPLEX TEST")
-    unittest.main()
+    StandardTest.main()

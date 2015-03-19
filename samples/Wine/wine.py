@@ -95,6 +95,7 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.snapshotter = NNSnapshotter(
             self, prefix=root.wine.snapshotter.prefix,
             directory=root.common.snapshot_dir, compress="",
+            interval=root.wine.snapshotter.interval,
             time_interval=root.wine.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,

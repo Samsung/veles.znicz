@@ -5,36 +5,23 @@ Created on April 2, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
-import logging
-import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
 import veles.znicz.samples.Wine.wine as wine
 import veles.dummy as dummy_workflow
+from veles.znicz.tests.functional import StandardTest
 
 
-class TestWine(unittest.TestCase):
-    def setUp(self):
+class TestWine(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         # We must test how snapshotting works, at least one-way
-        root.wine.snapshotter.time_interval = 0
-        self.device = opencl.Device()
-
-    @timeout(300)
-    def test_wine(self):
-        logging.info("Will test wine workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        root.common.precision_level = 1
         root.wine.update({
             "decision": {"fail_iterations": 200,
                          "snapshot_prefix": "wine"},
+            "snapshotter": {"interval": 13, "time_interval": 0},
             "loader": {"minibatch_size": 10,
                        "force_cpu": False},
             "learning_rate": 0.3,
@@ -42,6 +29,13 @@ class TestWine(unittest.TestCase):
             "layers": [8, 3],
             "data_paths": os.path.join(root.common.veles_dir,
                                        "veles/znicz/samples/wine/wine.data")})
+
+    epochs = {"ocl": 13, "cuda": 12, "numpy": 10}
+
+    @timeout(300)
+    @multi_device(True)
+    def test_wine(self):
+        self.info("Will test wine workflow")
 
         self.w = wine.WineWorkflow(dummy_workflow.DummyLauncher(),
                                    layers=root.wine.layers)
@@ -54,12 +48,11 @@ class TestWine(unittest.TestCase):
         self.w.run()
 
         epoch = self.w.decision.epoch_number
-        logging.info("Converged in %d epochs", epoch)
-        self.assertEqual(epoch, 12)
-        logging.info("All Ok")
+        self.info("Converged in %d epochs", epoch)
+        self.assertEqual(epoch, self.epochs[
+            self.device.backend_name if self.device is not None else "numpy"])
+        self.info("All Ok")
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

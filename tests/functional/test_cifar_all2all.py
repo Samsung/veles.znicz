@@ -6,36 +6,19 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.CIFAR10.cifar as cifar
 import veles.dummy as dummy_workflow
 
 
-class TestCifarAll2All(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    @timeout(1200)
-    def test_cifar_all2all(self):
-        logging.info("Will test cifar fully connected workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestCifarAll2All(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
         validation_dir = os.path.join(root.common.test_dataset_root,
                                       "cifar/10/test_batch")
@@ -70,6 +53,11 @@ class TestCifarAll2All(unittest.TestCase):
                                "weights_decay": 0.0}}],
             "snapshotter": {"prefix": "cifar_test"},
             "data_paths": {"train": train_dir, "validation": validation_dir}})
+
+    @timeout(1200)
+    @multi_device
+    def test_cifar_all2all(self):
+        self.info("Will test cifar fully connected workflow")
         self.w = cifar.CifarWorkflow(
             dummy_workflow.DummyLauncher(),
             decision_config=root.cifar.decision,
@@ -95,7 +83,7 @@ class TestCifarAll2All(unittest.TestCase):
         self.assertEqual(err, 7373)
         self.assertEqual(2, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 5
@@ -112,9 +100,7 @@ class TestCifarAll2All(unittest.TestCase):
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 7046)
         self.assertEqual(5, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

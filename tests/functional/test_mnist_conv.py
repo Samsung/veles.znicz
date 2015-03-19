@@ -5,37 +5,17 @@ Created on October 15, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-
-import logging
-import numpy
-import unittest
-
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_conv
 import veles.dummy as dummy_workflow
 
 
-class TestMnistConv(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    @timeout(600)
-    def test_mnist_conv(self):
-        logging.info("Will test mnist workflow with convolutional"
-                     " (genetic generate) config")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-        root.common.update({
-            "disable_plotting": True,
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestMnistConv(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
@@ -108,6 +88,12 @@ class TestMnistConv(unittest.TestCase):
                                "weights_decay": 0.0005,
                                "weights_decay_bias": 0.476000}}]})
 
+    @timeout(600)
+    @multi_device
+    def test_mnist_conv(self):
+        self.info("Will test mnist workflow with convolutional"
+                  " (genetic generate) config")
+
         self.w = mnist_conv.MnistWorkflow(
             dummy_workflow.DummyLauncher(),
             decision_config=root.mnistr.decision,
@@ -130,7 +116,7 @@ class TestMnistConv(unittest.TestCase):
         self.assertEqual(err, 125)
         self.assertEqual(2, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 3
@@ -145,9 +131,7 @@ class TestMnistConv(unittest.TestCase):
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 105)
         self.assertEqual(3, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

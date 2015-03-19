@@ -6,59 +6,19 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
 import os
-import unittest
 
 from veles.config import root
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.CIFAR10.cifar as cifar
 import veles.dummy as dummy_workflow
 
 
-class TestCifarCaffe(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    def init_wf(self, workflow, snapshot):
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-        workflow.initialize(device=self.device, snapshot=snapshot)
-        self.assertEqual(workflow.evaluator.labels,
-                         workflow.loader.minibatch_labels)
-
-    def check_write_error_rate(self, workflow, error):
-        err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, error)
-        self.assertEqual(
-            workflow.decision.max_epochs, workflow.loader.epoch_number)
-
-    def init_and_run(self, snapshot):
-        self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyLauncher(),
-            decision_config=root.cifar.decision,
-            snapshotter_config=root.cifar.snapshotter,
-            image_saver_config=root.cifar.image_saver,
-            loader_name=root.cifar.loader_name,
-            loader_config=root.cifar.loader,
-            layers=root.cifar.layers,
-            loss_function=root.cifar.loss_function)
-        self.init_wf(self.w, snapshot)
-        self.w.run()
-
-    @timeout(1000)
-    def test_cifar_caffe(self):
-        logging.info("Will test cifar convolutional "
-                     "workflow with caffe config")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-
+class TestCifarCaffe(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         train_dir = os.path.join(root.common.test_dataset_root, "cifar/10")
         validation_dir = os.path.join(
             root.common.test_dataset_root, "cifar/10/test_batch")
@@ -71,13 +31,12 @@ class TestCifarCaffe(unittest.TestCase):
                             "time_interval": 0},
             "loss_function": "softmax",
             "add_plotters": False,
-            "image_saver": {"do": False,
-                            "out_dirs":
-                            [os.path.join(root.common.cache_dir, "tmp/test"),
-                             os.path.join(root.common.cache_dir,
-                                          "tmp/validation"),
-                             os.path.join(root.common.cache_dir,
-                                          "tmp/train")]},
+            "image_saver": {
+                "do": False,
+                "out_dirs": [
+                    os.path.join(root.common.cache_dir, "tmp/test"),
+                    os.path.join(root.common.cache_dir, "tmp/validation"),
+                    os.path.join(root.common.cache_dir, "tmp/train")]},
             "loader": {"minibatch_size": 100,
                        "normalization_type": "internal_mean",
                        "add_sobel": False,
@@ -159,32 +118,49 @@ class TestCifarCaffe(unittest.TestCase):
                                "gradient_moment_bias": 0.9}}],
             "data_paths": {"train": train_dir, "validation": validation_dir}})
 
-        logging.info("Will run workflow with double and ocl backend")
+    def init_wf(self, workflow, snapshot):
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
 
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
+        workflow.initialize(device=self.device, snapshot=snapshot)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+
+    def check_write_error_rate(self, workflow, error):
+        err = workflow.decision.epoch_n_err[1]
+        self.assertEqual(err, error)
+        self.assertEqual(
+            workflow.decision.max_epochs, workflow.loader.epoch_number)
+
+    def init_and_run(self, snapshot):
+        self.w = cifar.CifarWorkflow(
+            dummy_workflow.DummyLauncher(),
+            decision_config=root.cifar.decision,
+            snapshotter_config=root.cifar.snapshotter,
+            image_saver_config=root.cifar.image_saver,
+            loader_name=root.cifar.loader_name,
+            loader_config=root.cifar.loader,
+            layers=root.cifar.layers,
+            loss_function=root.cifar.loss_function)
+        self.init_wf(self.w, snapshot)
+        self.w.run()
+
+    errors = {"ocl": [5667, 4252], "cuda": [5877, 4252]}
+
+    @timeout(1000)
+    @multi_device
+    def test_cifar_caffe(self):
+        self.info("Will test cifar convolutional workflow with caffe config")
 
         # Test workflow
         self.init_and_run(False)
-        self.check_write_error_rate(self.w, 5667)
-
-        logging.info("Will run workflow with double and cuda backend")
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "cuda"}})
-
-        # Test workflow with cuda and double
-        self.init_and_run(False)
-        self.check_write_error_rate(self.w, 5877)
+        self.check_write_error_rate(
+            self.w, self.errors[self.device.backend_name][0])
 
         file_name = self.w.snapshotter.file_name
 
         # Test loading from snapshot
-        logging.info("Will load workflow from snapshot: %s" % file_name)
+        self.info("Will load workflow from snapshot: %s" % file_name)
 
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
@@ -193,11 +169,10 @@ class TestCifarCaffe(unittest.TestCase):
 
         self.init_wf(self.wf, True)
         self.wf.run()
-        self.check_write_error_rate(self.wf, 4252)
+        self.check_write_error_rate(
+            self.wf, self.errors[self.device.backend_name][1])
 
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()

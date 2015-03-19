@@ -31,6 +31,9 @@ class StandardTest(AcceleratedTest):
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
                                         dtype=numpy.uint32, count=1024))
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double"})
 
     def tearDown(self):
         del self.parent

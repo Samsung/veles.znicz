@@ -6,36 +6,18 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
-import logging
-import numpy
-import unittest
-
 from veles.config import root
 from veles.genetics import Tune, fix_config
-import veles.backends as opencl
-import veles.prng as rnd
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
+from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_all2all
 import veles.dummy as dummy_workflow
 
 
-class TestMnistAll2All(unittest.TestCase):
-    def setUp(self):
-        self.device = opencl.Device()
-
-    @timeout(300)
-    def test_mnist_all2all(self):
-        logging.info("Will test fully connectected mnist workflow")
-        rnd.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
-                                      root.common.veles_dir,
-                                      dtype=numpy.int32, count=1024))
-
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double",
-            "engine": {"backend": "ocl"}})
-
+class TestMnistAll2All(StandardTest):
+    @classmethod
+    def setUpClass(cls):
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
@@ -70,8 +52,13 @@ class TestMnistAll2All(unittest.TestCase):
                                "weights_decay": Tune(0.0, 0.0, 0.95),
                                "weights_decay_bias": Tune(0.0, 0.0, 0.95),
                                "gradient_moment": Tune(0.0, 0.0, 0.95),
-                               "gradient_moment_bias":
-                               Tune(0.0, 0.0, 0.95)}}]})
+                               "gradient_moment_bias": Tune(0.0, 0.0, 0.95)}}]}
+        )
+
+    @timeout(300)
+    @multi_device
+    def test_mnist_all2all(self):
+        self.info("Will test fully connectected mnist workflow")
 
         fix_config(root)
         self.w = mnist_all2all.MnistWorkflow(
@@ -96,7 +83,7 @@ class TestMnistAll2All(unittest.TestCase):
         self.assertEqual(err, 634)
         self.assertEqual(3, self.w.loader.epoch_number)
 
-        logging.info("Will load workflow from %s" % file_name)
+        self.info("Will load workflow from %s", file_name)
         self.wf = Snapshotter.import_(file_name)
         self.assertTrue(self.wf.decision.epoch_ended)
         self.wf.decision.max_epochs = 6
@@ -111,9 +98,7 @@ class TestMnistAll2All(unittest.TestCase):
         err = self.wf.decision.epoch_n_err[1]
         self.assertEqual(err, 474)
         self.assertEqual(6, self.wf.loader.epoch_number)
-        logging.info("All Ok")
+        self.info("All Ok")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    StandardTest.main()
