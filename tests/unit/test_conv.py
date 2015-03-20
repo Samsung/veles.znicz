@@ -26,6 +26,8 @@ class PatchedConv(Conv):
 
 
 class TestConvBase(AcceleratedTest):
+    ABSTRACT = True
+
     def _run_test(self, unit, device, input_data, weights, bias):
         """Run test for specified unit with specified device.
 
