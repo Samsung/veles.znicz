@@ -52,7 +52,7 @@ class TestMnist784(StandardTest):
            "cuda": ((0.403975599, 7967), (0.39173925, 7589))}
 
     @timeout(1000)
-    @multi_device
+    @multi_device()
     def test_mnist784_gpu(self):
         self.info("Will run workflow on double precision")
 

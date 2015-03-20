@@ -174,10 +174,11 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
 
         self.loader.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device, **kwargs):
+    def initialize(self, learning_rate, weights_decay, device, snapshot=False,
+                   **kwargs):
         return super(MnistRBMWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
-            device=device)
+            snapshot=False, device=device)
 
 
 class TestRBMworkflow(StandardTest):
@@ -187,7 +188,7 @@ class TestRBMworkflow(StandardTest):
     def setUpClass(cls):
         root.mnist_rbm.decision.max_epochs = 2
 
-    @multi_device
+    @multi_device()
     def test_rbm(self):
         """This function creates RBM workflow for MNIST task
         and compares result with the output produced function RBM

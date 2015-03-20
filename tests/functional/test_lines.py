@@ -87,7 +87,7 @@ class TestLines(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     @timeout(300)
-    @multi_device
+    @multi_device()
     def test_lines(self):
         self.info("Will test lines workflow with one convolutional relu"
                   " layer and one fully connected relu layer")

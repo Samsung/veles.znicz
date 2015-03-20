@@ -55,7 +55,7 @@ class TestCifarAll2All(StandardTest):
             "data_paths": {"train": train_dir, "validation": validation_dir}})
 
     @timeout(1200)
-    @multi_device
+    @multi_device()
     def test_cifar_all2all(self):
         self.info("Will test cifar fully connected workflow")
         self.w = cifar.CifarWorkflow(

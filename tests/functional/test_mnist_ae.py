@@ -54,7 +54,7 @@ class TestMnistAE(StandardTest):
            "cuda": (0.9612299373, 0.9606072, 0.96101219)}
 
     @timeout(1500)
-    @multi_device
+    @multi_device()
     def test_mnist_ae_gpu(self):
         self.info("Will run workflow on double precision")
         root.common.update({"precision_type": "double"})

@@ -148,7 +148,7 @@ class TestCifarCaffe(StandardTest):
     errors = {"ocl": [5667, 4252], "cuda": [5877, 4252]}
 
     @timeout(1000)
-    @multi_device
+    @multi_device()
     def test_cifar_caffe(self):
         self.info("Will test cifar convolutional workflow with caffe config")
 

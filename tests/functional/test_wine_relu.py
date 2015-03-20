@@ -25,7 +25,7 @@ class TestWineRelu(StandardTest):
             "layers": [10, 3]})
 
     @timeout(300)
-    @multi_device
+    @multi_device()
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")
 

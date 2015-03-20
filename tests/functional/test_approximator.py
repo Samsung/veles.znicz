@@ -8,10 +8,10 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 import os
 
+from veles.znicz.tests.functional import StandardTest
 from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
-from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Approximator.approximator as approximator
 
 
@@ -38,7 +38,7 @@ class TestApproximator(StandardTest):
            "cuda": [0.1669484573, 0.15975260]}
 
     @timeout(240)
-    @multi_device
+    @multi_device()
     def test_approximator(self):
         self.info("Will test approximator workflow")
 

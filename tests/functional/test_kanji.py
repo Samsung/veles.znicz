@@ -5,9 +5,11 @@ Created on April 2, 2014
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+import numpy
 import os
 
 from veles.config import root
+import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.samples.Kanji import kanji
@@ -18,6 +20,9 @@ from veles.znicz.tests.functional import StandardTest
 class TestKanji(StandardTest):
     @classmethod
     def setUpClass(cls):
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.uint32, count=1024))
         train_path = os.path.join(root.common.test_dataset_root,
                                   "new_kanji/train")
 
@@ -60,7 +65,7 @@ class TestKanji(StandardTest):
                                "weights_decay": 0.00005}}]})
 
     @timeout(1200)
-    @multi_device
+    @multi_device()
     def test_kanji(self):
         self.info("Will test kanji workflow")
 

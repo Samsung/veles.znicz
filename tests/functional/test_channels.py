@@ -18,11 +18,12 @@ import veles.znicz.tests.research.TvChannels.channels as channels
 
 
 class TestChannels(StandardTest):
+    @classmethod
     def setUpClass(cls):
         root.channels.update({
             "decision": {"fail_iterations": 50,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "test_channels", "interval": 4,
+            "snapshotter": {"prefix": "test_channels", "interval": 1,
                             "time_interval": 0},
             "image_saver": {"out_dirs": [
                 os.path.join(root.common.cache_dir, "tmp/test"),
@@ -57,7 +58,7 @@ class TestChannels(StandardTest):
                                "weights_decay": 0.00005}}]})
 
     @timeout(1200)
-    @multi_device
+    @multi_device()
     def test_channels_all2all(self):
         self.info("Will test channels fully connected workflow")
 

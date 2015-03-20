@@ -56,7 +56,7 @@ class TestMnistAll2All(StandardTest):
         )
 
     @timeout(300)
-    @multi_device
+    @multi_device()
     def test_mnist_all2all(self):
         self.info("Will test fully connectected mnist workflow")
 

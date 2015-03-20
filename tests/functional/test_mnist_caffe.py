@@ -75,7 +75,7 @@ class TestMnistCaffe(StandardTest):
                                "weights_decay_bias": 0.0}}]})
 
     @timeout(900)
-    @multi_device
+    @multi_device()
     def test_mnist_caffe(self):
         self.info("Will test mnist workflow with caffe config")
 

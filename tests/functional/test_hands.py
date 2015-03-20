@@ -43,7 +43,7 @@ class TestHands(StandardTest):
                                "weights_decay": 0.0}}]})
 
     @timeout(500)
-    @multi_device
+    @multi_device()
     def test_hands(self):
         self.info("Will test hands workflow")
 

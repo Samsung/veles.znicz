@@ -36,7 +36,7 @@ class TestKohonen(StandardTest):
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 
     @timeout(700)
-    @multi_device
+    @multi_device()
     def test_kohonen(self):
         self.info("Will test kohonen workflow")
 

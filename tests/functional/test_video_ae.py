@@ -6,9 +6,11 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import numpy
 import os
 
 from veles.config import root
+import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
@@ -17,7 +19,11 @@ import veles.dummy as dummy_workflow
 
 
 class TestVideoAE(StandardTest):
+    @classmethod
     def setUpClass(cls):
+        prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
+                                        root.common.veles_dir,
+                                        dtype=numpy.uint32, count=1024))
         root.video_ae.update({
             "snapshotter": {"prefix": "video_ae_test"},
             "decision": {"fail_iterations": 100},
@@ -34,7 +40,7 @@ class TestVideoAE(StandardTest):
             "layers": [9, [90, 160]]})
 
     @timeout(1800)
-    @multi_device
+    @multi_device()
     def test_video_ae(self):
         self.info("Will test video_ae workflow")
 

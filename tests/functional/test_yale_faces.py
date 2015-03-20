@@ -48,11 +48,11 @@ class TestYaleFaces(StandardTest):
                         "<-": {"learning_rate": 0.01,
                                "weights_decay": 0.00005}}]})
 
-    def init_wf(self, workflow, device, snapshot):
+    def init_wf(self, workflow, snapshot):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
-        workflow.initialize(device=device, snapshot=snapshot)
+        workflow.initialize(device=self.device, snapshot=snapshot)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
 
@@ -62,7 +62,7 @@ class TestYaleFaces(StandardTest):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    def init_and_run(self, device, snapshot):
+    def init_and_run(self, snapshot):
         self.workflow = yale_faces.YaleFacesWorkflow(
             dummy_workflow.DummyLauncher(),
             loader_name=root.yalefaces.loader_name,
@@ -71,14 +71,14 @@ class TestYaleFaces(StandardTest):
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
             loss_function=root.yalefaces.loss_function)
-        self.init_wf(self.workflow, device, snapshot)
+        self.init_wf(self.workflow, snapshot)
         self.workflow.run()
 
     errors = {"ocl": (239, 167, 233), "cuda": (222, 167, 236)}
 
     @timeout(1500)
-    @multi_device
-    def _test_yale_faces_gpu(self, device):
+    @multi_device()
+    def test_yale_faces_gpu(self):
         self.info("Will test fully connectected yale_faces workflow")
 
         errors = self.errors[self.device.backend_name]
@@ -86,7 +86,7 @@ class TestYaleFaces(StandardTest):
         root.common.precision_type = "double"
 
         # Test workflow
-        self.init_and_run(device, False)
+        self.init_and_run(False)
         self.check_write_error_rate(self.workflow, errors[0])
 
         self.info("Extracting the forward workflow...")
@@ -106,7 +106,7 @@ class TestYaleFaces(StandardTest):
         self.wf.decision.max_epochs = 6
         self.wf.decision.complete <<= False
 
-        self.init_wf(self.wf, device, True)
+        self.init_wf(self.wf, True)
         self.wf.run()
         self.check_write_error_rate(self.wf, errors[1])
 
@@ -114,13 +114,8 @@ class TestYaleFaces(StandardTest):
         root.common.precision_type = "float"
 
         # Test workflow with ocl and float
-        self.init_and_run(device, False)
+        self.init_and_run(False)
         self.check_write_error_rate(self.workflow, errors[2])
-
-    def test_mnist_ae_cpu(self, device):
-        self.info("Will run workflow on Numpy")
-        self.init_and_run(device, False)
-        self.check_write_error_rate(self.workflow, 227)
 
 if __name__ == "__main__":
     StandardTest.main()

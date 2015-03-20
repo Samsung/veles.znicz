@@ -28,7 +28,7 @@ class TestSamplesMnist(StandardTest):
             "factor_ortho": 0.001})
 
     @timeout(300)
-    @multi_device
+    @multi_device()
     def test_samples_mnist(self):
         self.info("Will test mnist fully connected workflow from samples")
 

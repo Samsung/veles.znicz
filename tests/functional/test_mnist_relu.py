@@ -49,7 +49,7 @@ class TestMnistRelu(StandardTest):
                                "gradient_moment_bias": 0.0}}]})
 
     @timeout(300)
-    @multi_device
+    @multi_device()
     def test_mnist_relu(self):
         self.info("Will test mnist workflow with relu config")
 

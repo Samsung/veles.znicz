@@ -14,7 +14,7 @@ import os
 import unittest
 
 from veles.config import root
-from veles.dummy import DummyWorkflow
+from veles.dummy import DummyLauncher
 from veles.tests import AcceleratedTest
 import veles.prng as prng
 
@@ -22,18 +22,23 @@ import veles.prng as prng
 class StandardTest(AcceleratedTest):
     def setUp(self):
         super(StandardTest, self).setUp()
-        self.parent = DummyWorkflow()
+        self.parent = DummyLauncher()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
+        root.common.update({
+            "precision_level": 1,
+            "precision_type": "double"})
+
+        assert root.common.disable_plotting
+        self.seed()
+
+    def seed(self):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
                                        root.common.veles_dir,
                                        dtype=numpy.int32, count=1024))
         prng.get(2).seed(numpy.fromfile("%s/veles/znicz/tests/research/seed2" %
                                         root.common.veles_dir,
-                                        dtype=numpy.uint32, count=1024))
-        root.common.update({
-            "precision_level": 1,
-            "precision_type": "double"})
+                                        dtype=numpy.int32, count=1024))
 
     def tearDown(self):
         del self.parent

@@ -301,10 +301,11 @@ class Mnist784Workflow(nn_units.NNWorkflow):
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
 
-    def initialize(self, learning_rate, weights_decay, device, **kwargs):
+    def initialize(self, learning_rate, weights_decay, device, snapshot=False,
+                   **kwargs):
         super(Mnist784Workflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
-            device=device)
+            snapshot=False, device=device)
 
 
 def run(load, main):
