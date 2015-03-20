@@ -197,22 +197,19 @@ class All2All(nn_units.NNLayerBase):
 
     def cuda_init(self):
         dtype = self.input.dtype
-        self.gemm_ = (cublas.CUBLAS.sgemm if dtype == numpy.float32
-                      else cublas.CUBLAS.dgemm)
-        self.np_one = numpy.ones(1, dtype=dtype)
-        self.np_zero = numpy.zeros(1, dtype=dtype)
+        self.gemm_ = cublas.CUBLAS.gemm(dtype)
+        self.np_one = numpy.ones(1, dtype)
+        self.np_zero = numpy.zeros(1, dtype)
+        self._transA = cublas.CUBLAS_OP_T
+        self._transB = cublas.CUBLAS_OP_N
         if self.weights_transposed:
             self._A_ = self.input.devmem
             self._B_ = self.weights.devmem
-            self._transA = cublas.CUBLAS_OP_T
-            self._transB = cublas.CUBLAS_OP_N
             self._rowsCountA = self.input.shape[0]
             self._columnCountB = self.weights.shape[0]
         else:
             self._A_ = self.weights.devmem
             self._B_ = self.input.devmem
-            self._transA = cublas.CUBLAS_OP_T
-            self._transB = cublas.CUBLAS_OP_N
             self._rowsCountA = self.weights.shape[0]
             self._columnCountB = self.input.shape[0]
         self._commonSideLength = self.input.sample_size
