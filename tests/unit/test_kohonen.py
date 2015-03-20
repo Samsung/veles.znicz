@@ -4,6 +4,7 @@ Created on November 18, 2013
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
+import unittest
 
 import numpy
 
@@ -17,7 +18,7 @@ class TestKohonen(AcceleratedTest):
     ABSTRACT = True
 
     def setUp(self):
-        super(AcceleratedTest, self).setUp()
+        super(TestKohonen, self).setUp()
         self.input = numpy.array([[1, 2, 3, 2, 1],
                                   [0, 1, 2, 1, 0],
                                   [0, 1, 0, 1, 0],
@@ -294,6 +295,7 @@ class OpenCLTestKohonen(TestKohonen):
 
 
 @assign_backend("cuda")
+@unittest.expectedFailure
 class CUDATestKohonen(TestKohonen):
     pass
 
