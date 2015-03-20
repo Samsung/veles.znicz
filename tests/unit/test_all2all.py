@@ -162,12 +162,12 @@ class TestAll2All(AcceleratedTest):
 
 
 @assign_backend("ocl")
-class OpenCLTestAll2All(AcceleratedTest):
+class OpenCLTestAll2All(TestAll2All):
     pass
 
 
 @assign_backend("cuda")
-class CUDATestAll2All(AcceleratedTest):
+class CUDATestAll2All(TestAll2All):
     pass
 
 
