@@ -20,7 +20,7 @@ import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.normalization as normalization
 import veles.znicz.pooling as pooling
-from .standard_test import StandardTest
+from veles.znicz.tests.functional import StandardTest
 
 
 class TestConvCaffe(StandardTest):
