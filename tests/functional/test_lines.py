@@ -67,10 +67,6 @@ class TestLines(StandardTest):
                  "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
                         "gradient_moment": 0.9}}]})
 
-    root.common.precision_level = 1
-    root.common.precision_type = "double"
-    root.common.engine.backend = "ocl"
-
     def init_wf(self, workflow, snapshot):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)

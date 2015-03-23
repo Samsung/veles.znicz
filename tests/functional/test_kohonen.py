@@ -20,7 +20,6 @@ class TestKohonen(StandardTest):
         data_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
             "samples/DemoKohonen")
-        root.common.precision_level = 1
         root.kohonen.update({
             "forward": {"shape": (8, 8),
                         "weights_stddev": 0.05,
