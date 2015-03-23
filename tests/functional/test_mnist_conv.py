@@ -10,7 +10,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_conv
-import veles.dummy as dummy_workflow
 
 
 class TestMnistConv(StandardTest):
@@ -95,7 +94,7 @@ class TestMnistConv(StandardTest):
                   " (genetic generate) config")
 
         self.w = mnist_conv.MnistWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
             loader_name=root.mnistr.loader_name,

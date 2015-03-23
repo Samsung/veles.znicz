@@ -11,7 +11,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Mnist7.mnist7 as mnist7
-import veles.dummy as dummy_workflow
 
 
 class TestMnist7(StandardTest):
@@ -30,7 +29,7 @@ class TestMnist7(StandardTest):
     def test_mnist7(self):
         self.info("Will test mnist7 workflow")
 
-        self.w = mnist7.Mnist7Workflow(dummy_workflow.DummyLauncher(),
+        self.w = mnist7.Mnist7Workflow(self.parent,
                                        layers=root.mnist7.layers)
         self.w.snapshotter.time_interval = 0
         self.w.snapshotter.interval = 1

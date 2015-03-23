@@ -12,7 +12,6 @@ from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
 import veles.prng as random_generator
-from veles.dummy import DummyWorkflow
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.evaluator as evaluator
 
@@ -31,7 +30,7 @@ class TestEvaluator(AcceleratedTest):
         target = numpy.empty_like(output)
         random_generator.get().fill(target)
 
-        ev = evaluator.EvaluatorMSE(DummyWorkflow())
+        ev = evaluator.EvaluatorMSE(self.parent)
         ev.output = formats.Vector()
         ev.output.mem = output.copy()
         ev.target = formats.Vector()
@@ -72,7 +71,7 @@ class TestEvaluator(AcceleratedTest):
             sample[:] = 0
             sample[labels[i]] = 1
 
-        ev = evaluator.EvaluatorSoftmax(DummyWorkflow())
+        ev = evaluator.EvaluatorSoftmax(self.parent)
         ev.output = formats.Vector()
         ev.output.mem = output.copy()
         ev.labels = formats.Vector()

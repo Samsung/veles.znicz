@@ -9,7 +9,6 @@ import unittest
 import numpy
 
 import veles.memory as formats
-from veles.dummy import DummyWorkflow
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.kohonen as kohonen
 
@@ -53,7 +52,7 @@ class TestKohonen(AcceleratedTest):
 
     def test_forward(self):
         self.info("Will test KohonenForward unit forward pass")
-        c = kohonen.KohonenForward(DummyWorkflow())
+        c = kohonen.KohonenForward(self.parent)
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.weights = formats.Vector()
@@ -70,7 +69,7 @@ class TestKohonen(AcceleratedTest):
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
     def test_forward_total(self):
-        c = kohonen.KohonenForward(DummyWorkflow(), total=True)
+        c = kohonen.KohonenForward(self.parent, total=True)
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.weights = formats.Vector()
@@ -98,7 +97,7 @@ class TestKohonen(AcceleratedTest):
 
     def test_forward_with_argmins(self):
         self.info("Will test KohonenForward unit forward pass")
-        c = kohonen.KohonenForward(DummyWorkflow())
+        c = kohonen.KohonenForward(self.parent)
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.weights = formats.Vector()
@@ -120,7 +119,7 @@ class TestKohonen(AcceleratedTest):
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
     def test_forward_total_with_argmins(self):
-        c = kohonen.KohonenForward(DummyWorkflow(), total=True)
+        c = kohonen.KohonenForward(self.parent, total=True)
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.weights = formats.Vector()
@@ -152,7 +151,7 @@ class TestKohonen(AcceleratedTest):
     def test_train(self):
         self.info("Will test KohonenForward unit train pass")
 
-        c = kohonen.KohonenTrainer(DummyWorkflow(), shape=(3, 3))
+        c = kohonen.KohonenTrainer(self.parent, shape=(3, 3))
         c.input = formats.Vector()
         c.input.mem = self.input[:]
         c.gradient_decay = lambda t: 1.0 / (1.0 + t)
@@ -190,7 +189,7 @@ class TestKohonen(AcceleratedTest):
                         "Wrong winners %s" % str(winners))
 
     def test_train_2d(self):
-        c = kohonen.KohonenTrainer(DummyWorkflow(), shape=(8, 8))
+        c = kohonen.KohonenTrainer(self.parent, shape=(8, 8))
         c.input = formats.Vector()
         c.input.mem = numpy.array([[0.31550583, 1.1270231],
                                    [0.29612723, -0.06573299],

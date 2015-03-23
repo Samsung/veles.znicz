@@ -10,7 +10,6 @@ from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.MnistSimple.mnist as mnist
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -32,7 +31,7 @@ class TestSamplesMnist(StandardTest):
     def test_samples_mnist(self):
         self.info("Will test mnist fully connected workflow from samples")
 
-        self.w = mnist.MnistWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = mnist.MnistWorkflow(self.parent,
                                      layers=root.mnist.layers)
         self.w.decision.max_epochs = 2
         self.w.snapshotter.time_interval = 0

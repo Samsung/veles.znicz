@@ -15,7 +15,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.VideoAE.video_ae as video_ae
-import veles.dummy as dummy_workflow
 
 
 class TestVideoAE(StandardTest):
@@ -44,7 +43,7 @@ class TestVideoAE(StandardTest):
     def test_video_ae(self):
         self.info("Will test video_ae workflow")
 
-        self.w = video_ae.VideoAEWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = video_ae.VideoAEWorkflow(self.parent,
                                           layers=root.video_ae.layers)
         self.w.decision.max_epochs = 4
         self.w.snapshotter.time_interval = 0

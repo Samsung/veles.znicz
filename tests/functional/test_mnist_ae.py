@@ -10,7 +10,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MnistAE.mnist_ae as mnist_ae
-import veles.dummy as dummy_workflow
 
 
 class TestMnistAE(StandardTest):
@@ -45,7 +44,7 @@ class TestMnistAE(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device, snapshot):
-        self.w = mnist_ae.MnistAEWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = mnist_ae.MnistAEWorkflow(self.parent,
                                           layers=root.mnist_ae.layers)
         self.init_wf(self.w, device, snapshot)
         self.w.run()

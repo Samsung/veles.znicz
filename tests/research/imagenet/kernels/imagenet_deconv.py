@@ -94,7 +94,7 @@ class Workflow(StandardWorkflow):
                                           test_paths=["./data/test"],
                                           validation_paths=[],
                                           train_paths=[])
-        self.loader.setup(level=logging.DEBUG)
+        self.loader.setup_logging(level=logging.DEBUG)
 
         self.loader.load_data()
 

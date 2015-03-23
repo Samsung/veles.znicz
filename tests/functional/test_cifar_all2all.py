@@ -13,7 +13,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.CIFAR10.cifar as cifar
-import veles.dummy as dummy_workflow
 
 
 class TestCifarAll2All(StandardTest):
@@ -59,7 +58,7 @@ class TestCifarAll2All(StandardTest):
     def test_cifar_all2all(self):
         self.info("Will test cifar fully connected workflow")
         self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.cifar.decision,
             snapshotter_config=root.cifar.snapshotter,
             image_saver_config=root.cifar.image_saver,

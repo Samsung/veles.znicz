@@ -11,7 +11,6 @@ import numpy
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.dummy import DummyWorkflow
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import ConvRELU
 from veles.znicz.tests.unit.test_conv import PatchedConv
@@ -41,7 +40,7 @@ class TestConvRelu(AcceleratedTest):
                                 [1.7, -1.4, 0.05]]], dtype=dtype)
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = PatchedConvRELU(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
+        c = PatchedConvRELU(self.parent, n_kernels=2, kx=3, ky=3)
         c.input = inp
 
         c.initialize(device=self.device)

@@ -10,7 +10,6 @@ import os
 from veles.config import root
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.Wine.wine as wine
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -30,14 +29,14 @@ class TestWine(StandardTest):
             "data_paths": os.path.join(root.common.veles_dir,
                                        "veles/znicz/samples/wine/wine.data")})
 
-    epochs = {"ocl": 13, "cuda": 12, "numpy": 10}
+    epochs = {"ocl": 12, "cuda": 12, "numpy": 12}
 
     @timeout(300)
     @multi_device(True)
     def test_wine(self):
         self.info("Will test wine workflow")
 
-        self.w = wine.WineWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = wine.WineWorkflow(self.parent,
                                    layers=root.wine.layers)
 
         self.assertEqual(self.w.evaluator.labels,

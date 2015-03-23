@@ -2032,7 +2032,7 @@ class Main(Processor):
         """
         parser = Main.init_parser()
         args = parser.parse_args()
-        self.setup(level=Main.LOG_LEVEL_MAP[args.verbose])
+        self.setup_logging(level=Main.LOG_LEVEL_MAP[args.verbose])
         self.year = args.year
         self.series = args.series
         self.command_to_run = args.command_to_run

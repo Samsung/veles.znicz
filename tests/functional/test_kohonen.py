@@ -11,7 +11,6 @@ import os
 from veles.config import root
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.DemoKohonen.kohonen as kohonen
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -40,7 +39,7 @@ class TestKohonen(StandardTest):
     def test_kohonen(self):
         self.info("Will test kohonen workflow")
 
-        self.w = kohonen.KohonenWorkflow(dummy_workflow.DummyLauncher())
+        self.w = kohonen.KohonenWorkflow(self.parent)
         self.w.initialize(device=self.device, snapshot=False)
         self.w.run()
 

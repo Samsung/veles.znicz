@@ -10,7 +10,7 @@ import numpy
 import os
 import scipy.io
 
-from veles.dummy import DummyLauncher, DummyWorkflow
+from veles.dummy import DummyLauncher
 from veles.memory import Vector
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
@@ -32,7 +32,7 @@ class TestRBMUnits(AcceleratedTest):
         """
         test_data = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
                                      '..', 'data', 'rbm_data', 'test_a2a.mat'))
-        a2a = All2AllSigmoid(DummyWorkflow(), output_sample_shape=196,
+        a2a = All2AllSigmoid(self.parent, output_sample_shape=196,
                              weights_stddev=0.05)
         # add initialize and input
         a2a.input = Vector()
@@ -54,7 +54,7 @@ class TestRBMUnits(AcceleratedTest):
         self.assertLess(diff, 1e-12, " total error  is %0.17f" % diff)
 
     def test_Binarization(self):
-        b1 = rbm.Binarization(DummyWorkflow())
+        b1 = rbm.Binarization(self.parent)
         # add initialize and input
         b1.input = Vector()
         b1.input.reset()
@@ -74,7 +74,7 @@ class TestRBMUnits(AcceleratedTest):
                         "total error weights is %0.17f" % diff)
 
     def test_EvaluatorRBM(self):
-        evl = rbm.EvaluatorRBM(DummyWorkflow(), bias_shape=196)
+        evl = rbm.EvaluatorRBM(self.parent, bias_shape=196)
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_eval.mat'))
@@ -94,7 +94,8 @@ class TestRBMUnits(AcceleratedTest):
                         "total error weights is %0.17f" % diff)
 
     def test_GradientRBM(self):
-        gds = rbm.GradientRBM(DummyLauncher(), stddev=0.05, v_size=196,
+        launcher = DummyLauncher()
+        gds = rbm.GradientRBM(launcher, stddev=0.05, v_size=196,
                               h_size=1000, cd_k=1)
         gds.input = Vector()
         gds.weights = Vector()
@@ -128,11 +129,12 @@ class TestRBMUnits(AcceleratedTest):
         diff2 = numpy.sum(numpy.abs(gds.v1.mem - grad_data["v1_out"]))
         self.assertLess(diff1, 1e-12, " total error  is %0.17f" % diff1)
         self.assertLess(diff2, 1e-12, " total error  is %0.17f" % diff2)
+        del launcher
 
     def test_BatchWeights(self):
         # will make initialization for crated Vectors and make map_read
         # and map_write
-        bw = rbm.BatchWeights(DummyWorkflow())
+        bw = rbm.BatchWeights(self.parent)
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_batchWeights.mat'))
@@ -159,7 +161,7 @@ class TestRBMUnits(AcceleratedTest):
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_makeGrad.mat'))
-        mg = rbm.GradientsCalculator(DummyWorkflow())
+        mg = rbm.GradientsCalculator(self.parent)
         mg.hbias1 = Vector()
         mg.vbias1 = Vector()
         mg.hbias0 = Vector()
@@ -187,7 +189,7 @@ class TestRBMUnits(AcceleratedTest):
         test_data = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__),
                          '..', 'data', 'rbm_data', 'test_updateWeights.mat'))
-        uw = rbm.WeightsUpdater(DummyWorkflow(), learning_rate=0.001)
+        uw = rbm.WeightsUpdater(self.parent, learning_rate=0.001)
         uw.weights = Vector()
         uw.weights.mem = test_data["W_old"]
         uw.vbias = Vector()

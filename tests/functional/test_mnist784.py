@@ -11,7 +11,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Mnist784.mnist784 as mnist784
-import veles.dummy as dummy_workflow
 
 
 class TestMnist784(StandardTest):
@@ -43,7 +42,7 @@ class TestMnist784(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device, snapshot):
-        self.w = mnist784.Mnist784Workflow(dummy_workflow.DummyLauncher(),
+        self.w = mnist784.Mnist784Workflow(self.parent,
                                            layers=root.mnist784.layers)
         self.init_wf(self.w, device, snapshot)
         self.w.run()

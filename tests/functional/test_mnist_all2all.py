@@ -12,7 +12,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_all2all
-import veles.dummy as dummy_workflow
 
 
 class TestMnistAll2All(StandardTest):
@@ -62,7 +61,7 @@ class TestMnistAll2All(StandardTest):
 
         fix_config(root)
         self.w = mnist_all2all.MnistWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
             loader_name=root.mnistr.loader_name,

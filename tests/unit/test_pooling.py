@@ -15,7 +15,7 @@ from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.pooling as pooling
 import veles.znicz.depooling as depooling
-from veles.dummy import DummyUnit, DummyWorkflow
+from veles.dummy import DummyUnit
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 
 
@@ -77,7 +77,7 @@ class TestMaxPooling(AcceleratedTest):
         self._do_test(None)
 
     def _do_test(self, device):
-        c = pooling.MaxAbsPooling(DummyWorkflow(), kx=2, ky=2)
+        c = pooling.MaxAbsPooling(self.parent, kx=2, ky=2)
         c.input = self._input
         c.initialize(device=device)
         c.run()
@@ -103,8 +103,8 @@ class TestStochasticPooling(AcceleratedTest):
 
     def _do_test(self, device, Unit):
         prng.get().state = self.random_state
-        uniform = Uniform(DummyWorkflow(), output_bytes=315)
-        unit = Unit(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
+        uniform = Uniform(self.parent, output_bytes=315)
+        unit = Unit(self.parent, kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
         unit.input = formats.Vector(self.input.copy())
         unit.initialize(device=device)
@@ -185,7 +185,7 @@ class TestGDMaxPooling(AcceleratedTest):
     def _test_fixed(self, device):
         self.info('starting OpenCL max pooling layer gradient descent '
                   'test...')
-        c = gd_pooling.GDMaxPooling(DummyWorkflow())
+        c = gd_pooling.GDMaxPooling(self.parent)
         c.link_pool_attrs(DummyUnit(kx=2, ky=2, sliding=(2, 2)))
         c.input = formats.Vector()
         c.input.mem = self._input.copy()
@@ -254,7 +254,7 @@ class TestAvgPooling(AcceleratedTest):
         self._do_test(None)
 
     def _do_test(self, device):
-        c = pooling.AvgPooling(DummyWorkflow(), kx=2, ky=2)
+        c = pooling.AvgPooling(self.parent, kx=2, ky=2)
         c.input = self._input
         c.initialize(device=self.device)
         c.run()
@@ -282,7 +282,7 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
 
         inp = numpy.zeros([2, 6, 6, 3], dtype=self._dtype)
         prng.get().fill(inp)
-        forward = pooling.AvgPooling(DummyWorkflow(), kx=3, ky=3,
+        forward = pooling.AvgPooling(self.parent, kx=3, ky=3,
                                      sliding=sliding)
         forward.input = formats.Vector()
         forward.input.mem = inp.copy()
@@ -294,7 +294,7 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
         prng.get().fill(target)
         err_output = forward.output.mem - target
 
-        c = gd_pooling.GDAvgPooling(DummyWorkflow())
+        c = gd_pooling.GDAvgPooling(self.parent)
         c.link_pool_attrs(forward)
         c.err_output = formats.Vector()
         c.err_output.mem = err_output.copy()
@@ -325,8 +325,8 @@ class TestStochasticPoolingDepooling(AcceleratedTest):
 
     def _do_test(self, device, Unit, Forward):
         prng.get().state = self.random_state
-        uniform = Uniform(DummyWorkflow(), output_bytes=315)
-        unit = Unit(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
+        uniform = Uniform(self.parent, output_bytes=315)
+        unit = Unit(self.parent, kx=3, ky=3, sliding=(3, 3),
                     uniform=uniform)
         unit.input = formats.Vector(self.input.copy())
         unit.initialize(device=device)
@@ -334,14 +334,14 @@ class TestStochasticPoolingDepooling(AcceleratedTest):
         unit.input.map_read()
 
         prng.get().state = self.random_state
-        uniform = Uniform(DummyWorkflow(), output_bytes=315)
-        forward = Forward(DummyWorkflow(), kx=3, ky=3, sliding=(3, 3),
+        uniform = Uniform(self.parent, output_bytes=315)
+        forward = Forward(self.parent, kx=3, ky=3, sliding=(3, 3),
                           uniform=uniform)
         forward.input = formats.Vector(self.input.copy())
         forward.initialize(device=device)
         forward.run()
 
-        de = depooling.Depooling(DummyWorkflow())
+        de = depooling.Depooling(self.parent)
         de.output_offset = forward.input_offset
         de.input = forward.output
         de.output_shape_source = forward.input

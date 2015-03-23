@@ -10,7 +10,6 @@ from veles.config import root
 from veles.tests import timeout
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.SpamKohonen.spam_kohonen as spam_kohonen
-import veles.dummy as dummy_workflow
 
 
 class TestSpamKohonen(StandardTest):
@@ -34,7 +33,7 @@ class TestSpamKohonen(StandardTest):
         self.info("Will test spam kohonen workflow")
 
         self.w = spam_kohonen.SpamKohonenWorkflow(
-            dummy_workflow.DummyLauncher())
+            self.parent)
         self.w.initialize(device=self.device, snapshot=False)
         self.w.run()
 

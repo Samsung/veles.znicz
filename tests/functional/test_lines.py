@@ -12,7 +12,6 @@ from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 import veles.znicz.samples.Lines.lines as lines
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -92,7 +91,7 @@ class TestLines(StandardTest):
         self.info("Will test lines workflow with one convolutional relu"
                   " layer and one fully connected relu layer")
 
-        self.w = lines.LinesWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = lines.LinesWorkflow(self.parent,
                                      decision_config=root.lines.decision,
                                      snapshotter_config=root.lines.snapshotter,
                                      image_saver_config=root.lines.image_saver,

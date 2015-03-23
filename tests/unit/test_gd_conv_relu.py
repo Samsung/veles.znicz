@@ -13,7 +13,6 @@ import veles.memory as formats
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.gd_conv as gd_conv
-from veles.dummy import DummyWorkflow
 
 
 class TestGDRELUConv(AcceleratedTest):
@@ -43,7 +42,7 @@ class TestGDRELUConv(AcceleratedTest):
 
         bias = numpy.array([10, -10], dtype=dtype)
 
-        c = gd_conv.GDRELUConv(DummyWorkflow())
+        c = gd_conv.GDRELUConv(self.parent)
         c.n_kernels = 2
         c.kx = c.ky = 3
         c.padding = 0, 0, 0, 0

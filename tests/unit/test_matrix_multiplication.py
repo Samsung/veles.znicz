@@ -18,7 +18,6 @@ import veles.memory as formats
 import veles.backends as opencl
 import veles.prng as prng
 from veles import opencl_types
-from veles.dummy import DummyWorkflow
 from veles.accelerated_units import TrivialAcceleratedUnit
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz as znicz  # pylint: disable=W0611
@@ -85,7 +84,7 @@ class TestMatrixMultiplication(AcceleratedTest):
     def _do_tst(self, device, BLOCK_SIZE):
         """Do test for specific context
         """
-        obj = TrivialAcceleratedUnit(DummyWorkflow())
+        obj = TrivialAcceleratedUnit(self.parent)
         obj.initialize(device=device)
 
         self.a.initialize(device)

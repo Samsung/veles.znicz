@@ -11,7 +11,7 @@ import numpy
 from veles.memory import Vector
 from veles.znicz.cutter import Cutter, GDCutter
 import veles.prng as prng
-from veles.tests import DummyWorkflow, AcceleratedTest, assign_backend
+from veles.tests import AcceleratedTest, assign_backend
 
 
 class TestCutter(AcceleratedTest):
@@ -21,7 +21,7 @@ class TestCutter(AcceleratedTest):
         prng.get().fill(self.input)
 
     def _do_test(self, device):
-        cutter = Cutter(DummyWorkflow(), padding=(2, 3, 4, 5))
+        cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
         cutter.input = Vector(self.input.copy())
         cutter.initialize(device)
         cutter.run()
@@ -35,14 +35,14 @@ class TestCutter(AcceleratedTest):
         self.assertEqual(max_diff, 0)
 
     def _do_test_gd(self, device):
-        cutter = Cutter(DummyWorkflow(), padding=(2, 3, 4, 5))
+        cutter = Cutter(self.parent, padding=(2, 3, 4, 5))
         cutter.input = Vector(self.input.copy())
         cutter.initialize(device)
         cutter.run()
         cutter.output.map_read()
         cutter.output.mem.copy()
 
-        gd = GDCutter(DummyWorkflow(), padding=cutter.padding)
+        gd = GDCutter(self.parent, padding=cutter.padding)
         gd.input = cutter.input
         gd.err_output = Vector(cutter.output.mem.copy())
         numpy.square(gd.err_output.mem, gd.err_output.mem)  # modify

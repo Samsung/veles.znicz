@@ -14,7 +14,6 @@ from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
 import veles.prng as prng
-from veles.dummy import DummyWorkflow
 from veles.accelerated_units import TrivialAcceleratedUnit
 from veles.tests import AcceleratedTest, assign_backend
 
@@ -35,7 +34,7 @@ class TestMatrixReduce(AcceleratedTest):
         if A_COL:
             defines["A_COL"] = 1
 
-        tmp = TrivialAcceleratedUnit(DummyWorkflow())
+        tmp = TrivialAcceleratedUnit(self.parent)
         tmp.initialize(device=self.device)
         tmp.sources_["test_matrix_reduce"] = {}
 

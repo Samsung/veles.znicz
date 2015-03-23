@@ -77,7 +77,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
     Model created for digits recognition. Database - MNIST.
     Model - RBM Neural Network.
     """
-    def __init__(self, workflow, layers, **kwargs):
+    def __init__(self, workflow, **kwargs):
         super(MnistRBMWorkflow, self).__init__(workflow, **kwargs)
         self.repeater.link_from(self.start_point)
         # LOADER
@@ -203,7 +203,8 @@ class TestRBMworkflow(StandardTest):
             os.path.join(os.path.dirname(__file__), '..', 'data', 'rbm_data',
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
-        workflow = MnistRBMWorkflow(DummyLauncher(), 0)
+        launcher = DummyLauncher()
+        workflow = MnistRBMWorkflow(launcher)
         workflow.run_is_blocking = True
         workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)

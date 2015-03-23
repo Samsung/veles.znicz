@@ -12,7 +12,6 @@ import os
 from veles.config import root
 import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.dummy import DummyWorkflow
 import veles.prng as rnd
 from veles.memory import Vector
 from veles.tests import AcceleratedTest, assign_backend
@@ -41,7 +40,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
 
     def test_fixed(self):
         inp = numpy.ones([1, 4, 4, 1], dtype=self.dtype)
-        forward = conv.Conv(DummyWorkflow(), kx=3, ky=3, n_kernels=1,
+        forward = conv.Conv(self.parent, kx=3, ky=3, n_kernels=1,
                             padding=(0, 0, 0, 0), sliding=(1, 1),
                             include_bias=False)
         forward.input = Vector(inp)
@@ -50,7 +49,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         forward.weights.mem[:] = 1.0
         forward.run()
 
-        de = PatchedDeconv(DummyWorkflow(), unsafe_padding=True)
+        de = PatchedDeconv(self.parent, unsafe_padding=True)
         de.link_conv_attrs(forward)
         de.input = forward.output
         de.output_shape_source = forward.input
@@ -138,7 +137,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
 
         if forward is None:
             batch_size = 3
-            workflow = DummyWorkflow()
+            workflow = self.parent
             forward = conv.Conv(workflow, n_kernels=9, kx=6, ky=6,
                                 padding=(4, 4, 4, 4), sliding=(2, 2),
                                 include_bias=False)

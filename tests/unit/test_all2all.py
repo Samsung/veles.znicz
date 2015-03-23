@@ -15,7 +15,6 @@ import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.tests import AcceleratedTest, assign_backend
 import veles.znicz.all2all as all2all
-from veles.dummy import DummyWorkflow
 
 
 class TestAll2All(AcceleratedTest):
@@ -40,7 +39,7 @@ class TestAll2All(AcceleratedTest):
                               [-1, 2, 0, 1, 3]], dtype=dtype)
         bias = numpy.array([10, -10, 5], dtype=dtype)
 
-        c = all2all.All2All(DummyWorkflow(), output_sample_shape=[3],
+        c = all2all.All2All(self.parent, output_sample_shape=[3],
                             weights_stddev=0.05)
         c.input = inp
 
@@ -75,7 +74,7 @@ class TestAll2All(AcceleratedTest):
         else:
             inp.mem[:] = self.x[:]
 
-        c = Unit(DummyWorkflow(), output_sample_shape=[75, 75])
+        c = Unit(self.parent, output_sample_shape=[75, 75])
         c.input = inp
         c.initialize(device=device)
 
@@ -139,7 +138,7 @@ class TestAll2All(AcceleratedTest):
 
     def test_two_stage(self):
         dtype = opencl_types.dtypes[root.common.precision_type]
-        a2a = all2all.All2All(DummyWorkflow(), output_sample_shape=(75, 75),
+        a2a = all2all.All2All(self.parent, output_sample_shape=(75, 75),
                               output_samples_number=1999, output_dtype=dtype)
         a2a.input = Vector()
         a2a.initialize(self.device)

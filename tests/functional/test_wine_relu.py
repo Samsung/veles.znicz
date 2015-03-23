@@ -10,7 +10,6 @@ from veles.config import root
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.WineRelu.wine_relu as wine_relu
-import veles.dummy as dummy_workflow
 
 
 class TestWineRelu(StandardTest):
@@ -29,7 +28,7 @@ class TestWineRelu(StandardTest):
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")
 
-        self.w = wine_relu.WineReluWorkflow(dummy_workflow.DummyLauncher(),
+        self.w = wine_relu.WineReluWorkflow(self.parent,
                                             layers=root.wine_relu.layers)
 
         self.assertEqual(self.w.evaluator.labels,

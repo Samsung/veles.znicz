@@ -13,7 +13,6 @@ import veles.prng as prng
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.samples.Kanji import kanji
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -70,7 +69,7 @@ class TestKanji(StandardTest):
         self.info("Will test kanji workflow")
 
         self.w = kanji.KanjiWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.kanji.decision,
             loader_config=root.kanji.loader,
             loader_name=root.kanji.loader_name,

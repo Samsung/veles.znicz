@@ -13,7 +13,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.CIFAR10.cifar as cifar
-import veles.dummy as dummy_workflow
 
 
 class TestCifarCaffe(StandardTest):
@@ -134,7 +133,7 @@ class TestCifarCaffe(StandardTest):
 
     def init_and_run(self, snapshot):
         self.w = cifar.CifarWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.cifar.decision,
             snapshotter_config=root.cifar.snapshotter,
             image_saver_config=root.cifar.image_saver,

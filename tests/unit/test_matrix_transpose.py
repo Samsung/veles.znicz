@@ -11,7 +11,6 @@ import time
 from veles.config import root
 from veles.memory import roundup, Vector
 import veles.prng as prng
-from veles.dummy import DummyWorkflow
 from veles.accelerated_units import TrivialAcceleratedUnit
 from veles.tests import AcceleratedTest, assign_backend
 
@@ -28,7 +27,7 @@ class TestMatrixTranspose(AcceleratedTest):
         prng.get().fill(a.mem)
         b = Vector(numpy.zeros([WIDTH * 2, HEIGHT], dtype=dtype))
 
-        obj = TrivialAcceleratedUnit(DummyWorkflow())
+        obj = TrivialAcceleratedUnit(self.parent)
         obj.initialize(device=self.device)
 
         a.initialize(self.device)

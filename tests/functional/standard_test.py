@@ -40,13 +40,9 @@ class StandardTest(AcceleratedTest):
                                         root.common.veles_dir,
                                         dtype=numpy.int32, count=1024))
 
-    def tearDown(self):
-        del self.parent
-        super(StandardTest, self).tearDown()
-
     @staticmethod
     def main():
-        logging.basicConfig(level=logging.INFO)
+        StandardTest.setup_logging(logging.INFO)
         unittest.main()
 
     def _read_array(self, array_name, lines, shape=None):

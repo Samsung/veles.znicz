@@ -13,7 +13,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Hands.hands as hands
-import veles.dummy as dummy_workflow
 
 
 class TestHands(StandardTest):
@@ -48,7 +47,7 @@ class TestHands(StandardTest):
         self.info("Will test hands workflow")
 
         self.w = hands.HandsWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             layers=root.hands.layers,
             decision_config=root.hands.decision,
             snapshotter_config=root.hands.snapshotter,

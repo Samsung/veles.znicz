@@ -14,7 +14,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.units import TrivialUnit
 import veles.znicz.samples.YaleFaces.yale_faces as yale_faces
-import veles.dummy as dummy_workflow
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -64,7 +63,7 @@ class TestYaleFaces(StandardTest):
 
     def init_and_run(self, snapshot):
         self.workflow = yale_faces.YaleFacesWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
             decision_config=root.yalefaces.decision,

@@ -219,8 +219,8 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
                   "via numeric differentiation on %s",
                   ConvForward.__name__, ConvGD.__name__,
                   "CPU, limited to 2 checks" if device is None else "GPU")
-
-        w = Workflow(DummyLauncher(), ConvForward=ConvForward, ConvGD=ConvGD)
+        launcher = DummyLauncher()
+        w = Workflow(launcher, ConvForward=ConvForward, ConvGD=ConvGD)
         w.initialize(device=device, snapshot=False)
 
         w.conv_forward.weights.map_read()
@@ -272,6 +272,7 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
                                d2c, self.info, self.assertLess,
                                GDNumDiff.cross_entropy_mean, w.batch_size,
                                limit=(2 if device is None else None))
+        del launcher
 
 
 @assign_backend("ocl")

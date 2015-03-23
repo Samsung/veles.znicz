@@ -9,7 +9,6 @@ A unit test for local response normalization.
 
 import numpy
 
-from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.normalization import LRNormalizerForward, LRNormalizerBackward
@@ -19,7 +18,7 @@ class TestNormalization(AcceleratedTest):
     ABSTRACT = True
 
     def test_normalization_forward(self):
-        fwd_normalizer = LRNormalizerForward(DummyWorkflow())
+        fwd_normalizer = LRNormalizerForward(self.parent)
         fwd_normalizer.input = Vector()
         in_vector = numpy.zeros(shape=(3, 2, 5, 19), dtype=self.dtype)
 
@@ -62,7 +61,7 @@ class TestNormalization(AcceleratedTest):
             err_y[0, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1)
             err_y[1, 0, i, :] = numpy.linspace(2, 10, 5) * (i + 1) + 1
 
-        back_normalizer = LRNormalizerBackward(DummyWorkflow(), n=3)
+        back_normalizer = LRNormalizerBackward(self.parent, n=3)
         back_normalizer.input = Vector()
         back_normalizer.err_output = Vector()
 

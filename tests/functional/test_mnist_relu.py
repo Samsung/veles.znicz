@@ -11,7 +11,6 @@ from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.MNIST.mnist as mnist_relu
-import veles.dummy as dummy_workflow
 
 
 class TestMnistRelu(StandardTest):
@@ -54,7 +53,7 @@ class TestMnistRelu(StandardTest):
         self.info("Will test mnist workflow with relu config")
 
         self.w = mnist_relu.MnistWorkflow(
-            dummy_workflow.DummyLauncher(),
+            self.parent,
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
             loader_name=root.mnistr.loader_name,

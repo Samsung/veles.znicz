@@ -15,7 +15,6 @@ import numpy
 import os
 import unittest
 
-from veles.tests import DummyWorkflow
 import veles.znicz.nn_plotting_units as nnpu
 from veles.prng import get as get_prng
 prng = get_prng()
@@ -27,7 +26,7 @@ STORE_IMAGES = True
 class Test(unittest.TestCase):
 
     def init_plotter(self, name):
-        plotter = getattr(nnpu, name)(DummyWorkflow())
+        plotter = getattr(nnpu, name)(self.parent)
         plotter.matplotlib = matplotlib
         plotter.cm = matplotlib.cm
         plotter.pp = matplotlib.pyplot

@@ -12,7 +12,6 @@ import time
 from veles.memory import Vector
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.conv import Conv
-from veles.dummy import DummyWorkflow
 import veles.prng as prng
 from veles.tests.doubling_reset import patch
 
@@ -121,7 +120,7 @@ class TestConvBase(AcceleratedTest):
         out_x = (input_shape[2] + padding[0] + padding[2] -
                  weights_shape[2]) // sliding[0] + 1
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
+        unit = PatchedConv(self.parent, n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
 
@@ -192,7 +191,7 @@ class TestConvNoPadding(TestConvBase):
         out_x = (input_shape[2] + padding[0] + padding[2] -
                  weights_shape[2]) // sliding[0] + 1
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
+        unit = PatchedConv(self.parent, n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
 
@@ -254,7 +253,7 @@ class TestConvNoPadding(TestConvBase):
                                     [[4, -7.05], [15, -7.7], [4, -4.65]]]],
                                   dtype=self._dtype)
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=weights.shape[0],
+        unit = PatchedConv(self.parent, n_kernels=weights.shape[0],
                            kx=3, ky=3)
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
@@ -325,7 +324,7 @@ class TestConvWithPadding(TestConvBase):
         # out_x = (input_shape[2] + padding[0] + padding[2] -
         #         weights_shape[2]) // sliding[0] + 1
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
+        unit = PatchedConv(self.parent, n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
 
@@ -400,7 +399,7 @@ class TestConvWithPadding(TestConvBase):
               [[9, -7.9], [9, -7.9], [9, -7.9], [10, -10]]]],
             dtype=self._dtype)
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+        unit = PatchedConv(self.parent, n_kernels=2, kx=3, ky=3,
                            padding=(1, 2, 3, 4), sliding=(2, 3))
         self._run_check(unit, device, input_data, weights, bias, gold_output)
 
@@ -428,7 +427,7 @@ class TestConvWithPadding(TestConvBase):
         weights = prng.get().rand(*weights_shape)
         bias = prng.get().rand(weights_shape[0])
 
-        unit = PatchedConv(DummyWorkflow(), n_kernels=weights_shape[0],
+        unit = PatchedConv(self.parent, n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
                            sliding=sliding, padding=padding)
         time0 = time.time()

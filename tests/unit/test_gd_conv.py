@@ -15,7 +15,6 @@ from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
     GDStrictRELUConv, GDTanhConv, GDSigmoidConv
 import veles.znicz.conv as conv
-from veles.dummy import DummyWorkflow
 import veles.prng as prng
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
 from veles.znicz.tests.unit.test_gd import PatchedGradientDescentBase
@@ -99,7 +98,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                                    [[4, -1], [-1, 2], [0, 1]],
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
-        c = PatchedGradientDescentConv(DummyWorkflow(), gradient_moment=0.9)
+        c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
         c.kx = 3
         c.ky = 3
         c.n_kernels = 2
@@ -164,7 +163,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
-        forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3)
+        forward = conv.Conv(self.parent, n_kernels=2, kx=3, ky=3)
         target = self._numdiff_init_forward(forward, inp, weights, bias,
                                             err_output)
 
@@ -227,7 +226,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                                    [[1, 1], [1, -2], [0, 5], [2, 3]]]],
                                  dtype=dtype)
 
-        c = PatchedGradientDescentConv(DummyWorkflow(), gradient_moment=0.9)
+        c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
         c.n_kernels = 2
         c.kx = 3
         c.ky = 3
@@ -289,7 +288,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self.info("Bias Ok")
 
         err_input = c.err_input.mem.ravel()
-        forward = conv.Conv(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+        forward = conv.Conv(self.parent, n_kernels=2, kx=3, ky=3,
                             padding=(1, 2, 3, 4), sliding=(2, 3))
         target = self._numdiff_init_forward(forward, inp, weights, bias,
                                             err_output)
@@ -337,7 +336,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
         prng.get().fill(inp)
-        forward = Forward(DummyWorkflow(), n_kernels=2, kx=3, ky=3,
+        forward = Forward(self.parent, n_kernels=2, kx=3, ky=3,
                           padding=(1, 2, 3, 4), sliding=(2, 3))
         sh = list(inp.shape)
         sh[0] <<= 1
@@ -364,7 +363,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         bias = forward.bias.mem.copy()
 
         c = GD(
-            DummyWorkflow(),
+            self.parent,
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,

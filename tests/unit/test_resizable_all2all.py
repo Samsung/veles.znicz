@@ -8,7 +8,6 @@ A unit test for ResizableAll2All - recursive net building block.
 import numpy
 
 from veles.config import root
-from veles.dummy import DummyWorkflow
 from veles.memory import Vector
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
@@ -26,7 +25,7 @@ class TestResizableAll2All(AcceleratedTest):
                                   [0, 1, 0, 1, 0],
                                   [2, 0, 1, 0, 2],
                                   [1, 0, 1, 0, 1]], dtype=dtype))
-        ra2a = ResizableAll2All(DummyWorkflow(), output_sample_shape=(3,),
+        ra2a = ResizableAll2All(self.parent, output_sample_shape=(3,),
                                 weights_stddev=0.05)
         ra2a.input = inp
         ra2a.initialize(device=self.device)

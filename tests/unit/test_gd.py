@@ -14,7 +14,6 @@ import veles.opencl_types as opencl_types
 import veles.prng as prng
 from veles.znicz.gd import (GradientDescent, GDRELU, GDSoftmax, GDTanh,
                             GDSigmoid)
-from veles.dummy import DummyWorkflow
 import veles.znicz.all2all as all2all
 from veles.znicz.nn_units import GradientDescentBase
 from veles.znicz.tests.unit.gd_numdiff import GDNumDiff
@@ -62,7 +61,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
         prng.get().fill(inp)
-        forward = Forward(DummyWorkflow(), output_sample_shape=[n_neurons])
+        forward = Forward(self.parent, output_sample_shape=[n_neurons])
         forward.input = Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
@@ -83,7 +82,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
         forward.bias.map_read()
         bias = forward.bias.mem.copy()
 
-        c = GD(DummyWorkflow(),
+        c = GD(self.parent,
                gradient_moment=0, gradient_moment_bias=0,
                learning_rate=-1, weights_decay=0,
                learning_rate_bias=-1, weights_decay_bias=0)
