@@ -43,36 +43,39 @@ class TestVideoAE(StandardTest):
     def test_video_ae(self):
         self.info("Will test video_ae workflow")
 
-        self.w = video_ae.VideoAEWorkflow(self.parent,
-                                          layers=root.video_ae.layers)
-        self.w.decision.max_epochs = 4
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 4
-        self.w.initialize(device=self.device,
-                          learning_rate=root.video_ae.learning_rate,
-                          weights_decay=root.video_ae.weights_decay,
-                          snapshot=False)
-        self.w.run()
-        file_name = self.w.snapshotter.file_name
+        workflow = video_ae.VideoAEWorkflow(
+            self.parent,
+            layers=root.video_ae.layers)
+        workflow.decision.max_epochs = 4
+        workflow.snapshotter.time_interval = 0
+        workflow.snapshotter.interval = 4
+        workflow.initialize(
+            device=self.device,
+            learning_rate=root.video_ae.learning_rate,
+            weights_decay=root.video_ae.weights_decay,
+            snapshot=False)
+        workflow.run()
+        file_name = workflow.snapshotter.file_name
 
-        avg_mse = self.w.decision.epoch_metrics[2][0]
-        self.assertLess(avg_mse, 0.1957178)
-        self.assertEqual(4, self.w.loader.epoch_number)
+        avg_mse = workflow.decision.epoch_metrics[2][0]
+        self.assertLess(avg_mse, 0.1957180928)
+        self.assertEqual(4, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 7
-        self.wf.decision.complete <<= False
-        self.wf.initialize(device=self.device,
-                           learning_rate=root.video_ae.learning_rate,
-                           weights_decay=root.video_ae.weights_decay,
-                           snapshot=True)
-        self.wf.run()
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 7
+        workflow_from_snapshot.decision.complete <<= False
+        workflow_from_snapshot.initialize(
+            device=self.device,
+            learning_rate=root.video_ae.learning_rate,
+            weights_decay=root.video_ae.weights_decay,
+            snapshot=True)
+        workflow_from_snapshot.run()
 
-        avg_mse = self.wf.decision.epoch_metrics[2][0]
+        avg_mse = workflow_from_snapshot.decision.epoch_metrics[2][0]
         self.assertLess(avg_mse, 0.18736321)
-        self.assertEqual(7, self.wf.loader.epoch_number)
+        self.assertEqual(7, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
 

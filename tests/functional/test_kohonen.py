@@ -39,13 +39,13 @@ class TestKohonen(StandardTest):
     def test_kohonen(self):
         self.info("Will test kohonen workflow")
 
-        self.w = kohonen.KohonenWorkflow(self.parent)
-        self.w.initialize(device=self.device, snapshot=False)
-        self.w.run()
+        workflow = kohonen.KohonenWorkflow(self.parent)
+        workflow.initialize(device=self.device, snapshot=False)
+        workflow.run()
 
-        diff = self.w.decision.weights_diff
+        diff = workflow.decision.weights_diff
         self.assertAlmostEqual(diff, 0.00057525720324055766, places=7)
-        self.assertEqual(160, self.w.loader.epoch_number)
+        self.assertEqual(160, workflow.loader.epoch_number)
         self.info("All Ok")
 
 if __name__ == "__main__":

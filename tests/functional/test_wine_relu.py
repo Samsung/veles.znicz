@@ -28,17 +28,19 @@ class TestWineRelu(StandardTest):
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")
 
-        self.w = wine_relu.WineReluWorkflow(self.parent,
-                                            layers=root.wine_relu.layers)
+        workflow = wine_relu.WineReluWorkflow(
+            self.parent,
+            layers=root.wine_relu.layers)
 
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.wine_relu.learning_rate,
-                          weights_decay=root.wine_relu.weights_decay,
-                          device=self.device, snapshot=False)
-        self.w.run()
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+        workflow.initialize(
+            learning_rate=root.wine_relu.learning_rate,
+            weights_decay=root.wine_relu.weights_decay,
+            device=self.device, snapshot=False)
+        workflow.run()
 
-        epoch = self.w.decision.epoch_number
+        epoch = workflow.decision.epoch_number
         self.info("Converged in %d epochs", epoch)
         self.assertEqual(epoch, 161)
         self.info("All Ok")

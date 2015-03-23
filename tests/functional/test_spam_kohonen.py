@@ -32,14 +32,13 @@ class TestSpamKohonen(StandardTest):
     def test_spamkohonen(self):
         self.info("Will test spam kohonen workflow")
 
-        self.w = spam_kohonen.SpamKohonenWorkflow(
-            self.parent)
-        self.w.initialize(device=self.device, snapshot=False)
-        self.w.run()
+        workflow = spam_kohonen.SpamKohonenWorkflow(self.parent)
+        workflow.initialize(device=self.device, snapshot=False)
+        workflow.run()
 
-        diff = self.w.decision.weights_diff
+        diff = workflow.decision.weights_diff
         self.assertAlmostEqual(diff, 0.106724, places=6)
-        self.assertEqual(5, self.w.loader.epoch_number)
+        self.assertEqual(5, workflow.loader.epoch_number)
         self.info("All Ok")
 
 if __name__ == "__main__":

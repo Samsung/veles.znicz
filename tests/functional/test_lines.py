@@ -91,33 +91,34 @@ class TestLines(StandardTest):
         self.info("Will test lines workflow with one convolutional relu"
                   " layer and one fully connected relu layer")
 
-        self.w = lines.LinesWorkflow(self.parent,
-                                     decision_config=root.lines.decision,
-                                     snapshotter_config=root.lines.snapshotter,
-                                     image_saver_config=root.lines.image_saver,
-                                     loader_config=root.lines.loader,
-                                     layers=root.lines.layers,
-                                     loader_name=root.lines.loader_name,
-                                     loss_function=root.lines.loss_function)
+        workflow = lines.LinesWorkflow(
+            self.parent,
+            decision_config=root.lines.decision,
+            snapshotter_config=root.lines.snapshotter,
+            image_saver_config=root.lines.image_saver,
+            loader_config=root.lines.loader,
+            layers=root.lines.layers,
+            loader_name=root.lines.loader_name,
+            loss_function=root.lines.loss_function)
         # Test workflow
-        self.init_wf(self.w, False)
-        self.w.run()
-        self.check_write_error_rate(self.w, 54)
+        self.init_wf(workflow, False)
+        workflow.run()
+        self.check_write_error_rate(workflow, 54)
 
-        file_name = self.w.snapshotter.file_name
+        file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot
         self.info("Will load workflow from %s", file_name)
 
-        self.wf = Snapshotter.import_(file_name)
+        workflow_from_snapshot = Snapshotter.import_(file_name)
 
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 24
-        self.wf.decision.complete <<= False
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 24
+        workflow_from_snapshot.decision.complete <<= False
 
-        self.init_wf(self.wf, True)
-        self.wf.run()
-        self.check_write_error_rate(self.wf, 46)
+        self.init_wf(workflow_from_snapshot, True)
+        workflow_from_snapshot.run()
+        self.check_write_error_rate(workflow_from_snapshot, 46)
 
         self.info("All Ok")
 

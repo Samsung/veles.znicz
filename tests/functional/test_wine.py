@@ -36,17 +36,17 @@ class TestWine(StandardTest):
     def test_wine(self):
         self.info("Will test wine workflow")
 
-        self.w = wine.WineWorkflow(self.parent,
-                                   layers=root.wine.layers)
+        wofkflow = wine.WineWorkflow(self.parent, layers=root.wine.layers)
 
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(learning_rate=root.wine.learning_rate,
-                          weights_decay=root.wine.weights_decay,
-                          device=self.device, snapshot=False)
-        self.w.run()
+        self.assertEqual(wofkflow.evaluator.labels,
+                         wofkflow.loader.minibatch_labels)
+        wofkflow.initialize(
+            learning_rate=root.wine.learning_rate,
+            weights_decay=root.wine.weights_decay,
+            device=self.device, snapshot=False)
+        wofkflow.run()
 
-        epoch = self.w.decision.epoch_number
+        epoch = wofkflow.decision.epoch_number
         self.info("Converged in %d epochs", epoch)
         self.assertEqual(epoch, self.epochs[
             self.device.backend_name if self.device is not None else "numpy"])

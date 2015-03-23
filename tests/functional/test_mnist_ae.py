@@ -44,10 +44,12 @@ class TestMnistAE(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device, snapshot):
-        self.w = mnist_ae.MnistAEWorkflow(self.parent,
-                                          layers=root.mnist_ae.layers)
-        self.init_wf(self.w, device, snapshot)
-        self.w.run()
+        workflow = mnist_ae.MnistAEWorkflow(
+            self.parent,
+            layers=root.mnist_ae.layers)
+        self.init_wf(workflow, device, snapshot)
+        workflow.run()
+        return workflow
 
     mse = {"ocl": (0.96093162, 0.9606072, 0.96072854),
            "cuda": (0.9612299373, 0.9606072, 0.96101219)}
@@ -60,30 +62,30 @@ class TestMnistAE(StandardTest):
         mse = self.mse[self.device.backend_name]
 
         # Test workflow
-        self.init_and_run(self.device, False)
-        self.check_write_error_rate(self.w, mse[0])
+        workflow = self.init_and_run(self.device, False)
+        self.check_write_error_rate(workflow, mse[0])
 
-        file_name = self.w.snapshotter.file_name
+        file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s" % file_name)
 
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 6
-        self.wf.decision.complete <<= False
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 6
+        workflow_from_snapshot.decision.complete <<= False
 
-        self.init_wf(self.wf, self.device, True)
-        self.wf.run()
-        self.check_write_error_rate(self.wf, mse[1])
+        self.init_wf(workflow_from_snapshot, self.device, True)
+        workflow_from_snapshot.run()
+        self.check_write_error_rate(workflow_from_snapshot, mse[1])
 
         self.info("Will run workflow with float and ocl backend")
 
         root.common.update({"precision_type": "float"})
 
         # Test workflow with ocl and float
-        self.init_and_run(self.device, False)
-        self.check_write_error_rate(self.w, mse[2])
+        workflow = self.init_and_run(self.device, False)
+        self.check_write_error_rate(workflow, mse[2])
 
         self.info("All Ok")
 

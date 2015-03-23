@@ -42,10 +42,12 @@ class TestMnist784(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device, snapshot):
-        self.w = mnist784.Mnist784Workflow(self.parent,
-                                           layers=root.mnist784.layers)
-        self.init_wf(self.w, device, snapshot)
-        self.w.run()
+        workflow = mnist784.Mnist784Workflow(
+            self.parent,
+            layers=root.mnist784.layers)
+        self.init_wf(workflow, device, snapshot)
+        workflow.run()
+        return workflow
 
     mse = {"ocl": ((0.409835, 8357), (0.39173925, 7589)),
            "cuda": ((0.403975599, 7967), (0.39173925, 7589))}
@@ -57,30 +59,30 @@ class TestMnist784(StandardTest):
 
         # Test workflow
         mse = self.mse[self.device.backend_name]
-        self.init_and_run(self.device, False)
-        self.check_write_error_rate(self.w, *mse[0])
+        workflow = self.init_and_run(self.device, False)
+        self.check_write_error_rate(workflow, *mse[0])
 
-        file_name = self.w.snapshotter.file_name
+        file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s" % file_name)
 
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 5
-        self.wf.decision.complete <<= False
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 5
+        workflow_from_snapshot.decision.complete <<= False
 
-        self.init_wf(self.wf, self.device, True)
-        self.wf.run()
-        self.check_write_error_rate(self.wf, *mse[1])
+        self.init_wf(workflow_from_snapshot, self.device, True)
+        workflow_from_snapshot.run()
+        self.check_write_error_rate(workflow_from_snapshot, *mse[1])
 
     def test_mnist784_cpu(self):
         self.info("Will run workflow with --disable-acceleration")
 
         # Test workflow with --disable-acceleration
         root.mnist784.decision.max_epochs = 3
-        self.init_and_run(None, False)
-        self.check_write_error_rate(self.w, 0.40309872, 8143)
+        workflow = self.init_and_run(None, False)
+        self.check_write_error_rate(workflow, 0.40309872, 8143)
 
 if __name__ == "__main__":
     StandardTest.main()

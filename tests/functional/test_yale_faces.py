@@ -62,7 +62,7 @@ class TestYaleFaces(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, snapshot):
-        self.workflow = yale_faces.YaleFacesWorkflow(
+        workflow = yale_faces.YaleFacesWorkflow(
             self.parent,
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
@@ -70,8 +70,9 @@ class TestYaleFaces(StandardTest):
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
             loss_function=root.yalefaces.loss_function)
-        self.init_wf(self.workflow, snapshot)
-        self.workflow.run()
+        self.init_wf(workflow, snapshot)
+        workflow.run()
+        return workflow
 
     errors = {"ocl": (239, 167, 233), "cuda": (222, 167, 236)}
 
@@ -85,36 +86,36 @@ class TestYaleFaces(StandardTest):
         root.common.precision_type = "double"
 
         # Test workflow
-        self.init_and_run(False)
-        self.check_write_error_rate(self.workflow, errors[0])
+        workflow = self.init_and_run(False)
+        self.check_write_error_rate(workflow, errors[0])
 
         self.info("Extracting the forward workflow...")
-        fwd_wf = self.workflow.extract_forward_workflow(
+        fwd_wf = workflow.extract_forward_workflow(
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
             result_unit_factory=TrivialUnit)
         self.assertEqual(len(fwd_wf.forwards), 2)
 
-        file_name = self.workflow.snapshotter.file_name
+        file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s", file_name)
 
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 6
-        self.wf.decision.complete <<= False
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 6
+        workflow_from_snapshot.decision.complete <<= False
 
-        self.init_wf(self.wf, True)
-        self.wf.run()
-        self.check_write_error_rate(self.wf, errors[1])
+        self.init_wf(workflow_from_snapshot, True)
+        workflow_from_snapshot.run()
+        self.check_write_error_rate(workflow_from_snapshot, errors[1])
 
         self.info("Will run workflow with float")
         root.common.precision_type = "float"
 
         # Test workflow with ocl and float
-        self.init_and_run(False)
-        self.check_write_error_rate(self.workflow, errors[2])
+        workflow = self.init_and_run(False)
+        self.check_write_error_rate(workflow, errors[2])
 
 if __name__ == "__main__":
     StandardTest.main()

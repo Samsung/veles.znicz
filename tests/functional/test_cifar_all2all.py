@@ -57,7 +57,7 @@ class TestCifarAll2All(StandardTest):
     @multi_device()
     def test_cifar_all2all(self):
         self.info("Will test cifar fully connected workflow")
-        self.w = cifar.CifarWorkflow(
+        workflow = cifar.CifarWorkflow(
             self.parent,
             decision_config=root.cifar.decision,
             snapshotter_config=root.cifar.snapshotter,
@@ -66,39 +66,41 @@ class TestCifarAll2All(StandardTest):
             loss_function=root.cifar.loss_function,
             loader_name=root.cifar.loader_name,
             loader_config=root.cifar.loader)
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 2
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device,
-                          minibatch_size=root.cifar.loader.minibatch_size,
-                          snapshot=False)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
-        file_name = self.w.snapshotter.file_name
+        workflow.snapshotter.time_interval = 0
+        workflow.snapshotter.interval = 2
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+        workflow.initialize(
+            device=self.device,
+            minibatch_size=root.cifar.loader.minibatch_size,
+            snapshot=False)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+        workflow.run()
+        file_name = workflow.snapshotter.file_name
 
-        err = self.w.decision.epoch_n_err[1]
+        err = workflow.decision.epoch_n_err[1]
         self.assertEqual(err, 7373)
-        self.assertEqual(2, self.w.loader.epoch_number)
+        self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 5
-        self.wf.decision.complete <<= False
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device,
-                           minibatch_size=root.cifar.loader.minibatch_size,
-                           snapshot=True)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.run()
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 5
+        workflow_from_snapshot.decision.complete <<= False
+        self.assertEqual(workflow_from_snapshot.evaluator.labels,
+                         workflow_from_snapshot.loader.minibatch_labels)
+        workflow_from_snapshot.initialize(
+            device=self.device,
+            minibatch_size=root.cifar.loader.minibatch_size,
+            snapshot=True)
+        self.assertEqual(workflow_from_snapshot.evaluator.labels,
+                         workflow_from_snapshot.loader.minibatch_labels)
+        workflow_from_snapshot.run()
 
-        err = self.wf.decision.epoch_n_err[1]
+        err = workflow_from_snapshot.decision.epoch_n_err[1]
         self.assertEqual(err, 7046)
-        self.assertEqual(5, self.wf.loader.epoch_number)
+        self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
 if __name__ == "__main__":

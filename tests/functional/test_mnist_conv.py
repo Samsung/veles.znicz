@@ -93,7 +93,7 @@ class TestMnistConv(StandardTest):
         self.info("Will test mnist workflow with convolutional"
                   " (genetic generate) config")
 
-        self.w = mnist_conv.MnistWorkflow(
+        workflow = mnist_conv.MnistWorkflow(
             self.parent,
             decision_config=root.mnistr.decision,
             snapshotter_config=root.mnistr.snapshotter,
@@ -101,35 +101,35 @@ class TestMnistConv(StandardTest):
             loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
             loss_function=root.mnistr.loss_function)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.snapshotter.time_interval = 0
-        self.w.snapshotter.interval = 1
-        self.w.initialize(device=self.device, snapshot=False)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
-        file_name = self.w.snapshotter.file_name
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+        workflow.snapshotter.time_interval = 0
+        workflow.snapshotter.interval = 1
+        workflow.initialize(device=self.device, snapshot=False)
+        self.assertEqual(workflow.evaluator.labels,
+                         workflow.loader.minibatch_labels)
+        workflow.run()
+        file_name = workflow.snapshotter.file_name
 
-        err = self.w.decision.epoch_n_err[1]
+        err = workflow.decision.epoch_n_err[1]
         self.assertEqual(err, 125)
-        self.assertEqual(2, self.w.loader.epoch_number)
+        self.assertEqual(2, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 3
-        self.wf.decision.complete <<= False
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device, snapshot=True)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.run()
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 3
+        workflow_from_snapshot.decision.complete <<= False
+        self.assertEqual(workflow_from_snapshot.evaluator.labels,
+                         workflow_from_snapshot.loader.minibatch_labels)
+        workflow_from_snapshot.initialize(device=self.device, snapshot=True)
+        self.assertEqual(workflow_from_snapshot.evaluator.labels,
+                         workflow_from_snapshot.loader.minibatch_labels)
+        workflow_from_snapshot.run()
 
-        err = self.wf.decision.epoch_n_err[1]
+        err = workflow_from_snapshot.decision.epoch_n_err[1]
         self.assertEqual(err, 105)
-        self.assertEqual(3, self.wf.loader.epoch_number)
+        self.assertEqual(3, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
 if __name__ == "__main__":

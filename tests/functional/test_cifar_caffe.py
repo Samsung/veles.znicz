@@ -132,7 +132,7 @@ class TestCifarCaffe(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, snapshot):
-        self.w = cifar.CifarWorkflow(
+        workflow = cifar.CifarWorkflow(
             self.parent,
             decision_config=root.cifar.decision,
             snapshotter_config=root.cifar.snapshotter,
@@ -141,10 +141,11 @@ class TestCifarCaffe(StandardTest):
             loader_config=root.cifar.loader,
             layers=root.cifar.layers,
             loss_function=root.cifar.loss_function)
-        self.init_wf(self.w, snapshot)
-        self.w.run()
+        self.init_wf(workflow, snapshot)
+        workflow.run()
+        return workflow
 
-    errors = {"ocl": [5667, 4252], "cuda": [5877, 4252]}
+    errors = (5667, 4252)
 
     @timeout(1000)
     @multi_device()
@@ -152,24 +153,22 @@ class TestCifarCaffe(StandardTest):
         self.info("Will test cifar convolutional workflow with caffe config")
 
         # Test workflow
-        self.init_and_run(False)
-        self.check_write_error_rate(
-            self.w, self.errors[self.device.backend_name][0])
+        workflow = self.init_and_run(False)
+        self.check_write_error_rate(workflow, self.errors[0])
 
-        file_name = self.w.snapshotter.file_name
+        file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot
         self.info("Will load workflow from snapshot: %s" % file_name)
 
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 3
-        self.wf.decision.complete <<= False
+        workflow_from_snapshot = Snapshotter.import_(file_name)
+        self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.decision.max_epochs = 3
+        workflow_from_snapshot.decision.complete <<= False
 
-        self.init_wf(self.wf, True)
-        self.wf.run()
-        self.check_write_error_rate(
-            self.wf, self.errors[self.device.backend_name][1])
+        self.init_wf(workflow_from_snapshot, True)
+        workflow_from_snapshot.run()
+        self.check_write_error_rate(workflow_from_snapshot, self.errors[1])
 
         self.info("All Ok")
 
