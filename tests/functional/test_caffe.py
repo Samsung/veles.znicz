@@ -6,7 +6,7 @@ Unit test for convolutional layer forward propagation, compared to CAFFE data.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
-import numpy as np
+import numpy
 import os
 from scipy.signal import correlate2d, convolve2d  # pylint: disable=E0611
 
@@ -23,7 +23,93 @@ import veles.znicz.pooling as pooling
 from veles.znicz.tests.functional import StandardTest
 
 
-class TestConvCaffe(StandardTest):
+class CaffeTestBase(StandardTest):
+    def _read_array(self, array_name, lines, shape=None):
+        """
+        Reads a pic array from from export file, splitted to lines.
+        NB: last line should be empty
+    
+        Args:
+            array_name(str): name of array to read
+        lines(array): lines of file to read from
+        shape(tuple): shape=(n_pics, height, width, n_chans), must be given if
+            not set in file.
+    
+        Returns:
+            :class:`numpy.ndarray`
+    
+        """
+
+        cur_line = None
+        for i, line in enumerate(lines):
+            line = line.replace("\n", "")
+            nibbles = line.split("\t")
+            if nibbles[0] == array_name:
+                if len(nibbles) >= 5:  # shape is set in file
+                    dimensions = {}
+                    for nibble in nibbles[1:]:
+                        [nibble_name, nibble_val] = nibble.split(":")
+                        dimensions[nibble_name] = int(nibble_val)
+                    n_pics = dimensions["num"]
+                    height = dimensions["height"]
+                    width = dimensions["width"]
+                    n_chans = dimensions["channels"]
+                    if shape is not None:
+                        assert shape == (n_pics, height, width, n_chans)
+                else:  # shape is set externally
+                    assert len(shape) == 4
+                    n_pics, height, width, n_chans = shape
+
+                out_array = numpy.zeros((n_pics, height, width, n_chans),
+                                        numpy.float64)
+                cur_line = i + 1
+                break
+
+        assert cur_line is not None
+        assert cur_line < len(lines)
+
+        for cur_pic in range(n_pics):
+            nibbles = lines[cur_line].split(":")
+            assert nibbles[0] == "num"
+            assert int(nibbles[1]) == cur_pic
+            cur_line += 1
+
+            for cur_chan in range(n_chans):
+                nibbles = lines[cur_line].split(":")
+                assert nibbles[0] == "channels"
+                assert int(nibbles[1]) == cur_chan
+                cur_line += 1
+
+                for i in range(height):
+                    data = [float(x) for x in lines[cur_line].split("\t")]
+                    cur_line += 1
+
+                    for j in range(width):
+                        out_array[cur_pic, i, j, cur_chan] = data[j]
+        return out_array
+
+    def _read_lines(self, data_filename):
+        """
+        Returns all lines from a file maned `data_filename`.
+        File is searched in ``self.data_dir_path``.
+    
+        Args:
+            data_filename(str): name to file with pooling data,
+                exported from CAFFE (searched in ``self.data_dir_path``)
+    
+        Returns:
+            list: list of all lines read
+    
+        """
+        full_path = os.path.join(self.data_dir_path, data_filename)
+        return self._read_lines_by_abspath(full_path)
+
+    def _read_lines_by_abspath(self, full_path):
+        with open(full_path, 'r') as in_file:
+            return in_file.readlines()
+
+
+class TestConvCaffe(CaffeTestBase):
     def test_caffe_conv(self, data_filename="conv.txt"):
         """
         Compare CAFFE conv layer fwd prop with Veles conv layer.
@@ -70,11 +156,12 @@ class TestConvCaffe(StandardTest):
         self.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
         delta_with_veles = fwd_conv.output.mem - top
 
-        self.info("CONV: diff with Veles: %.2f%%" % (100. * np.sum(np.abs(
-            delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
+        self.info("CONV: diff with Veles: %.2f%%" % (
+            100. * numpy.sum(numpy.abs(delta_with_veles)) /
+            numpy.sum(numpy.abs(fwd_conv.output.mem)),))
 
         self.info("COMPARED TO HANDMADE CORRELATION:")
-        scipy_conv_out = np.zeros(shape=(2, 32, 32, 2), dtype=np.float64)
+        scipy_conv_out = numpy.zeros(shape=(2, 32, 32, 2), dtype=numpy.float64)
 
         for pic in range(2):
             for color_chan in range(3):
@@ -85,8 +172,9 @@ class TestConvCaffe(StandardTest):
                     scipy_conv_out[pic, :, :, weight_id] += correlation
 
         delta_with_scipy = fwd_conv.output.mem - scipy_conv_out
-        self.info("CONV: diff with SciPy: %.2f%%" % (100. * np.sum(np.abs(
-            delta_with_scipy)) / np.sum(np.abs(fwd_conv.output.mem)),))
+        self.info("CONV: diff with SciPy: %.2f%%" % (
+            100. * numpy.sum(numpy.abs(delta_with_scipy)) /
+            numpy.sum(numpy.abs(fwd_conv.output.mem)),))
 
     def test_caffe_grad_conv(self, data_filename="conv_grad.txt"):
         """
@@ -156,8 +244,9 @@ class TestConvCaffe(StandardTest):
         self.info("Veles top shape:" + str(fwd_conv.output.mem.shape))
         delta_with_veles = fwd_conv.output.mem - top
 
-        self.info("CONV: diff with CAFFE: %.2f%%" % (100. * np.sum(np.abs(
-            delta_with_veles)) / np.sum(np.abs(fwd_conv.output.mem)),))
+        self.info("CONV: diff with CAFFE: %.2f%%" % (
+            100. * numpy.sum(numpy.abs(delta_with_veles)) /
+            numpy.sum(numpy.abs(fwd_conv.output.mem)),))
 
         back_conv = gd_conv.GradientDescentConv(self.parent)
 
@@ -186,12 +275,12 @@ class TestConvCaffe(StandardTest):
         back_delta = back_conv.err_input.mem - bot_err
 
         self.info("GDCONV: diff with CAFFE: %.3f%%" %
-                  (100. * np.sum(np.fabs(back_delta)) /
-                   np.sum(np.fabs(back_conv.err_input.mem)),))
+                  (100. * numpy.sum(numpy.fabs(back_delta)) /
+                   numpy.sum(numpy.fabs(back_conv.err_input.mem)),))
 
         # perform manual GD CONV
-        manual_bot_err = np.zeros(shape=(2, bot_size, bot_size, 3),
-                                  dtype=np.float64)
+        manual_bot_err = numpy.zeros(shape=(2, bot_size, bot_size, 3),
+                                     dtype=numpy.float64)
         for pic in range(batch_size):
             for color_chan in range(3):
                 for weight_id in range(n_kernels):
@@ -201,8 +290,8 @@ class TestConvCaffe(StandardTest):
                     manual_bot_err[pic, :, :, color_chan] += conv_result
 
         self.info("Manual GDCONV: diff with CAFFE: %.3f%%" % (
-            100. * np.sum(np.fabs(manual_bot_err - bot_err)) /
-            np.sum(np.fabs(bot_err))))
+            100. * numpy.sum(numpy.fabs(manual_bot_err - bot_err)) /
+            numpy.sum(numpy.fabs(bot_err))))
 
     def test_caffe_pooling(self, data_filename="pool.txt"):
         """
@@ -241,8 +330,8 @@ class TestConvCaffe(StandardTest):
         fwd_pool.output.map_read()
 
         # do MANUAL pooling
-        manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
-                                      dtype=np.float64)
+        manual_pooling_out = numpy.zeros(shape=(2, out_height, out_width, 2),
+                                         dtype=numpy.float64)
         for pic in range(2):
             for chan in range(2):
                 for i_out in range(out_height):
@@ -256,7 +345,7 @@ class TestConvCaffe(StandardTest):
                                       max_j + 1, chan]
 
                         manual_pooling_out[pic, i_out, j_out,
-                                           chan] = np.max((zone))
+                                           chan] = numpy.max((zone))
 
     def test_caffe_grad_pooling(self, data_filename="pool_grad.txt"):
         """
@@ -297,13 +386,13 @@ class TestConvCaffe(StandardTest):
         fwd_pool.output.map_read()
 
         self.info("FWD POOL: Veles vs CAFFE: %.3f%%" %
-                  (100. * (np.sum(np.abs(fwd_pool.output.mem - top)) /
-                           np.sum(np.abs(top)))))
+                  (100. * (numpy.sum(numpy.abs(fwd_pool.output.mem - top)) /
+                           numpy.sum(numpy.abs(top)))))
 
         # Do MANUAL pooling
         out_height, out_width = top_size, top_size
-        manual_pooling_out = np.zeros(shape=(2, out_height, out_width, 2),
-                                      dtype=np.float64)
+        manual_pooling_out = numpy.zeros(shape=(2, out_height, out_width, 2),
+                                         dtype=numpy.float64)
         for pic in range(2):
             for chan in range(2):
                 for i_out in range(out_height):
@@ -317,7 +406,7 @@ class TestConvCaffe(StandardTest):
                                       min_j: max_j + 1, chan]
 
                         manual_pooling_out[pic, i_out, j_out,
-                                           chan] = np.max((zone))
+                                           chan] = numpy.max((zone))
 
         # BACK PROP
         grad_pool = gd_pooling.GDMaxPooling(self.parent, kx=kernel_size,
@@ -339,9 +428,9 @@ class TestConvCaffe(StandardTest):
         grad_pool.cpu_run()
 
         grad_pool.err_input.map_read()
-        self.info("BACK POOL: Veles vs CAFFE, %.3f%%" % (100 * np.sum(
-            np.abs(grad_pool.err_input.mem - bot_err)) /
-            np.sum(np.abs(bot_err))))
+        self.info("BACK POOL: Veles vs CAFFE, %.3f%%" % (100 * numpy.sum(
+            numpy.abs(grad_pool.err_input.mem - bot_err)) /
+            numpy.sum(numpy.abs(bot_err))))
 
     def test_caffe_grad_normalization(self, data_filename="norm_gd.txt"):
         """
@@ -382,8 +471,9 @@ class TestConvCaffe(StandardTest):
 
         fwd_norm.output.map_read()
 
-        fwd_percent_delta = 100. * (np.sum(np.abs(fwd_norm.output.mem - top)) /
-                                    np.sum(np.abs(top)))
+        fwd_percent_delta = 100. * (
+            numpy.sum(numpy.abs(fwd_norm.output.mem - top)) /
+            numpy.sum(numpy.abs(top)))
 
         self.info("FWD NORM DELTA: %.2f%%" % fwd_percent_delta)
         self.assertLess(fwd_percent_delta, max_percent_delta,
@@ -403,9 +493,9 @@ class TestConvCaffe(StandardTest):
 
         back_norm.err_input.map_read()
 
-        back_percent_delta = 100. * np.sum(
-            np.abs(back_norm.err_output.mem - bot_err)) / \
-            np.sum(np.abs(bot_err))
+        back_percent_delta = 100. * numpy.sum(
+            numpy.abs(back_norm.err_output.mem - bot_err)) / \
+            numpy.sum(numpy.abs(bot_err))
 
         self.info("BACK NORM DELTA: %.2f%%" % back_percent_delta)
         self.assertLess(back_percent_delta, max_percent_delta,
@@ -438,8 +528,8 @@ class TestConvCaffe(StandardTest):
             "conv_top", lines, shape=(n_pics, out_size, out_size, n_kernels))
         relu_top_flat = self._read_array(
             "relu_top_flat", lines, shape=(1, 1, conv_top.size, 1)).ravel()
-        relu_top = np.ndarray(
-            shape=(n_pics, out_size, out_size, n_kernels), dtype=np.float64)
+        relu_top = numpy.ndarray(
+            shape=(n_pics, out_size, out_size, n_kernels), dtype=numpy.float64)
         cur_pos = 0
         for pic in range(n_pics):
             for kernel in range(n_kernels):
@@ -469,16 +559,18 @@ class TestConvCaffe(StandardTest):
 
         fwd_conv_relu.output.map_read()
 
-        percent_delta = 100. * (np.sum(np.abs(
-            fwd_conv_relu.output.mem - relu_top)) / np.sum(np.abs(relu_top)))
+        percent_delta = 100. * (numpy.sum(numpy.abs(
+            fwd_conv_relu.output.mem - relu_top)) /
+            numpy.sum(numpy.abs(relu_top)))
 
         self.info("CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
         self.assertLess(percent_delta, max_percent_delta,
-                        "Fwd ConvRELU differs by %.2f%%" % (percent_delta))
+                        "Fwd ConvRELU differs by %.2f%%" % percent_delta)
 
-        relu_top_manual = np.where(np.greater(conv_top, 0), conv_top, 0)
-        manual_delta = 100. * np.sum(
-            np.abs(relu_top_manual - relu_top)) / (np.sum(np.abs(relu_top)))
+        relu_top_manual = numpy.where(numpy.greater(conv_top, 0), conv_top, 0)
+        manual_delta = 100. * numpy.sum(
+            numpy.abs(relu_top_manual - relu_top)) /\
+            (numpy.sum(numpy.abs(relu_top)))
         self.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
 
     def test_caffe_grad_relu(self, data_filename="conv_relu.txt"):
@@ -508,8 +600,8 @@ class TestConvCaffe(StandardTest):
             "conv_top", lines, shape=(n_pics, out_size, out_size, n_kernels))
         relu_top_flat = self._read_array(
             "relu_top_flat", lines, shape=(1, 1, conv_top.size, 1)).ravel()
-        relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
-                              dtype=np.float64)
+        relu_top = numpy.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
+                                 dtype=numpy.float64)
         cur_pos = 0
         for pic in range(n_pics):
             for kernel in range(n_kernels):
@@ -539,16 +631,17 @@ class TestConvCaffe(StandardTest):
 
         fwd_conv_relu.output.map_read()
 
-        percent_delta = 100. * (np.sum(np.abs(
-            fwd_conv_relu.output.mem - relu_top)) / np.sum(np.abs(relu_top)))
+        percent_delta = 100. * (numpy.sum(numpy.abs(
+            fwd_conv_relu.output.mem - relu_top)) /
+            numpy.sum(numpy.abs(relu_top)))
 
         self.info("CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
         self.assertLess(percent_delta, max_percent_delta,
-                        "Fwd ConvRELU differs by %.2f%%" % (percent_delta))
+                        "Fwd ConvRELU differs by %.2f%%" % percent_delta)
 
-        relu_top_manual = np.where(np.greater(conv_top, 0), conv_top, 0)
-        manual_delta = 100. * np.sum(np.abs(relu_top_manual - relu_top)) \
-            / (np.sum(np.abs(relu_top)))
+        relu_top_manual = numpy.where(numpy.greater(conv_top, 0), conv_top, 0)
+        manual_delta = 100. * numpy.sum(numpy.abs(relu_top_manual - relu_top))\
+            / numpy.sum(numpy.abs(relu_top))
         self.info("SciPy CONV_RELU: diff with CAFFE %.3f%%" % manual_delta)
 
     def test_grad_conv_relu(self, data_filename="conv_relu_grad.txt"):
@@ -591,8 +684,8 @@ class TestConvCaffe(StandardTest):
         relu_top_flat = self._read_array("relu_top_flat", lines, shape=(
             1, 1, relu_top_err.size, 1)).ravel()
 
-        relu_top = np.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
-                              dtype=np.float64)
+        relu_top = numpy.ndarray(shape=(n_pics, out_size, out_size, n_kernels),
+                                 dtype=numpy.float64)
         cur_pos = 0
         for pic in range(n_pics):
             for kernel in range(n_kernels):
@@ -612,7 +705,7 @@ class TestConvCaffe(StandardTest):
         back_conv_relu.input = Vector(conv_bottom)
 
         back_conv_relu.weights = Vector(conv_weights.reshape(2, 75))
-        back_conv_relu.bias = Vector(np.zeros(shape=n_kernels))
+        back_conv_relu.bias = Vector(numpy.zeros(shape=n_kernels))
 
         back_conv_relu.output = Vector(relu_top)
 
@@ -633,8 +726,8 @@ class TestConvCaffe(StandardTest):
         back_conv_relu.err_input.map_read()
         result = back_conv_relu.err_input.mem
 
-        percent_delta = 100. * (np.sum(np.abs(result - conv_bot_err))
-                                / np.sum(np.abs(result)))
+        percent_delta = 100. * (numpy.sum(numpy.abs(result - conv_bot_err))
+                                / numpy.sum(numpy.abs(result)))
         self.info("GD_CONV_RELU: diff with CAFFE %.3f%%" % percent_delta)
         self.assertLess(percent_delta, max_percent_delta,
                         "Fwd GD_ConvRELU differs by %.2f%%" % (percent_delta))
@@ -642,9 +735,9 @@ class TestConvCaffe(StandardTest):
         # Testing weight deltas
         delta_w = back_conv_relu.weights.mem - conv_weights.reshape(2, 75)
 
-        percent_delta_w = 100. * np.sum(np.abs(
+        percent_delta_w = 100. * numpy.sum(numpy.abs(
             delta_w + conv_weight_delta.reshape(2, 75))) \
-            / np.sum(np.abs(delta_w))
+            / numpy.sum(numpy.abs(delta_w))
 
         # Hint: in CAFFE their \Delta W = - \Delta W_{Veles} (??)
         self.info("DELTA W: diff with CAFFE %.3f%%" % percent_delta_w)
@@ -687,7 +780,7 @@ class TestConvCaffe(StandardTest):
         sm_top = self._read_array("sm_top", lines, (n_pics, 1, 1, n_classes))
 
         labels = self._read_array("labels", lines,
-                                  (n_pics, 1, 1, 1)).astype(np.int32)
+                                  (n_pics, 1, 1, 1)).astype(numpy.int32)
 
         a2a_softmax = all2all.All2AllSoftmax(
             self.parent, output_sample_shape=n_classes,
@@ -706,8 +799,9 @@ class TestConvCaffe(StandardTest):
         a2a_softmax.cpu_run()
 
         a2a_softmax.output.map_read()
-        fwd_percent_delta = (np.sum(np.abs(a2a_softmax.output.mem - sm_top))
-                             / (np.sum(np.abs(sm_top)))) * 100.
+        fwd_percent_delta = (numpy.sum(numpy.abs(
+            a2a_softmax.output.mem - sm_top)) /
+            (numpy.sum(numpy.abs(sm_top)))) * 100.
 
         self.info("A2A_SM FWD DELTA: %.3f%%" % fwd_percent_delta)
         self.assertLess(fwd_percent_delta, max_percent_delta,
@@ -750,13 +844,14 @@ class TestConvCaffe(StandardTest):
         back_a2a_sm.err_input.map_read()
 
         back_percent_delta = \
-            100. * (np.sum(np.abs(back_a2a_sm.err_input.mem - a2a_bot_err))
-                    / np.sum(np.abs(a2a_bot_err)))
+            100. * (numpy.sum(numpy.abs(
+                back_a2a_sm.err_input.mem - a2a_bot_err)) /
+                numpy.sum(numpy.abs(a2a_bot_err)))
 
         self.info("A2ASM_BACK_DELTA %.2f", back_percent_delta)
 
-        manual_sm_bot_err = np.zeros(shape=(n_pics, 1, 1, n_classes),
-                                     dtype=np.float64)
+        manual_sm_bot_err = numpy.zeros(shape=(n_pics, 1, 1, n_classes),
+                                        dtype=numpy.float64)
         for pic in range(n_pics):
             for i in range(n_classes):
                 for j in range(n_classes):
@@ -772,11 +867,11 @@ class TestConvCaffe(StandardTest):
 
         manual_sm_bot_err /= n_pics  # WTF???!!!!
         self.info(" manual SM_BOT_ERR_DELTA %.3f%%" %
-                  (np.sum(np.abs(manual_sm_bot_err - sm_bot_err))
-                      / np.sum(np.abs(sm_bot_err),)))
+                  (numpy.sum(numpy.abs(manual_sm_bot_err - sm_bot_err))
+                      / numpy.sum(numpy.abs(sm_bot_err),)))
 
-        manual_a2a_bot_err = np.zeros(shape=(n_pics, size, size, n_chans),
-                                      dtype=np.float64)
+        manual_a2a_bot_err = numpy.zeros(shape=(n_pics, size, size, n_chans),
+                                         dtype=numpy.float64)
         for pic in range(n_pics):
             for cur_class in range(n_classes):
                 for i in range(size):
@@ -787,11 +882,11 @@ class TestConvCaffe(StandardTest):
                                 a2a_weights_raw[cur_class, i, j, chan])
 
         self.info(" manual A2A_BOT_ERR_DELTA %.3f%%" % (
-            np.sum(np.abs(manual_a2a_bot_err - a2a_bot_err))
-            / np.sum(np.abs(a2a_bot_err))))
+            numpy.sum(numpy.abs(manual_a2a_bot_err - a2a_bot_err))
+            / numpy.sum(numpy.abs(a2a_bot_err))))
 
         self.assertLess(back_percent_delta, max_percent_delta,
-                        "Back A2SM differs by %.3f%%" % (back_percent_delta))
+                        "Back A2SM differs by %.3f%%" % back_percent_delta)
 
 
 if __name__ == "__main__":

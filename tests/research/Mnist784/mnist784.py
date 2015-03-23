@@ -41,7 +41,8 @@ from .loader_mnist import MnistLoader
 
 root.mnist784.update({
     "decision": {"fail_iterations": 100, "max_epochs": 100000},
-    "snapshotter": {"prefix": "mnist_784"},
+    "snapshotter": {"prefix": "mnist_784", "time_interval": 10,
+                    "interval": 1},
     "loader": {"minibatch_size": 100, "force_cpu": False},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.00001,
@@ -195,7 +196,9 @@ class Mnist784Workflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=root.mnist784.snapshotter.prefix,
-            directory=root.common.snapshot_dir)
+            directory=root.common.snapshot_dir,
+            time_interval=root.mnist784.snapshotter.time_interval,
+            interval=root.mnist784.snapshotter.interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

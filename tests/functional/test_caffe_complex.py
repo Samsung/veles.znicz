@@ -18,6 +18,7 @@ from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
 from veles.znicz.standard_workflow import GradientUnitFactory
 from veles.znicz.tests.functional import StandardTest
+from veles.znicz.tests.functional.test_caffe import CaffeTestBase
 
 
 class PropType(IntEnum):
@@ -50,7 +51,7 @@ class LayerInfo(object):
         self.path = None
 
 
-class ComplexTest(StandardTest, Logger):
+class ComplexTest(CaffeTestBase):
     def __init__(self, methodName='runTest'):
         self.layer_dict = {}
         super(ComplexTest, self).__init__(methodName=methodName)
