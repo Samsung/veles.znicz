@@ -145,7 +145,7 @@ class TestCifarCaffe(StandardTest):
         workflow.run()
         return workflow
 
-    errors = (5667, 4252)
+    errors = (5667, 4698)
 
     @timeout(1000)
     @multi_device()

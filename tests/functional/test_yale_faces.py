@@ -74,14 +74,12 @@ class TestYaleFaces(StandardTest):
         workflow.run()
         return workflow
 
-    errors = {"ocl": (239, 167, 233), "cuda": (222, 167, 236)}
-
     @timeout(1500)
     @multi_device()
     def test_yale_faces_gpu(self):
         self.info("Will test fully connectected yale_faces workflow")
 
-        errors = self.errors[self.device.backend_name]
+        errors = (239, 167, 222)
         self.info("Will run workflow with double")
         root.common.precision_type = "double"
 

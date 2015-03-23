@@ -29,8 +29,6 @@ class TestWine(StandardTest):
             "data_paths": os.path.join(root.common.veles_dir,
                                        "veles/znicz/samples/wine/wine.data")})
 
-    epochs = {"ocl": 12, "cuda": 12, "numpy": 12}
-
     @timeout(300)
     @multi_device(True)
     def test_wine(self):
@@ -48,8 +46,7 @@ class TestWine(StandardTest):
 
         epoch = wofkflow.decision.epoch_number
         self.info("Converged in %d epochs", epoch)
-        self.assertEqual(epoch, self.epochs[
-            self.device.backend_name if self.device is not None else "numpy"])
+        self.assertEqual(epoch, 12)
         self.info("All Ok")
 
 

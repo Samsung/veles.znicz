@@ -21,7 +21,7 @@ class TestMnistCaffe(StandardTest):
             "learning_rate_adjust": {"do": True},
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_caffe_test"},
-            "loader": {"minibatch_size": 5, "force_cpu": False,
+            "loader": {"minibatch_size": 64, "force_cpu": False,
                        "normalization_type": "linear"},
             "layers": [{"type": "conv",
                         "->": {"n_kernels": 20, "kx": 5, "ky": 5,
@@ -98,7 +98,7 @@ class TestMnistCaffe(StandardTest):
         file_name = workflow.snapshotter.file_name
 
         err = workflow.decision.epoch_n_err[1]
-        self.assertEqual(err, 148)
+        self.assertEqual(err, 143)
         self.assertEqual(3, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)

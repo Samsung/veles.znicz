@@ -136,13 +136,6 @@ class TestConvCaffe(CaffeTestBase):
         fwd_conv.input = Vector()
         fwd_conv.input.mem = bottom
 
-        self.debug("bottom shape: %s" % str(bottom.shape))
-        self.debug(bottom)
-        self.debug("weights shape: %s" % str(weights.shape))
-        self.debug(weights)
-        self.debug("top shape: %s" % str(top.shape))
-        self.debug(top)
-
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
         fwd_conv.weights.mem[:] = weights.reshape(2, 75)[:]
@@ -223,13 +216,6 @@ class TestConvCaffe(CaffeTestBase):
                              sliding=(1, 1), n_kernels=n_kernels)
 
         fwd_conv.input = Vector(bottom)
-
-        self.debug("bottom shape: %s" % str(bottom.shape))
-        self.debug(bottom)
-        self.debug("weights shape: %s" % str(weights.shape))
-        self.debug(weights)
-        self.debug("top shape: %s" % str(top.shape))
-        self.debug(top)
 
         fwd_conv.initialize(self.device)
         fwd_conv.weights.map_invalidate()
