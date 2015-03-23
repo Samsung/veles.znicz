@@ -23,7 +23,7 @@ class TestChannels(StandardTest):
         root.channels.update({
             "decision": {"fail_iterations": 50,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "test_channels", "interval": 1,
+            "snapshotter": {"prefix": "test_channels", "interval": 4,
                             "time_interval": 0},
             "image_saver": {"out_dirs": [
                 os.path.join(root.common.cache_dir, "tmp/test"),
@@ -62,7 +62,7 @@ class TestChannels(StandardTest):
     def test_channels_all2all(self):
         self.info("Will test channels fully connected workflow")
 
-        self.w = channels.ChannelsWorkflow(
+        wf = channels.ChannelsWorkflow(
             self.parent,
             decision_config=root.channels.decision,
             snapshotter_config=root.channels.snapshotter,
@@ -72,39 +72,40 @@ class TestChannels(StandardTest):
             loader_name=root.channels.loader_name,
             loss_function=root.channels.loss_function)
 
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.initialize(device=self.device,
-                          minibatch_size=root.channels.loader.minibatch_size,
-                          snapshot=False)
-        self.assertEqual(self.w.evaluator.labels,
-                         self.w.loader.minibatch_labels)
-        self.w.run()
-        file_name = self.w.snapshotter.file_name
+        self.assertEqual(wf.evaluator.labels,
+                         wf.loader.minibatch_labels)
+        wf.initialize(device=self.device,
+                      minibatch_size=root.channels.loader.minibatch_size,
+                      snapshot=False)
+        self.assertEqual(wf.evaluator.labels,
+                         wf.loader.minibatch_labels)
+        wf.run()
+        file_name = wf.snapshotter.file_name
 
-        err = self.w.decision.epoch_n_err[1]
+        err = wf.decision.epoch_n_err[1]
         self.assertEqual(err, 19)
-        self.assertEqual(3, self.w.loader.epoch_number)
+        self.assertEqual(3, wf.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
-        self.wf = Snapshotter.import_(file_name)
-        self.assertTrue(self.wf.decision.epoch_ended)
-        self.wf.decision.max_epochs = 4
-        self.wf.decision.complete <<= False
-        self.assertTrue(self.wf.loader.force_cpu)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.initialize(device=self.device,
-                           minibatch_size=root.channels.loader.minibatch_size,
-                           snapshot=True)
-        self.assertEqual(self.wf.evaluator.labels,
-                         self.wf.loader.minibatch_labels)
-        self.wf.run()
+        wf = Snapshotter.import_(file_name)
+        wf.workflow = self.parent
+        self.assertTrue(wf.decision.epoch_ended)
+        wf.decision.max_epochs = 4
+        wf.decision.complete <<= False
+        self.assertTrue(wf.loader.force_cpu)
+        self.assertEqual(wf.evaluator.labels,
+                         wf.loader.minibatch_labels)
+        wf.initialize(device=self.device,
+                      minibatch_size=root.channels.loader.minibatch_size,
+                      snapshot=True)
+        self.assertEqual(wf.evaluator.labels,
+                         wf.loader.minibatch_labels)
+        wf.run()
 
-        err = self.wf.decision.epoch_n_err[1]
+        err = wf.decision.epoch_n_err[1]
         # PIL Image for python2 and PIL for python3 returns different values
         self.assertEqual(err, 15 if six.PY3 else 14)
-        self.assertEqual(4, self.wf.loader.epoch_number)
+        self.assertEqual(4, wf.loader.epoch_number)
         self.info("All Ok")
 
 if __name__ == "__main__":
