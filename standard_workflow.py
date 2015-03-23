@@ -211,6 +211,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         unit by :func:`veles.units.Unit.link_attrs()` .
         Returns the last of :class:`veles.znicz.nn_units.ForwardBase`
         descendant units.
+
         Arguments:
             init_attrs: attrubutes of parents unit, which will be transfer to\
             first forward unit
@@ -269,6 +270,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         """
         Links :class:`veles.workflow.Repeater` descendant from *parents.
         Returns :class:`veles.workflow.Repeater` instance.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.workflow.Repeater` unit
@@ -288,6 +290,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         class type is taken from the global mapping by "loader_name" key.
         Links :class:`veles.loader.base.Loader` descendant from *parents.
         Returns :class:`veles.loader.base.Loader` descendant instance.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.loader.base.Loader` descendant unit
@@ -308,6 +311,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         Links the existing :class:`veles.workflow.EndPoint` and
         :class:`veles.workflow.Repeater` with *parents.
         Returns :class:`veles.workflow.EndPoint` instance.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.workflow.Repeater` and\
@@ -388,6 +392,7 @@ class StandardWorkflow(StandardWorkflowBase):
     It means that User can change structure of Model (Convolutional,
     Fully connected, different parameters) and parameters of training in
     configuration file.
+
     Arguments:
         loss_function: name of Loss function. Choices are "softmax" or "mse"
         loader_name: name of Loader. If loader_name is None, User should\
@@ -547,6 +552,7 @@ class StandardWorkflow(StandardWorkflowBase):
     def link_loop(self, parent):
         """
         Closes the loop based on the :class:`veles.workflow.Repeater`.
+
         Arguments:
             parent: unit, from whom will be link\
             :class:`veles.workflow.Repeater` unit
@@ -583,6 +589,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant and :class:`veles.znicz.nn_units.ForwardBase` descendant.
         Returns instance of :class:`veles.znicz.evaluator.EvaluatorBase`
         descendant unit.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
@@ -617,6 +624,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.workflow.Repeater`.
         Returns instance of :class:`veles.znicz.decision.DecisionBase`
         descendant.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.znicz.decision.DecisionBase` descendant unit
@@ -658,6 +666,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.znicz.decision.DecisionBase` descendant.
         Returns instance of :class:`veles.snapshotter.SnapshotterBase`
         descendant.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.snapshotter.SnapshotterBase` descendant unit
@@ -677,6 +686,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         Links the existing :class:`veles.workflow.EndPoint` unit with *parents.
         Returns :class:`veles.workflow.EndPoint` instance.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.workflow.EndPoint` unit
@@ -695,6 +705,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.znicz.decision.DecisionBase` descendant and
         :class:`veles.snapshotter.SnapshotterBase` descendant units.
         Returns instance of :class:`veles.znicz.image_saver.ImageSaver`.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.znicz.image_saver.ImageSaver` unit
@@ -729,6 +740,7 @@ class StandardWorkflow(StandardWorkflowBase):
         *parents. Changing "learning_rate" and "learning_rate_bias" in
         :class:`veles.znicz.nn_units.GradientDescentBase` descendant units.
         Returns instance of :class:`veles.znicz.lr_adjust.LearningRateAdjust`.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
@@ -761,6 +773,7 @@ class StandardWorkflow(StandardWorkflowBase):
         attributes of :class:`veles.loader.base.Loader` descendant.
         Returns instance of
         :class:`veles.mean_disp_normalizer.MeanDispNormalizer`.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.mean_disp_normalizer.MeanDispNormalizer` unit
@@ -776,6 +789,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Creates instance of :class:`veles.interaction.Shell` unit.
         Links :class:`veles.interaction.Shell`  unit with *parents.
         Returns instance of :class:`veles.interaction.Shell`.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.interaction.Shell` unit
@@ -797,6 +811,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant (epoch_n_err_pt).
         Returns the last of :class:`veles.plotting_units.AccumulatingPlotter`
         units.
+
         Arguments:
             parents: units, from whom will be link the first of\
             :class:`veles.plotting_units.AccumulatingPlotter` units.
@@ -829,6 +844,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Links attributes of MatrixPlotter units from attributes of
         :class:`veles.znicz.decision.DecisionBase` descendant.
         Returns the last of :class:`veles.plotting_units.MatrixPlotter` units.
+
         Arguments:
             parents: units, from whom will be link the first of\
             :class:`veles.plotting_units.MatrixPlotter` units.
@@ -859,6 +875,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant (max_err_y_sums).
         Returns the last instance of
         :class:`veles.plotting_units.AccumulatingPlotter`.
+
         Arguments:
             parents: units, from whom will be link the first of\
             :class:`veles.plotting_units.AccumulatingPlotter` units.
@@ -891,6 +908,7 @@ class StandardWorkflow(StandardWorkflowBase):
         from attributes of :class:`veles.znicz.decision.DecisionBase`
         descendant.
         Returns the last :class:`veles.plotting_units.MultiHistogram` unit.
+
         Arguments:
             weights_input: weights to plotting. "weights" or\
             "gradient_weights" for example
@@ -930,6 +948,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.znicz.nn_units.ForwardBase` descendant.
         Returns the last instance of
         :class:`veles.znicz.nn_plotting_units.Weights2D` unit.
+
         Arguments:
             weights_input: weights to plotting. "weights" or\
             "gradient_weights" for example
@@ -985,6 +1004,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.znicz.nn_plotting_units.Weights2D` unit.
         Returns the last of :class:`veles.znicz.diversity.SimilarWeights2D`
         units.
+
         Arguments:
             weights_input: weights to plotting. "weights" or\
             "gradient_weights" for example
@@ -1035,6 +1055,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.znicz.nn_units.GradientDescentBase` descendant units ,
         :class:`veles.znicz.nn_units.ForwardBase` descendant.
         Returns instance of :class:`veles.plotting_units.TableMaxMin` unit.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.plotting_units.TableMaxMin` unit.
@@ -1077,6 +1098,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant (epoch_metrics).
         Returns the last instance of
         :class:`veles.plotting_units.AccumulatingPlotter`.
+
         Arguments:
             parents: units, from whom will be link the first of\
             :class:`veles.plotting_units.AccumulatingPlotter` units.
@@ -1143,6 +1165,7 @@ class StandardWorkflow(StandardWorkflowBase):
         attributes of :class:`veles.znicz.decision.DecisionBase` descendant,
         :class:`veles.znicz.nn_units.ForwardBase` descendant.
         Returns instance of :class:`veles.plotting_units.ImagePlotter` unit.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.plotting_units.ImagePlotter` unit.
@@ -1169,6 +1192,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.loader.base.Loader` descendant.
         Returns instance of :class:`veles.plotting_units.ImmediatePlotter`
         unit.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.plotting_units.ImmediatePlotter` unit.
@@ -1217,6 +1241,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Links attributes of :class:`veles.loader.saver.MinibatchesSaver` units
         from attributes of :class:`veles.loader.base.Loader` descendant
         Returns instance of :class:`veles.loader.saver.MinibatchesSaver` unit.
+
         Arguments:
             parents: units, from whom will be link\
             :class:`veles.loader.saver.MinibatchesSaver` unit.
