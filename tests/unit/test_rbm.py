@@ -115,7 +115,7 @@ class TestRBMUnits(AcceleratedTest):
         gds.hbias.reset()
         gds.hbias.mem = numpy.zeros((1, 1000), dtype=numpy.float64)
         gds.hbias.mem[:] = grad_data["hbias"][:].transpose()
-        gds.hbias.initialize(device=None, snapshot=False)
+        gds.hbias.initialize(device=None)
         gds.vbias = Vector()
         gds.vbias.reset()
         gds.vbias.mem = numpy.zeros((1, 196), dtype=numpy.float64)

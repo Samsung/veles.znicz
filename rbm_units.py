@@ -8,20 +8,35 @@ import numpy
 import numpy.matlib as matlib
 from zope.interface import implementer
 
-from veles.accelerated_units import (AcceleratedUnit,
-                                     AcceleratedWorkflow,
-                                     IOpenCLUnit)
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
 from veles.memory import Vector
 from veles.mutable import Bool
 import veles.prng as prng
 from veles.units import IUnit, Unit
-from veles.workflow import Repeater
+from veles.workflow import Repeater, Workflow
 from veles.znicz.all2all import All2AllSigmoid
 from veles.znicz.evaluator import EvaluatorMSE
 
 
-@implementer(IOpenCLUnit)
-class Binarization(AcceleratedUnit):
+class EmptyDeviceMethodsMixin(object):
+    def ocl_init(self):
+        pass
+
+    def cuda_init(self):
+        pass
+
+    def ocl_run(self):
+        pass
+
+    def cuda_run(self):
+        pass
+
+    def cpu_run(self):
+        pass
+
+
+@implementer(IOpenCLUnit, ICUDAUnit)
+class Binarization(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     Input Binarization. Input and output is 2d arrays of the same size.
     Each element A(i,j) (in row i and column j) of input is a float
@@ -46,7 +61,7 @@ class Binarization(AcceleratedUnit):
         self.rand = kwargs.get("rand", prng.get())
         self.demand("input", "batch_size")
 
-    def cpu_run(self):
+    def run(self):
         """Batch binarization on CPU only.
         """
         self.output.map_invalidate()
@@ -61,12 +76,6 @@ class Binarization(AcceleratedUnit):
             self.output.reset()
             self.output.mem = numpy.zeros_like(self.input.mem)
         self.output.initialize(self.device)
-
-    def ocl_init(self):
-        pass
-
-    def ocl_run(self):
-        self.cpu_run()
 
     def matlab_binornd(self, n, p_in):
         """
@@ -136,8 +145,8 @@ class IterationCounter(Unit):
         self.complete <<= self.iteration > self.max_iterations
 
 
-@implementer(IOpenCLUnit)
-class BatchWeights(AcceleratedUnit):
+@implementer(IOpenCLUnit, ICUDAUnit)
+class BatchWeights(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """Make weigths and biases from batch v and h.
     Must be assigned before initialize():
         v
@@ -169,7 +178,7 @@ class BatchWeights(AcceleratedUnit):
         self.demand("v", "h", "batch_size")
 
     def initialize(self, device, **kwargs):
-        super(BatchWeights, self).initialize(device, **kwargs)
+        super(BatchWeights, self).initialize(device=device, **kwargs)
         vbias_size = self.v.size // self.v.shape[0]
         hbias_size = self.h.size // self.h.shape[0]
         W_size = vbias_size * hbias_size
@@ -191,24 +200,18 @@ class BatchWeights(AcceleratedUnit):
         self.init_vectors(self.weights_batch, self.vbias_batch,
                           self.hbias_batch, self.v, self.h)
 
-    def ocl_init(self):
-        pass
-
-    def ocl_run(self):
-        pass
-
-    def cpu_run(self):
+    def run(self):
         self.v.map_read()
         self.h.map_read()
-        for v in (self.weights_batch, self.hbias_batch, self.vbias_batch):
+        for v in self.weights_batch, self.hbias_batch, self.vbias_batch:
             v.map_invalidate()
         self.weights_batch.mem[:] = numpy.dot(
             numpy.transpose(self.v.mem[0: self.batch_size, :]),
             self.h.mem[0: self.batch_size, :]) / \
             self.batch_size
-        for bv in ((self.vbias_batch, self.v), (self.hbias_batch, self.h)):
-            bv[0].mem = (numpy.sum(bv[1].mem[:self.batch_size, :], 0) /
-                         self.batch_size)
+        for bv in (self.vbias_batch, self.v), (self.hbias_batch, self.h):
+            bv[0].mem[:] = (numpy.sum(bv[1].mem[:self.batch_size, :], 0) /
+                            self.batch_size)
             bv[0].shape = (1, bv[0].size)
 
 
@@ -220,8 +223,8 @@ class BatchWeights2(BatchWeights):
     hide = True
 
 
-@implementer(IOpenCLUnit)
-class GradientsCalculator(AcceleratedUnit):
+@implementer(IOpenCLUnit, ICUDAUnit)
+class GradientsCalculator(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     Making gradients for weights, hbias and vbias, using hbias0, vbias0
     and vbias1, hbias1, which calculated with help BatchWeights.
@@ -262,7 +265,7 @@ class GradientsCalculator(AcceleratedUnit):
                     "weights1")
 
     def initialize(self, device, **kwargs):
-        super(GradientsCalculator, self).initialize(device, **kwargs)
+        super(GradientsCalculator, self).initialize(device=device, **kwargs)
         if not self.hbias_grad:
             self.hbias_grad.reset(numpy.zeros(self.hbias0.shape,
                                               dtype=self.hbias0.dtype))
@@ -283,13 +286,7 @@ class GradientsCalculator(AcceleratedUnit):
                   self.vbias1, self.weights1):
             v.initialize(self.device)
 
-    def ocl_init(self):
-        pass
-
-    def ocl_run(self):
-        pass
-
-    def cpu_run(self):
+    def run(self):
         for v in (self.hbias0, self.vbias0, self.weights0,
                   self.hbias1, self.vbias1, self.weights1):
             v.map_read()
@@ -302,8 +299,8 @@ class GradientsCalculator(AcceleratedUnit):
         self.weights_grad.mem[:] = self.weights0.mem - self.weights1.mem
 
 
-@implementer(IOpenCLUnit)
-class WeightsUpdater(AcceleratedUnit):
+@implementer(IUnit)
+class WeightsUpdater(Unit):
     """
     Adds gradiens to weights, bias and hbias
     """
@@ -313,16 +310,13 @@ class WeightsUpdater(AcceleratedUnit):
         self.demand("hbias_grad", "vbias_grad", "weights_grad",
                     "weights", "hbias", "vbias")
 
-    def ocl_init(self):
+    def initialize(self, **kwargs):
         pass
 
-    def ocl_run(self):
-        pass
-
-    def cpu_run(self):
-        for v in (self.hbias_grad, self.vbias_grad, self.weights):
+    def run(self):
+        for v in self.hbias_grad, self.vbias_grad, self.weights:
             v.map_read()
-        for v in (self.weights, self.hbias, self.vbias):
+        for v in self.weights, self.hbias, self.vbias:
             v.map_write()
 
         self.weights.mem += self.learning_rate * \
@@ -333,7 +327,7 @@ class WeightsUpdater(AcceleratedUnit):
             self.vbias.shape)
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class MemCpy(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         super(MemCpy, self).__init__(workflow, **kwargs)
@@ -350,14 +344,24 @@ class MemCpy(AcceleratedUnit):
         self.input.initialize(self.device)
         self.output.initialize(self.device)
 
+    def cuda_init(self):
+        pass
+
     def ocl_init(self):
         pass
 
-    def ocl_run(self):
+    def _gpu_run(self):
         self.input.unmap()
         self.output.unmap()
+
+    def ocl_run(self):
+        self._gpu_run()
         self.device.queue_.copy_buffer(self.input.devmem, self.output.devmem,
                                        0, 0, self.input.nbytes)
+
+    def cuda_run(self):
+        self._gpu_run()
+        self.output.devmem.from_device_async(self.input.devmem)
 
     def cpu_run(self):
         self.input.map_read()
@@ -399,8 +403,7 @@ class BinarizationGradV(Binarization):
     hide = True
 
 
-@implementer(IOpenCLUnit)
-class GradientRBM(AcceleratedWorkflow):
+class GradientRBM(Workflow):
     """This unit produces update weights using minibatch according to the
     algorithm described in
     http://deeplearning.net/tutorial/rbm.html (25.11.14).
@@ -428,8 +431,8 @@ class GradientRBM(AcceleratedWorkflow):
             output_sample_shape=kwargs["v_size"])
         self.make_v.link_from(self.bino_h)
         self.make_v.link_attrs(self.bino_h, ("input", "output"))
-        self.bino_v = BinarizationGradV(self,
-                                        rand=kwargs.get("rand_v", prng.get()))
+        self.bino_v = BinarizationGradV(
+            self, rand=kwargs.get("rand_v", prng.get()))
 
         self.bino_v.link_attrs(self.make_v, ("input", "output"))
         self.bino_v.link_from(self.make_v)
@@ -477,8 +480,7 @@ class BinarizationEval(Binarization):
     hide = True
 
 
-@implementer(IOpenCLUnit)
-class EvaluatorRBM(AcceleratedWorkflow):
+class EvaluatorRBM(Workflow):
     def __init__(self, workflow, **kwargs):
         super(EvaluatorRBM, self).__init__(workflow, **kwargs)
         self.run_is_blocking = True
