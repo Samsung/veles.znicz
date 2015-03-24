@@ -217,7 +217,7 @@ class BatchWeights2(BatchWeights):
     Don't remove.
     Dummy class as a workaround for link_attrs behaviour.
     """
-    pass
+    hide = True
 
 
 @implementer(IOpenCLUnit)
@@ -371,6 +371,7 @@ class All2AllSigmoidH(All2AllSigmoid):
     Dummy class as a workaround for link_attrs behaviour.
     """
     MAPPING = set()
+    hide = True
 
 
 class All2AllSigmoidV(All2AllSigmoid):
@@ -379,6 +380,7 @@ class All2AllSigmoidV(All2AllSigmoid):
     Dummy class as a workaround for link_attrs behaviour.
     """
     MAPPING = set()
+    hide = True
 
 
 class BinarizationGradH(Binarization):
@@ -386,7 +388,7 @@ class BinarizationGradH(Binarization):
     Don't remove.
     Dummy class as a workaround for link_attrs behaviour.
     """
-    pass
+    hide = True
 
 
 class BinarizationGradV(Binarization):
@@ -394,7 +396,7 @@ class BinarizationGradV(Binarization):
     Don't remove.
     Dummy class as a workaround for link_attrs behaviour.
     """
-    pass
+    hide = True
 
 
 @implementer(IOpenCLUnit)
@@ -462,16 +464,17 @@ class GradientRBM(AcceleratedWorkflow):
 
 class All2AllSigmoidWithForeignWeights(All2AllSigmoid):
     """
-    Dummy class as a workaround for link_attrs bug.
+    Dummy class as a workaround for link_attrs behavior.
     """
     MAPPING = set()
+    hide = True
 
 
 class BinarizationEval(Binarization):
     """
-    Dummy class as a workaround for link_attrs bug.
+    Dummy class as a workaround for link_attrs behavior.
     """
-    pass
+    hide = True
 
 
 @implementer(IOpenCLUnit)
