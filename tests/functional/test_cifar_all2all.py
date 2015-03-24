@@ -86,6 +86,7 @@ class TestCifarAll2All(StandardTest):
         self.info("Will load workflow from %s", file_name)
         workflow_from_snapshot = Snapshotter.import_(file_name)
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
+        workflow_from_snapshot.workflow = self.parent
         workflow_from_snapshot.decision.max_epochs = 5
         workflow_from_snapshot.decision.complete <<= False
         self.assertEqual(workflow_from_snapshot.evaluator.labels,

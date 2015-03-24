@@ -28,16 +28,15 @@ class CaffeTestBase(StandardTest):
         """
         Reads a pic array from from export file, splitted to lines.
         NB: last line should be empty
-    
-        Args:
+
+        Arguments:
             array_name(str): name of array to read
         lines(array): lines of file to read from
         shape(tuple): shape=(n_pics, height, width, n_chans), must be given if
             not set in file.
-    
+
         Returns:
             :class:`numpy.ndarray`
-    
         """
 
         cur_line = None
@@ -92,14 +91,13 @@ class CaffeTestBase(StandardTest):
         """
         Returns all lines from a file maned `data_filename`.
         File is searched in ``self.data_dir_path``.
-    
-        Args:
+
+        Arguments:
             data_filename(str): name to file with pooling data,
                 exported from CAFFE (searched in ``self.data_dir_path``)
-    
+
         Returns:
             list: list of all lines read
-    
         """
         full_path = os.path.join(self.data_dir_path, data_filename)
         return self._read_lines_by_abspath(full_path)

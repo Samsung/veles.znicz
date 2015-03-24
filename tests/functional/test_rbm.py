@@ -11,7 +11,6 @@ import scipy.io
 from zope.interface import implementer
 
 from veles.config import root
-from veles.dummy import DummyLauncher
 from veles.interaction import Shell
 from veles.tests import multi_device
 from veles.znicz.decision import TrivialDecision
@@ -203,8 +202,7 @@ class TestRBMworkflow(StandardTest):
             os.path.join(os.path.dirname(__file__), '..', 'data', 'rbm_data',
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
-        launcher = DummyLauncher()
-        workflow = MnistRBMWorkflow(launcher)
+        workflow = MnistRBMWorkflow(self.parent)
         workflow.run_is_blocking = True
         workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)
