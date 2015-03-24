@@ -23,7 +23,6 @@ from veles.units import Unit
 class StandardTest(AcceleratedTest):
     def setUp(self):
         super(StandardTest, self).setUp()
-        self.parent = DummyLauncher()
         self.data_dir_path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "data")
         root.common.update({
@@ -32,6 +31,9 @@ class StandardTest(AcceleratedTest):
 
         assert root.common.disable_plotting
         self.seed()
+
+    def getParent(self):
+        return DummyLauncher()
 
     def seed(self):
         prng.get().seed(numpy.fromfile("%s/veles/znicz/tests/research/seed" %
@@ -43,7 +45,7 @@ class StandardTest(AcceleratedTest):
 
     def tearDown(self):
         if Unit._pool_ is not None:
-            Unit._pool_.shutdown()
+            Unit._pool_.shutdown(execute_remaining=False)
             Unit._pool_ = None
         super(StandardTest, self).tearDown()
 

@@ -34,8 +34,7 @@ class TestApproximator(StandardTest):
             "weights_decay": 0.00005,
             "layers": [810, 9]})
 
-    mse = {"ocl": [0.1669484573, 0.15975260],
-           "cuda": [0.1669484573, 0.15975260]}
+    mse = (0.1669484573, 0.15975260)
 
     @timeout(240)
     @multi_device()
@@ -57,8 +56,7 @@ class TestApproximator(StandardTest):
         file_name = workflow.snapshotter.file_name
 
         avg_mse = workflow.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, self.mse[self.device.backend_name][0],
-                               places=5)
+        self.assertAlmostEqual(avg_mse, self.mse[0], places=5)
         self.assertEqual(3, workflow.loader.epoch_number)
 
         self.info("Will load workflow from %s", file_name)
@@ -76,8 +74,7 @@ class TestApproximator(StandardTest):
         workflow_from_snapshot.run()
 
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[2][0]
-        self.assertAlmostEqual(avg_mse, self.mse[self.device.backend_name][1],
-                               places=5)
+        self.assertAlmostEqual(avg_mse, self.mse[1], places=5)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

@@ -23,7 +23,7 @@ class TestChannels(StandardTest):
         root.channels.update({
             "decision": {"fail_iterations": 50,
                          "max_epochs": 3},
-            "snapshotter": {"prefix": "test_channels", "interval": 3,
+            "snapshotter": {"prefix": "test_channels", "interval": 4,
                             "time_interval": 0},
             "image_saver": {"out_dirs": [
                 os.path.join(root.common.cache_dir, "tmp/test"),
@@ -57,7 +57,7 @@ class TestChannels(StandardTest):
                         "<-": {"learning_rate": 0.01,
                                "weights_decay": 0.00005}}]})
 
-    @timeout(1200)
+    @timeout(600)
     @multi_device()
     def test_channels_all2all(self):
         self.info("Will test channels fully connected workflow")
@@ -78,6 +78,7 @@ class TestChannels(StandardTest):
             device=self.device,
             minibatch_size=root.channels.loader.minibatch_size,
             snapshot=False)
+
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()

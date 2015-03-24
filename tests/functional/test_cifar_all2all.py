@@ -50,7 +50,8 @@ class TestCifarAll2All(StandardTest):
                         "->": {"output_sample_shape": 10},
                         "<-": {"learning_rate": 0.0005,
                                "weights_decay": 0.0}}],
-            "snapshotter": {"prefix": "cifar_test"},
+            "snapshotter": {"prefix": "cifar_test", "time_interval": 0,
+                            "interval": 3},
             "data_paths": {"train": train_dir, "validation": validation_dir}})
 
     @timeout(1200)
@@ -66,8 +67,6 @@ class TestCifarAll2All(StandardTest):
             loss_function=root.cifar.loss_function,
             loader_name=root.cifar.loader_name,
             loader_config=root.cifar.loader)
-        workflow.snapshotter.time_interval = 0
-        workflow.snapshotter.interval = 2
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.initialize(

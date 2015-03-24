@@ -11,9 +11,8 @@ import os
 import tarfile
 
 from veles.compat import IntEnum
-
 from veles.memory import Vector
-from veles.logger import Logger
+from veles.tests import AcceleratedTest
 from veles.znicz import (activation, all2all, conv, evaluator, pooling,
                          normalization)
 from veles.znicz.standard_workflow import GradientUnitFactory
@@ -52,10 +51,12 @@ class LayerInfo(object):
 
 
 class ComplexTest(CaffeTestBase):
-    def __init__(self, methodName='runTest'):
+    def setUp(self):
+        super(ComplexTest, self).setUp()
         self.layer_dict = {}
-        super(ComplexTest, self).__init__(methodName=methodName)
-        Logger.__init__(self)
+
+    def getParent(self):
+        return AcceleratedTest.getParent(self)
 
     def _compress_snapshots(self):
         out_archive = tarfile.open(name=os.path.join(
@@ -262,7 +263,7 @@ class ComplexTest(CaffeTestBase):
         ev.link_attrs(ip_sm, "output")
 
         gd_ip_sm = GradientUnitFactory.create(
-            ip_sm, name="gd_ip1", batch_size=self.n_pics,
+            ip_sm, name="gd_ip1",
             learning_rate=0.001, learning_rate_bias=0.002,
             weights_decay=1.0, weights_decay_bias=0.0,
             gradient_moment=0.9, gradient_moment_bias=0.9)
@@ -272,17 +273,17 @@ class ComplexTest(CaffeTestBase):
 
         # BACK LAYER 3: CONV
         gd_pool3 = GradientUnitFactory.create(
-            self.parent["pool3"], "gd_pool3", batch_size=self.n_pics)
+            self.parent["pool3"], "gd_pool3")
         gd_pool3.link_from(gd_ip_sm)
         gd_pool3.link_attrs(gd_ip_sm, ("err_output", "err_input"))
 
         gd_relu3 = GradientUnitFactory.create(
-            self.parent["relu3"], "gd_relu3", batch_size=self.n_pics)
+            self.parent["relu3"], "gd_relu3")
         gd_relu3.link_from(gd_pool3)
         gd_relu3.link_attrs(gd_pool3, ("err_output", "err_input"))
 
         gd_conv3 = GradientUnitFactory.create(
-            self.parent["conv3"], "gd_conv3", batch_size=self.n_pics,
+            self.parent["conv3"], "gd_conv3",
             learning_rate=0.001, learning_rate_bias=0.001,
             weights_decay=0.004, weights_decay_bias=0.004,
             gradient_moment=0.9, gradient_moment_bias=0.9)
@@ -296,17 +297,17 @@ class ComplexTest(CaffeTestBase):
         gd_norm2.link_attrs(gd_conv3, ("err_output", "err_input"))
 
         gd_pool2 = GradientUnitFactory.create(
-            self.parent["pool2"], "gd_pool2", batch_size=self.n_pics)
+            self.parent["pool2"], "gd_pool2")
         gd_pool2.link_from(gd_norm2)
         gd_pool2.link_attrs(gd_norm2, ("err_output", "err_input"))
 
         gd_relu2 = GradientUnitFactory.create(
-            self.parent["relu2"], "gd_relu2", batch_size=self.n_pics)
+            self.parent["relu2"], "gd_relu2")
         gd_relu2.link_from(gd_pool2)
         gd_relu2.link_attrs(gd_pool2, ("err_output", "err_input"))
 
         gd_conv2 = GradientUnitFactory.create(
-            self.parent["conv2"], "gd_conv2", batch_size=self.n_pics,
+            self.parent["conv2"], "gd_conv2",
             learning_rate=0.001, learning_rate_bias=0.002,
             weights_decay=0.004, weights_decay_bias=0.004,
             gradient_moment=0.9, gradient_moment_bias=0.9)
@@ -330,7 +331,7 @@ class ComplexTest(CaffeTestBase):
         gd_pool1.link_attrs(gd_relu1, ("err_output", "err_input"))
 
         gd_conv1 = GradientUnitFactory.create(
-            self.parent["conv1"], "gd_conv1", batch_size=self.n_pics,
+            self.parent["conv1"], "gd_conv1",
             learning_rate=0.001, learning_rate_bias=0.002,
             weights_decay=0.004, weights_decay_bias=0.004,
             gradient_moment=0.9, gradient_moment_bias=0.9)
