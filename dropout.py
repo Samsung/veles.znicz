@@ -12,7 +12,7 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.memory import eq_addr, ravel, Vector
 import veles.prng as random_generator
@@ -46,7 +46,7 @@ class Dropout(AcceleratedUnit, TriviallyDistributable):
         self._dropout_ratio = value
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
@@ -148,7 +148,7 @@ class DropoutForward(Forward, Dropout):
             self.output.devmem.from_device_async(self.input.devmem)
 
 
-@implementer(IOpenCLUnit, IDistributable)
+@implementer(IOpenCLUnit, ICUDAUnit, IDistributable)
 class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.
