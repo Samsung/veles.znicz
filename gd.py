@@ -22,7 +22,7 @@ import numpy
 import time
 from zope.interface import implementer
 
-from veles.memory import reshape, roundup, Vector
+from veles.memory import reshape, reshape_transposed, roundup, Vector
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 from collections import namedtuple
@@ -180,7 +180,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(9, dtype=dtype)
 
-        side = self.weights.shape[1 if self.weights_transposed else 0]
+        side = self.weights.shape[0]
         other = self.weights.size // side
         assert side == self.err_output.sample_size
         assert other == self.input.sample_size
@@ -237,9 +237,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         dtype = self.err_output.dtype
         block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=dtype)
-        side = self.weights.shape[1 if self.weights_transposed else 0]
+        side = self.weights.shape[0]
         other = self.weights.size // side
-        batch = self.input.mem.shape[0]
+        batch = self.input.shape[0]
 
         if self.need_err_input:
             self.sources_["all2all/gradient_descent/err_input_update"] = {}
@@ -269,7 +269,7 @@ class GradientDescent(nn_units.GradientDescentBase):
     def cuda_init(self):
         self._gpu_init({})
 
-        side = self.weights.shape[1 if self.weights_transposed else 0]
+        side = self.weights.shape[0]
         other = self.weights.size // side
 
         block_size = self.device.suggest_block_size(self.krn_weights_)
@@ -306,10 +306,7 @@ class GradientDescent(nn_units.GradientDescentBase):
 
     def apply_gradient_f(self, gradient, vec, transposed):
         if self.apply_gradient:
-            if transposed:
-                vec.mem += gradient.transpose()
-            else:
-                vec.mem += gradient
+            vec.mem += gradient
 
     def accumulate_gradient_f(self, accumulated_gradient, gradient):
         if accumulated_gradient:
@@ -344,7 +341,7 @@ class GradientDescent(nn_units.GradientDescentBase):
                         self.accumulated_gradient_bias,
                         self.gradient_bias_with_moment):
                 vec.map_write()
-            v_trans = 0
+            v_trans = False
 
         vec = getattr(self, s)
         grad_vec = getattr(self, "gradient_" + s)
@@ -364,7 +361,8 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         if self.variant_gradient:
             gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-                vec.mem, grad_vec.mem, lr, factor_l12, l1_vs_l2, f_ortho_use)
+                vec.mem, grad_vec.mem, lr, factor_l12, l1_vs_l2, f_ortho_use,
+                v_trans)
             gradient = self.accumulate_gradient_f(acc_vec, gradient)
             # if "momentum" in self.solvers:
             gradient = self.moment_use(vec_old, gradient)
@@ -375,7 +373,8 @@ class GradientDescent(nn_units.GradientDescentBase):
 
             gradient = self.moment_use(vec_old, gradient)
             gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
-                vec.mem, gradient, lr, factor_l12, l1_vs_l2, f_ortho_use)
+                vec.mem, gradient, lr, factor_l12, l1_vs_l2, f_ortho_use,
+                v_trans)
         if "adagrad" in self.solvers:
             gradient = self.apply_adagrad(adagard_vec, vec_old, gradient)
         if "adadelta" in self.solvers:
@@ -425,15 +424,17 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         err_output = reshape(
             self.err_output.mem,
-            [self.err_output.mem.shape[0],
-             self.err_output.mem.size // self.err_output.mem.shape[0]])
+            [self.err_output.shape[0], self.err_output.sample_size])
 
         inp = reshape(
-            self.input.mem, [self.input.mem.shape[0],
-                             self.input.mem.size // self.input.mem.shape[0]])
+            self.input.mem, [self.input.shape[0], self.input.sample_size])
 
         self.gradient_weights.map_write()
-        numpy.dot(err_output.transpose(), inp, self.gradient_weights.mem)
+        if self.weights_transposed:
+            numpy.dot(inp.transpose(), err_output,
+                      reshape_transposed(self.gradient_weights.mem))
+        else:
+            numpy.dot(err_output.transpose(), inp, self.gradient_weights.mem)
 
         self.cpu_update('weights')
 
@@ -465,7 +466,9 @@ class GradientDescent(nn_units.GradientDescentBase):
             [self.err_input.mem.shape[0],
              self.err_input.mem.size // self.err_input.mem.shape[0]])
         if self.weights_transposed:
-            numpy.dot(err_output, self.weights.mem.transpose(), err_input)
+            numpy.dot(
+                err_output, reshape_transposed(self.weights.mem).transpose(),
+                err_input)
         else:
             numpy.dot(err_output, self.weights.mem, err_input)
 

@@ -21,7 +21,7 @@ from zope.interface import implementer
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
 from veles.loader import Loader
-from veles.memory import roundup, Vector
+from veles.memory import reshape_transposed, roundup, Vector
 from veles.mutable import Bool
 from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
@@ -645,12 +645,13 @@ class GradientDescentBase(AcceleratedUnit):
 
     @staticmethod
     def cpu_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
-                          factor_ortho=0):
+                          factor_ortho=0, weights_transposed=False):
         gradient = gradient.copy()
         gradient += factor_l12 * ((1.0 - l1_vs_l2) * weight +
                                   0.5 * l1_vs_l2 * numpy.sign(weight))
         if factor_ortho:
-            col_sums = weight.sum(axis=0)
+            col_sums = (reshape_transposed(weight).sum(axis=1)
+                        if weights_transposed else weight.sum(axis=0))
             for i, row in enumerate(gradient):
                 row += (col_sums - weight[i]) * factor_ortho / weight.shape[0]
         gradient *= lr

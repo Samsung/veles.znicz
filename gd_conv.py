@@ -21,7 +21,7 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.memory import roundup
+from veles.memory import ravel, reshape_transposed, roundup
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
@@ -94,7 +94,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self.cl_const = numpy.zeros(9, dtype=self._dtype)
 
-        self._side = self.weights.shape[1 if self.weights_transposed else 0]
+        self._side = self.weights.shape[0]
         self._other = self.weights.size // self._side
         assert self._side == self.n_kernels
         assert self._other == self.kx * self.ky * self._n_channels
@@ -349,22 +349,16 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.gradient_weights.devmem)
 
     def cpu_weights_update(self):
-        # TODO(a.kazantsev): implement in case of transposed weights
-        #                    (see OpenCL kernel and just swap the matricies).
-        if self.weights_transposed:
-            raise NotImplementedError(
-                "cpu_run is not implemented for transposed weights")
-
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
         self.gradient_weights.map_write()
         self.accumulated_gradient_weights.map_write()
 
-        dtype = self.weights.mem.dtype
-        sy = self.input.mem.shape[1]
-        sx = self.input.mem.shape[2]
-        n_channels = self.input.mem.size // (self.input.mem.shape[0] * sx * sy)
+        dtype = self.weights.dtype
+        sy = self.input.shape[1]
+        sx = self.input.shape[2]
+        n_channels = self.input.size // (self.input.shape[0] * sx * sy)
 
         sx_full = self.padding[0] + sx + self.padding[2]
         sy_full = self.padding[1] + sy + self.padding[3]
@@ -372,7 +366,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         ny = (sy_full - self.ky) // self.sliding[1] + 1
         sample_shape = (nx * ny, self.kx * self.ky * n_channels)
 
-        sh = self.err_output.mem.shape
+        sh = self.err_output.shape
         if len(sh) == 3:
             sh[1] *= sh[2]
             sh[2] = 1
@@ -411,6 +405,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                                      self.n_kernels)
             gd_weights += numpy.dot(out.transpose(),
                                     sample)
+        if self.weights_transposed:
+            w = gd_weights.transpose().copy()
+            ravel(gd_weights)[:] = w.ravel()
 
         # update weights
         lr = self.learning_rate
@@ -418,7 +415,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         l1_vs_l2 = self.l1_vs_l2
         gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
             self.weights.mem, gd_weights, lr, factor_l12, l1_vs_l2,
-            self.factor_ortho)
+            self.factor_ortho, self.weights_transposed)
         if self.accumulate_gradient == self.OP_NONE:
             pass
         elif self.accumulate_gradient == self.OP_STORE:
@@ -483,7 +480,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         if self.apply_gradient:
             self.bias.mem += gd_bias_reg
 
-    def gpu_err_input_update(self):
+    def ocl_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
         if not self.need_err_input:
@@ -503,9 +500,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         """
         if not self.need_err_input:
             return
-        if self.weights_transposed:
-            raise NotImplementedError(
-                "cpu_run is not implemented for transposed weights")
 
         from scipy.signal import convolve2d
 
@@ -520,11 +514,14 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         sx_full = self.padding[0] + sx + self.padding[2]
         sy_full = self.padding[1] + sy + self.padding[3]
 
+        weights = (reshape_transposed(self.weights.mem).transpose()
+                   if self.weights_transposed else self.weights.mem)
+
         self.err_input.mem[:] = 0
         # initialize sparse output error
         sparse_err_output = numpy.zeros((
             batch_size, sy_full - self.ky + 1, sx_full - self.kx + 1,
-            self.n_kernels), dtype=self.err_output.mem.dtype)
+            self.n_kernels), dtype=self.err_output.dtype)
         for (batch, i, j, k), err in numpy.ndenumerate(self.err_output.mem):
             sparse_err_output[batch, i * self.sliding[1],
                               j * self.sliding[0], k] = err
@@ -532,8 +529,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                                   sx_full - self.kx + 1))
         for batch, k in product(range(batch_size), range(self.n_kernels)):
             err_sample[:] = sparse_err_output[batch, :, :, k]
-            cur_kernel = self.weights.mem[k].reshape(self.ky, self.kx,
-                                                     n_channels)
+            cur_kernel = weights[k].reshape(self.ky, self.kx, n_channels)
             for ch in range(n_channels):
                 err_input_full = convolve2d(err_sample, cur_kernel[:, :, ch],
                                             mode='full')
@@ -546,7 +542,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         """
         t1 = time.time()
         self.gpu_err_output_update()
-        self.gpu_err_input_update()
+        self.ocl_err_input_update()
         self.gpu_weights_update()
         self.gpu_bias_update()
         self.print_debug_data(t1)

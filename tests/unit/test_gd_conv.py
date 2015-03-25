@@ -9,7 +9,8 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import numpy
 
 from veles.config import root
-import veles.memory as formats
+from veles.dummy import DummyUnit
+from veles.memory import assert_addr, Vector
 import veles.opencl_types as opencl_types
 from veles.tests import AcceleratedTest, assign_backend
 from veles.znicz.gd_conv import GradientDescentConv, GDRELUConv, \
@@ -42,6 +43,8 @@ class PatchedGDSigmoidConv(GDSigmoidConv, PatchedGradientDescentBase):
 
 
 class TestGDConv(AcceleratedTest, GDNumDiff):
+    ABSTRACT = True
+
     def test_err_h_gpu(self):
         self._test_err_h(self.device)
 
@@ -99,25 +102,18 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                                    [[-2, 3], [1, 2], [1, 1]]]], dtype=dtype)
 
         c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
-        c.kx = 3
-        c.ky = 3
-        c.n_kernels = 2
-        c.padding = 0, 0, 0, 0
-        c.sliding = 1, 1
-        c.err_output = formats.Vector()
-        c.err_output.mem = err_output.copy()
-        c.input = formats.Vector()
-        c.input.mem = inp.copy()
-        c.weights = formats.Vector()
-        c.weights.mem = weights.copy()
-        c.bias = formats.Vector()
-        c.bias.mem = bias.copy()
-        c.output = formats.Vector()
-        c.output.mem = c.err_output.mem.copy()
-        c.unpack_size = 1
-        c.unpack_data = formats.Vector()
+        u = DummyUnit(kx=3, ky=3, n_kernels=2,
+                      padding=(0, 0, 0, 0), sliding=(1, 1),
+                      err_output=Vector(err_output.copy()),
+                      input=Vector(inp.copy()),
+                      weights=Vector(weights.copy()),
+                      bias=Vector(bias.copy()),
+                      output=Vector(err_output.copy()),
+                      unpack_size=1, unpack_data=Vector())
+        c.link_conv_attrs(u)
+        c.link_attrs(u, "err_output", "input", "output", "weights", "bias")
 
-        batch_size = c.err_output.mem.shape[0]
+        batch_size = c.err_output.shape[0]
         b = c.err_output.mem.reshape(9 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         weights_derivative = gradient_weights.copy()
@@ -173,7 +169,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                               error_function_averaged=False)
 
     def _numdiff_init_forward(self, forward, inp, weights, bias, err_output):
-        forward.input = formats.Vector()
+        forward.input = Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
         forward.weights.map_invalidate()
@@ -227,25 +223,18 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                                  dtype=dtype)
 
         c = PatchedGradientDescentConv(self.parent, gradient_moment=0.9)
-        c.n_kernels = 2
-        c.kx = 3
-        c.ky = 3
-        c.padding = 1, 2, 3, 4
-        c.sliding = 2, 3
-        c.err_output = formats.Vector()
-        c.err_output.mem = err_output.copy()
-        c.input = formats.Vector()
-        c.input.mem = inp.copy()
-        c.weights = formats.Vector()
-        c.weights.mem = weights.copy()
-        c.bias = formats.Vector()
-        c.bias.mem = bias.copy()
-        c.output = formats.Vector()
-        c.output.mem = err_output.copy()
-        c.unpack_size = 1
-        c.unpack_data = formats.Vector()
+        u = DummyUnit(n_kernels=2, kx=3, ky=3,
+                      padding=(1, 2, 3, 4), sliding=(2, 3),
+                      err_output=Vector(err_output.copy()),
+                      input=Vector(inp.copy()),
+                      weights=Vector(weights.copy()),
+                      bias=Vector(bias.copy()),
+                      output=Vector(err_output.copy()),
+                      unpack_size=1, unpack_data=Vector())
+        c.link_conv_attrs(u)
+        c.link_attrs(u, "err_output", "input", "output", "weights", "bias")
 
-        batch_size = c.err_output.mem.shape[0]
+        batch_size = c.err_output.shape[0]
         b = c.err_output.mem.reshape(12 * batch_size, 2)
         gradient_weights = numpy.dot(b.transpose(), a)
         weights_derivative = gradient_weights.copy()
@@ -330,23 +319,30 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self._test_random_numeric(None, conv.ConvRELU, PatchedGDRELUConv)
 
     def _test_random_numeric(self, device, Forward, GD):
+        self._test_random_numeric_transposed(device, Forward, GD, False)
+        self._test_random_numeric_transposed(device, Forward, GD, True)
+
+    def _test_random_numeric_transposed(self, device, Forward, GD,
+                                        weights_transposed):
         self.info("Will test convolutional layer forward-backward "
-                  "via numeric differentiation")
+                  "via numeric differentiation (weights_transposed = %s)",
+                  str(weights_transposed))
 
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([2, 5, 5, 3], dtype=dtype)
         prng.get().fill(inp)
         forward = Forward(self.parent, n_kernels=2, kx=3, ky=3,
-                          padding=(1, 2, 3, 4), sliding=(2, 3))
+                          padding=(1, 2, 3, 4), sliding=(2, 3),
+                          weights_transposed=weights_transposed)
         sh = list(inp.shape)
         sh[0] <<= 1
-        forward.input = formats.Vector(numpy.zeros(sh, dtype=dtype))
+        forward.input = Vector(numpy.zeros(sh, dtype=dtype))
         forward.input.initialize(device)
         forward.input.map_write()
         forward.input.unit_test_mem = forward.input.mem
         sh[0] >>= 1
         forward.input.mem = forward.input.unit_test_mem[:sh[0]]
-        formats.assert_addr(forward.input.mem, forward.input.unit_test_mem)
+        assert_addr(forward.input.mem, forward.input.unit_test_mem)
         forward.input.mem[:] = inp[:]
         forward.input.unit_test_mem[sh[0]:] = numpy.nan
         forward.initialize(device=device)
@@ -367,23 +363,20 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
             gradient_moment=0, gradient_moment_bias=0,
             learning_rate=-1, weights_decay=0,
             learning_rate_bias=-1, weights_decay_bias=0,
-            padding=forward.padding, sliding=forward.sliding)
+            weights_transposed=weights_transposed)
         c.link_conv_attrs(forward)
+        c.link_attrs(forward, "input", "output", "weights", "bias")
         sh = list(err_output.shape)
         sh[0] <<= 1
-        c.err_output = formats.Vector(numpy.zeros(sh, dtype=dtype))
+        c.err_output = Vector(numpy.zeros(sh, dtype=dtype))
         c.err_output.initialize(device)
         c.err_output.map_write()
         c.err_output.unit_test_mem = c.err_output.mem
         sh[0] >>= 1
         c.err_output.mem = c.err_output.unit_test_mem[:sh[0]]
-        formats.assert_addr(c.err_output.mem, c.err_output.unit_test_mem)
+        assert_addr(c.err_output.mem, c.err_output.unit_test_mem)
         c.err_output.mem[:] = err_output[:]
         c.err_output.unit_test_mem[sh[0]:] = numpy.nan
-        c.input = forward.input
-        c.weights = forward.weights
-        c.bias = forward.bias
-        c.output = forward.output
         c.initialize(device)
         c.run()
         c.err_input.map_read()

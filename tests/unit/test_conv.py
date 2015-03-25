@@ -55,9 +55,9 @@ class TestConvBase(AcceleratedTest):
 
         # set weights and bias using allocated memory during the initialization
         unit.weights.map_invalidate()
-        unit.weights.mem[:] = weights.reshape(unit.weights.mem.shape)
+        unit.weights.mem[:] = weights.reshape(unit.weights.shape)
         unit.bias.map_invalidate()
-        unit.bias.mem[:] = bias.reshape(unit.bias.mem.shape)
+        unit.bias.mem[:] = bias.reshape(unit.bias.shape)
 
         unit.run()
         if device is not None:
@@ -416,6 +416,10 @@ class TestConvWithPadding(TestConvBase):
         self.info("TEST PASSED")
 
     def test_compare_ocl_vs_cpu(self):
+        self._ocl_vs_cpu_transposed(False)
+        self._ocl_vs_cpu_transposed(True)
+
+    def _ocl_vs_cpu_transposed(self, weights_transposed):
         """Run test with random input data, weights, bias to compare results of
         CPU and OpenCL versions of algorithm and execution time.
         """
@@ -429,7 +433,8 @@ class TestConvWithPadding(TestConvBase):
 
         unit = PatchedConv(self.parent, n_kernels=weights_shape[0],
                            ky=weights_shape[1], kx=weights_shape[2],
-                           sliding=sliding, padding=padding)
+                           sliding=sliding, padding=padding,
+                           weights_transposed=weights_transposed)
         time0 = time.time()
         ocl_output = self._run_test(unit, self.device, input_data,
                                     weights, bias)

@@ -51,7 +51,7 @@ class PatchedGDSigmoid(GDSigmoid, PatchedGradientDescentBase):
 class TestGD(AcceleratedTest, GDNumDiff):
     ABSTRACT = True
 
-    def _do_test(self, device, Forward, GD):
+    def _do_test(self, device, Forward, GD, weights_transposed):
         batch_size = 2
         input_size = 25
         n_neurons = 7
@@ -61,7 +61,8 @@ class TestGD(AcceleratedTest, GDNumDiff):
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp = numpy.zeros([batch_size, input_size], dtype=dtype)
         prng.get().fill(inp)
-        forward = Forward(self.parent, output_sample_shape=[n_neurons])
+        forward = Forward(self.parent, output_sample_shape=[n_neurons],
+                          weights_transposed=weights_transposed)
         forward.input = Vector()
         forward.input.mem = inp.copy()
         forward.initialize(device=self.device)
@@ -85,7 +86,8 @@ class TestGD(AcceleratedTest, GDNumDiff):
         c = GD(self.parent,
                gradient_moment=0, gradient_moment_bias=0,
                learning_rate=-1, weights_decay=0,
-               learning_rate_bias=-1, weights_decay_bias=0)
+               learning_rate_bias=-1, weights_decay_bias=0,
+               weights_transposed=weights_transposed)
 
         c.err_output = Vector()
         c.err_output.mem = err_output.copy()
@@ -121,10 +123,14 @@ class TestGD(AcceleratedTest, GDNumDiff):
         return c.err_input.mem.copy(), c.weights.mem.copy(), c.bias.mem.copy()
 
     def _do_test_gpu_cpu(self, Forward, GD):
-        err_gpu, weights_gpu, bias_gpu = self._do_test(self.device,
-                                                       Forward, GD)
-        err_cpu, weights_cpu, bias_cpu = self._do_test(None,
-                                                       Forward, GD)
+        self._do_test_gpu_cpu_transposed(Forward, GD, False)
+        self._do_test_gpu_cpu_transposed(Forward, GD, True)
+
+    def _do_test_gpu_cpu_transposed(self, Forward, GD, weights_transposed):
+        err_gpu, weights_gpu, bias_gpu = self._do_test(
+            self.device, Forward, GD, weights_transposed)
+        err_cpu, weights_cpu, bias_cpu = self._do_test(
+            None, Forward, GD, weights_transposed)
         max_diff = numpy.fabs(err_gpu.ravel() - err_cpu.ravel()).max()
         self.info("err_input difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,

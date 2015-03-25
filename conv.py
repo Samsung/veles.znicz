@@ -19,7 +19,7 @@ from zope.interface import implementer
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.compat import from_none
 import veles.error as error
-from veles.memory import roundup, Vector
+from veles.memory import reshape_transposed, roundup, Vector
 from veles.units import Unit
 import veles.znicz.nn_units as nn_units
 
@@ -69,6 +69,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         rand: rnd.Rand() object for initial weights generation.
         activation_mode: activation define for OpenCL source.
         weights_transposed: assume weights matrix as a transposed one.
+                            NOTE: only access order will be affected,
+                            not a shape.
     """
 
     MAPPING = {"conv"}
@@ -105,8 +107,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                  such that activation function will be near maximum
                  if all input values are at their supposed max value.
         """
-        n_channels = (self.input.mem.size // (self.input.mem.shape[0] *
-                      self.input.mem.shape[1] * self.input.mem.shape[2]))
+        n_channels = (self.input.size // (self.input.shape[0] *
+                      self.input.shape[1] * self.input.shape[2]))
         vle = (1.0 / self.input.max_supposed /
                numpy.sqrt(self.kx * self.ky * n_channels))
         if self.weights_filling == "gaussian":
@@ -121,10 +123,10 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
-        self._batch_size = self.input.mem.shape[0]
-        self._sy = self.input.mem.shape[1]
-        self._sx = self.input.mem.shape[2]
-        self._n_channels = (self.input.mem.size //
+        self._batch_size = self.input.shape[0]
+        self._sy = self.input.shape[1]
+        self._sx = self.input.shape[2]
+        self._n_channels = (self.input.size //
                             (self._batch_size * self._sx * self._sy))
         self._kx_app = (
             1 + ((self._sx - self.kx +
@@ -141,7 +143,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         output_shape = (self._batch_size, self._ky_app, self._kx_app,
                         self.n_kernels)
         if not self.output:
-            self.output.reset(numpy.zeros(output_shape, self.input.mem.dtype))
+            self.output.reset(numpy.zeros(output_shape, self.input.dtype))
         else:
             assert self.output.shape == output_shape
 
@@ -256,18 +258,12 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
                             self._local_size_unpack)
         output_offs = (start_image * self.output.sample_size *
                        self.output.itemsize)
-        if self.weights_transposed:
-            self.gemm_(
-                self.device.blas, cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
-                unpack_side, self.weights.shape[0], self._kernel_size,
-                self.np_one, self.unpack_data.devmem, self.weights.devmem,
-                self.np_zero, int(self.output.devmem) + output_offs)
-        else:
-            self.gemm_(
-                self.device.blas, cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
-                self.weights.shape[0], unpack_side, self._kernel_size,
-                self.np_one, self.weights.devmem, self.unpack_data.devmem,
-                self.np_zero, int(self.output.devmem) + output_offs)
+        self.gemm_(
+            self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
+            else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
+            self.weights.shape[0], unpack_side, self._kernel_size,
+            self.np_one, self.weights.devmem, self.unpack_data.devmem,
+            self.np_zero, int(self.output.devmem) + output_offs)
 
     def cpu_run(self):
         """Forward propagation from batch on CPU only.
@@ -282,11 +278,14 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         nx = (sx_full - self.kx) // self.sliding[0] + 1
         ny = (sy_full - self.ky) // self.sliding[1] + 1
 
+        weights = (reshape_transposed(self.weights.mem).transpose()
+                   if self.weights_transposed else self.weights.mem)
+
         assert self.kx >= 0 and self.ky >= 0
         for batch, _ in ((batch, ch)
                          for batch in range(self._batch_size)
                          for ch in range(self._n_channels)):
-            for k, kernel in enumerate(self.weights.mem):
+            for k, kernel in enumerate(weights):
                 for i, j in ((i, j) for i in range(ny) for j in range(nx)):
                     full_i1 = i * self.sliding[1]
                     full_i2 = full_i1 + self.ky
@@ -351,18 +350,14 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self.weights.reset(numpy.zeros(weights_size, self.input.dtype))
             self._fill_array(self.weights_filling, self.weights.mem,
                              self.weights_stddev)
-            self.weights.mem = self.weights.mem.reshape(
+            self.weights.shape = (
                 self.n_kernels, self.kx * self.ky * self._n_channels)
-            # Reshape weights as a matrix:
             if self.weights_transposed:
                 a = self.weights.mem.transpose().copy()
-                self.weights.mem.shape = a.shape
-                self.weights.mem[:] = a[:]
+                self.weights.plain[:] = a.ravel()[:]
         else:
             weights_shape = (
                 self.n_kernels, self.kx * self.ky * self._n_channels)
-            if self.weights_transposed:
-                weights_shape = weights_shape[1::-1]
             assert self.weights.shape == weights_shape
 
     def _fill_biases(self):
@@ -373,7 +368,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         if not self.include_bias:
             return
         if not self.bias:
-            self.bias.reset(numpy.zeros(self.n_kernels, self.input.mem.dtype))
+            self.bias.reset(numpy.zeros(self.n_kernels, self.input.dtype))
             self._fill_array(self.bias_filling, self.bias.mem,
                              self.bias_stddev)
         else:

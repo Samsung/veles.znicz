@@ -63,7 +63,7 @@ class TestAll2All(AcceleratedTest):
                         "Result differs by %.6f" % max_diff)
         self.info("All Ok")
 
-    def _do_test(self, device, Unit):
+    def _do_test(self, device, Unit, weights_transposed):
         inp = Vector()
         dtype = opencl_types.dtypes[root.common.precision_type]
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
@@ -74,7 +74,8 @@ class TestAll2All(AcceleratedTest):
         else:
             inp.mem[:] = self.x[:]
 
-        c = Unit(self.parent, output_sample_shape=[75, 75])
+        c = Unit(self.parent, output_sample_shape=[75, 75],
+                 weights_transposed=weights_transposed)
         c.input = inp
         c.initialize(device=device)
 
@@ -106,12 +107,17 @@ class TestAll2All(AcceleratedTest):
         return c.output.mem.copy(),
 
     def _do_gpu_cpu(self, Unit):
-        y_gpus = self._do_test(self.device, Unit)
-        y_cpus = self._do_test(None, Unit)
+        self._do_gpu_cpu_transposed(Unit, False)
+        self._do_gpu_cpu_transposed(Unit, True)
+
+    def _do_gpu_cpu_transposed(self, Unit, weights_transposed):
+        y_gpus = self._do_test(self.device, Unit, weights_transposed)
+        y_cpus = self._do_test(None, Unit, weights_transposed)
         for i, y_gpu in enumerate(y_gpus):
             y_cpu = y_cpus[i]
             max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()
-            self.info("Difference is %.12f", max_diff)
+            self.info("Difference is %.12f (weights_transposed is %s)",
+                      max_diff, str(weights_transposed))
             self.assertLess(max_diff, 0.0001,
                             "Result differs by %.6f" % max_diff)
         self.info("All Ok")

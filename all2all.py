@@ -16,7 +16,7 @@ from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.error as error
-from veles.memory import reshape, roundup, Vector
+from veles.memory import reshape, reshape_transposed, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
@@ -47,7 +47,9 @@ class All2All(nn_units.NNLayerBase):
         it is taken from input.
         activation_mode: activation type. It is passed as a definition directly
         to OpenCL/CUDA source code.
-        weights_transposed: assume weights matrix as a transposed one.
+        weights_transposed: assume weights matrix as a transposed one,
+                            NOTE: only access order will be affected,
+                            not a shape.
 
         weights_filling: rand weight filling
                          ("uniform" (default) or "gaussian")
@@ -120,7 +122,7 @@ class All2All(nn_units.NNLayerBase):
                  if all input values are at their supposed max value.
         """
         vle = (1.0 / self.input.max_supposed /
-               numpy.sqrt(self.input.mem.size // self.input.mem.shape[0]))
+               numpy.sqrt(self.input.sample_size))
         if self.weights_filling == "gaussian":
             vle /= 3
         return vle
@@ -169,8 +171,7 @@ class All2All(nn_units.NNLayerBase):
                                   self.input.sample_size)
             if self.weights_transposed:
                 transposed_weights = self.weights.mem.transpose().copy()
-                self.weights.shape = transposed_weights.shape
-                self.weights.mem[:] = transposed_weights[:]
+                self.weights.plain[:] = transposed_weights.ravel()[:]
         else:
             assert self.weights.size == n_weights
 
@@ -200,18 +201,13 @@ class All2All(nn_units.NNLayerBase):
         self.gemm_ = cublas.CUBLAS.gemm(dtype)
         self.np_one = numpy.ones(1, dtype)
         self.np_zero = numpy.zeros(1, dtype)
-        self._transA = cublas.CUBLAS_OP_T
+        self._transA = (cublas.CUBLAS_OP_N if self.weights_transposed
+                        else cublas.CUBLAS_OP_T)
         self._transB = cublas.CUBLAS_OP_N
-        if self.weights_transposed:
-            self._A_ = self.input.devmem
-            self._B_ = self.weights.devmem
-            self._rowsCountA = self.input.shape[0]
-            self._columnCountB = self.weights.shape[0]
-        else:
-            self._A_ = self.weights.devmem
-            self._B_ = self.input.devmem
-            self._rowsCountA = self.weights.shape[0]
-            self._columnCountB = self.input.shape[0]
+        self._A_ = self.weights.devmem
+        self._B_ = self.input.devmem
+        self._rowsCountA = self.weights.shape[0]
+        self._columnCountB = self.input.shape[0]
         self._commonSideLength = self.input.sample_size
         self.build_program({"BIAS_SIZE": self.output.sample_size,
                             "OUTPUT_SIZE": self.output.size,
@@ -289,7 +285,8 @@ class All2All(nn_units.NNLayerBase):
         self.weights.map_read()
         self.bias.map_read()
         mem = numpy.dot(self.input.matrix,
-                        self.weights.mem if self.weights_transposed
+                        reshape_transposed(self.weights.mem)
+                        if self.weights_transposed
                         else self.weights.mem.transpose())
         if self.include_bias:
             mem += self.bias.mem
