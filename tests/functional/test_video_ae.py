@@ -55,6 +55,7 @@ class TestVideoAE(StandardTest):
             weights_decay=root.video_ae.weights_decay,
             snapshot=False)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
         file_name = workflow.snapshotter.file_name
 
         avg_mse = workflow.decision.epoch_metrics[2][0]
@@ -72,6 +73,7 @@ class TestVideoAE(StandardTest):
             weights_decay=root.video_ae.weights_decay,
             snapshot=True)
         workflow_from_snapshot.run()
+        self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[2][0]
         self.assertLess(avg_mse, 0.18736321)

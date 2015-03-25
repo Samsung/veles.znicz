@@ -38,6 +38,7 @@ class TestSpamKohonen(StandardTest):
         workflow = spam_kohonen.SpamKohonenWorkflow(self.parent)
         workflow.initialize(device=self.device, snapshot=False)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
 
         diff = workflow.decision.weights_diff
         self.assertAlmostEqual(diff, 0.106724, places=6)

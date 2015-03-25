@@ -109,6 +109,7 @@ class TestMnistConv(StandardTest):
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
         file_name = workflow.snapshotter.file_name
 
         err = workflow.decision.epoch_n_err[1]
@@ -127,6 +128,7 @@ class TestMnistConv(StandardTest):
         self.assertEqual(workflow_from_snapshot.evaluator.labels,
                          workflow_from_snapshot.loader.minibatch_labels)
         workflow_from_snapshot.run()
+        self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
         self.assertEqual(err, 105)

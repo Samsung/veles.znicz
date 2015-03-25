@@ -203,7 +203,6 @@ class TestRBMworkflow(StandardTest):
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
         workflow = MnistRBMWorkflow(self.parent)
-        workflow.run_is_blocking = True
         workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)
         workflow.forwards[1].weights.map_write()
@@ -214,6 +213,7 @@ class TestRBMworkflow(StandardTest):
         workflow.evaluator.vbias.mem[:] = init_weights["vbias"].ravel()[:]
         prng.get().seed(1337)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
         workflow.gds[4].weights.map_read()
         workflow.gds[4].hbias.map_read()
         workflow.gds[4].vbias.map_read()

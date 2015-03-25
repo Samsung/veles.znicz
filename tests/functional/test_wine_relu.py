@@ -39,6 +39,7 @@ class TestWineRelu(StandardTest):
             weights_decay=root.wine_relu.weights_decay,
             device=self.device, snapshot=False)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
 
         epoch = workflow.decision.epoch_number
         self.info("Converged in %d epochs", epoch)

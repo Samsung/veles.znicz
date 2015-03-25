@@ -85,6 +85,7 @@ class TestYaleFaces(StandardTest):
 
         # Test workflow
         workflow = self.init_and_run(False)
+        self.assertIsNone(workflow.thread_pool.failure)
         self.check_write_error_rate(workflow, errors[0])
 
         self.info("Extracting the forward workflow...")
@@ -114,6 +115,7 @@ class TestYaleFaces(StandardTest):
 
         # Test workflow with ocl and float
         workflow = self.init_and_run(False)
+        self.assertIsNone(workflow.thread_pool.failure)
         self.check_write_error_rate(workflow, errors[2])
 
 if __name__ == "__main__":

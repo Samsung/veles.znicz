@@ -53,6 +53,7 @@ class TestApproximator(StandardTest):
             minibatch_size=root.approximator.loader.minibatch_size,
             snapshot=False)
         workflow.run()
+        self.assertIsNone(workflow.thread_pool.failure)
         file_name = workflow.snapshotter.file_name
 
         avg_mse = workflow.decision.epoch_metrics[2][0]
@@ -72,6 +73,7 @@ class TestApproximator(StandardTest):
             minibatch_size=root.approximator.loader.minibatch_size,
             snapshot=True)
         workflow_from_snapshot.run()
+        self.assertIsNone(workflow_from_snapshot.thread_pool.failure)
 
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[2][0]
         self.assertAlmostEqual(avg_mse, self.mse[1], places=5)
