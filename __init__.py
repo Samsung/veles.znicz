@@ -25,7 +25,8 @@ except ImportError:
     pass
 
 
-__version__ = "0.6.0"
+__versioninfo__ = 0, 7, 0
+__version__ = ".".join(map(str, __versioninfo__))
 __license__ = "Samsung Proprietary License"
 __copyright__ = "© 2013 Samsung Electronics Co., Ltd."
 
