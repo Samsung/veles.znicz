@@ -9,9 +9,12 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 import os
 
 from veles.config import root
-from veles.tests import timeout, multi_device
+from veles.tests import timeout
 import veles.znicz.samples.DemoKohonen.kohonen as kohonen
 from veles.znicz.tests.functional import StandardTest
+
+# FIXME(v.markovtsev): remove this when Kohonen is ported to CUDA
+root.common.engine.backend = "ocl"
 
 
 class TestKohonen(StandardTest):
@@ -34,7 +37,6 @@ class TestKohonen(StandardTest):
                       "radius_decay": lambda t: 1.0 / (1.0 + t * 0.01)}})
 
     @timeout(700)
-    @multi_device()
     def test_kohonen(self):
         self.info("Will test kohonen workflow")
 

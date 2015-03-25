@@ -284,8 +284,7 @@ class TestKohonen(AcceleratedTest):
         c.weights.map_read()
         max_diff = numpy.fabs(
             valid_weights.ravel() - c.weights.mem.ravel()).max()
-        self.assertLess(max_diff, 0.0001,
-                        "Result differs by %.6f" % (max_diff))
+        self.assertLess(max_diff, 0.0001, "Result differs by %.6f" % max_diff)
 
 
 @assign_backend("ocl")

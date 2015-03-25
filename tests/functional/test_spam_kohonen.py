@@ -11,6 +11,9 @@ from veles.tests import timeout
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.SpamKohonen.spam_kohonen as spam_kohonen
 
+# FIXME(v.markovtsev): remove this when Kohonen is ported to CUDA
+root.common.engine.backend = "ocl"
+
 
 class TestSpamKohonen(StandardTest):
     @classmethod
