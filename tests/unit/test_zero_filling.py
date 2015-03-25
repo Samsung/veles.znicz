@@ -1,37 +1,33 @@
-import logging
+"""
+Created on Feb 16, 2015
+
+Copyright (c) 2013, Samsung Electronics, Co., Ltd.
+"""
+
 import numpy
-import unittest
 
-
-from veles.backends import Device
-from veles.dummy import DummyWorkflow
 from veles.memory import Vector
+from veles.tests import AcceleratedTest, multi_device, timeout
 
 from veles.znicz import weights_zerofilling
 
 
-class TestZeroFilling(unittest.TestCase):
-
-    def setUp(self):
-        self.device = Device()
-
-    def tearDown(self):
-        pass
-
+class TestZeroFilling(AcceleratedTest):
+    @timeout(100)
+    @multi_device()
     def test_zero_filling(self):
-        workflow = DummyWorkflow()
-
-        zero_filler = weights_zerofilling.ZeroFiller(workflow, grouping=2)
+        zero_filler = weights_zerofilling.ZeroFiller(self.parent, grouping=2)
         zero_filler.weights = Vector(numpy.ones(shape=(400, 15, 15, 40),
                                                 dtype=numpy.float64))
 
-        zero_filler.link_from(workflow.start_point)
+        zero_filler.link_from(self.parent.start_point)
 
-        workflow.end_point.link_from(zero_filler)
+        self.parent.end_point.link_from(zero_filler)
 
-        workflow.initialize(device=self.device, snapshot=False)
+        self.parent.initialize(device=self.device, snapshot=False)
 
-        workflow.run()
+        self.parent.run()
+        self.assertIsNone(self.parent.thread_pool.failure)
 
         zero_filler.weights.map_read()
         zero_filler.mask.map_read()
@@ -41,6 +37,4 @@ class TestZeroFilling(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("Running ZeroFilling tests")
-    unittest.main()
+    AcceleratedTest.main()
