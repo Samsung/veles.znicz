@@ -7,12 +7,14 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 
 import logging
 import matplotlib
+from veles.dummy import DummyWorkflow
+
 matplotlib.use("cairo")
 import matplotlib.cm
 import matplotlib.pyplot
 import matplotlib.patches
 import numpy
-import os
+from tempfile import NamedTemporaryFile
 import unittest
 
 import veles.znicz.nn_plotting_units as nnpu
@@ -24,6 +26,11 @@ STORE_IMAGES = True
 
 
 class Test(unittest.TestCase):
+    def setUp(self):
+        self.parent = DummyWorkflow()
+
+    def tearDown(self):
+        del self.parent
 
     def init_plotter(self, name):
         plotter = getattr(nnpu, name)(self.parent)
@@ -36,10 +43,10 @@ class Test(unittest.TestCase):
 
     def plot(self, plotter):
         plotter.redraw()
-        tmp_file_name = "/tmp/%s.png" % plotter.name
-        plotter.pp.savefig(tmp_file_name)
-        if not STORE_IMAGES:
-            os.remove(tmp_file_name)
+        with NamedTemporaryFile(suffix="-%s.png" % plotter.name,
+                                delete=not STORE_IMAGES) as fout:
+            logging.debug("Created %s", fout.name)
+            plotter.pp.savefig(fout)
 
     def testKohonenHits(self):
         kh = self.init_plotter("KohonenHits")
