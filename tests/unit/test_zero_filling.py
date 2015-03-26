@@ -35,6 +35,10 @@ class TestZeroFilling(AcceleratedTest):
             zero_filler.mask.mem.ravel() - zero_filler.weights.mem.ravel()),
             0.00001)
 
+        # Remove zero filler for current backend
+        zero_filler.unlink_all()
+        self.parent.del_ref(zero_filler)
+
 
 if __name__ == "__main__":
     AcceleratedTest.main()
