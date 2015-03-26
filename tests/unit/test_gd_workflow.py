@@ -186,6 +186,10 @@ class Workflow(AcceleratedWorkflow):
 
         self.end_point.link_from(prev)
 
+    def run(self):
+        self.stopped = False
+        super(Workflow, self).run()
+
 
 class TestGDWorkflow(StandardTest, GDNumDiff):
     ABSTRACT = True
