@@ -10,6 +10,7 @@ import numpy
 import six
 import sys
 from zope.interface import implementer
+from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.units import Unit, IUnit
 
@@ -261,7 +262,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                               last_fwd, ulc)
                 last_fwd.output_sample_shape = ulc
 
-        self.loader.on_initialized = on_initialized
+        self.real_loader.on_initialized = on_initialized
         return last_fwd
 
     def link_repeater(self, *parents):
@@ -299,6 +300,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
             self, **self.dictify(self.loader_config))
         self.loader.link_from(*parents)
+        self.real_loader = self.loader
         return self.loader
 
     def link_end_point(self, *parents):
@@ -478,7 +480,7 @@ class StandardWorkflow(StandardWorkflowBase):
         which correspond to the first :class:`veles.znicz.nn_units.ForwardBase`
         descendant (but the first
         :class:`veles.znicz.nn_units.GradientDescentBase` runs the last of all
-        gds. Do not confused).
+        gds. Do not be confused).
         Arguments:
             parents: units, from whom will be link last of\
             :class:`veles.znicz.nn_units.GradientDescentBase` descendant units
@@ -516,6 +518,8 @@ class StandardWorkflow(StandardWorkflowBase):
             else:
                 unit.link_from(*parents)
                 unit.link_attrs(self.evaluator, "err_output")
+                unit.gate_block = self.decision.complete
+            first_gd = unit
 
             attrs = []
             # TODO(v.markovtsev): add "wants" to Unit and use it here
@@ -532,14 +536,13 @@ class StandardWorkflow(StandardWorkflowBase):
 
             unit.gate_skip = self.decision.gd_skip
 
-            first_gd = unit
-
         # Remove None elements
         for i in units_to_delete:
             del self.gds[i]
 
         # Disable error backpropagation on the last layer
         self.gds[0].need_err_input = False
+
         return first_gd
 
     def link_loop(self, parent):
@@ -550,6 +553,25 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.workflow.Repeater` unit
         """
         self.repeater.link_from(parent)
+
+    def link_avatar(self):
+        """
+        Replaces the current loader with it's avatar, allowing the parallel
+        work of the loader and the main contour.
+        Please note that the loader must be linked from the start point, not
+        the repeater.
+        :return: The linked :class:`veles.avatar.Avatar` unit.
+        """
+        self.loader.ignores_gate <<= True
+        avatar = Avatar(self)
+        avatar.reals[self.loader] = self.loader.exports
+        avatar.clone()
+        avatar.link_from(self.loader)
+        self.loader.link_from(avatar)
+        avatar.link_from(self.repeater)
+        avatar.gate_block = self.loader.gate_block
+        self.loader = avatar
+        return avatar
 
     def link_evaluator(self, *parents):
         """

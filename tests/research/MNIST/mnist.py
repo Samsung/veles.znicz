@@ -72,7 +72,8 @@ class MnistWorkflow(StandardWorkflow):
 
     def create_workflow(self):
         self.link_repeater(self.start_point)
-        self.link_loader(self.repeater)
+        self.link_loader(self.start_point)
+        self.link_avatar()
         self.link_forwards(("input", "minibatch_data"), self.loader)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)

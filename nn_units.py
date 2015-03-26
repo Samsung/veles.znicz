@@ -17,6 +17,7 @@ import six
 import sys
 import tarfile
 from zope.interface import implementer
+from veles.avatar import Avatar
 
 from veles.external.prettytable import PrettyTable
 from veles.distributable import IDistributable
@@ -704,7 +705,7 @@ class NNWorkflow(AcceleratedWorkflow):
 
     @loader.setter
     def loader(self, value):
-        if not isinstance(value, Loader):
+        if not isinstance(value, (Loader, Avatar)):
             raise TypeError(
                 "Loader must be an instance of veles.loader.Loader")
         self._loader = value
@@ -909,7 +910,7 @@ class NNSnapshotter(Snapshotter):
     def export(self):
         super(NNSnapshotter, self).export()
         logged = set()
-        for u in self.workflow.start_point.dependent_list():
+        for u in self.workflow.start_point.dependent_units():
             for attr in ("input", "weights", "bias", "output",
                          "err_output", "err_input"):
                 self._log_attr(u, attr, logged)

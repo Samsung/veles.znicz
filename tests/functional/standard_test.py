@@ -45,11 +45,12 @@ class StandardTest(AcceleratedTest):
 
     def tearDown(self):
         if Unit._pool_ is not None:
-            Unit._pool_.shutdown(execute_remaining=False)
+            Unit._pool_.shutdown(execute_remaining=False, force=True)
             Unit._pool_ = None
         super(StandardTest, self).tearDown()
 
     @staticmethod
     def main():
         StandardTest.setup_logging(logging.INFO)
+        logging.getLogger("ThreadPool").setLevel(logging.DEBUG)
         unittest.main()
