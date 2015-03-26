@@ -11,11 +11,11 @@ import numpy
 from zope.interface import implementer
 
 import veles.error as error
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class Depooling(nn_units.Forward):
     MAPPING = {"depooling"}
 
