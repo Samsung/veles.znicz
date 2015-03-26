@@ -48,7 +48,7 @@ class TestMnist784(StandardTest):
         workflow.run()
         return workflow
 
-    mse = ((0.409835, 8166), (0.39173925, 7589))
+    mse = ((0.403674, 7978), (0.391974, 7581))
 
     @timeout(1000)
     @multi_device()
@@ -76,7 +76,9 @@ class TestMnist784(StandardTest):
     def test_mnist784_cpu(self):
         self.info("Will run workflow on numpy")
         workflow = self.init_and_run(None, False)
-        self.check_write_error_rate(workflow, 0.40309872, 8166)
+        self.check_write_error_rate(
+            workflow, 0.40712743094, 8166)
+
 
 if __name__ == "__main__":
     StandardTest.main()

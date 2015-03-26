@@ -133,7 +133,9 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         self.snapshotter = NNSnapshotter(
             self, prefix=root.mnist7.snapshotter.prefix,
-            directory=root.common.snapshot_dir)
+            directory=root.common.snapshot_dir,
+            interval=root.mnist7.snapshotter.interval,
+            time_interval=root.mnist7.snapshotter.time_interval)
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))

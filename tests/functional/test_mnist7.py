@@ -18,7 +18,7 @@ class TestMnist7(StandardTest):
     def setUpClass(cls):
         root.mnist7.update({
             "decision": {"fail_iterations": 25, "max_epochs": 2},
-            "snapshotter": {"prefix": "mnist7_test", "interval": 3,
+            "snapshotter": {"prefix": "mnist7_test", "interval": 2,
                             "time_interval": 0},
             "loader": {"minibatch_size": 60, "force_cpu": False,
                        "normalization_type": "linear"},
@@ -52,6 +52,7 @@ class TestMnist7(StandardTest):
 
         self.info("Will load workflow from %s", file_name)
         workflow_from_snapshot = Snapshotter.import_(file_name)
+        workflow_from_snapshot.workflow = self.parent
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 5
         workflow_from_snapshot.decision.complete <<= False
@@ -67,9 +68,9 @@ class TestMnist7(StandardTest):
         workflow_from_snapshot.run()
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 8774)
+        self.assertEqual(err, 8784)
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.75915228, places=5)
+        self.assertAlmostEqual(avg_mse, 0.75913335, places=5)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 
