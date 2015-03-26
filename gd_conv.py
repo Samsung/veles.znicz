@@ -264,8 +264,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self._local_size_err_input = (block_size, 1, 1)
             self.krn_err_input_.set_arg(0, self.unpack_data.devmem)
 
-        self.gemm_ = (cublas.CUBLAS.sgemm if self._dtype == numpy.float32
-                      else cublas.CUBLAS.dgemm)
+        self.gemm_ = cublas.CUBLAS.gemm(self._dtype)
         self.np_one = numpy.ones(1, dtype=self._dtype)
         self.np_zero = numpy.zeros(1, dtype=self._dtype)
         self._const_i = numpy.zeros(2, dtype=numpy.int64)

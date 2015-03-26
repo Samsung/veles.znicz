@@ -202,8 +202,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
 
     def cuda_init(self):
         dtype = self.input.dtype
-        self.gemm_ = (cublas.CUBLAS.sgemm if dtype == numpy.float32
-                      else cublas.CUBLAS.dgemm)
+        self.gemm_ = cublas.CUBLAS.gemm(dtype)
         self.np_one = numpy.ones(1, dtype=dtype)
         self.np_zero = numpy.zeros(1, dtype=dtype)
         self._const_i = numpy.zeros(1, dtype=numpy.int64)
