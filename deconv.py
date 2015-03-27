@@ -8,18 +8,19 @@ Copyright (c) 2014 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
 
 from veles.config import root
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.memory import roundup, Vector
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     # TriviallyDistributable overrides nn_units.Forward IDistributable
     """Deconvolutional layer for simple convolutional layer
@@ -94,13 +95,9 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         if (len(self.input.shape) != 4 or
                 self.input.shape[3] != self.n_kernels):
             raise ValueError("Incorrectly shaped input encountered")
-        weights_shape = (list(
-            self.weights.shape[i] for i in range(
-                len(self.weights.shape) - 1, -1, -1))
-            if self.weights_transposed else list(self.weights.shape))
-        if (len(weights_shape) != 2 or
-                weights_shape[0] != self.n_kernels or
-                weights_shape[1] % (self.kx * self.ky) != 0):
+        if (len(self.weights.shape) != 2 or
+                self.weights.shape[0] != self.n_kernels or
+                self.weights.shape[1] % (self.kx * self.ky) != 0):
             raise ValueError("Incorrectly shaped weights encountered")
 
         output_shape = tuple(self.output_shape_source.shape)
@@ -136,29 +133,25 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
         self.init_vectors(self.input, self.weights, self.output, self.hits)
 
-    def ocl_init(self):
-        dtype = self.input.dtype
-        output_shape = list(self.output_shape_source.shape)
-        weights_shape = (list(
-            self.weights.shape[i] for i in range(
-                len(self.weights.shape) - 1, -1, -1))
-            if self.weights_transposed else list(self.weights.shape))
+        self._dtype = self.input.dtype
 
-        sy, sx, n_channels = output_shape[1:]
+    def _gpu_init(self, defines):
+        self._output_shape = list(self.output_shape_source.shape)
 
-        kernel_applies_count = self.input.size // self.n_kernels
-        a_width = kernel_applies_count
-        b_width = weights_shape[1]
-        block_size = self.device.device_info.get_block_size(
-            kernel="deconv", dtype=dtype)
+        self._sy, self._sx, self._n_channels = self._output_shape[1:]
+        self._kernel_size = self.kx * self.ky * self._n_channels
 
-        defines = {
+        self._kernel_app_per_image = self.input.sample_size // self.n_kernels
+        self._kernel_app_total = (self._kernel_app_per_image *
+                                  self.input.shape[0])
+
+        defines.update({
             "USE_ATOMICS": 1,
             "WEIGHTS_TRANSPOSED": int(self.weights_transposed),
-            "BATCH": output_shape[0],
-            "SX": sx,
-            "SY": sy,
-            "N_CHANNELS": n_channels,
+            "BATCH": self._output_shape[0],
+            "SX": self._sx,
+            "SY": self._sy,
+            "N_CHANNELS": self._n_channels,
             "KX": self.kx,
             "KY": self.ky,
             "N_KERNELS": self.n_kernels,
@@ -169,15 +162,22 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             "SLIDE_X": self.sliding[0],
             "SLIDE_Y": self.sliding[1],
             "USE_HITS": int(bool(self.hits)),
-            "BLOCK_SIZE": block_size
-        }
+            "DECONV_MODE": int(bool(self.hits)) + 1,
+            "OUTPUT_SIZE": self.output.size
+        })
 
         self.build_program(
             defines, "%s/%s_%d_%dx%dx%d_%dx%d_%d" % (
                 root.common.cache_dir, self.__class__.__name__,
                 self.input.shape[0],
-                output_shape[2], output_shape[1], output_shape[3],
-                self.kx, self.ky, self.n_kernels), dtype=dtype)
+                self._output_shape[2], self._output_shape[1],
+                self._output_shape[3],
+                self.kx, self.ky, self.n_kernels), dtype=self._dtype)
+
+    def ocl_init(self):
+        block_size = self.device.device_info.get_block_size(
+            kernel="deconv", dtype=self._dtype)
+        self._gpu_init({"BLOCK_SIZE": block_size})
 
         self.assign_kernel("feed_layer")
         self.set_args(self.input, self.weights, self.output)
@@ -185,6 +185,8 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.krn_clear_output_ = self.get_kernel("clear_output")
         self.krn_clear_output_.set_arg(0, self.output.devmem)
 
+        a_width = self._kernel_app_total
+        b_width = self.weights.shape[1]
         self._global_size = [
             roundup(b_width, block_size),
             roundup(a_width, block_size)]
@@ -199,6 +201,39 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
 
             self.set_arg(3, self.hits)
 
+    def cuda_init(self):
+        self._gpu_init({})
+
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
+        if not self.unpack_data:
+            self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
+        else:
+            assert self.unpack_data.shape == unpack_shape
+        self.unpack_data.initialize(self.device)
+
+        self.krn_pack_ = self.get_kernel("DirectPack")
+        block_size = self.device.suggest_block_size(self.krn_pack_)
+        self._global_size_pack = (
+            lambda size: (int(numpy.ceil(size / block_size)), 1, 1))
+        self._local_size_pack = (block_size, 1, 1)
+        self.krn_pack_.set_arg(0, self.unpack_data.devmem)
+        if self.hits:
+            self.krn_pack_.set_arg(3, self.hits.devmem)
+
+            self.krn_apply_hits_ = self.get_kernel("apply_hits")
+            self.krn_apply_hits_.set_args(self.output.devmem, self.hits.devmem)
+
+            block_size = self.device.suggest_block_size(self.krn_apply_hits_)
+            self._global_size_hits = (
+                int(numpy.ceil(self.output.size / block_size)), 1, 1)
+            self._local_size_hits = (block_size, 1, 1)
+
+        self.gemm_ = cublas.CUBLAS.gemm(self._dtype)
+        self.np_one = numpy.ones(1, dtype=self._dtype)
+        self.np_zero = numpy.zeros(1, dtype=self._dtype)
+        self._const_i = numpy.zeros(1, dtype=numpy.int64)
+
     def ocl_run(self):
         self.unmap_vectors(self.output, self.input, self.weights)
         self.execute_kernel((self.output.size,), None, self.krn_clear_output_)
@@ -209,6 +244,41 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
             self.execute_kernel((self.hits.size,), None, self.krn_apply_hits_)
         else:
             self.execute_kernel(self._global_size, self._local_size)
+
+    def cuda_run(self):
+        self.unmap_vectors(self.output, self.input, self.weights)
+        self.output.devmem.memset32_async()
+        if self.hits:
+            self.hits.unmap()
+            self.hits.devmem.memset32_async()
+        batch_size = self.output.shape[0]
+        for i in range(0, batch_size, self.unpack_size):
+            self._process_subblock(i, min(batch_size - i, self.unpack_size))
+        if self.hits:
+            self.execute_kernel(self._global_size_hits, self._local_size_hits,
+                                self.krn_apply_hits_)
+
+    def _process_subblock(self, start_image, image_count):
+        output_offs = (start_image * self.input.sample_size *
+                       self.input.itemsize)
+        unpack_side = self._kernel_app_per_image * image_count
+
+        self.gemm_(
+            self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
+            else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
+            self._kernel_size, unpack_side, self.weights.shape[0],
+            self.np_one, self.weights.devmem,
+            int(self.input.devmem) + output_offs,
+            self.np_zero, self.unpack_data.devmem)
+
+        self.krn_pack_.set_arg(1, int(self.output.devmem) +
+                               start_image * self.output.sample_size *
+                               self.output.itemsize)
+        limit = unpack_side * self._kernel_size
+        self._const_i[0] = limit
+        self.krn_pack_.set_arg(2, self._const_i[0:1])
+        self.execute_kernel(self._global_size_pack(limit),
+                            self._local_size_pack, self.krn_pack_)
 
     def cpu_run(self):
         raise RuntimeError("Not implemented")

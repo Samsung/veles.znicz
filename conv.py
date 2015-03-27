@@ -135,7 +135,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self._ky_app = (
             1 + ((self._sy - self.ky +
                   self.padding[1] + self.padding[3]) // self.sliding[1]))
-        self._kernel_app = self._kx_app * self._ky_app
+        self._kernel_app_per_image = self._kx_app * self._ky_app
         self._kernel_size = self.kx * self.ky * self._n_channels
 
         self._fill_weights()
@@ -148,7 +148,8 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         else:
             assert self.output.shape == output_shape
 
-        assert self._kernel_app * self.n_kernels == self.output.sample_size
+        assert self._kernel_app_per_image * self.n_kernels == \
+            self.output.sample_size
 
         self.init_vectors(self.input, self.output, self.weights, self.bias)
 
@@ -187,8 +188,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         block_size = self.device.device_info.get_block_size(
             kernel="conv", dtype=self.input.dtype)
 
-        defines = {"BLOCK_SIZE": block_size}
-        self._gpu_init(defines)
+        self._gpu_init({"BLOCK_SIZE": block_size})
 
         self.assign_kernel("feed_layer")
         if self.include_bias:
@@ -208,12 +208,12 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self.np_zero = numpy.zeros(1, dtype=dtype)
         self._const_i = numpy.zeros(1, dtype=numpy.int64)
 
-        defines = {}
-        self._gpu_init(defines)
+        self._gpu_init({})
 
         self.assign_kernel("Unpack1D")
 
-        unpack_shape = (self._kernel_app * self.unpack_size, self._kernel_size)
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
         if not self.unpack_data:
             self.unpack_data.reset(numpy.zeros(unpack_shape, dtype=dtype))
         else:
@@ -250,7 +250,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self._kernel_.set_arg(0, int(self.input.devmem) +
                               start_image * self.input.sample_size *
                               self.input.itemsize)
-        unpack_side = self._kernel_app * image_count
+        unpack_side = self._kernel_app_per_image * image_count
         limit = unpack_side * self._kernel_size
         self._const_i[0] = limit
         self._kernel_.set_arg(2, self._const_i)

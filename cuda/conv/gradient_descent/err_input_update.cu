@@ -20,9 +20,20 @@
 #define KERNEL_SIZE (KX * KY * N_CHANNELS)
 #define IMG_SIZE (SX * SY * N_CHANNELS)
 
+// DECONV_MODE 0 - no deconvolution
+// DECONV_MODE 1 - deconvolution without hits
+// DECONV_MODE 2 - deconvolution with hits
+#ifndef DECONV_MODE
+#define DECONV_MODE 0
+#endif
+
 extern "C"
-__global__ void DirectPack(const dtype *unpack_data, dtype *data, const int limit) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;  // we are processing one image at a time, so size_t is not required
+__global__ void DirectPack(const dtype *unpack_data, dtype *data, const int limit
+#if DECONV_MODE == 2
+                           , int *hits
+#endif
+                ) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;  // we are processing not so many images at a time, so size_t is not required
 
   int ty = idx / KERNEL_SIZE;
   int tx = idx % KERNEL_SIZE;
@@ -41,6 +52,13 @@ __global__ void DirectPack(const dtype *unpack_data, dtype *data, const int limi
     int data_idx = IMG_SIZE * img_idx +
                    ((y - PAD_TOP) * SX + x - PAD_LEFT) * N_CHANNELS +
                    ch_idx;
-    atomicAdd(data + data_idx, unpack_data[idx]);
+    dtype sum = unpack_data[idx];
+#if DECONV_MODE == 1
+    sum /= (KX / SLIDE_X) * (KY / SLIDE_Y);
+#endif
+    atomicAdd(data + data_idx, sum);
+#if DECONV_MODE == 2
+    atomicAdd(hits + data_idx, 1);
+#endif
   }
 }

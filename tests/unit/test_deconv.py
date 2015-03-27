@@ -91,8 +91,13 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
                          "Wrong value")
 
     def test_gd_deconv(self):
+        self._test_gd_deconv_transposed(False)
+        self._test_gd_deconv_transposed(True)
+
+    def _test_gd_deconv_transposed(self, weights_transposed):
         self.info("GDDeconv err_input overflow test...")
-        _, first, forward = self._test_deconv(self.device, None)
+        _, first, forward = self._test_deconv(self.device, None,
+                                              weights_transposed)
 
         first.weights.map_read()
         weights = first.weights.mem.copy()
@@ -105,7 +110,8 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         inp = forward.input.mem.copy()
 
         gd = GDDeconv(first.workflow, learning_rate=-1.0, weights_decay=0.0,
-                      gradient_moment=0.9)
+                      gradient_moment=0.9,
+                      weights_transposed=weights_transposed)
         gd.link_conv_attrs(first)
         gd.weights = first.weights
         gd.input = forward.input
@@ -129,7 +135,7 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
                               error_function_averaged=False,
                               threshold=1.0e-3)
 
-    def _test_deconv(self, device, forward):
+    def _test_deconv(self, device, forward, weights_transposed):
         rnd.get().seed("%s/seed" % self.this_dir,
                        dtype=numpy.int32, count=1024)
 
@@ -140,7 +146,8 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
             workflow = self.parent
             forward = conv.Conv(workflow, n_kernels=9, kx=6, ky=6,
                                 padding=(4, 4, 4, 4), sliding=(2, 2),
-                                include_bias=False)
+                                include_bias=False,
+                                weights_transposed=weights_transposed)
             inp = formats.Vector(numpy.zeros([batch_size * 2, 18, 18, 4],
                                              dtype=dtype))
             inp.initialize(device)
@@ -167,11 +174,13 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         out.mem[:] = forward.output.mem[:]
         out.unit_test_mem[sh[0]:] = numpy.nan
 
-        backward = PatchedDeconv(forward.workflow)
+        backward = PatchedDeconv(forward.workflow,
+                                 weights_transposed=weights_transposed)
         backward.link_conv_attrs(forward)
         backward.weights = forward.weights
         backward.input = out
         backward.output_shape_source = forward.input
+        backward.conv = forward
         backward.initialize(device)
 
         self.assertEqual(backward.output.shape, forward.input.shape,

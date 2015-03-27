@@ -89,8 +89,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._ky_app = (
             1 + ((self._sy - self.ky +
                   self.padding[1] + self.padding[3]) // self.sliding[1]))
-        self._kernel_app = self._kx_app * self._ky_app
-        self._kernel_applies_count = self._batch_size * self._kernel_app
+        self._kernel_app_per_image = self._kx_app * self._ky_app
+        self._kernel_app_total = self._batch_size * self._kernel_app_per_image
 
         self.cl_const = numpy.zeros(9, dtype=self._dtype)
 
@@ -167,7 +167,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.krn_weights_.set_arg(11, self.col_sums.devmem)
 
     def ocl_init(self):
-        a_width = self._kernel_applies_count
+        a_width = self._kernel_app_total
         b_width = self._kernel_size
         block_size = self.device.device_info.get_block_size(
             kernel="deconv", dtype=self.err_output.dtype)
@@ -224,7 +224,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         }
         self.sources_["all2all/gradient_descent/bias_update"] = {
             "BIAS_SIZE": self.n_kernels,
-            "OUTPUT_SIZE": self._kernel_applies_count,
+            "OUTPUT_SIZE": self._kernel_app_total,
             "USE_MOMENT": int(bool(self.gradient_moment_bias))
         }
 
@@ -242,7 +242,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._global_size_ortho = (self._other, 1, 1)
         self._local_size_ortho = (self.reduce_size, 1, 1)
 
-        unpack_shape = (self._kernel_app * self.unpack_size, self._kernel_size)
+        unpack_shape = (self._kernel_app_per_image * self.unpack_size,
+                        self._kernel_size)
         if not self.unpack_data:
             self.unpack_data.reset(numpy.zeros(unpack_shape, self._dtype))
         else:
@@ -284,7 +285,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     def _process_err_input_subblock(self, start_image, image_count):
         output_offs = (start_image * self.err_output.sample_size *
                        self.err_output.itemsize)
-        unpack_side = self._kernel_app * image_count
+        unpack_side = self._kernel_app_per_image * image_count
 
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
@@ -320,7 +321,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._kernel_.set_arg(0, int(self.input.devmem) +
                               start_image * self.input.sample_size *
                               self.input.itemsize)
-        unpack_side = self._kernel_app * image_count
+        unpack_side = self._kernel_app_per_image * image_count
         limit = unpack_side * self._kernel_size
         self._const_i[1] = limit
         self._kernel_.set_arg(2, self._const_i[1:2])
