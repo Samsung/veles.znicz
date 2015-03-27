@@ -10,6 +10,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 import numpy
+import six
 from zope.interface import implementer
 
 from veles.distributable import TriviallyDistributable
@@ -17,8 +18,24 @@ import veles.error as error
 from veles.memory import assert_addr, ravel, Vector
 from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
 from veles.opencl_types import numpy_dtype_to_opencl
+from veles.unit_registry import MappedUnitRegistry
+from veles.units import Unit, UnitCommandLineArgumentsRegistry
 
 
+class EvaluatorsRegistry(UnitCommandLineArgumentsRegistry,
+                         MappedUnitRegistry):
+    mapping = "evaluators"
+    base = Unit
+    loss_mapping = {}
+
+    def __init__(cls, name, bases, clsdict):
+        super(EvaluatorsRegistry, cls).__init__(name, bases, clsdict)
+        if ("LOSS" in clsdict and "MAPPING" in clsdict):
+            EvaluatorsRegistry.loss_mapping[clsdict[
+                "LOSS"]] = clsdict["MAPPING"]
+
+
+@six.add_metaclass(EvaluatorsRegistry)
 class EvaluatorBase(AcceleratedUnit):
     """Base class for evaluators.
     """
@@ -46,6 +63,10 @@ class EvaluatorBase(AcceleratedUnit):
 
 @implementer(IOpenCLUnit, ICUDAUnit)
 class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
+
+    MAPPING = "evaluator_softmax"
+    LOSS = "softmax"
+
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():
@@ -193,6 +214,10 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
 @implementer(IOpenCLUnit, ICUDAUnit)
 class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
+
+    MAPPING = "evaluator_mse"
+    LOSS = "mse"
+
     """Evaluator for nn softmax output from the batch labels.
 
     Must be assigned before initialize():

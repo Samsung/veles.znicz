@@ -30,13 +30,13 @@ from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, weights_zerofilling
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
-from veles.znicz import depooling, channel_splitting  # pylint: disable=W0611
+from veles.znicz import depooling  # pylint: disable=W0611
 from veles.znicz import cutter, deconv, rprop_all2all  # pylint: disable=W0611
 from veles.znicz import resizable_all2all, gd_deconv  # pylint: disable=W0611
 from veles.znicz import activation
-from veles.znicz.decision import DecisionGD, DecisionMSE
+from veles.znicz.decision import DecisionsRegistry
 import veles.znicz.diversity as diversity
-from veles.znicz.evaluator import EvaluatorSoftmax, EvaluatorMSE
+from veles.znicz.evaluator import EvaluatorsRegistry
 import veles.znicz.image_saver as image_saver
 from veles.loader.base import UserLoaderRegistry, CLASS_NAME, LoaderMSEMixin
 from veles.loader.image import ImageLoader
@@ -190,7 +190,9 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.loader_config = kwargs["loader_config"]
         self.loader_name = kwargs["loader_name"]
         self._loader = None
-        self.loss_function = kwargs.get("loss_function", "softmax")
+        self.loss_function = kwargs.get("loss_function", None)
+        self.decision_name = kwargs.pop("decision_name", None)
+        self.evaluator_name = kwargs.pop("evaluator_name", None)
 
     @property
     def loss_function(self):
@@ -198,9 +200,33 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     @loss_function.setter
     def loss_function(self, value):
-        if value not in ("softmax", "mse"):
+        if value not in ("softmax", "mse", None):
             raise ValueError("Unknown loss function type %s" % value)
         self._loss_function = value
+
+    def set_value(self, value, name, mapping):
+        value_error = "%s name or loss function must be defined" % name
+        if value is None and self.loss_function is None:
+            raise ValueError(value_error)
+        setattr(self, "_%s_name" % name, value)
+        if value is None:
+            setattr(self, "_%s_name" % name, mapping[self.loss_function])
+
+    @property
+    def decision_name(self):
+        return self._decision_name
+
+    @decision_name.setter
+    def decision_name(self, value):
+        self.set_value(value, "decision", DecisionsRegistry.loss_mapping)
+
+    @property
+    def evaluator_name(self):
+        return self._evaluator_name
+
+    @evaluator_name.setter
+    def evaluator_name(self, value):
+        self.set_value(value, "evaluator", EvaluatorsRegistry.loss_mapping)
 
     def link_forwards(self, init_attrs, *parents):
         """
@@ -600,17 +626,16 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         kwargs = self.get_kwargs_for_config(self.evaluator_config)
         self._check_forwards()
-        self.evaluator = (
-            EvaluatorSoftmax(self, **kwargs) if self.loss_function == "softmax"
-            else EvaluatorMSE(self, **kwargs)) \
+        self.evaluator = EvaluatorsRegistry.evaluators[
+            self.evaluator_name](self, **kwargs) \
             .link_from(*parents).link_attrs(self.forwards[-1], "output") \
             .link_attrs(self.loader,
                         ("batch_size", "minibatch_size"),
                         ("labels", "minibatch_labels"),
                         ("max_samples_per_epoch", "total_samples"))
-        if self.loss_function == "softmax":
+        if self.evaluator_name == "evaluator_softmax":
             self.evaluator.link_attrs(self.forwards[-1], "max_idx")
-        elif self.loss_function == "mse":
+        elif self.evaluator_name == "evaluator_mse":
             self.evaluator.link_attrs(self.loader,
                                       ("target", "minibatch_targets"),
                                       "class_targets")
@@ -635,24 +660,23 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.znicz.decision.DecisionBase` descendant unit
         """
         kwargs = self.get_kwargs_for_config(self.decision_config)
-        self.decision = (DecisionGD(self, **kwargs)
-                         if self.loss_function == "softmax" else DecisionMSE(
-                             self, **kwargs)) \
+        self.decision = DecisionsRegistry.decisions[
+            self.decision_name](self, **kwargs) \
             .link_from(*parents) \
             .link_attrs(self.loader, "minibatch_class", "last_minibatch",
                         "minibatch_size", "class_lengths", "epoch_ended",
                         "epoch_number")
-        if self.loss_function == "mse":
+        if self.decision_name == "decision_mse":
             self.decision.link_attrs(self.loader, "minibatch_offset")
         self.decision.link_attrs(
             self.evaluator,
             ("minibatch_n_err", "n_err"))
-        if self.loss_function == "softmax":
+        if self.decision_name == "decision_gd":
             self.decision.link_attrs(
                 self.evaluator,
                 ("minibatch_confusion_matrix", "confusion_matrix"),
                 ("minibatch_max_err_y_sum", "max_err_output_sum"))
-        elif self.loss_function == "mse":
+        elif self.decision_name == "decision_mse":
             self.decision.link_attrs(
                 self.evaluator,
                 ("minibatch_metrics", "metrics"),
@@ -729,7 +753,7 @@ class StandardWorkflow(StandardWorkflowBase):
                                     ("indices", "minibatch_indices"),
                                     ("labels", "minibatch_labels"),
                                     "minibatch_class", "minibatch_size")
-        if self.loss_function == "mse":
+        if self.evaluator_name == "evaluator_mse":
             self.image_saver.link_attrs(
                 self.loader, ("target", "minibatch_targets"))
         self.image_saver.link_attrs(self.snapshotter,
@@ -1144,9 +1168,9 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         prev = parents
         if is_min:
-            plotter = self.min_plotter = []
+            plotters = self.min_plotter = []
         else:
-            plotter = self.max_plotter = []
+            plotters = self.max_plotter = []
         styles = ["", "", "k:" if is_min else "k--"]
         for i, style in enumerate(styles):
             if len(style) == 0:
@@ -1157,9 +1181,9 @@ class StandardWorkflow(StandardWorkflowBase):
             plotter.gate_skip = ~self.decision.epoch_ended
             plotter.input_field = i
             plotter.input_offset = 2 if is_min else 1
-            plotter.append(plotter)
+            plotters.append(plotter)
             prev = plotter,
-        plotter[-1].redraw_plot = True
+        plotters[-1].redraw_plot = True
         return prev[0]
 
     def link_image_plotter(self, *parents):

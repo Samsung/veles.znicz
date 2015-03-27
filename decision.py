@@ -8,6 +8,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 
 from __future__ import division
 
+import six
 import time
 
 import numpy
@@ -18,6 +19,19 @@ from veles.mutable import Bool
 from veles.units import Unit, IUnit
 from veles.workflow import NoMoreJobs
 from veles.loader import CLASS_NAME, TRAIN
+from veles.unit_registry import MappedUnitRegistry
+
+
+class DecisionsRegistry(MappedUnitRegistry):
+    mapping = "decisions"
+    base = Unit
+    loss_mapping = {}
+
+    def __init__(cls, name, bases, clsdict):
+        super(DecisionsRegistry, cls).__init__(name, bases, clsdict)
+        if ("LOSS" in clsdict and "MAPPING" in clsdict):
+            DecisionsRegistry.loss_mapping[clsdict[
+                "LOSS"]] = clsdict["MAPPING"]
 
 
 class IDecision(Interface):
@@ -66,6 +80,7 @@ class IDecision(Interface):
         """
 
 
+@six.add_metaclass(DecisionsRegistry)
 @implementer(IUnit, IDistributable)
 class DecisionBase(Unit):
     """
@@ -243,6 +258,10 @@ class TrivialDecision(DecisionBase):
 
 @implementer(IDecision)
 class DecisionGD(DecisionBase):
+
+    MAPPING = "decision_gd"
+    LOSS = "softmax"
+
     """Rules the gradient descent learning process.
 
     Attributes:
@@ -415,6 +434,10 @@ class DecisionGD(DecisionBase):
 
 
 class DecisionMSE(DecisionGD):
+
+    MAPPING = "decision_mse"
+    LOSS = "mse"
+
     """Rules the gradient descent mean square error (MSE) learning process.
 
     Attributes:
