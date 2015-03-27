@@ -446,8 +446,8 @@ class StandardWorkflow(StandardWorkflowBase):
         wf.link_repeater(self.start_point)
         wf.link_loader(self.repeater)
         wf.link_forwards(("input", "minibatch_data"), self.loader)
-        result_unit = result_unit_factory(wf).link_from(self.forwards[-1]) \
-            .gate_block = ~self.loader.train_ended
+        result_unit = result_unit_factory(wf).link_from(self.forwards[-1])
+        result_unit.gate_block = ~self.loader.train_ended
         wf.repeater.link_from(result_unit)
         wf.link_end_point(result_unit)
         self.debug("Importing forwards...")

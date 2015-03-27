@@ -8,6 +8,7 @@ Copyright (c) 2014, Samsung Electronics, Co., Ltd.
 import logging
 import matplotlib
 from veles.dummy import DummyWorkflow
+from veles.units import nothing
 
 matplotlib.use("cairo")
 import matplotlib.cm
@@ -38,7 +39,7 @@ class Test(unittest.TestCase):
         plotter.cm = matplotlib.cm
         plotter.pp = matplotlib.pyplot
         plotter.patches = matplotlib.patches
-        plotter.show_figure = plotter.nothing
+        plotter.show_figure = nothing
         return plotter
 
     def plot(self, plotter):

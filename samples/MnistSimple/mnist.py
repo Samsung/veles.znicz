@@ -138,6 +138,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
                                    ("batch_size", "minibatch_size"))
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
+        self.repeater.gate_block = self.decision.complete
 
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete

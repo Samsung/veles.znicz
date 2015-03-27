@@ -88,6 +88,7 @@ class KohonenWorkflow(nn_units.NNWorkflow):
         self.ipython.gate_skip = ~self.decision.epoch_ended
 
         self.repeater.link_from(self.ipython)
+        self.ipython.gate_block = self.decision.complete
 
         self.end_point.link_from(self.decision)
         self.end_point.gate_block = ~self.decision.complete
@@ -98,17 +99,17 @@ class KohonenWorkflow(nn_units.NNWorkflow):
         self.plotters = [nn_plotting_units.KohonenHits(self),
                          nn_plotting_units.KohonenInputMaps(self),
                          nn_plotting_units.KohonenNeighborMap(self)]
-        self.plotters[0].link_attrs(self.trainer, "shape")
+        self.plotters[0].link_attrs(self.trainer, "shape") \
+            .link_from(self.ipython)
         self.plotters[0].input = self.decision.winners_mem
-        self.plotters[0].link_from(self.decision)
         self.plotters[0].gate_block = ~self.decision.epoch_ended
-        self.plotters[1].link_attrs(self.trainer, "shape")
+        self.plotters[1].link_attrs(self.trainer, "shape") \
+            .link_from(self.ipython)
         self.plotters[1].input = self.decision.weights_mem
-        self.plotters[1].link_from(self.decision)
         self.plotters[1].gate_block = ~self.decision.epoch_ended
-        self.plotters[2].link_attrs(self.trainer, "shape")
+        self.plotters[2].link_attrs(self.trainer, "shape") \
+            .link_from(self.ipython)
         self.plotters[2].input = self.decision.weights_mem
-        self.plotters[2].link_from(self.decision)
         self.plotters[2].gate_block = ~self.decision.epoch_ended
 
     def initialize(self, device, **kwargs):

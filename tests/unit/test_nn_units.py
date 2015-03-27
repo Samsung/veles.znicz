@@ -15,12 +15,13 @@ import unittest
 from zope.interface import implementer
 
 from veles import memory, prng
-from veles.accelerated_units import IOpenCLUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.dummy import DummyWorkflow
 from veles.znicz.gd import GradientDescent
 from veles.znicz.nn_units import Forward, ForwardExporter
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, ICUDAUnit)
 class TrivialForward(Forward):
     def cpu_run(self):
         pass
@@ -31,8 +32,20 @@ class TrivialForward(Forward):
     def ocl_run(self):
         pass
 
+    def cuda_init(self):
+        pass
+
+    def cuda_run(self):
+        pass
+
 
 class Test(unittest.TestCase):
+    def setUp(self):
+        self.parent = DummyWorkflow()
+
+    def tearDown(self):
+        del self.parent
+
     def test_ocl_set_const_args(self):
         u = GradientDescent(self.parent)
         self.assertTrue(u.ocl_set_const_args)
