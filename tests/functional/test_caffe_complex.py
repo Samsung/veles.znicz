@@ -486,18 +486,24 @@ class ComplexTest(CaffeTestBase):
 
         self.info("Will execute run() now")
         self.parent.run()
+        self.assertIsNone(self.parent.thread_pool.failure)
         self.info("run() completed")
         self._print_deltas(cur_iter)
+        self.parent.stopped = False
 
         cur_iter = 1
         self._load_labels_and_data(cur_iter)
         self.parent.run()
+        self.assertIsNone(self.parent.thread_pool.failure)
         self._print_deltas(cur_iter)
+        self.parent.stopped = False
 
         cur_iter = 2
         self._load_labels_and_data(cur_iter)
         self.parent.run()
+        self.assertIsNone(self.parent.thread_pool.failure)
         self._print_deltas(cur_iter)
+        self.parent.stopped = False
 
 
 if __name__ == "__main__":
