@@ -65,31 +65,20 @@ class ImageSaver(Unit, TriviallyDistributable):
                     "minibatch_class", "minibatch_size")
 
     @staticmethod
-    def as_image(input):
-        if len(input.shape) == 1:
+    def as_image(inp):
+        if len(inp.shape) == 1:
             return None
-        elif len(input.shape) == 2:
-            if 1 in input.shape:
+        elif len(inp.shape) == 2:
+            if 1 in inp.shape:
                 return None
-            return input.reshape(input.shape[0], input.shape[1])
-        elif len(input.shape) == 3:
-            if input.shape[2] == 3:
-                return input
-            if input.shape[0] == 3:
-                image = numpy.empty(
-                    (input.shape[1], input.shape[2], 3), dtype=input.dtype)
-                image[:, :, 0:1] = input[0:1, :, :].reshape(
-                    input.shape[1], input.shape[2], 1)[:, :, 0:1]
-                image[:, :, 1:2] = input[1:2, :, :].reshape(
-                    input.shape[1], input.shape[2], 1)[:, :, 0:1]
-                image[:, :, 2:3] = input[2:3, :, :].reshape(
-                    input.shape[1], input.shape[2], 1)[:, :, 0:1]
-                return image
-            if input.shape[2] == 4:
-                image = numpy.empty(
-                    (input.shape[0], input.shape[1], 3), dtype=input.dtype)
-                image[:, :, 0:3] = input[:, :, 0:3]
-                return image
+            return inp.reshape(inp.shape[0], inp.shape[1])
+        elif len(inp.shape) == 3:
+            if inp.shape[2] == 3:
+                return inp
+            if inp.shape[0] == 3:
+                return inp.transpose(1, 2, 0)
+            if inp.shape[2] == 4:
+                return inp[:, :, 0:3]
         else:
             raise BadFormatError()
 
