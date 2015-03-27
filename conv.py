@@ -34,6 +34,7 @@ class ConvolutionalBase(Unit):
 
     def link_conv_attrs(self, other):
         self.link_attrs(other, *self.CONV_ATTRS)
+        return self
 
 
 @implementer(IOpenCLUnit, ICUDAUnit)

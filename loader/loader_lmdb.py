@@ -95,6 +95,8 @@ class LMDBLoader(ImageLoader):
         """
         self._initialize_cursor(index)
         cursor = self._cursors_[index]
+        if cursor is None:
+            return []
         keys = [(index, cursor.key())]
         while cursor.next():
             keys.append((index, cursor.key()))
@@ -111,7 +113,6 @@ class LMDBLoader(ImageLoader):
         db_path = self._files[index]
         if not db_path:
             return tuple()
-
         _, cursor = self._open_db(db_path)
         self._cursors_[index] = cursor
 

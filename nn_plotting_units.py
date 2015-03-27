@@ -17,6 +17,7 @@ import veles.memory as formats
 from veles.mutable import Bool
 import veles.plotter as plotter
 import veles.opencl_types as opencl_types
+from veles.units import nothing
 
 
 @implementer(plotter.IPlotter)
@@ -44,7 +45,7 @@ class Weights2D(plotter.Plotter):
         self.column_align = kwargs.get("column_align", 4)
         self.cm = None
         self.pp = None
-        self.show_figure = self.nothing
+        self.show_figure = nothing
         self._pics_to_draw = []
         self.redraw_threshold = 1.5
 
@@ -214,7 +215,7 @@ class MSEHistogram(plotter.Plotter):
         self.n_bars = n_bars
         self.demand("mse")
         self.pp = None
-        self.show_figure = self.nothing
+        self.show_figure = nothing
 
     def initialize(self, **kwargs):
         super(MSEHistogram, self).initialize(**kwargs)
