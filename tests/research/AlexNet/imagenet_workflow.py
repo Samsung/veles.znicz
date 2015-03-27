@@ -17,15 +17,18 @@ from .imagenet_pickle_loader import ImagenetLoader  # pylint: disable=W0611
 from veles.znicz.loader import loader_lmdb  # pylint: disable=W0611
 
 
+root.common.ThreadPool.maxthreads = 3
+
+
 class ImagenetWorkflow(StandardWorkflow):
     """
     Imagenet Workflow
     """
-
     def create_workflow(self):
         self.link_repeater(self.start_point)
-        self.link_loader(self.repeater)
-        self.link_forwards(("input", "minibatch_data"), self.loader)
+        self.link_loader(self.start_point)
+        avatar = self.link_avatar()
+        self.link_forwards(("input", "minibatch_data"), avatar)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
         end_units = [self.link_snapshotter(self.decision)]
