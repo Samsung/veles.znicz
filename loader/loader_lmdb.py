@@ -84,9 +84,12 @@ class LMDBLoader(ImageLoader):
         datum = Datum()
         datum.ParseFromString(self._cursors_[index].get(key))
         img = numpy.fromstring(datum.data, dtype=numpy.uint8)
-        img = img.reshape(self.original_shape)
-        if self.db_splitted_channels:
-            img = img.swapaxes(0, 1).swapaxes(1, 2)
+        osh = self.original_shape
+        if not self.db_splitted_channels:
+            img = img.reshape(osh)
+        else:
+            img = numpy.transpose(
+                img.reshape((osh[-1],) + osh[:-1]), (1, 2, 0))
         return img
 
     def get_keys(self, index):
