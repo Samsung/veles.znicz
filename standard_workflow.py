@@ -6,6 +6,7 @@ Standard workflow class definition.
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
+from collections import namedtuple
 import numpy
 import six
 import sys
@@ -46,6 +47,12 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.gd_pooling import GDPooling
 from veles.znicz.all2all import All2AllSoftmax
+
+
+WorkflowConfig = namedtuple(
+    "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
+                       "evaluator", "data_saver", "result_loader",
+                       "similar_weights_plotter"))
 
 
 class TypeDict(UserDict):
@@ -182,17 +189,45 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     """
     A base class for standard workflows with forward and backward propagation.
     Is able to automatically create backward units by pre-created forward units
+
+    Arguments:
+        layers: list of dictionary with layers of Model
+        loss_function: name of Loss function. Choices are "softmax" or "mse"
+        loader_name: name of Loader. If loader_name is None, User should\
+        redefine link_loader() function and create own Loader
+        decision_name: name of Decision. If loss_function was defined and\
+        decision_name was not, decision_name creates automaticly
+        evaluator_name: name of Evaluator. If loss_function was defined and\
+        evaluator_name was not, evaluator_name creates automaticly
+        loader_config: loader configuration parameters
+        decision_config: decision configuration parameters
+        snapshotter_config: snapshotter configuration parameters
+        image_save_configr: image_saver configuration parameters
+        data_saver_config: data_saver configuration parameters
+        result_loader_config: result_loader configuration parameters
+        similar_weights_plotter_config: similar_weights_plotter configuration\
+        parameters
     """
+
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
         self.layers = kwargs.get("layers", [{}])
-        self.loader_config = kwargs["loader_config"]
         self.loader_name = kwargs["loader_name"]
         self._loader = None
         self.loss_function = kwargs.get("loss_function", None)
         self.decision_name = kwargs.pop("decision_name", None)
         self.evaluator_name = kwargs.pop("evaluator_name", None)
+        self.config = WorkflowConfig(
+            decision=kwargs.pop("decision_config", {}),
+            loader=kwargs["loader_config"],
+            snapshotter=kwargs.pop("snapshotter_config", {}),
+            evaluator=kwargs.pop("evaluator_config", {}),
+            data_saver=kwargs.pop("data_saver_config", {}),
+            result_loader=kwargs.get("result_loader_config"),
+            image_saver=kwargs.pop("image_saver_config", {}),
+            similar_weights_plotter=kwargs.pop(
+                "similar_weights_plotter_config", {}))
 
     @property
     def loss_function(self):
@@ -270,10 +305,11 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
         def on_initialized():
             import veles
+
             if isinstance(self.real_loader, veles.loader.base.LoaderMSEMixin):
-                if last_fwd.output_sample_shape != tuple() and \
-                    numpy.prod(last_fwd.output_sample_shape) != \
-                        numpy.prod(self.real_loader.targets_shape):
+                if (last_fwd.output_sample_shape != tuple() and
+                        numpy.prod(last_fwd.output_sample_shape)
+                        != numpy.prod(self.real_loader.targets_shape)):
                     self.warning("Overriding %s.output_sample_shape with %s",
                                  last_fwd, self.real_loader.targets_shape)
                 else:
@@ -330,7 +366,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 " link_loader() function, if you want to create you own Loader"
                 % list(UserLoaderRegistry.loaders.keys()))
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **self.dictify(self.loader_config)).link_from(*parents)
+            self, **self.dictify(self.config.loader)).link_from(*parents)
         # Save this loader, since it can be later replaced with an Avatar
         self.real_loader = self.loader
         return self.loader
@@ -423,25 +459,13 @@ class StandardWorkflow(StandardWorkflowBase):
     configuration file.
 
     Arguments:
-        loss_function: name of Loss function. Choices are "softmax" or "mse"
-        loader_name: name of Loader. If loader_name is None, User should\
-        redefine link_loader() function and create own Loader
-        loader_config: loader configuration parameters
-        decision_config: decision configuration parameters
-        snapshotter_config: snapshotter configuration parameters
-        image_saver_config: image_saver configuration parameters
+        result_loader_name:
+        result_unit_factory:
     """
+
     def __init__(self, workflow, **kwargs):
-        self.decision_config = kwargs.pop("decision_config", {})
-        self.evaluator_config = kwargs.pop("evaluator_config", {})
-        self.snapshotter_config = kwargs.pop("snapshotter_config", {})
-        self.image_saver_config = kwargs.pop("image_saver_config", {})
-        self.data_saver_config = kwargs.pop("data_saver_config", {})
-        self.similar_weights_plotter_config = kwargs.pop(
-            "similar_weights_plotter_config", {})
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
         self.result_loader_name = kwargs.get("result_loader_name")
-        self.result_loader_config = kwargs.get("result_loader_config")
         self.result_unit_factory = kwargs.get("result_unit_factory")
 
         self.create_workflow()
@@ -624,7 +648,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link\
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.evaluator_config)
+        kwargs = self.get_kwargs_for_config(self.config.evaluator)
         self._check_forwards()
         self.evaluator = EvaluatorsRegistry.evaluators[
             self.evaluator_name](self, **kwargs) \
@@ -659,7 +683,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link\
             :class:`veles.znicz.decision.DecisionBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.decision_config)
+        kwargs = self.get_kwargs_for_config(self.config.decision)
         self.decision = DecisionsRegistry.decisions[
             self.decision_name](self, **kwargs) \
             .link_from(*parents) \
@@ -700,7 +724,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link\
             :class:`veles.snapshotter.SnapshotterBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.snapshotter_config)
+        kwargs = self.get_kwargs_for_config(self.config.snapshotter)
         self.snapshotter = nn_units.NNSnapshotter(self, **kwargs) \
             .link_from(*parents) \
             .link_attrs(self.decision, ("suffix", "snapshot_suffix"))
@@ -740,10 +764,10 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.znicz.image_saver.ImageSaver` unit
         """
         self._check_forwards()
-        kwargs = self.get_kwargs_for_config(self.image_saver_config)
+        kwargs = self.get_kwargs_for_config(self.config.image_saver)
         self.image_saver = image_saver.ImageSaver(self, **kwargs) \
             .link_from(*parents)
-        if self.loss_function == "softmax":
+        if self.evaluator_name == "evaluator_softmax":
             self.image_saver.link_attrs(self.forwards[-1], "max_idx")
         self.image_saver.link_attrs(self.forwards[-1], "output")
         if isinstance(self.loader, ImageLoader):
@@ -787,7 +811,7 @@ class StandardWorkflow(StandardWorkflowBase):
                     [(gd_elm.learning_rate_bias, 60000),
                      (gd_elm.learning_rate_bias / 10., 5000),
                      (gd_elm.learning_rate_bias / 100., 100000000)])
-                )
+            )
         self.lr_adjuster.link_from(*parents)
         return self.lr_adjuster
 
@@ -1053,7 +1077,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 continue
             plt_mx = diversity.SimilarWeights2D(
                 self, name="%s %s [similar]" % (i + 1, layer["type"]),
-                **self.dictify(self.similar_weights_plotter_config)) \
+                **self.dictify(self.config.similar_weights_plotter)) \
                 .link_attrs(link_units[i], ("input", weights_input)) \
                 .link_from(*prev)
             plt_mx.gate_skip = ~self.decision.epoch_ended
@@ -1256,7 +1280,7 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         res_unit = self.ForwardWorkflowExtractor(
             self, loader_name=self.result_loader_name,
-            loader_config=self.result_loader_config,
+            loader_config=self.config.result_loader,
             result_unit_factory=self.result_unit_factory)
         self.decision.link_from(res_unit)
         res_unit.gate_block = ~self.decision.complete
@@ -1275,7 +1299,7 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link\
             :class:`veles.loader.saver.MinibatchesSaver` unit.
         """
-        kwargs = self.get_kwargs_for_config(self.data_saver_config)
+        kwargs = self.get_kwargs_for_config(self.config.data_saver)
         self.data_saver = MinibatchesSaver(
             self, **kwargs).link_from(*parents).link_attrs(
             self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
@@ -1311,6 +1335,7 @@ class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
     """
     Class to extract core of Neural Network without back propagation.
     """
+
     def __init__(self, workflow, **kwargs):
         assert isinstance(workflow, StandardWorkflow)
         super(ForwardWorkflowExtractor, self).__init__(workflow, **kwargs)
