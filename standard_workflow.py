@@ -553,17 +553,18 @@ class StandardWorkflow(StandardWorkflowBase):
         """
         self.repeater.link_from(parent)
 
-    def link_avatar(self):
+    def link_avatar(self, *extra_attrs):
         """
         Replaces the current loader with it's avatar, allowing the parallel
         work of the loader and the main contour.
         Please note that the loader must be linked from the start point, not
         the repeater.
+        :param extra_attrs: Additional attributes to copy from the loader.
         :return: The linked :class:`veles.avatar.Avatar` unit.
         """
         self.loader.ignores_gate <<= True
         avatar = Avatar(self)
-        avatar.reals[self.loader] = self.loader.exports
+        avatar.reals[self.loader] = self.loader.exports + extra_attrs
         avatar.clone()
         avatar.link_from(self.loader)
         self.loader.link_from(avatar)
