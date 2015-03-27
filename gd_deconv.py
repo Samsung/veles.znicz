@@ -78,11 +78,13 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         return self.err_output.mem.shape[1:3]
 
     def initialize(self, device, **kwargs):
+        super(GDDeconv, self).initialize(device, **kwargs)
+
         if self.bias is not None:
             raise ValueError("bias should not be set")
-        if (len(self.weights.shape) != 2 or
-                self.weights.shape[0] != self.n_kernels or
-                self.weights.shape[1] % (self.kx * self.ky) != 0):
+        if (len(self.weights_shape) != 2 or
+                self.weights_shape[0] != self.n_kernels or
+                self.weights_shape[1] % (self.kx * self.ky) != 0):
             raise ValueError(
                 "Incorrectly shaped weights encountered")
         if (len(self.input.shape) != 4 or
@@ -115,8 +117,6 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 raise from_none(e)
             self.warning("Using unsafe padding of %s", self.padding)
 
-        super(GDDeconv, self).initialize(device, **kwargs)
-
         if self.hits:
             self.hits.initialize(self.device)
 
@@ -132,7 +132,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self.cl_const = numpy.zeros(5, dtype=self._dtype)
 
-        side = self.weights.shape[0]
+        side = self.weights_shape[0]
         other = self.weights.size // side
         assert side == self.n_kernels
         assert other == self.kx * self.ky * self.channels_number
@@ -326,7 +326,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.gemm_(
                 self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
                 else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
-                self.weights.shape[0], unpack_side, self._kernel_size,
+                self.weights_shape[0], unpack_side, self._kernel_size,
                 self.np_one, self.weights.devmem, self.unpack_data.devmem,
                 self.np_zero, int(self.err_input.devmem) + output_offs)
 

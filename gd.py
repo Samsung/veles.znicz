@@ -22,7 +22,7 @@ import numpy
 import time
 from zope.interface import implementer
 
-from veles.memory import reshape, reshape_transposed, roundup, Vector
+from veles.memory import reshape, roundup, Vector
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.znicz.nn_units as nn_units
 from collections import namedtuple
@@ -180,7 +180,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         dtype = self.err_output.mem.dtype
         self.cl_const = numpy.zeros(9, dtype=dtype)
 
-        side = self.weights.shape[0]
+        side = self.weights_shape[0]
         other = self.weights.size // side
         assert side == self.err_output.sample_size
         assert other == self.input.sample_size
@@ -237,7 +237,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         dtype = self.err_output.dtype
         block_size = self.device.device_info.get_block_size(
             kernel="matrix_multiplication", dtype=dtype)
-        side = self.weights.shape[0]
+        side = self.weights_shape[0]
         other = self.weights.size // side
         batch = self.input.shape[0]
 
@@ -269,7 +269,7 @@ class GradientDescent(nn_units.GradientDescentBase):
     def cuda_init(self):
         self._gpu_init({})
 
-        side = self.weights.shape[0]
+        side = self.weights_shape[0]
         other = self.weights.size // side
 
         block_size = self.device.suggest_block_size(self.krn_weights_)
@@ -431,8 +431,7 @@ class GradientDescent(nn_units.GradientDescentBase):
 
         self.gradient_weights.map_write()
         if self.weights_transposed:
-            numpy.dot(inp.transpose(), err_output,
-                      reshape_transposed(self.gradient_weights.mem))
+            numpy.dot(inp.transpose(), err_output, self.gradient_weights.mem)
         else:
             numpy.dot(err_output.transpose(), inp, self.gradient_weights.mem)
 
@@ -459,16 +458,12 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.weights.map_read()
         err_output = reshape(
             self.err_output.mem,
-            [self.err_output.mem.shape[0],
-             self.err_output.mem.size // self.err_output.mem.shape[0]])
+            [self.err_output.shape[0], self.err_output.sample_size])
         err_input = reshape(
             self.err_input.mem,
-            [self.err_input.mem.shape[0],
-             self.err_input.mem.size // self.err_input.mem.shape[0]])
+            [self.err_input.shape[0], self.err_input.sample_size])
         if self.weights_transposed:
-            numpy.dot(
-                err_output, reshape_transposed(self.weights.mem).transpose(),
-                err_input)
+            numpy.dot(err_output, self.weights.mem.transpose(), err_input)
         else:
             numpy.dot(err_output, self.weights.mem, err_input)
 

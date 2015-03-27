@@ -337,6 +337,11 @@ class GradientDescentBase(AcceleratedUnit):
 
         if self.weights:
             assert len(self.weights.shape) == 2
+            self.weights_shape = (tuple(reversed(self.weights.shape))
+                                  if self.weights_transposed
+                                  else self.weights.shape)
+        else:
+            self.weights_shape = None
 
         self.learning_rate = kwargs.get("learning_rate", self.learning_rate)
         self.weights_decay = kwargs.get("weights_decay", self.weights_decay)
@@ -399,7 +404,7 @@ class GradientDescentBase(AcceleratedUnit):
                 assert self.err_input.shape == self.input.shape
 
         if self.weights:
-            side = self.weights.shape[int(self.weights_transposed)]
+            side = self.weights_shape[0]
             other = self.weights.size // side
             if self.factor_ortho:
                 if not self.col_sums:

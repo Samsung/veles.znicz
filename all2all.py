@@ -16,7 +16,7 @@ from zope.interface import implementer
 
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 import veles.error as error
-from veles.memory import reshape, reshape_transposed, roundup, Vector
+from veles.memory import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
@@ -159,21 +159,19 @@ class All2All(nn_units.NNLayerBase):
         if self.bias_stddev is None:
             self.bias_stddev = self.weights_stddev
 
-        n_weights = (self.input.size //
-                     self.output_samples_number * self.neurons_number)
-
         # Check that weights vector was not assigned from the outside
+        self.weights_shape = (self.neurons_number, self.input.sample_size)
+        weights_shape_t = tuple(reversed(self.weights_shape))
         if not self.weights:
-            self.weights.reset(numpy.zeros(n_weights, self.input.dtype))
+            self.weights.reset(numpy.zeros(self.weights_shape,
+                                           dtype=self.input.dtype))
             self.fill_array(self.weights_filling, self.weights.mem,
                             self.weights_stddev)
-            self.weights.shape = (self.neurons_number,
-                                  self.input.sample_size)
             if self.weights_transposed:
-                transposed_weights = self.weights.mem.transpose().copy()
-                self.weights.plain[:] = transposed_weights.ravel()[:]
+                self.weights.shape = weights_shape_t
         else:
-            assert self.weights.size == n_weights
+            assert (self.weights.shape == weights_shape_t if
+                    self.weights_transposed else weights_shape_t)
 
         if self.include_bias:
             # Check that bias was not assigned from the outside
@@ -206,7 +204,7 @@ class All2All(nn_units.NNLayerBase):
         self._transB = cublas.CUBLAS_OP_N
         self._A_ = self.weights.devmem
         self._B_ = self.input.devmem
-        self._rowsCountA = self.weights.shape[0]
+        self._rowsCountA = self.weights_shape[0]
         self._columnCountB = self.input.shape[0]
         self._commonSideLength = self.input.sample_size
         self.build_program({"BIAS_SIZE": self.output.sample_size,
@@ -285,8 +283,7 @@ class All2All(nn_units.NNLayerBase):
         self.weights.map_read()
         self.bias.map_read()
         mem = numpy.dot(self.input.matrix,
-                        reshape_transposed(self.weights.mem)
-                        if self.weights_transposed
+                        self.weights.mem if self.weights_transposed
                         else self.weights.mem.transpose())
         if self.include_bias:
             mem += self.bias.mem

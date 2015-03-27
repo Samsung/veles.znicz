@@ -90,14 +90,18 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     def initialize(self, device, **kwargs):
         super(Deconv, self).initialize(device, **kwargs)
 
+        self.weights_shape = (tuple(reversed(self.weights.shape))
+                              if self.weights_transposed
+                              else self.weights.shape)
+
         if hasattr(self, "bias"):
             raise ValueError("bias should not be set")
         if (len(self.input.shape) != 4 or
                 self.input.shape[3] != self.n_kernels):
             raise ValueError("Incorrectly shaped input encountered")
-        if (len(self.weights.shape) != 2 or
-                self.weights.shape[0] != self.n_kernels or
-                self.weights.shape[1] % (self.kx * self.ky) != 0):
+        if (len(self.weights_shape) != 2 or
+                self.weights_shape[0] != self.n_kernels or
+                self.weights_shape[1] % (self.kx * self.ky) != 0):
             raise ValueError("Incorrectly shaped weights encountered")
 
         output_shape = tuple(self.output_shape_source.shape)
@@ -186,7 +190,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.krn_clear_output_.set_arg(0, self.output.devmem)
 
         a_width = self._kernel_app_total
-        b_width = self.weights.shape[1]
+        b_width = self.weights_shape[1]
         self._global_size = [
             roundup(b_width, block_size),
             roundup(a_width, block_size)]
@@ -266,7 +270,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
-            self._kernel_size, unpack_side, self.weights.shape[0],
+            self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
             int(self.input.devmem) + output_offs,
             self.np_zero, self.unpack_data.devmem)

@@ -21,7 +21,7 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.memory import ravel, reshape_transposed, roundup
+from veles.memory import reshape_transposed, roundup
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
@@ -76,6 +76,8 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self.demand("bias")
 
     def initialize(self, device, **kwargs):
+        super(GradientDescentConv, self).initialize(device=device, **kwargs)
+
         self._batch_size = self.input.shape[0]
         self._sy = self.input.shape[1]
         self._sx = self.input.shape[2]
@@ -94,7 +96,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self.cl_const = numpy.zeros(9, dtype=self._dtype)
 
-        self._side = self.weights.shape[0]
+        self._side = self.weights_shape[0]
         self._other = self.weights.size // self._side
         assert self._side == self.n_kernels
         assert self._other == self.kx * self.ky * self._n_channels
@@ -111,8 +113,6 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             raise error.BadFormatError(
                 "Expected input size to match "
                 "batch_size * sy * sx * n_channels")
-
-        super(GradientDescentConv, self).initialize(device=device, **kwargs)
 
     def _gpu_init(self):
         defines = {
@@ -290,7 +290,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_T if self.weights_transposed
             else cublas.CUBLAS_OP_N, cublas.CUBLAS_OP_N,
-            self._kernel_size, unpack_side, self.weights.shape[0],
+            self._kernel_size, unpack_side, self.weights_shape[0],
             self.np_one, self.weights.devmem,
             int(self.err_output.devmem) + output_offs,
             self.np_zero, self.unpack_data.devmem)
@@ -372,7 +372,9 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             sh[2] = 1
 
         # calculate gradient for weights
-        gd_weights = self.gradient_weights.mem
+        gd_weights = (reshape_transposed(self.gradient_weights.mem)
+                      if self.weights_transposed
+                      else self.gradient_weights.mem)
         gd_weights[:] = 0
         cut = numpy.empty((self.ky, self.kx, n_channels), dtype=dtype)
         sample = numpy.empty(sample_shape, dtype=dtype)
@@ -406,8 +408,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             gd_weights += numpy.dot(out.transpose(),
                                     sample)
         if self.weights_transposed:
-            w = gd_weights.transpose().copy()
-            ravel(gd_weights)[:] = w.ravel()
+            gd_weights = reshape_transposed(gd_weights)
 
         # update weights
         lr = self.learning_rate
@@ -514,7 +515,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         sx_full = self.padding[0] + sx + self.padding[2]
         sy_full = self.padding[1] + sy + self.padding[3]
 
-        weights = (reshape_transposed(self.weights.mem).transpose()
+        weights = (reshape_transposed(self.weights.mem)
                    if self.weights_transposed else self.weights.mem)
 
         self.err_input.mem[:] = 0

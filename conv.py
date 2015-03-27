@@ -261,7 +261,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         self.gemm_(
             self.device.blas, cublas.CUBLAS_OP_N if self.weights_transposed
             else cublas.CUBLAS_OP_T, cublas.CUBLAS_OP_N,
-            self.weights.shape[0], unpack_side, self._kernel_size,
+            self.weights_shape[0], unpack_side, self._kernel_size,
             self.np_one, self.weights.devmem, self.unpack_data.devmem,
             self.np_zero, int(self.output.devmem) + output_offs)
 
@@ -278,7 +278,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         nx = (sx_full - self.kx) // self.sliding[0] + 1
         ny = (sy_full - self.ky) // self.sliding[1] + 1
 
-        weights = (reshape_transposed(self.weights.mem).transpose()
+        weights = (reshape_transposed(self.weights.mem)
                    if self.weights_transposed else self.weights.mem)
 
         assert self.kx >= 0 and self.ky >= 0
@@ -345,20 +345,21 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
         Fills initial filter weights according to `weights_filling` attribute.
         Called within ``initialize`` method.
         """
-        weights_size = self.n_kernels * self.kx * self.ky * self._n_channels
+        self.weights_shape = (self.n_kernels,
+                              self.kx * self.ky * self._n_channels)
+        weights_shape_t = tuple(reversed(self.weights_shape))
         if not self.weights:
-            self.weights.reset(numpy.zeros(weights_size, self.input.dtype))
+            self.weights.reset(numpy.zeros(self.weights_shape,
+                                           dtype=self.input.dtype))
             self._fill_array(self.weights_filling, self.weights.mem,
                              self.weights_stddev)
-            self.weights.shape = (
-                self.n_kernels, self.kx * self.ky * self._n_channels)
             if self.weights_transposed:
                 a = self.weights.mem.transpose().copy()
                 self.weights.plain[:] = a.ravel()[:]
+                self.weights.shape = weights_shape_t
         else:
-            weights_shape = (
-                self.n_kernels, self.kx * self.ky * self._n_channels)
-            assert self.weights.shape == weights_shape
+            assert (self.weights.shape == weights_shape_t
+                    if self.weights_transposed else self.weights_shape)
 
     def _fill_biases(self):
         """
