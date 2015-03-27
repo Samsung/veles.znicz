@@ -30,6 +30,9 @@ from veles.znicz import nn_units
 from veles.znicz import conv, pooling, all2all, weights_zerofilling
 from veles.znicz import gd, gd_conv, gd_pooling
 from veles.znicz import normalization, dropout
+from veles.znicz import depooling, channel_splitting  # pylint: disable=W0611
+from veles.znicz import cutter, deconv, rprop_all2all  # pylint: disable=W0611
+from veles.znicz import resizable_all2all, gd_deconv  # pylint: disable=W0611
 from veles.znicz import activation
 from veles.znicz.decision import DecisionGD, DecisionMSE
 import veles.znicz.diversity as diversity
@@ -404,6 +407,7 @@ class StandardWorkflow(StandardWorkflowBase):
     """
     def __init__(self, workflow, **kwargs):
         self.decision_config = kwargs.pop("decision_config", {})
+        self.evaluator_config = kwargs.pop("evaluator_config", {})
         self.snapshotter_config = kwargs.pop("snapshotter_config", {})
         self.image_saver_config = kwargs.pop("image_saver_config", {})
         self.data_saver_config = kwargs.pop("data_saver_config", {})
@@ -594,10 +598,11 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units, from whom will be link\
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
         """
+        kwargs = self.get_kwargs_for_config(self.evaluator_config)
         self._check_forwards()
         self.evaluator = (
-            EvaluatorSoftmax(self) if self.loss_function == "softmax"
-            else EvaluatorMSE(self)) \
+            EvaluatorSoftmax(self, **kwargs) if self.loss_function == "softmax"
+            else EvaluatorMSE(self, **kwargs)) \
             .link_from(*parents).link_attrs(self.forwards[-1], "output") \
             .link_attrs(self.loader,
                         ("batch_size", "minibatch_size"),
