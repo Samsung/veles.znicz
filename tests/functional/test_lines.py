@@ -81,7 +81,7 @@ class TestLines(StandardTest):
         self.assertEqual(
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
-    @timeout(300)
+    @timeout(600)
     @multi_device()
     def test_lines(self):
         self.info("Will test lines workflow with one convolutional relu"

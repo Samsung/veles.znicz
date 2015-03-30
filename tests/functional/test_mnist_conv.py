@@ -22,7 +22,7 @@ class TestMnistConv(StandardTest):
             "decision": {"max_epochs": 2,
                          "fail_iterations": 100},
             "snapshotter": {"prefix": "test_mnist_conv", "time_interval": 0,
-                            "compress": ""},
+                            "interval": 2 + 1},
             "weights_plotter": {"limit": 64},
             "loader": {"minibatch_size": 6, "force_cpu": False,
                        "normalization_type": "linear"},
@@ -87,7 +87,7 @@ class TestMnistConv(StandardTest):
                                "weights_decay": 0.0005,
                                "weights_decay_bias": 0.476000}}]})
 
-    @timeout(600)
+    @timeout(900)
     @multi_device()
     def test_mnist_conv(self):
         self.info("Will test mnist workflow with convolutional"
@@ -103,8 +103,6 @@ class TestMnistConv(StandardTest):
             loss_function=root.mnistr.loss_function)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
-        workflow.snapshotter.time_interval = 0
-        workflow.snapshotter.interval = 1
         workflow.initialize(device=self.device, snapshot=False)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
