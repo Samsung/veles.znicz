@@ -18,7 +18,7 @@ class TestSamplesMnist(StandardTest):
     def setUpClass(cls):
         root.mnist.update({
             "all2all": {"weights_stddev": 0.05},
-            "decision": {"fail_iterations": (0),
+            "decision": {"fail_iterations": 0,
                          "snapshot_prefix": "samples_mnist_test"},
             "loader": {"minibatch_size": 88, "normalization_type": "linear"},
             "learning_rate": 0.028557478339518444,
@@ -34,7 +34,7 @@ class TestSamplesMnist(StandardTest):
         workflow = mnist.MnistWorkflow(self.parent, layers=root.mnist.layers)
         workflow.decision.max_epochs = 2
         workflow.snapshotter.time_interval = 0
-        workflow.snapshotter.interval = 2
+        workflow.snapshotter.interval = 3
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.initialize(

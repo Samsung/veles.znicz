@@ -239,8 +239,9 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
             self.plt_avg[-1].input_field = i
             self.plt_avg[-1].link_from(self.plt_avg[-2] if j
                                        else self.decision)
-            self.plt_avg[-1].gate_block = (Bool(False) if j
-                                           else ~self.decision.epoch_ended)
+            self.plt_avg[-1].gate_block = (
+                Bool(False) if j else
+                ~self.decision.epoch_ended | self.decision.complete)
             j += 1
         self.plt_avg[0].clear_plot = True
 
@@ -295,7 +296,8 @@ class ApproximatorWorkflow(nn_units.NNWorkflow):
         self.plt.input_styles.append("g-")
         self.plt.input_styles.append("b-")
         self.plt.link_from(self.decision)
-        self.plt.gate_block = ~self.decision.epoch_ended
+        self.plt.gate_block = \
+            ~self.decision.epoch_ended | self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, minibatch_size,
                    device, **kwargs):

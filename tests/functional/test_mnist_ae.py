@@ -20,7 +20,7 @@ class TestMnistAE(StandardTest):
             "decision": {"fail_iterations": 20,
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
-                            "interval": 3, "compress": ""},
+                            "interval": 4, "compress": ""},
             "loader": {"minibatch_size": 100, "force_cpu": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.000001,
@@ -49,8 +49,8 @@ class TestMnistAE(StandardTest):
         workflow.run()
         return workflow
 
-    mse = {"ocl": (0.96093162, 0.9606072, 0.96072854),
-           "cuda": (0.9612299373, 0.9606072, 0.96101219)}
+    mse = {"ocl": (0.96093162, 0.960581, 0.9612302),
+           "cuda": (0.625681, 0.620896, 0.622765)}
 
     @timeout(1500)
     @multi_device()

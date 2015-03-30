@@ -157,9 +157,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 self.plt[-1].link_from(self.decision)
             else:
                 self.plt[-1].link_from(self.plt[-2])
-            self.plt[-1].gate_block = ~self.decision.epoch_ended
+            self.plt[-1].gate_block = \
+                ~self.decision.epoch_ended | self.decision.complete
         self.plt[0].clear_plot = True
-        self.plt[0].gate_block = self.decision.complete
         self.plt[-1].redraw_plot = True
 
         # Confusion matrix plotter
@@ -187,9 +187,9 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 self.plt_err_y[-1].link_from(self.decision)
             else:
                 self.plt_err_y[-1].link_from(self.plt_err_y[-2])
-            self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
+            self.plt_err_y[-1].gate_block = \
+                ~self.decision.epoch_ended | self.decision.complete
         self.plt_err_y[0].clear_plot = True
-        self.plt_err_y[0].gate_block = self.decision.complete
         self.plt_err_y[-1].redraw_plot = True
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):

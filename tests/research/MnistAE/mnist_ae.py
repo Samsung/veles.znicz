@@ -124,7 +124,8 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
             self, prefix=root.mnist_ae.snapshotter.prefix,
             directory=root.common.snapshot_dir,
             compress=root.mnist_ae.snapshotter.compress,
-            time_interval=root.mnist_ae.snapshotter.time_interval)
+            time_interval=root.mnist_ae.snapshotter.time_interval,
+            interval=root.mnist_ae.snapshotter.interval)
         self.snapshotter = unit
         unit.link_from(self.decision)
         unit.link_attrs(self.decision, ("suffix", "snapshot_suffix"))
@@ -162,6 +163,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
             self.plt[-1].input_field = i
             self.plt[-1].link_from(prev)
             self.plt[-1].gate_skip = ~self.decision.epoch_ended
+            self.plt[-1].gate_block = self.decision.complete
             prev = self.plt[-1]
         self.plt[0].clear_plot = True
         self.plt[-1].redraw_plot = True
@@ -175,6 +177,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_from(prev)
         self.plt_mx.gate_skip = ~self.decision.epoch_ended
+        self.plt_mx.gate_block = self.decision.complete
         prev = self.plt_mx
 
         # Input plotter
@@ -187,6 +190,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_inp.input_field = "mem"
         self.plt_inp.link_from(prev)
         self.plt_inp.gate_skip = ~self.decision.epoch_ended
+        self.plt_inp.gate_block = self.decision.complete
         prev = self.plt_inp
 
         # Output plotter
@@ -201,6 +205,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_out.input_field = "mem"
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
+        self.plt_out.gate_block = self.decision.complete
         prev = self.plt_out
 
         # Deconv result plotter
@@ -212,6 +217,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         self.plt_out.input_field = "mem"
         self.plt_out.link_from(prev)
         self.plt_out.gate_skip = ~self.decision.epoch_ended
+        self.plt_out.gate_block = self.decision.complete
         prev = self.plt_out
 
         self.gd_deconv.link_from(prev)

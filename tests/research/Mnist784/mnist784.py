@@ -204,6 +204,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_block = self.decision.gate_block
 
         # Add ImagePlotter Saver unit
         self.image_saver = image_saver.ImageSaver(self)
@@ -256,10 +257,10 @@ class Mnist784Workflow(nn_units.NNWorkflow):
             self.plt[-1].input_field = i
             self.plt[-1].link_from(self.decision if not i else
                                    self.plt[-2])
-            self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
-                                       else Bool(False))
+            self.plt[-1].gate_block = (
+                ~self.decision.epoch_ended | self.decision.complete
+                if not i else Bool(False))
         self.plt[0].clear_plot = True
-        self.plt[0].gate_block = self.decision.complete
 
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
