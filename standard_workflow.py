@@ -265,23 +265,23 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
         last_fwd = self.forwards[-1]
         if not isinstance(last_fwd, All2AllSoftmax) and \
-                not isinstance(self.loader, LoaderMSEMixin):
+                not isinstance(self.real_loader, LoaderMSEMixin):
             return last_fwd
 
         def on_initialized():
             import veles
-            if isinstance(self.loader, veles.loader.base.LoaderMSEMixin):
+            if isinstance(self.real_loader, veles.loader.base.LoaderMSEMixin):
                 if last_fwd.output_sample_shape != tuple() and \
                     numpy.prod(last_fwd.output_sample_shape) != \
-                        numpy.prod(self.loader.targets_shape):
+                        numpy.prod(self.real_loader.targets_shape):
                     self.warning("Overriding %s.output_sample_shape with %s",
-                                 last_fwd, self.loader.targets_shape)
+                                 last_fwd, self.real_loader.targets_shape)
                 else:
                     self.info("Setting %s.output_sample_shape to %s",
-                              last_fwd, self.loader.targets_shape)
-                last_fwd.output_sample_shape = self.loader.targets_shape
+                              last_fwd, self.real_loader.targets_shape)
+                last_fwd.output_sample_shape = self.real_loader.targets_shape
             elif isinstance(last_fwd, veles.znicz.all2all.All2AllSoftmax):
-                ulc = self.loader.unique_labels_count
+                ulc = self.real_loader.unique_labels_count
                 oss = last_fwd.output_sample_shape
                 if oss != tuple() and numpy.prod(oss) != ulc:
                     self.warning(
