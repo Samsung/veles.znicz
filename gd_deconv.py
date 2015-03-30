@@ -318,8 +318,8 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
         self._kernel_.set_arg(2, self._const_i)
         self.execute_kernel(self._global_size_unpack(limit),
                             self._local_size_unpack)
-        output_offs = (start_image * self.err_input.sample_size *
-                       self.err_input.itemsize)
+        output_offs = (start_image * self.input.sample_size *
+                       self.input.itemsize)
 
         # Update err_input
         if self.need_err_input:
