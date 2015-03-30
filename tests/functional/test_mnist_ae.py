@@ -44,9 +44,7 @@ class TestMnistAE(StandardTest):
             workflow.decision.max_epochs, workflow.loader.epoch_number)
 
     def init_and_run(self, device, snapshot):
-        workflow = mnist_ae.MnistAEWorkflow(
-            self.parent,
-            layers=root.mnist_ae.layers)
+        workflow = mnist_ae.MnistAEWorkflow(self.parent)
         self.init_wf(workflow, device, snapshot)
         workflow.run()
         return workflow
