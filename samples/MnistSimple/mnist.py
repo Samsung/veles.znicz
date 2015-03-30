@@ -115,27 +115,23 @@ class MnistWorkflow(nn_units.NNWorkflow):
         del self.gds[:]
         self.gds.extend(list(None for i in range(0, len(self.forwards))))
         self.gds[-1] = gd.GDSoftmax(
-            self, learning_rate=root.mnist.learning_rate)
-        self.gds[-1].link_from(self.ipython)
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.forwards[-1],
-                                ("output", "output"),
-                                ("input", "input"),
-                                "weights", "bias")
+            self, learning_rate=root.mnist.learning_rate) \
+            .link_from(self.ipython) \
+            .link_attrs(self.evaluator, "err_output") \
+            .link_attrs(self.forwards[-1], ("output", "output"),
+                        ("input", "input"), "weights", "bias") \
+            .link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
         for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDTanh(
                 self, learning_rate=root.mnist.learning_rate,
-                factor_ortho=root.mnist.factor_ortho)
-            self.gds[i].link_from(self.gds[i + 1])
-            self.gds[i].link_attrs(self.gds[i + 1],
-                                   ("err_output", "err_input"))
-            self.gds[i].link_attrs(self.forwards[i], "output", "input",
-                                   "weights", "bias")
+                factor_ortho=root.mnist.factor_ortho) \
+                .link_from(self.gds[i + 1]) \
+                .link_attrs(self.gds[i + 1], ("err_output", "err_input")) \
+                .link_attrs(self.forwards[i], "output", "input", "weights",
+                            "bias") \
+                .link_attrs(self.loader, ("batch_size", "minibatch_size"))
             self.gds[i].gate_skip = self.decision.gd_skip
-            self.gds[i].link_attrs(self.loader,
-                                   ("batch_size", "minibatch_size"))
         self.gds[0].need_err_input = False
         self.repeater.link_from(self.gds[0])
         self.repeater.gate_block = self.decision.complete
@@ -146,7 +142,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.loader.gate_block = self.decision.complete
 
         self.slaves_plotter = plotting_units.SlaveStats(self)
-        self.slaves_plotter.link_from(self.decision)
+        self.slaves_plotter.link_from(self.decision).gate_block = \
+            self.decision.complete
 
         # Error plotter
         self.plt = []
@@ -162,6 +159,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 self.plt[-1].link_from(self.plt[-2])
             self.plt[-1].gate_block = ~self.decision.epoch_ended
         self.plt[0].clear_plot = True
+        self.plt[0].gate_block = self.decision.complete
         self.plt[-1].redraw_plot = True
 
         # Confusion matrix plotter
@@ -173,7 +171,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
                                        ("input", "confusion_matrixes"))
             self.plt_mx[-1].input_field = i
             self.plt_mx[-1].link_from(self.decision)
-            self.plt_mx[-1].gate_block = ~self.decision.epoch_ended
+            self.plt_mx[-1].gate_block = \
+                ~self.decision.epoch_ended | self.decision.complete
 
         # err_y plotter
         self.plt_err_y = []
@@ -190,6 +189,7 @@ class MnistWorkflow(nn_units.NNWorkflow):
                 self.plt_err_y[-1].link_from(self.plt_err_y[-2])
             self.plt_err_y[-1].gate_block = ~self.decision.epoch_ended
         self.plt_err_y[0].clear_plot = True
+        self.plt_err_y[0].gate_block = self.decision.complete
         self.plt_err_y[-1].redraw_plot = True
 
     def initialize(self, learning_rate, weights_decay, device, **kwargs):
