@@ -349,4 +349,4 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.gradient_weights.devmem)
 
     def cpu_run(self):
-        raise RuntimeError("Not implemented")
+        raise NotImplementedError()

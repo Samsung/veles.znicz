@@ -285,4 +285,4 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                             self._local_size_pack, self.krn_pack_)
 
     def cpu_run(self):
-        raise RuntimeError("Not implemented")
+        raise NotImplementedError()

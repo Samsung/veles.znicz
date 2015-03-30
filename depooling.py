@@ -6,7 +6,7 @@ Depoling unit.
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
 """
 
-
+from __future__ import division
 import numpy
 from zope.interface import implementer
 
@@ -104,7 +104,7 @@ class Depooling(nn_units.Forward):
         self.execute_kernel(self._global_size, self._local_size)
 
     def cpu_run(self):
-        raise RuntimeError("Not implemented")
+        raise NotImplementedError()
 
     def generate_data_for_slave(self):
         pass

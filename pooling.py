@@ -474,7 +474,7 @@ class StochasticPoolingDepooling(StochasticPooling):
         self.set_arg(0, self.input)
 
     def cpu_run(self):
-        raise RuntimeError("Not implemented")
+        raise NotImplementedError()
 
 
 class StochasticAbsPoolingDepooling(StochasticPoolingDepooling):
