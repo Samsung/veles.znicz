@@ -25,6 +25,7 @@ import veles.znicz.nn_units as nn_units
 
 
 class ConvolutionalBase(Unit):
+    hide_from_registry = True
     CONV_ATTRS = ("n_kernels", "kx", "ky", "sliding", "padding",
                   "unpack_data", "unpack_size")
 

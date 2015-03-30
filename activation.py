@@ -17,6 +17,8 @@ from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
 class Activation(AcceleratedUnit):
+    hide_from_registry = True
+
     def init_unpickled(self):
         super(Activation, self).init_unpickled()
         self.sources_["activation"] = {}

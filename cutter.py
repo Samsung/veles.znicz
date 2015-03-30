@@ -20,6 +20,8 @@ from veles.units import Unit
 
 
 class CutterBase(Unit):
+    hide_from_registry = True
+
     def __init__(self, workflow, padding, *args, **kwargs):
         super(CutterBase, self).__init__(workflow, *args, **kwargs)
         self.padding = padding

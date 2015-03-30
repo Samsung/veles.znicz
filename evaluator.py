@@ -37,6 +37,7 @@ class EvaluatorsRegistry(UnitCommandLineArgumentsRegistry,
 
 @six.add_metaclass(EvaluatorsRegistry)
 class EvaluatorBase(AcceleratedUnit):
+    hide_from_registry = True
     """Base class for evaluators.
     """
     def __init__(self, workflow, **kwargs):

@@ -85,6 +85,7 @@ class MatchingObject(UnitCommandLineArgumentsRegistry):
 class ForwardBase(AcceleratedUnit):
     """Base class for forward propagation units.
     """
+    hide_from_registry = True
     MAPPING = set()
 
 
@@ -101,7 +102,7 @@ class Forward(ForwardBase):
         bias_stddev: magnitude of the random distribution for bias.
         rand: prng.Rand() object for initial weights generation.
     """
-    hide = True
+    hide_from_registry = True
     MAPPING = set()
 
     def __init__(self, workflow, **kwargs):
@@ -204,6 +205,8 @@ class NNLayerBase(Forward):
 
 
 class GradientDescentWithActivation(AcceleratedUnit):
+    hide_from_registry = True
+
     def __init__(self, workflow, **kwargs):
         super(GradientDescentWithActivation, self).__init__(workflow, **kwargs)
         self.krn_err_output_name = None
@@ -265,7 +268,7 @@ class GradientDescentBase(AcceleratedUnit):
         ocl_set_const_args: True when constant arguments for the kernel
                             had been changed and need to be set again.
     """
-    hide = True
+    hide_from_registry = True
     MAPPING = set()
 
     OP_NONE = 0

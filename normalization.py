@@ -18,6 +18,7 @@ from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
 
 
 class LocalResponseNormalizer(AcceleratedUnit):
+    hide_from_registry = True
     """
     A base class for forward and backward units of local
     response normalization.

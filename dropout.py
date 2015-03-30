@@ -20,6 +20,7 @@ from veles.znicz.nn_units import Forward, GradientDescentBase
 
 
 class Dropout(AcceleratedUnit, TriviallyDistributable):
+    hide_from_registry = True
     """
     A base class for forward and backward units of local
     response normalization.

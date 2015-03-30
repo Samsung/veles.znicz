@@ -39,6 +39,7 @@ from veles.units import Unit
 
 class PoolingBase(Unit):
     POOL_ATTRS = ("kx", "ky", "sliding")
+    hide_from_registry = True
 
     def __init__(self, workflow, **kwargs):
         super(PoolingBase, self).__init__(workflow, **kwargs)
@@ -238,6 +239,7 @@ class OffsetPooling(Pooling):
     """
 
     MAPPING = set()
+    hide_from_registry = True
 
     def __init__(self, workflow, **kwargs):
         super(OffsetPooling, self).__init__(workflow, **kwargs)
@@ -289,6 +291,7 @@ class MaxPoolingBase(OffsetPooling):
     """MaxPooling forward propagation base class.
     """
     MAPPING = set()
+    hide_from_registry = True
 
     def init_unpickled(self):
         super(MaxPoolingBase, self).init_unpickled()
@@ -345,6 +348,7 @@ class StochasticPoolingBase(OffsetPooling):
         uniform: instance of veles.prng.Uniform.
     """
     MAPPING = set()
+    hide_from_registry = True
 
     def __init__(self, workflow, **kwargs):
         super(StochasticPoolingBase, self).__init__(workflow, **kwargs)

@@ -83,6 +83,7 @@ class IDecision(Interface):
 @six.add_metaclass(DecisionsRegistry)
 @implementer(IUnit, IDistributable)
 class DecisionBase(Unit):
+    hide_from_registry = True
     """
     Base class for epoch decision units. Keeps track of learning epochs,
     that is, dataset passes.
