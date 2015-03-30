@@ -179,7 +179,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
 
-        self.loader.gate_block = self.decision.complete
+        self.repeater.gate_block = self.decision.complete
 
         # MSE plotter
         self.plt = []
