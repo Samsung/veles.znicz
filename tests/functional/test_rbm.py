@@ -17,7 +17,7 @@ from veles.znicz.decision import TrivialDecision
 import veles.loader as loader
 import veles.prng as prng
 import veles.znicz.nn_units as nn_units
-import veles.znicz.rbm_units as RBM_units
+import veles.znicz.rbm_units as rbm_units
 from veles.znicz.tests.functional import StandardTest
 
 
@@ -88,7 +88,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.loader.link_from(self.repeater)
 
         # FORWARD UNIT
-        b1 = RBM_units.Binarization(self)
+        b1 = rbm_units.Binarization(self)
         del self.forwards[:]
         self.forwards.append(b1)
         self.forwards[0].link_from(self.loader)
@@ -96,14 +96,14 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
             self.loader, ("input", "minibatch_data"),
                          ("batch_size", "minibatch_size"))
         # EVALUATOR
-        a2a = RBM_units.All2AllSigmoid(
+        a2a = rbm_units.All2AllSigmoid(
             self,
             output_sample_shape=root.mnist_rbm.all2all.output_sample_shape,
             weights_stddev=root.mnist_rbm.all2all.weights_stddev)
         self.forwards.append(a2a)
         self.forwards[1].link_from(self.forwards[0])
         self.forwards[1].link_attrs(self.forwards[0], ("input", "output"))
-        self.evaluator = RBM_units.EvaluatorRBM(self, bias_shape=196)
+        self.evaluator = rbm_units.EvaluatorRBM(self, bias_shape=196)
         self.evaluator.link_from(self.forwards[1])
         self.evaluator.link_attrs(self.forwards[1], "weights")
         self.evaluator.link_attrs(self.forwards[1], ("input", "output"))
@@ -123,11 +123,12 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         # INTERPRETER PYTHON
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)
-        self.ipython.gate_skip = ~self.decision.epoch_ended
+        self.ipython.gate_skip = \
+            ~self.decision.epoch_ended | self.decision.complete
 
         # GRADIENT
         del self.gds[:]
-        gd_unit = RBM_units.GradientRBM(self, stddev=0.05, v_size=196,
+        gd_unit = rbm_units.GradientRBM(self, stddev=0.05, v_size=196,
                                         h_size=1000, cd_k=1)
         self.gds.append(gd_unit)
         gd_unit.link_from(self.ipython)
@@ -135,22 +136,22 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
                            ("hbias", "bias"), "weights")
         gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
         gd_unit.link_attrs(self.evaluator, "vbias")
-        gd_unit = RBM_units.BatchWeights(self)
-        gd_unit.name = "111111"
+        gd_unit = rbm_units.BatchWeights(self)
+        gd_unit.name = "BatchWeights #1"
         self.gds.append(gd_unit)
         gd_unit.link_from(self.gds[0])
         gd_unit.link_attrs(self.forwards[0], ("v", "output"))
         gd_unit.link_attrs(self.forwards[1], ("h", "output"))
         # Question minibatsh_size is current size of batch
         gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        gd_unit = RBM_units.BatchWeights2(self)
-        gd_unit.name = "222222"
+        gd_unit = rbm_units.BatchWeights2(self)
+        gd_unit.name = "BatchWeights #2"
         self.gds.append(gd_unit)
         gd_unit.link_from(self.gds[1])
         gd_unit.link_attrs(self.gds[0], ("v", "v1"), ("h", "h1"))
         # Question minibatsh_size is current size of batch
         gd_unit.link_attrs(self.loader, ("batch_size", "minibatch_size"))
-        gd_unit = RBM_units.GradientsCalculator(self)
+        gd_unit = rbm_units.GradientsCalculator(self)
         self.gds.append(gd_unit)
         gd_unit.link_from(self.gds[2])
         gd_unit.link_attrs(self.gds[1], ("hbias0", "hbias_batch"),
@@ -159,7 +160,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         gd_unit.link_attrs(self.gds[2], ("hbias1", "hbias_batch"),
                            ("vbias1", "vbias_batch"),
                            ("weights1", "weights_batch"))
-        gd_unit = RBM_units.WeightsUpdater(self, learning_rate=0.001)
+        gd_unit = rbm_units.WeightsUpdater(self, learning_rate=0.001)
         self.gds.append(gd_unit)
         gd_unit.link_from(self.gds[3])
         gd_unit.link_attrs(self.gds[3], "hbias_grad", "vbias_grad",
@@ -171,7 +172,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.end_point.link_from(gd_unit)
         self.end_point.gate_block = ~self.decision.complete
 
-        self.loader.gate_block = self.decision.complete
+        self.repeater.gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device, snapshot=False,
                    **kwargs):
@@ -203,6 +204,7 @@ class TestRBMworkflow(StandardTest):
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
         workflow = MnistRBMWorkflow(self.parent)
+        workflow.generate_graph("rbm.png", background="white")
         workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)
         workflow.forwards[1].weights.map_write()

@@ -462,6 +462,7 @@ class GradientRBM(Workflow):
 
     def run(self):
         self.decision.reset()
+        self.stopped = False
         super(GradientRBM, self).run()
 
 
@@ -508,3 +509,7 @@ class EvaluatorRBM(Workflow):
     @property
     def output(self):
         return self.vbias
+
+    def run(self):
+        self.stopped = False
+        super(EvaluatorRBM, self).run()
