@@ -239,6 +239,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
                                    ("err_output", "err_input"))
             self.gds[i].gate_skip = self.decision.gd_skip
         self.repeater.link_from(self.gds[0])
+        self.repeater.gate_block = self.decision.complete
 
         self.end_point.link_from(self.gds[0])
         self.end_point.gate_block = ~self.decision.complete
@@ -258,6 +259,7 @@ class Mnist784Workflow(nn_units.NNWorkflow):
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
                                        else Bool(False))
         self.plt[0].clear_plot = True
+        self.plt[0].gate_block = self.decision.complete
 
         # Weights plotter
         self.plt_mx = nn_plotting_units.Weights2D(
@@ -267,7 +269,8 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_attrs(self.forwards[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = ~self.decision.epoch_ended
+        self.plt_mx.gate_block = \
+            ~self.decision.epoch_ended | self.decision.complete
 
         # Image plotter
         self.plt_img = plotting_units.ImagePlotter(self, name="output sample")
@@ -277,11 +280,12 @@ class Mnist784Workflow(nn_units.NNWorkflow):
         self.plt_img.input_fields.append(0)
         self.plt_img.link_from(self.decision)
         self.plt_img.gate_skip = ~self.decision.epoch_ended
+        self.plt_img.gate_block = self.decision.complete
 
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
-        for i in range(0, 3):
+        for i in range(3):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt_max[-1].link_attrs(self.decision,
