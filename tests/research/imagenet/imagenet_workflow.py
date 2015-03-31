@@ -268,11 +268,16 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_loop(self.link_gds(self.snapshotter))
 
         # Add learning_rate_adjust unit
+
+        kwargs_lr = {"lr_policy_name": "step_exp",
+                     "bias_lr_policy_name": "step_exp",
+                     "lr_parameters": {
+                         "base_lr": 0.01, "gamma": 0.1, "step": 100000},
+                     "bias_lr_parameters": {
+                         "base_lr": 0.02, "gamma": 0.1, "step": 100000}}
+
+        lr_adjuster = lr_adjust.LearningRateAdjust(self, **kwargs_lr)
         for gd_elm in self.gds:
-            lr_adjuster = lr_adjust.LearningRateAdjust(
-                self,
-                lr_policy=lr_adjust.StepExpPolicy(0.01, 0.1, 100000),
-                bias_lr_function=lr_adjust.StepExpPolicy(0.02, 0.1, 100000))
             lr_adjuster.add_one_gd_unit(gd_elm)
 
         lr_adjuster.link_from(self.gds[0])

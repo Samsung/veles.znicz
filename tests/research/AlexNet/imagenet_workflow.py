@@ -31,17 +31,19 @@ class ImagenetWorkflow(StandardWorkflow):
         self.link_forwards(("input", "minibatch_data"), avatar)
         self.link_evaluator(self.forwards[-1])
         self.link_decision(self.evaluator)
-        end_units = [self.link_snapshotter(self.decision)]
+        parallel_units = [self.link_snapshotter(self.decision)]
         if root.imagenet.add_plotters:
-            end_units.extend(link(self.decision) for link in (
-                self.link_error_plotter, self.link_conf_matrix_plotter,
+            parallel_units.extend(link(self.decision) for link in (
+                self.link_error_plotter,
                 self.link_err_y_plotter))
-            end_units.append(self.link_weights_plotter(
+            parallel_units.append(self.link_weights_plotter(
                 root.imagenet.weights_plotter.limit,
                 "weights", self.decision))
 
-        self.link_loop(self.link_gds(*end_units))
-        self.link_end_point(*end_units)
+        last_gd = self.link_gds(*parallel_units)
+        self.link_lr_adjuster(last_gd)
+        self.link_loop(self.lr_adjuster)
+        self.link_end_point(self.lr_adjuster)
 
 
 def run(load, main):

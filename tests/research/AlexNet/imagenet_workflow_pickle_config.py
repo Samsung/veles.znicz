@@ -21,6 +21,13 @@ root.imagenet.series = "img"
 root.imagenet.root_path = os.path.join(
     root.common.test_dataset_root, "AlexNet", "%s" % root.imagenet.root_name)
 
+root.imagenet.lr_adjuster.lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+root.imagenet.lr_adjuster.bias_lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+
 root.imagenet.loader.update({
     "sx": 256,
     "sy": 256,
@@ -60,6 +67,8 @@ root.imagenet.update({
     "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
     "add_plotters": True,
     "loss_function": "softmax",
+    "lr_adjuster": {"lr_policy_name": "arbitrary_step",
+                    "bias_lr_policy_name": "arbitrary_step"},
     "loader_name": "imagenet_pickle_loader",
     "weights_plotter": {"limit": 64},
     "layers": [{"type": "conv_str",

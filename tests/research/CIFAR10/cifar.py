@@ -74,7 +74,7 @@ class CifarWorkflow(StandardWorkflow):
         else:
             last = self.link_gds(*end_units)
 
-        if root.cifar.learning_rate_adjust.do:
+        if root.cifar.lr_adjuster.do:
             last = self.link_lr_adjuster(last)
         self.repeater.link_from(last)
 
@@ -90,5 +90,6 @@ def run(load, main):
          similar_weights_plotter_config=root.cifar.similar_weights_plotter,
          layers=root.cifar.layers,
          loader_name=root.cifar.loader_name,
-         loss_function=root.cifar.loss_function)
+         loss_function=root.cifar.loss_function,
+         lr_adjuster_config=root.cifar.lr_adjuster)
     main()

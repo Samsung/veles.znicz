@@ -52,7 +52,7 @@ from veles.znicz.all2all import All2AllSoftmax
 WorkflowConfig = namedtuple(
     "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
                        "evaluator", "data_saver", "result_loader",
-                       "similar_weights_plotter"))
+                       "similar_weights_plotter", "lr_adjuster"))
 
 
 class TypeDict(UserDict):
@@ -227,7 +227,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             result_loader=kwargs.get("result_loader_config"),
             image_saver=kwargs.pop("image_saver_config", {}),
             similar_weights_plotter=kwargs.pop(
-                "similar_weights_plotter_config", {}))
+                "similar_weights_plotter_config", {}),
+            lr_adjuster=kwargs.pop("lr_adjuster_config", {}))
 
     @property
     def loss_function(self):
@@ -799,19 +800,10 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
         """
         self._check_gds()
-        self.lr_adjuster = lr_adjust.LearningRateAdjust(self)
+        kwargs = self.get_kwargs_for_config(self.config.lr_adjuster)
+        self.lr_adjuster = lr_adjust.LearningRateAdjust(self, **kwargs)
         for gd_elm in self.gds:
-            self.lr_adjuster.add_gd_unit(
-                gd_elm,
-                lr_policy=lr_adjust.ArbitraryStepPolicy(
-                    [(gd_elm.learning_rate, 60000),
-                     (gd_elm.learning_rate / 10., 5000),
-                     (gd_elm.learning_rate / 100., 100000000)]),
-                bias_lr_policy=lr_adjust.ArbitraryStepPolicy(
-                    [(gd_elm.learning_rate_bias, 60000),
-                     (gd_elm.learning_rate_bias / 10., 5000),
-                     (gd_elm.learning_rate_bias / 100., 100000000)])
-            )
+            self.lr_adjuster.add_gd_unit(gd_elm)
         self.lr_adjuster.link_from(*parents)
         return self.lr_adjuster
 

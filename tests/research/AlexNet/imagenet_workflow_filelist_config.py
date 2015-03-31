@@ -24,6 +24,13 @@ valid_path = os.path.join(
     root.common.test_dataset_root, "AlexNet/imagenet",
     "%s" % "images_imagenet_imagenet_img_val.json")
 
+root.imagenet.lr_adjuster.lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+root.imagenet.lr_adjuster.bias_lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+
 root.imagenet.loader.update({
     "minibatch_size": 256, "scale": (256, 256),
     "scale_maintain_aspect_ratio": False,
@@ -40,6 +47,8 @@ root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000},
     "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
+    "lr_adjuster": {"lr_policy_name": "arbitrary_step",
+                    "bias_lr_policy_name": "arbitrary_step"},
     "add_plotters": True,
     "loss_function": "softmax",
     "loader_name": "file_list_image",

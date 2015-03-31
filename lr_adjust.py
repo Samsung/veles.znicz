@@ -10,12 +10,20 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from __future__ import division
 
 from math import floor
+import six
 from scipy.interpolate import interp1d
 from zope.interface import implementer, Interface
 
 from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
 from veles.distributable import IDistributable
+from veles.unit_registry import MappedUnitRegistry
+from veles.verified import Verified
+
+
+class LRAdjustPolicyRegistry(MappedUnitRegistry):
+    mapping = "lradjustpolicy"
+    base = object
 
 
 @implementer(IUnit, IDistributable)
@@ -28,8 +36,13 @@ class LearningRateAdjust(Unit):
         super(LearningRateAdjust, self).__init__(workflow, **kwargs)
         self._gd_units = []
         self._minibatches_count = 0
+        self.lr_policy_name = kwargs.get("lr_policy_name", None)
+        self.bias_lr_policy_name = kwargs.get("bias_lr_policy_name", None)
+        self.lr_parameters = kwargs.get("lr_parameters", {})
+        self.bias_lr_parameters = kwargs.get("bias_lr_parameters", {})
+        self.notified = False
 
-    def add_gd_unit(self, gd_unit, lr_policy, bias_lr_policy):
+    def add_gd_unit(self, gd_unit):
         """
         Gradient unit should have learning_rate property.
 
@@ -45,7 +58,19 @@ class LearningRateAdjust(Unit):
         """
         assert isinstance(gd_unit, GradientDescentBase)
         self.gate_skip = gd_unit.gate_skip
-        self._gd_units.append((gd_unit, lr_policy, bias_lr_policy))
+        self._gd_units.append(gd_unit)
+
+    def adjust_learning_rate(
+            self, lr_to_adjust, lr_policy_name, lr_parameters):
+
+        if lr_policy_name is not None:
+            lr = float(LRAdjustPolicyRegistry.lradjustpolicy[
+                lr_policy_name](lr_to_adjust, **lr_parameters)(
+                self._minibatches_count))
+            if lr_to_adjust != lr:
+                if not self.notified:
+                    self.notified = True
+                lr_to_adjust = lr
 
     def initialize(self, **kwargs):
         pass
@@ -58,21 +83,14 @@ class LearningRateAdjust(Unit):
         if self.is_slave:
             return
 
-        notified = False
+        self.notified = False
 
-        for gd_unit, lr_func, bias_lr_func in self._gd_units:
-            if lr_func is not None:
-                lr = float(lr_func(self._minibatches_count))
-                if gd_unit.learning_rate != lr:
-                    if not notified:
-                        notified = True
-                    gd_unit.learning_rate = lr
-            if bias_lr_func is not None:
-                lr = float(bias_lr_func(self._minibatches_count))
-                if gd_unit.learning_rate_bias != lr:
-                    if not notified:
-                        notified = True
-                    gd_unit.learning_rate_bias = lr
+        for gd_unit in self._gd_units:
+            self.adjust_learning_rate(
+                gd_unit.learning_rate, self.lr_policy_name, self.lr_parameters)
+            self.adjust_learning_rate(
+                gd_unit.learning_rate_bias, self.bias_lr_policy_name,
+                self.bias_lr_parameters)
 
         self._minibatches_count += 1
 
@@ -111,47 +129,58 @@ class ILRPolicy(Interface):
         """
 
 
+@six.add_metaclass(LRAdjustPolicyRegistry)
+class PolicyBase(Verified):
+    pass
+
+
 @implementer(ILRPolicy)
-class ExpPolicy(object):
+class ExpPolicy(PolicyBase):
+    MAPPING = "exp"
     """
     Exponentially decreasing learning rate:
 
     :math:`LR = LR_{base} \\gamma^{a\\,iter}`
     """
-    def __init__(self, base_lr, gamma, a_ratio):
-        self.base_lr = base_lr
-        self.gamma = gamma
-        self.a_ratio = a_ratio
+    def __init__(self, lr_to_adjust, **kwargs):
+        super(ExpPolicy, self).__init__(**kwargs)
+        self.base_lr = kwargs.get("base_lr", lr_to_adjust)
+        self.gamma = kwargs["gamma"]
+        self.a_ratio = kwargs["a_ratio"]
 
     def __call__(self, itr):
         return self.base_lr * (self.gamma ** (self.a_ratio * itr))
 
 
 @implementer(ILRPolicy)
-class FixedAjustPolicy(object):
+class FixedAjustPolicy(PolicyBase):
+    MAPPING = "fixed"
     """
     Fixed learning rate:
 
     :math:`LR = LR_{base}`
     """
-    def __init__(self, base_lr):
-        self.base_lr = base_lr
+    def __init__(self, lr_to_adjust, **kwargs):
+        super(FixedAjustPolicy, self).__init__(**kwargs)
+        self.base_lr = kwargs.get("base_lr", lr_to_adjust)
 
     def __call__(self, itr):
         return self.base_lr
 
 
 @implementer(ILRPolicy)
-class StepExpPolicy(object):
+class StepExpPolicy(PolicyBase):
+    MAPPING = "step_exp"
     """
-    Step exponential decrease of LR:
+    Step exponential decrease of learning_rate:
 
     :math:`LR = LR_{base} \\gamma^{floor(\\frac{iter}{step})}`
     """
-    def __init__(self, base_lr, gamma, step):
-        self.base_lr = base_lr
-        self.gamma = gamma
-        self.step = step
+    def __init__(self, lr_to_adjust, **kwargs):
+        super(StepExpPolicy, self).__init__(**kwargs)
+        self.base_lr = kwargs.get("base_lr", lr_to_adjust)
+        self.gamma = kwargs["gamma"]
+        self.step = kwargs["step"]
 
     def __call__(self, itr):
         return self.base_lr * (
@@ -159,51 +188,58 @@ class StepExpPolicy(object):
 
 
 @implementer(ILRPolicy)
-class InvAdjustPolicy(object):
+class InvAdjustPolicy(PolicyBase):
+    MAPPING = "inv"
     """
     :math:`LR = LR_{base} \\dot (1 + \\gamma \\, iter) ^ {-pow}`
     """
-    def __init__(self, base_lr, gamma, pow_ratio):
-        self.base_lr = base_lr
-        self.gamma = gamma
-        self.pow_ratio = pow_ratio
+    def __init__(self, lr_to_adjust, **kwargs):
+        super(InvAdjustPolicy, self).__init__(**kwargs)
+        self.base_lr = kwargs.get("base_lr", lr_to_adjust)
+        self.gamma = kwargs["gamma"]
+        self.pow_ratio = kwargs["pow_ratio"]
 
     def __call__(self, itr):
         return self.base_lr * (1.0 + self.gamma * itr) ** (-self.pow_ratio)
 
 
 @implementer(ILRPolicy)
-class ArbitraryStepPolicy(object):
+class ArbitraryStepPolicy(PolicyBase):
+    MAPPING = "arbitrary_step"
     """
-    Creates arbitrary step function: LR1 for N iters, LR2 for next M iters, etc
+    Creates arbitrary step function.
 
-    For example: ArbitraryStepPolicy([(0.5, 5), (0.3, 3), (0.1, 1)])
-
+    Arguments:
+        base_lr: learning_rate to adjust (from kwargs or current learning_rate)
+        lrs_with_lengths: list with tuples. First argument of tuple -\
+        coefficition for leraning_rate, Second argument of tuple: number of\
+        iterations with that learning_rate.\
+        lrs_with_lengths = [(coeff1, N), (coeff2, M)]\
+        lr = lr_to_adjust * coeff1 for N iterations\
+        lr = lr_to_adjust * coeff2 for M iterations
     """
-    def __init__(self, lrs_with_lengths):
-        """
-        Args:
-        lrs_with_weights(list): a list of `(length, lr)` tuples that describes
-            which learning rate should be set for each number of iterations,
-            one by one.
-        """
+    def __init__(self, lr_to_adjust, **kwargs):
+        super(ArbitraryStepPolicy, self).__init__(**kwargs)
+
+        base_lr = kwargs.get("base_lr", lr_to_adjust)
+        lrs_with_lengths = kwargs["lrs_with_lengths"]
         assert lrs_with_lengths is not None
         self.x_array = []
         self.y_array = []
 
         self.x_array.append(-1)
-        self.y_array.append(lrs_with_lengths[0][0])
+        self.y_array.append(base_lr * lrs_with_lengths[0][0])
 
         cur_iter = 0
 
-        for lr, length in lrs_with_lengths:
-            assert lr >= 0
+        for coeff, length in lrs_with_lengths:
+            assert coeff*base_lr >= 0
             assert length > 0
             self.x_array.append(cur_iter)
-            self.y_array.append(lr)
+            self.y_array.append(coeff*base_lr)
             if length > 1:
                 self.x_array.append(cur_iter + length - 1)
-                self.y_array.append(lr)
+                self.y_array.append(coeff*base_lr)
             cur_iter += length
 
         self.out_function = interp1d(

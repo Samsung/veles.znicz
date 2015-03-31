@@ -18,11 +18,20 @@ root.common.engine.backend = "cuda"
 root.common.precision_type = "float"
 root.common.precision_level = 0
 
+root.imagenet.lr_adjuster.lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+root.imagenet.lr_adjuster.bias_lr_parameters = {
+    "lrs_with_lengths":
+    [(1, 100000), (0.1, 100000), (0.1, 100000), (0.01, 100000000)]}
+
 root.imagenet.update({
     "decision": {"fail_iterations": 10000,
                  "max_epochs": 10000000},
     "snapshotter": {"prefix": "imagenet", "interval": 1, "time_interval": 0},
     "add_plotters": True,
+    "lr_adjuster": {"lr_policy_name": "arbitrary_step",
+                    "bias_lr_policy_name": "arbitrary_step"},
     "loss_function": "softmax",
     "loader_name": "lmdb",
     "loader": {"minibatch_size": 256,

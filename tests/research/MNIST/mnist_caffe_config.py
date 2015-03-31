@@ -12,12 +12,16 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 from veles.config import root
 
 
-# optional parameters
+root.mnistr.lr_adjuster.lr_parameters = {
+    "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
+root.mnistr.lr_adjuster.bias_lr_parameters = {
+    "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
 
 root.mnistr.update({
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
-    "learning_rate_adjust": {"do": True},
+    "lr_adjuster": {"do": True, "lr_policy_name": "inv",
+                    "bias_lr_policy_name": "inv"},
     "decision": {"fail_iterations": 100, "max_epochs": 10000},
     "snapshotter": {"prefix": "mnist_caffe",
                     "time_interval": 0, "compress": ""},
