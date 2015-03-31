@@ -99,6 +99,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
                                     ("suffix", "snapshot_suffix"))
         self.snapshotter.gate_skip = \
             (~self.decision.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_block = self.decision.complete
 
         # Add gradient descent units
         del self.gds[:]
