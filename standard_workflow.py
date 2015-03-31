@@ -39,7 +39,7 @@ from veles.znicz.decision import DecisionsRegistry
 import veles.znicz.diversity as diversity
 from veles.znicz.evaluator import EvaluatorsRegistry
 import veles.znicz.image_saver as image_saver
-from veles.loader.base import UserLoaderRegistry, CLASS_NAME, LoaderMSEMixin
+from veles.loader.base import UserLoaderRegistry, LoaderMSEMixin
 from veles.loader.image import ImageLoader
 from veles.loader.saver import MinibatchesSaver
 import veles.znicz.lr_adjust as lr_adjust
@@ -866,8 +866,7 @@ class StandardWorkflow(StandardWorkflowBase):
         styles = ["r-", "b-", "k-"]
         for i in 1, 2:
             plotter = plotting_units.AccumulatingPlotter(
-                self, name="Number of errors (%s)" % CLASS_NAME[i],
-                plot_style=styles[i]) \
+                self, name="Number of errors", plot_style=styles[i]) \
                 .link_attrs(self.decision, ("input", "epoch_n_err_pt")) \
                 .link_from(*prev)
             plotter.input_field = i
