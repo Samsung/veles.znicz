@@ -121,8 +121,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         # INTERPRETER PYTHON
         self.ipython = Shell(self)
         self.ipython.link_from(self.decision)
-        self.ipython.gate_skip = \
-            ~self.decision.epoch_ended | self.decision.complete
+        self.ipython.gate_skip = ~self.decision.epoch_ended
 
         # GRADIENT
         del self.gds[:]
