@@ -19,7 +19,7 @@ class TestMnistRelu(StandardTest):
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
-            "learning_rate_adjust": {"do": False},
+            "lr_adjuster": {"do": False},
             "all2all": {"weights_stddev": 0.05},
             "decision": {"fail_iterations": (0)},
             "snapshotter": {"prefix": "mnist_relu_test"},

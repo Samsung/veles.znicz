@@ -24,7 +24,7 @@ class TestCifarAll2All(StandardTest):
         root.cifar.update({
             "decision": {"fail_iterations": 1000, "max_epochs": 2},
             "loader_name": "cifar_loader",
-            "learning_rate_adjust": {"do": False},
+            "lr_adjuster": {"do": False},
             "loss_function": "softmax",
             "add_plotters": False,
             "image_saver": {"do": False,

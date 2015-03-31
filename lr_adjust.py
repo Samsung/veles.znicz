@@ -70,7 +70,9 @@ class LearningRateAdjust(Unit):
             if lr_to_adjust != lr:
                 if not self.notified:
                     self.notified = True
-                lr_to_adjust = lr
+            return lr
+        else:
+            return None
 
     def initialize(self, **kwargs):
         pass
@@ -86,11 +88,15 @@ class LearningRateAdjust(Unit):
         self.notified = False
 
         for gd_unit in self._gd_units:
-            self.adjust_learning_rate(
+            lr = self.adjust_learning_rate(
                 gd_unit.learning_rate, self.lr_policy_name, self.lr_parameters)
-            self.adjust_learning_rate(
+            if lr is not None:
+                gd_unit.learning_rate = lr
+            lr_bias = self.adjust_learning_rate(
                 gd_unit.learning_rate_bias, self.bias_lr_policy_name,
                 self.bias_lr_parameters)
+            if lr_bias is not None:
+                gd_unit.learning_rate_bias = lr_bias
 
         self._minibatches_count += 1
 

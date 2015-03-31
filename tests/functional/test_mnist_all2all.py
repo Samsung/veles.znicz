@@ -20,7 +20,7 @@ class TestMnistAll2All(StandardTest):
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
-            "learning_rate_adjust": {"do": False},
+            "lr_adjuster": {"do": False},
             "decision": {"fail_iterations": 100,
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist_all2all_test", "interval": 3},

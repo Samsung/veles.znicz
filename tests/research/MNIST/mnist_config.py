@@ -14,7 +14,7 @@ from veles.genetics import Tune
 
 
 root.mnistr.update({
-    "learning_rate_adjust": {"do": False},
+    "lr_adjuster": {"do": False},
     "decision": {"fail_iterations": 50,
                  "max_epochs": 1000000000},
     "loss_function": "softmax",

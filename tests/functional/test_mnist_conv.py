@@ -15,14 +15,20 @@ import veles.znicz.tests.research.MNIST.mnist as mnist_conv
 class TestMnistConv(StandardTest):
     @classmethod
     def setUpClass(cls):
+        root.mnistr.lr_adjuster.lr_parameters = {
+            "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
+        root.mnistr.lr_adjuster.bias_lr_parameters = {
+            "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
+
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
-            "learning_rate_adjust": {"do": True},
+            "lr_adjuster": {"do": True, "lr_policy_name": "inv",
+                            "bias_lr_policy_name": "inv"},
             "decision": {"max_epochs": 2,
                          "fail_iterations": 100},
             "snapshotter": {"prefix": "test_mnist_conv", "time_interval": 0,
-                            "interval": 2 + 1},
+                            "interval": 2},
             "weights_plotter": {"limit": 64},
             "loader": {"minibatch_size": 6, "force_cpu": False,
                        "normalization_type": "linear"},
@@ -100,7 +106,8 @@ class TestMnistConv(StandardTest):
             loader_name=root.mnistr.loader_name,
             loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
-            loss_function=root.mnistr.loss_function)
+            loss_function=root.mnistr.loss_function,
+            lr_adjuster_config=root.mnistr.lr_adjuster)
         self.assertEqual(workflow.evaluator.labels,
                          workflow.loader.minibatch_labels)
         workflow.initialize(device=self.device, snapshot=False)

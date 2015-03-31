@@ -23,10 +23,16 @@ class TestCifarCaffe(StandardTest):
         validation_dir = os.path.join(
             root.common.test_dataset_root, "cifar/10/test_batch")
 
+        root.cifar.lr_adjuster.lr_parameters = {
+            "lrs_with_lengths": [(1, 60000), (0.1, 5000), (0.01, 100000000)]}
+        root.cifar.lr_adjuster.bias_lr_parameters = {
+            "lrs_with_lengths": [(1, 60000), (0.1, 5000), (0.01, 100000000)]}
+
         root.cifar.update({
             "loader_name": "cifar_loader",
             "decision": {"fail_iterations": 250, "max_epochs": 1},
-            "learning_rate_adjust": {"do": True},
+            "lr_adjuster": {"do": True, "lr_policy_name": "arbitrary_step",
+                            "bias_lr_policy_name": "arbitrary_step"},
             "snapshotter": {"prefix": "cifar_caffe", "interval": 2,
                             "time_interval": 0},
             "loss_function": "softmax",
@@ -141,7 +147,8 @@ class TestCifarCaffe(StandardTest):
             loader_name=root.cifar.loader_name,
             loader_config=root.cifar.loader,
             layers=root.cifar.layers,
-            loss_function=root.cifar.loss_function)
+            loss_function=root.cifar.loss_function,
+            lr_adjuster_config=root.cifar.lr_adjuster)
         self.init_wf(workflow, snapshot)
         workflow.run()
         return workflow

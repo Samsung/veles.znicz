@@ -15,10 +15,16 @@ import veles.znicz.tests.research.MNIST.mnist as mnist_caffe
 class TestMnistCaffe(StandardTest):
     @classmethod
     def setUpClass(cls):
+        root.mnistr.lr_adjuster.lr_parameters = {
+            "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
+        root.mnistr.lr_adjuster.bias_lr_parameters = {
+            "base_lr": 0.01, "gamma": 0.0001, "pow_ratio": 0.75}
+
         root.mnistr.update({
             "loss_function": "softmax",
             "loader_name": "mnist_loader",
-            "learning_rate_adjust": {"do": True},
+            "lr_adjuster": {"do": True, "lr_policy_name": "inv",
+                            "bias_lr_policy_name": "inv"},
             "decision": {"fail_iterations": 100},
             "snapshotter": {"prefix": "mnist_caffe_test"},
             "loader": {"minibatch_size": 64, "force_cpu": False,
@@ -85,7 +91,8 @@ class TestMnistCaffe(StandardTest):
             loader_name=root.mnistr.loader_name,
             loader_config=root.mnistr.loader,
             layers=root.mnistr.layers,
-            loss_function=root.mnistr.loss_function)
+            loss_function=root.mnistr.loss_function,
+            lr_adjuster_config=root.mnistr.lr_adjuster)
         workflow.decision.max_epochs = 3
         workflow.snapshotter.time_interval = 0
         workflow.snapshotter.interval = 3
