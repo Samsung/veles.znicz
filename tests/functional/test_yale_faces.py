@@ -28,7 +28,7 @@ class TestYaleFaces(StandardTest):
             "loader_name": "full_batch_auto_label_file_image",
             "loader": {"minibatch_size": 40, "force_cpu": False,
                        "validation_ratio": 0.15,
-                       "filename_types": ["x-portable-graymap"],
+                       "file_subtypes": ["x-portable-graymap"],
                        "ignored_files": [".*Ambient.*"],
                        "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                        "add_sobel": False,

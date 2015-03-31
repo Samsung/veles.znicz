@@ -24,7 +24,7 @@ from veles.znicz.nn_units import NNSnapshotter
 import veles.plotting_units as plotting_units
 
 
-@implementer(loader.IFileImageLoader)
+@implementer(loader.IFileLoader)
 class VideoAELoader(loader.FullBatchAutoLabelFileImageLoader):
     """Loads dataset.
 
@@ -34,7 +34,7 @@ class VideoAELoader(loader.FullBatchAutoLabelFileImageLoader):
     def __init__(self, workflow, **kwargs):
         super(VideoAELoader, self).__init__(
             workflow, label_regexp="(\\d+)\\.\\w+$",
-            filename_types="png", **kwargs)
+            file_subtypes="png", **kwargs)
 
 
 class VideoAEWorkflow(nn_units.NNWorkflow):

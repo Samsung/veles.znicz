@@ -33,7 +33,7 @@ root.kanji.update({
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 50,
                "force_cpu": False,
-               "filename_types": ["png"],
+               "file_subtypes": ["png"],
                "train_paths": [train_path],
                "target_paths": [target_path],
                "color_space": "GRAY",

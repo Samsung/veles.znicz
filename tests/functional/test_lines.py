@@ -39,7 +39,7 @@ class TestLines(StandardTest):
                     root.common.cache_dir, "tmp/train")]},
             "loader": {"minibatch_size": 12, "force_cpu": False,
                        "normalization_type": "mean_disp",
-                       "color_space": "RGB", "filename_types": ["jpeg"],
+                       "color_space": "RGB", "file_subtypes": ["jpeg"],
                        "train_paths": [train], "validation_paths": [valid]},
             "weights_plotter": {"limit": 32},
             "layers": [

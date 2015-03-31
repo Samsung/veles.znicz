@@ -36,7 +36,7 @@ class TestKanji(StandardTest):
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
                        "force_cpu": False,
-                       "filename_types": ["png"],
+                       "file_subtypes": ["png"],
                        "train_paths": [train_path],
                        "target_paths": [target_path],
                        "color_space": "GRAY",

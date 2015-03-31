@@ -37,7 +37,7 @@ class TestChannels(StandardTest):
                        "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                        "normalization_type": "mean_disp",
                        "add_sobel": True,
-                       "filename_types": ["png"],
+                       "file_subtypes": ["png"],
                        "background_image":
                        "/data/veles/VD/video/dataset/black_4ch.png",
                        "mirror": False,

@@ -21,7 +21,7 @@ root.yalefaces.update({
     "snapshotter": {"prefix": "yalefaces", "interval": 1, "time_interval": 0},
     "loader": {"minibatch_size": 40, "force_cpu": False,
                "validation_ratio": 0.15,
-               "filename_types": ["x-portable-graymap"],
+               "file_subtypes": ["x-portable-graymap"],
                "ignored_files": [".*Ambient.*"],
                "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                "add_sobel": False,

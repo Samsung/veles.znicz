@@ -14,12 +14,12 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
-from veles.loader import IFileImageLoader
+from veles.loader.file_loader import IFileLoader
 from veles.loader.fullbatch_image import FullBatchAutoLabelFileImageLoader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
-@implementer(IFileImageLoader)
+@implementer(IFileLoader)
 class HandsLoader(FullBatchAutoLabelFileImageLoader):
     """Loads Hands dataset.
     """
