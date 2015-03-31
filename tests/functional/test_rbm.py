@@ -23,8 +23,7 @@ from veles.znicz.tests.functional import StandardTest
 
 root.mnist_rbm.update({
     "all2all": {"weights_stddev": 0.05, "output_sample_shape": 1000},
-    "decision": {"fail_iterations": 100,
-                 "max_epochs": 100},
+    "decision": {"max_epochs": 2},
     "snapshotter": {"prefix": "mnist_rbm"},
     "loader": {"minibatch_size": 128, "force_cpu": True,
                "data_path":
@@ -113,8 +112,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
 
         # DECISION
         self.decision = TrivialDecision(
-            self, fail_iterations=root.mnist_rbm.decision.fail_iterations,
-            max_epochs=root.mnist_rbm.decision.max_epochs)
+            self, max_epochs=root.mnist_rbm.decision.max_epochs)
         self.decision.link_from(self.evaluator)
         self.decision.link_attrs(
             self.loader, "minibatch_class", "minibatch_size",
@@ -174,7 +172,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
 
         self.repeater.gate_block = self.decision.complete
 
-    def initialize(self, learning_rate, weights_decay, device, snapshot=False,
+    def initialize(self, device, learning_rate, weights_decay, snapshot=False,
                    **kwargs):
         return super(MnistRBMWorkflow, self).initialize(
             learning_rate=learning_rate, weights_decay=weights_decay,
@@ -184,10 +182,6 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
 class TestRBMworkflow(StandardTest):
     """Test RBM workflow for MNIST.
     """
-    @classmethod
-    def setUpClass(cls):
-        root.mnist_rbm.decision.max_epochs = 2
-
     @multi_device()
     def test_rbm(self):
         """This function creates RBM workflow for MNIST task
@@ -196,15 +190,14 @@ class TestRBMworkflow(StandardTest):
         Raises:
             AssertLess: if unit output is wrong.
         """
-        init_weights = scipy.io.loadmat(os.path.join(os.path.dirname(__file__),
-                                                     '..', 'data', 'rbm_data',
-                                                     'R_141014_init.mat'))
+        init_weights = scipy.io.loadmat(os.path.join(
+            os.path.dirname(__file__), '..', 'data', 'rbm_data',
+            'R_141014_init.mat'))
         learned_weights = scipy.io.loadmat(
             os.path.join(os.path.dirname(__file__), '..', 'data', 'rbm_data',
                          'R_141014_learned.mat'))
         self.info("MNIST RBM TEST")
         workflow = MnistRBMWorkflow(self.parent)
-        workflow.generate_graph("rbm.png", background="white")
         workflow.initialize(device=self.device, learning_rate=0,
                             weights_decay=0)
         workflow.forwards[1].weights.map_write()
