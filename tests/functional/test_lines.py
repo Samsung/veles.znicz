@@ -6,6 +6,7 @@ Copyright (c) 2013 Samsung Electronics Co., Ltd.
 """
 
 
+import gc
 import os
 
 from veles.config import root
@@ -102,6 +103,8 @@ class TestLines(StandardTest):
         self.check_write_error_rate(workflow, 54)
 
         file_name = workflow.snapshotter.file_name
+        del workflow
+        gc.collect()
 
         # Test loading from snapshot
         self.info("Will load workflow from %s", file_name)
