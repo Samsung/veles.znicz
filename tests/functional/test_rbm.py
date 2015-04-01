@@ -12,6 +12,7 @@ from zope.interface import implementer
 
 from veles.config import root
 from veles.interaction import Shell
+from veles.plumbing import FireStarter
 from veles.tests import multi_device
 from veles.znicz.decision import TrivialDecision
 import veles.loader as loader
@@ -85,12 +86,14 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
             force_cpu=root.mnist_rbm.loader.force_cpu,
             data_path=root.mnist_rbm.loader.data_path)
         self.loader.link_from(self.repeater)
+        self.fire_starter = FireStarter(self)
+        self.fire_starter.link_from(self.loader)
 
         # FORWARD UNIT
         b1 = rbm_units.Binarization(self)
         del self.forwards[:]
         self.forwards.append(b1)
-        self.forwards[0].link_from(self.loader)
+        self.forwards[0].link_from(self.fire_starter)
         self.forwards[0].link_attrs(
             self.loader, ("input", "minibatch_data"),
                          ("batch_size", "minibatch_size"))
@@ -103,6 +106,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.forwards[1].link_from(self.forwards[0])
         self.forwards[1].link_attrs(self.forwards[0], ("input", "output"))
         self.evaluator = rbm_units.EvaluatorRBM(self, bias_shape=196)
+        self.fire_starter.units.add(self.evaluator)
         self.evaluator.link_from(self.forwards[1])
         self.evaluator.link_attrs(self.forwards[1], "weights")
         self.evaluator.link_attrs(self.forwards[1], ("input", "output"))
@@ -127,6 +131,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         del self.gds[:]
         gd_unit = rbm_units.GradientRBM(self, stddev=0.05, v_size=196,
                                         h_size=1000, cd_k=1)
+        self.fire_starter.units.add(gd_unit)
         self.gds.append(gd_unit)
         gd_unit.link_from(self.ipython)
         gd_unit.link_attrs(self.forwards[1], ("input", "output"),

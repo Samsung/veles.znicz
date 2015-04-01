@@ -13,6 +13,7 @@ import sys
 from zope.interface import implementer
 from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
+from veles.plumbing import FireStarter
 from veles.units import Unit, IUnit
 
 if six.PY3:
@@ -334,15 +335,26 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def link_repeater(self, *parents):
         """
-        Links :class:`veles.workflow.Repeater` descendant from *parents.
+        Links :class:`veles.workflow.Repeater` instance from *parents.
         Returns :class:`veles.workflow.Repeater` instance.
 
         Arguments:
-            parents: units, from whom will be link\
-            :class:`veles.workflow.Repeater` unit
+            parents: units to link this one from.
         """
         self.repeater.link_from(*parents)
         return self.repeater
+
+    def link_fire_starter(self, *parents):
+        """
+        Links :class:`veles.plumbing.FireStarter` instance from *parents.
+        Returns :class:`veles.plumbing.FireStarter` instance.
+
+        Arguments:
+            parents: units to link this one from.
+        """
+        self.fire_starter = FireStarter(self)
+        self.fire_starter.link_from(*parents)
+        return self.fire_starter
 
     def dictify(self, obj):
         return getattr(obj, "__content__", obj)
@@ -358,8 +370,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         Returns :class:`veles.loader.base.Loader` descendant instance.
 
         Arguments:
-            parents: units, from whom will be link\
-            :class:`veles.loader.base.Loader` descendant unit
+            parents: units to link this one from.
         """
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
@@ -379,9 +390,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         Returns :class:`veles.workflow.EndPoint` instance.
 
         Arguments:
-            parents: units, from whom will be link\
-            :class:`veles.workflow.Repeater` and\
-            :class:`veles.workflow.EndPoint` unit
+            parents: units to link this one from.
         """
         self.repeater.link_from(*parents)
         self.end_point.link_from(*parents) \
@@ -646,7 +655,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant unit.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
         """
         kwargs = self.get_kwargs_for_config(self.config.evaluator)
@@ -681,7 +690,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.znicz.decision.DecisionBase` descendant unit
         """
         kwargs = self.get_kwargs_for_config(self.config.decision)
@@ -722,7 +731,7 @@ class StandardWorkflow(StandardWorkflowBase):
         descendant.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.snapshotter.SnapshotterBase` descendant unit
         """
         kwargs = self.get_kwargs_for_config(self.config.snapshotter)
@@ -742,7 +751,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns :class:`veles.workflow.EndPoint` instance.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.workflow.EndPoint` unit
         """
         self.end_point.link_from(*parents)
@@ -761,7 +770,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.znicz.image_saver.ImageSaver`.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.znicz.image_saver.ImageSaver` unit
         """
         self._check_forwards()
@@ -796,7 +805,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.znicz.lr_adjust.LearningRateAdjust`.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
         """
         self._check_gds()
@@ -820,7 +829,7 @@ class StandardWorkflow(StandardWorkflowBase):
         :class:`veles.mean_disp_normalizer.MeanDispNormalizer`.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.mean_disp_normalizer.MeanDispNormalizer` unit
         """
         self.meandispnorm = MeanDispNormalizer(self) \
@@ -836,7 +845,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.interaction.Shell`.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.interaction.Shell` unit
         """
         self.ipython = Shell(self).link_from(*parents) \
@@ -1101,7 +1110,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.plotting_units.TableMaxMin` unit.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.plotting_units.TableMaxMin` unit.
         """
         self._check_forwards()
@@ -1211,7 +1220,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.plotting_units.ImagePlotter` unit.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.plotting_units.ImagePlotter` unit.
         """
         self._check_forwards()
@@ -1238,7 +1247,7 @@ class StandardWorkflow(StandardWorkflowBase):
         unit.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.plotting_units.ImmediatePlotter` unit.
         """
         self._check_forwards()
@@ -1287,7 +1296,7 @@ class StandardWorkflow(StandardWorkflowBase):
         Returns instance of :class:`veles.loader.saver.MinibatchesSaver` unit.
 
         Arguments:
-            parents: units, from whom will be link\
+            parents: units to link this one from.
             :class:`veles.loader.saver.MinibatchesSaver` unit.
         """
         kwargs = self.get_kwargs_for_config(self.config.data_saver)

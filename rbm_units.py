@@ -412,7 +412,6 @@ class GradientRBM(Workflow):
     """
     def __init__(self, workflow, **kwargs):
         super(GradientRBM, self).__init__(workflow, **kwargs)
-        self.run_is_blocking = True
         self.stddev = kwargs["stddev"]
         self.batch_size = -1
         self.mem_cpy = MemCpy(self)
@@ -426,6 +425,7 @@ class GradientRBM(Workflow):
             self, rand=kwargs.get("rand_h", prng.get()))
         self.bino_h.link_attrs(self.mem_cpy, ("input", "output"))
         self.bino_h.link_from(self.decision)
+        self.bino_h.gate_block = self.decision.complete
         self.make_v = All2AllSigmoidV(
             self, weights_stddev=self.stddev, weights_transposed=True,
             output_sample_shape=kwargs["v_size"])
@@ -462,7 +462,6 @@ class GradientRBM(Workflow):
 
     def run(self):
         self.decision.reset()
-        self.stopped = False
         super(GradientRBM, self).run()
 
 
@@ -509,7 +508,3 @@ class EvaluatorRBM(Workflow):
     @property
     def output(self):
         return self.vbias
-
-    def run(self):
-        self.stopped = False
-        super(EvaluatorRBM, self).run()
