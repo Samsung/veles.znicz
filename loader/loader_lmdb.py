@@ -28,11 +28,23 @@ class LMDBLoader(ImageLoader):
         self.original_shape = kwargs.get("db_shape", (256, 256, 3))
         self.db_color_space = kwargs.get("db_colorspace", "RGB")
         self.db_splitted_channels = kwargs.get("db_splitted_channels", True)
+        self.use_cache = kwargs.get("use_cache", True)
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def init_unpickled(self):
         super(LMDBLoader, self).init_unpickled()
         # LMDB base cursors, used as KV-iterators
         self._cursors_ = [None] * 3
+        self._cache_ = None, None
+
+    @property
+    def cache_hits(self):
+        return self._cache_hits
+
+    @property
+    def cache_misses(self):
+        return self._cache_misses
 
     @property
     def files(self):
@@ -61,9 +73,7 @@ class LMDBLoader(ImageLoader):
     def get_image_label(self, key):
         """Retrieves label for the specified key.
         """
-        index, key = key
-        datum = Datum()
-        datum.ParseFromString(self._cursors_[index].get(key))
+        datum = self.get_cached_data(key)
         return datum.label
 
     def get_image_info(self, key):
@@ -72,17 +82,13 @@ class LMDBLoader(ImageLoader):
         Size must be in OpenCV order (first y, then x),
         color space must be supported by OpenCV (COLOR_*).
         """
-        index, key = key
-        datum = Datum()
-        datum.ParseFromString(self._cursors_[index].get(key))
+        datum = self.get_cached_data(key)
         return (datum.height, datum.width), self.db_color_space
 
     def get_image_data(self, key):
         """Return the image data associated with the specified key.
         """
-        index, key = key
-        datum = Datum()
-        datum.ParseFromString(self._cursors_[index].get(key))
+        datum = self.get_cached_data(key)
         img = numpy.fromstring(datum.data, dtype=numpy.uint8)
         osh = self.original_shape
         if not self.db_splitted_channels:
@@ -91,6 +97,25 @@ class LMDBLoader(ImageLoader):
             img = numpy.transpose(
                 img.reshape((osh[-1],) + osh[:-1]), (1, 2, 0))
         return img
+
+    def get_cached_data(self, key):
+        if self.use_cache:
+            if key != self._cache_[0]:
+                datum = self.get_datum(key)
+                self._cache_misses += 1
+            else:
+                datum = self._cache_[1]
+                self._cache_hits += 1
+        else:
+            datum = self.get_datum(key)
+        return datum
+
+    def get_datum(self, key):
+        index, dkey = key
+        datum = Datum()
+        datum.ParseFromString(self._cursors_[index].get(dkey))
+        self._cache_ = key, datum
+        return datum
 
     def get_keys(self, index):
         """
@@ -111,6 +136,12 @@ class LMDBLoader(ImageLoader):
         for index, _ in enumerate(CLASS_NAME):
             self._initialize_cursor(index)
         super(LMDBLoader, self).load_data()
+
+    def stop(self):
+        super(LMDBLoader, self).stop()
+        self.info("Cache hits/misses: %d/%d (%d%%)", self.cache_hits,
+                  self.cache_misses, self.cache_hits * 100 // (
+                      self.cache_hits + self.cache_misses))
 
     def _initialize_cursor(self, index):
         db_path = self._files[index]

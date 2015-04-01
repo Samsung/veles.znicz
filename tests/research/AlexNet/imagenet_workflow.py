@@ -9,7 +9,6 @@ Self-constructing Model. It means that Model can change for any Model
 Copyright (c) 2014 Samsung R&D Institute Russia
 """
 
-
 from veles.config import root
 from veles.znicz.standard_workflow import StandardWorkflow
 
@@ -24,6 +23,7 @@ class ImagenetWorkflow(StandardWorkflow):
     """
     Imagenet Workflow
     """
+
     def create_workflow(self):
         self.link_repeater(self.start_point)
         self.link_loader(self.start_point)
@@ -43,7 +43,7 @@ class ImagenetWorkflow(StandardWorkflow):
         last_gd = self.link_gds(*parallel_units)
         self.link_lr_adjuster(last_gd)
         self.link_loop(self.lr_adjuster)
-        self.link_end_point(self.lr_adjuster)
+        self.link_end_point(*parallel_units)
 
 
 def run(load, main):
