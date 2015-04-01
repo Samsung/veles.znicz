@@ -14,6 +14,10 @@ from veles.config import root
 
 
 root.yalefaces.update({
+    "preprocessing": True,
+    "datasaver": {"file_name":
+                  os.path.join(root.common.cache_dir,
+                               "yale_faces_minibatches.sav")},
     "loader_name": "full_batch_auto_label_file_image",
     "loader": {"minibatch_size": 40, "force_cpu": False,
                "validation_ratio": 0.15,

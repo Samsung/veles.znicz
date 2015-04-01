@@ -216,6 +216,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.layers = kwargs.get("layers", [{}])
         self.loader_name = kwargs["loader_name"]
         self._loader = None
+        self.preprocessing = kwargs.get("preprocessing", False)
         self.loss_function = kwargs.get("loss_function", None)
         self.decision_name = kwargs.pop("decision_name", None)
         self.evaluator_name = kwargs.pop("evaluator_name", None)
@@ -232,6 +233,14 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             lr_adjuster=kwargs.pop("lr_adjuster_config", {}))
 
     @property
+    def preprocessing(self):
+        return self._preprocessing
+
+    @preprocessing.setter
+    def preprocessing(self, value):
+        self._preprocessing = value
+
+    @property
     def loss_function(self):
         return self._loss_function
 
@@ -243,10 +252,11 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
     def set_value(self, value, name, mapping):
         value_error = "%s name or loss function must be defined" % name
-        if value is None and self.loss_function is None:
+        if (value is None and self.loss_function is None and
+                not self.preprocessing):
             raise ValueError(value_error)
         setattr(self, "_%s_name" % name, value)
-        if value is None:
+        if value is None and self.loss_function is not None:
             setattr(self, "_%s_name" % name, mapping[self.loss_function])
 
     @property
