@@ -58,6 +58,7 @@ class GDNumDiff(object):
                     k.map_invalidate()
                     formats.ravel(k.mem)[:] = v.ravel()[:]
                 mem[offs] = mem[offs] + p
+                forward.stopped = False
                 forward.run()
                 vector_output.map_read()
                 numdiff.errs[i] = error_function(vector_output.mem.ravel(),
