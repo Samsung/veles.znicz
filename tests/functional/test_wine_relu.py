@@ -23,7 +23,7 @@ class TestWineRelu(StandardTest):
             "weights_decay": 0.0,
             "layers": [10, 3]})
 
-    @timeout(300)
+    @timeout(500)
     @multi_device()
     def test_wine_relu(self):
         self.info("Will test wine relu workflow")

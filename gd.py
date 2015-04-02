@@ -19,7 +19,6 @@ from __future__ import division
 
 import cuda4py.blas as cublas
 import numpy
-import time
 from zope.interface import implementer
 
 from veles.memory import reshape, roundup, Vector
@@ -480,17 +479,15 @@ class GradientDescent(nn_units.GradientDescentBase):
     def cpu_run(self):
         """Do gradient descent.
         """
-        t1 = time.time()
         self.cpu_err_output_update()
         self.cpu_err_input_update()
         self.cpu_weights_update()
         self.cpu_bias_update()
-        self.print_debug_data(t1)
+        self.print_debug_data()
 
     def ocl_run(self):
         """Do gradient descent.
         """
-        t1 = time.time()
         self.gpu_err_output_update()
         if self.prefer_numpy:
             self.cpu_err_input_update()
@@ -498,17 +495,16 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.gpu_err_input_update()
         self.gpu_weights_update()
         self.gpu_bias_update()
-        self.print_debug_data(t1)
+        self.print_debug_data()
 
     def cuda_run(self):
         """Do gradient descent.
         """
-        t1 = time.time()
         self.gpu_err_output_update()
         self.cuda_err_input_update()
         self.cuda_weights_update()
         self.gpu_bias_update()
-        self.print_debug_data(t1)
+        self.print_debug_data()
 
     def cuda_err_input_update(self):
         if not self.need_err_input:

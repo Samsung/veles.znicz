@@ -563,7 +563,7 @@ class GradientDescentBase(AcceleratedUnit):
         """
         pass
 
-    def print_debug_data(self, t_start):
+    def print_debug_data(self):
         """
         Show weights statistics
         """
@@ -577,14 +577,6 @@ class GradientDescentBase(AcceleratedUnit):
         bias = self.bias.mem
         grad_weights = self.gradient_weights.mem
         grad_bias = self.gradient_bias.mem
-
-        n_input = self.input.mem.size // self.input.mem.shape[0]
-        delta_time = time.time() - t_start
-
-        stats_table = PrettyTable("n_input", "time")
-        stats_table.float_format = ".3"
-        stats_table.add_row(n_input, delta_time)
-        self.debug("\n" + stats_table.get_string())
 
         weight_table = PrettyTable("TYPE", "Mean", "StdDev", "Min", "Max")
         weight_table.float_format = ".10"
