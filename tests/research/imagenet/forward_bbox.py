@@ -1,10 +1,9 @@
 # encoding: utf-8
-'''
+"""
 This script make bounding boxes (bboxes) includes objects of class from
 raw bboxes.
 Created on Jul 15, 2014
-
-'''
+"""
 
 import cv2
 import numpy

@@ -4,16 +4,14 @@
 Created on Jun 26, 2014
 
 Copyright (c) 2013 Samsung Electronics Co., Ltd.
-"""
-'''
+
 This script to work with Imagenet dataset.
 
 .. argparse::
    :module: veles.znicz.tests.research.imagenet.preparation_imagenet
    :func: create_args_parser_sphinx
    :prog: preparation_imagenet
-
-'''
+"""
 
 
 try:

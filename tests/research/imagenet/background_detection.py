@@ -1,7 +1,7 @@
 # encoding: utf-8
-'''
+"""
 A test script for is_background function
-'''
+"""
 
 try:
     import cv2

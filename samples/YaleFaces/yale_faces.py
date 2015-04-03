@@ -1,12 +1,12 @@
 #!/usr/bin/python3 -O
-'''
+"""
 Created on Nov 13, 2014
 
 Model was created for face recognition. Database - Yale Faces.
 Model - fully-connected Neural Network with SoftMax loss function.
 
 Copyright (c) 2014 Samsung Electronics Co., Ltd.
-'''
+"""
 
 from veles.config import root
 from veles.znicz.downloader import Downloader
