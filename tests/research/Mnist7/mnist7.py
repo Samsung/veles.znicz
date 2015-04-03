@@ -92,8 +92,8 @@ class Mnist7Workflow(nn_units.NNWorkflow):
 
         # Add fwds units
         del self.forwards[:]
-        for i in range(0, len(layers)):
-            aa = all2all.All2AllTanh(self, output_sample_shape=[layers[i]])
+        for i, layer in enumerate(layers):
+            aa = all2all.All2AllTanh(self, output_sample_shape=[layer])
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])
@@ -184,7 +184,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         # MSE plotter
         self.plt = []
         styles = ["r-", "b-", "k-"]
-        for i in range(0, 3):
+        for i in range(3):
             self.plt.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt[-1].link_attrs(self.decision, ("input", "epoch_n_err_pt"))
@@ -194,6 +194,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
             self.plt[-1].gate_block = (~self.decision.epoch_ended if not i
                                        else Bool(False))
         self.plt[0].clear_plot = True
+        self.plt[0].gate_block = self.decision.complete
         # Weights plotter
         # """
         self.plt_mx = nn_plotting_units.Weights2D(
@@ -203,12 +204,13 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.plt_mx.input_field = "mem"
         self.plt_mx.link_attrs(self.forwards[0], ("get_shape_from", "input"))
         self.plt_mx.link_from(self.decision)
-        self.plt_mx.gate_block = ~self.decision.epoch_ended
+        self.plt_mx.gate_block = \
+            ~self.decision.epoch_ended | self.decision.complete
         # """
         # Max plotter
         self.plt_max = []
         styles = ["r--", "b--", "k--"]
-        for i in range(0, 3):
+        for i in range(3):
             self.plt_max.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt_max[-1].link_attrs(self.decision,
@@ -217,10 +219,11 @@ class Mnist7Workflow(nn_units.NNWorkflow):
             self.plt_max[-1].input_offset = 1
             self.plt_max[-1].link_from(self.plt[-1] if not i else
                                        self.plt_max[-2])
+        self.plt_max[0].gate_block = self.decision.complete
         # Min plotter
         self.plt_min = []
         styles = ["r:", "b:", "k:"]
-        for i in range(0, 3):
+        for i in range(3):
             self.plt_min.append(plotting_units.AccumulatingPlotter(
                 self, name="mse", plot_style=styles[i]))
             self.plt_min[-1].link_attrs(self.decision,
@@ -230,6 +233,7 @@ class Mnist7Workflow(nn_units.NNWorkflow):
             self.plt_min[-1].link_from(self.plt_max[-1] if not i else
                                        self.plt_min[-2])
         self.plt_min[-1].redraw_plot = True
+        self.plt_min[0].gate_block = self.decision.complete
 
     def initialize(self, learning_rate, weights_decay, device, snapshot=False,
                    **kwargs):
