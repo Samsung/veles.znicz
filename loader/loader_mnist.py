@@ -1,11 +1,38 @@
 #!/usr/bin/python3 -O
 """
+  _   _ _____ _     _____ _____
+ | | | |  ___| |   |  ___/  ___|
+ | | | | |__ | |   | |__ \ `--.
+ | | | |  __|| |   |  __| `--. \
+ \ \_/ / |___| |___| |___/\__/ /
+  \___/\____/\_____|____/\____/
+
 Created on Dec 4, 2014
 
 Loader Mnist file.
 
-Copyright (c) 2013 Samsung Electronics Co., Ltd.
+███████████████████████████████████████████████████████████████████████████████
+
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+
+███████████████████████████████████████████████████████████████████████████████
 """
+
 
 import os
 import struct
@@ -118,6 +145,6 @@ class MnistLoader(loader.FullBatchLoader):
         self.class_lengths[2] = 60000
         self.create_originals((28, 28))
         self.original_labels[:] = (0 for _ in range(len(self.original_labels)))
-        self.info("Loading from the original MNIST files...")
+        self.info("Loading from original MNIST files...")
         self.load_original(0, 10000, test_label_dir, test_image_dir)
         self.load_original(10000, 60000, train_label_dir, train_image_dir)
