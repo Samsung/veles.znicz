@@ -1,4 +1,3 @@
-#!/usr/bin/python3 -O
 # encoding: utf-8
 """
   _   _ _____ _     _____ _____
