@@ -120,7 +120,7 @@ class TestMnistConv(StandardTest):
                                "weights_decay": 0.0005,
                                "weights_decay_bias": 0.476000}}]})
 
-    @timeout(900)
+    @timeout(1200)
     @multi_device()
     def test_mnist_conv(self):
         self.info("Will test mnist workflow with convolutional"

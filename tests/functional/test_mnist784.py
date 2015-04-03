@@ -76,7 +76,7 @@ class TestMnist784(StandardTest):
 
     mse = ((0.403674, 7978), (0.391974, 7581))
 
-    @timeout(1000)
+    @timeout(1200)
     @multi_device()
     def test_mnist784_gpu(self):
         self.info("Will run workflow on double precision")
