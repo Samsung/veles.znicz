@@ -44,11 +44,11 @@ from zope.interface import implementer, Interface
 from veles.units import IUnit, Unit
 from veles.znicz.nn_units import GradientDescentBase
 from veles.distributable import IDistributable
-from veles.unit_registry import MappedUnitRegistry
+from veles.unit_registry import MappedObjectsRegistry
 from veles.verified import Verified
 
 
-class LRAdjustPolicyRegistry(MappedUnitRegistry):
+class LRAdjustPolicyRegistry(MappedObjectsRegistry):
     mapping = "lradjustpolicy"
     base = object
 
