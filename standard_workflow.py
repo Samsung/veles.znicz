@@ -36,6 +36,7 @@ under the License.
 
 from collections import namedtuple
 import numpy
+import re
 import six
 from zope.interface import implementer
 from veles.avatar import Avatar
@@ -237,10 +238,24 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         parameters
     """
     KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}
+    mcdnnic_topology_regexp = re.compile(
+        "(\d+)x(\d+)x(\d+)(-(?:(\d+C\d+)|(MP\d+)|(\d+N)))*")
+    mcdnnic_layer_patern = re.compile(
+        "(?P<C>\d+C\d+)|(?P<MP>MP\d+)|(?P<N>\d+N)")
+    mcdnnic_parse_methods = {}
+
+    def __new__(cls, *args, **kwargs):
+        if not len(cls.mcdnnic_parse_methods):
+            cls.mcdnnic_parse_methods = {
+                "C": cls._parse_mcdnnic_c, "N": cls._parse_mcdnnic_n,
+                "MP": cls._parse_mcdnnic_mp}
+        return super(StandardWorkflowBase, cls).__new__(cls)
 
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
+        self.mcdnnic_topology = kwargs.get("mcdnnic_topology", None)
+        self.mcdnnic_parameters = kwargs.get("mcdnnic_parameters", None)
         self.layers = kwargs.get("layers", [{}])
         self.loader_name = kwargs["loader_name"]
         self._loader = None
@@ -254,6 +269,53 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.config = WorkflowConfig(
             **{f: self.config2kwargs(kwargs.pop("%s_config" % f, {}))
                for f in WorkflowConfig._fields})
+
+    @property
+    def mcdnnic_topology(self):
+        return self._mcdnnic_topology
+
+    @mcdnnic_topology.setter
+    def mcdnnic_topology(self, value):
+        if value is not None:
+            if not isinstance(value, str):
+                raise error.BadFormatError(
+                    "mcdnnic_topology must be a string")
+            if not self.mcdnnic_topology_regexp.match(value):
+                raise ValueError(
+                    "mcdnnic_topology value must match the following regular"
+                    "expression: %s (got %s)"
+                    % (self.mcdnnic_topology_regexp.pattern, value))
+        self._mcdnnic_topology = value
+
+    @property
+    def layers(self):
+        if self.mcdnnic_topology is not None:
+            return self._get_layers_from_mcdnnic(
+                self.mcdnnic_topology)
+        else:
+            return self._layers
+
+    @layers.setter
+    def layers(self, value):
+        if self.mcdnnic_topology is not None and value != [{}]:
+            raise ValueError(
+                "Please do not set mcdnnic_topology and layers at the same "
+                "time.")
+        if not isinstance(value, list):
+            raise ValueError("layers should be a list of dicts")
+        if value == [{}] and self.mcdnnic_topology is None:
+            raise error.BadFormatError(
+                "Looks like layers is empty and mcdnnic_topology is not "
+                "defined. Please set layers like in VELES samples or"
+                "mcdnnic_topology like in artical 'Multi-column Deep Neural"
+                "Networks for Image Classification'"
+                "(http://papers.nips.cc/paper/4824-imagenet-classification-wi"
+                "th-deep-convolutional-neural-networks)")
+        for layer in value:
+            if not isinstance(layer, dict):
+                raise ValueError(
+                    "layers should be a list of dicts")
+        self._layers = value
 
     @property
     def preprocessing(self):
@@ -281,6 +343,56 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         setattr(self, "_%s_name" % name, value)
         if value is None and self.loss_function is not None:
             setattr(self, "_%s_name" % name, mapping[self.loss_function])
+
+    def _get_mcdnnic_parameters(self, arrow):
+        if (self.mcdnnic_parameters is not None
+                and arrow in self.mcdnnic_parameters):
+            return self.mcdnnic_parameters[arrow]
+        else:
+            return {}
+
+    @staticmethod
+    def _parse_mcdnnic_c(index, value):
+        kernels, kx = value.split("C")
+        return {
+            "type": "conv",
+            "->": {"n_kernels": int(kernels), "kx": int(kx), "ky": int(kx)}}
+
+    @staticmethod
+    def _parse_mcdnnic_mp(index, value):
+        _, kx = value.split("MP")
+        return {"type": "max_pooling", "->": {"kx": int(kx), "ky": int(kx)}}
+
+    @staticmethod
+    def _parse_mcdnnic_n(index, value):
+        neurons, _ = value.split("N")
+        if index:
+            return {"type": "softmax",
+                    "->": {"output_sample_shape": int(neurons)}}
+        else:
+            return {"type": "all2all",
+                    "->": {"output_sample_shape": int(neurons)}}
+
+    def _get_layers_from_mcdnnic(self, description):
+        layers = []
+        forward_parameters = self._get_mcdnnic_parameters("->")
+        backward_parameters = self._get_mcdnnic_parameters("<-")
+        matches = tuple(re.finditer(self.mcdnnic_layer_patern, description))
+        for index, match in enumerate(matches):
+            match_name = next(n for n, v in match.groupdict().items() if v)
+            layer_config = self.mcdnnic_parse_methods[match_name](
+                index == len(matches) - 1, match.group(match_name))
+            layer_config["->"].update(forward_parameters)
+            layer_config["<-"] = backward_parameters
+            layers.append(layer_config)
+        return layers
+
+    def _update_loader_kwargs_from_mcdnnic(self, kwargs, description):
+        input = description.split("-")[0]
+        minibatch_size, y_size, x_size = input.split("x")
+        kwargs["minibatch_size"] = int(minibatch_size)
+        kwargs["scale"] = (int(y_size), int(x_size))
+        return kwargs
 
     @property
     def decision_name(self):
@@ -316,8 +428,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             first forward unit
             parents: units, from whom will be link first forward unit
         """
-        if type(self.layers) != list:
-            raise error.BadFormatError("layers should be a list of dicts")
         del self.forwards[:]
         for i, layer in enumerate(self.layers):
             tpe, kwargs, _ = self._get_layer_type_kwargs(layer)
@@ -405,13 +515,17 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         Arguments:
             parents: units to link this one from.
         """
+        kwargs = self.dictify(self.config.loader)
+        if self.mcdnnic_topology is not None:
+            kwargs = self._update_loader_kwargs_from_mcdnnic(
+                kwargs, self.mcdnnic_topology)
         if self.loader_name not in list(UserLoaderRegistry.loaders.keys()):
             raise AttributeError(
                 "Set the loader_name. Full list of names is %s. Or redefine"
                 " link_loader() function, if you want to create you own Loader"
                 % list(UserLoaderRegistry.loaders.keys()))
         self.loader = UserLoaderRegistry.loaders[self.loader_name](
-            self, **self.dictify(self.config.loader)).link_from(*parents)
+            self, **kwargs).link_from(*parents)
         # Save this loader, since it can be later replaced with an Avatar
         self.real_loader = self.loader
         return self.loader
@@ -440,8 +554,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.end_point.gate_block = ~self.loader.complete
 
     def _get_layer_type_kwargs(self, layer):
-        if type(layer) != dict:
-            raise error.BadFormatError("layers should be a list of dicts")
         tpe = layer.get("type", "").strip()
         if not tpe:
             raise ValueError("layer type must not be an empty string")
@@ -933,8 +1045,9 @@ class StandardWorkflow(StandardWorkflowBase):
         with *parents.
         Links each :class:`veles.plotting_units.MatrixPlotter` unit from
         previous :class:`veles.plotting_units.MatrixPlotter` unit.
-        Links attributes of MatrixPlotter units from attributes of
-        :class:`veles.znicz.decision.DecisionBase` descendant.
+        Links attributes of :class:`veles.plotting_units.MatrixPlotter` units
+        from attributes of :class:`veles.znicz.decision.DecisionBase`
+        cd descendant.
         Returns the last of :class:`veles.plotting_units.MatrixPlotter` units.
 
         Arguments:

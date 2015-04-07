@@ -76,7 +76,8 @@ def run(load, main):
          snapshotter_config=root.lines.snapshotter,
          image_saver_config=root.lines.image_saver,
          loader_config=root.lines.loader,
-         layers=root.lines.layers,
          loader_name=root.lines.loader_name,
-         loss_function=root.lines.loss_function)
+         loss_function=root.lines.loss_function,
+         mcdnnic_topology=root.lines.mcdnnic_topology,
+         mcdnnic_parameters=root.lines.mcdnnic_parameters)
     main()

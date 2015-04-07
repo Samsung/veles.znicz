@@ -51,9 +51,13 @@ train = os.path.join(root.common.test_dataset_root,
 valid = os.path.join(root.common.test_dataset_root,
                      "Lines/lines_min/test")
 
+root.lines.mcdnnic_parameters = {
+    "<-": {"learning_rate": 0.03}}
+
 root.lines.update({
     "loader_name": "full_batch_auto_label_file_image",
     "loss_function": "softmax",
+    "mcdnnic_topology": "12x256x256-32C4-MP2-64C4-MP3-32N-4N",
     "decision": {"fail_iterations": 100,
                  "max_epochs": numpy.iinfo(numpy.uint32).max},
     "snapshotter": {"prefix": "lines", "interval": 1, "time_interval": 0},
@@ -64,28 +68,6 @@ root.lines.update({
     "loader": {"minibatch_size": 12, "force_numpy": False,
                "color_space": "RGB", "file_subtypes": ["jpeg"],
                "normalization_type": "mean_disp",
-               "train_paths": [train], "validation_paths": [valid]},
-    "weights_plotter": {"limit": 32},
-    "layers": [{"type": "conv_relu",
-                "->": {"n_kernels": 32, "kx": 11, "ky": 11, "sliding": (4, 4),
-                       "weights_filling": "gaussian", "weights_stddev": 0.001,
-                       "bias_filling": "gaussian", "bias_stddev": 0.001},
-                "<-": {"learning_rate": 0.003,
-                       "weights_decay": 0.0, "gradient_moment": 0.9},
-                },
-               {"type": "max_pooling",
-                "->": {"kx": 3, "ky": 3, "sliding": (2, 2)}},
-               {"type": "all2all_relu",
-                "->": {"output_sample_shape": 32, "weights_filling": "uniform",
-                       "weights_stddev": 0.05, "bias_filling": "uniform",
-                       "bias_stddev": 0.05},
-                "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
-                       "gradient_moment": 0.9},
-                },
-               {"type": "softmax",
-                "->": {"output_sample_shape": 4,
-                       "weights_filling": "uniform",
-                       "weights_stddev": 0.05, "bias_filling": "uniform",
-                       "bias_stddev": 0.05},
-                "<-": {"learning_rate": 0.001, "weights_decay": 0.0,
-                       "gradient_moment": 0.9}, }]})
+               "train_paths": [train],
+               "validation_paths": [valid]},
+    "weights_plotter": {"limit": 32}})
