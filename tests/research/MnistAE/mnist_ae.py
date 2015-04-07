@@ -58,7 +58,7 @@ root.mnist_ae.update({
     "all2all": {"weights_stddev": 0.05},
     "decision": {"fail_iterations": 20,
                  "max_epochs": 1000000000},
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": ""},
     "loader": {"minibatch_size": 100, "force_cpu": False,
                "normalization_type": "linear"},
     "learning_rate": 0.000001,
@@ -149,7 +149,7 @@ class MnistAEWorkflow(nn_units.NNWorkflow):
         unit = NNSnapshotter(
             self, prefix=root.mnist_ae.snapshotter.prefix,
             directory=root.common.snapshot_dir,
-            compress=root.mnist_ae.snapshotter.compress,
+            compression=root.mnist_ae.snapshotter.compression,
             time_interval=root.mnist_ae.snapshotter.time_interval,
             interval=root.mnist_ae.snapshotter.interval)
         self.snapshotter = unit

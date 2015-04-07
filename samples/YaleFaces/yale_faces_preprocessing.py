@@ -43,8 +43,8 @@ class YaleFacesWorkflow(StandardWorkflow):
     """
 
     def link_end_point(self, init_unit):
-        self.end_point.link_from(init_unit)
-        self.end_point.gate_block = ~self.loader.train_ended
+        self.end_point.link_from(init_unit).gate_block = \
+            ~self.loader.train_ended
         self.loader.gate_block = self.loader.train_ended
 
     def create_workflow(self):

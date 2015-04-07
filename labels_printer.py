@@ -1,4 +1,4 @@
-# -*-coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
   _   _ _____ _     _____ _____
  | | | |  ___| |   |  ___/  ___|
@@ -7,10 +7,9 @@
  \ \_/ / |___| |___| |___/\__/ /
   \___/\____/\_____|____/\____/
 
-Created on Nov 13, 2014
+Created on Apr 7, 2015
 
-Configuration file for yale-faces (Self-constructing Model).
-Model - fully connected neural network.
+Prints the table of the label outcomes.
 
 ███████████████████████████████████████████████████████████████████████████████
 
@@ -34,31 +33,31 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
-
 import numpy
-import os
-from veles.config import root
+from zope.interface import implementer
+
+from veles.external.prettytable import PrettyTable
+from veles.units import Unit, IUnit
 
 
-root.yalefaces.update({
-    "decision": {"fail_iterations": 50, "max_epochs": 1000},
-    "loss_function": "softmax",
-    "loader_name": "full_batch_auto_label_file_image",
-    "snapshotter": {"prefix": "yalefaces", "interval": 10, "time_interval": 0},
-    "loader": {"minibatch_size": 40, "force_cpu": False,
-               "validation_ratio": 0.15,
-               "file_subtypes": ["x-portable-graymap"],
-               "ignored_files": [".*Ambient.*"],
-               "shuffle_limit": numpy.iinfo(numpy.uint32).max,
-               "add_sobel": False,
-               "mirror": False,
-               "color_space": "GRAY",
-               "background_color": (0,),
-               "normalization_type": "mean_disp",
-               "train_paths":
-               [os.path.join(root.common.test_dataset_root, "CroppedYale")]},
-    "layers": [{"type": "all2all_tanh",
-                "->": {"output_sample_shape": 100},
-                "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}},
-               {"type": "softmax",
-                "<-": {"learning_rate": 0.01, "weights_decay": 0.00005}}]})
+@implementer(IUnit)
+class LabelsPrinter(Unit):
+    def __init__(self, workflow, **kwargs):
+        super(LabelsPrinter, self).__init__(workflow, **kwargs)
+        self.top_number = kwargs.get("top_number", 5)
+        self.demand("input", "labels_mapping")
+
+    def initialize(self, **kwargs):
+        pass
+
+    def run(self):
+        self.input.map_read()
+        mem = self.input.mem[0]
+        labels = [(v, i) for i, v in enumerate(mem)]
+        labels.sort(reverse=True)
+        table = PrettyTable("label", "value")
+        table.float_format = ".5"
+        for row in labels[:self.top_number]:
+            table.add_row(*reversed(row))
+        self.info("Results:\n%s", table)
+        self.info("Max to mean ratio: %.1f", numpy.max(mem) / numpy.mean(mem))

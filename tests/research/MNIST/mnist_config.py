@@ -45,7 +45,7 @@ root.mnistr.update({
                  "max_epochs": 1000000000},
     "loss_function": "softmax",
     "loader_name": "mnist_loader",
-    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compress": ""},
+    "snapshotter": {"prefix": "mnist", "time_interval": 0, "compression": ""},
     "loader": {"minibatch_size": Tune(60, 1, 1000), "force_cpu": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},

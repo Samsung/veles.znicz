@@ -130,8 +130,8 @@ class MnistWorkflow(nn_units.NNWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.loader.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_skip = ~self.loader.epoch_ended
+        self.snapshotter.skip = ~self.decision.improved
 
         self.ipython = Shell(self)
         self.ipython.link_from(self.snapshotter)

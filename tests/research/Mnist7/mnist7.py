@@ -166,8 +166,8 @@ class Mnist7Workflow(nn_units.NNWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.decision.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_skip = ~self.loader.epoch_ended
+        self.snapshotter.skip = ~self.decision.improved
         # Add Image Saver unit
         self.image_saver = image_saver.ImageSaver(self)
         self.image_saver.link_from(self.snapshotter)

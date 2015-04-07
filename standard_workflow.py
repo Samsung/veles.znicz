@@ -37,7 +37,6 @@ under the License.
 from collections import namedtuple
 import numpy
 import six
-import sys
 from zope.interface import implementer
 from veles.avatar import Avatar
 from veles.distributable import IDistributable, TriviallyDistributable
@@ -237,6 +236,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         similar_weights_plotter_config: similar_weights_plotter configuration\
         parameters
     """
+    KWATTRS = {"%s_config" % f for f in WorkflowConfig._fields}
 
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
@@ -248,17 +248,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         self.loss_function = kwargs.get("loss_function", None)
         self.decision_name = kwargs.pop("decision_name", None)
         self.evaluator_name = kwargs.pop("evaluator_name", None)
+        if "loader_config" not in kwargs:
+            raise ValueError(
+                "Loader's configuration must be specified (\"loader_config\")")
         self.config = WorkflowConfig(
-            decision=kwargs.pop("decision_config", {}),
-            loader=kwargs["loader_config"],
-            snapshotter=kwargs.pop("snapshotter_config", {}),
-            evaluator=kwargs.pop("evaluator_config", {}),
-            data_saver=kwargs.pop("data_saver_config", {}),
-            result_loader=kwargs.get("result_loader_config"),
-            image_saver=kwargs.pop("image_saver_config", {}),
-            similar_weights_plotter=kwargs.pop(
-                "similar_weights_plotter_config", {}),
-            lr_adjuster=kwargs.pop("lr_adjuster_config", {}))
+            **{f: self.config2kwargs(kwargs.pop("%s_config" % f, {}))
+               for f in WorkflowConfig._fields})
 
     @property
     def preprocessing(self):
@@ -397,7 +392,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     def dictify(self, obj):
         return getattr(obj, "__content__", obj)
 
-    def get_kwargs_for_config(self, unit_config):
+    def config2kwargs(self, unit_config):
         return {} if unit_config is None else self.dictify(unit_config)
 
     def link_loader(self, *parents):
@@ -431,9 +426,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
             parents: units to link this one from.
         """
         self.repeater.link_from(*parents)
-        self.end_point.link_from(*parents) \
-            .gate_block = ~self.loader.train_ended
-        self.loader.gate_block = self.loader.train_ended
+        self.end_point.link_from(*parents)
         return self.end_point
 
     def create_workflow(self):
@@ -482,18 +475,15 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
 
         new_unit.link_from(*prev_forward_unit)
 
-        fwds_with_attrs = tuple(
-            filter(
-                lambda fwd: not isinstance(
-                    fwd, weights_zerofilling.ZeroFiller), self.forwards))
-
         self.forwards.append(new_unit)
 
-        if isinstance(new_unit, weights_zerofilling.ZeroFiller):
+        if not hasattr(new_unit, "input"):
             return
 
-        if len(fwds_with_attrs) > 0:
-            new_unit.link_attrs(fwds_with_attrs[-1], ("input", "output"))
+        for fwd in reversed(self.forwards[:-1]):
+            if hasattr(fwd, "output"):
+                new_unit.link_attrs(fwd, ("input", "output"))
+                break
         else:
             new_unit.link_attrs(parents[0], init_attrs)
 
@@ -544,19 +534,35 @@ class StandardWorkflow(StandardWorkflowBase):
         self.link_end_point(self.snapshotter)
 
     def extract_forward_workflow(self, loader_name, loader_config,
-                                 result_unit_factory):
+                                 result_unit_factory, cyclic):
         self.debug("Constructing the new workflow...")
-        wf = StandardWorkflowBase(self.workflow, loader_name=loader_name,
+        wf = StandardWorkflowBase(self.workflow,
+                                  name="Forwards@%s" % self.name,
+                                  loader_name=loader_name,
                                   loader_config=loader_config,
                                   loss_function=self.loss_function,
                                   layers=self.layers)
-        wf.link_repeater(self.start_point)
-        wf.link_loader(self.repeater)
-        wf.link_forwards(("input", "minibatch_data"), self.loader)
-        result_unit = result_unit_factory(wf).link_from(self.forwards[-1])
-        result_unit.gate_block = ~self.loader.train_ended
-        wf.repeater.link_from(result_unit)
-        wf.link_end_point(result_unit)
+        wf.config.loader["loader"] = self.loader
+        if cyclic:
+            start_unit = wf.link_repeater(wf.start_point)
+        else:
+            start_unit = wf.start_point
+        wf.link_loader(start_unit)
+        if cyclic:
+            assert hasattr(wf.loader, "complete"), \
+                "The specified loader does not have \"complete\" flag."
+            wf.end_point.link_from(wf.loader).gate_block = ~wf.loader.complete
+        wf.link_forwards(("input", "minibatch_data"), wf.loader)
+        if cyclic:
+            wf.forwards[0].gate_block = wf.loader.complete
+        result_unit = result_unit_factory(wf).link_from(wf.forwards[-1])
+        result_unit.link_attrs(wf.forwards[-1], ("input", "output"))
+        result_unit.link_attrs(
+            wf.loader, ("labels_mapping", "reversed_labels_mapping"))
+        if cyclic:
+            wf.repeater.link_from(result_unit)
+        else:
+            wf.link_end_point(result_unit)
         self.debug("Importing forwards...")
         for fwd_exp, fwd_imp in zip(self.forwards, wf.forwards):
             fwd_imp.apply_data_from_master(
@@ -696,10 +702,9 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.znicz.evaluator.EvaluatorBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.config.evaluator)
         self._check_forwards()
         self.evaluator = EvaluatorsRegistry.evaluators[
-            self.evaluator_name](self, **kwargs) \
+            self.evaluator_name](self, **self.config.evaluator) \
             .link_from(*parents).link_attrs(self.forwards[-1], "output") \
             .link_attrs(self.loader,
                         ("batch_size", "minibatch_size"),
@@ -731,9 +736,8 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.znicz.decision.DecisionBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.config.decision)
         self.decision = DecisionsRegistry.decisions[
-            self.decision_name](self, **kwargs) \
+            self.decision_name](self, **self.config.decision) \
             .link_from(*parents) \
             .link_attrs(self.loader, "minibatch_class", "last_minibatch",
                         "minibatch_size", "class_lengths", "epoch_ended",
@@ -772,15 +776,12 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.snapshotter.SnapshotterBase` descendant unit
         """
-        kwargs = self.get_kwargs_for_config(self.config.snapshotter)
-        self.snapshotter = nn_units.NNSnapshotter(self, **kwargs) \
+        self.snapshotter = \
+            nn_units.NNSnapshotter(self, **self.config.snapshotter) \
             .link_from(*parents) \
             .link_attrs(self.decision, ("suffix", "snapshot_suffix"))
-        if "unittest" not in sys.modules:
-            self.snapshotter.gate_skip = \
-                (~self.decision.epoch_ended | ~self.decision.improved)
-        else:
-            self.snapshotter.gate_skip = ~self.decision.epoch_ended
+        self.snapshotter.gate_skip = ~self.decision.epoch_ended
+        self.snapshotter.skip = ~self.decision.improved
         return self.snapshotter
 
     def link_end_point(self, *parents):
@@ -812,8 +813,8 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.znicz.image_saver.ImageSaver` unit
         """
         self._check_forwards()
-        kwargs = self.get_kwargs_for_config(self.config.image_saver)
-        self.image_saver = image_saver.ImageSaver(self, **kwargs) \
+        self.image_saver = \
+            image_saver.ImageSaver(self, **self.config.image_saver) \
             .link_from(*parents)
         if self.evaluator_name == "evaluator_softmax":
             self.image_saver.link_attrs(self.forwards[-1], "max_idx")
@@ -847,8 +848,8 @@ class StandardWorkflow(StandardWorkflowBase):
             :class:`veles.znicz.lr_adjust.LearningRateAdjust` unit
         """
         self._check_gds()
-        kwargs = self.get_kwargs_for_config(self.config.lr_adjuster)
-        self.lr_adjuster = lr_adjust.LearningRateAdjust(self, **kwargs)
+        self.lr_adjuster = lr_adjust.LearningRateAdjust(
+            self, **self.config.lr_adjuster)
         for gd_elm in self.gds:
             self.lr_adjuster.add_gd_unit(gd_elm)
         self.lr_adjuster.link_from(*parents)
@@ -1337,9 +1338,8 @@ class StandardWorkflow(StandardWorkflowBase):
             parents: units to link this one from.
             :class:`veles.loader.saver.MinibatchesSaver` unit.
         """
-        kwargs = self.get_kwargs_for_config(self.config.data_saver)
         self.data_saver = MinibatchesSaver(
-            self, **kwargs).link_from(*parents).link_attrs(
+            self, **self.config.data_saver).link_from(*parents).link_attrs(
             self.loader, "shuffle_limit", "minibatch_class", "minibatch_data",
             "minibatch_labels", "class_lengths", "max_minibatch_size",
             "minibatch_size")
@@ -1380,6 +1380,7 @@ class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
         self.loader_name = kwargs["loader_name"]
         self.loader_config = kwargs["loader_config"]
         self.result_unit_factory = kwargs["result_unit_factory"]
+        self.cyclic = kwargs.get("cyclic", False)
         self.forward_workflow = False  # StandardWorkflow, enable mutable links
 
     def initialize(self, **kwargs):
@@ -1388,7 +1389,7 @@ class ForwardWorkflowExtractor(Unit, TriviallyDistributable):
     def run(self):
         self.forward_workflow = self.workflow.extract_forward_workflow(
             loader_name=self.loader_name, loader_config=self.loader_config,
-            result_unit_factory=self.result_unit_factory)
+            result_unit_factory=self.result_unit_factory, cyclic=self.cyclic)
 
     def apply_data_from_slave(self, data, slave):
         if not self.gate_block:

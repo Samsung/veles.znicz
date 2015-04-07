@@ -51,7 +51,7 @@ root.mnistr.update({
     "decision": {"max_epochs": 10000000,
                  "fail_iterations": 100},
     "snapshotter": {"prefix": "mnist_conv", "time_interval": 0,
-                    "compress": ""},
+                    "compression": ""},
     "loader": {"minibatch_size": 6, "force_cpu": False,
                "normalization_type": "linear"},
     "weights_plotter": {"limit": 64},

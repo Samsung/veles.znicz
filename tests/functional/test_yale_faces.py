@@ -39,7 +39,7 @@ import os
 from veles.config import root
 from veles.snapshotter import Snapshotter
 from veles.tests import timeout, multi_device
-from veles.units import TrivialUnit
+from veles.znicz.labels_printer import LabelsPrinter
 import veles.znicz.samples.YaleFaces.yale_faces as yale_faces
 from veles.znicz.tests.functional import StandardTest
 
@@ -116,12 +116,13 @@ class TestYaleFaces(StandardTest):
         self.check_write_error_rate(workflow, errors[0])
 
         self.info("Extracting the forward workflow...")
-        fwd_wf = workflow.extract_forward_workflow(
-            loader_name=root.yalefaces.loader_name,
-            loader_config=root.yalefaces.loader,
-            result_unit_factory=TrivialUnit)
-        self.assertEqual(len(fwd_wf.forwards), 2)
+        for cyclic in True, False:
+            fwd_wf = workflow.extract_forward_workflow(
+                loader_name="interactive_image", loader_config={},
+                result_unit_factory=LabelsPrinter, cyclic=cyclic)
+            self.assertEqual(len(fwd_wf.forwards), 2)
 
+        self.parent.workflow = None
         file_name = workflow.snapshotter.file_name
 
         # Test loading from snapshot

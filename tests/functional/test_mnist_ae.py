@@ -48,7 +48,7 @@ class TestMnistAE(StandardTest):
             "decision": {"fail_iterations": 20,
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
-                            "interval": 4, "compress": ""},
+                            "interval": 4, "compression": ""},
             "loader": {"minibatch_size": 100, "force_cpu": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.000001,

@@ -56,7 +56,7 @@ from veles.accelerated_units import AcceleratedUnit, AcceleratedWorkflow
 import veles.prng as prng
 from veles.units import UnitCommandLineArgumentsRegistry
 from veles.workflow import Repeater
-from veles.snapshotter import SnapshotterBase, Snapshotter
+from veles.snapshotter import SnapshotterBase, Snapshotter, SnappyFile
 from veles.error import MasterSlaveCommunicationError
 from veles.timeit import timeit
 from veles.znicz.decision import DecisionBase
@@ -863,8 +863,9 @@ class ForwardExporter(SnapshotterBase):
         forwards - the list of Forward units to take weights and biases from
 
     Attributes:
-        compress - the compression applied to pickles: None or '', gz, bz2, xz
-        compress_level - the compression level in [0..9]
+        compression - the compression applied to pickles:  None or '', snappy,
+                      gz, bz2, xz
+        compression_level - the compression level in [0..9]
         interval - take only one snapshot within this run() invocation number
         time_interval - take no more than one snapshot within this time window
     """
@@ -872,6 +873,7 @@ class ForwardExporter(SnapshotterBase):
     CODECS = {
         None: lambda n, l: tarfile.TarFile.open(n, "w"),
         "": lambda n, l: tarfile.TarFile.open(n, "w"),
+        "snappy": lambda n, _: SnappyFile(n, "wb"),
         "gz": lambda n, l: tarfile.TarFile.gzopen(n, "w", compresslevel=l),
         "bz2": lambda n, l: tarfile.TarFile.bz2open(n, "w", compresslevel=l),
         "xz": lambda n, l: tarfile.TarFile.xzopen(n, "w", preset=l)
@@ -882,10 +884,11 @@ class ForwardExporter(SnapshotterBase):
         self.forwards = []
 
     def export(self):
-        ext = ("." + self.compress) if self.compress else ""
+        ext = ("." + self.compression) if self.compression else ""
         rel_file_name = "%s_%s_wb.%d.tar%s" % (
             self.prefix, self.suffix, sys.version_info[0], ext)
         self.file_name = os.path.join(self.directory, rel_file_name)
+        self.debug("Writing %s...", self.file_name)
         with self._open_file() as tar:
             for index, fwd in enumerate(self.forwards):
                 weights, bias = fwd.generate_data_for_slave(None)
@@ -905,8 +908,8 @@ class ForwardExporter(SnapshotterBase):
         os.symlink(rel_file_name, file_name_link)
 
     def _open_file(self):
-        return ForwardExporter.CODECS[self.compress](self.file_name,
-                                                     self.compress_level)
+        return ForwardExporter.CODECS[self.compression](
+            self.file_name, self.compression_level)
 
 
 class NNSnapshotter(Snapshotter):

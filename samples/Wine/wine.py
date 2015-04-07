@@ -126,8 +126,8 @@ class WineWorkflow(nn_units.NNWorkflow):
         self.snapshotter.link_from(self.decision)
         self.snapshotter.link_attrs(self.decision,
                                     ("suffix", "snapshot_suffix"))
-        self.snapshotter.gate_skip = \
-            (~self.loader.epoch_ended | ~self.decision.improved)
+        self.snapshotter.gate_skip = ~self.loader.epoch_ended
+        self.snapshotter.skip = ~self.decision.improved
 
         self.end_point.link_from(self.snapshotter)
         self.end_point.gate_block = ~self.decision.complete
