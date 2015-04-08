@@ -49,7 +49,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.memory import reshape, roundup, Vector
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 from collections import namedtuple
 
@@ -67,7 +67,7 @@ AdaGradGDObjects = namedtuple("AdaGradGDObjects", ("epsilon",
                                                    "bias"))
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GradientDescent(nn_units.GradientDescentBase):
     """Gradient Descent unit for :class:`veles.znicz.all2all.All2All`.
 
@@ -350,7 +350,7 @@ class GradientDescent(nn_units.GradientDescentBase):
                     "Incorrect accumulate_gradient attribute value")
         return gradient
 
-    def cpu_update(self, s):
+    def numpy_update(self, s):
 
         f_ortho_use = False if s == 'bias' else self.factor_ortho
 
@@ -386,7 +386,7 @@ class GradientDescent(nn_units.GradientDescentBase):
         l1_vs_l2 = self.l1_vs_l2
 
         if self.variant_gradient:
-            gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+            gradient = -nn_units.GradientDescentBase.numpy_gradient_step(
                 vec.mem, grad_vec.mem, lr, factor_l12, l1_vs_l2, f_ortho_use,
                 v_trans)
             gradient = self.accumulate_gradient_f(acc_vec, gradient)
@@ -398,7 +398,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             gradient = self.accumulate_gradient_f(acc_vec, grad_vec)
 
             gradient = self.moment_use(vec_old, gradient)
-            gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+            gradient = -nn_units.GradientDescentBase.numpy_gradient_step(
                 vec.mem, gradient, lr, factor_l12, l1_vs_l2, f_ortho_use,
                 v_trans)
         if "adagrad" in self.solvers:
@@ -442,7 +442,7 @@ class GradientDescent(nn_units.GradientDescentBase):
             self.last_minibatch) else self.adadelta.momentum
         return gradient
 
-    def cpu_weights_update(self):
+    def numpy_weights_update(self):
 
         self.input.map_read()
         self.output.map_read()
@@ -461,9 +461,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         else:
             numpy.dot(err_output.transpose(), inp, self.gradient_weights.mem)
 
-        self.cpu_update('weights')
+        self.numpy_update('weights')
 
-    def cpu_bias_update(self):
+    def numpy_bias_update(self):
 
         if not self.include_bias:
             return
@@ -472,9 +472,9 @@ class GradientDescent(nn_units.GradientDescentBase):
         self.gradient_bias.map_write()
         self.gradient_bias.mem[:] = self.err_output.mem.sum(axis=0)
 
-        self.cpu_update('bias')
+        self.numpy_update('bias')
 
-    def cpu_err_input_update(self):
+    def numpy_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
         if not self.need_err_input:
@@ -503,21 +503,21 @@ class GradientDescent(nn_units.GradientDescentBase):
             self._global_size_err_input, self._local_size_err_input,
             self.krn_err_input_)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Do gradient descent.
         """
-        self.cpu_err_output_update()
-        self.cpu_err_input_update()
-        self.cpu_weights_update()
-        self.cpu_bias_update()
+        self.numpy_err_output_update()
+        self.numpy_err_input_update()
+        self.numpy_weights_update()
+        self.numpy_bias_update()
         self.print_debug_data()
 
     def ocl_run(self):
         """Do gradient descent.
         """
         self.gpu_err_output_update()
-        if self.prefer_numpy:
-            self.cpu_err_input_update()
+        if self.intel_opencl_workaround:
+            self.numpy_err_input_update()
         else:
             self.gpu_err_input_update()
         self.gpu_weights_update()
@@ -596,7 +596,7 @@ class GDTanh(nn_units.GradientDescentWithActivation, GradientDescent):
 
     MAPPING = {"all2all_tanh"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative
         by s in terms of output.
         """
@@ -625,7 +625,7 @@ class GDRELU(nn_units.GradientDescentWithActivation, GradientDescent):
 
     MAPPING = {"all2all_relu"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by s
         in terms of output.
         """
@@ -651,7 +651,7 @@ class GDStrictRELU(nn_units.GradientDescentWithActivation, GradientDescent):
 
     MAPPING = {"all2all_str"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by s
         in terms of output.
         """
@@ -673,7 +673,7 @@ class GDSigmoid(nn_units.GradientDescentWithActivation, GradientDescent):
 
     MAPPING = {"all2all_sigmoid"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative
         by s in terms of output.
         """

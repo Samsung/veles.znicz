@@ -53,7 +53,7 @@ class TestMnistAll2All(StandardTest):
             "snapshotter": {"prefix": "mnist_all2all_test", "interval": 3},
             "weights_plotter": {"limit": 0},
             "loader": {"minibatch_size": Tune(60, 1, 1000),
-                       "force_cpu": False,
+                       "force_numpy": False,
                        "normalization_type": "linear"},
             "layers": [{"type": "all2all_tanh",
                         "->": {"output_sample_shape": Tune(100, 10, 500),

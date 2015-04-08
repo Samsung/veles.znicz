@@ -39,7 +39,8 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
+    INumpyUnit
 import veles.error as error
 from veles.memory import eq_addr, ravel
 from veles.znicz.nn_units import Forward, GradientDescentBase
@@ -53,7 +54,7 @@ class Activation(AcceleratedUnit):
         self.sources_["activation"] = {}
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class ActivationForward(Forward, Activation):
     MAPPING = set()
 
@@ -91,7 +92,7 @@ class ActivationForward(Forward, Activation):
     def _set_activation_args(self):
         self.set_args(self.input, self.output)
 
-    def cpu_prerun(self, make_raveled, copy_in2out):
+    def numpy_prerun(self, make_raveled, copy_in2out):
         if make_raveled:
             inp = ravel(self.input.mem)
             out = ravel(self.output.mem)
@@ -118,7 +119,7 @@ class ActivationForward(Forward, Activation):
         self._gpu_run()
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class ActivationBackward(GradientDescentBase, Activation):
     """Backward activation pass: err_input = err_output * F'(output).
 
@@ -170,7 +171,7 @@ class ActivationBackward(GradientDescentBase, Activation):
     def _set_activation_args(self):
         self.set_args(self.input, self.output, self.err_output, self.err_input)
 
-    def cpu_prerun(self, is_raveled, io_usage):
+    def numpy_prerun(self, is_raveled, io_usage):
         inp = None
         out = None
         if is_raveled:
@@ -216,8 +217,8 @@ class ForwardTanh(ActivationForward):
     kernel_name = "forward_tanh"
     MAPPING = {"activation_tanh"}
 
-    def cpu_run(self):
-        _, out = self.cpu_prerun(make_raveled=False, copy_in2out=True)
+    def numpy_run(self):
+        _, out = self.numpy_prerun(make_raveled=False, copy_in2out=True)
         numpy.tanh(out, out)
         out *= 1.7159
 
@@ -229,9 +230,9 @@ class BackwardTanh(ActivationBackward):
     kernel_name = "backward_tanh"
     MAPPING = {"activation_tanh"}
 
-    def cpu_run(self):
+    def numpy_run(self):
         _, output, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(False, True))
+            self.numpy_prerun(is_raveled=False, io_usage=(False, True))
         numpy.multiply(
             err_output, output * output * (-0.388484177) + 1.14381894,
             err_input)
@@ -244,8 +245,8 @@ class ForwardSigmoid(ActivationForward):
     kernel_name = "forward_sigmoid"
     MAPPING = {"activation_sigmoid"}
 
-    def cpu_run(self):
-        _, out = self.cpu_prerun(make_raveled=False, copy_in2out=True)
+    def numpy_run(self):
+        _, out = self.numpy_prerun(make_raveled=False, copy_in2out=True)
         numpy.reciprocal(1.0 + numpy.exp(-out), out)
 
 
@@ -256,9 +257,9 @@ class BackwardSigmoid(ActivationBackward):
     kernel_name = "backward_sigmoid"
     MAPPING = {"activation_sigmoid"}
 
-    def cpu_run(self):
+    def numpy_run(self):
         _, output, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(False, True))
+            self.numpy_prerun(is_raveled=False, io_usage=(False, True))
         numpy.multiply(err_output, output * (1.0 - output), err_input)
 
 
@@ -323,8 +324,8 @@ class ForwardMul(ActivationForward):
             self.factor = factor
         super(ForwardMul, self).run()
 
-    def cpu_run(self):
-        _, out = self.cpu_prerun(make_raveled=False, copy_in2out=True)
+    def numpy_run(self):
+        _, out = self.numpy_prerun(make_raveled=False, copy_in2out=True)
         out *= self.factor
 
 
@@ -361,9 +362,9 @@ class BackwardMul(ActivationBackward):
         super(BackwardMul, self).ocl_init()
         self.factor = self._factor
 
-    def cpu_run(self):
+    def numpy_run(self):
         _, _, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(False, False))
+            self.numpy_prerun(is_raveled=False, io_usage=(False, False))
         err_input[:] = err_output[:] * self.factor
 
 
@@ -380,8 +381,8 @@ class ForwardRELU(ActivationForward):
     kernel_name = "forward_relu"
     MAPPING = {"activation_relu"}
 
-    def cpu_run(self):
-        inp, out = self.cpu_prerun(make_raveled=False, copy_in2out=False)
+    def numpy_run(self):
+        inp, out = self.numpy_prerun(make_raveled=False, copy_in2out=False)
         out[:] = numpy.where(inp > 15, inp, numpy.log(numpy.exp(inp) + 1.0))
 
 
@@ -392,9 +393,9 @@ class BackwardRELU(ActivationBackward):
     kernel_name = "backward_relu"
     MAPPING = {"activation_relu"}
 
-    def cpu_run(self):
+    def numpy_run(self):
         _, output, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(False, True))
+            self.numpy_prerun(is_raveled=False, io_usage=(False, True))
         numpy.multiply(err_output, 1.0 - numpy.exp(-output), err_input)
 
 
@@ -406,8 +407,8 @@ class ForwardStrictRELU(ActivationForward):
     kernel_name = "forward_strict_relu"
     MAPPING = {"activation_str"}
 
-    def cpu_run(self):
-        inp, out = self.cpu_prerun(make_raveled=False, copy_in2out=False)
+    def numpy_run(self):
+        inp, out = self.numpy_prerun(make_raveled=False, copy_in2out=False)
         out[...] = numpy.where(numpy.greater(inp, 0), out, 0)
 
     # IDistributable implementation
@@ -437,9 +438,9 @@ class BackwardStrictRELU(ActivationBackward):
     kernel_name = "backward_strict_relu"
     MAPPING = {"activation_str"}
 
-    def cpu_run(self):
+    def numpy_run(self):
         _, output, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(False, True))
+            self.numpy_prerun(is_raveled=False, io_usage=(False, True))
         numpy.multiply(err_output, numpy.greater(output, 0), err_input)
 
     # IDistributable implementation
@@ -476,8 +477,8 @@ class ForwardLog(ActivationForward):
         self.assign_kernel("forward_log")
         self._set_activation_args()
 
-    def cpu_run(self):
-        inp, out = self.cpu_prerun(make_raveled=False, copy_in2out=False)
+    def numpy_run(self):
+        inp, out = self.numpy_prerun(make_raveled=False, copy_in2out=False)
         numpy.log(inp + numpy.sqrt(numpy.square(inp) + 1), out)
 
 
@@ -499,9 +500,9 @@ class BackwardLog(ActivationBackward):
         self.assign_kernel("backward_log")
         self._set_activation_args()
 
-    def cpu_run(self):
+    def numpy_run(self):
         inp, _, err_input, err_output = \
-            self.cpu_prerun(is_raveled=False, io_usage=(True, False))
+            self.numpy_prerun(is_raveled=False, io_usage=(True, False))
         numpy.multiply(
             err_output, numpy.reciprocal(numpy.sqrt(numpy.square(inp) + 1)),
             err_input)
@@ -523,8 +524,8 @@ class ForwardTanhLog(ActivationForward):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardTanhLog, self).initialize(device=device, **kwargs)
 
-    def cpu_run(self):
-        inp, out = self.cpu_prerun(make_raveled=True, copy_in2out=False)
+    def numpy_run(self):
+        inp, out = self.numpy_prerun(make_raveled=True, copy_in2out=False)
         for i, x in enumerate(inp):
             if x > ForwardTanhLog.d:
                 y = numpy.log(x * ForwardTanhLog.b) * ForwardTanhLog.a
@@ -555,9 +556,9 @@ class BackwardTanhLog(ActivationBackward):
         super(BackwardTanhLog, self).initialize(device=device, **kwargs)
         self.output.initialize(self.device)
 
-    def cpu_run(self):
+    def numpy_run(self):
         inp, out, err_input, err_output = \
-            self.cpu_prerun(is_raveled=True, io_usage=(True, True))
+            self.numpy_prerun(is_raveled=True, io_usage=(True, True))
         for i, x in enumerate(inp):
             if x > ForwardTanhLog.d:
                 y = ForwardTanhLog.a / x
@@ -585,8 +586,8 @@ class ForwardSinCos(ActivationForward):
             raise error.BadFormatError("in_place for this unit is prohibited")
         super(ForwardSinCos, self).initialize(device=device, **kwargs)
 
-    def cpu_run(self):
-        inp, out = self.cpu_prerun(make_raveled=True, copy_in2out=False)
+    def numpy_run(self):
+        inp, out = self.numpy_prerun(make_raveled=True, copy_in2out=False)
         out[1::2] = numpy.sin(inp[1::2])
         out[0::2] = numpy.cos(inp[0::2])
 
@@ -604,8 +605,8 @@ class BackwardSinCos(ActivationBackward):
                 "input should be set and should not be equal to output")
         super(BackwardSinCos, self).initialize(device=device, **kwargs)
 
-    def cpu_run(self):
+    def numpy_run(self):
         inp, _, err_input, err_output = \
-            self.cpu_prerun(is_raveled=True, io_usage=(True, False))
+            self.numpy_prerun(is_raveled=True, io_usage=(True, False))
         err_input[1::2] = err_output[1::2] * numpy.cos(inp[1::2])
         err_input[0::2] = err_output[0::2] * (-numpy.sin(inp[0::2]))

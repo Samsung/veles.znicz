@@ -63,7 +63,7 @@ class TestKanji(StandardTest):
             "loader_name": "full_batch_auto_label_file_image_mse",
             "add_plotters": False,
             "loader": {"minibatch_size": 50,
-                       "force_cpu": False,
+                       "force_numpy": False,
                        "file_subtypes": ["png"],
                        "train_paths": [train_path],
                        "target_paths": [target_path],

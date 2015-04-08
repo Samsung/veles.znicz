@@ -42,13 +42,13 @@ from zope.interface import implementer
 from veles.compat import from_none
 
 from veles.memory import roundup
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.deconv import Deconv
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
     """Gradient Descent.
 
@@ -376,5 +376,5 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
 
-    def cpu_run(self):
+    def numpy_run(self):
         raise NotImplementedError()

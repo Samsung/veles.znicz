@@ -54,7 +54,7 @@ root.mnist_rbm.update({
     "all2all": {"weights_stddev": 0.05, "output_sample_shape": 1000},
     "decision": {"max_epochs": 2},
     "snapshotter": {"prefix": "mnist_rbm"},
-    "loader": {"minibatch_size": 128, "force_cpu": True,
+    "loader": {"minibatch_size": 128, "force_numpy": True,
                "data_path":
                os.path.join(os.path.dirname(__file__), "..",
                             'data', 'rbm_data', 'test_rbm_functional.mat')},
@@ -111,7 +111,7 @@ class MnistRBMWorkflow(nn_units.NNWorkflow):
         self.loader = MnistRBMLoader(
             self, name="Mnist RBM fullbatch loader",
             minibatch_size=root.mnist_rbm.loader.minibatch_size,
-            force_cpu=root.mnist_rbm.loader.force_cpu,
+            force_numpy=root.mnist_rbm.loader.force_numpy,
             data_path=root.mnist_rbm.loader.data_path)
         self.loader.link_from(self.repeater)
         self.fire_starter = FireStarter(self)

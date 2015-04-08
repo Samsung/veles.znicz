@@ -48,12 +48,12 @@ import veles.memory as formats
 from veles.mutable import Bool
 from veles.pickle2 import pickle
 from veles.znicz.tests.research.imagenet.processor import Processor
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, INumpyUnit
 from veles.external.progressbar.progressbar import ProgressBar, Percentage, Bar
 from veles.workflow import NoMoreJobs
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, INumpyUnit)
 class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
     """
     Imagenet loader for the first processing stage.
@@ -431,9 +431,9 @@ class ImagenetForwardLoaderBbox(AcceleratedUnit, Processor):
         return final
 
     def ocl_run(self):
-        self.cpu_run()
+        self.numpy_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         if self.ended:
             raise NoMoreJobs()
         self.minibatch_data.map_invalidate()

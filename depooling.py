@@ -39,11 +39,11 @@ import numpy
 from zope.interface import implementer
 
 import veles.error as error
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Depooling(nn_units.Forward):
     MAPPING = {"depooling"}
 
@@ -131,7 +131,7 @@ class Depooling(nn_units.Forward):
         self.output.devmem.memset32_async()
         self.execute_kernel(self._global_size, self._local_size)
 
-    def cpu_run(self):
+    def numpy_run(self):
         raise NotImplementedError()
 
     def generate_data_for_slave(self):

@@ -88,7 +88,7 @@ class TestKohonen(AcceleratedTest):
         c.weights.mem = self.weights[:]
         c.initialize(device=self.device)
 
-        c.cpu_run()
+        c.numpy_run()
         max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
 
@@ -108,9 +108,9 @@ class TestKohonen(AcceleratedTest):
         c.batch_size = 10
         c.initialize(device=self.device)
 
-        c.cpu_run()
+        c.numpy_run()
         c.minibatch_offset = 10
-        c.cpu_run()
+        c.numpy_run()
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
         c.total.map_invalidate()
@@ -136,7 +136,7 @@ class TestKohonen(AcceleratedTest):
         c.initialize(device=self.device)
         c.argmins.initialize(self.device)
 
-        c.cpu_run()
+        c.numpy_run()
         max_diff = numpy.fabs(self.output.ravel() - c.output.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
         c.output.map_invalidate()
@@ -161,9 +161,9 @@ class TestKohonen(AcceleratedTest):
         c.initialize(device=self.device)
         c.argmins.initialize(self.device)
 
-        c.cpu_run()
+        c.numpy_run()
         c.minibatch_offset = 10
-        c.cpu_run()
+        c.numpy_run()
         max_diff = numpy.fabs(self.total.ravel() - c.total.mem.ravel()).max()
         self.assertLess(max_diff, 0.0001, "Result differs by %.5f" % max_diff)
         c.total.map_invalidate()
@@ -188,7 +188,7 @@ class TestKohonen(AcceleratedTest):
 
         c.initialize(device=self.device)
 
-        c.cpu_run()
+        c.numpy_run()
 
         weights = c.weights.mem.ravel()
         winners = c.winners.mem
@@ -298,7 +298,7 @@ class TestKohonen(AcceleratedTest):
                                     dtype=self.dtype)
         weights_copy = numpy.copy(c.weights.mem)
         c.initialize(device=self.device)
-        c.cpu_run()
+        c.numpy_run()
         valid_winners = numpy.copy(c.winners.mem)
         self.assertEqual(10, sum(valid_winners))
         valid_weights = numpy.copy(c.weights.mem)

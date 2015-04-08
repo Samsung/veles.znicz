@@ -44,7 +44,8 @@ from zope.interface import implementer
 from veles.distributable import TriviallyDistributable
 import veles.error as error
 from veles.memory import assert_addr, ravel, Vector
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
+    INumpyUnit
 from veles.opencl_types import numpy_dtype_to_opencl
 from veles.unit_registry import MappedUnitRegistry
 from veles.units import Unit, UnitCommandLineArgumentsRegistry
@@ -90,7 +91,7 @@ class EvaluatorBase(AcceleratedUnit):
             vec.initialize(self.device)
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
 
     MAPPING = "evaluator_softmax"
@@ -200,7 +201,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
     def cuda_run(self):
         return self._gpu_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.err_output.map_invalidate()
         for vec in self.output, self.max_idx, self.labels:
             vec.map_read()
@@ -241,7 +242,7 @@ class EvaluatorSoftmax(EvaluatorBase, TriviallyDistributable):
         self.n_err[0] += batch_size - n_ok
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
 
     MAPPING = "evaluator_mse"
@@ -388,7 +389,7 @@ class EvaluatorMSE(EvaluatorBase, TriviallyDistributable):
     def cuda_run(self):
         return self._gpu_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.output.map_read()
         self.target.map_read()
         self.metrics.map_write()

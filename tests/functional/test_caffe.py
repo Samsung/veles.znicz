@@ -338,7 +338,7 @@ class TestConvCaffe(CaffeTestBase):
 
         fwd_pool.initialize(device=self.device)
 
-        fwd_pool.cpu_run()
+        fwd_pool.numpy_run()
         fwd_pool.output.map_read()
 
         # do MANUAL pooling
@@ -394,7 +394,7 @@ class TestConvCaffe(CaffeTestBase):
 
         fwd_pool.initialize(device=self.device)
 
-        fwd_pool.cpu_run()
+        fwd_pool.numpy_run()
         fwd_pool.output.map_read()
 
         self.info("FWD POOL: Veles vs CAFFE: %.3f%%" %
@@ -437,7 +437,7 @@ class TestConvCaffe(CaffeTestBase):
 
         grad_pool.initialize(device=self.device)
 
-        grad_pool.cpu_run()
+        grad_pool.numpy_run()
 
         grad_pool.err_input.map_read()
         self.info("BACK POOL: Veles vs CAFFE, %.3f%%" % (100 * numpy.sum(
@@ -733,7 +733,7 @@ class TestConvCaffe(CaffeTestBase):
         back_conv_relu.bias.map_invalidate()
         back_conv_relu.bias.mem[:] = 0
 
-        back_conv_relu.cpu_run()
+        back_conv_relu.numpy_run()
 
         back_conv_relu.err_input.map_read()
         result = back_conv_relu.err_input.mem
@@ -808,7 +808,7 @@ class TestConvCaffe(CaffeTestBase):
         a2a_softmax.bias.mem[:] = 0
         a2a_softmax.bias.map_invalidate()
 
-        a2a_softmax.cpu_run()
+        a2a_softmax.numpy_run()
 
         a2a_softmax.output.map_read()
         fwd_percent_delta = (numpy.sum(numpy.abs(
@@ -836,7 +836,7 @@ class TestConvCaffe(CaffeTestBase):
         ev_sm.labels = Vector(labels.reshape(n_pics))
 
         ev_sm.initialize(self.device)
-        ev_sm.cpu_run()
+        ev_sm.numpy_run()
 
         ev_sm.output.map_read()
         ev_sm.err_output.map_read()
@@ -851,7 +851,7 @@ class TestConvCaffe(CaffeTestBase):
 
         back_a2a_sm.initialize(self.device)
 
-        back_a2a_sm.cpu_run()
+        back_a2a_sm.numpy_run()
 
         back_a2a_sm.err_input.map_read()
 

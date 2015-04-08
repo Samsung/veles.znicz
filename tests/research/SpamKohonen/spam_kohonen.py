@@ -61,7 +61,7 @@ root.spam_kohonen.update({
                 "weights_filling": "uniform"},
     "decision": {"snapshot_prefix": "spam_kohonen",
                  "epochs": 5},
-    "loader": {"minibatch_size": 60, "force_cpu": True,
+    "loader": {"minibatch_size": 60, "force_numpy": True,
                "file": os.path.join(spam_dir, "data.txt.xz")},
     "train": {"gradient_decay": lambda t: 0.001 / (1.0 + t * 0.00001),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.00001)},
@@ -215,7 +215,7 @@ class SpamKohonenWorkflow(nn_units.NNWorkflow):
         self.loader = SpamKohonenLoader(
             self, name="Kohonen Spam fullbatch loader",
             minibatch_size=root.spam_kohonen.loader.minibatch_size,
-            force_cpu=root.spam_kohonen.loader.force_cpu,
+            force_numpy=root.spam_kohonen.loader.force_numpy,
             ids=root.spam_kohonen.loader.ids,
             classes=root.spam_kohonen.loader.classes)
         self.loader.link_from(self.repeater)

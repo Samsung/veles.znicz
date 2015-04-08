@@ -43,7 +43,7 @@ root.spam_kohonen.update({
     "forward": {"shape": (8, 8)},
     "decision": {"epochs": 200},
     "loader": {"minibatch_size": 80,
-               "force_cpu": True,
+               "force_numpy": True,
                "ids": True,
                "classes": False,
                "file": "/data/veles/VD/VDLogs/histogramConverter/data/hist",

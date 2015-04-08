@@ -42,7 +42,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.znicz.nn_units import AcceleratedUnit, Forward, GradientDescentBase
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 
 
 class LocalResponseNormalizer(AcceleratedUnit):
@@ -92,7 +92,7 @@ class LocalResponseNormalizer(AcceleratedUnit):
         pass
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class LRNormalizerForward(LocalResponseNormalizer, Forward):
     """
     Forward propagation of local response normalization.
@@ -140,7 +140,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
                            block_size)), 1, 1)
         self._local_size = (block_size, 1, 1)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.output.map_invalidate()
         self.input.map_read()
 
@@ -179,7 +179,7 @@ class LRNormalizerForward(LocalResponseNormalizer, Forward):
         pass
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
     """
     Backward-propagation for local response normalization.
@@ -220,7 +220,7 @@ class LRNormalizerBackward(LocalResponseNormalizer, GradientDescentBase):
                            block_size)), 1, 1)
         self._local_size = (block_size, 1, 1)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.err_input.map_invalidate()
         self.err_output.map_read()
         self.input.map_read()

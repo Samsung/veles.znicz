@@ -59,7 +59,7 @@ class TestChannels(StandardTest):
                 os.path.join(root.common.cache_dir,
                              "tmp/train")]},
             "loader": {"minibatch_size": 30,
-                       "force_cpu": True,
+                       "force_numpy": True,
                        "validation_ratio": 0.15,
                        "shuffle_limit": numpy.iinfo(numpy.uint32).max,
                        "normalization_type": "mean_disp",
@@ -122,7 +122,7 @@ class TestChannels(StandardTest):
         self.assertTrue(workflow_from_snapshot.decision.epoch_ended)
         workflow_from_snapshot.decision.max_epochs = 4
         workflow_from_snapshot.decision.complete <<= False
-        self.assertTrue(workflow_from_snapshot.loader.force_cpu)
+        self.assertTrue(workflow_from_snapshot.loader.force_numpy)
         self.assertEqual(workflow_from_snapshot.evaluator.labels,
                          workflow_from_snapshot.loader.minibatch_labels)
         workflow_from_snapshot.initialize(

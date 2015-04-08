@@ -57,7 +57,7 @@ from zope.interface import implementer
 
 import veles.error as error
 import veles.memory as formats
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.prng.uniform import Uniform
@@ -121,7 +121,7 @@ class PoolingBase(Unit):
         return self.input.size // (self.input_batch_size * self.sx * self.sy)
 
 
-@implementer(IOpenCLUnit, ICUDAUnit, IDistributable)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit, IDistributable)
 class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     """Pooling forward propagation.
 
@@ -227,7 +227,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
     def cuda_run(self):
         self._gpu_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.input.map_read()
         self.output.map_invalidate()
         for batch, ch, out_x, out_y in product(*map(range, (
@@ -239,7 +239,7 @@ class Pooling(PoolingBase, nn_units.Forward, TriviallyDistributable):
             test_idx = y1 + self.ky
             y2 = test_idx if test_idx <= self.sy else self.sy
             cut = self.input.mem[batch, y1:y2, x1:x2, ch]
-            val = self.cpu_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
+            val = self.numpy_run_cut(cut, (batch, y1, x1, ch, out_y, out_x))
             self.output.mem[batch, out_y, out_x, ch] = val
 
     def run(self):
@@ -297,13 +297,13 @@ class OffsetPooling(Pooling):
         self.input_offset.unmap()
         super(OffsetPooling, self).cuda_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.input_offset.map_invalidate()
-        super(OffsetPooling, self).cpu_run()
+        super(OffsetPooling, self).numpy_run()
 
-    def cpu_run_cut(self, cut, coords):
+    def numpy_run_cut(self, cut, coords):
         batch, y1, x1, ch, out_y, out_x = coords
-        cut_index = self.cpu_run_cut_offset(
+        cut_index = self.numpy_run_cut_offset(
             cut, numpy.ravel_multi_index((batch, out_y, out_x, ch),
                                          self.output.shape))
         i, j = numpy.unravel_index(cut_index, cut.shape)
@@ -339,7 +339,7 @@ class MaxPooling(MaxPoolingBase):
 
     MAPPING = {"max_pooling"}
 
-    def cpu_run_cut_offset(self, cut, index):
+    def numpy_run_cut_offset(self, cut, index):
         return cut.argmax()
 
 
@@ -364,7 +364,7 @@ class MaxAbsPooling(MaxPoolingBase):
         super(MaxAbsPooling, self).__init__(workflow, **kwargs)
         self.sources_["pooling"] = {"ABS_VALUES": 1}
 
-    def cpu_run_cut_offset(self, cut, index):
+    def numpy_run_cut_offset(self, cut, index):
         return numpy.abs(cut).argmax()
 
 
@@ -415,9 +415,9 @@ class StochasticPoolingBase(OffsetPooling):
     def add_ref(self, unit):
         pass
 
-    def cpu_run(self):
-        self.uniform.cpu_fill(self.output_size << 1)
-        super(StochasticPoolingBase, self).cpu_run()
+    def numpy_run(self):
+        self.uniform.numpy_fill(self.output_size << 1)
+        super(StochasticPoolingBase, self).numpy_run()
 
     def ocl_run(self):
         if not self._rand_set:
@@ -448,7 +448,7 @@ class StochasticPooling(StochasticPoolingBase):
 
     MAPPING = {"stochastic_pooling"}
 
-    def cpu_run_cut_offset(self, cut, index):
+    def numpy_run_cut_offset(self, cut, index):
         vsum = numpy.sum(cut[cut > 0])
         if vsum == 0:
             return self.calculate_random_index_cpu(cut, index)
@@ -472,7 +472,7 @@ class StochasticAbsPooling(StochasticPoolingBase):
         super(StochasticAbsPooling, self).__init__(workflow, **kwargs)
         self.sources_["pooling"] = {"ABS_VALUES": 1}
 
-    def cpu_run_cut_offset(self, cut, index):
+    def numpy_run_cut_offset(self, cut, index):
         vsum = numpy.sum(numpy.abs(cut))
         if vsum == 0:
             return self.calculate_random_index_cpu(cut, index)
@@ -504,7 +504,7 @@ class StochasticPoolingDepooling(StochasticPooling):
     def set_args(self, *args):
         self.set_arg(0, self.input)
 
-    def cpu_run(self):
+    def numpy_run(self):
         raise NotImplementedError()
 
 
@@ -539,11 +539,6 @@ class AvgPooling(Pooling):
         super(AvgPooling, self).init_unpickled()
         self._kernel_name = "avg_pooling"
 
-    def initialize(self, device, **kwargs):
-        super(AvgPooling, self).initialize(device=device, **kwargs)
-        if self.device is None:
-            return
-
     def ocl_init(self):
         super(AvgPooling, self).ocl_init()
         self.set_args(self.input, self.output)
@@ -552,5 +547,5 @@ class AvgPooling(Pooling):
         super(AvgPooling, self).cuda_init()
         self.set_args(self.input, self.output)
 
-    def cpu_run_cut(self, cut, coords):
+    def numpy_run_cut(self, cut, coords):
         return numpy.sum(cut) / cut.size

@@ -41,14 +41,14 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.memory import roundup, Vector
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     # TriviallyDistributable overrides nn_units.Forward IDistributable
     """Deconvolutional layer for simple convolutional layer
@@ -312,5 +312,5 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.execute_kernel(self._global_size_pack(limit),
                             self._local_size_pack, self.krn_pack_)
 
-    def cpu_run(self):
+    def numpy_run(self):
         raise NotImplementedError()

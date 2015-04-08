@@ -49,7 +49,7 @@ class TestMnistAE(StandardTest):
                          "max_epochs": 3},
             "snapshotter": {"prefix": "mnist", "time_interval": 0,
                             "interval": 4, "compression": ""},
-            "loader": {"minibatch_size": 100, "force_cpu": False,
+            "loader": {"minibatch_size": 100, "force_numpy": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.000001,
             "weights_decay": 0.00005,

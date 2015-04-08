@@ -44,7 +44,7 @@ import numpy
 import time
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.compat import from_none
 import veles.error as error
 from veles.memory import reshape_transposed, roundup, Vector
@@ -66,7 +66,7 @@ class ConvolutionalBase(Unit):
         return self
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Conv(ConvolutionalBase, nn_units.NNLayerBase):
     """Convolutional forward propagation with linear activation f(x) = x.
 
@@ -294,7 +294,7 @@ class Conv(ConvolutionalBase, nn_units.NNLayerBase):
             self.np_one, self.weights.devmem, self.unpack_data.devmem,
             self.np_zero, int(self.output.devmem) + output_offs)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
         self.input.map_read()

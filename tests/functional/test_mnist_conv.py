@@ -58,7 +58,7 @@ class TestMnistConv(StandardTest):
             "snapshotter": {"prefix": "test_mnist_conv", "time_interval": 0,
                             "interval": 2},
             "weights_plotter": {"limit": 64},
-            "loader": {"minibatch_size": 6, "force_cpu": False,
+            "loader": {"minibatch_size": 6, "force_numpy": False,
                        "normalization_type": "linear"},
             "layers": [{"type": "conv",
                         "->": {"n_kernels": 64, "kx": 5, "ky": 5,

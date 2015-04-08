@@ -41,13 +41,13 @@ import cuda4py.blas as cublas
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.error as error
 from veles.memory import reshape, roundup, Vector
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class All2All(nn_units.NNLayerBase):
     """All2All with linear activation f(x) = x.
 
@@ -286,8 +286,8 @@ class All2All(nn_units.NNLayerBase):
         self._local_size = [block_size, block_size]
 
     def ocl_run(self):
-        if self.prefer_numpy:
-            return self.cpu_run()
+        if self.intel_opencl_workaround:
+            return self.numpy_run()
         return super(All2All, self).ocl_run()
 
     def cuda_run(self):
@@ -302,7 +302,7 @@ class All2All(nn_units.NNLayerBase):
         if self.include_bias or self.activation_mode != "ACTIVATION_LINEAR":
             self.execute_kernel(self._global_size_bias, self._local_size_bias)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
         self.output.map_invalidate()
@@ -330,10 +330,10 @@ class All2AllTanh(All2All):
         super(All2AllTanh, self).initialize(device=device, **kwargs)
         self.output.max_supposed = All2AllTanh.A
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllTanh, self).cpu_run()
+        super(All2AllTanh, self).numpy_run()
         self.output.map_write()
         mem = self.output.mem
         mem *= All2AllTanh.B
@@ -352,10 +352,10 @@ class All2AllRELU(All2All):
         super(All2AllRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllRELU, self).cpu_run()
+        super(All2AllRELU, self).numpy_run()
         self.output.map_write()
         mem = self.output.mem
         mem[:] = numpy.where(mem > 15, mem, numpy.log(numpy.exp(mem) + 1.0))
@@ -372,10 +372,10 @@ class All2AllStrictRELU(All2All):
         super(All2AllStrictRELU, self).initialize(device=device, **kwargs)
         self.output.max_supposed = 10
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllStrictRELU, self).cpu_run()
+        super(All2AllStrictRELU, self).numpy_run()
         self.output.map_write()
         mem = self.output.mem
         numpy.clip(mem, 0.0, 1.0e30, mem)
@@ -391,10 +391,10 @@ class All2AllSigmoid(All2All):
         super(All2AllSigmoid, self).initialize(device=device, **kwargs)
         self.output.supposed_maxvle = 10
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllSigmoid, self).cpu_run()
+        super(All2AllSigmoid, self).numpy_run()
         self.output.map_write()
         mem = self.output.mem
         # 1 / (1 + numpy.exp(-mem))
@@ -446,7 +446,7 @@ class All2AllSoftmax(All2All):
                                            dtype=numpy.int32))
         self.max_idx.initialize(self.device)
 
-    def cpu_apply_exp(self):
+    def numpy_apply_exp(self):
         self.output.map_write()
         self.max_idx.map_invalidate()
         out = self.output.mem
@@ -472,12 +472,12 @@ class All2AllSoftmax(All2All):
         local_size = (self.reduce_size, 1, 1)
         self.execute_kernel(global_size, local_size, self.krn_sm_)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
-        super(All2AllSoftmax, self).cpu_run()
+        super(All2AllSoftmax, self).numpy_run()
         if not self._force_gpu_apply_exp:
-            self.cpu_apply_exp()
+            self.numpy_apply_exp()
 
     def ocl_run(self):
         """Forward propagation from batch on GPU.

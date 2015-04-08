@@ -35,13 +35,13 @@ under the License.
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.memory as formats
 from veles.distributable import TriviallyDistributable
 from veles.znicz.nn_units import ForwardBase
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class ZeroFiller(ForwardBase, TriviallyDistributable):
     """Fills weights of given unit with zero on every step"""
 
@@ -118,7 +118,7 @@ class ZeroFiller(ForwardBase, TriviallyDistributable):
         self._global_size = (self.weights.size, 1, 1)
         self._local_size = (1, 1, 1)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.mask.map_read()
         self.weights.map_write()
 

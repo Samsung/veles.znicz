@@ -65,11 +65,11 @@ class TestNormalization(AcceleratedTest):
         fwd_normalizer.output.map_read()
         ocl_result = numpy.copy(fwd_normalizer.output.mem)
 
-        fwd_normalizer.cpu_run()
+        fwd_normalizer.numpy_run()
         fwd_normalizer.output.map_read()
-        cpu_result = numpy.copy(fwd_normalizer.output.mem)
+        numpy_result = numpy.copy(fwd_normalizer.output.mem)
 
-        max_delta = numpy.fabs(cpu_result - ocl_result).max()
+        max_delta = numpy.fabs(numpy_result - ocl_result).max()
 
         self.info("FORWARD")
         self.assertLess(max_delta, 0.0001,
@@ -98,8 +98,8 @@ class TestNormalization(AcceleratedTest):
 
         back_normalizer.initialize(device=self.device)
 
-        back_normalizer.cpu_run()
-        cpu_result = back_normalizer.err_input.mem.copy()
+        back_normalizer.numpy_run()
+        numpy_result = back_normalizer.err_input.mem.copy()
 
         back_normalizer.err_input.map_invalidate()
         back_normalizer.err_input.mem[:] = 100
@@ -110,7 +110,7 @@ class TestNormalization(AcceleratedTest):
 
         self.info("BACK")
 
-        max_delta = numpy.fabs(cpu_result - ocl_result).max()
+        max_delta = numpy.fabs(numpy_result - ocl_result).max()
         self.assertLess(max_delta, 0.0001,
                         "Result differs by %.6f" % (max_delta))
 

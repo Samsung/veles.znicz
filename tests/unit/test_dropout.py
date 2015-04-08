@@ -74,7 +74,7 @@ class TestDropout(AcceleratedTest):
             fwd_dropout.run()
             fwd_dropout.output.map_read()
         else:
-            fwd_dropout.cpu_run()
+            fwd_dropout.numpy_run()
 
         self.debug("[DropoutForward] output matrix:\n%s",
                    fwd_dropout.output.mem)
@@ -103,7 +103,7 @@ class TestDropout(AcceleratedTest):
             back_dropout.run()
             back_dropout.err_input.map_read()
         else:
-            back_dropout.cpu_run()
+            back_dropout.numpy_run()
 
         self.debug("[DropoutBackward] err_input:")
         self.debug(back_dropout.err_input.mem)

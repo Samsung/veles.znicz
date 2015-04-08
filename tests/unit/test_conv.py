@@ -468,12 +468,11 @@ class TestConvWithPadding(TestConvBase):
                                     weights, bias)
         time1 = time.time()
 
-        cpu_output = self._run_test(unit, None, input_data, weights, bias)
+        numpy_output = self._run_test(unit, None, input_data, weights, bias)
         time2 = time.time()
         self.info("OpenCL is faster than CPU in %.4f times",
                   (time2 - time1) / (time1 - time0))
-        max_diff = numpy.fabs(ocl_output.ravel() -
-                              cpu_output.ravel()).max()
+        max_diff = numpy.fabs(ocl_output.ravel() - numpy_output.ravel()).max()
         self.assertLess(max_diff, 1E-06, "Result differs by %.2e" % max_diff)
 
 

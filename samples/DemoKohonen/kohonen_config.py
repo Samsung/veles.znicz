@@ -49,6 +49,6 @@ root.kohonen.update({
                  "epochs": 200},
     "loader": {"minibatch_size": 10,
                "dataset_file": os.path.join(data_path, "kohonen.txt.gz"),
-               "force_cpu": True},
+               "force_numpy": True},
     "train": {"gradient_decay": lambda t: 0.05 / (1.0 + t * 0.005),
               "radius_decay": lambda t: 1.0 / (1.0 + t * 0.005)}})

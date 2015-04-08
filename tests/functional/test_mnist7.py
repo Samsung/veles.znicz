@@ -46,7 +46,7 @@ class TestMnist7(StandardTest):
             "decision": {"fail_iterations": 25, "max_epochs": 2},
             "snapshotter": {"prefix": "mnist7_test", "interval": 2,
                             "time_interval": 0},
-            "loader": {"minibatch_size": 60, "force_cpu": False,
+            "loader": {"minibatch_size": 60, "force_numpy": False,
                        "normalization_type": "linear"},
             "learning_rate": 0.0001,
             "weights_decay": 0.00005,

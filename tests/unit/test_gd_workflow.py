@@ -35,6 +35,7 @@ under the License.
 
 
 import numpy
+from veles.backends import NumpyDevice
 
 from veles.config import root
 import veles.memory as formats
@@ -247,10 +248,10 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
                                   gd_conv.GDRELUConv)
 
     def _test_random_numeric(self, device, ConvForward, ConvGD):
-        self.info("Will check %s <=> %s "
-                  "via numeric differentiation on %s",
+        self.info("Will check %s <=> %s via numeric differentiation on %s",
                   ConvForward.__name__, ConvGD.__name__,
-                  "CPU, limited to 2 checks" if device is None else "GPU")
+                  "CPU, limited to 2 checks" if isinstance(device, NumpyDevice)
+                  else "GPU")
         launcher = DummyLauncher()
         w = Workflow(launcher, ConvForward=ConvForward, ConvGD=ConvGD)
         w.initialize(device=device, snapshot=False)
@@ -303,7 +304,8 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
             self.numdiff_check(w, v2c, vv_map, w.sm_forward.output, target,
                                d2c, self.info, self.assertLess,
                                GDNumDiff.cross_entropy_mean, w.batch_size,
-                               limit=(2 if device is None else None))
+                               limit=(2 if isinstance(device, NumpyDevice)
+                                      else None))
         del launcher
 
 

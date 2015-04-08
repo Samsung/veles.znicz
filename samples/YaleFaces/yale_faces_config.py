@@ -45,7 +45,7 @@ root.yalefaces.update({
     "loss_function": "softmax",
     "loader_name": "full_batch_auto_label_file_image",
     "snapshotter": {"prefix": "yalefaces", "interval": 10, "time_interval": 0},
-    "loader": {"minibatch_size": 40, "force_cpu": False,
+    "loader": {"minibatch_size": 40, "force_numpy": False,
                "validation_ratio": 0.15,
                "file_subtypes": ["x-portable-graymap"],
                "ignored_files": [".*Ambient.*"],

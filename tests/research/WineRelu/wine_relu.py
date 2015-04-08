@@ -51,7 +51,7 @@ root.common.disable_plotting = True
 root.wine_relu.update({
     "decision": {"fail_iterations": 250, "max_epochs": 100000},
     "snapshotter": {"prefix": "wine_relu"},
-    "loader": {"minibatch_size": 10, "force_cpu": False},
+    "loader": {"minibatch_size": 10, "force_numpy": False},
     "learning_rate": 0.03,
     "weights_decay": 0.0,
     "layers": [10, 3]})
@@ -72,7 +72,7 @@ class WineReluWorkflow(nn_units.NNWorkflow):
 
         self.loader = WineLoader(
             self, minibatch_size=root.wine_relu.loader.minibatch_size,
-            force_cpu=root.wine_relu.loader.force_cpu)
+            force_numpy=root.wine_relu.loader.force_numpy)
         self.loader.link_from(self.repeater)
 
         # Add fwds units

@@ -42,7 +42,7 @@ from zope.interface import implementer
 from veles.units import Unit, IUnit
 import veles.memory as formats
 import veles.opencl_types as opencl_types
-from veles.accelerated_units import IOpenCLUnit, AcceleratedUnit
+from veles.accelerated_units import IOpenCLUnit, AcceleratedUnit, INumpyUnit
 import veles.prng as prng
 from veles.znicz.decision import TrivialDecision
 
@@ -66,7 +66,7 @@ class KohonenBase(object):
         return [numpy.linalg.norm(dist[i]) for i in range(dist.shape[0])]
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, INumpyUnit)
 class KohonenForward(KohonenBase, AcceleratedUnit):
     """Kohonen forward layer.
 
@@ -225,7 +225,7 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
             self.execute_kernel(self._set_total_global_size_, None,
                                 self._krn_set_total_)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.output.map_invalidate()
 
         if self.argmins is not None:
@@ -252,7 +252,7 @@ class KohonenForward(KohonenBase, AcceleratedUnit):
                 self.total[index] = winner
 
 
-@implementer(IOpenCLUnit)
+@implementer(IOpenCLUnit, INumpyUnit)
 class KohonenTrainer(KohonenBase, AcceleratedUnit):
     """KohonenForward train pass.
 
@@ -466,7 +466,7 @@ class KohonenTrainer(KohonenBase, AcceleratedUnit):
         return wrapped
 
     @iteration
-    def cpu_run(self):
+    def numpy_run(self):
         batch_size = self.input.mem.shape[0]
         neurons_number = self._neurons_number
         dists = numpy.empty(neurons_number)

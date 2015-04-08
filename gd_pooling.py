@@ -47,13 +47,13 @@ import time
 from zope.interface import implementer
 
 import veles.error as error
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 import veles.znicz.nn_units as nn_units
 from veles.distributable import TriviallyDistributable
 from veles.znicz.pooling import PoolingBase
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GDPooling(PoolingBase, nn_units.GradientDescentBase,
                 TriviallyDistributable):
     """Gradient Descent for pooling unit.
@@ -167,7 +167,7 @@ class GDPooling(PoolingBase, nn_units.GradientDescentBase,
         # Compute err_input
         self.execute_kernel(self._global_size(), self._local_size)
 
-    def cpu_run(self):
+    def numpy_run(self):
         raise NotImplementedError()
 
     def run(self):
@@ -229,7 +229,7 @@ class GDMaxPooling(GDPooling):
         self.input_offset.unmap()
         return super(GDMaxPooling, self).cuda_run()
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Do gradient descent on CPU.
         """
         self.err_output.map_read()
@@ -268,7 +268,7 @@ class GDAvgPooling(GDPooling):
         self.kernel_name = "gd_avg_pooling"
         super(GDAvgPooling, self).initialize(device=device, **kwargs)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.err_output.map_read()
         self.err_input.map_invalidate()
         self.err_input.mem[:] = 0

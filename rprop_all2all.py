@@ -66,7 +66,7 @@ class RPropAll2All(GradientDescent):
         self.weight_lrs.initialize(self.device)
         self.bias_lrs.initialize(self.device)
 
-    def cpu_weights_update(self):
+    def numpy_weights_update(self):
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
@@ -95,7 +95,7 @@ class RPropAll2All(GradientDescent):
 
         self.gradient_weights.mem[:] = gradient[:]
 
-    def cpu_bias_update(self):
+    def numpy_bias_update(self):
         if not self.include_bias:
             return
 
@@ -125,4 +125,4 @@ class RPropAll2All(GradientDescent):
 
     def ocl_run(self):
         # TODO(a.golovizin): implement OCL version
-        self.cpu_run()
+        self.numpy_run()

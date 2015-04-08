@@ -45,7 +45,7 @@ from veles.config import root
 root.video_ae.update({
     "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "video_ae"},
-    "loader": {"minibatch_size": 50, "force_cpu": False,
+    "loader": {"minibatch_size": 50, "force_numpy": False,
                "train_paths":
                (os.path.join(root.common.test_dataset_root, "video_ae/img"),),
                "color_space": "GRAY",

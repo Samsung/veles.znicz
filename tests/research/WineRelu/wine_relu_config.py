@@ -42,7 +42,7 @@ from veles.config import root
 root.wine_relu.update({
     "decision": {"fail_iterations": 250, "max_epochs": 100000},
     "snapshotter": {"prefix": "wine_relu", "interval": 1, "time_interval": 0},
-    "loader": {"minibatch_size": 10, "force_cpu": False},
+    "loader": {"minibatch_size": 10, "force_numpy": False},
     "learning_rate": 0.03,
     "weights_decay": 0.0,
     "layers": [10, 3]})

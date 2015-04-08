@@ -53,7 +53,7 @@ class TestYaleFaces(StandardTest):
             "snapshotter": {"prefix": "yalefaces_test", "interval": 4,
                             "time_interval": 0},
             "loader_name": "full_batch_auto_label_file_image",
-            "loader": {"minibatch_size": 40, "force_cpu": False,
+            "loader": {"minibatch_size": 40, "force_numpy": False,
                        "validation_ratio": 0.15,
                        "file_subtypes": ["x-portable-graymap"],
                        "ignored_files": [".*Ambient.*"],

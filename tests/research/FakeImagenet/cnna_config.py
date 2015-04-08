@@ -42,7 +42,7 @@ root.imagenet.update({
                  "max_epochs": 10},
     "loss_function": "softmax",
     "snapshotter": {"prefix": "cnna", "interval": 10},
-    "loader": {"minibatch_size": 32, "force_cpu": True,
+    "loader": {"minibatch_size": 32, "force_numpy": True,
                "validation_ratio": 0.5, "shuffle_limit": 1,
                "sx": 227, "sy": 227},
     "layers": [{"type": "conv_str", "n_kernels": 64, "kx": 3, "ky": 3,

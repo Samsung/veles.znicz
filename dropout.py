@@ -42,7 +42,8 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
+    INumpyUnit
 from veles.distributable import IDistributable, TriviallyDistributable
 from veles.memory import eq_addr, ravel, Vector
 import veles.prng as random_generator
@@ -77,7 +78,7 @@ class Dropout(AcceleratedUnit, TriviallyDistributable):
         self._dropout_ratio = value
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class DropoutForward(Forward, Dropout):
     """
     Forward propagation of dropout layer.
@@ -145,7 +146,7 @@ class DropoutForward(Forward, Dropout):
         self.mask.mem[:] = (self.mask.mem.astype(self.input.dtype) /
                             leave_ratio)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.output.map_invalidate()
         self.input.map_read()
         if not self.forward_mode:
@@ -179,7 +180,7 @@ class DropoutForward(Forward, Dropout):
             self.output.devmem.from_device_async(self.input.devmem)
 
 
-@implementer(IOpenCLUnit, ICUDAUnit, IDistributable)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit, IDistributable)
 class DropoutBackward(GradientDescentBase, Dropout):
     """
     Backward propagation of droupout layer.
@@ -220,7 +221,7 @@ class DropoutBackward(GradientDescentBase, Dropout):
             int(numpy.ceil(self.err_output.size / block_size)), 1, 1)
         self._local_size = (block_size, 1, 1)
 
-    def cpu_run(self):
+    def numpy_run(self):
         if eq_addr(self.err_input.mem, self.err_output.mem):
             self.err_output.map_write()
         else:

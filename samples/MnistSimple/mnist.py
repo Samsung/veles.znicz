@@ -57,7 +57,7 @@ root.mnist.update({
     "decision": {"fail_iterations": 100,
                  "max_epochs": 1000000000},
     "snapshotter": {"prefix": "mnist", "time_interval": 15},
-    "loader": {"minibatch_size": 60, "force_cpu": False,
+    "loader": {"minibatch_size": 60, "force_numpy": False,
                "normalization_type": "linear"},
     "learning_rate": 0.03,
     "weights_decay": 0.0005,  # 1.6%

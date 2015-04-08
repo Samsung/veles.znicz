@@ -38,7 +38,8 @@ import numpy
 import numpy.matlib as matlib
 from zope.interface import implementer
 
-from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import AcceleratedUnit, IOpenCLUnit, ICUDAUnit, \
+    INumpyUnit
 from veles.memory import Vector
 from veles.mutable import Bool
 import veles.prng as prng
@@ -61,11 +62,11 @@ class EmptyDeviceMethodsMixin(object):
     def cuda_run(self):
         pass
 
-    def cpu_run(self):
+    def numpy_run(self):
         pass
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Binarization(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     Input Binarization. Input and output is 2d arrays of the same size.
@@ -175,7 +176,7 @@ class IterationCounter(Unit):
         self.complete <<= self.iteration > self.max_iterations
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class BatchWeights(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """Make weigths and biases from batch v and h.
     Must be assigned before initialize():
@@ -253,7 +254,7 @@ class BatchWeights2(BatchWeights):
     hide_from_registry = True
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GradientsCalculator(AcceleratedUnit, EmptyDeviceMethodsMixin):
     """
     Making gradients for weights, hbias and vbias, using hbias0, vbias0
@@ -357,7 +358,7 @@ class WeightsUpdater(Unit):
             self.vbias.shape)
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class MemCpy(AcceleratedUnit):
     def __init__(self, workflow, **kwargs):
         super(MemCpy, self).__init__(workflow, **kwargs)
@@ -393,7 +394,7 @@ class MemCpy(AcceleratedUnit):
         self._gpu_run()
         self.output.devmem.from_device_async(self.input.devmem)
 
-    def cpu_run(self):
+    def numpy_run(self):
         self.input.map_read()
         self.output.map_invalidate()
         numpy.copyto(self.output.mem, self.input.mem)

@@ -42,15 +42,15 @@ import unittest
 from zope.interface import implementer
 
 from veles import memory, prng
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.dummy import DummyWorkflow
 from veles.znicz.gd import GradientDescent
 from veles.znicz.nn_units import Forward, ForwardExporter
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class TrivialForward(Forward):
-    def cpu_run(self):
+    def numpy_run(self):
         pass
 
     def ocl_init(self):

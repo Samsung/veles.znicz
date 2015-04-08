@@ -50,7 +50,7 @@ class TestWine(StandardTest):
                          "snapshot_prefix": "wine"},
             "snapshotter": {"interval": 13, "time_interval": 0},
             "loader": {"minibatch_size": 10,
-                       "force_cpu": False},
+                       "force_numpy": False},
             "learning_rate": 0.3,
             "weights_decay": 0.0,
             "layers": [8, 3],

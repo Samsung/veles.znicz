@@ -49,12 +49,12 @@ from zope.interface import implementer
 
 import veles.error as error
 from veles.memory import reshape_transposed, roundup
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.znicz.conv import ConvolutionalBase
 import veles.znicz.nn_units as nn_units
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
     """Gradient descent for simple convolutional layer (no activation).
 
@@ -375,7 +375,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
                 self.np_one if start_image else self.np_zero,
                 self.gradient_weights.devmem)
 
-    def cpu_weights_update(self):
+    def numpy_weights_update(self):
         self.input.map_read()
         self.err_output.map_read()
         self.weights.map_write()
@@ -441,7 +441,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         lr = self.learning_rate
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
-        gradient = -nn_units.GradientDescentBase.cpu_gradient_step(
+        gradient = -nn_units.GradientDescentBase.numpy_gradient_step(
             self.weights.mem, gd_weights, lr, factor_l12, l1_vs_l2,
             self.factor_ortho, self.weights_transposed)
         if self.accumulate_gradient == self.OP_NONE:
@@ -462,7 +462,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         if self.apply_gradient:
             self.weights.mem += gradient
 
-    def cpu_bias_update(self):
+    def numpy_bias_update(self):
         if not self.include_bias:
             return
 
@@ -486,7 +486,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         factor_l12 = self.weights_decay
         l1_vs_l2 = self.l1_vs_l2
 
-        gd_bias_reg = -nn_units.GradientDescentBase.cpu_gradient_step(
+        gd_bias_reg = -nn_units.GradientDescentBase.numpy_gradient_step(
             self.bias.mem, gd_bias, lr, factor_l12, l1_vs_l2)
 
         if self.accumulate_gradient == self.OP_NONE:
@@ -523,7 +523,7 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
             self._global_size_err_input, self._local_size_err_input,
             self.krn_err_input_)
 
-    def cpu_err_input_update(self):
+    def numpy_err_input_update(self):
         """Backpropagate error (will compute err_input).
         """
         if not self.need_err_input:
@@ -583,11 +583,11 @@ class GradientDescentConv(ConvolutionalBase, nn_units.GradientDescentBase):
         self.gpu_bias_update()
         self.print_debug_data()
 
-    def cpu_run(self):
-        self.cpu_err_output_update()
-        self.cpu_err_input_update()
-        self.cpu_weights_update()
-        self.cpu_bias_update()
+    def numpy_run(self):
+        self.numpy_err_output_update()
+        self.numpy_err_input_update()
+        self.numpy_weights_update()
+        self.numpy_bias_update()
         self.print_debug_data()
 
 
@@ -605,7 +605,7 @@ class GDTanhConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
 
     MAPPING = {"conv_tanh"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by s
            in terms of output.
         """
@@ -631,7 +631,7 @@ class GDSigmoidConv(nn_units.GradientDescentWithActivation,
 
     MAPPING = {"conv_sigmoid"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by s
            in terms of output.
         """
@@ -656,7 +656,7 @@ class GDRELUConv(nn_units.GradientDescentWithActivation, GradientDescentConv):
 
     MAPPING = {"conv_relu"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by s
         in terms of output.
         """
@@ -683,7 +683,7 @@ class GDStrictRELUConv(nn_units.GradientDescentWithActivation,
 
     MAPPING = {"conv_str"}
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply `err_output` by activation derivative by s
         in terms of output.
         """

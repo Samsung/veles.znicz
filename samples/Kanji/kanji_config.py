@@ -58,7 +58,7 @@ root.kanji.update({
                      os.path.join(root.common.cache_dir, "tmp/validation"),
                      os.path.join(root.common.cache_dir, "tmp/train")]},
     "loader": {"minibatch_size": 50,
-               "force_cpu": False,
+               "force_numpy": False,
                "file_subtypes": ["png"],
                "train_paths": [train_path],
                "target_paths": [target_path],

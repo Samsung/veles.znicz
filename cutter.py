@@ -39,7 +39,7 @@ from __future__ import division
 import numpy
 from zope.interface import implementer
 
-from veles.accelerated_units import IOpenCLUnit, ICUDAUnit
+from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 
 import veles.error as error
 import veles.memory as formats
@@ -85,7 +85,7 @@ class CutterBase(Unit):
                 self.input.shape[1])
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class Cutter(nn_units.Forward, CutterBase):
     MAPPING = {"cutter"}
     """Cuts rectangular area from an input.
@@ -159,7 +159,7 @@ class Cutter(nn_units.Forward, CutterBase):
             self._src_row_pitch, self._src_slice_height,
             dst=self.output.devmem)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
         self.output.map_invalidate()
@@ -171,7 +171,7 @@ class Cutter(nn_units.Forward, CutterBase):
             self.padding[0]:self.padding[0] + self.output_shape[2], :]
 
 
-@implementer(IOpenCLUnit, ICUDAUnit)
+@implementer(IOpenCLUnit, ICUDAUnit, INumpyUnit)
 class GDCutter(nn_units.GradientDescentBase, CutterBase):
     """Gradient descent for Cutter.
     """
@@ -244,7 +244,7 @@ class GDCutter(nn_units.GradientDescentBase, CutterBase):
             0, 0, self._dst_row_pitch, self._dst_slice_height,
             dst=self.err_input.devmem)
 
-    def cpu_run(self):
+    def numpy_run(self):
         """Forward propagation from batch on CPU only.
         """
         self.err_input.map_invalidate()

@@ -49,7 +49,7 @@ class TestSpamKohonen(StandardTest):
             "forward": {"shape": (8, 8)},
             "decision": {"epochs": 5},
             "loader": {"minibatch_size": 80,
-                       "force_cpu": True,
+                       "force_numpy": True,
                        "ids": True,
                        "classes": False,
                        "file":

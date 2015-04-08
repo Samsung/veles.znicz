@@ -70,7 +70,7 @@ root.mnist784.update({
     "decision": {"fail_iterations": 100, "max_epochs": 100000},
     "snapshotter": {"prefix": "mnist_784", "time_interval": 10,
                     "interval": 1},
-    "loader": {"minibatch_size": 100, "force_cpu": False},
+    "loader": {"minibatch_size": 100, "force_numpy": False},
     "weights_plotter": {"limit": 16},
     "learning_rate": 0.00001,
     "weights_decay": 0.00005,

@@ -292,7 +292,7 @@ class GradientDescentBase(AcceleratedUnit):
         apply_gradient: will apply gradient.
         gradient_changed: when True, slave will send gradients to master
             (assigned to True just before the run call, so it can be set to
-            False inside ocl_run, cpu_run if necessary).
+            False inside ocl_run, numpy_run if necessary).
         ocl_set_const_args: True when constant arguments for the kernel
                             had been changed and need to be set again.
     """
@@ -586,7 +586,7 @@ class GradientDescentBase(AcceleratedUnit):
             self._global_size_err_output, self._local_size_err_output,
             self.krn_err_output_)
 
-    def cpu_err_output_update(self):
+    def numpy_err_output_update(self):
         """Multiply err_output by activation derivative by output.
         """
         pass
@@ -673,8 +673,8 @@ class GradientDescentBase(AcceleratedUnit):
         pass
 
     @staticmethod
-    def cpu_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
-                          factor_ortho=0, weights_transposed=False):
+    def numpy_gradient_step(weight, gradient, lr, factor_l12, l1_vs_l2,
+                            factor_ortho=0, weights_transposed=False):
         gradient = gradient.copy()
         gradient += factor_l12 * ((1.0 - l1_vs_l2) * weight +
                                   0.5 * l1_vs_l2 * numpy.sign(weight))
