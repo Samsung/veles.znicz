@@ -89,6 +89,7 @@ class Test(unittest.TestCase):
     def testForwardExporter(self):
         workflow = self.parent
         fe = ForwardExporter(workflow, prefix="testp", time_interval=0)
+        fe.link_from(workflow.start_point)
         fe.suffix = "tests"
         for _ in range(3):
             fwd = TrivialForward(workflow, name="forward")
