@@ -84,7 +84,7 @@ class TestChannels(StandardTest):
                         "<-": {"learning_rate": 0.01,
                                "weights_decay": 0.00005}}]})
 
-    @timeout(600)
+    @timeout(800)
     @multi_device()
     def test_channels_all2all(self):
         self.info("Will test channels fully connected workflow")
