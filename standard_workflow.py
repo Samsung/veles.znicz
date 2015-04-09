@@ -254,15 +254,12 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     def __init__(self, workflow, **kwargs):
         super(StandardWorkflowBase, self).__init__(workflow, **kwargs)
         self.layer_map = nn_units.MatchingObject.mapping
+        self.preprocessing = kwargs.get("preprocessing", False)
         self.mcdnnic_topology = kwargs.get("mcdnnic_topology", None)
         self.mcdnnic_parameters = kwargs.get("mcdnnic_parameters", None)
         self.layers = kwargs.get("layers", [{}])
         self.loader_name = kwargs["loader_name"]
         self._loader = None
-        self.preprocessing = kwargs.get("preprocessing", False)
-        self.loss_function = kwargs.get("loss_function", None)
-        self.decision_name = kwargs.pop("decision_name", None)
-        self.evaluator_name = kwargs.pop("evaluator_name", None)
         if "loader_config" not in kwargs:
             raise ValueError(
                 "Loader's configuration must be specified (\"loader_config\")")
@@ -302,7 +299,8 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
                 "time.")
         if not isinstance(value, list):
             raise ValueError("layers should be a list of dicts")
-        if value == [{}] and self.mcdnnic_topology is None:
+        if (value == [{}] and self.mcdnnic_topology is None
+                and not self.preprocessing):
             raise error.BadFormatError(
                 "Looks like layers is empty and mcdnnic_topology is not "
                 "defined. Please set layers like in VELES samples or"
@@ -323,25 +321,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     @preprocessing.setter
     def preprocessing(self, value):
         self._preprocessing = value
-
-    @property
-    def loss_function(self):
-        return self._loss_function
-
-    @loss_function.setter
-    def loss_function(self, value):
-        if value not in ("softmax", "mse", None):
-            raise ValueError("Unknown loss function type %s" % value)
-        self._loss_function = value
-
-    def set_value(self, value, name, mapping):
-        value_error = "%s name or loss function must be defined" % name
-        if (value is None and self.loss_function is None and
-                not self.preprocessing):
-            raise ValueError(value_error)
-        setattr(self, "_%s_name" % name, value)
-        if value is None and self.loss_function is not None:
-            setattr(self, "_%s_name" % name, mapping[self.loss_function])
 
     def _get_mcdnnic_parameters(self, arrow):
         if (self.mcdnnic_parameters is not None
@@ -392,22 +371,6 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
         kwargs["minibatch_size"] = int(minibatch_size)
         kwargs["scale"] = (int(y_size), int(x_size))
         return kwargs
-
-    @property
-    def decision_name(self):
-        return self._decision_name
-
-    @decision_name.setter
-    def decision_name(self, value):
-        self.set_value(value, "decision", DecisionsRegistry.loss_mapping)
-
-    @property
-    def evaluator_name(self):
-        return self._evaluator_name
-
-    @evaluator_name.setter
-    def evaluator_name(self, value):
-        self.set_value(value, "evaluator", EvaluatorsRegistry.loss_mapping)
 
     def link_forwards(self, init_attrs, *parents):
         """
@@ -616,8 +579,54 @@ class StandardWorkflow(StandardWorkflowBase):
         super(StandardWorkflow, self).__init__(workflow, **kwargs)
         self.result_loader_name = kwargs.get("result_loader_name")
         self.result_unit_factory = kwargs.get("result_unit_factory")
+        self.loss_function = kwargs.get("loss_function", None)
+        self.decision_name = kwargs.pop("decision_name", None)
+        self.evaluator_name = kwargs.pop("evaluator_name", None)
 
         self.create_workflow()
+
+    @property
+    def loss_function(self):
+        return self._loss_function
+
+    @loss_function.setter
+    def loss_function(self, value):
+        if value not in ("softmax", "mse", None):
+            raise ValueError("Unknown loss function type %s" % value)
+        self._loss_function = value
+
+    def _set_name_of_unit(self, value, name, mapping):
+        value_error = "%s name or loss function must be defined" % name
+        if (value is None and self.loss_function is None and
+                not self.preprocessing):
+            raise ValueError(value_error)
+        setattr(self, "_%s_name" % name, value)
+        if value is None and self.loss_function is not None:
+            setattr(self, "_%s_name" % name, mapping[self.loss_function])
+        if value is not None:
+            setattr(self, "_%s_name" % name, value)
+            if self.loss_function is not None:
+                self.warning("Loss function and %s name is defined at the"
+                             "same time. %s name has higher priority, then"
+                             "loss function")
+
+    @property
+    def decision_name(self):
+        return self._decision_name
+
+    @decision_name.setter
+    def decision_name(self, value):
+        self._set_name_of_unit(
+            value, "decision", DecisionsRegistry.loss_mapping)
+
+    @property
+    def evaluator_name(self):
+        return self._evaluator_name
+
+    @evaluator_name.setter
+    def evaluator_name(self, value):
+        self._set_name_of_unit(
+            value, "evaluator", EvaluatorsRegistry.loss_mapping)
 
     def create_workflow(self):
         # Add repeater unit
