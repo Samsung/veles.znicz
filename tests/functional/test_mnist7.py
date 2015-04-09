@@ -52,7 +52,7 @@ class TestMnist7(StandardTest):
             "weights_decay": 0.00005,
             "layers": [100, 100, 7]})
 
-    @timeout(300)
+    @timeout(500)
     def test_mnist7(self):
         self.info("Will test mnist7 workflow")
 

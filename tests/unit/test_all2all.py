@@ -35,6 +35,7 @@ under the License.
 
 import numpy
 import time
+from veles.backends import NumpyDevice
 
 from veles.config import root
 from veles.memory import Vector
@@ -96,7 +97,7 @@ class TestAll2All(AcceleratedTest):
         inp.mem = numpy.empty((1999, 1777), dtype=dtype)
         prng.get().fill(inp.mem)
 
-        if device is not None:
+        if not isinstance(device, NumpyDevice):
             self.x = inp.mem.copy()
         else:
             inp.mem[:] = self.x[:]
@@ -106,7 +107,7 @@ class TestAll2All(AcceleratedTest):
         c.input = inp
         c.initialize(device=device)
 
-        if device is not None:
+        if not isinstance(device, NumpyDevice):
             self.W = c.weights.mem.copy()
             self.b = c.bias.mem.copy()
         else:
@@ -115,7 +116,7 @@ class TestAll2All(AcceleratedTest):
             c.weights.mem[:] = self.W[:]
             c.bias.mem[:] = self.b[:]
 
-        if device is not None:
+        if not isinstance(device, NumpyDevice):
             device.sync()
             t0 = time.time()
             for _ in range(3):
@@ -139,7 +140,7 @@ class TestAll2All(AcceleratedTest):
 
     def _do_gpu_cpu_transposed(self, Unit, weights_transposed):
         y_gpus = self._do_test(self.device, Unit, weights_transposed)
-        y_cpus = self._do_test(None, Unit, weights_transposed)
+        y_cpus = self._do_test(NumpyDevice(), Unit, weights_transposed)
         for i, y_gpu in enumerate(y_gpus):
             y_cpu = y_cpus[i]
             max_diff = numpy.fabs(y_gpu.ravel() - y_cpu.ravel()).max()

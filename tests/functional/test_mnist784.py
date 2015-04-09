@@ -31,7 +31,7 @@ under the License.
 
 ███████████████████████████████████████████████████████████████████████████████
 """
-
+from veles.backends import NumpyDevice
 
 from veles.config import root
 from veles.snapshotter import Snapshotter
@@ -100,9 +100,9 @@ class TestMnist784(StandardTest):
         workflow_from_snapshot.run()
         self.check_write_error_rate(workflow_from_snapshot, *self.mse[1])
 
-    def test_mnist784_cpu(self):
+    def test_mnist784_numpy(self):
         self.info("Will run workflow on numpy")
-        workflow = self.init_and_run(None, False)
+        workflow = self.init_and_run(NumpyDevice(), False)
         self.check_write_error_rate(
             workflow, 0.40712743094, 8166)
 

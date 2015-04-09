@@ -36,6 +36,7 @@ under the License.
 
 import numpy
 import os
+from veles.backends import NumpyDevice
 
 from veles.config import root
 import veles.memory as formats
@@ -221,10 +222,9 @@ class TestDeconv(AcceleratedTest, GDNumDiff):
         nz = numpy.count_nonzero(numpy.isnan(backward.output.mem))
         self.assertEqual(nz, 0, "NaNs encountered")
 
-        if device is not None:
-            nz = numpy.count_nonzero(
-                numpy.isnan(
-                    backward.output.unit_test_mem[backward.output.shape[0]:]))
+        if not isinstance(device, NumpyDevice):
+            nz = numpy.count_nonzero(numpy.isnan(
+                backward.output.unit_test_mem[backward.output.shape[0]:]))
             self.assertEqual(nz, backward.output.unit_test_mem.size >> 1,
                              "Written some values outside of the target array")
 

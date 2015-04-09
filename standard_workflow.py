@@ -278,8 +278,7 @@ class StandardWorkflowBase(nn_units.NNWorkflow):
     def mcdnnic_topology(self, value):
         if value is not None:
             if not isinstance(value, str):
-                raise error.BadFormatError(
-                    "mcdnnic_topology must be a string")
+                raise TypeError("mcdnnic_topology must be a string")
             if not self.mcdnnic_topology_regexp.match(value):
                 raise ValueError(
                     "mcdnnic_topology value must match the following regular"

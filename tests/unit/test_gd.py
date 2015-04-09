@@ -34,6 +34,7 @@ under the License.
 
 
 import numpy
+from veles.backends import NumpyDevice
 
 from veles.config import root
 from veles.memory import Vector
@@ -157,7 +158,7 @@ class TestGD(AcceleratedTest, GDNumDiff):
         err_gpu, weights_gpu, bias_gpu = self._do_test(
             self.device, Forward, GD, weights_transposed)
         err_cpu, weights_cpu, bias_cpu = self._do_test(
-            None, Forward, GD, weights_transposed)
+            NumpyDevice(), Forward, GD, weights_transposed)
         max_diff = numpy.fabs(err_gpu.ravel() - err_cpu.ravel()).max()
         self.info("err_input difference is %.12f", max_diff)
         self.assertLess(max_diff, 0.0001,

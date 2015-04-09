@@ -35,6 +35,7 @@ under the License.
 
 
 import numpy
+from veles.backends import NumpyDevice
 
 from veles.config import root
 from veles.dummy import DummyUnit
@@ -77,7 +78,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self._test_err_h(self.device)
 
     def test_err_h_cpu(self):
-        self._test_err_h(None)
+        self._test_err_h(NumpyDevice())
 
     def _test_err_h(self, device):
         self.info("Will test convolutional layer back propagation")
@@ -213,7 +214,7 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
         self._test_padding_sliding(self.device)
 
     def test_padding_sliding_cpu(self):
-        self._test_padding_sliding(None)
+        self._test_padding_sliding(NumpyDevice())
 
     def _test_padding_sliding(self, device):
         self.info("Will test convolutional layer back propagation")
@@ -332,19 +333,20 @@ class TestGDConv(AcceleratedTest, GDNumDiff):
                                   PatchedGDRELUConv)
 
     def test_random_numeric_cpu(self):
-        self._test_random_numeric(None, conv.Conv,
+        self._test_random_numeric(NumpyDevice(), conv.Conv,
                                   PatchedGradientDescentConv)
 
     def test_random_numeric_cpu_tanh(self):
-        self._test_random_numeric(None, conv.ConvTanh,
+        self._test_random_numeric(NumpyDevice(), conv.ConvTanh,
                                   PatchedGDTanhConv)
 
     def test_random_numeric_cpu_sigmoid(self):
-        self._test_random_numeric(None, conv.ConvSigmoid,
+        self._test_random_numeric(NumpyDevice(), conv.ConvSigmoid,
                                   PatchedGDSigmoidConv)
 
     def test_random_numeric_cpu_relu(self):
-        self._test_random_numeric(None, conv.ConvRELU, PatchedGDRELUConv)
+        self._test_random_numeric(NumpyDevice(), conv.ConvRELU,
+                                  PatchedGDRELUConv)
 
     def _test_random_numeric(self, device, Forward, GD):
         self._test_random_numeric_transposed(device, Forward, GD, False)

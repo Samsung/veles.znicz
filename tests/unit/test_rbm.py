@@ -37,6 +37,7 @@ under the License.
 import numpy
 import os
 import scipy.io
+from veles.backends import NumpyDevice
 
 from veles.dummy import DummyLauncher
 from veles.memory import Vector
@@ -70,7 +71,7 @@ class TestRBMUnits(AcceleratedTest):
         a2a.input.mem[:] = test_data['hr'][:]
         a2a.weights_transposed = True
         a2a.batch_size = 128
-        a2a.initialize(device=None)
+        a2a.initialize(device=NumpyDevice())
         a2a.weights.map_write()
         a2a.bias.map_write()
         a2a.weights.reset()
@@ -94,7 +95,7 @@ class TestRBMUnits(AcceleratedTest):
         b1.input.mem = v1
         b1.batch_size = v1bino.shape[0]
         prng.get().seed(1337)
-        b1.initialize(device=None)
+        b1.initialize(device=NumpyDevice())
         b1.run()
         b1.output.map_read()
         diff = numpy.sum(numpy.abs(b1.output.mem - v1bino))
@@ -113,7 +114,7 @@ class TestRBMUnits(AcceleratedTest):
         evl.target = Vector()
         evl.target.mem = test_data["ground_truth"]
         evl.batch_size = 128
-        evl.initialize(device=None, snapshot=False)
+        evl.initialize(device=NumpyDevice(), snapshot=False)
         evl.rec.bias.mem[:] = test_data["vbias"].ravel()[:]
         prng.get().seed(1337)
         evl.run()
@@ -143,14 +144,14 @@ class TestRBMUnits(AcceleratedTest):
         gds.hbias.reset()
         gds.hbias.mem = numpy.zeros((1, 1000), dtype=numpy.float64)
         gds.hbias.mem[:] = grad_data["hbias"][:].transpose()
-        gds.hbias.initialize(device=None)
+        gds.hbias.initialize(device=NumpyDevice())
         gds.vbias = Vector()
         gds.vbias.reset()
         gds.vbias.mem = numpy.zeros((1, 196), dtype=numpy.float64)
         gds.vbias.mem[:] = grad_data["vbias"][:].transpose()
         gds.vbias.initialize(self.device)
         gds.batch_size = grad_data["h1_out"].shape[0]
-        gds.initialize(device=None, snapshot=False)
+        gds.initialize(device=NumpyDevice(), snapshot=False)
         prng.get().seed(1337)
         gds.run()
         diff1 = numpy.sum(numpy.abs(gds.h1.mem - grad_data["h1_out"]))
@@ -171,7 +172,7 @@ class TestRBMUnits(AcceleratedTest):
         bw.h = Vector()
         bw.v.mem = test_data["v"]
         bw.h.mem = test_data["h"]
-        bw.initialize(device=None)
+        bw.initialize(device=NumpyDevice())
         bw.run()
         for v in (bw.vbias_batch, bw.hbias_batch, bw.weights_batch):
             v.map_read()
@@ -202,7 +203,7 @@ class TestRBMUnits(AcceleratedTest):
         mg.hbias1.mem = test_data["hbias1"]
         mg.weights0.mem = test_data["W0"]
         mg.weights1.mem = test_data["W1"]
-        mg.initialize(device=None)
+        mg.initialize(device=NumpyDevice())
         mg.run()
         diff1 = numpy.abs(numpy.sum(mg.vbias_grad.mem -
                                     test_data["vbias_grad"]))
@@ -231,7 +232,7 @@ class TestRBMUnits(AcceleratedTest):
         uw.hbias_grad = Vector()
         uw.hbias_grad.mem = test_data["hbias_grad"]
 
-        uw.initialize(device=None)
+        uw.initialize(device=NumpyDevice())
         uw.run()
         diff1 = numpy.abs(numpy.sum(uw.vbias.mem -
                                     test_data["vbias_new"]))

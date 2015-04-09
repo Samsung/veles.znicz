@@ -43,6 +43,7 @@ from zope.interface import implementer
 
 from veles import memory, prng
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
+from veles.backends import NumpyDevice
 from veles.dummy import DummyWorkflow
 from veles.znicz.gd import GradientDescent
 from veles.znicz.nn_units import Forward, ForwardExporter
@@ -97,7 +98,7 @@ class Test(unittest.TestCase):
             fwd.bias.mem = numpy.ones(10)
             fwd.input = memory.Vector()
             fe.forwards.append(fwd)
-            fwd.initialize(None)
+            fwd.initialize(NumpyDevice())
         workflow.initialize(snapshot=False)
         fe.run()
         self.assertTrue(fe.file_name)

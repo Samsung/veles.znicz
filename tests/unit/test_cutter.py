@@ -33,6 +33,7 @@ under the License.
 
 
 import numpy
+from veles.backends import NumpyDevice
 
 from veles.memory import Vector
 from veles.znicz.cutter import Cutter, GDCutter
@@ -56,7 +57,7 @@ class TestCutter(AcceleratedTest):
 
     def test_cpu_gpu(self):
         gpu = self._do_test(self.device)
-        cpu = self._do_test(None)
+        cpu = self._do_test(NumpyDevice())
         max_diff = numpy.fabs(gpu - cpu).max()
         self.assertEqual(max_diff, 0)
 
@@ -79,7 +80,7 @@ class TestCutter(AcceleratedTest):
 
     def test_cpu_gpu_gd(self):
         gpu = self._do_test_gd(self.device)
-        cpu = self._do_test_gd(None)
+        cpu = self._do_test_gd(NumpyDevice())
         max_diff = numpy.fabs(gpu - cpu).max()
         self.assertEqual(max_diff, 0)
 

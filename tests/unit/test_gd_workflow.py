@@ -236,15 +236,15 @@ class TestGDWorkflow(StandardTest, GDNumDiff):
                                   gd_conv.GDRELUConv)
 
     def test_random_numeric_cpu(self):
-        self._test_random_numeric(None, conv.Conv,
+        self._test_random_numeric(NumpyDevice(), conv.Conv,
                                   gd_conv.GradientDescentConv)
 
     def test_random_numeric_cpu_tanh(self):
-        self._test_random_numeric(None, conv.ConvTanh,
+        self._test_random_numeric(NumpyDevice(), conv.ConvTanh,
                                   gd_conv.GDTanhConv)
 
     def test_random_numeric_cpu_relu(self):
-        self._test_random_numeric(None, conv.ConvRELU,
+        self._test_random_numeric(NumpyDevice(), conv.ConvRELU,
                                   gd_conv.GDRELUConv)
 
     def _test_random_numeric(self, device, ConvForward, ConvGD):

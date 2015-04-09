@@ -35,6 +35,7 @@ under the License.
 
 
 import numpy
+from veles.backends import NumpyDevice
 
 import veles.memory as formats
 import veles.prng as prng
@@ -102,7 +103,7 @@ class TestMaxPooling(AcceleratedTest):
         self._do_test(self.device)
 
     def test_cpu(self):
-        self._do_test(None)
+        self._do_test(NumpyDevice())
 
     def _do_test(self, device):
         c = pooling.MaxAbsPooling(self.parent, kx=2, ky=2)
@@ -142,7 +143,7 @@ class TestStochasticPooling(AcceleratedTest):
         return unit.output.mem.copy(), unit.input_offset.mem.copy()
 
     def _test_gpu_cpu(self, Unit):
-        c, d = self._do_test(None, Unit)
+        c, d = self._do_test(NumpyDevice(), Unit)
         a, b = self._do_test(self.device, Unit)
         a -= c
         b -= d
@@ -208,7 +209,7 @@ class TestGDMaxPooling(AcceleratedTest):
         return self._test_fixed(self.device)
 
     def test_fixed_cpu(self):
-        return self._test_fixed(None)
+        return self._test_fixed(NumpyDevice())
 
     def _test_fixed(self, device):
         self.info('starting OpenCL max pooling layer gradient descent '
@@ -279,7 +280,7 @@ class TestAvgPooling(AcceleratedTest):
         self._do_test(self.device)
 
     def test_cpu(self):
-        self._do_test(None)
+        self._do_test(NumpyDevice())
 
     def _do_test(self, device):
         c = pooling.AvgPooling(self.parent, kx=2, ky=2)
@@ -301,8 +302,8 @@ class TestGDAvgPooling(AcceleratedTest, GDNumDiff):
         self._test_random_numeric(self.device, (1, 1))
 
     def test_random_numeric_cpu(self):
-        self._test_random_numeric(None, (3, 3))
-        self._test_random_numeric(None, (1, 1))
+        self._test_random_numeric(NumpyDevice(), (3, 3))
+        self._test_random_numeric(NumpyDevice(), (1, 1))
 
     def _test_random_numeric(self, device, sliding):
         self.info("Will test AvgPooling layer forward-backward "

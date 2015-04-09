@@ -36,6 +36,7 @@ under the License.
 
 import numpy
 import time
+from veles.backends import NumpyDevice
 
 from veles.memory import Vector
 from veles.tests import AcceleratedTest, assign_backend
@@ -65,8 +66,7 @@ class TestConvBase(AcceleratedTest):
 
         Args:
             unit: Veles unit which is tested.
-            device: OpenCL device instance (if equals to None - CPU version of
-                algorithm should be run).
+            device: Acceleration device instance.
             input_data: numpy array which is passed to unit as its input.
             weights: numpy array which is passed to unit as NN weights.
             bias: numpy array which is passed to unit as NN bias.
@@ -88,7 +88,7 @@ class TestConvBase(AcceleratedTest):
         unit.bias.mem[:] = bias.reshape(unit.bias.shape)
 
         unit.run()
-        if device is not None:
+        if not isinstance(device, NumpyDevice):
             unit.output.map_read()
             nz = numpy.count_nonzero(numpy.isnan(
                 unit.output.unit_test_mem[unit.output.shape[0]:]))
@@ -109,8 +109,7 @@ class TestConvBase(AcceleratedTest):
 
         Args:
             unit: Veles unit which is tested.
-            device: OpenCL device instance (if equals to None - CPU version of
-                algorithm should be run).
+            device: Acceleration device instance.
             input_data: numpy array which is passed to unit as its input.
             weights: numpy array which is passed to unit as NN weights.
             bias: numpy array which is passed to unit as NN bias.
@@ -130,9 +129,7 @@ class TestConvBase(AcceleratedTest):
         sliding.
 
         Args:
-            device: OpenCL device instance (if value is equal to None, CPU
-                version of algorithm should be run. In other case -
-                OpenCL version).
+            device: acceleration device instance.
             input_shape: Shape of input data. Its format is
                 (batch_size, y_size, x_size, channels_num).
             weights_shape: Shape of weights. Its format is
@@ -193,7 +190,7 @@ class TestConvNoPadding(TestConvBase):
                   "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
-        self._do_trivial_test(None, input_shape, weights_shape)
+        self._do_trivial_test(NumpyDevice(), input_shape, weights_shape)
         self.info("TEST PASSED")
 
     def _do_test_all_1(self, device, input_shape, weights_shape):
@@ -201,9 +198,7 @@ class TestConvNoPadding(TestConvBase):
         tricky sliding when input data, weights and bias fills with 1.
 
         Args:
-            device: OpenCL device instance (if value is equal to None, CPU
-                version of algorithm should be run. In other case -
-                OpenCL version).
+            device: Acceleration device instance.
             input_shape: Shape of input data. Its format is
                 (batch_size, y_size, x_size, channels_num).
             weights_shape: Shape of weights. Its format is
@@ -250,7 +245,7 @@ class TestConvNoPadding(TestConvBase):
                   "sliding = (1, 1)]...")
         input_shape = (3, 7, 9, 3)
         weights_shape = (2, 4, 3, 3)
-        self._do_test_all_1(None, input_shape, weights_shape)
+        self._do_test_all_1(NumpyDevice(), input_shape, weights_shape)
         self.info("TEST PASSED")
 
     def _do_1_channel_input_test(self, device):
@@ -258,9 +253,7 @@ class TestConvNoPadding(TestConvBase):
         sliding = (1, 1).
 
         Args:
-            device: OpenCL device instance (if value is equal to None, CPU
-                version of algorithm should be run. In other case -
-                OpenCL version).
+            device: Acceleration device instance.
         """
         input_data = numpy.array([[[[1], [2], [3], [2], [1]],
                                    [[0], [1], [2], [1], [0]],
@@ -293,7 +286,7 @@ class TestConvNoPadding(TestConvBase):
 
     def test_1_channel_input_cpu(self):
         self.info("start CPU conv. 1 channel layer forward propagation...")
-        self._do_1_channel_input_test(None)
+        self._do_1_channel_input_test(NumpyDevice())
         self.info("TEST PASSED")
 
 
@@ -320,8 +313,8 @@ class TestConvWithPadding(TestConvBase):
         weights_shape = (2, 4, 3, 3)
         sliding = (2, 3)
         padding = (2, 3, 1, 2)
-        self._do_trivial_test(None, input_shape, weights_shape, sliding,
-                              padding)
+        self._do_trivial_test(NumpyDevice(), input_shape, weights_shape,
+                              sliding, padding)
         self.info("TEST PASSED")
 
     def _do_test_all_1(self, device, input_shape, kernels_num):
@@ -329,9 +322,7 @@ class TestConvWithPadding(TestConvBase):
         padding and sliding when input data, weights and bias fills with 1.
 
         Args:
-            device: OpenCL device instance (if value is equal to None, CPU
-                version of algorithm should be run. In other case -
-                OpenCL version).
+            device: Acceleration device instance.
             input_shape: Shape of input data. Its format is
                 (batch_size, size, size, channels_num). Its important that
                 x_size = y_size = size.
@@ -394,7 +385,7 @@ class TestConvWithPadding(TestConvBase):
         self.info("start 'all 1' CPU test [with padding and sliding...")
         input_shape = (3, 8, 8, 3)
         kernels_num = 2
-        self._do_test_all_1(None, input_shape, kernels_num)
+        self._do_test_all_1(NumpyDevice(), input_shape, kernels_num)
         self.info("TEST PASSED")
 
     def _do_test_fixed_arrays(self, device):
@@ -402,9 +393,7 @@ class TestConvWithPadding(TestConvBase):
         padding and sliding.
 
         Args:
-            device: OpenCL device instance (if value is equal to None, CPU
-                version of algorithm should be run. In other case -
-                OpenCL version).
+            device: Acceleration device instance.
         """
         input_data = numpy.array([[[[1], [2], [3], [2], [1]],
                                    [[0], [1], [2], [1], [0]],
@@ -440,7 +429,7 @@ class TestConvWithPadding(TestConvBase):
     def test_fixed_arrays_cpu(self):
         self.info("start testing CPU conv. layer forward propagation "
                   "with fixed input data, weights and bias...")
-        self._do_test_fixed_arrays(None)
+        self._do_test_fixed_arrays(NumpyDevice())
         self.info("TEST PASSED")
 
     def test_compare_ocl_vs_cpu(self):
@@ -468,7 +457,8 @@ class TestConvWithPadding(TestConvBase):
                                     weights, bias)
         time1 = time.time()
 
-        numpy_output = self._run_test(unit, None, input_data, weights, bias)
+        numpy_output = self._run_test(unit, NumpyDevice(), input_data, weights,
+                                      bias)
         time2 = time.time()
         self.info("OpenCL is faster than CPU in %.4f times",
                   (time2 - time1) / (time1 - time0))
