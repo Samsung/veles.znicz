@@ -36,7 +36,6 @@ under the License.
 
 
 from veles.config import root
-from veles.znicz.downloader import Downloader
 from veles.znicz.standard_workflow import StandardWorkflow
 
 
@@ -45,16 +44,6 @@ class YaleFacesWorkflow(StandardWorkflow):
     Model was created for face recognition. Database - Yale Faces.
     Model - fully-connected Neural Network with SoftMax loss function.
     """
-
-    def link_downloader(self, init_unit):
-        self.downloader = Downloader(
-            self,
-            url="http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/CroppedYale."
-                "zip",
-            directory=root.common.test_dataset_root,
-            files=["CroppedYale"])
-        self.downloader.link_from(init_unit)
-
     def create_workflow(self):
         self.link_downloader(self.start_point)
 
@@ -82,5 +71,6 @@ def run(load, main):
          loader_config=root.yalefaces.loader,
          layers=root.yalefaces.layers,
          loss_function=root.yalefaces.loss_function,
-         loader_name=root.yalefaces.loader_name)
+         loader_name=root.yalefaces.loader_name,
+         downloader_config=root.yalefaces.downloader)
     main()

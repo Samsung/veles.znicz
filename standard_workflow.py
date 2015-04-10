@@ -76,12 +76,12 @@ import veles.znicz.nn_plotting_units as nn_plotting_units
 from veles.znicz.conv import ConvolutionalBase
 from veles.znicz.gd_pooling import GDPooling
 from veles.znicz.all2all import All2AllSoftmax
-
+from veles.znicz.downloader import Downloader
 
 WorkflowConfig = namedtuple(
     "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
                        "evaluator", "data_saver", "result_loader",
-                       "similar_weights_plotter", "lr_adjuster"))
+                       "similar_weights_plotter", "lr_adjuster", "downloader"))
 
 
 class TypeDict(UserDict):
@@ -796,6 +796,10 @@ class StandardWorkflow(StandardWorkflowBase):
         avatar.link_from(self.repeater).gate_block = self.loader.gate_block
         self.loader = avatar
         return avatar
+
+    def link_downloader(self, *parents):
+        self.downloader = Downloader(self, **self.config.downloader)
+        self.downloader.link_from(*parents)
 
     def link_evaluator(self, *parents):
         """
