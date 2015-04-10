@@ -34,7 +34,7 @@ under the License.
 
 from veles.config import root
 from veles.snapshotter import Snapshotter
-from veles.tests import timeout
+from veles.tests import timeout, multi_device
 from veles.znicz.tests.functional import StandardTest
 import veles.znicz.tests.research.Mnist7.mnist7 as mnist7
 
@@ -44,7 +44,7 @@ class TestMnist7(StandardTest):
     def setUpClass(cls):
         root.mnist7.update({
             "decision": {"fail_iterations": 25, "max_epochs": 2},
-            "snapshotter": {"prefix": "mnist7_test", "interval": 2,
+            "snapshotter": {"prefix": "mnist7_test", "interval": 3,
                             "time_interval": 0},
             "loader": {"minibatch_size": 60, "force_numpy": False,
                        "normalization_type": "linear"},
@@ -52,7 +52,8 @@ class TestMnist7(StandardTest):
             "weights_decay": 0.00005,
             "layers": [100, 100, 7]})
 
-    @timeout(500)
+    @timeout(400)
+    @multi_device()
     def test_mnist7(self):
         self.info("Will test mnist7 workflow")
 
@@ -94,9 +95,9 @@ class TestMnist7(StandardTest):
         workflow_from_snapshot.run()
 
         err = workflow_from_snapshot.decision.epoch_n_err[1]
-        self.assertEqual(err, 8784)
+        self.assertEqual(err, 8774)
         avg_mse = workflow_from_snapshot.decision.epoch_metrics[1][0]
-        self.assertAlmostEqual(avg_mse, 0.75913335, places=5)
+        self.assertAlmostEqual(avg_mse, 0.759152, places=4)
         self.assertEqual(5, workflow_from_snapshot.loader.epoch_number)
         self.info("All Ok")
 

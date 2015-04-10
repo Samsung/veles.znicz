@@ -77,12 +77,12 @@ class WineReluWorkflow(nn_units.NNWorkflow):
 
         # Add fwds units
         del self.forwards[:]
-        for i in range(0, len(layers)):
+        for i, layer in enumerate(layers):
             if i < len(layers) - 1:
-                aa = all2all.All2AllRELU(self, output_sample_shape=[layers[i]])
+                aa = all2all.All2AllRELU(self, output_sample_shape=[layer])
             else:
                 aa = all2all.All2AllSoftmax(
-                    self, output_sample_shape=[layers[i]])
+                    self, output_sample_shape=[layer])
             self.forwards.append(aa)
             if i:
                 self.forwards[i].link_from(self.forwards[i - 1])
@@ -129,13 +129,14 @@ class WineReluWorkflow(nn_units.NNWorkflow):
 
         # Add gradient descent units
         del self.gds[:]
-        self.gds.extend(None for i in range(0, len(self.forwards)))
-        self.gds[-1] = gd.GDSoftmax(self)
-        self.gds[-1].link_attrs(self.forwards[-1], "output", "input",
-                                "weights", "bias")
-        self.gds[-1].link_attrs(self.evaluator, "err_output")
-        self.gds[-1].link_attrs(self.loader, ("batch_size", "minibatch_size"))
+        self.gds.extend((None,) * len(self.forwards))
+        self.gds[-1] = gd.GDSoftmax(self) \
+            .link_attrs(self.forwards[-1], "output", "input", "weights",
+                        "bias") \
+            .link_attrs(self.evaluator, "err_output") \
+            .link_attrs(self.loader, ("batch_size", "minibatch_size"))
         self.gds[-1].gate_skip = self.decision.gd_skip
+        self.gds[-1].gate_block = self.decision.complete
         for i in range(len(self.forwards) - 2, -1, -1):
             self.gds[i] = gd.GDRELU(self)
             self.gds[i].link_from(self.gds[i + 1])
@@ -146,7 +147,6 @@ class WineReluWorkflow(nn_units.NNWorkflow):
             self.gds[i].link_attrs(self.gds[i + 1],
                                    ("err_output", "err_input"))
             self.gds[i].gate_skip = self.decision.gd_skip
-            self.gds[i].gate_block = self.decision.complete
 
         self.repeater.link_from(self.gds[0])
 

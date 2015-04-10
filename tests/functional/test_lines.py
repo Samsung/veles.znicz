@@ -32,8 +32,10 @@ under the License.
 ███████████████████████████████████████████████████████████████████████████████
 """
 
+from six import PY3
 import gc
 import os
+from veles.backends import CUDADevice
 
 from veles.config import root
 from veles.snapshotter import Snapshotter
@@ -129,6 +131,10 @@ class TestLines(StandardTest):
         self.check_write_error_rate(workflow_from_snapshot, 41)
 
         self.info("All Ok")
+        if not PY3 and isinstance(self.device, CUDADevice):
+            # Python 2 does not free the memory properly, so we get
+            # CL_OUT_OF_HOST_MEMORY etc. on the second run
+            return True
 
 if __name__ == "__main__":
     StandardTest.main()

@@ -62,8 +62,10 @@ class TestImageSaver(unittest.TestCase):
             os.path.join(root.common.cache_dir,
                          "tmpimg/test_image_saver_%s/train"
                          % (i.strftime('%Y_%m_%d_%H_%M_%S')))]
+
+        self.workflow = dummy_workflow.DummyWorkflow()
         self.img_saver_SM = image_saver.ImageSaver(
-            dummy_workflow.DummyWorkflow(), out_dirs=root.image_saver.out_dirs)
+            self.workflow, out_dirs=root.image_saver.out_dirs)
 
         self.fill_data()
 
