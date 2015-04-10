@@ -68,7 +68,7 @@ class TestLines(StandardTest):
                                           "tmp/validation"),
                              os.path.join(root.common.cache_dir,
                                           "tmp/train")]},
-            "loader": {"minibatch_size": 12, "force_cpu": False,
+            "loader": {"minibatch_size": 12, "force_numpy": False,
                        "color_space": "RGB", "file_subtypes": ["jpeg"],
                        "normalization_type": "mean_disp",
                        "train_paths": [train],
