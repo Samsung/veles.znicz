@@ -60,8 +60,7 @@ GMBAA = GM
 FILLING = "gaussian"
 STDDEV_CONV = 0.01
 STDDEV_AA = 0.005
-root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
-                                        "imagenet/snapshots/DET")
+
 root.common.precision_type = "float"
 root.imagenet_ae.model = "imagenet"
 root.imagenet_ae.update({
@@ -69,6 +68,7 @@ root.imagenet_ae.update({
                  "max_epochs": 50,
                  "use_dynamic_alpha": False,
                  "do_export_weights": True},
+    "loader_name": "imagenet_ae_loader",
     "loader": {"year": "2014",
                "series": "DET",
                "minibatch_size": 120,
@@ -82,13 +82,16 @@ root.imagenet_ae.update({
                                   "tmp_imagenet/validation"),
                      os.path.join(root.common.cache_dir,
                                   "tmp_imagenet/train")]},
-    "snapshotter": {"prefix": "imagenet_ae"},
+    "snapshotter": {"prefix": "imagenet_ae",
+                    "directory":
+                    os.path.join(root.common.test_dataset_root,
+                                 "imagenet/snapshots/DET/new")},
     "from_snapshot_add_layer": True,
     "fine_tuning_noise": 1.0e-6,
     "layers":
     [{"type": "ae_begin"},  # 216
      {"type": "conv", "n_kernels": 108,
-      "kx": 9, "ky": 9, "sliding": (1, 1),
+      "kx": 5, "ky": 5, "sliding": (2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -103,7 +106,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 72
      {"type": "conv", "n_kernels": 192,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 3, "ky": 3, "sliding": (2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -118,7 +121,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 36
      {"type": "conv", "n_kernels": 224,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 3, "ky": 3, "sliding": (2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,
@@ -133,7 +136,7 @@ root.imagenet_ae.update({
      {"type": "activation_mul"},
      {"type": "ae_begin"},  # 18
      {"type": "conv", "n_kernels": 256,
-      "kx": 6, "ky": 6, "sliding": (1, 1),
+      "kx": 3, "ky": 3, "sliding": (2, 2),
       "learning_rate": LR,
       "learning_rate_ft": LRFT,
       "weights_decay": WD,

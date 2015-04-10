@@ -41,6 +41,7 @@ import numpy
 from zope.interface import implementer
 
 from veles.config import root
+from veles.compat import from_none
 from veles.accelerated_units import IOpenCLUnit, ICUDAUnit, INumpyUnit
 from veles.memory import roundup, Vector
 from veles.znicz.conv import ConvolutionalBase
@@ -88,17 +89,20 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
     def compute_padding(sx, sy, kx, ky, sliding):
         """Computes required padding.
         """
-        if sliding[0] > (ky >> 1) or sliding[1] > (kx >> 1):
-            raise ValueError(
-                "sliding should not be greater than half of the kernel size")
-        if ky % sliding[0] != 0 or kx % sliding[1] != 0:
-            raise ValueError(
-                "Kernel size should be multiple of sliding")
         return (kx - sliding[1], ky - sliding[0],
                 kx - sx % sliding[1] if sx % sliding[1] != 0
                 else kx - sliding[1],
                 ky - sy % sliding[0] if sy % sliding[0] != 0
                 else ky - sliding[0])
+
+    @staticmethod
+    def check_paddind_is_safe(kx, ky, sliding):
+        if sliding[0] > (ky >> 1) or sliding[1] > (kx >> 1):
+            raise ValueError(
+                "sliding should not be greater than half of the kernel size")
+        if kx % sliding[0] != 0 or kx % sliding[1] != 0:
+            raise ValueError(
+                "Kernel size should be multiple of sliding")
 
     def __init__(self, workflow, **kwargs):
         super(Deconv, self).__init__(workflow, **kwargs)
@@ -140,22 +144,24 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 "output_shape_source.shape[0] != input.shape[0]")
 
         try:
-            padding = Deconv.compute_padding(
-                output_shape[2], output_shape[1],
-                self.kx, self.ky, self.sliding)
-            if self.padding is None:  # pylint: disable=E0203
-                self.padding = padding
-            elif self.padding != padding:
-                raise ValueError("Expected padding %s but got %s" %
-                                 (padding, self.padding))
-        except ValueError:
+            self.check_paddind_is_safe(self.kx, self.ky, self.sliding)
+        except ValueError as e:
             if not self.unsafe_padding:
-                raise
-            self.warning("Using unsafe padding of %s", self.padding)
+                raise from_none(e)
+            self.warning("The padding will be unsafe")
             if not self.hits:
-                self.hits.reset(numpy.zeros(output_shape, dtype=numpy.int32))
+                self.hits.reset(
+                    numpy.zeros(output_shape, dtype=numpy.int32))
             else:
                 assert self.hits.size == int(numpy.prod(output_shape))
+
+        padding = Deconv.compute_padding(
+            output_shape[2], output_shape[1], self.kx, self.ky, self.sliding)
+        if self.padding is None:  # pylint: disable=E0203
+            self.padding = padding
+        elif self.padding != padding:
+            raise ValueError(
+                "Expected padding %s but got %s" % (padding, self.padding))
 
         if not self.output:
             self.output.reset(numpy.zeros(output_shape,

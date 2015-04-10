@@ -75,10 +75,6 @@ from veles.prng.uniform import Uniform
 from veles.tests import DummyWorkflow
 
 
-root.common.snapshot_dir = os.path.join(root.common.test_dataset_root,
-                                        "imagenet/snapshots")
-
-
 @implementer(IUnit, IDistributable)
 class NNRollback(Unit):
     def __init__(self, workflow, **kwargs):
@@ -267,6 +263,7 @@ class NNRollback(Unit):
 
 @implementer(loader.ILoader)
 class ImagenetAELoader(loader.Loader):
+    MAPPING = "imagenet_ae_loader"
     """loads imagenet from samples.dat, labels.pickle"""
     def __init__(self, workflow, **kwargs):
         super(ImagenetAELoader, self).__init__(workflow, **kwargs)
@@ -280,6 +277,12 @@ class ImagenetAELoader(loader.Loader):
         super(ImagenetAELoader, self).init_unpickled()
         self.original_labels = None
 
+    def initialize(self, **kwargs):
+        self.normalizer.reset()
+        super(ImagenetAELoader, self).initialize(**kwargs)
+        self.minibatch_labels.reset(numpy.zeros(
+            self.max_minibatch_size, dtype=numpy.int32))
+
     def __getstate__(self):
         state = super(ImagenetAELoader, self).__getstate__()
         state["original_labels"] = None
@@ -288,10 +291,10 @@ class ImagenetAELoader(loader.Loader):
 
     def load_data(self):
         self.original_labels = []
-
         with open(root.imagenet_ae.loader.names_labels_filename, "rb") as fin:
             for lbl in pickle.load(fin):
                 self.original_labels.append(int(lbl))
+                self.labels_mapping[int(lbl)] = int(lbl)
         self.info("Labels (min max count): %d %d %d",
                   numpy.min(self.original_labels),
                   numpy.max(self.original_labels),
@@ -346,10 +349,11 @@ class ImagenetAELoader(loader.Loader):
 
         sample_bytes = self.mean.mem.nbytes
 
-        for i, ii in enumerate(idxs[:count]):
-            self.file_samples.seek(int(ii) * sample_bytes)
-            self.file_samples.readinto(self.minibatch_data.mem[i])
-            self.minibatch_labels.mem[i] = self.original_labels[int(ii)]
+        for index, index_sample in enumerate(idxs[:count]):
+            self.file_samples.seek(int(index_sample) * sample_bytes)
+            self.file_samples.readinto(self.minibatch_data.mem[index])
+            self.minibatch_labels.mem[index] = self.original_labels[
+                int(index_sample)]
 
         if count < len(idxs):
             idxs[count:] = self.class_lengths[1]  # no data sample is there
@@ -508,6 +512,8 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 unit.uniform = self.uniform
             self.forwards.append(unit)
             unit.link_from(prev)
+            if isinstance(unit, conv.ConvolutionalBase):
+                conv_ = unit
             unit.link_attrs(prev, ("input", "output"))
             if isinstance(unit, activation.ForwardMul):
                 unit.link_attrs(prev, "output")
@@ -543,6 +549,10 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
                 continue
             De = self.de_map[ae[i].__class__]
             unit = De(self, **ae_layers[i])
+            if isinstance(unit, deconv.Deconv):
+                unit.link_conv_attrs(conv_)
+                self.deconv = unit
+                unit.unsafe_padding = True
             de.append(unit)
             self.forwards.append(unit)
             unit.link_from(prev)
@@ -585,8 +595,7 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
 
         unit = NNSnapshotter(
             self, prefix=root.imagenet_ae.snapshotter.prefix,
-            directory=("%s/%s" % (root.common.snapshot_dir,
-                                  root.imagenet_ae.loader.year)),
+            directory=root.imagenet_ae.snapshotter.directory,
             compress="", time_interval=0)
         self.snapshotter = unit
         unit.link_from(self.decision)
@@ -602,6 +611,10 @@ class ImagenetAEWorkflow(StandardWorkflowBase):
         # Add gradient descent unit
         GD = self.gd_map[self.forwards[-1].__class__]
         unit = GD(self, **ae_layers[0])
+        if isinstance(unit, gd_deconv.GDDeconv):
+            unit.link_attrs(
+                self.deconv, "weights", "input", "hits", "n_kernels",
+                "kx", "ky", "sliding", "padding", "unpack_data", "unpack_size")
         self.gds.append(unit)
         unit.link_attrs(self.evaluator, "err_output")
         unit.link_attrs(self.forwards[-1], "weights", "input")
@@ -1185,5 +1198,9 @@ def run(load, main):
     root.imagenet_ae.loader.matrixes_filename = os.path.join(
         CACHED_DATA_FNME, "matrixes_%s_%s_0.pickle" %
         (root.imagenet_ae.loader.year, root.imagenet_ae.loader.series))
-    load(ImagenetAEWorkflow, layers=root.imagenet_ae.layers)
+    load(ImagenetAEWorkflow,
+         layers=root.imagenet_ae.layers,
+         loader_name=root.imagenet_ae.loader_name,
+         loss_function="softmax",
+         loader_config={})
     main()

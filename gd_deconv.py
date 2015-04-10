@@ -132,19 +132,19 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 "input, n_kernels, kx, ky parameters")
 
         try:
-            padding = Deconv.compute_padding(
-                sx, sy, self.kx, self.ky, self.sliding)
-            if self.padding is None:  # pylint: disable=E0203
-                self.padding = padding
-            elif self.padding != padding:
-                raise ValueError(
-                    "Expected padding %s got %s"
-                    % (str(padding), str(self.padding)))
+            Deconv.check_paddind_is_safe(self.kx, self.ky, self.sliding)
         except ValueError as e:
             if not self.hits:
                 raise from_none(e)
-            self.warning("Using unsafe padding of %s", self.padding)
-
+            self.warning("The padding will be unsafe")
+        padding = Deconv.compute_padding(
+            sx, sy, self.kx, self.ky, self.sliding)
+        if self.padding is None:  # pylint: disable=E0203
+            self.padding = padding
+        elif self.padding != padding:
+            raise ValueError(
+                "Expected padding %s got %s"
+                % (str(padding), str(self.padding)))
         if self.hits:
             self.hits.initialize(self.device)
 
