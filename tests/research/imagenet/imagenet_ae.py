@@ -65,6 +65,7 @@ import veles.znicz.all2all as all2all
 import veles.znicz.gd as gd
 import veles.znicz.gd_pooling as gd_pooling
 import veles.znicz.gd_conv as gd_conv
+from veles.znicz.nn_rollback import NNRollback
 from veles.znicz.nn_units import NNSnapshotter
 from veles.znicz.standard_workflow import StandardWorkflowBase
 from veles.mean_disp_normalizer import MeanDispNormalizer
@@ -76,189 +77,32 @@ from veles.tests import DummyWorkflow
 
 
 @implementer(IUnit, IDistributable)
-class NNRollback(Unit):
-    def __init__(self, workflow, **kwargs):
-        super(NNRollback, self).__init__(workflow, **kwargs)
-        self.lr_plus = kwargs.get("lr_plus", 1.04)
-        self.lr_minus = kwargs.get("lr_minus", 0.65)
-        self.plus_steps = kwargs.get("plus_steps", 1)
-        self.minus_steps = kwargs.get("minus_steps", 3)
-        self._plus_steps = self.plus_steps
-        self._minus_steps = self.minus_steps
-        self.improved = None
-        self.demand("improved")
-        self._gds = {}
-        self.history_limit = 2
-
-        # Workaround for difference in minibatch class serve order
-        # in clear run and after the resuming from the snapshot.
-        self._first_run = True
-
-    def init_unpickled(self):
-        super(NNRollback, self).init_unpickled()
-        self.slaves = {}
-
+class Destroyer(Unit):
+    """
+    Modification of EndPoint Unit, created for Convolutional Autoencoder
+    """
     def initialize(self, **kwargs):
-        self.info("lr_plus=%.2f lr_minus=%.2f", self.lr_plus, self.lr_minus)
+        pass
 
-    def generate_data_for_slave(self, slave):
-        self.slaves[slave.id] = 1
+    def run(self):
+        if not self.is_slave:
+            self.workflow.on_workflow_finished()
 
     def generate_data_for_master(self):
         return True
+
+    def generate_data_for_slave(self, slave):
+        return None
 
     def apply_data_from_master(self, data):
         pass
 
     def apply_data_from_slave(self, data, slave):
-        self._slave_ended(slave)
-
-    def _slave_ended(self, slave):
-        if slave.id in self.slaves:
-            del self.slaves[slave.id]
-        if (not len(self.slaves) and not bool(self.gate_skip)
-                and not bool(self.gate_block)):
+        if not bool(self.gate_block) and not bool(self.gate_skip):
             self.run()
 
     def drop_slave(self, slave):
-        self._slave_ended(slave)
-
-    def run(self):
-        self.info("Running NNRollback")
-        if self.improved:
-            self._plus_steps += 1
-            if self._plus_steps < self.plus_steps:
-                return
-            self._plus_steps = 0
-            self._minus_steps = 0
-            for _gd, kv in self._gds.items():
-                k = kv["lr_plus"]
-                if k is None:
-                    k = self.lr_plus
-                _gd.learning_rate *= k
-                _gd.learning_rate_bias *= k
-                self.info("Increased lr of %s by %.2f, new_lr %.2e",
-                          repr(_gd), k, _gd.learning_rate)
-                if _gd.weights:
-                    _gd.weights.map_read()
-                    ww = kv.get("weights", [])
-                    ww.append(_gd.weights.mem.copy())
-                    while len(ww) > self.history_limit:
-                        ww.pop(0)
-                    kv["weights"] = ww
-                if _gd.bias:
-                    _gd.bias.map_read()
-                    bb = kv.get("bias", [])
-                    bb.append(_gd.bias.mem.copy())
-                    while len(bb) > self.history_limit:
-                        bb.pop(0)
-                    kv["bias"] = bb
-                if _gd.gradient_weights:
-                    _gd.gradient_weights.map_read()
-                    ww = kv.get("gradient_weights", [])
-                    ww.append(_gd.gradient_weights.mem.copy())
-                    while len(ww) > self.history_limit:
-                        ww.pop(0)
-                    kv["gradient_weights"] = ww
-                if _gd.gradient_bias:
-                    _gd.gradient_bias.map_read()
-                    bb = kv.get("gradient_bias", [])
-                    bb.append(_gd.gradient_bias.mem.copy())
-                    while len(bb) > self.history_limit:
-                        bb.pop(0)
-                    kv["gradient_bias"] = bb
-        elif not self._first_run:
-            rollback_to = 0  # -1
-
-            # Check for NaNs
-            for _gd, kv in self._gds.items():
-                nz = 0
-                if _gd.weights:
-                    _gd.weights.map_read()
-                    nz += numpy.count_nonzero(numpy.isnan(_gd.weights.mem))
-                if _gd.bias:
-                    _gd.bias.map_read()
-                    nz += numpy.count_nonzero(numpy.isnan(_gd.bias.mem))
-                if _gd.gradient_weights:
-                    _gd.gradient_weights.map_read()
-                    nz += numpy.count_nonzero(
-                        numpy.isnan(_gd.gradient_weights.mem))
-                if _gd.gradient_bias:
-                    _gd.gradient_bias.map_read()
-                    nz += numpy.count_nonzero(
-                        numpy.isnan(_gd.gradient_bias.mem))
-                if nz:
-                    self.warning("NaNs encountered, will rollback to -%d",
-                                 self.history_limit)
-                    self._minus_steps = self.minus_steps
-                    rollback_to = 0
-                    break
-
-            self._minus_steps += 1
-            if self._minus_steps < self.minus_steps:
-                return
-
-            self._minus_steps = 0
-            self._plus_steps = 0
-            for _gd, kv in self._gds.items():
-                k = kv["lr_minus"]
-                if k is None:
-                    k = self.lr_minus
-                _gd.learning_rate *= k
-                _gd.learning_rate_bias *= k
-                self.info("Decreased lr of %s by %.2f, new_lr %.2e",
-                          repr(_gd), k, _gd.learning_rate)
-                if _gd.weights:
-                    ww = kv.get("weights")
-                    if ww is None:
-                        self.warning("No rollback for weights")
-                    else:
-                        self.info("Rolling back to stored weights")
-                        _gd.weights.map_invalidate()
-                        _gd.weights.mem[:] = ww[rollback_to]
-                        if rollback_to >= 0:
-                            del ww[rollback_to + 1:]
-                if _gd.bias:
-                    bb = kv.get("bias")
-                    if bb is None:
-                        self.warning("No rollback for bias")
-                    else:
-                        self.info("Rolling back to stored bias")
-                        _gd.bias.map_invalidate()
-                        _gd.bias.mem[:] = bb[rollback_to]
-                        if rollback_to >= 0:
-                            del bb[rollback_to + 1:]
-                if _gd.gradient_weights:
-                    ww = kv.get("gradient_weights")
-                    if ww is None:
-                        self.warning("No rollback for gradient_weights")
-                    else:
-                        self.info("Rolling back to stored gradient_weights")
-                        _gd.gradient_weights.map_invalidate()
-                        _gd.gradient_weights.mem[:] = ww[rollback_to]
-                        if rollback_to >= 0:
-                            del ww[rollback_to + 1:]
-                if _gd.gradient_bias:
-                    bb = kv.get("gradient_bias")
-                    if bb is None:
-                        self.warning("No rollback for gradient_bias")
-                    else:
-                        self.info("Rolling back to stored gradient_bias")
-                        _gd.gradient_bias.map_invalidate()
-                        _gd.gradient_bias.mem[:] = bb[rollback_to]
-                        if rollback_to >= 0:
-                            del bb[rollback_to + 1:]
-
-        self._first_run = False
-
-    def reset(self):
-        self._gds.clear()
-
-    def add_gd(self, _gd, lr_plus=None, lr_minus=None):
-        kv = self._gds.get(_gd, {})
-        kv["lr_plus"] = lr_plus
-        kv["lr_minus"] = lr_minus
-        self._gds[_gd] = kv
+        pass
 
 
 @implementer(loader.ILoader)
@@ -364,33 +208,6 @@ class ImagenetAELoader(loader.Loader):
 
     def fill_minibatch(self):
         raise error.Bug("Control should not go here")
-
-
-@implementer(IUnit, IDistributable)
-class Destroyer(Unit):
-    def initialize(self, **kwargs):
-        pass
-
-    def run(self):
-        if not self.is_slave:
-            self.info("Destroyer operational")
-            self.workflow.on_workflow_finished()
-
-    def generate_data_for_master(self):
-        return True
-
-    def generate_data_for_slave(self, slave):
-        return None
-
-    def apply_data_from_master(self, data):
-        pass
-
-    def apply_data_from_slave(self, data, slave):
-        if not bool(self.gate_block) and not bool(self.gate_skip):
-            self.run()
-
-    def drop_slave(self, slave):
-        pass
 
 
 class ImagenetAEWorkflow(StandardWorkflowBase):
