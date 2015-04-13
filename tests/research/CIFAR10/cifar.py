@@ -93,7 +93,6 @@ class CifarWorkflow(StandardWorkflow):
                 self.link_error_plotter, self.link_conf_matrix_plotter,
                 self.link_err_y_plotter))
             end_units.append(self.link_weights_plotter(
-                root.cifar.weights_plotter.limit,
                 "weights", self.decision))
 
             self.link_gds(*end_units)
@@ -118,5 +117,6 @@ def run(load, main):
          layers=root.cifar.layers,
          loader_name=root.cifar.loader_name,
          loss_function=root.cifar.loss_function,
+         weights_plotter_config=root.cifar.weights_plotter,
          lr_adjuster_config=root.cifar.lr_adjuster)
     main()

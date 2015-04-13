@@ -60,7 +60,6 @@ class KanjiWorkflow(StandardWorkflow):
             end_units.extend((
                 self.link_error_plotter(self.decision),
                 self.link_weights_plotter(
-                    root.kanji.weights_plotter.limit,
                     "weights", self.decision),
                 self.link_min_max_plotter(False, self.decision),
                 self.link_min_max_plotter(True, self.max_plotter[-1]),
@@ -91,6 +90,7 @@ def run(load, main):
         loader_name=root.kanji.loader_name,
         snapshotter_config=root.kanji.snapshotter,
         layers=root.kanji.layers,
+        weights_plotter_config=root.kanji.weights_plotter,
         image_saver_config=root.kanji.image_saver,
         loss_function=root.kanji.loss_function)
     if snapshot:

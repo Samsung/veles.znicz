@@ -64,7 +64,6 @@ class ImagenetWorkflow(StandardWorkflow):
                 self.link_error_plotter,
                 self.link_err_y_plotter))
             parallel_units.append(self.link_weights_plotter(
-                root.imagenet.weights_plotter.limit,
                 "weights", self.decision))
 
         last_gd = self.link_gds(*parallel_units)
@@ -79,6 +78,7 @@ def run(load, main):
          loader_config=root.imagenet.loader,
          decision_config=root.imagenet.decision,
          snapshotter_config=root.imagenet.snapshotter,
+         weights_plotter_config=root.imagenet.weights_plotter,
          layers=root.imagenet.layers,
          loss_function=root.imagenet.loss_function)
     main()

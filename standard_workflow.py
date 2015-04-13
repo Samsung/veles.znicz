@@ -81,7 +81,8 @@ from veles.znicz.downloader import Downloader
 WorkflowConfig = namedtuple(
     "WorkflowConfig", ("decision", "loader", "snapshotter", "image_saver",
                        "evaluator", "data_saver", "result_loader",
-                       "similar_weights_plotter", "lr_adjuster", "downloader"))
+                       "similar_weights_plotter", "lr_adjuster", "downloader",
+                       "weights_plotter"))
 
 
 class TypeDict(UserDict):
@@ -1151,7 +1152,7 @@ class StandardWorkflow(StandardWorkflowBase):
                     break
         return prev[0]
 
-    def link_weights_plotter(self, limit, weights_input, *parents):
+    def link_weights_plotter(self, weights_input, *parents):
         """
         Creates list of instances of
         :class:`veles.znicz.nn_plotting_units.Weights2D` units.
@@ -1185,7 +1186,7 @@ class StandardWorkflow(StandardWorkflowBase):
                 continue
             plt_wd = nn_plotting_units.Weights2D(
                 self, name="Weights #%s: %s" % (index, layer["type"]),
-                limit=limit).link_from(*prev) \
+                **self.config.weights_plotter).link_from(*prev) \
                 .link_attrs(link_units[i], ("input", weights_input))
             if isinstance(self.loader, ImageLoader):
                 plt_wd.link_attrs(self.loader, "color_space")

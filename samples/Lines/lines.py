@@ -63,7 +63,6 @@ class LinesWorkflow(StandardWorkflow):
         gd = self.link_gds(*end_units)
         self.repeater.link_from(
             self.link_weights_plotter(
-                root.lines.weights_plotter.limit,
                 "gradient_weights",
                 self.link_table_plotter(gd)))
 
@@ -78,6 +77,7 @@ def run(load, main):
          loader_config=root.lines.loader,
          loader_name=root.lines.loader_name,
          loss_function=root.lines.loss_function,
+         weights_plotter_config=root.lines.weights_plotter,
          mcdnnic_topology=root.lines.mcdnnic_topology,
          mcdnnic_parameters=root.lines.mcdnnic_parameters)
     main()
