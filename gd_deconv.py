@@ -132,7 +132,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
                 "input, n_kernels, kx, ky parameters")
 
         try:
-            Deconv.check_paddind_is_safe(self.kx, self.ky, self.sliding)
+            Deconv.check_padding_is_safe(self.kx, self.ky, self.sliding)
         except ValueError as e:
             if not self.hits:
                 raise from_none(e)
@@ -141,7 +141,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             sx, sy, self.kx, self.ky, self.sliding)
         if self.padding is None:  # pylint: disable=E0203
             self.padding = padding
-        elif self.padding != padding:
+        elif self.padding != padding and not self.unsafe_padding:
             raise ValueError(
                 "Expected padding %s got %s"
                 % (str(padding), str(self.padding)))
@@ -162,6 +162,7 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         side = self.weights_shape[0]
         other = self.weights.size // side
+        self._other = other
         assert side == self.n_kernels
         assert other == self.kx * self.ky * self.channels_number
 
@@ -235,6 +236,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
 
         self._gpu_init({})
 
+        self._global_size_ortho = [self._other * self.reduce_size]
+        self._local_size_ortho = [self.reduce_size]
+
         self._global_size_err_output = (self.err_output.size,)
         self._local_size_err_output = None
 
@@ -268,6 +272,9 @@ class GDDeconv(ConvolutionalBase, nn_units.GradientDescentBase):
             'USE_MOMENT': int(bool(self.gradient_moment))
         }
         self._gpu_init({})
+
+        self._global_size_ortho = (self._other, 1, 1)
+        self._local_size_ortho = (self.reduce_size, 1, 1)
 
         block_size = self.device.suggest_block_size(self.krn_err_output_)
         self._global_size_err_output = (

@@ -96,7 +96,7 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 else ky - sliding[0])
 
     @staticmethod
-    def check_paddind_is_safe(kx, ky, sliding):
+    def check_padding_is_safe(kx, ky, sliding):
         if sliding[0] > (ky >> 1) or sliding[1] > (kx >> 1):
             raise ValueError(
                 "sliding should not be greater than half of the kernel size")
@@ -144,24 +144,22 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
                 "output_shape_source.shape[0] != input.shape[0]")
 
         try:
-            self.check_paddind_is_safe(self.kx, self.ky, self.sliding)
+            self.check_padding_is_safe(self.kx, self.ky, self.sliding)
         except ValueError as e:
             if not self.unsafe_padding:
                 raise from_none(e)
             self.warning("The padding will be unsafe")
-            if not self.hits:
-                self.hits.reset(
-                    numpy.zeros(output_shape, dtype=numpy.int32))
-            else:
-                assert self.hits.size == int(numpy.prod(output_shape))
+            self._create_hits(output_shape)
 
         padding = Deconv.compute_padding(
             output_shape[2], output_shape[1], self.kx, self.ky, self.sliding)
         if self.padding is None:  # pylint: disable=E0203
             self.padding = padding
         elif self.padding != padding:
-            raise ValueError(
-                "Expected padding %s but got %s" % (padding, self.padding))
+            if not self.unsafe_padding:
+                raise ValueError(
+                    "Expected padding %s but got %s" % (padding, self.padding))
+            self._create_hits(output_shape)
 
         if not self.output:
             self.output.reset(numpy.zeros(output_shape,
@@ -172,6 +170,13 @@ class Deconv(TriviallyDistributable, ConvolutionalBase, nn_units.Forward):
         self.init_vectors(self.input, self.weights, self.output, self.hits)
 
         self._dtype = self.input.dtype
+
+    def _create_hits(self, output_shape):
+        if not self.hits:
+            self.hits.reset(
+                numpy.zeros(output_shape, dtype=numpy.int32))
+        else:
+            assert self.hits.size == int(numpy.prod(output_shape))
 
     def _gpu_init(self, defines):
         self._output_shape = list(self.output_shape_source.shape)
