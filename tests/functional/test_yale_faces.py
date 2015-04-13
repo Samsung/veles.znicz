@@ -48,6 +48,11 @@ class TestYaleFaces(StandardTest):
     @classmethod
     def setUpClass(cls):
         root.yalefaces.update({
+            "downloader": {"url":
+                           ("http://vision.ucsd.edu/extyaleb/CroppedYaleBZip/"
+                            + "CroppedYale.zip"),
+                           "directory": root.common.test_dataset_root,
+                           "files": ["CroppedYale"]},
             "decision": {"fail_iterations": 50, "max_epochs": 3},
             "loss_function": "softmax",
             "snapshotter": {"prefix": "yalefaces_test", "interval": 4,
@@ -93,6 +98,7 @@ class TestYaleFaces(StandardTest):
             self.parent,
             loader_name=root.yalefaces.loader_name,
             loader_config=root.yalefaces.loader,
+            downloader_config=root.yalefaces.downloader,
             decision_config=root.yalefaces.decision,
             snapshotter_config=root.yalefaces.snapshotter,
             layers=root.yalefaces.layers,
